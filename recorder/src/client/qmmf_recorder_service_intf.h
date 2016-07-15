@@ -1,0 +1,237 @@
+/*
+* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are
+* met:
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*     * Neither the name of The Linux Foundation nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#pragma once
+
+#include <binder/IBinder.h>
+#include <binder/IServiceManager.h>
+#include <binder/Parcel.h>
+
+#include "qmmf_recorder_params.h"
+
+namespace qmmf {
+namespace recorder {
+
+using namespace android;
+
+#define QMMF_RECORDER_SERVICE_NAME "recorder.service"
+
+enum QMMF_RECORDER_SERVICE_CMDS {
+  RECORDER_CONNECT = IBinder::FIRST_CALL_TRANSACTION,
+  RECORDER_DISCONNECT,
+  RECORDER_START_CAMERA,
+  RECORDER_STOP_CAMERA,
+  RECORDER_CREATE_SESSION,
+  RECORDER_DELETE_SESSION,
+  RECORDER_START_SESSION,
+  RECORDER_STOP_SESSION,
+  RECORDER_PAUSE_SESSION,
+  RECORDER_RESUME_SESSION,
+  RECORDER_CREATE_AUDTIOTRACK,
+  RECORDER_CREATE_VIDEOTRACK,
+  RECORDER_DELETE_AUDIOTRACK,
+  RECORDER_DELETE_VIDEOTRACK,
+  RECORDER_RETURN_TRACKBUFFER,
+  RECORDER_SET_AUDIOTRACK_PARAMS,
+  RECORDER_SET_VIDEOTRACK_PARAMS,
+  RECORDER_CAPTURE_IMAGE,
+  RECORDER_CANCEL_CAPTURE_IMAGE,
+  RECORDER_SET_CAMERA_PARAMS,
+  RECORDER_GET_CAMERA_PARAMS,
+  RECORDER_CREATE_OVERLAYOBJECT,
+  RECORDER_DELETE_OVERLAYOBJECT,
+  RECORDER_GET_OVERLAYOBJECT_PARAMS,
+  RECORDER_UPDATE_OVERLAYOBJECT_PARAMS,
+  RECORDER_SET_OVERLAYOBJECT,
+  RECORDER_REMOVE_OVERLAYOBJECT,
+};
+
+typedef struct BnTrackBuffer {
+  uint32_t  ion_fd;
+  uint64_t  size;
+  int64_t   timestamp;
+  uint32_t  width;
+  uint32_t  height;
+  uint32_t  buffer_id;
+  uint32_t  flag;
+  uint64_t  capacity;
+} BnTrackBuffer;
+
+class IRecorderServiceCallback;
+class IRecorderService : public IInterface {
+ public:
+  DECLARE_META_INTERFACE(RecorderService);
+
+  virtual status_t Connect(const sp<IRecorderServiceCallback>& service_cb) = 0;
+
+  virtual status_t Disconnect() = 0;
+
+  virtual status_t StartCamera(std::vector<uint32_t> camera_id,
+                               CameraStartParam &param) = 0;
+
+  virtual status_t StopCamera(std::vector<uint32_t> camera_id) = 0;
+
+  virtual status_t CreateSession(uint32_t *session_id) = 0;
+
+  virtual status_t DeleteSession(const uint32_t session_id) = 0;
+
+  virtual status_t StartSession(const uint32_t session_id) = 0;
+
+  virtual status_t StopSession(const uint32_t session_id, bool do_flush) = 0;
+
+  virtual status_t PauseSession(const uint32_t session_id) = 0;
+
+  virtual status_t ResumeSession(const uint32_t session_id) = 0;
+
+  virtual status_t CreateAudioTrack(const uint32_t session_id,
+                                    uint32_t track_id,
+                                    AudioTrackCreateParam& param) = 0;
+
+  virtual status_t CreateVideoTrack(const uint32_t session_id,
+                                    uint32_t track_id,
+                                    VideoTrackCreateParam& param) = 0;
+
+  virtual status_t DeleteAudioTrack(const uint32_t session_id,
+                                    const uint32_t track_id) = 0;
+
+  virtual status_t DeleteVideoTrack(const uint32_t session_id,
+                                    const uint32_t track_id) = 0;
+
+  virtual status_t ReturnTrackBuffer(const uint32_t session_id,
+                                     const uint32_t track_id,
+                                     std::vector<BnTrackBuffer> &buffers) = 0;
+
+  virtual status_t SetAudioTrackParam(const uint32_t session_id,
+                                      const uint32_t track_id,
+                                      AudioTrackParamType type,
+                                      void *param,
+                                      size_t param_size) = 0;
+
+  virtual status_t SetVideoTrackParam(const uint32_t session_id,
+                                      const uint32_t track_id,
+                                      VideoTrackParamType type,
+                                      void *param,
+                                      size_t param_size) = 0;
+
+  virtual status_t CaptureImage(std::vector<uint32_t> camera_id,
+                                ImageParam &param) = 0;
+
+  virtual status_t CancelCaptureImage() = 0;
+
+  virtual status_t SetCameraParam(uint32_t camera_id,
+                                  CameraParamType param_type,
+                                  void *param,
+                                  size_t param_size) = 0;
+
+  virtual status_t GetCameraParam(uint32_t camera_id,
+                                  CameraParamType param_type,
+                                  void *param,
+                                  size_t param_size) = 0;
+
+  virtual status_t CreateOverlayObject(OverlayParam &param,
+                                       uint32_t *overlay_id) = 0;
+
+  virtual status_t DeleteOverlayObject(const uint32_t overlay_id) = 0;
+
+  virtual status_t GetOverlayObjectParams(const uint32_t overlay_id,
+                                          OverlayParam &param) = 0;
+
+  virtual status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
+                                             OverlayParam &param) = 0;
+
+  virtual status_t SetOverlayObject(const uint32_t session_id,
+                                    const uint32_t track_id,
+                                    const uint32_t overlay_id) = 0;
+
+  virtual status_t RemoveOverlayObject(const uint32_t session_id,
+                                       const uint32_t track_id,
+                                       const uint32_t overlay_id) = 0;
+};
+
+enum RECORDER_SERVICE_CB_CMDS{
+  RECORDER_NOTIFY_EVENT=IBinder::FIRST_CALL_TRANSACTION,
+  RECORDER_NOTIFY_SESSION_EVENT,
+  RECORDER_NOTIFY_SNAPSHOT_DATA,
+  RECORDER_NOTIFY_VIDEO_TRACK_DATA,
+  RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
+  RECORDER_NOTIFY_AUDIO_TRACK_DATA,
+  RECORDER_NOTIFY_AUDIO_TRACK_EVENT,
+};
+
+//Binder interface for callbacks from RecorderService to RecorderClient.
+class IRecorderServiceCallback : public IInterface {
+ public:
+  DECLARE_META_INTERFACE(RecorderServiceCallback);
+
+  virtual void NotifyRecorderEvent(EventType event_type, void *event_data,
+                                   size_t event_data_size) = 0;
+
+  virtual void NotifySessionEvent(EventType event_type, void *event_data,
+                                  size_t event_data_size) = 0;
+
+  virtual void NotifySnapshotData(void *buffer, size_t bufferSize) = 0;
+
+  virtual void NotifyVideoTrackData(uint32_t track_id,
+                                    std::vector<BnTrackBuffer> &buffers,
+                                    void *meta_param,
+                                    TrackMetaParamType meta_type,
+                                    size_t meta_size) = 0;
+
+  virtual void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) = 0;
+
+  virtual void NotifyAudioTrackData(uint32_t track_id,
+                                    std::vector<BnTrackBuffer> &buffers,
+                                    void *meta_param,
+                                    TrackMetaParamType meta_type,
+                                    size_t meta_size) = 0;
+
+  virtual void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) = 0;
+
+  // This method is not exposed to client as a callback, it is just to update
+  // Internal data structure, ServiceCallbackHandler is not forced to implement
+  // this method.
+  virtual void NotifyDeleteVideoTrack(uint32_t track_id
+      __attribute__((__unused__))) {}
+};
+
+//This class is responsible to provide callbacks from recoder service.
+class BnRecorderServiceCallback : public BnInterface<IRecorderServiceCallback>
+{
+public:
+    virtual status_t onTransact(uint32_t code, const Parcel& data,
+                                 Parcel* reply, uint32_t flags = 0) override;
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf
