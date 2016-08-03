@@ -29,8 +29,8 @@
 
 #define TAG "RecorderRemoteCallBack"
 
-#include "qmmf_recorder_common.h"
-#include "qmmf_remote_cb.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_remote_cb.h"
 
 namespace qmmf {
 
@@ -66,7 +66,7 @@ void RemoteCallBack::NotifySessionEvent(EventType event_type, void *event_data,
                                         event_data_size);
 }
 
-void RemoteCallBack::NotifySnapshotData(void *buffer, size_t buffer_size) {
+void RemoteCallBack::NotifySnapshotData(void *buffer, uint32_t buffer_size) {
 
   assert(client_cb_handle_.get() != NULL);
   client_cb_handle_->NotifySnapshotData(buffer, buffer_size);

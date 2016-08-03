@@ -29,13 +29,22 @@
 
 #pragma once
 
-#include "qmmf_recorder.h"
-#include "qmmf_recorder_params.h"
 #include <map>
+
+#include "recorder/test/samples/qmmf_recorder_test_wav.h"
+
+#include <qmmf-sdk/qmmf_recorder.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_codec.h>
 
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
+
+enum class VideoCodecType {
+  kTypeAVC,
+  kTypeHEVC
+};
 
 class RecorderTest
 {
@@ -52,9 +61,17 @@ public:
 
     int32_t StopCamera();
 
-    int32_t SessionWithTwoVideoTrack();
+    int32_t TakeSnapshot();
 
-    int32_t CreateAudioOnlySession();
+    int32_t Session4KAnd1080pYUVTracks();
+
+    int32_t Session4KEncTrack(const VideoCodecType& type);
+
+    int32_t Session1080pEncTrack(const VideoCodecType& type);
+
+    int32_t Session4KYUVAnd1080pEncTracks(const VideoCodecType& type);
+
+    void CreateAudioOnlySession();
 
     int32_t CreateAudioVideoSession();
 
@@ -68,6 +85,8 @@ public:
 
     int32_t DeleteSession();
 
+    void SnapshotCb(void *buffer, uint32_t buffer_size);
+
     void RecorderCallbackHandler(EventType event_type, void *event_data,
                                  size_t event_data_size);
 
@@ -76,51 +95,76 @@ public:
 
     void AudioTrackDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
                           void *meta_param, TrackMetaParamType meta_type,
-                          size_t meta_size, uint32_t buffer_pool_id);
+                          size_t meta_size);
 
     void AudioTrackEventCb(uint32_t track_id, EventType event_type,
                            void *event_data, size_t event_data_size);
 
-    void VideoTrack4KDataCb(uint32_t track_id,
-                            std::vector<TrackBuffer> buffers,
-                            void *meta_param, TrackMetaParamType meta_type,
-                            size_t meta_size);
-
-    void VideoTrack4KEventCb(uint32_t track_id, EventType event_type,
-                             void *event_data, size_t event_data_size);
-
-    void VideoTrack1080pDataCb(uint32_t track_id,
+    void VideoTrack4KYUVDataCb(uint32_t track_id,
                                std::vector<TrackBuffer> buffers,
                                void *meta_param, TrackMetaParamType meta_type,
                                size_t meta_size);
 
-    void VideoTrack1080pEventCb(uint32_t track_id, EventType event_type,
+    void VideoTrack4KYUVEventCb(uint32_t track_id, EventType event_type,
                                 void *event_data, size_t event_data_size);
+
+    void VideoTrack1080pYUVDataCb(uint32_t track_id,
+                                  std::vector<TrackBuffer> buffers,
+                                  void *meta_param, TrackMetaParamType meta_type,
+                                  size_t meta_size);
+
+    void VideoTrack1080pYUVEventCb(uint32_t track_id, EventType event_type,
+                                   void *event_data, size_t event_data_size);
+
+    void VideoTrack4KEncDataCb(uint32_t track_id,
+                               std::vector<TrackBuffer> buffers,
+                               void *meta_param, TrackMetaParamType meta_type,
+                               size_t meta_size);
+
+    void VideoTrack4KEncEventCb(uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size);
+
+    void VideoTrack1080pEncDataCb(uint32_t track_id,
+                                  std::vector<TrackBuffer> buffers,
+                                  void *meta_param, TrackMetaParamType meta_type,
+                                  size_t meta_size);
+
+    void VideoTrack1080pEncEventCb(uint32_t track_id, EventType event_type,
+                                   void *event_data, size_t event_data_size);
+
 private:
 
     Recorder recorder_;
-    /*
-    * <session_id, vector<track_ids> >
-    */
+    RecorderTestWav wav_;
+    // <session_id, vector<track_ids> >
     std::map <uint32_t , std::vector<uint32_t> > sessions_;
+
+    int32_t file_fd_;
 };
 
 class CmdMenu
 {
 public:
     enum CommandType {
-        CONNECT_CMD         = '1',
-        DISCONNECT_CMD      = '2',
-        START_CAMERA_CMD    = '3',
-        STOP_CAMERA_CMD     = '4',
-        CREATE_SESSION_CMD  = '5',
-        START_SESSION_CMD   = '6',
-        STOP_SESSION_CMD    = '7',
-        PAUSE_SESSION_CMD   = '8',
-        RESUME_SESSION_CMD  = '9',
-        DELETE_SESSION_CMD  = 'D',
-        EXIT_CMD            = 'X',
-        INVALID_CMD         = '0'
+        CONNECT_CMD                       = '1',
+        DISCONNECT_CMD                    = '2',
+        START_CAMERA_CMD                  = '3',
+        STOP_CAMERA_CMD                   = '4',
+        CREATE_YUV_SESSION_CMD            = '5',
+        CREATE_4KENC_AVC_SESSION_CMD      = '6',
+        CREATE_4KENC_HEVC_SESSION_CMD     = '7',
+        CREATE_1080pENC_AVC_SESSION_CMD   = '8',
+        CREATE_1080pENC_HEVC_SESSION_CMD  = '9',
+        CREATE_4KYUV_1080pENC_SESSION_CMD = 'V',
+        CREATE_AUD_SESSION_CMD            = 'K',
+        START_SESSION_CMD                 = 'A',
+        STOP_SESSION_CMD                  = 'B',
+        TAKE_SNAPSHOT_CMD                 = 'S',
+        PAUSE_SESSION_CMD                 = 'P',
+        RESUME_SESSION_CMD                = 'R',
+        DELETE_SESSION_CMD                = 'D',
+        EXIT_CMD                          = 'X',
+        INVALID_CMD                       = '0'
     };
 
     struct Command {

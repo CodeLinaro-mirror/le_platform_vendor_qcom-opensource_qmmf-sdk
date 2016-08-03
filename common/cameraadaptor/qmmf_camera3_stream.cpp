@@ -19,10 +19,11 @@
  * limitations under the License.
  */
 #include <libgralloc/gralloc_priv.h>
-#include <qmmf_camera3_utils.h>
-#include <qmmf_camera3_monitor.h>
-#include <qmmf_camera3_stream.h>
-#include <qmmf_recorder_common.h>
+
+#include "qmmf_camera3_utils.h"
+#include "qmmf_camera3_monitor.h"
+#include "qmmf_camera3_stream.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -42,9 +43,11 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
       status_(STATUS_INTIALIZED),
       total_buffer_count_(0),
       pending_buffer_count_(0),
+      callbacks_(outputConfiguration.cb),
       old_usage_(0),
-      user_usage_(outputConfiguration.grallocFlags),
-      old_max_buffers_(outputConfiguration.bufferCount),
+      client_usage_(outputConfiguration.grallocFlags),
+      old_max_buffers_(0),
+      client_max_buffers_(outputConfiguration.bufferCount),
       gralloc_slots_(NULL),
       gralloc_buffer_allocated_(0),
       monitor_(monitor),
@@ -60,7 +63,6 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::usage = outputConfiguration.grallocFlags;
   camera3_stream::max_buffers = outputConfiguration.bufferCount;
   camera3_stream::priv = NULL;
-  callbacks_ = outputConfiguration.cb;
 
   if ((HAL_PIXEL_FORMAT_BLOB == format) && (0 == maxSize)) {
     QMMF_ERROR("%s: blob with zero size\n", __func__);
@@ -110,8 +112,8 @@ camera3_stream *Camera3Stream::BeginConfigure() {
       goto exit;
   }
 
-  camera3_stream::usage = user_usage_;
-  old_usage_ = camera3_stream::usage;
+  camera3_stream::usage = client_usage_;
+  camera3_stream::max_buffers = client_max_buffers_;
 
   if (monitor_id_ != Camera3Monitor::INVALID_ID) {
     monitor_.ReleaseMonitor(monitor_id_);
@@ -190,6 +192,8 @@ int32_t Camera3Stream::EndConfigure() {
   }
 
   status_ = STATUS_CONFIGURED;
+  old_usage_ = camera3_stream::usage;
+  old_max_buffers_ = camera3_stream::max_buffers;
 
 exit:
   pthread_mutex_unlock(&lock_);
@@ -429,13 +433,16 @@ exit:
 }
 
 int32_t Camera3Stream::PopulateMetaInfo(MetaInfo &info,
-                                        const camera3_stream_buffer &buffer,
+                                        struct private_handle_t *priv_handle,
                                         alloc_device_t *gralloc_device) {
-  struct private_handle_t *priv_handle = (struct private_handle_t *)
-      *buffer.buffer;
   int alignedW, alignedH;
   if (NULL == gralloc_device) {
     QMMF_ERROR("%s: Invalid gralloc device!\n", __func__);
+    return -EINVAL;
+  }
+
+  if (NULL == priv_handle) {
+    QMMF_ERROR("%s: Invalid private handle!\n", __func__);
     return -EINVAL;
   }
 
@@ -512,6 +519,8 @@ int32_t Camera3Stream::PopulateMetaInfo(MetaInfo &info,
 void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
                                          int64_t timestamp,
                                          int64_t frame_number) {
+  struct private_handle_t *priv_handle = (struct private_handle_t *)
+      *buffer.buffer;
   assert(nullptr != callbacks_);
 
   pthread_mutex_lock(&lock_);
@@ -522,7 +531,9 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   b.frame_number = frame_number;
   b.data_space = data_space;
   b.handle = *buffer.buffer;
-  PopulateMetaInfo(b.info, buffer, gralloc_device_);
+  b.fd = priv_handle->fd;
+  b.size = priv_handle->size;
+  PopulateMetaInfo(b.info, priv_handle, gralloc_device_);
   is_stream_active_ = true;
 
   pthread_mutex_unlock(&lock_);
@@ -678,7 +689,7 @@ int32_t Camera3Stream::ConfigureLocked() {
       return -ENOSYS;
   }
 
-  total_buffer_count_ = MAX(old_max_buffers_, camera3_stream::max_buffers);
+  total_buffer_count_ = MAX(client_max_buffers_, camera3_stream::max_buffers);
   pending_buffer_count_ = 0;
   gralloc_buffer_allocated_ = 0;
   is_stream_active_ = false;

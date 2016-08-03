@@ -25,6 +25,7 @@
 #include <functional>
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
+
 #include "qmmf_camera3_thread.h"
 
 using namespace android;

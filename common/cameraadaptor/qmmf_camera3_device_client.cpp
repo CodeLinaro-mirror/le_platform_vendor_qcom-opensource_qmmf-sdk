@@ -25,7 +25,8 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <utils/String8.h>
-#include <qmmf_recorder_common.h>
+
+#include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_device_client.h"
 
@@ -499,6 +500,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
       goto exit;
     }
 
+    stream = streams_.editValueAt(outputStreamIdx);
     if (request_handler_.IsStreamActive(*stream)) {
       QMMF_ERROR("%s: Stream %d still has pending requests\n", __func__,
                  streamId);
@@ -506,7 +508,6 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
       goto exit;
     }
 
-    stream = streams_.editValueAt(outputStreamIdx);
     streams_.removeItem(streamId);
 
     res = stream->Close();

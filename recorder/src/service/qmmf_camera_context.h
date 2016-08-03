@@ -33,15 +33,15 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_common.h"
-#include "qmmf_camera3_device_client.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
 namespace qmmf {
 
 using namespace cameraadaptor;
 
-#define VIDEO_STREAM_BUFFER_COUNT   14
+#define VIDEO_STREAM_BUFFER_COUNT   11
 #define PREVIEW_STREAM_BUFFER_COUNT 10
 
 namespace recorder {
@@ -64,6 +64,8 @@ class CameraContext : public RefBase {
 
   status_t CloseCamera(uint32_t camera_id);
 
+  status_t CaptureImage(ImageParam &param, const CaptureImageCb& cb);
+
   status_t CreateStream(CameraStreamParam& param);
 
   status_t DeleteStream(const uint32_t track_id);
@@ -71,6 +73,10 @@ class CameraContext : public RefBase {
   status_t StartStream(const uint32_t track_id, sp<IBufferConsumer>& consumer);
 
   status_t StopStream(const uint32_t track_id);
+
+  status_t SetCameraParam(CameraMetadata &meta);
+
+  status_t GetCameraParam(CameraMetadata &meta);
 
  private:
 
@@ -90,27 +96,39 @@ class CameraContext : public RefBase {
 
   status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
 
+  uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
+
+  //Camera client callbacks.
+  void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
+
+  void CameraIdleCb();
+
+  void CameraShutterCb(const CaptureResultExtras &, int64_t time_stamp);
+
+  void CameraPreparedCb(int32_t);
+
+  void CameraResultCb(const CaptureResult &result);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   int32_t                  camera_id_;
   Mutex                    device_access_lock_;
+  CameraStartParam         camera_start_params_;
 
-  // Global Capture reques across multiple streaming request.
+  // Global Capture request.
   Camera3Request           streaming_request_;
   int32_t                  streaming_request_id_;
-  bool                     request_created_;
+
+  //Non zsl capture request.
+  Camera3Request           snapshot_request_;
+  int32_t                  snapshot_request_id_;
+  ImageInfo                snapshot_info_;
+  CaptureImageCb           client_capture_cb_;
 
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
-
-
-  //Camera client callbacks.
-  void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
-  void CameraIdleCb();
-  void CameraShutterCb(const CaptureResultExtras &, int64_t time_stamp);
-  void CameraPreparedCb(int32_t);
-  void CameraResultCb(const CaptureResult &result);
-
 };
 
 enum class CameraPortType {
@@ -153,7 +171,7 @@ class CameraPort : public RefBase {
 
   status_t RemoveConsumer(const uint32_t consumer_id);
 
-  void NotifyBufferReturned(Buffer& buffer);
+  void NotifyBufferReturned(const StreamBuffer& buffer);
 
   int32_t GetNumConsumers();
 

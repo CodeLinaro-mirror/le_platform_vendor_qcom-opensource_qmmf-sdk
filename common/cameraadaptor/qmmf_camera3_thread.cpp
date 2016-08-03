@@ -30,8 +30,9 @@
 #include <sys/prctl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <qmmf_camera3_thread.h>
-#include <qmmf_recorder_common.h>
+
+#include "qmmf_camera3_thread.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 

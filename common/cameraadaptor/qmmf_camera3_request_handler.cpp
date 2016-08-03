@@ -21,7 +21,7 @@
 #include <qmmf_camera3_utils.h>
 #include <qmmf_camera3_device_client.h>
 #include <qmmf_camera3_request_handler.h>
-#include <qmmf_recorder_common.h>
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 #define SIG_ERROR(fmt, ...) \
   SignalError("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)

@@ -29,19 +29,21 @@
 
 #pragma once
 
+#include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
 
-#include "qmmf_recorder_service_intf.h"
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_common.h"
-#include "qmmf_camera_source.h"
-#include "qmmf_encoder_core.h"
-#include "qmmf_remote_cb.h"
+#include "recorder/src/client/qmmf_recorder_service_intf.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_audio_source.h"
+#include "recorder/src/service/qmmf_camera_source.h"
+#include "recorder/src/service/qmmf_encoder_core.h"
+#include "recorder/src/service/qmmf_remote_cb.h"
 
 namespace qmmf {
 
 namespace recorder {
 
+using namespace android;
 class RecorderImpl
 {
  public:
@@ -73,7 +75,7 @@ class RecorderImpl
 
   status_t CreateAudioTrack(const uint32_t session_id,
                             uint32_t track_id,
-                            AudioTrackCreateParam& param);
+                            const AudioTrackCreateParam& param);
 
   status_t CreateVideoTrack(const uint32_t session_id,
                             uint32_t track_id,
@@ -106,15 +108,9 @@ class RecorderImpl
 
   status_t CancelCaptureImage();
 
-  status_t SetCameraParam(uint32_t camera_id,
-                          CameraParamType param_type,
-                          void *param,
-                          size_t param_size);
+  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
-  status_t GetCameraParam(uint32_t camera_id,
-                          CameraParamType param_type,
-                          void *param,
-                          size_t param_size);
+  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
   status_t CreateOverlayObject(OverlayParam &param,
                                uint32_t *overlay_id);
@@ -141,6 +137,14 @@ class RecorderImpl
                                 TrackMetaParamType meta_type,
                                 size_t meta_size);
 
+  void AudioTrackBufferCallback(uint32_t track_id,
+                                std::vector<BnTrackBuffer> buffers,
+                                void *meta_param,
+                                TrackMetaParamType meta_type,
+                                size_t meta_size);
+
+  void CaptureImageCallback(void* buffer, uint32_t buffer_size);
+
  private:
 
   bool IsSessionIdValid(const uint32_t session_id);
@@ -153,10 +157,12 @@ class RecorderImpl
     uint32_t         track_id;
     TrackType        type;
     VideoTrackParams params;
+    AudioTrackParams audio_params;
     //TODO: Add union and pack AudioTrack params.
   } TrackInfo;
 
   uint32_t            unique_id_;
+  AudioSource*        audio_source_;
   CameraSource*       camera_source_;
   EncoderCore*        encoder_core_;
   Vector<uint32_t>    session_ids_;

@@ -1,0 +1,847 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * This file has implementation of following classes:
+ *
+ * - AudioEndPointClient    : Delegation to binder proxy <IAudioService>
+ *                            and implementation of binder CB.
+ * - BpAudioService         : Binder proxy implementation.
+ * - BpAudioServiceCallback : Binder CB proxy implementation.
+ * - BnAudioServiceCallback : Binder CB stub implementation.
+ */
+
+#define TAG "AudioEndPointClient"
+
+#include "common/audio/src/client/qmmf_audio_endpoint_client.h"
+
+#include <cerrno>
+#include <cstdint>
+#include <mutex>
+
+#include <binder/IBinder.h>
+#include <binder/IInterface.h>
+#include <binder/IServiceManager.h>
+#include <binder/Parcel.h>
+#include <binder/ProcessState.h>
+#include <utils/RefBase.h>
+#include <utils/String16.h>
+
+#include "common/audio/inc/qmmf_audio_definitions.h"
+#include "common/qmmf_log.h"
+
+namespace qmmf {
+namespace common {
+namespace audio {
+
+using ::android::BpInterface;
+using ::android::defaultServiceManager;
+using ::android::IBinder;
+using ::android::IInterface;
+using ::android::interface_cast;
+using ::android::IServiceManager;
+using ::android::Parcel;
+using ::android::ProcessState;
+using ::android::sp;
+using ::android::String16;
+using ::std::lock_guard;
+using ::std::mutex;
+
+AudioEndPointClient::AudioEndPointClient()
+    : audio_service_(nullptr),
+      death_notifier_(nullptr),
+      audio_handle_(-1),
+      state_(AudioState::kNew) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  sp<ProcessState> proc(ProcessState::self());
+  proc->startThreadPool();
+
+  QMMF_INFO("%s: %s() client instantiated", TAG, __func__);
+}
+
+AudioEndPointClient::~AudioEndPointClient() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  if (audio_service_ != nullptr) {
+    audio_service_.clear();
+    audio_service_ = nullptr;
+  }
+
+  QMMF_INFO("%s: %s() client destroyed", TAG, __func__);
+}
+
+int AudioEndPointClient::Connect(AudioEventHandler& handler) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
+               handler.target_type().name());
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kNew:
+      /* proceed */
+      break;
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() != nullptr) {
+    QMMF_ERROR("%s: %s() already connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  event_handler_ = handler;
+
+  death_notifier_ = new DeathNotifier(this);
+  if (death_notifier_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() unable to allocate death notifier", TAG, __func__);
+    return -ENOMEM;
+  }
+
+  sp<IBinder> service_handle;
+  sp<IServiceManager> service_manager = defaultServiceManager();
+
+  service_handle = service_manager->getService(String16(kAudioServiceName));
+  if (service_handle.get() == nullptr) {
+    QMMF_ERROR("%s: %s() can't get service %s", TAG, __func__,
+               kAudioServiceName);
+    return -ENODEV;
+  }
+
+  audio_service_ = interface_cast<IAudioService>(service_handle);
+  IInterface::asBinder(audio_service_)->linkToDeath(death_notifier_);
+
+  sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
+  int result = audio_service_->Connect(handler, &audio_handle_);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() can't connect to service %s: %d", TAG, __func__,
+               kAudioServiceName, result);
+  else
+    state_ = AudioState::kConnect;
+
+  return result;
+}
+
+int AudioEndPointClient::Disconnect() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kNew:
+      QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
+                static_cast<int>(state_));
+      return 0;
+      break;
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+      /* proceed */
+      break;
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Disconnect(audio_handle_);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Disconnect failed: %d", TAG, __func__,
+               result);
+
+  audio_service_->asBinder(audio_service_)->unlinkToDeath(death_notifier_);
+  audio_service_.clear();
+  audio_service_ = nullptr;
+
+  death_notifier_.clear();
+  death_notifier_ = nullptr;
+
+  audio_handle_ = -1;
+
+  state_ = AudioState::kNew;
+
+  return result;
+}
+
+int AudioEndPointClient::Configure(AudioEndPointType type,
+                                   const DeviceIdList& devices,
+                                   const AudioMetadata& metadata) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+               static_cast<int>(type));
+  QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
+               devices.ToString().c_str());
+  QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
+               metadata.ToString().c_str());
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kConnect:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kIdle:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Configure(audio_handle_, type, devices,
+                                         metadata);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Configure failed: %d", TAG, __func__, result);
+  else
+    state_ = AudioState::kIdle;
+
+  return result;
+}
+
+int AudioEndPointClient::Start() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kIdle:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Start(audio_handle_);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Start failed: %d", TAG, __func__, result);
+  else
+    state_ = AudioState::kRunning;
+
+  return result;
+}
+
+int AudioEndPointClient::Stop(bool flush) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
+               flush ? "true" : "false");
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+      QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
+                static_cast<int>(state_));
+      return 0;
+      break;
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      /* proceed */
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Stop(audio_handle_, flush);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Stop failed: %d", TAG, __func__, result);
+  else
+    state_ = AudioState::kIdle;
+
+  return result;
+}
+
+int AudioEndPointClient::Pause() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kRunning:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Pause(audio_handle_);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Pause failed: %d", TAG, __func__, result);
+  else
+    state_ = AudioState::kPaused;
+
+  return result;
+}
+
+int AudioEndPointClient::Resume() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kPaused:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+    case AudioState::kRunning:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->Resume(audio_handle_);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Resume failed: %d", TAG, __func__, result);
+  else
+    state_ = AudioState::kRunning;
+
+  return result;
+}
+
+int AudioEndPointClient::SendBuffers(const AudioBufferList& buffers) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  for (const AudioBuffer& buffer : buffers.list)
+    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+                 buffer.ToString().c_str());
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kRunning:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kIdle:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->SendBuffers(audio_handle_, buffers);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->SendBuffers failed: %d", TAG, __func__,
+               result);
+
+  return result;
+}
+
+int AudioEndPointClient::GetLatency(int* latency) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kIdle:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->GetLatency(audio_handle_, latency);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->GetLatency failed: %d", TAG, __func__,
+               result);
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: latency[%d]", TAG, __func__, *latency);
+  return result;
+}
+
+int AudioEndPointClient::GetBufferSize(int* buffer_size) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kIdle:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->GetBufferSize(audio_handle_, buffer_size);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->GetBufferSize failed: %d", TAG, __func__,
+               result);
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%d]", TAG, __func__,
+               *buffer_size);
+  return result;
+}
+
+int AudioEndPointClient::SetParam(AudioParamType type,
+                                  const AudioParamData& data) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+               static_cast<int>(type));
+  QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
+               data.ToString(type).c_str());
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kIdle:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      /* proceed */
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int result = audio_service_->SetParam(audio_handle_, type, data);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->SetParam failed: %d", TAG, __func__, result);
+
+  return result;
+}
+
+void AudioEndPointClient::NotifyErrorEvent(int error) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+
+  event_handler_(AudioEventType::kError, AudioEventData(error));
+}
+
+void AudioEndPointClient::NotifyBufferEvent(const AudioBuffer& buffer) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
+
+  event_handler_(AudioEventType::kBuffer, AudioEventData(buffer));
+}
+
+/* Binder proxy implementation of IAudioService */
+class BpAudioService: public BpInterface<IAudioService> {
+ public:
+  BpAudioService(const sp<IBinder>& impl) : BpInterface<IAudioService>(impl) {}
+
+  int Connect(const sp<IAudioServiceCallback>& client_handler,
+              AudioHandle* audio_handle) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    Parcel input, output;
+
+    /* register service callback to get callbacks from audio service */
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeStrongBinder(IInterface::asBinder(client_handler));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioConnect),
+        input, &output);
+
+    *audio_handle = static_cast<AudioHandle>(output.readInt32());
+    QMMF_VERBOSE("%s: %s() OUTPARAM: audio_handle[%d]", TAG, __func__,
+                 *audio_handle);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Disconnect(AudioHandle audio_handle) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioDisconnect),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Configure(AudioHandle audio_handle, AudioEndPointType type,
+                const DeviceIdList& devices, const AudioMetadata& metadata) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+                 static_cast<int>(type));
+    QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
+                 devices.ToString().c_str());
+    QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
+                 metadata.ToString().c_str());
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+    input.writeInt32(static_cast<int32_t>(type));
+    devices.ToParcel(&input);
+    metadata.ToParcel(&input);
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioConfigure),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Start(AudioHandle audio_handle) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioStart),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Stop(AudioHandle audio_handle, bool flush) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
+                 flush ? "true" : "false");
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+    input.writeInt32(static_cast<int32_t>(flush));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioStop), input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Pause(AudioHandle audio_handle) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioPause),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int Resume(AudioHandle audio_handle) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioResume),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int SendBuffers(AudioHandle audio_handle, const AudioBufferList& buffers) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    for (const AudioBuffer& buffer : buffers.list)
+      QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+                   buffer.ToString().c_str());
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+    buffers.ToParcel(&input, true);
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioSendBuffers),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int GetLatency(AudioHandle audio_handle, int* latency) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioGetLatency),
+        input, &output);
+
+    *latency = static_cast<int>(output.readInt32());
+    QMMF_VERBOSE("%s: %s() OUTPARAM: latency[%d]", TAG, __func__, *latency);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int GetBufferSize(AudioHandle audio_handle, int* buffer_size) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioGetBufferSize),
+        input, &output);
+
+    *buffer_size = static_cast<int>(output.readInt32());
+    QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%d]", TAG, __func__,
+                 *buffer_size);
+
+    return static_cast<int>(output.readInt32());
+  }
+
+  int SetParam(AudioHandle audio_handle, AudioParamType type,
+               const AudioParamData& data) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+                 static_cast<int>(type));
+    QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
+                 data.ToString(type).c_str());
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+    input.writeInt32(static_cast<int32_t>(type));
+    data.ToParcel(type, &input);
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCommand::kAudioSetParam),
+        input, &output);
+
+    return static_cast<int>(output.readInt32());
+  }
+};
+
+IMPLEMENT_META_INTERFACE(AudioService, kAudioServiceName);
+
+ServiceCallbackHandler::ServiceCallbackHandler(AudioEndPointClient* client)
+    : client_(client) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+}
+
+ServiceCallbackHandler::~ServiceCallbackHandler() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+}
+
+void ServiceCallbackHandler::NotifyErrorEvent(int error) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+
+  if (client_ == nullptr)
+    QMMF_ERROR("%s: %s() no client to send notification to", TAG, __func__);
+  else
+    client_->NotifyErrorEvent(error);
+}
+
+void ServiceCallbackHandler::NotifyBufferEvent(const AudioBuffer& buffer) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
+
+  if (client_ == nullptr)
+    QMMF_ERROR("%s: %s() no client to send notification to", TAG, __func__);
+  else
+    client_->NotifyBufferEvent(buffer);
+}
+
+class BpAudioServiceCallback: public BpInterface<IAudioServiceCallback> {
+ public:
+  BpAudioServiceCallback(const sp<IBinder>& impl)
+      : BpInterface<IAudioServiceCallback>(impl) {}
+
+  void NotifyErrorEvent(int error) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioServiceCallback::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(error));
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCallbackCommand::kAudioNotifyError),
+        input, &output);
+  }
+
+  void NotifyBufferEvent(const AudioBuffer& buffer) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+                 buffer.ToString().c_str());
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioServiceCallback::getInterfaceDescriptor());
+    buffer.ToParcel(&input, false);
+
+    remote()->transact(
+        static_cast<uint32_t>(AudioServiceCallbackCommand::kAudioNotifyBuffer),
+        input, &output);
+  }
+};
+
+IMPLEMENT_META_INTERFACE(AudioServiceCallback,
+                         "audio.service.IAudioServiceCallback");
+
+int BnAudioServiceCallback::onTransact(uint32_t code, const Parcel& input,
+                                       Parcel* output, uint32_t flags) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: code[%u]", TAG, __func__, code);
+  QMMF_VERBOSE("%s: %s() INPARAM: flags[%u]", TAG, __func__, flags);
+
+  if (!input.checkInterface(this))
+    return -EPERM;
+
+  switch (static_cast<AudioServiceCallbackCommand>(code)) {
+    case AudioServiceCallbackCommand::kAudioNotifyError: {
+      int error = static_cast<int>(input.readInt32());
+
+      QMMF_DEBUG("%s: %s-AudioNotifyError() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s: %s-AudioNotifyError() INPARAM: error[%d]", TAG,
+                   __func__, error);
+      NotifyErrorEvent(error);
+      break;
+    }
+
+    case AudioServiceCallbackCommand::kAudioNotifyBuffer: {
+      AudioBuffer buffer;
+      buffer.FromParcel(input, false);
+
+      QMMF_DEBUG("%s: %s-AudioNotifyBuffer() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s: %s-AudioNotifyBuffer() INPARAM: buffer[%s]", TAG,
+                   __func__, buffer.ToString().c_str());
+      NotifyBufferEvent(buffer);
+      break;
+    }
+
+    default:
+      QMMF_ERROR("%s: %s() code %u not supported ", TAG, __func__, code);
+      break;
+  }
+  return 0;
+}
+
+}; /* namespace audio */
+}; /* namespace common */
+}; /* namespace qmmf */

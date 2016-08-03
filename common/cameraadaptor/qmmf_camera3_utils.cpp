@@ -29,8 +29,9 @@
 
 #include <errno.h>
 #include <string.h>
-#include <qmmf_recorder_common.h>
-#include <qmmf_camera3_utils.h>
+
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "qmmf_camera3_utils.h"
 
 namespace qmmf {
 

@@ -36,21 +36,16 @@
 #include <vector>
 #include <map>
 
-#include "qmmf_recorder.h"
-#include "qmmf_recorder_params.h"
+#include <qmmf-sdk/qmmf_recorder.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
 
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
 
-#define ITERATION_COUNT 50
-#define ZSL_WIDTH       1920
-#define ZSL_HEIGHT      1080
-#define ZSL_QUEUE_DEPTH 10
-
 class RecorderGtest : public ::testing::Test {
  public:
-  RecorderGtest() {};
+  RecorderGtest() : recorder_() {};
 
   ~RecorderGtest() {};
 
@@ -74,19 +69,26 @@ class RecorderGtest : public ::testing::Test {
                               void *event_data,
                               size_t event_data_size);
 
-  void VideoTrackDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
+  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
+                        void *meta_param, TrackMetaParamType meta_type,
+                        size_t meta_size);
+
+  void VideoTrackEncDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
                         void *meta_param, TrackMetaParamType meta_type,
                         size_t meta_size);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
-  Recorder* recorder_;
 
+  void SnapshotCb(void *buffer, uint32_t buffer_size);
+
+  Recorder              recorder_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
-  std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  int32_t               bitstream_filefd_;
 
+  std::map <uint32_t , std::vector<uint32_t> > sessions_;
 };
 

@@ -27,6 +27,8 @@
 #include <hardware/gralloc.h>
 #include <camera/CameraMetadata.h>
 
+#include "common/qmmf_common_utils.h"
+
 #define MAX_PLANE 3
 
 using namespace android;
@@ -34,35 +36,6 @@ using namespace android;
 namespace qmmf {
 
 namespace cameraadaptor {
-
-typedef struct {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-} PlaneInfo;
-
-enum class BufferFormat {
-  kNV12,
-  kNV21,
-  kBLOB,
-  kRAW10,
-  kRAW16
-};
-
-typedef struct {
-  BufferFormat format;
-  uint32_t num_planes;
-  PlaneInfo plane_info[MAX_PLANE];
-} MetaInfo;
-
-typedef struct {
-  MetaInfo info;
-  int64_t timestamp;
-  int64_t frame_number;
-  android_dataspace data_space;
-  buffer_handle_t handle;
-} StreamBuffer;
 
 // Please note that you can call all "Camera3DeviceClient" API methods
 // from the same context of this callback.

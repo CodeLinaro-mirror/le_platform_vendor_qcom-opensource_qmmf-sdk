@@ -30,7 +30,7 @@
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
 
-#include <qmmf_camera3_types.h>
+#include "qmmf_camera3_types.h"
 
 using namespace android;
 
@@ -84,7 +84,8 @@ class Camera3Stream : public camera3_stream {
 
   int32_t EndPrepareLocked();
 
-  int32_t PopulateMetaInfo(MetaInfo &info, const camera3_stream_buffer &buffer,
+  int32_t PopulateMetaInfo(MetaInfo &info,
+                           struct private_handle_t *priv_handle,
                            alloc_device_t *gralloc_device);
 
   /**Not allowed */
@@ -113,8 +114,8 @@ class Camera3Stream : public camera3_stream {
   uint32_t pending_buffer_count_;
 
   StreamCallback callbacks_;
-  uint32_t old_usage_, user_usage_;
-  uint32_t old_max_buffers_;
+  uint32_t old_usage_, client_usage_;
+  uint32_t old_max_buffers_, client_max_buffers_;
   pthread_cond_t output_buffer_returned_signal_;
   static const int64_t BUFFER_WAIT_TIMEOUT = 1e9;  // 1 sec.
 

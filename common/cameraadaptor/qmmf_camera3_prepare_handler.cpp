@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include <qmmf_recorder_common.h>
+#include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_prepare_handler.h"
 #include "qmmf_camera3_stream.h"

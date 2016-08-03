@@ -29,9 +29,11 @@
 
 #pragma once
 
-#include "qmmf_recorder_service_intf.h"
-#include "qmmf_recorder_common.h"
-#include "qmmf_recorder_impl.h"
+#include <camera/CameraMetadata.h>
+
+#include "recorder/src/client/qmmf_recorder_service_intf.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_recorder_impl.h"
 
 namespace qmmf {
 
@@ -52,11 +54,9 @@ class RecorderService : public BnInterface<IRecorderService> {
     DeathNotifier(sp<RecorderService> parent) : parent_(parent) {}
 
     void binderDied(const wp<IBinder>&) override {
-      QMMF_WARN("RecorderSerive:%s: Client died!", __func__);
-      // TODO: Recorder clean up.
-      //if (NULL != parent_->recorder_) {
-      //    parent_->DeInit();
-      //}
+      QMMF_WARN("RecorderSerive:%s: Client Exited or Died!", __func__);
+      assert(parent_.get() != nullptr);
+      parent_->Disconnect();
     }
     sp<RecorderService> parent_;
   };
@@ -91,7 +91,7 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t CreateAudioTrack(const uint32_t session_id,
                             uint32_t track_id,
-                            AudioTrackCreateParam& param) override;
+                            const AudioTrackCreateParam& param) override;
 
   status_t CreateVideoTrack(const uint32_t session_id,
                             uint32_t track_id,
@@ -124,15 +124,9 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t CancelCaptureImage() override;
 
-  status_t SetCameraParam(uint32_t camera_id,
-                          CameraParamType param_type,
-                          void *param,
-                          size_t param_size) override;
+  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta) override;
 
-  status_t GetCameraParam(uint32_t camera_id,
-                          CameraParamType param_type,
-                          void *param,
-                          size_t param_size) override;
+  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta) override;
 
   status_t CreateOverlayObject(OverlayParam &param,
                                uint32_t *overlay_id) override;

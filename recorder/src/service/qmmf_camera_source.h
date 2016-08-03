@@ -29,16 +29,19 @@
 
 #pragma once
 
+#include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
+#include <utils/Condition.h>
 
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_common.h"
-#include "qmmf_camera3_device_client.h"
-#include "qmmf_camera_context.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_camera_context.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
 
 namespace qmmf {
 
 using namespace cameraadaptor;
+using namespace android;
 
 namespace recorder {
 
@@ -57,7 +60,7 @@ class CameraSource {
   status_t StopCamera(std::vector<uint32_t> camera_ids);
 
   status_t CaptureImage(std::vector<uint32_t> camera_id,
-                        ImageParam &param);
+                        ImageParam &param, const CaptureImageCb& cb);
 
   status_t CancelCaptureImage();
 
@@ -76,11 +79,9 @@ class CameraSource {
   status_t ReturnTrackBuffer(const uint32_t track_id,
                              std::vector<BnTrackBuffer> &buffers);
 
-  status_t SetCameraParam(uint32_t camera_id, CameraParamType param_type,
-                          void *param, size_t param_size);
+  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
-  status_t GetCameraParam(uint32_t camera_id, CameraParamType param_type,
-                          void *param, size_t param_size);
+  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
   status_t CreateOverlayObject(OverlayParam &param, uint32_t *overlay_id);
 
@@ -119,19 +120,29 @@ class CameraSource {
 // This class is behaves as producer and consumer both, at one end it takes
 // YUV buffers from camera stream and another end it provides buffers to
 // Encoder, and manages buffer circulation, skip etc.
-class TrackSource : public RefBase {
+class TrackSource : public IInputCodecSource {
  public:
-  TrackSource(VideoTrackParams& params);
+  TrackSource(VideoTrackParams& params, sp<CameraContext>& context);
 
   ~TrackSource();
+
+  // Methods of IInputCodecSource
+  // This method to provide input buffer to Encoder.
+  status_t Read(StreamBuffer& buffer) override;
+
+  // This method is used by Encoder to provide buffer back after encoding.
+  status_t SignalBufferReturned(StreamBuffer& buffer) override;
+
+  // This method is used by Encoder to notify stop.
+  status_t Stop() override;
 
   // Global track specific params can be query from TrackSource during its life
   // cycle.
   VideoTrackParams& getParams() { return track_params_; }
 
-  // Method to handle incoming buffers from producer, producer can be anyone,
-  // Camera context's port or rescaler.
-  void OnFrameAvailable(Buffer& buffer);
+  // This method to handle incoming buffers from producer, producer can be
+  // anyone, Camera context's port or rescaler.
+  void OnFrameAvailable(StreamBuffer& buffer);
 
   status_t ReturnTrackBuffer(std::vector<BnTrackBuffer>& buffers);
 
@@ -139,15 +150,39 @@ class TrackSource : public RefBase {
   // post buffers.
   sp<IBufferConsumer>& GetConsumerIntf() { return buffer_consumer_impl_; }
 
+  status_t StartTrack();
+
+  status_t StopTrack();
+
+  bool IsStop();
+
+  void ClearInputQueue();
+
  private:
-  VideoTrackParams  track_params_;
 
+  void PushFrameToQueue(StreamBuffer& buffer);
+
+  uint32_t TrackId() { return track_params_.track_id; }
+
+  static const nsecs_t kWaitDuration = 5e9; // 5 sec.
+
+  VideoTrackParams    track_params_;
   sp<IBufferConsumer> buffer_consumer_impl_;
+  Condition           wait_for_frame_;
+  Mutex               lock_;
+  bool                is_stop_;
+  Mutex               stop_lock_;
 
-  /*
-  * Maps of Unique buffer Id and Buffer.
-  */
-  DefaultKeyedVector<uint32_t, Buffer> buffer_list_;
+  // Maps of Unique buffer Id and Buffer.
+  DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
+
+  // Input buffer list, to feed buffers to encoder.
+  TSQueue<StreamBuffer> frames_received_;
+
+  // List of buffers held by encoder.
+  TSQueue<StreamBuffer> frames_being_encoded_;
+
+  sp<CameraContext>     context_;
 
 #ifdef DEBUG_TRACK_FPS
   struct timeval prevtv_;;

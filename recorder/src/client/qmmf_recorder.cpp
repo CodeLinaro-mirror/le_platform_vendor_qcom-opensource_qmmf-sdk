@@ -31,10 +31,10 @@
 
 #include <binder/IPCThreadState.h>
 
-#include "qmmf_recorder.h"
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_client.h"
-#include "qmmf_recorder_common.h"
+#include "qmmf-sdk/qmmf_recorder.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "recorder/src/client/qmmf_recorder_client.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 
@@ -303,15 +303,11 @@ status_t Recorder::CancelCaptureImage()
     return ret;
 }
 
-status_t Recorder::SetCameraParam(uint32_t camera_id,
-                                  CameraParamType param_type,
-                                  const void *param,
-                                  size_t param_size)
+status_t Recorder::SetCameraParam(uint32_t camera_id, CameraMetadata &meta)
 {
     assert(recorder_client_ != NULL);
 
-    auto ret = recorder_client_->SetCameraParam(camera_id, param_type,
-                                                 param, param_size);
+    auto ret = recorder_client_->SetCameraParam(camera_id, meta);
     if(NO_ERROR != ret) {
         QMMF_ERROR("%s: SetCameraParam failed!", __func__);
     }
@@ -319,15 +315,12 @@ status_t Recorder::SetCameraParam(uint32_t camera_id,
     return ret;
 }
 
-status_t Recorder::GetCameraParam(uint32_t camera_id,
-                                  CameraParamType param_type, void *param,
-                                  size_t param_size)
+status_t Recorder::GetCameraParam(uint32_t camera_id, CameraMetadata &meta)
 {
     QMMF_INFO("%s: Enter" ,__func__);
     assert(recorder_client_ != NULL);
 
-    auto ret = recorder_client_->GetCameraParam(camera_id, param_type,
-                                                param, param_size);
+    auto ret = recorder_client_->GetCameraParam(camera_id, meta);
     if(NO_ERROR != ret) {
         QMMF_ERROR("%s: GetCameraParam failed!", __func__);
     }

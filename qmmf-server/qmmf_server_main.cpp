@@ -36,28 +36,38 @@
 #include <binder/IServiceManager.h>
 #include <binder/IPCThreadState.h>
 
-#include <qmmf_recorder_service.h>
+#include "common/audio/src/service/qmmf_audio_service.h"
+#include "recorder/src/service/qmmf_recorder_service.h"
 
 using namespace android;
 using namespace qmmf;
+using namespace qmmf::common::audio;
 using namespace recorder;
 
-#define INFO(...) \
-    do { \
-        printf(__VA_ARGS__); \
-        printf("\n"); \
-        ALOGD(__VA_ARGS__); \
-    } while(0)
 
-int32_t main(int32_t argc, char **argv)
-{
-    //Add Recorder service.
-    defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
-                    new qmmf::recorder::RecorderService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
-    //TODO:Add Player service.
-    //TODO:Add Display service.
-    android::ProcessState::self()->startThreadPool();
-    IPCThreadState::self()->joinThreadPool();
-    return 0;
+#define INFO(...) \
+  do { \
+    printf(__VA_ARGS__); \
+    printf("\n"); \
+    ALOGD(__VA_ARGS__); \
+} while(0)
+
+int32_t main(int32_t argc, char **argv) {
+
+  // Add audio service.
+  defaultServiceManager()->addService(String16(kAudioServiceName),
+          new qmmf::common::audio::AudioService(), false);
+  INFO("Service(%s) Added successfully!", kAudioServiceName);
+
+  //Add Recorder service.
+  defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
+                  new qmmf::recorder::RecorderService(), false);
+  INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
+
+  //TODO:Add Player service.
+  //TODO:Add Display service.
+
+  android::ProcessState::self()->startThreadPool();
+  IPCThreadState::self()->joinThreadPool();
+  return 0;
 }

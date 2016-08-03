@@ -1,10 +1,15 @@
 BUILD_COMPONENTS :=
 BUILD_COMPONENTS += common/cameraadaptor
+BUILD_COMPONENTS += common/audio/src/client
+BUILD_COMPONENTS += common/audio/src/service
+BUILD_COMPONENTS += common/audio/test/samples
+BUILD_COMPONENTS += common/codecadaptor
 BUILD_COMPONENTS += recorder/src/client
 BUILD_COMPONENTS += recorder/src/service
 BUILD_COMPONENTS += recorder/test/samples
 BUILD_COMPONENTS += recorder/test/gtest
 BUILD_COMPONENTS += qmmf-server
+
 
 SUBDIRS := $(BUILD_COMPONENTS)
 

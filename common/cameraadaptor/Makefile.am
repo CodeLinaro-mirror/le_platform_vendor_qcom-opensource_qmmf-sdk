@@ -9,12 +9,14 @@ libcamera_adaptor_la_SOURCES += qmmf_camera3_stream.cpp
 libcamera_adaptor_la_SOURCES += qmmf_camera3_thread.cpp
 libcamera_adaptor_la_SOURCES += qmmf_camera3_utils.cpp
 
-libcamera_adaptor_la_CPPFLAGS = -std=c++11 -Wall
-libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/recorder/inc
-libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/recorder/src/service
-libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/recorder/src/client
+libcamera_adaptor_la_CPPFLAGS := -std=c++11 -Wall
+libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/include
+libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
 libcamera_adaptor_la_CPPFLAGS += -I$(LIBGRALLOC)
 libcamera_adaptor_la_LDFLAGS  := -lutils -lbinder -lcamera_client -lcamera_metadata -lpthread -ldl -llog
+
+camera_adaptordir=$(includedir)
+camera_adaptor_HEADERS := qmmf_camera3_types.h
 
 # Adaptor gtest app
 bin_PROGRAMS := camera_adaptor_gtest

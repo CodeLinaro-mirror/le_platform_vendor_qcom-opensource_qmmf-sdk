@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 
@@ -43,11 +43,11 @@ class IBufferProducer : public RefBase {
   virtual ~IBufferProducer() {}
 
   // This method would provide the buffer to all connected consumers.
-  virtual void NotifyBuffer(Buffer& buffer) = 0;
+  virtual void NotifyBuffer(StreamBuffer& buffer) = 0;
 
   // By using this method consumers would return buffer back to producer once
   // they done with buffer.
-  virtual void NotifyBufferReturned(Buffer& buffer) = 0;
+  virtual void NotifyBufferReturned(StreamBuffer& buffer) = 0;
 
   // By using this method consumer can be added to producer's list of consumer.
   virtual void AddConsumer(const sp<IBufferConsumer>& consumer) = 0;
@@ -78,7 +78,7 @@ class IBufferConsumer : public RefBase {
   virtual ~IBufferConsumer() {}
 
   // Consumer's method to handle incoming buffer.
-  virtual void OnFrameAvailable(Buffer& buffer) = 0;
+  virtual void OnFrameAvailable(StreamBuffer& buffer) = 0;
 
   // Set handle of producer, would be used to return buffers back to producer.
   virtual void SetProducerHandle(sp<IBufferProducer>& producer) = 0;
@@ -97,9 +97,9 @@ class BufferProducerImpl : public IBufferProducer {
 
   ~BufferProducerImpl();
 
-  void NotifyBuffer(Buffer& buffer);
+  void NotifyBuffer(StreamBuffer& buffer);
 
-  void NotifyBufferReturned(Buffer& Buffer);
+  void NotifyBufferReturned(StreamBuffer& Buffer);
 
   void AddConsumer(const sp<IBufferConsumer>& consumer);
 
@@ -119,7 +119,7 @@ class BufferConsumerImpl : public IBufferConsumer {
 
   ~BufferConsumerImpl();
 
-  void OnFrameAvailable(Buffer& buffer);
+  void OnFrameAvailable(StreamBuffer& buffer);
 
   void SetProducerHandle(sp<IBufferProducer>& producer) {
     assert(producer.get() != NULL);
@@ -146,7 +146,7 @@ BufferProducerImpl<_type>::~BufferProducerImpl() {
 }
 
 template <typename _type>
-void BufferProducerImpl<_type>::NotifyBuffer(Buffer& buffer) {
+void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
   Mutex::Autolock autoLock(lock_);
   //Check for any consumer present. Notify them
   //about the new incoming buffer and keep reference count.
@@ -154,11 +154,11 @@ void BufferProducerImpl<_type>::NotifyBuffer(Buffer& buffer) {
       buffer_map_.Add(buffer);
       buffer_map_.ReplaceValueFor(buffer, buffer_consumers_.size());
 
-      QMMF_LEVEL2("%s:%s: (%p) buffer(0x%x) map size(%d) and it's ref count(%d)",
-          TAG, __func__ , this, buffer.stream_buffer.handle, buffer_map_.Size(),
+      QMMF_VERBOSE("%s:%s: (%p) buffer(0x%x) map size(%d) and it's ref count(%d)"
+          , TAG, __func__ , this, buffer.handle, buffer_map_.Size(),
           buffer_map_.ValueFor(buffer));
 
-      QMMF_LEVEL2("%s:%s: Notify buffer to %d-consumers", TAG, __func__,
+      QMMF_VERBOSE("%s:%s: Notify buffer to %d-consumers", TAG, __func__,
           buffer_consumers_.size());
 
       for(auto& iter : buffer_consumers_) {
@@ -172,13 +172,12 @@ void BufferProducerImpl<_type>::NotifyBuffer(Buffer& buffer) {
 }
 
 template <typename _type>
-void BufferProducerImpl<_type>::NotifyBufferReturned(Buffer& buffer) {
+void BufferProducerImpl<_type>::NotifyBufferReturned(StreamBuffer& buffer) {
 
   Mutex::Autolock autoLock(buffer_return_lock_);
 
-  QMMF_LEVEL2("%s:%s: Buffer is back to Producer Intf, buffer(0x%x) "
-      "RefCount=%d", TAG, __func__, buffer.stream_buffer.handle,
-      buffer_map_.ValueFor(buffer));
+  QMMF_VERBOSE("%s:%s: Buffer is back to Producer Intf,buffer(0x%x) RefCount=%d",
+      TAG, __func__, buffer.handle, buffer_map_.ValueFor(buffer));
 
   assert(buffer_map_.ValueFor(buffer) > 0);
 
@@ -201,7 +200,7 @@ void BufferProducerImpl<_type>::AddConsumer(const sp<IBufferConsumer>&
   assert(consumer.get() != NULL);
   Mutex::Autolock autoLock(lock_);
   buffer_consumers_.add(consumer);
-  QMMF_LEVEL2("%s:%s: Consumer(%p) added successfully!", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: Consumer(%p) added successfully!", TAG, __func__,
       consumer.get());
 }
 
@@ -239,7 +238,7 @@ BufferConsumerImpl<_type>::~BufferConsumerImpl()
 }
 
 template <typename _type>
-void BufferConsumerImpl<_type>::OnFrameAvailable(Buffer& buffer)
+void BufferConsumerImpl<_type>::OnFrameAvailable(StreamBuffer& buffer)
 {
     source_->OnFrameAvailable(buffer);
 }

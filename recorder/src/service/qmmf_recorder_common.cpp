@@ -29,7 +29,7 @@
 
 #define TAG "RecorderCommon"
 
-#include "qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 
@@ -56,39 +56,8 @@ extern "C" void DebugVideoTrackCreateParam (const char* _func_,
   QMMF_INFO("%s: width = %d", _func_, params->width);
   QMMF_INFO("%s: height = %d", _func_, params->height);
   QMMF_INFO("%s: frame_rate = %d", _func_, params->frame_rate);
-  QMMF_INFO("%s: codec_type = %d", _func_, params->codec_type);
+  QMMF_INFO("%s: format_type = %d", _func_, params->format_type);
   QMMF_INFO("%s: out_device = %d", _func_, params->out_device);
-  #if 0
-  QMMF_INFO("%s:%s: param.num_cameras = %d", TAG, __func__, param.num_cameras);
-    for(uint32_t i = 0; i < param.num_cameras; i++) {
-        QMMF_INFO("%s:%s: param.camera_ids[%d]=%d", TAG, __func__, i, param.camera_ids[i]);
-    }
-    QMMF_INFO("%s:%s: param.width = %d", TAG, __func__, param.width);
-    QMMF_INFO("%s:%s: param.height = %d", TAG, __func__, param.height);
-    QMMF_INFO("%s:%s: param.codec_type = %d", TAG, __func__, param.codec_type);
-    QMMF_INFO("%s:%s: param.out_device = %d", TAG, __func__, param.out_device);
-    QMMF_INFO("%s:%s: param.frame_rate = %d", TAG, __func__, param.frame_rate);
-    QMMF_INFO("%s:%s: param.codec_param.avc.idr_interval = %d", TAG, __func__, param.codec_param.avc.idr_interval);
-    QMMF_INFO("%s:%s: param.codec_param.avc.bitrate = %d", TAG, __func__, param.codec_param.avc.bitrate);
-    QMMF_INFO("%s:%s: param.codec_param.avc.profile = %d", TAG, __func__, param.codec_param.avc.profile);
-    QMMF_INFO("%s:%s: param.codec_param.avc.level = %d", TAG, __func__, param.codec_param.avc.level);
-    QMMF_INFO("%s:%s: param.codec_param.avc.ratecontrol_type = %d", TAG, __func__, param.codec_param.avc.ratecontrol_type);
-    QMMF_INFO("%s:%s: param.avc.qp_params.enable_init_qp = %d", TAG, __func__, param.codec_param.avc.qp_params.enable_init_qp);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.init_qp.init_IQP = %d", TAG, __func__, param.codec_param.avc.qp_params.init_qp.init_IQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.init_qp.init_PQP = %d", TAG, __func__, param.codec_param.avc.qp_params.init_qp.init_PQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.init_qp.init_BQP = %d", TAG, __func__, param.codec_param.avc.qp_params.init_qp.init_BQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.init_qp.init_QP_mode = %d", TAG, __func__, param.codec_param.avc.qp_params.init_qp.init_QP_mode);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.enable_qp_range = %d", TAG, __func__, param.codec_param.avc.qp_params.enable_qp_range);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_range.min_QP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_range.min_QP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_range.max_QP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_range.max_QP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.enable_qp_IBP_range = %d", TAG, __func__, param.codec_param.avc.qp_params.enable_qp_IBP_range);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.min_IQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.max_IQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.min_PQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.max_PQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.min_BQP);
-    QMMF_INFO("%s:%s: param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = %d", TAG, __func__, param.codec_param.avc.qp_params.qp_IBP_range.max_BQP);
-  #endif
 }
 
 extern "C" void DebugVideoTrackParams (const char* _func_,
@@ -102,7 +71,7 @@ extern "C" void DebugVideoTrackParams (const char* _func_,
   QMMF_INFO("%s: width = %d", _func_, params->width);
   QMMF_INFO("%s: height = %d", _func_, params->height);
   QMMF_INFO("%s: frame_rate = %d", _func_, params->frame_rate);
-  QMMF_INFO("%s: codec_type = %d", _func_, params->codec_type);
+  QMMF_INFO("%s: format_type = %d", _func_, params->format_type);
   QMMF_INFO("%s: camera_stream_type = %d", _func_, params->camera_stream_type);
 }
 

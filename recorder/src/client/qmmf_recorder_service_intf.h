@@ -29,16 +29,24 @@
 
 #pragma once
 
+#include <iomanip>
+#include <sstream>
+#include <string>
+
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
+#include <camera/CameraMetadata.h>
 
-#include "qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
 
 namespace qmmf {
 namespace recorder {
 
 using namespace android;
+using ::std::setbase;
+using ::std::string;
+using ::std::stringstream;
 
 #define QMMF_RECORDER_SERVICE_NAME "recorder.service"
 
@@ -53,7 +61,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_STOP_SESSION,
   RECORDER_PAUSE_SESSION,
   RECORDER_RESUME_SESSION,
-  RECORDER_CREATE_AUDTIOTRACK,
+  RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
   RECORDER_DELETE_AUDIOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
@@ -81,6 +89,47 @@ typedef struct BnTrackBuffer {
   uint32_t  buffer_id;
   uint32_t  flag;
   uint64_t  capacity;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "ion_fd[" << ion_fd << "] ";
+    stream << "size[" << size << "] ";
+    stream << "timestamp[" << timestamp << "] ";
+    stream << "width[" << width << "] ";
+    stream << "height[" << height << "] ";
+    stream << "buffer_id[" << buffer_id << "] ";
+    stream << "flag[" << setbase(16) << flag << setbase(10) << "]";
+    stream << "capacity[" << capacity << "] ";
+    return stream.str();
+  }
+
+  void ToParcel(Parcel* parcel, bool writeFileDescriptor) const {
+    if (writeFileDescriptor)
+      parcel->writeFileDescriptor(ion_fd);
+    else
+      parcel->writeUint32(ion_fd);
+    parcel->writeUint64(size);
+    parcel->writeInt64(timestamp);
+    parcel->writeUint32(width);
+    parcel->writeUint32(height);
+    parcel->writeUint32(buffer_id);
+    parcel->writeUint32(flag);
+    parcel->writeUint64(capacity);
+  }
+
+  void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
+    if (readFileDescriptor)
+      ion_fd = parcel.readFileDescriptor();
+    else
+      ion_fd = parcel.readUint32();
+    size = parcel.readUint64();
+    timestamp = parcel.readInt64();
+    width = parcel.readUint32();
+    height = parcel.readUint32();
+    buffer_id = parcel.readUint32();
+    flag = parcel.readUint32();
+    capacity = parcel.readUint64();
+  }
 } BnTrackBuffer;
 
 class IRecorderServiceCallback;
@@ -111,7 +160,7 @@ class IRecorderService : public IInterface {
 
   virtual status_t CreateAudioTrack(const uint32_t session_id,
                                     uint32_t track_id,
-                                    AudioTrackCreateParam& param) = 0;
+                                    const AudioTrackCreateParam& param) = 0;
 
   virtual status_t CreateVideoTrack(const uint32_t session_id,
                                     uint32_t track_id,
@@ -145,14 +194,10 @@ class IRecorderService : public IInterface {
   virtual status_t CancelCaptureImage() = 0;
 
   virtual status_t SetCameraParam(uint32_t camera_id,
-                                  CameraParamType param_type,
-                                  void *param,
-                                  size_t param_size) = 0;
+                                  CameraMetadata &meta) = 0;
 
   virtual status_t GetCameraParam(uint32_t camera_id,
-                                  CameraParamType param_type,
-                                  void *param,
-                                  size_t param_size) = 0;
+                                  CameraMetadata &meta) = 0;
 
   virtual status_t CreateOverlayObject(OverlayParam &param,
                                        uint32_t *overlay_id) = 0;
@@ -195,7 +240,7 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifySessionEvent(EventType event_type, void *event_data,
                                   size_t event_data_size) = 0;
 
-  virtual void NotifySnapshotData(void *buffer, size_t bufferSize) = 0;
+  virtual void NotifySnapshotData(void *buffer, uint32_t bufferSize) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t track_id,
                                     std::vector<BnTrackBuffer> &buffers,
@@ -208,7 +253,7 @@ class IRecorderServiceCallback : public IInterface {
                                      size_t event_data_size) = 0;
 
   virtual void NotifyAudioTrackData(uint32_t track_id,
-                                    std::vector<BnTrackBuffer> &buffers,
+                                    const std::vector<BnTrackBuffer> &buffers,
                                     void *meta_param,
                                     TrackMetaParamType meta_type,
                                     size_t meta_size) = 0;

@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_recorder_service_intf.h"
+#include "recorder/src/client/qmmf_recorder_service_intf.h"
 
 namespace qmmf {
 
@@ -49,7 +49,7 @@ class RemoteCallBack : public RefBase {
     void NotifySessionEvent(EventType event_type, void *event_data,
                             size_t event_data_size);
 
-    void NotifySnapshotData(void *buffer, size_t bufferSize);
+    void NotifySnapshotData(void *buffer, uint32_t bufferSize);
 
     void NotifyVideoTrackData(uint32_t track_id,
                               std::vector<BnTrackBuffer> &buffers,

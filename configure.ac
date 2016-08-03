@@ -40,6 +40,16 @@ if test "x$with_gralloc_library" != "xno"; then
    AC_SUBST([LIBGRALLOC], "${gralloc_libdir}")
 fi
 
+AC_ARG_WITH([mm_core],
+      AC_HELP_STRING([with-mm-core=@<:@dir@:>@],
+         [Specify the location of the mm-core library]),
+      [mm_core_libdir=$withval],
+      with_mm_core_library=no)
+
+if test "x$with_mm_core_library" != "xno"; then
+   AC_SUBST([MMCORE_CFLAGS], "${mm_core_libdir}")
+fi
+
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])
 AC_SUBST([LIBS])
@@ -47,6 +57,10 @@ AC_SUBST([LIBS])
 AC_CONFIG_FILES([ \
     Makefile \
     common/cameraadaptor/Makefile \
+    common/audio/src/client/Makefile \
+    common/audio/src/service/Makefile \
+    common/audio/test/samples/Makefile \
+    common/codecadaptor/Makefile \
     recorder/src/client/Makefile \
     recorder/src/service/Makefile \
     qmmf-server/Makefile \

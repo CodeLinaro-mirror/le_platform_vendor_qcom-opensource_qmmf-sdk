@@ -18,7 +18,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <qmmf_recorder_common.h>
+#include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_device_client.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"

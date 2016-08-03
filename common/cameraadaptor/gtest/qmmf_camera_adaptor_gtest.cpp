@@ -183,6 +183,18 @@ void Camera3Gtest::ResultCb(const CaptureResult &result) {
     printf("%s: Result sensorExpTime %" PRId64 "\n", __func__, sensorExpTime);
   }
 
+  if (result.metadata.exists(ANDROID_CONTROL_AF_MODE)) {
+    uint8_t focus_mode =
+        result.metadata.find(ANDROID_CONTROL_AF_MODE).data.u8[0];
+    printf("%s: Focus mode active: %u\n", __func__, focus_mode);
+  }
+
+  if (result.metadata.exists(ANDROID_CONTROL_AF_STATE)) {
+    uint8_t focus_state =
+        result.metadata.find(ANDROID_CONTROL_AF_STATE).data.u8[0];
+    printf("%s: Focus mode state: %u\n", __func__, focus_state);
+  }
+
   pthread_mutex_lock(&meta_lock_);
   if (cache_last_meta_) {
     last_meta_ = result.metadata;

@@ -32,37 +32,17 @@
 #include <utils/List.h>
 #include <utils/Mutex.h>
 
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_service_intf.h"
-#include "qmmf_camera3_device_client.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "common/qmmf_common_utils.h"
+#include "common/qmmf_log.h"
 
-/*
-* Define LOG_LEVEL1 & 2 enable more debug logs.
-*/
-//#define LOG_LEVEL1
-//#define LOG_LEVEL2
-
-// QMMF_INFO, ERROR and WARN logs are enabled by default.
-#define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
-
-#ifdef LOG_LEVEL1
-#define QMMF_LEVEL1(fmt, args...)  ALOGD(fmt, ##args)
-#else
-#define QMMF_LEVEL1(...) ((void)0)
-#endif
-
-#ifdef LOG_LEVEL2
-#define QMMF_LEVEL2(fmt, args...)  ALOGD(fmt, ##args)
-#else
-#define QMMF_LEVEL2(...) ((void)0)
-#endif
+#include "recorder/src/client/qmmf_recorder_service_intf.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
 #define CAMERA_HAL_MODULE_PATH "/usr/lib/hw/camera.msm8953.so"
 #define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.msm8953.so"
 
-#define FRAME_DUMP_PATH        "/usr/data"
+#define FRAME_DUMP_PATH        "/data"
 
 // Enable ENABLE_FRAME_DUMP to dump YUV frame at TrackSource level. it will
 // Start dumping every 100th frame for all active tracks, and file name
@@ -73,6 +53,11 @@
 #define DEBUG_TRACK_FPS
 #define FPS_TIME_INTERVAL 3000000
 //#define NO_FRAME_PROCESS
+
+#define BUFFER_WAIT_TIMEOUT 500000000  // 500 ms
+
+// Enable DUMP_BITSTREAM to enable encoded data at TrackEncoder layer.
+//#define DUMP_BITSTREAM
 
 namespace qmmf {
 
@@ -110,11 +95,32 @@ typedef struct VideoTrackParams {
   uint32_t               width;
   uint32_t               height;
   uint32_t               frame_rate;
-  VideoCodecType         codec_type;
-  VideoCodecParam        codec_param;
+  VideoFormat            format_type;
+  VideoCodecParams       codec_param;
   CameraStreamType       camera_stream_type;
   buffer_callback        data_cb;
 } VideoTrackParams;
+
+struct AudioTrackParams {
+  uint32_t               track_id;
+  uint32_t               sample_rate;
+  uint32_t               channels;
+  uint32_t               bit_depth;
+  AudioFormat            format_type;
+  AudioCodecParams       codec_param;
+  buffer_callback        data_cb;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "track_id[" << track_id << "] ";
+    stream << "sample_rate[" << sample_rate << "] ";
+    stream << "channels[" << channels << "] ";
+    stream << "bit_depth[" << bit_depth << "] ";
+    stream << "format_type[" << static_cast<int>(format_type) << "] ";
+    stream << "codec_param[" << codec_param.ToString(format_type) << "] ";
+    return stream.str();
+  }
+};
 
 typedef struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
@@ -136,6 +142,7 @@ extern "C" void DebugVideoTrackCreateParam (const char* _func_,
 extern "C" void DebugVideoTrackParams (const char* _func_,
                                        VideoTrackParams* params);
 
+#if 0
 // Thread safe Queue
 template <class T>
 class TSQueue
@@ -182,26 +189,26 @@ class TSQueue
   List<T> queue_;
   Mutex lock_;
 };
-
+#endif
 // Thread safe KeyedVector
 template <class T1, class T2>
 class TSKeyedVector
 {
  public:
 
-  void Add(Buffer& buffer) {
+  void Add(StreamBuffer& buffer) {
       Mutex::Autolock autoLock(lock_);
-      map_.add(buffer.stream_buffer.handle, 1);
+      map_.add(buffer.handle, 1);
   }
 
-  uint32_t ValueFor(Buffer& buffer) {
+  uint32_t ValueFor(StreamBuffer& buffer) {
       Mutex::Autolock autoLock(lock_);
-      return map_.valueFor(buffer.stream_buffer.handle);
+      return map_.valueFor(buffer.handle);
   }
 
-  void RemoveItem(Buffer& buffer) {
+  void RemoveItem(StreamBuffer& buffer) {
       Mutex::Autolock autoLock(lock_);
-      map_.removeItem(buffer.stream_buffer.handle);
+      map_.removeItem(buffer.handle);
   }
 
   int32_t Size() {
@@ -214,9 +221,9 @@ class TSKeyedVector
        return map_.isEmpty();
   }
 
-  void ReplaceValueFor(Buffer& buffer, uint32_t value) {
+  void ReplaceValueFor(StreamBuffer& buffer, uint32_t value) {
       Mutex::Autolock autoLock(lock_);
-      map_.replaceValueFor(buffer.stream_buffer.handle, value);
+      map_.replaceValueFor(buffer.handle, value);
   }
 
   void Clear() {

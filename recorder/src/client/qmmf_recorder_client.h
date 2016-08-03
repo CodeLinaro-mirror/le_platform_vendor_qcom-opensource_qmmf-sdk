@@ -33,14 +33,18 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
+#include <camera/CameraMetadata.h>
 #include <map>
 
-#include "qmmf_recorder_params.h"
-#include "qmmf_recorder_service_intf.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "recorder/src/client/qmmf_recorder_client_ion.h"
+#include "recorder/src/client/qmmf_recorder_service_intf.h"
 
 namespace qmmf {
 
 namespace recorder {
+
+using namespace android;
 
 class RecorderClient
 {
@@ -102,11 +106,9 @@ class RecorderClient
 
   status_t CancelCaptureImage();
 
-  status_t SetCameraParam(uint32_t camera_id, CameraParamType param_type,
-                          const void *param, size_t param_size);
+  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
-  status_t GetCameraParam(uint32_t camera_id, CameraParamType param_type,
-                          void *param, size_t param_size);
+  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
 
   status_t CreateOverlayObject(const OverlayParam &param,
                                uint32_t *overlay_id);
@@ -132,7 +134,7 @@ class RecorderClient
   void NotifySessionEvent(EventType event_type, void *event_data,
                           size_t event_data_size);
 
-  void NotifySnapshotData(void *buffer, size_t bufferSize);
+  void NotifySnapshotData(void *buffer, uint32_t buffer_size);
 
   void NotifyVideoTrackData(uint32_t track_id,
                             std::vector<BnTrackBuffer> &bn_buffers,
@@ -146,7 +148,7 @@ class RecorderClient
                              size_t event_data_size);
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            std::vector<BnTrackBuffer> &buffers,
+                            const std::vector<BnTrackBuffer> &buffers,
                             void *meta_param,
                             TrackMetaParamType meta_type,
                             size_t meta_size);
@@ -184,6 +186,7 @@ class RecorderClient
   sp<DeathNotifier>    death_notifier_;
   RecorderCb           recorder_cb_;
   int32_t              ion_device_;
+  RecorderClientIon    buffer_ion_;
 
   // List of session callbacks.
   DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;
@@ -231,7 +234,7 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
   void NotifySessionEvent(EventType event_type, void *event_data,
                           size_t event_data_size) override;
 
-  void NotifySnapshotData(void *buffer, size_t bufferSize) override;
+  void NotifySnapshotData(void *buffer, uint32_t buffer_size) override;
 
   void NotifyVideoTrackData(uint32_t track_id,
                             std::vector<BnTrackBuffer> &buffers,
@@ -244,7 +247,7 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
                              size_t event_data_size) override;
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            std::vector<BnTrackBuffer> &buffers,
+                            const std::vector<BnTrackBuffer> &buffers,
                             void *meta_param,
                             TrackMetaParamType meta_type,
                             size_t meta_size) override;

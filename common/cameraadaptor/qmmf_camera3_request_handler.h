@@ -27,9 +27,9 @@
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
 
-#include <qmmf_camera3_types.h>
-#include <qmmf_camera3_internal_types.h>
-#include <qmmf_camera3_thread.h>
+#include "common/cameraadaptor/qmmf_camera3_types.h"
+#include "common/cameraadaptor/qmmf_camera3_internal_types.h"
+#include "common/cameraadaptor/qmmf_camera3_thread.h"
 
 using namespace android;
 
