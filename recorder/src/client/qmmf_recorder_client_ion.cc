@@ -46,6 +46,7 @@
 
 #include "common/qmmf_log.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
+#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
 namespace qmmf {
@@ -112,7 +113,7 @@ int RecorderClientIon::Associate(uint32_t track_id,
       buffer->buf_id = bn_buffer.buffer_id;
       buffer->capacity = bn_buffer.capacity;
       QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
-                   buffer->ToString().c_str());
+                   TrackBufferI(*buffer).ToString().c_str());
       return 0;
     }
   } else {
@@ -158,7 +159,7 @@ int RecorderClientIon::Associate(uint32_t track_id,
   client_map->second.insert({bn_buffer.buffer_id, ion_buffer});
 
   QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
-               buffer->ToString().c_str());
+               TrackBufferI(*buffer).ToString().c_str());
   return 0;
 }
 

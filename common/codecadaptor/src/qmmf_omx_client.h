@@ -32,7 +32,7 @@
 #include <OMX_Component.h>
 #include <utils/RefBase.h>
 
-#include "qmmf_common.h"
+#include "qmmf_avcodec_common.h"
 
 extern "C" {
 typedef OMX_ERRORTYPE OMX_APIENTRY (*OMXGetHandle) (
@@ -59,8 +59,7 @@ typedef struct OMXContext_t {
   OMXGetComponentsOfRole omx_get_components_of_role_;
 } OMXContext;
 
-class OmxClient : public RefBase
-{
+class OmxClient : public RefBase {
 public:
   OmxClient();
 

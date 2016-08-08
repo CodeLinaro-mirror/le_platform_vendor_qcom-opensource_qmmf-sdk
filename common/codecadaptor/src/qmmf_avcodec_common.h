@@ -29,27 +29,29 @@
 
 #pragma once
 
-#include <linux/msm_ion.h>
 #include <functional>
 
 #include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/qmmf_common_utils.h"
-#include "common/qmmf_log.h"
 
 namespace qmmf {
-
 using namespace recorder;
 
 static const OMX_U32 kPortIndexInput = 0;
 static const OMX_U32 kPortIndexOutput = 1;
 
-typedef struct BufInfo {
-  uint32_t min_buffer_count;
-  uint32_t byffer_size;
-} BufInfo;
+//Codec will notify input port status to Track source.
+enum class CodecInputPortStatus {
+  kInputPortStart,
+  //Notify when codec received EOS from track source.
+  kInputPortStop,
+  //Notify when codec returned all buffer to track source.
+  kInputPortIdle,
+};
 
-typedef std::function<void(OMX_EVENTTYPE event)> AVCodecEventCb;
+typedef std::function<void(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2)>
+            AVCodecEventCb;
 
 typedef struct CodecCreateParam {
   VideoTrackCreateParam video_param;
@@ -61,10 +63,4 @@ typedef union CodecSetParam {
   AudioTrackCreateParam audio_param;
 } CodecSetParam;
 
-struct PrependSPSPPSToIDRFramesParams {
-  OMX_U32 nSize;
-  OMX_VERSIONTYPE nVersion;
-  OMX_BOOL bEnable;
-};
-
-}; //namespace qmmf::recorder
+}; //namespace qmmf

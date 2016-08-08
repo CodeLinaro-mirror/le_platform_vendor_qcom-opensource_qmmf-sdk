@@ -33,23 +33,13 @@
 
 #include <cstdint>
 #include <functional>
-#include <iomanip>
-#include <sstream>
-#include <string>
 #include <vector>
-
-#include <binder/Parcel.h>
 
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
 namespace recorder {
-
-using ::android::Parcel;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
 
 #define MAX_STRING_LENGTH 128
 #define MAX_IN_DEVICES    4
@@ -88,17 +78,6 @@ typedef struct TrackBuffer {
   uint32_t flag;
   uint32_t buf_id;
   size_t   capacity;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "data[" << data << "] ";
-    stream << "size[" << size << "] ";
-    stream << "timestamp[" << timestamp << "] ";
-    stream << "flag[" << setbase(16) << flag << setbase(10) << "]";
-    stream << "buf_id[" << buf_id << "] ";
-    stream << "capacity[" << capacity << "] ";
-    return stream.str();
-  }
 } TrackBuffer;
 
 enum class TrackMetaParamType {
@@ -157,49 +136,6 @@ typedef struct AudioTrackCreateParam {
   //TODO: define AudioOutDevice
   int32_t          out_device;
   uint32_t         flags;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "in_device[";
-    for (auto index = 0; index < num_in_devices; ++index)
-      stream << "[" << in_device[index] << "]";
-    stream << "] ";
-    stream << "num_in_devices[" << num_in_devices << "] ";
-    stream << "sample_rate[" << sample_rate << "] ";
-    stream << "channels[" << channels << "] ";
-    stream << "bit_depth[" << bit_depth << "] ";
-    stream << "format_type[" << static_cast<int>(format_type) << "]";
-    stream << "codec_param[" << codec_param.ToString(format_type) << "]";
-    stream << "out_device[" << out_device << "]";
-    stream << "flags[" << setbase(16) << flags << setbase(10) << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(num_in_devices);
-    for (auto index = 0; index < num_in_devices; ++index)
-      parcel->writeInt32(in_device[index]);
-    parcel->writeUint32(sample_rate);
-    parcel->writeUint32(channels);
-    parcel->writeUint32(bit_depth);
-    parcel->writeInt32(static_cast<int32_t>(format_type));
-    codec_param.ToParcel(format_type, parcel);
-    parcel->writeInt32(out_device);
-    parcel->writeUint32(flags);
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    num_in_devices = parcel.readInt32();
-    for (auto index = 0; index < num_in_devices; ++index)
-      in_device[index] = parcel.readInt32();
-    sample_rate = parcel.readUint32();
-    channels = parcel.readUint32();
-    bit_depth = parcel.readUint32();
-    format_type = static_cast<AudioFormat>(parcel.readInt32());
-    codec_param.FromParcel(parcel);
-    out_device = parcel.readInt32();
-    flags = parcel.readUint32();
-  }
 } AudioTrackCreateParam;
 
 // create time parameters for a video track

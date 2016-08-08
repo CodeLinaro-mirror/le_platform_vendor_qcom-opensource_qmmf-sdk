@@ -39,28 +39,28 @@ const char OmxClient::kOMXFreeHandleName[] = "OMX_FreeHandle";
 const char OmxClient::kOMXGetComponentsOfRoleName[] =
     "OMX_GetComponentsOfRole";
 
-OmxClient::OmxClient():codec_handle_(NULL), omx_context_()
-{
+OmxClient::OmxClient():codec_handle_(NULL), omx_context_() {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-OmxClient::~OmxClient()
-{
+OmxClient::~OmxClient() {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   ReleaseOmxHandle();
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
 OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
-                                         OMX_CALLBACKTYPE &callbacks)
-{
+                                         OMX_CALLBACKTYPE &callbacks) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   if (NULL == omx_context_.library_handle_) {
     omx_context_.library_handle_ = dlopen(kOMXPath, RTLD_NOW);
     if (omx_context_.library_handle_ == NULL) {
       char const *err_str = dlerror();
-      QMMF_ERROR("load: module=%s\n%s \n", kOMXPath,
+      QMMF_ERROR("%s:%s load: module=%s\n%s \n", TAG, __func__, kOMXPath,
                  err_str ? err_str : "unknown");
       ret = OMX_ErrorComponentNotFound;
       goto exit;
@@ -69,7 +69,8 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
     omx_context_.omx_get_handle_ = (OMXGetHandle)dlsym(
         omx_context_.library_handle_, kOMXGetHandleName);
     if (NULL == omx_context_.omx_get_handle_) {
-      QMMF_ERROR("load: couldn't find symbol %s\n", kOMXGetHandleName);
+      QMMF_ERROR("%s:%s load: couldn't find symbol %s\n", TAG, __func__,
+          kOMXGetHandleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
@@ -77,7 +78,8 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
     omx_context_.omx_free_handle_ = (OMXFreeHandle)dlsym(
         omx_context_.library_handle_, kOMXFreeHandleName);
     if (NULL == omx_context_.omx_free_handle_) {
-      QMMF_ERROR("load: couldn't find symbol %s\n", kOMXFreeHandleName);
+      QMMF_ERROR("%s:%s load: couldn't find symbol %s\n", TAG, __func__,
+          kOMXFreeHandleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
@@ -85,8 +87,8 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
     omx_context_.omx_get_components_of_role_ = (OMXGetComponentsOfRole)dlsym(
         omx_context_.library_handle_, kOMXGetComponentsOfRoleName);
     if (NULL == omx_context_.omx_free_handle_) {
-      QMMF_ERROR("load: couldn't find symbol %s\n",
-                 kOMXGetComponentsOfRoleName);
+      QMMF_ERROR("%s:%s load: couldn't find symbol %s\n", TAG, __func__,
+          kOMXGetComponentsOfRoleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
@@ -94,7 +96,7 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
   ret = omx_context_.omx_get_handle_(&codec_handle_,
                                      const_cast<char *>(Codecname),
                                      app_data, &callbacks);
-  QMMF_INFO("%s: created OMX handle = %p", __func__, codec_handle_);
+  QMMF_INFO("%s:%s created OMX handle(%p)", TAG, __func__, codec_handle_);
 
   return ret;
 
@@ -108,12 +110,12 @@ exit:
    return ret;
 }
 
-OMX_ERRORTYPE OmxClient::ReleaseOmxHandle()
-{
+OMX_ERRORTYPE OmxClient::ReleaseOmxHandle() {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   if(codec_handle_ && (NULL != omx_context_.omx_free_handle_)) {
-    QMMF_INFO("%s: Free OMX handle = %p", __func__, codec_handle_);
+    QMMF_INFO("%s: Free OMX handle(%p)", __func__, codec_handle_);
     ret = omx_context_.omx_free_handle_(codec_handle_);
     codec_handle_ = NULL;
   }
@@ -129,8 +131,8 @@ OMX_ERRORTYPE OmxClient::ReleaseOmxHandle()
 
 OMX_ERRORTYPE OmxClient::GetComponentsOfRole(OMX_STRING role,
                                              OMX_U32 *num_comps,
-                                             OMX_U8 **comp_names)
-{
+                                             OMX_U8 **comp_names) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   if (NULL != omx_context_.omx_get_components_of_role_) {
     ret = omx_context_.omx_get_components_of_role_(role, num_comps,
@@ -143,8 +145,8 @@ OMX_ERRORTYPE OmxClient::GetComponentsOfRole(OMX_STRING role,
 }
 
 OMX_ERRORTYPE OmxClient::GetParameter(OMX_INDEXTYPE param_index,
-                                      OMX_PTR param_data)
-{
+                                      OMX_PTR param_data) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret =  OMX_GetParameter(codec_handle_, param_index, param_data);
 
@@ -152,8 +154,8 @@ OMX_ERRORTYPE OmxClient::GetParameter(OMX_INDEXTYPE param_index,
 }
 
 OMX_ERRORTYPE OmxClient::SetParameter(OMX_INDEXTYPE param_index,
-                                      OMX_PTR param_data)
-{
+                                      OMX_PTR param_data) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_SetParameter(codec_handle_, param_index, param_data);
 
@@ -163,8 +165,8 @@ OMX_ERRORTYPE OmxClient::SetParameter(OMX_INDEXTYPE param_index,
 
 OMX_ERRORTYPE OmxClient::AllocateBuffer(OMX_BUFFERHEADERTYPE** buffer_hdr,
                                         OMX_U32 port, OMX_PTR app_data,
-                                        OMX_U32 size)
-{
+                                        OMX_U32 size) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_AllocateBuffer(codec_handle_, buffer_hdr, port, app_data, size);
 
@@ -173,8 +175,8 @@ OMX_ERRORTYPE OmxClient::AllocateBuffer(OMX_BUFFERHEADERTYPE** buffer_hdr,
 
 OMX_ERRORTYPE OmxClient::UseBuffer(OMX_BUFFERHEADERTYPE** buffer_hdr,
                                    OMX_U32 port, OMX_PTR app_data,
-                                   OMX_U32 size, OMX_U8 *buffer)
-{
+                                   OMX_U32 size, OMX_U8 *buffer) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_UseBuffer(codec_handle_, buffer_hdr, port, app_data, size, buffer);
 
@@ -182,8 +184,8 @@ OMX_ERRORTYPE OmxClient::UseBuffer(OMX_BUFFERHEADERTYPE** buffer_hdr,
 }
 
 OMX_ERRORTYPE OmxClient::FreeBuffer(OMX_BUFFERHEADERTYPE* buffer_hdr,
-                                    OMX_U32 port)
-{
+                                    OMX_U32 port) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_FreeBuffer(codec_handle_, port, buffer_hdr);
 
@@ -191,8 +193,8 @@ OMX_ERRORTYPE OmxClient::FreeBuffer(OMX_BUFFERHEADERTYPE* buffer_hdr,
 }
 
 OMX_ERRORTYPE OmxClient::SendCommand(OMX_COMMANDTYPE cmd, OMX_U32 port_index,
-                                     OMX_PTR cmd_data)
-{
+                                     OMX_PTR cmd_data) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   switch(cmd) {
     case OMX_CommandStateSet:
@@ -220,8 +222,8 @@ OMX_ERRORTYPE OmxClient::SendCommand(OMX_COMMANDTYPE cmd, OMX_U32 port_index,
 }
 
 OMX_ERRORTYPE OmxClient::GetConfig(OMX_INDEXTYPE config_index,
-                                   OMX_PTR config_data)
-{
+                                   OMX_PTR config_data) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_GetConfig(codec_handle_, config_index, config_data);
 
@@ -229,24 +231,24 @@ OMX_ERRORTYPE OmxClient::GetConfig(OMX_INDEXTYPE config_index,
 }
 
 OMX_ERRORTYPE OmxClient::SetConfig(OMX_INDEXTYPE config_index,
-                                   OMX_PTR config_data)
-{
+                                   OMX_PTR config_data) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_SetConfig(codec_handle_, config_index, config_data);
 
   return ret;
 }
 
-OMX_ERRORTYPE OmxClient::EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer)
-{
+OMX_ERRORTYPE OmxClient::EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_EmptyThisBuffer(codec_handle_, buffer);
 
   return ret;
 }
 
-OMX_ERRORTYPE OmxClient::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer)
-{
+OMX_ERRORTYPE OmxClient::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
+
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   ret = OMX_FillThisBuffer(codec_handle_, buffer);
 

@@ -126,6 +126,14 @@ class TrackSource : public IInputCodecSource {
 
   ~TrackSource();
 
+  status_t Init();
+
+  status_t DeInit();
+
+  status_t StartTrack();
+
+  status_t StopTrack();
+
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.
   status_t Read(StreamBuffer& buffer) override;
@@ -134,7 +142,7 @@ class TrackSource : public IInputCodecSource {
   status_t SignalBufferReturned(StreamBuffer& buffer) override;
 
   // This method is used by Encoder to notify stop.
-  status_t Stop() override;
+  status_t NotifyStatus(CodecInputPortStatus status) override;
 
   // Global track specific params can be query from TrackSource during its life
   // cycle.
@@ -146,19 +154,15 @@ class TrackSource : public IInputCodecSource {
 
   status_t ReturnTrackBuffer(std::vector<BnTrackBuffer>& buffers);
 
-  // Method to provide consumer interface, it would be used by producer to
-  // post buffers.
-  sp<IBufferConsumer>& GetConsumerIntf() { return buffer_consumer_impl_; }
-
-  status_t StartTrack();
-
-  status_t StopTrack();
-
   bool IsStop();
 
   void ClearInputQueue();
 
  private:
+
+  // Method to provide consumer interface, it would be used by producer to
+  // post buffers.
+  sp<IBufferConsumer>& GetConsumerIntf() { return buffer_consumer_impl_; }
 
   void PushFrameToQueue(StreamBuffer& buffer);
 
@@ -173,6 +177,10 @@ class TrackSource : public IInputCodecSource {
   bool                is_stop_;
   Mutex               stop_lock_;
 
+  // will be used till we make stop api as async.
+  Condition           wait_for_idle_;
+  Mutex               idle_lock_;
+
   // Maps of Unique buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
 
@@ -182,7 +190,7 @@ class TrackSource : public IInputCodecSource {
   // List of buffers held by encoder.
   TSQueue<StreamBuffer> frames_being_encoded_;
 
-  sp<CameraContext>     context_;
+  sp<CameraContext>     camera_context_;
 
 #ifdef DEBUG_TRACK_FPS
   struct timeval prevtv_;;

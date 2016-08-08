@@ -33,8 +33,8 @@
 CodecTest::CodecTest()
     :avcodec_(nullptr),
      ion_device_(-1),
-     stop_(false)
-{
+     stop_(false) {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
   ion_device_ = open("/dev/ion", O_RDONLY);
@@ -46,8 +46,8 @@ CodecTest::CodecTest()
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-CodecTest::~CodecTest()
-{
+CodecTest::~CodecTest() {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
   if(avcodec_)
@@ -59,16 +59,17 @@ CodecTest::~CodecTest()
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void CodecTest::CodecEventCallback(OMX_EVENTTYPE event
-                                   __attribute__((__unused__)))
-{
-  QMMF_INFO("%s:%s Error from Codec. Stop encoding ", TAG, __func__);
+void CodecTest::CodecEventCallback(OMX_EVENTTYPE event, OMX_U32 data1,
+                                   OMX_U32 data2) {
+
+  QMMF_ERROR("%s:%s Event callback: async error nData1(%u), nData2(%u)", TAG,
+        __func__, (unsigned int)data1, (unsigned int)data2);
   StopCodec();
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t CodecTest::CreateCodec(int argc, char *argv[])
-{
+status_t CodecTest::CreateCodec(int argc, char *argv[]) {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -82,7 +83,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[])
 
   ret = ParseConfig(argv[2], &params);
   if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to parse config file %s", TAG, __func__, argv[2]);
+    QMMF_ERROR("%s:%s Failed to parse config file(%s)", TAG, __func__, argv[2]);
     return ret;
   }
 
@@ -92,8 +93,8 @@ status_t CodecTest::CreateCodec(int argc, char *argv[])
     return NO_MEMORY;
   }
 
-  params.create_param.event_cb = [&] (OMX_EVENTTYPE event)
-      { CodecEventCallback(event);};
+  params.create_param.event_cb = [&] (OMX_EVENTTYPE event, OMX_U32 data1,
+      OMX_U32 data2) { CodecEventCallback(event, data1, data2);};
 
   ret = avcodec_->ConfigureCodec(params.codec_type, params.create_param);
   if(ret != OK) {
@@ -111,7 +112,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[])
   input_source_impl_= new InputCodecSourceImpl(params.input_file,
       params.record_frame);
   if(input_source_impl_.get() == nullptr) {
-    QMMF_ERROR("%s:%s failed to create input source",TAG, __func__);
+    QMMF_ERROR("%s:%s failed to create input source", TAG, __func__);
     return NO_MEMORY;
   }
 
@@ -153,8 +154,8 @@ status_t CodecTest::CreateCodec(int argc, char *argv[])
   return ret;
 }
 
-status_t CodecTest::DeleteCodec()
-{
+status_t CodecTest::DeleteCodec() {
+
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -164,18 +165,12 @@ status_t CodecTest::DeleteCodec()
   ret = ReleaseBuffer();
   assert(ret == OK);
 
-  if(input_source_impl_.get())
-    input_source_impl_.clear();
-
-  if(output_source_impl_.get())
-    output_source_impl_.clear();
-
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t CodecTest::StartCodec()
-{
+status_t CodecTest::StartCodec() {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -191,8 +186,8 @@ status_t CodecTest::StartCodec()
   return ret;
 }
 
-status_t CodecTest::StopCodec()
-{
+status_t CodecTest::StopCodec() {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -211,8 +206,8 @@ status_t CodecTest::StopCodec()
   return ret;
 }
 
-status_t CodecTest::ResumeCodec()
-{
+status_t CodecTest::ResumeCodec() {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -223,8 +218,8 @@ status_t CodecTest::ResumeCodec()
   return ret;
 }
 
-status_t CodecTest::PauseCodec()
-{
+status_t CodecTest::PauseCodec() {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
@@ -235,15 +230,15 @@ status_t CodecTest::PauseCodec()
   return ret;
 }
 
-bool CodecTest::IsStop()
-{
+bool CodecTest::IsStop() {
+
    Mutex::Autolock l(stop_lock_);
    return stop_;
 }
 
-status_t CodecTest::AllocateBuffer(OMX_U32 index)
-{
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+status_t CodecTest::AllocateBuffer(OMX_U32 index) {
+
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
   assert(ion_device_ > 0);
@@ -307,9 +302,9 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index)
       meta_handle->data[4] = alloc.len;
       buffer.handle = meta_handle;
 
-      QMMF_INFO("%s:%s  buffer native handle = %p", TAG, __func__, meta_handle);
-      QMMF_INFO("%s:%s  buffer ionFd = %d", TAG, __func__, meta_handle->data[0]);
-      QMMF_INFO("%s:%s  buffer frameLen = %d",TAG,__func__,meta_handle->data[4]);
+      QMMF_INFO("%s:%s  buffer native handle(%p)", TAG, __func__, meta_handle);
+      QMMF_INFO("%s:%s  buffer ionFd(%d)", TAG, __func__, meta_handle->data[0]);
+      QMMF_INFO("%s:%s  buffer frameLen(%d)",TAG,__func__,meta_handle->data[4]);
       input_buffer_list_.push_back(buffer);
     }
   } else {
@@ -357,9 +352,9 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index)
       buffer.filled_length      = alloc.len;
       buffer.pointer            = vaddr;
 
-      QMMF_INFO("%s:%s buffer.Fd = %d", TAG, __func__, buffer.fd );
-      QMMF_INFO("%s:%s buffer.frameLen = %d", TAG,__func__, buffer.frame_length);
-      QMMF_INFO("%s:%s buffer.vaddr = %p", TAG, __func__, buffer.pointer);
+      QMMF_INFO("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd );
+      QMMF_INFO("%s:%s buffer.frameLen(%d)", TAG,__func__, buffer.frame_length);
+      QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.pointer);
       output_buffer_list_.push_back(buffer);
     }
   }
@@ -380,8 +375,8 @@ ION_ALLOC_FAILED:
   return -1;
 }
 
-status_t CodecTest::ReleaseBuffer()
-{
+status_t CodecTest::ReleaseBuffer() {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
   for(auto& iter : ion_handle_data) {
@@ -417,8 +412,8 @@ status_t CodecTest::ReleaseBuffer()
   return 0;
 }
 
-status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params)
-{
+status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
+
   FILE *fp;
   bool isStreamReadCompleted = false;
   const int MAX_LINE = 128;
@@ -512,12 +507,15 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params)
       else
        params->create_param.video_param.codec_param.hevc.bitrate = atoi(value);
     } else if(!strncmp("Profile", key, strlen("Profile"))) {
+      //TODO: remove hard code value
       params->create_param.video_param.codec_param.avc.profile =
         AVCProfileType::kBaseline;
     } else if(!strncmp("Level", key, strlen("Level"))) {
+      //TODO: remove hard code value
       params->create_param.video_param.codec_param.avc.level =
         AVCLevelType::kLevel3;
     } else if(!strncmp("RateControl", key, strlen("RateControl"))) {
+      //TODO: remove hard code value
       if(avc)
         params->create_param.video_param.codec_param.avc.ratecontrol_type =
             VideoRateControlType::kVariable;
@@ -525,12 +523,16 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params)
         params->create_param.video_param.codec_param.hevc.ratecontrol_type =
             VideoRateControlType::kVariable;
     } else if(!strncmp("InitQpI", key, strlen("InitQpI"))) {
-      if(avc)
+      if(avc) {
         params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_IQP =
             atoi(value);
-      else
+        params->create_param.video_param.codec_param.avc.qp_params.enable_init_qp = true;
+      }
+      else {
         params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP =
             atoi(value);
+        params->create_param.video_param.codec_param.hevc.qp_params.enable_init_qp = true;
+      }
     } else if(!strncmp("InitQpP", key, strlen("InitQpP"))) {
       if(avc)
         params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_PQP =
@@ -543,9 +545,71 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params)
           params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_BQP =
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP =
+        params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP =
+            atoi(value);
+    } else if(!strncmp("MinQp", key, strlen("MinQp"))) {
+      if(avc) {
+        params->create_param.video_param.codec_param.avc.qp_params.qp_range.min_QP =
+            atoi(value);
+        params->create_param.video_param.codec_param.avc.qp_params.enable_qp_range = true;
+      } else {
+        params->create_param.video_param.codec_param.hevc.qp_params.qp_range.min_QP =
+            atoi(value);
+          params->create_param.video_param.codec_param.hevc.qp_params.enable_qp_range = true;
+      }
+    } else if(!strncmp("MaxQp", key, strlen("MaxQp"))) {
+      if(avc)
+        params->create_param.video_param.codec_param.avc.qp_params.qp_range.max_QP =
+            atoi(value);
+      else
+        params->create_param.video_param.codec_param.hevc.qp_params.qp_range.max_QP =
+            atoi(value);
+    } else if(!strncmp("IPBQPRangeMin_IQP", key, strlen("IPBQPRangeMin_IQP"))) {
+      if(avc) {
+        params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP =
+            atoi(value);
+        params->create_param.video_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+      } else {
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP =
               atoi(value);
-    } else {
+          params->create_param.video_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
+      }
+    } else if(!strncmp("IPBQPRangeMax_IQP", key, strlen("IPBQPRangeMax_IQP"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP =
+              atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP =
+              atoi(value);
+    } else if(!strncmp("IPBQPRangeMin_PQP", key, strlen("IPBQPRangeMin_PQP"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP =
+              atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP =
+              atoi(value);
+    } else if(!strncmp("IPBQPRangeMax_PQP", key, strlen("IPBQPRangeMax_PQP"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP=
+              atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP =
+              atoi(value);
+    } else if(!strncmp("IPBQPRangeMin_BQP", key, strlen("IPBQPRangeMin_BQP"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP =
+              atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP =
+              atoi(value);
+    } else if(!strncmp("IPBQPRangeMax_BQP", key, strlen("IPBQPRangeMax_BQP"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP =
+              atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
+              atoi(value);
+    }else {
         QMMF_ERROR("%s:%s Unknown Key %s found", TAG, __func__, key);
         goto READ_FAILED;
     }
@@ -558,8 +622,9 @@ READ_FAILED:
   return -1;
 }
 
-InputCodecSourceImpl::InputCodecSourceImpl(char* file_name, uint32_t num_frame)
-{
+InputCodecSourceImpl::InputCodecSourceImpl(char* file_name,
+                                           uint32_t num_frame) {
+
   QMMF_INFO("%s:%s  Enter",TAG, __func__);
 
   input_file_ = fopen(file_name, "r");
@@ -572,14 +637,14 @@ InputCodecSourceImpl::InputCodecSourceImpl(char* file_name, uint32_t num_frame)
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-InputCodecSourceImpl::~InputCodecSourceImpl()
-{
+InputCodecSourceImpl::~InputCodecSourceImpl() {
+
   QMMF_INFO("%s:%s  Enter", TAG, __func__);
   QMMF_INFO("%s:%s  Exit", TAG, __func__);
 }
 
-void InputCodecSourceImpl::AddBufferList(Vector<StreamBuffer>& list)
-{
+void InputCodecSourceImpl::AddBufferList(Vector<StreamBuffer>& list) {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
   input_list_ = list;
@@ -592,15 +657,15 @@ void InputCodecSourceImpl::AddBufferList(Vector<StreamBuffer>& list)
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t InputCodecSourceImpl::Stop()
-{
+status_t InputCodecSourceImpl::NotifyStatus(CodecInputPortStatus status) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return 0;
 }
 
-status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer)
-{
+status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
+
   status_t ret = 0;
 
   static OMX_TICKS time_stamp = 0;
@@ -634,7 +699,7 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer)
   }
 
   if((num_frame_read != -1) && (frame_count > num_frame_read)) {
-    QMMF_INFO("%s:%s Number of Frame read completed %d. Send EOS", TAG, __func__,
+    QMMF_INFO("%s:%s Number of Frame read completed(%d). Send EOS", TAG, __func__,
         frame_count);
     ret = -1;
   }
@@ -647,15 +712,12 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer)
   time_stamp = time_stamp + (OMX_TICKS)(1000000 / 30);
   stream_buffer.timestamp = time_stamp;
 
-  QMMF_INFO("%s:%s ETB buffer handle(%p), fd(%d)", TAG, __func__,
-      stream_buffer.handle, stream_buffer.handle->data[0]);
-
   return ret;
 }
 
 status_t InputCodecSourceImpl::ReadFile(int32_t fd, uint32_t frame_length,
-                                        int32_t *read)
-{
+                                        int32_t *read) {
+
   //TODO: map only first time buffer comes.
   void *buffer = mmap(nullptr, frame_length, PROT_READ  | PROT_WRITE,
                      MAP_SHARED, fd, 0);
@@ -664,14 +726,13 @@ status_t InputCodecSourceImpl::ReadFile(int32_t fd, uint32_t frame_length,
   char *yuv = (char *)(buffer);
   int32_t width = 1280;
   int32_t height = 720;
-  int32_t i, lscanl, lstride, cscanl, cstride;
+  int32_t i, lscanl, lstride, cstride;
   int32_t should = 0;
   int32_t actual = 0;
 
   lstride = VENUS_Y_STRIDE(COLOR_FMT_NV12, width);
   lscanl = VENUS_Y_SCANLINES(COLOR_FMT_NV12, height);
   cstride = VENUS_UV_STRIDE(COLOR_FMT_NV12, width);
-  cscanl = VENUS_UV_SCANLINES(COLOR_FMT_NV12, height);
   for (i = 0; i < height; i++) {
     actual += (int)fread(yuv, 1, width, input_file_);
     should += lstride;
@@ -695,13 +756,11 @@ status_t InputCodecSourceImpl::ReadFile(int32_t fd, uint32_t frame_length,
   }
 }
 
-status_t InputCodecSourceImpl::SignalBufferReturned(StreamBuffer& buffer)
-{
-  status_t ret = 0;
-  QMMF_INFO("%s:%s ETB buffer handle(%p), fd(%d)", TAG, __func__, buffer.handle,
-      buffer.handle->data[0]);
+status_t InputCodecSourceImpl::SignalBufferReturned(StreamBuffer& buffer) {
 
+  status_t ret = 0;
   bool found = false;
+
   List<StreamBuffer>::iterator it = input_occupy_buffer_queue_.Begin();
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
     if ((*it).handle ==  buffer.handle) {
@@ -717,16 +776,16 @@ status_t InputCodecSourceImpl::SignalBufferReturned(StreamBuffer& buffer)
   return ret;
 }
 
-void InputCodecSourceImpl::BufferStatus()
-{
+void InputCodecSourceImpl::BufferStatus() {
+
   QMMF_INFO("%s:%s Total Buffer(%d), free(%d), occupy(%d)", TAG, __func__,
       input_list_.size(), input_free_buffer_queue_.Size(),
       input_occupy_buffer_queue_.Size());
   assert(input_occupy_buffer_queue_.Size() == 0);
 }
 
-OutputCodecSourceImpl::OutputCodecSourceImpl(char* file_name)
-{
+OutputCodecSourceImpl::OutputCodecSourceImpl(char* file_name) {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
   file_fd_ = open(file_name, O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -737,14 +796,14 @@ OutputCodecSourceImpl::OutputCodecSourceImpl(char* file_name)
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-OutputCodecSourceImpl::~OutputCodecSourceImpl()
-{
+OutputCodecSourceImpl::~OutputCodecSourceImpl() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-void OutputCodecSourceImpl::AddBufferList(Vector<CodecBuffer>& list)
-{
+void OutputCodecSourceImpl::AddBufferList(Vector<CodecBuffer>& list) {
+
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
   output_list_ = list;
@@ -758,8 +817,8 @@ void OutputCodecSourceImpl::AddBufferList(Vector<CodecBuffer>& list)
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t OutputCodecSourceImpl::GetBuffer(CodecBuffer& codec_buffer)
-{
+status_t OutputCodecSourceImpl::GetBuffer(CodecBuffer& codec_buffer) {
+
   status_t ret = 0;
 
   if(output_free_buffer_queue_.Size() <= 0) {
@@ -775,18 +834,14 @@ status_t OutputCodecSourceImpl::GetBuffer(CodecBuffer& codec_buffer)
   output_occupy_buffer_queue_.PushBack(iter);
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
 
-  QMMF_INFO("%s:%s FTB buffer(%p), fd(%d)", TAG, __func__, codec_buffer.pointer,
-      codec_buffer.fd);
   return ret;
 }
 
-status_t OutputCodecSourceImpl::ReturnBuffer(CodecBuffer& codec_buffer)
-{
+status_t OutputCodecSourceImpl::ReturnBuffer(CodecBuffer& codec_buffer) {
+
   status_t ret = 0;
 
   assert(codec_buffer.pointer != nullptr);
-  QMMF_INFO("%s:%s FBD buffer(%p), filled length(%d)", TAG, __func__,
-      codec_buffer.pointer, codec_buffer.filled_length);
 
   if(file_fd_ > 0) {
     ssize_t expSize = (ssize_t) codec_buffer.filled_length;
@@ -823,16 +878,16 @@ status_t OutputCodecSourceImpl::ReturnBuffer(CodecBuffer& codec_buffer)
   return ret;
 }
 
-void OutputCodecSourceImpl::BufferStatus()
-{
+void OutputCodecSourceImpl::BufferStatus() {
+
   QMMF_INFO("%s:%s Total Buffer(%d), free(%d), occupy(%d)", TAG, __func__,
       output_list_.size(), output_free_buffer_queue_.Size(),
       output_occupy_buffer_queue_.Size());
   assert(output_occupy_buffer_queue_.Size() == 0);
 }
 
-void CmdMenu::PrintMenu()
-{
+void CmdMenu::PrintMenu() {
+
   printf("\n\n=========== QIPCAM TEST MENU ===================\n\n");
 
   printf(" \n\nCodec Test Application commands \n");
@@ -847,14 +902,14 @@ void CmdMenu::PrintMenu()
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand()
-{
+CmdMenu::Command CmdMenu::GetCommand() {
+
   PrintMenu();
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
-int main(int argc,char *argv[])
-{
+int main(int argc,char *argv[]) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
   CodecTest test_context;

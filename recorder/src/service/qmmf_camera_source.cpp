@@ -208,26 +208,12 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     return NO_MEMORY;
   }
 
-  assert(camera_context.get() != NULL);
-  CameraStreamParam stream_param;
-  memset(&stream_param, 0x0, sizeof stream_param);
-  stream_param.cam_stream_dim.width  = param.width;
-  stream_param.cam_stream_dim.height = param.height;
-  stream_param.cam_stream_format     = CameraStreamFormat::kNV21; //don't care
-  stream_param.cam_stream_type       = param.camera_stream_type;
-  stream_param.frame_rate            = param.frame_rate;
-  stream_param.id                    = param.track_id;
-
-  auto ret = camera_context->CreateStream(stream_param);
+  auto ret = track_source->Init();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
+    QMMF_ERROR("%s:%s: track_id(%d) TrackSource Init failed!", TAG, __func__,
+        track_id);
     goto FAIL;
   }
-
-  QMMF_INFO("%s:%s: TrackSource(0x%x)(%dx%d) and Camera Device Stream "
-      " Created Succesffuly for track_id(%d)", TAG, __func__, track_source.get()
-      , param.width, param.height, track_id);
-
   track_sources_.add(track_id, track_source);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
@@ -243,17 +229,10 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-
   sp<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != NULL);
-  /*
-  * Find out the CameraContext to which this track belongs to.
-  */
-  uint32_t camera_id = track->getParams().camera_ids[0];
-  sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != NULL);
 
-  auto ret = camera_context->DeleteStream(track_id);
+  auto ret = track->DeInit();
   assert(ret == NO_ERROR);
 
   track_sources_.removeItem(track_id);
@@ -268,35 +247,18 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-
   sp<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != NULL);
 
-  //Find out the CameraContext to which this track belongs to.
-  // TODO: enhance it for 360 camera usecase where one track can be associated
-  // with two different streams from two cameras.
-  uint32_t camera_id = track->getParams().camera_ids[0];
-  sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != NULL);
-
-  sp<IBufferConsumer> consumer;
-  consumer = track->GetConsumerIntf();
-  assert(consumer.get() != NULL);
-
-  track->StartTrack();
-
-  auto ret = camera_context->StartStream(track_id, consumer);
+  auto ret = track->StartTrack();
   assert(ret == NO_ERROR);
 
   QMMF_VERBOSE("%s:%s: TrackSource id(%d) Started Succesffuly!", TAG, __func__,
       track_id);
-
   return ret;
 }
 
 status_t CameraSource::StopTrackSource(const uint32_t track_id) {
-
-  int32_t ret = NO_ERROR;
 
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
@@ -305,36 +267,9 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   sp<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != NULL);
 
-  VideoTrackParams params = track->getParams();
-  if (params.format_type == VideoFormat::kYUV ||
-      params.format_type == VideoFormat::kBayerRDI ||
-      params.format_type == VideoFormat::kBayerIdeal) {
+  auto ret = track->StopTrack();
+  assert(ret == NO_ERROR);
 
-      //Encoder is not involved in this case.
-      uint32_t camera_id = track->getParams().camera_ids[0];
-      sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-      assert(camera_context.get() != NULL);
-
-      auto ret = camera_context->StopStream(track_id);
-      assert(ret == NO_ERROR);
-
-  } else {
-    // Stop sequence:
-    // 1. Send EOS to encoder with last valid buffer. If read thread is waiting
-    //    then wait for buffer and send EOS to encoder then stop feeding the
-    //    buffers to encoder.
-    // 2. Once Encoder acknowledges EOS and gives stop callback then call
-    //    stop camera port and break its connection with TrackSource.
-    // 3. Return all the buffers back to camera port from frames_received_ queue
-    //    if any. there are very less chances frames_received_ list wil have
-    //    buffers after we send EOS to encoder and before we break the connection
-    //    between CameraPort and TrackSource. but it is very important to check
-    //    otherwise camera adaptor will not go in idle state or will fail to delete
-    //    camera stream.
-    // 4. Once Encoder receives EOS it will return all pending buffer held in
-    //    being encoded list.
-    track->StopTrack();
-  }
   QMMF_VERBOSE("%s:%s: TrackSource id(%d) Stopped Succesffuly!", TAG, __func__,
       track_id);
   return ret;
@@ -437,7 +372,7 @@ TrackSource::TrackSource(VideoTrackParams& params, sp<CameraContext>& context)
   impl = new BufferConsumerImpl<TrackSource>(this);
   buffer_consumer_impl_ = impl;
   assert(context.get() != nullptr);
-  context_ = context;
+  camera_context_ = context;
 
 #ifdef DEBUG_TRACK_FPS
   timeval prevtv_ = {0x0, 0x0};
@@ -453,16 +388,142 @@ TrackSource::~TrackSource() {
   QMMF_INFO("%s:%s: Exit(0x%x) ", TAG, __func__, this);
 }
 
-status_t TrackSource::Stop() {
+status_t TrackSource::Init() {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
-  // Encoder Received the EOS successfully, stop the camera stream and clear
-  // the queue.
-  QMMF_INFO("%s:%s: EOS acknowledged by Endor!!", TAG, __func__);
-  assert(context_.get() != nullptr);
-  auto ret = context_->StopStream(TrackId());
+
+  CameraStreamParam stream_param;
+  memset(&stream_param, 0x0, sizeof stream_param);
+  stream_param.cam_stream_dim.width  = track_params_.width;
+  stream_param.cam_stream_dim.height = track_params_.height;
+  stream_param.cam_stream_format     = CameraStreamFormat::kNV21; //don't care
+  stream_param.cam_stream_type       = track_params_.camera_stream_type;
+  stream_param.frame_rate            = track_params_.frame_rate;
+  stream_param.id                    = track_params_.track_id;
+
+  assert(camera_context_.get() != NULL);
+  auto ret = camera_context_->CreateStream(stream_param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  QMMF_INFO("%s:%s: TrackSource(0x%x)(%dx%d) and Camera Device Stream "
+      " Created Succesffuly for track_id(%d)", TAG, __func__, this,
+      track_params_.width, track_params_.height, TrackId());
+
+  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t TrackSource::DeInit() {
+
+  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  assert(camera_context_.get() != NULL);
+  auto ret = camera_context_->DeleteStream(TrackId());
   assert(ret == NO_ERROR);
-  ClearInputQueue();
+
+  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t TrackSource::StartTrack() {
+
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  assert(camera_context_.get() != NULL);
+
+  Mutex::Autolock lock(stop_lock_);
+  is_stop_ = false;
+
+  sp<IBufferConsumer> consumer;
+  consumer = GetConsumerIntf();
+  assert(consumer.get() != NULL);
+
+  auto ret = camera_context_->StartStream(TrackId(), consumer);
+  assert(ret == NO_ERROR);
+
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t TrackSource::StopTrack() {
+
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  {
+    Mutex::Autolock lock(stop_lock_);
+    is_stop_ = true;
+  }
+  // Stop sequence when encoder is involved.
+  // 1. Send EOS to encoder with last valid buffer. If frames_received_ queue is
+  //    empty and read thread is waiting for buffers then wait till next buffer
+  //    is available then send EOS to encoder. once EOS is notified encoder will
+  //    stop calling read method.
+  // 2. Once EOS is acknowledged by encoder stop the camera port, which in turn
+  //    will break port's connection with TrackSource.
+  // 3. Return all the buffers back to camera port from frames_received_ queue
+  //    if any. there are very less chances frames_received_ list wil have
+  //    buffers after we send EOS to encoder and before we break the connection
+  //    between CameraPort and TrackSource, it is very important to check
+  //    otherwise camera adaptor will never go in idle state and as a side
+  //    effect delete camera stream would fail.
+  // 4. Once all buffers are returned at input port of encoder it will notify
+  //    the status:kInputPortIdle, and at this point client's stop method can be
+  //    returned.
+
+  bool wait = true;
+  if (track_params_.format_type == VideoFormat::kYUV ||
+      track_params_.format_type == VideoFormat::kBayerRDI ||
+      track_params_.format_type == VideoFormat::kBayerIdeal) {
+
+    //Encoder is not involved in this case.
+    assert(camera_context_.get() != NULL);
+    auto ret = camera_context_->StopStream(TrackId());
+    assert(ret == NO_ERROR);
+
+    QMMF_DEBUG("%s:%s: track_id(%d) buffer_list_.size(%d)", TAG, __func__,
+        TrackId(), buffer_list_.size());
+    if (buffer_list_.size() == 0) {
+      wait = false;
+    }
+  } else {
+      QMMF_DEBUG("%s:%s: track_id(%d), Wait for Encoder to return being encoded"
+          " buffers!", TAG, __func__, TrackId());
+  }
+  if (wait) {
+    auto ret = wait_for_idle_.waitRelative(idle_lock_, kWaitDuration);
+    if (ret == TIMED_OUT) {
+        QMMF_ERROR("%s:%s: track_id(%d) StopTrack Timed out happend! Encoder"
+        "failed to go in Idle state!", TAG, __func__, TrackId());
+      return ret;
+    }
+  }
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
+
+  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  if(status == CodecInputPortStatus::kInputPortStop) {
+    // Encoder Received the EOS with valid last buffer successfully, stop the
+    // camera stream and clear the received buffer queue.
+    QMMF_INFO("%s:%s: EOS acknowledged by Encoder!!", TAG, __func__);
+    assert(camera_context_.get() != nullptr);
+    auto ret = camera_context_->StopStream(TrackId());
+    assert(ret == NO_ERROR);
+    ClearInputQueue();
+
+  } else if(status == CodecInputPortStatus::kInputPortIdle) {
+    // All input port buffers from encoder are returned, Being encoded queue
+    // should be zero at this point.
+    assert(frames_being_encoded_.Size() == 0);
+    QMMF_INFO("%s:%s: All queued buffers are returned from encoder!!", TAG,
+        __func__);
+    // wait_for_idle_ will not be needed once we make stop api as async.
+    Mutex::Autolock lock(idle_lock_);
+    wait_for_idle_.signal();
+  }
 
   QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
@@ -532,8 +593,7 @@ status_t TrackSource::SignalBufferReturned(StreamBuffer& buffer) {
 
 void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
-  QMMF_VERBOSE("%s:%s: Enter track_id = %d", TAG, __func__,
-      TrackId());
+  QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
 #ifdef NO_FRAME_PROCESS
   buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
@@ -548,7 +608,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   count_++;
   if(time_diff >= FPS_TIME_INTERVAL) {
     float framerate = (count_ * 1000000)/(float)time_diff;
-    QMMF_INFO("%s:%s: Track_id(%d):fps: = %0.2f", TAG, __func__,
+    QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
         TrackId(), framerate);
     prevtv_ = tv;
     count_ = 0;
@@ -563,11 +623,14 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   uint32_t ion_fd       = native_handle->data[0];
   uint32_t frame_length = native_handle->data[4];
 
-  QMMF_VERBOSE("%s:%s: numInts = %d", TAG, __func__, native_handle->numInts);
+  QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
+      native_handle->numInts);
   for (uint32_t i = 0; i < native_handle->numInts; i++) {
-    QMMF_VERBOSE("%s:%s: data[%d] =%d", TAG, __func__, i, native_handle->data[i]);
+    QMMF_VERBOSE("%s:%s: track_id(%d) data[%d] =%d", TAG, __func__, TrackId(),
+        i , native_handle->data[i]);
   }
-  QMMF_DEBUG("%s:%s: ion_fd = %d", TAG, __func__, ion_fd);
+  QMMF_DEBUG("%s:%s: track_id(%d) ion_fd = %d", TAG, __func__, TrackId(),
+      ion_fd);
 
 #ifdef ENABLE_FRAME_DUMP
   static uint32_t id;
@@ -613,11 +676,18 @@ FAIL:
   }
 #endif
 
-  // if format type is YUV or BAYER then give callback from this point, do not
+  // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.format_type == VideoFormat::kYUV ||
       track_params_.format_type == VideoFormat::kBayerRDI ||
       track_params_.format_type == VideoFormat::kBayerIdeal) {
+
+    if(IsStop()) {
+      QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
+          " to client!", TAG, __func__, TrackId());
+      buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+      return;
+    }
 
     BnTrackBuffer bn_buffer;
     memset(&bn_buffer, 0x0, sizeof bn_buffer);
@@ -632,7 +702,6 @@ FAIL:
 
     // Buffers from this list used for YUV callback.
     buffer_list_.add(ion_fd, buffer);
-
     std::vector<BnTrackBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
     track_params_.data_cb(TrackId(), bn_buffers,
@@ -648,21 +717,35 @@ FAIL:
 status_t TrackSource::ReturnTrackBuffer(std::vector<BnTrackBuffer>&
                                         bn_buffers) {
 
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(bn_buffers.size() > 0);
   assert(buffer_consumer_impl_ != NULL);
 
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
-    QMMF_VERBOSE("%s:%s: bn_buffers[%d].ion_fd=%d", TAG, __func__, i,
-        bn_buffers[i].ion_fd);
+    QMMF_VERBOSE("%s:%s: track_id(%d) bn_buffers[%d].ion_fd=%d", TAG, __func__,
+        TrackId(), i, bn_buffers[i].ion_fd);
     int32_t idx = buffer_list_.indexOfKey(bn_buffers[i].ion_fd);
     assert(idx >= 0);
-    QMMF_VERBOSE("%s:%s: Buffer fd(%d) found in list", TAG, __func__,
-        bn_buffers[i].ion_fd);
+    QMMF_DEBUG("%s:%s: track_id(%d) Buffer fd(%d) found in list", TAG, __func__,
+        TrackId(), bn_buffers[i].ion_fd);
     StreamBuffer buffer = buffer_list_.valueFor(bn_buffers[i].ion_fd);
     buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+    buffer_list_.removeItem(bn_buffers[i].ion_fd);
   }
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  if (IsStop()) {
+    if (buffer_list_.size() > 0) {
+      QMMF_INFO("%s:%s: track_id(%d) Stop is triggered, but still num raw "
+          "buffers(%d) are with client!", TAG, __func__, TrackId(),
+          buffer_list_.size());
+    } else {
+      // wait_for_idle_ will not be needed once we make stop api as async.
+      QMMF_INFO("%s:%s: track_id(%d) Stop is triggered, all raw buffers are"
+          " returned from client!", TAG, __func__, TrackId());
+      Mutex::Autolock lock(idle_lock_);
+      wait_for_idle_.signal();
+    }
+  }
+  QMMF_VERBOSE("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -672,29 +755,11 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
   Mutex::Autolock lock(lock_);
   frames_received_.PushBack(buffer);
-  QMMF_DEBUG("%s:%s: frames_received.size(%d)", TAG, __func__,
-      frames_received_.Size());
+  QMMF_DEBUG("%s:%s: track_id(%d) frames_received.size(%d)", TAG, __func__,
+      TrackId(), frames_received_.Size());
   wait_for_frame_.signal();
 
   QMMF_VERBOSE("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
-}
-
-status_t TrackSource::StartTrack() {
-
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  Mutex::Autolock lock(stop_lock_);
-  is_stop_ = false;
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
-  return NO_ERROR;
-}
-
-status_t TrackSource::StopTrack() {
-
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  Mutex::Autolock lock(stop_lock_);
-  is_stop_ = true;
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
-  return NO_ERROR;
 }
 
 bool TrackSource::IsStop() {

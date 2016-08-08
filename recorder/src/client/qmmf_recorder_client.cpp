@@ -41,6 +41,7 @@
 
 #include "recorder/src/client/qmmf_recorder_client.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
+#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
@@ -344,7 +345,7 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-               param.ToString().c_str());
+               AudioTrackCreateParamI(param).ToString().c_str());
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
@@ -414,7 +415,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   for (const TrackBuffer& buffer : buffers)
     QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
-                 buffer.ToString().c_str());
+                 TrackBufferI(buffer).ToString().c_str());
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1223,13 +1224,13 @@ public:
       QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
       QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
       QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-                   param.ToString().c_str());
+                   AudioTrackCreateParamI(param).ToString().c_str());
       Parcel data, reply;
 
       data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
       data.writeUint32(session_id);
       data.writeUint32(track_id);
-      param.ToParcel(&data);
+      AudioTrackCreateParamI(param).ToParcel(&data);
 
       remote()->transact(
           uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_CREATE_AUDIOTRACK),

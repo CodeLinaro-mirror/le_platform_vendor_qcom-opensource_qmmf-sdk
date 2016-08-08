@@ -29,6 +29,7 @@
 
 #define TAG "RecorderService"
 
+#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
 
 namespace qmmf {
@@ -169,7 +170,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         {
             uint32_t session_id = data.readUint32();
             uint32_t track_id = data.readUint32();
-            AudioTrackCreateParam params;
+            AudioTrackCreateParamI params;
             params.FromParcel(data);
 
             QMMF_DEBUG("%s:%s-CreateAudioTrack() TRACE", TAG, __func__);
@@ -178,7 +179,8 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
             QMMF_VERBOSE("%s:%s-CreateAudioTrack() INPARAM: track_id[%u]",
                          TAG, __func__, track_id);
             QMMF_VERBOSE("%s:%s-CreateAudioTrack() INPARAM: params[%s]",
-                         TAG, __func__, params.ToString().c_str());
+                         TAG, __func__,
+                         params.ToString().c_str());
             ret = CreateAudioTrack(session_id, track_id, params);
 
             reply->writeInt32(ret);
@@ -676,7 +678,7 @@ status_t RecorderService::CreateAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-               param.ToString().c_str());
+               AudioTrackCreateParamI(param).ToString().c_str());
   assert(recorder_ != NULL);
 
   auto ret = recorder_->CreateAudioTrack(session_id, track_id, param);

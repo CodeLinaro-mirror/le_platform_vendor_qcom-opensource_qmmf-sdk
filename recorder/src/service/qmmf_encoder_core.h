@@ -115,7 +115,7 @@ class TrackEncoder : public IOutputCodecSource {
   // This methos Notifies bitstream buffer to remote client.
   void NotifyBufferToClient(CodecBuffer& codec_buffer);
 
-  void EventCallback(OMX_EVENTTYPE event);
+  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
 #ifdef DUMP_BITSTREAM
   void DumpBitStream(CodecBuffer& codec_buffer);

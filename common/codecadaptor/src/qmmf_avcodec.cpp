@@ -43,25 +43,23 @@ AVCodec::AVCodec()
       input_stop_(false),
       output_stop_(false),
       port_status_(true),
-      in_buff_hdr_size(0),
-      out_buff_hdr_size(0),
       cmd_buffer_index_(0),
-      signal_queue_(CMD_BUF_MAX_COUNT)
-{
+      signal_queue_(CMD_BUF_MAX_COUNT) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
   omx_client_ = new OmxClient();
   if(nullptr == omx_client_.get())
       QMMF_ERROR("%s:%s OMX-IL createtion failed", TAG, __func__);
   else
-      QMMF_INFO("%s:%s created OMX-IL instance %p", TAG, __func__,
+      QMMF_INFO("%s:%s created OMX-IL instance(%p)", TAG, __func__,
           omx_client_.get());
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-AVCodec::~AVCodec()
-{
+AVCodec::~AVCodec() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
   if(omx_client_.get()) {
@@ -72,13 +70,13 @@ AVCodec::~AVCodec()
   state_pending_ = OMX_StateInvalid;
   input_source_ = nullptr;
   output_source_ = nullptr;
-  if(in_buff_hdr) {
-    delete []in_buff_hdr;
-    in_buff_hdr = nullptr;
+  if(in_buff_hdr_) {
+    delete []in_buff_hdr_;
+    in_buff_hdr_ = nullptr;
   }
-  if(out_buff_hdr) {
-    delete []out_buff_hdr;
-    out_buff_hdr = nullptr;
+  if(out_buff_hdr_) {
+    delete []out_buff_hdr_;
+    out_buff_hdr_ = nullptr;
   }
   cmd_buffer_index_ = 0;
   signal_queue_.Clear();
@@ -86,8 +84,8 @@ AVCodec::~AVCodec()
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t AVCodec::CreateHandle(char* component_name)
-{
+status_t AVCodec::CreateHandle(char* component_name) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -102,8 +100,8 @@ status_t AVCodec::CreateHandle(char* component_name)
   return ret;
 }
 
-status_t AVCodec::DeleteHandle()
-{
+status_t AVCodec::DeleteHandle() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -121,8 +119,8 @@ status_t AVCodec::DeleteHandle()
 }
 
 status_t AVCodec::GetComponentRole(char* role, uint32_t *num_comps,
-                                   OMX_U8 **comp_names)
-{
+                                   OMX_U8 **comp_names) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret;
 
@@ -137,8 +135,8 @@ status_t AVCodec::GetComponentRole(char* role, uint32_t *num_comps,
 }
 
 status_t AVCodec::ConfigureCodec(CodecType format_type,
-                                 CodecCreateParam& codec_param)
-{
+                                 CodecCreateParam& codec_param) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -195,8 +193,8 @@ status_t AVCodec::ConfigureCodec(CodecType format_type,
   return ret;
 }
 
-status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param)
-{
+status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -209,8 +207,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param)
   memset(&param, 0, sizeof(PrependSPSPPSToIDRFramesParams));
   param.nSize = sizeof(PrependSPSPPSToIDRFramesParams);
   param.bEnable = OMX_FALSE;
-  ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_QcomIndexParamSequenceHeaderWithIDR,
-                                  (OMX_PTR)&param);
+  ret = omx_client_->SetParameter(
+            (OMX_INDEXTYPE)OMX_QcomIndexParamSequenceHeaderWithIDR,
+            (OMX_PTR)&param);
   if (ret != OK) {
       QMMF_ERROR("%s:%s Failed to configure in band sps/pps", TAG, __func__);
       return ret;
@@ -218,13 +217,15 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param)
 
   ret = SetPortParams(kPortIndexInput, width, height, frame_rate);
   if (ret != OK) {
-    QMMF_ERROR("%s:%s Failed to set port definiton on Input Port", TAG, __func__);
+    QMMF_ERROR("%s:%s Failed to set port definiton on %s", TAG, __func__,
+        OMX_PORT_NAME(kPortIndexInput));
     return ret;
   }
 
   ret = SetPortParams(kPortIndexOutput, width, height, frame_rate);
   if (ret != OK) {
-    QMMF_ERROR("%s:%s Failed to set port definiton on Output Port", TAG, __func__);
+    QMMF_ERROR("%s:%s Failed to set port definiton on %s", TAG, __func__,
+        OMX_PORT_NAME(kPortIndexOutput));
     return ret;
   }
 
@@ -257,8 +258,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param)
 }
 
 status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
-                                OMX_U32 frame_rate)
-{
+                                OMX_U32 frame_rate) {
+
   status_t ret = 0;
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
   InitOMXParams(&port_def);
@@ -267,7 +268,7 @@ status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
   ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
                                  (OMX_PTR)&port_def);
   if(ret != 0) {
-    QMMF_ERROR("%s:%s Failed to get OMX_IndexParamPortDefinition", TAG,__func__);
+    QMMF_ERROR("%s:%s Failed to get OMX_IndexParamPortDefinition",TAG,__func__);
     return ret;
   }
 
@@ -278,7 +279,7 @@ status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
   ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
                                  (OMX_PTR)&port_def);
   if(ret != 0) {
-    QMMF_ERROR("%s:%s failed to set OMX_IndexParamPortDefinition", TAG,__func__);
+    QMMF_ERROR("%s:%s failed to set OMX_IndexParamPortDefinition",TAG,__func__);
     return ret;
   }
 
@@ -286,8 +287,8 @@ status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
 }
 
 status_t AVCodec::GetBufferRequirements(OMX_U32 port_index, uint32_t *buf_count,
-                                        uint32_t *buf_size)
-{
+                                        uint32_t *buf_size) {
+
   status_t ret = 0;
 
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
@@ -297,38 +298,14 @@ status_t AVCodec::GetBufferRequirements(OMX_U32 port_index, uint32_t *buf_count,
   ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
                                  (OMX_PTR)&port_def);
   if(ret != 0) {
-    QMMF_ERROR("%s:%s Failed to get OMX_IndexParamPortDefinition", TAG, __func__);
+    QMMF_ERROR("%s:%s Failed to get OMX_IndexParamPortDefinition",TAG, __func__);
     return ret;
   }
 
   *buf_count = port_def.nBufferCountActual;
   *buf_size = port_def.nBufferSize;
 
-  //TODO: For meta mode only. Check in case of audio and Jpeg
-  if(port_index == kPortIndexInput) {
-    StoreMetaDataInBuffersParams meta_mode;
-    InitOMXParams(&meta_mode);
-    meta_mode.nPortIndex = port_index;
-    meta_mode.bStoreMetaData = OMX_TRUE;
-    ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoMetaBufferMode,
-              (OMX_PTR)&meta_mode);
-    if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set MetaBufferMode", TAG, __func__);
-      return ret;
-    }
-
-    ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
-                                   (OMX_PTR)&port_def);
-    if(ret != 0) {
-        QMMF_ERROR("%s:%s Failed to get Port Definition", TAG, __func__);
-        return ret;
-    }
-    if(port_def.nBufferCountActual > *buf_count)
-        *buf_count = port_def.nBufferCountActual;
-    }
-
-  QMMF_INFO("%s:%s %s: buf count = %d, buf size = %d", TAG, __func__,
+  QMMF_INFO("%s:%s %s: buf count(%d), buf size(%d)", TAG, __func__,
       OMX_PORT_NAME( port_index), port_def.nBufferCountActual,
       port_def.nBufferSize);
   return ret;
@@ -339,16 +316,16 @@ status_t AVCodec::ConfigureAudioCodec(
     uint32_t channels __attribute__((__unused__)),
     uint32_t bit_depth __attribute__((__unused__)),
     AudioFormat format_type __attribute__((__unused__)),
-    AudioCodecParams codec_param __attribute__((__unused__)))
-{
+    AudioCodecParams codec_param __attribute__((__unused__))) {
+
   int32_t ret = 0;
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::SetupAVCEncoderParameters(CodecCreateParam& param)
-{
+status_t AVCodec::SetupAVCEncoderParameters(CodecCreateParam& param) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -365,7 +342,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecCreateParam& param)
     return ret;
   }
 
-  h264_type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
+  h264_type.nAllowedPictureTypes =
+      OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
   h264_type.eProfile =
       static_cast<OMX_VIDEO_AVCPROFILETYPE>(GetVideoProfile(param));
   h264_type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(GetVideoLevel(param));
@@ -419,16 +397,110 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecCreateParam& param)
 
   ret = omx_client_->SetParameter(OMX_IndexParamVideoAvc, &h264_type);
   if (ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set AVC codec parameter", TAG, __func__);
+    QMMF_ERROR("%s:%s Failed to set AVC codec parameter", TAG, __func__);
+    return ret;
+  }
+
+  //SetUp QP parameter.
+  if(param.video_param.codec_param.avc.qp_params.enable_init_qp) {
+    VideoRateControlType mode = param.video_param.codec_param.avc.ratecontrol_type;
+    if (mode != VideoRateControlType::kDisable) {
+      // RC ON
+      QOMX_EXTNINDEX_VIDEO_INITIALQP initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = param.video_param.codec_param.avc.qp_params.init_qp.init_IQP;
+      initqp.nQpP = param.video_param.codec_param.avc.qp_params.init_qp.init_PQP;
+      initqp.nQpB = param.video_param.codec_param.avc.qp_params.init_qp.init_BQP;
+      initqp.bEnableInitQp = 0x7;
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    } else {
+      // RC OFF
+      OMX_VIDEO_PARAM_QUANTIZATIONTYPE initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = param.video_param.codec_param.avc.qp_params.init_qp.init_IQP;
+      initqp.nQpP = param.video_param.codec_param.avc.qp_params.init_qp.init_PQP;
+      initqp.nQpB = param.video_param.codec_param.avc.qp_params.init_qp.init_BQP;
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    }
+  }
+
+  if(param.video_param.codec_param.avc.qp_params.enable_qp_range) {
+    OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
       return ret;
+    }
+    qp_range.minQP = param.video_param.codec_param.avc.qp_params.qp_range.min_QP;
+    qp_range.maxQP = param.video_param.codec_param.avc.qp_params.qp_range.max_QP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
+      return ret;
+    }
+  }
+
+  if(param.video_param.codec_param.avc.qp_params.enable_qp_IBP_range) {
+    OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
+    qp_range.minIQP =
+              param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP;
+    qp_range.maxIQP =
+              param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP;
+    qp_range.minPQP =
+              param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP;
+    qp_range.maxPQP =
+              param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP;
+    qp_range.minBQP =
+             param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP;
+    qp_range.maxBQP =
+             param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::SetupHEVCEncoderParameters(CodecCreateParam& param)
-{
+status_t AVCodec::SetupHEVCEncoderParameters(CodecCreateParam& param) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -478,15 +550,109 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecCreateParam& param)
     return ret;
   }
 
+  //SetUp QP parameter.
+  if(param.video_param.codec_param.hevc.qp_params.enable_init_qp) {
+    VideoRateControlType mode = param.video_param.codec_param.hevc.ratecontrol_type;
+    if (mode != VideoRateControlType::kDisable) {
+      // RC ON
+      QOMX_EXTNINDEX_VIDEO_INITIALQP initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP;
+      initqp.nQpP = param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP;
+      initqp.nQpB = param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP;
+      initqp.bEnableInitQp = 0x7;
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    } else {
+      // RC OFF
+      OMX_VIDEO_PARAM_QUANTIZATIONTYPE initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP;
+      initqp.nQpP = param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP;
+      initqp.nQpB = param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP;
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    }
+  }
+
+  if(param.video_param.codec_param.hevc.qp_params.enable_qp_range) {
+    OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
+      return ret;
+    }
+    qp_range.minQP = param.video_param.codec_param.hevc.qp_params.qp_range.min_QP;
+    qp_range.maxQP = param.video_param.codec_param.hevc.qp_params.qp_range.max_QP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
+      return ret;
+    }
+  }
+
+  if(param.video_param.codec_param.hevc.qp_params.enable_qp_IBP_range) {
+    OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
+    qp_range.minIQP =
+              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP;
+    qp_range.maxIQP =
+              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP;
+    qp_range.minPQP =
+              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP;
+    qp_range.maxPQP =
+              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP;
+    qp_range.minBQP =
+             param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP;
+    qp_range.maxBQP =
+             param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
+  }
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::GetVideoProfile(CodecCreateParam& param)
-{
+status_t AVCodec::GetVideoProfile(CodecCreateParam& param) {
+
   int32_t profile = -1;
-  VideoFormat codec = param.video_param.format_type;
-  switch(codec) {
+  VideoFormat codec_format = param.video_param.format_type;
+  switch(codec_format) {
     case VideoFormat::kAVC:
       switch(param.video_param.codec_param.avc.profile) {
         case AVCProfileType::kBaseline:
@@ -508,17 +674,17 @@ status_t AVCodec::GetVideoProfile(CodecCreateParam& param)
       }
       break;
     default:
-      QMMF_ERROR("%s:%s Unknown codec type %d", TAG, __func__, codec);
+      QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       break;
   }
   return profile;
 }
 
-status_t AVCodec::GetVideoLevel(CodecCreateParam& param)
-{
+status_t AVCodec::GetVideoLevel(CodecCreateParam& param) {
+
   int32_t level = -1;
-  VideoFormat codec = param.video_param.format_type;
-  switch(codec) {
+  VideoFormat codec_format = param.video_param.format_type;
+  switch(codec_format) {
     case VideoFormat::kAVC:
       switch(param.video_param.codec_param.avc.level) {
         case AVCLevelType::kLevel3:
@@ -558,29 +724,29 @@ status_t AVCodec::GetVideoLevel(CodecCreateParam& param)
         }
         break;
     default:
-      QMMF_ERROR("%s:%s Unknown codec type %d", TAG, __func__, codec);
+      QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       break;
   }
   return level;
 }
 
-status_t AVCodec::ConfigureBitrate(CodecCreateParam& param)
-{
+status_t AVCodec::ConfigureBitrate(CodecCreateParam& param) {
+
   uint32_t bitrate = 0;
   VideoRateControlType mode;
 
-  VideoFormat codec = param.video_param.format_type;
-  switch(codec) {
+  VideoFormat codec_format = param.video_param.format_type;
+  switch(codec_format) {
     case VideoFormat::kAVC:
       bitrate = param.video_param.codec_param.avc.bitrate;
       mode = param.video_param.codec_param.avc.ratecontrol_type;
       break;
     case VideoFormat::kHEVC:
       bitrate = param.video_param.codec_param.hevc.bitrate;
-      mode = param.video_param.codec_param.avc.ratecontrol_type;
+      mode = param.video_param.codec_param.hevc.ratecontrol_type;
       break;
     default:
-      QMMF_ERROR("%s:%s Unknown codec type %d", TAG, __func__, codec);
+      QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       return -1;
   }
 
@@ -628,8 +794,8 @@ status_t AVCodec::ConfigureBitrate(CodecCreateParam& param)
   return ret;
 }
 
-status_t AVCodec::UseBuffer(OMX_U32 port, void *imp)
-{
+status_t AVCodec::UseBuffer(OMX_U32 port, void *imp) {
+
   status_t ret = 0;
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
@@ -638,19 +804,22 @@ status_t AVCodec::UseBuffer(OMX_U32 port, void *imp)
   port_def.nPortIndex = port;
   ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &port_def);
   if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to getParameter on %s", TAG, __func__, OMX_PORT_NAME(port));
+      QMMF_ERROR("%s:%s Failed to getParameter on %s", TAG, __func__,
+          OMX_PORT_NAME(port));
       return ret;
   }
 
-  uint32_t buf_count = (port == kPortIndexInput) ? INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
+  uint32_t buf_count = (port == kPortIndexInput) ?
+                           INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
 
   if(port_def.nBufferCountActual != buf_count) {
 
     port_def.nBufferCountActual = buf_count;
-    ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition, (OMX_PTR)&port_def);
+    ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
+                                   (OMX_PTR)&port_def);
     if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set new buffer count(%d) on %s", TAG, __func__,
-          port_def.nBufferCountActual, OMX_PORT_NAME(port));
+      QMMF_ERROR("%s:%s Failed to set new buffer count(%d) on %s", TAG,
+          __func__, port_def.nBufferCountActual, OMX_PORT_NAME(port));
       return ret;
     }
     ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &port_def);
@@ -659,7 +828,7 @@ status_t AVCodec::UseBuffer(OMX_U32 port, void *imp)
           OMX_PORT_NAME(port));
       return ret;
     }
-    QMMF_INFO("%s:%s New Buf count = %d, size = %d", TAG, __func__,
+    QMMF_INFO("%s:%s New Buf count(%d), size(%d)", TAG, __func__,
         port_def.nBufferCountActual, port_def.nBufferSize);
     assert(buf_count == port_def.nBufferCountActual);
   }
@@ -670,22 +839,22 @@ status_t AVCodec::UseBuffer(OMX_U32 port, void *imp)
     input_source_ = impl;
 
     //allocate memory for buffer header
-    in_buff_hdr = new OMX_BUFFERHEADERTYPE*[INPUT_MAX_COUNT];
-    if(in_buff_hdr ==  NULL) {
+    in_buff_hdr_ = new OMX_BUFFERHEADERTYPE*[INPUT_MAX_COUNT];
+    if(in_buff_hdr_ ==  NULL) {
       QMMF_ERROR("%s:%s Failed to allocate buffer header on %s", TAG, __func__,
           OMX_PORT_NAME(kPortIndexInput));
       return NO_MEMORY;
     }
-    in_buff_hdr_size = INPUT_MAX_COUNT;
 
     StoreMetaDataInBuffersParams meta_mode;
     InitOMXParams(&meta_mode);
     meta_mode.nPortIndex = kPortIndexInput;
     meta_mode.bStoreMetaData = OMX_TRUE;
-    ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_QcomIndexParamVideoMetaBufferMode,
-                                    (OMX_PTR)&meta_mode);
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoMetaBufferMode,
+              (OMX_PTR)&meta_mode);
     if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set VideoEncode MetaBufferMode", TAG, __func__);
+      QMMF_ERROR("%s:%s Failed to set VideoEncode MetaBufferMode",TAG,__func__);
       return ret;
     }
 
@@ -694,45 +863,43 @@ status_t AVCodec::UseBuffer(OMX_U32 port, void *imp)
     assert(impl != NULL);
     output_source_ = impl;
 
-    out_buff_hdr = new OMX_BUFFERHEADERTYPE*[OUTPUT_MAX_COUNT];
-    if(out_buff_hdr ==  NULL) {
-        QMMF_ERROR("%s:%s Failed to allocate buffer header on %s", TAG, __func__,
+    out_buff_hdr_ = new OMX_BUFFERHEADERTYPE*[OUTPUT_MAX_COUNT];
+    if(out_buff_hdr_ ==  NULL) {
+        QMMF_ERROR("%s:%s Failed to allocate buffer header on %s",TAG, __func__,
             OMX_PORT_NAME(kPortIndexOutput));
         return NO_MEMORY;
     }
-    out_buff_hdr_size = OUTPUT_MAX_COUNT;
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::ReleaseBuffer()
-{
+status_t AVCodec::ReleaseBuffer() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
   DeleteHandle();
 
-  delete []in_buff_hdr;
-  in_buff_hdr = NULL;
-  in_buff_hdr_size = 0;
+  delete []in_buff_hdr_;
+  in_buff_hdr_ = NULL;
 
-  delete []out_buff_hdr;
-  out_buff_hdr = NULL;
-  out_buff_hdr_size = 0;
+  delete []out_buff_hdr_;
+  out_buff_hdr_ = NULL;
 
   assert(cmd_buffer_index_ == 0);
   signal_queue_.Clear();
 
   input_source_ = NULL;
   output_source_ = NULL;
+  port_status_ = true;
 
   return ret;
 }
 
-status_t AVCodec::StartCodec()
-{
+status_t AVCodec::StartCodec() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -746,6 +913,7 @@ status_t AVCodec::StartCodec()
             OMX_PORT_NAME(kPortIndexInput));
         return ret;
     }
+
     ret = omx_client_->SendCommand(OMX_CommandPortEnable, kPortIndexOutput, NULL);
     if(ret != 0) {
         QMMF_ERROR("%s:%s Failed to enable port on %s", TAG, __func__,
@@ -757,7 +925,8 @@ status_t AVCodec::StartCodec()
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
   InitOMXParams(&port_def);
   port_def.nPortIndex = kPortIndexOutput;
-  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, (OMX_PTR)&port_def);
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+            (OMX_PTR)&port_def);
   if(ret != OK) {
     QMMF_ERROR("%s:%s Failed to get port definiton on %s", TAG, __func__,
         OMX_PORT_NAME(kPortIndexOutput));
@@ -767,27 +936,63 @@ status_t AVCodec::StartCodec()
 
   for(uint32_t i = 0; i < INPUT_MAX_COUNT; ++i) {
       buf_size = sizeof(encoder_media_buffer_type);
-      ret = omx_client_->AllocateBuffer(&in_buff_hdr[i], kPortIndexInput, NULL, buf_size);
+      ret = omx_client_->AllocateBuffer(&in_buff_hdr_[i], kPortIndexInput, NULL,
+                buf_size);
       if(ret != OK) {
           QMMF_ERROR("%s:%s Failed to allocated buffer on %s", TAG, __func__,
               OMX_PORT_NAME(kPortIndexInput));
           return ret;
       }
 
-      encoder_media_buffer_type* mediaBuffer = (encoder_media_buffer_type*)in_buff_hdr[i]->pBuffer;
+      encoder_media_buffer_type* mediaBuffer =
+          (encoder_media_buffer_type*)in_buff_hdr_[i]->pBuffer;
       assert(mediaBuffer != NULL);
-      mediaBuffer->buffer_type = MetadataBufferType::kMetadataBufferTypeGrallocSource;
+      mediaBuffer->buffer_type =
+          MetadataBufferType::kMetadataBufferTypeGrallocSource;
       mediaBuffer->meta_handle = NULL;
   }
 
   buf_size = port_def.nBufferSize;
   for(uint32_t i = 0; i < OUTPUT_MAX_COUNT; ++i) {
-    ret = omx_client_->UseBuffer(&out_buff_hdr[i], kPortIndexOutput, NULL, buf_size, NULL);
+    ret = omx_client_->UseBuffer(&out_buff_hdr_[i], kPortIndexOutput, NULL,
+              buf_size, NULL);
     if(ret != OK) {
         QMMF_ERROR("%s:%s Failed to allocated buffer on %s", TAG, __func__,
             OMX_PORT_NAME(kPortIndexOutput));
         return ret;
     }
+  }
+
+  if(port_status_ == false) {
+    CodecCmdType* cmd = (CodecCmdType *)signal_queue_.Pop();
+    assert(cmd != nullptr);
+    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
+        __func__, cmd, cmd_buffer_index_);
+    cmd_buffer_index_--;
+
+    if((cmd->event_result != OMX_ErrorNone) ||
+        (cmd->event_type != OMX_EventCmdComplete) ||
+        (cmd->event_cmd != OMX_CommandPortEnable)) {
+      QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
+          __func__, cmd->event_cmd);
+      return cmd->event_result;
+    }
+
+    cmd = (CodecCmdType *)signal_queue_.Pop();
+    assert(cmd != nullptr);
+    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
+        __func__, cmd, cmd_buffer_index_);
+    cmd_buffer_index_--;
+
+    if((cmd->event_result != OMX_ErrorNone) ||
+       (cmd->event_type != OMX_EventCmdComplete) ||
+       (cmd->event_cmd != OMX_CommandPortEnable)) {
+      QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
+          __func__, cmd->event_cmd);
+      return cmd->event_result;
+    }
+
+    port_status_ = true;
   }
 
   ret = WaitState(OMX_StateIdle);
@@ -821,8 +1026,8 @@ status_t AVCodec::StartCodec()
   return ret;
 }
 
-status_t AVCodec::StopCodec()
-{
+status_t AVCodec::StopCodec() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -842,8 +1047,9 @@ status_t AVCodec::StopCodec()
       __func__, cmd, cmd_buffer_index_);
   cmd_buffer_index_--;
 
-  if((cmd->event_result != OK) || (cmd->event_flags != OMX_BUFFERFLAG_EOS)) {
-      QMMF_ERROR("%s:%s Expecting EOS and found = %d", TAG, __func__,
+  if((cmd->event_result != OMX_ErrorNone) ||
+     (cmd->event_flags != OMX_BUFFERFLAG_EOS)) {
+      QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
           cmd->event_flags);
       return OMX_ErrorUndefined;
   }
@@ -857,14 +1063,14 @@ status_t AVCodec::StopCodec()
   //Disable both port
   ret = omx_client_->SendCommand(OMX_CommandPortDisable, kPortIndexOutput, 0);
   if(ret != 0) {
-   QMMF_ERROR("%s:%s Failed to disbale %s", TAG, __func__,
+   QMMF_ERROR("%s:%s Failed to disbale port on %s", TAG, __func__,
        OMX_PORT_NAME(kPortIndexOutput));
    return ret;
   }
 
   ret = omx_client_->SendCommand(OMX_CommandPortDisable, kPortIndexInput, 0);
   if(ret != 0) {
-   QMMF_ERROR("%s:%s Failed to disbale %s", TAG, __func__,
+   QMMF_ERROR("%s:%s Failed to disbale port on %s", TAG, __func__,
        OMX_PORT_NAME(kPortIndexInput));
    return ret;
   }
@@ -872,8 +1078,8 @@ status_t AVCodec::StopCodec()
   port_status_ = false;
 
   //DeRegister buffer on both port
-  for(uint32_t i = 0; i < in_buff_hdr_size; i++) {
-    ret = omx_client_->FreeBuffer(in_buff_hdr[i], kPortIndexInput);
+  for(uint32_t i = 0; i < INPUT_MAX_COUNT; i++) {
+    ret = omx_client_->FreeBuffer(in_buff_hdr_[i], kPortIndexInput);
     if(ret != 0) {
       QMMF_ERROR("%s:%s Failed to free buffer on %s", TAG, __func__,
           OMX_PORT_NAME(kPortIndexInput));
@@ -881,8 +1087,8 @@ status_t AVCodec::StopCodec()
     }
   }
 
-  for(uint32_t i = 0; i < out_buff_hdr_size; i++) {
-    ret = omx_client_->FreeBuffer(out_buff_hdr[i], kPortIndexOutput);
+  for(uint32_t i = 0; i < OUTPUT_MAX_COUNT; i++) {
+    ret = omx_client_->FreeBuffer(out_buff_hdr_[i], kPortIndexOutput);
     if(ret != 0) {
       QMMF_ERROR("%s:%s Failed to free buffer on %s", TAG, __func__,
           OMX_PORT_NAME(kPortIndexOutput));
@@ -896,7 +1102,8 @@ status_t AVCodec::StopCodec()
       __func__, cmd, cmd_buffer_index_);
   cmd_buffer_index_--;
 
-  if((cmd->event_result != OK) || (cmd->event_type != OMX_EventCmdComplete) ||
+  if((cmd->event_result != OMX_ErrorNone) ||
+      (cmd->event_type != OMX_EventCmdComplete) ||
       (cmd->event_cmd != OMX_CommandPortDisable)) {
     QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
         __func__, cmd->event_cmd);
@@ -909,8 +1116,9 @@ status_t AVCodec::StopCodec()
       __func__, cmd, cmd_buffer_index_);
   cmd_buffer_index_--;
 
-  if((cmd->event_result != OK) || (cmd->event_type != OMX_EventCmdComplete) ||
-      (cmd->event_cmd != OMX_CommandPortDisable)) {
+  if((cmd->event_result != OMX_ErrorNone) ||
+     (cmd->event_type != OMX_EventCmdComplete) ||
+     (cmd->event_cmd != OMX_CommandPortDisable)) {
     QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
         __func__, cmd->event_cmd);
     return cmd->event_result;
@@ -922,14 +1130,14 @@ status_t AVCodec::StopCodec()
   return ret;
 }
 
-void AVCodec::StopOutput()
-{
+void AVCodec::StopOutput() {
+
   Mutex::Autolock autoLock(output_stop_lock_);
   output_stop_ = true;
 }
 
-status_t AVCodec::PauseCodec()
-{
+status_t AVCodec::PauseCodec() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -937,8 +1145,8 @@ status_t AVCodec::PauseCodec()
   return ret;
 }
 
-status_t AVCodec::ResumeCodec()
-{
+status_t AVCodec::ResumeCodec() {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -947,17 +1155,19 @@ status_t AVCodec::ResumeCodec()
 }
 
 bool AVCodec::IsInputPortStop() {
+
   Mutex::Autolock autoLock(input_stop_lock_);
   return input_stop_;
 }
 
 bool inline AVCodec::IsOutputPortStop() {
+
   Mutex::Autolock autoLock(output_stop_lock_);
   return output_stop_;
 }
 
-status_t AVCodec::Flush(OMX_U32 index)
-{
+status_t AVCodec::Flush(OMX_U32 index) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -974,8 +1184,9 @@ status_t AVCodec::Flush(OMX_U32 index)
        __func__, cmd, cmd_buffer_index_);
   cmd_buffer_index_--;
 
-  if((cmd->event_result != OK) || (cmd->event_type != OMX_EventCmdComplete) ||
-      (cmd->event_cmd != OMX_CommandFlush)) {
+  if((cmd->event_result != OMX_ErrorNone) ||
+     (cmd->event_type != OMX_EventCmdComplete) ||
+     (cmd->event_cmd != OMX_CommandFlush)) {
     QMMF_ERROR("%s:%s Expecting Cmd complete for flush vs command found(%d)",
         TAG, __func__, cmd->event_cmd);
     return cmd->event_result;
@@ -989,8 +1200,9 @@ status_t AVCodec::Flush(OMX_U32 index)
         __func__, cmd, cmd_buffer_index_);
     cmd_buffer_index_--;
 
-    if((cmd->event_result != OK) || (cmd->event_type != OMX_EventCmdComplete) ||
-        (cmd->event_cmd != OMX_CommandFlush)) {
+    if((cmd->event_result != OMX_ErrorNone) ||
+       (cmd->event_type != OMX_EventCmdComplete) ||
+       (cmd->event_cmd != OMX_CommandFlush)) {
       QMMF_ERROR("%s:%s Expecting Cmd complete for flush vs command found(%d)",
         TAG, __func__, cmd->event_cmd);
       return cmd->event_result;
@@ -1001,8 +1213,8 @@ status_t AVCodec::Flush(OMX_U32 index)
   return ret;
 }
 
-void* AVCodec::DeliverInput(void *arg)
-{
+void* AVCodec::DeliverInput(void *arg) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -1038,6 +1250,9 @@ void* AVCodec::DeliverInput(void *arg)
     buf_header->nFilledLen = native_handle->data[4];
     buf_header->nTimeStamp  = stream_buffer.timestamp;
 
+    QMMF_INFO("%s:%s ETB buffer fd(%d), ts(%lld)", TAG, __func__,
+        stream_buffer.handle->data[0], stream_buffer.timestamp);
+
     ret = avcodec->EmptyThisBuffer(buf_header);
     if(ret != 0) {
         QMMF_ERROR("%s:%s ETB failed for buffer(%p)", TAG, __func__,
@@ -1046,8 +1261,8 @@ void* AVCodec::DeliverInput(void *arg)
     }
 
     if(thread_stop == true) {
-      //TODO: check if needed
-      avcodec->getInputBufferSource()->Stop();
+      avcodec->getInputBufferSource()->NotifyStatus(
+          CodecInputPortStatus::kInputPortStop);
       break;
     }
   }
@@ -1056,8 +1271,8 @@ void* AVCodec::DeliverInput(void *arg)
   return NULL;
 }
 
-void* AVCodec::DeliverOutput(void *arg)
-{
+void* AVCodec::DeliverOutput(void *arg) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
@@ -1087,34 +1302,34 @@ void* AVCodec::DeliverOutput(void *arg)
       break;
     }
 
+    QMMF_INFO("%s:%s FTB buffer(%p), fd(%d)", TAG, __func__,
+        codec_buffer.pointer, codec_buffer.fd);
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return NULL;
 }
 
-void AVCodec::DeliverEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2)
-{
-  QMMF_ERROR("%s:%s Event callback: async error nData1(%u), nData2(%u)", TAG,
-        __func__, (unsigned int)data1, (unsigned int)data2);
+void AVCodec::DeliverEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
+
   if(event_cb_)
-    event_cb_(event);
+    event_cb_(event, data1, data2);
 }
 
-OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(StreamBuffer& buffer)
-{
+OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(StreamBuffer& buffer) {
+
   bool found = false;
-  for(uint32_t i = 0; i < in_buff_hdr_size; i++) {
+  for(uint32_t i = 0; i < INPUT_MAX_COUNT; i++) {
     encoder_media_buffer_type* mediaBuffer =
-        (encoder_media_buffer_type*)in_buff_hdr[i]->pBuffer;
+        (encoder_media_buffer_type*)in_buff_hdr_[i]->pBuffer;
     if(mediaBuffer->meta_handle == NULL) {
-      QMMF_INFO("%s:%s Register native handle(%p) in buffer list = %p", TAG,
-          __func__, buffer.handle, in_buff_hdr[i]);
+      QMMF_INFO("%s:%s Register native handle(%p) in buffer list(%p)", TAG,
+          __func__, buffer.handle, in_buff_hdr_[i]);
       mediaBuffer->meta_handle = buffer.handle;
-      return in_buff_hdr[i];
+      return in_buff_hdr_[i];
     }
     if(mediaBuffer->meta_handle == buffer.handle) {
-      return in_buff_hdr[i];
+      return in_buff_hdr_[i];
     }
   }
   QMMF_INFO("%s:%s No Buffer header found for(%p)",TAG, __func__,buffer.handle);
@@ -1123,20 +1338,20 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(StreamBuffer& buffer)
   return NULL;
 }
 
-OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(CodecBuffer& buffer)
-{
+OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(CodecBuffer& buffer) {
+
   bool found = false;
-  for(uint32_t i = 0; i < out_buff_hdr_size; i++) {
-    void* buf = out_buff_hdr[i]->pAppPrivate;
+  for(uint32_t i = 0; i < OUTPUT_MAX_COUNT; i++) {
+    void* buf = out_buff_hdr_[i]->pAppPrivate;
     if(buf == NULL) {
-      QMMF_INFO("%s:%s Register buffer(%p), fd(%d) in buffer list", TAG,
-          __func__, buffer.pointer, buffer.fd);
-      out_buff_hdr[i]->pBuffer = (OMX_U8 *)buffer.pointer;
-      out_buff_hdr[i]->pAppPrivate = buffer.pointer;
-      return out_buff_hdr[i];
+      QMMF_INFO("%s:%s Register buffer(%p), fd(%d) in buffer list(%p)", TAG,
+          __func__, buffer.pointer, buffer.fd, out_buff_hdr_[i]);
+      out_buff_hdr_[i]->pBuffer = (OMX_U8 *)buffer.pointer;
+      out_buff_hdr_[i]->pAppPrivate = buffer.pointer;
+      return out_buff_hdr_[i];
     }
     if(buf == buffer.pointer) {
-      return out_buff_hdr[i];
+      return out_buff_hdr_[i];
     }
   }
   QMMF_INFO("%s:%s No Buffer header found for(%p)",TAG,__func__,buffer.pointer);
@@ -1146,34 +1361,13 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetBufferHdr(CodecBuffer& buffer)
 }
 
 status_t AVCodec::PushEventCommand(OMX_EVENTTYPE event, OMX_COMMANDTYPE command,
-                                   OMX_U32 data)
-{
+                                   OMX_U32 data, OMX_U32 flag) {
+
   status_t ret = 0;
 
   cmd_buffer_[cmd_buffer_index_].event_type = event;
   cmd_buffer_[cmd_buffer_index_].event_cmd = command;
   cmd_buffer_[cmd_buffer_index_].event_data= data;
-  cmd_buffer_[cmd_buffer_index_].event_flags = 0x0;
-  cmd_buffer_[cmd_buffer_index_].event_result = OMX_ErrorNone;
-
-  QMMF_INFO("%s:%s Pushing cmd buffer(%p)", TAG, __func__,
-      &cmd_buffer_[cmd_buffer_index_]);
-  ret = signal_queue_.Push(&cmd_buffer_[cmd_buffer_index_]);
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to push cmd buffer(%p)", TAG, __func__,
-        &cmd_buffer_[cmd_buffer_index_]);
-    return OK;
-  }
-  cmd_buffer_index_++;
-
-  return ret;
-}
-
-//TODO: merge both function
-status_t AVCodec::PushEventCommand(OMX_U32 flag)
-{
-  status_t ret = 0;
-
   cmd_buffer_[cmd_buffer_index_].event_flags = flag;
   cmd_buffer_[cmd_buffer_index_].event_result = OMX_ErrorNone;
 
@@ -1183,28 +1377,28 @@ status_t AVCodec::PushEventCommand(OMX_U32 flag)
   if(ret != OK) {
     QMMF_ERROR("%s:%s Failed to push cmd buffer(%p)", TAG, __func__,
         &cmd_buffer_[cmd_buffer_index_]);
-    return OK;
+    return ret;
   }
   cmd_buffer_index_++;
 
   return ret;
 }
 
-status_t AVCodec::EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer)
-{
+status_t AVCodec::EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
+
   return omx_client_->EmptyThisBuffer(buffer);
 }
 
-status_t AVCodec::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer)
-{
+status_t AVCodec::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
+
   return omx_client_->FillThisBuffer(buffer);
 }
 
 status_t AVCodec::SetVideoParameters(
     VideoTrackParamType type  __attribute__((__unused__)),
     const void *param  __attribute__((__unused__)),
-    size_t param_size  __attribute__((__unused__)))
-{
+    size_t param_size  __attribute__((__unused__))) {
+
   status_t ret = 0;
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -1214,16 +1408,16 @@ status_t AVCodec::SetVideoParameters(
 status_t AVCodec::SetAudioParameters(
     AudioTrackParamType type  __attribute__((__unused__)),
     const void *param  __attribute__((__unused__)),
-    size_t param_size  __attribute__((__unused__)))
-{
+    size_t param_size  __attribute__((__unused__))) {
+
   status_t ret = 0;
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous)
-{
+status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous) {
+
   status_t ret = OK;
 
   QMMF_INFO("%s:%s current state(%s), pending state(%s)", TAG, __func__,
@@ -1274,8 +1468,8 @@ status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous)
   return ret;
 }
 
-status_t AVCodec::WaitState(OMX_STATETYPE state)
-{
+status_t AVCodec::WaitState(OMX_STATETYPE state) {
+
   status_t ret = OK;
 
   if(state_ == state) {
@@ -1299,56 +1493,55 @@ status_t AVCodec::WaitState(OMX_STATETYPE state)
   }
 
   if((OMX_STATETYPE)cmd->event_data != state) {
-    QMMF_ERROR("%s:%s Wrong state found. %s", TAG, __func__,
+    QMMF_ERROR("%s:%s Wrong state found(%s)", TAG, __func__,
         OMX_STATE_NAME((OMX_STATETYPE)cmd->event_data));
     return OMX_ErrorUndefined;
   }
 
   state_ = (OMX_STATETYPE)cmd->event_data;
-  QMMF_INFO("%s:%s Reached state %s..", TAG, __func__, OMX_STATE_NAME(state));
+  QMMF_INFO("%s:%s Reached state(%s)", TAG, __func__, OMX_STATE_NAME(state));
 
   return ret;
 }
 
 OMX_ERRORTYPE AVCodec::OnEvent(
-                    OMX_IN OMX_HANDLETYPE hComponent __attribute__((__unused__)),
-                    OMX_IN OMX_PTR pAppData,
+                    OMX_IN OMX_HANDLETYPE component __attribute__((__unused__)),
+                    OMX_IN OMX_PTR app_data,
                     OMX_IN OMX_EVENTTYPE event,
-                    OMX_IN OMX_U32 nData1,
-                    OMX_IN OMX_U32 nData2,
-                    OMX_IN OMX_PTR pEventData __attribute__((__unused__)))
-{
+                    OMX_IN OMX_U32 data1,
+                    OMX_IN OMX_U32 data2,
+                    OMX_IN OMX_PTR event_data __attribute__((__unused__))) {
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
-  // (void)hComponent; (void)pEventData;
-  AVCodec *pThis = (AVCodec *)pAppData;
+  AVCodec *avcodec = (AVCodec *)app_data;
+  assert(avcodec != nullptr);
 
   if (event == OMX_EventCmdComplete) {
-    if ((OMX_COMMANDTYPE)nData1 == OMX_CommandStateSet) {
+    if ((OMX_COMMANDTYPE)data1 == OMX_CommandStateSet) {
       QMMF_INFO("%s:%s Event callback: state is %s", TAG, __func__,
-          OMX_STATE_NAME((OMX_STATETYPE)nData2));
-      pThis->PushEventCommand(event,OMX_CommandStateSet,nData2);
+          OMX_STATE_NAME((OMX_STATETYPE)data2));
+      avcodec->PushEventCommand(event, OMX_CommandStateSet, data2, 0x0);
 
-    } else if ((OMX_COMMANDTYPE)nData1 == OMX_CommandFlush) {
+    } else if ((OMX_COMMANDTYPE)data1 == OMX_CommandFlush) {
       QMMF_INFO("%s:%s Event callback: flush complete on port : %s", TAG,
-          __func__, OMX_PORT_NAME(nData2));
-      pThis->PushEventCommand(event,OMX_CommandFlush,nData2);
+          __func__, OMX_PORT_NAME(data2));
+      avcodec->PushEventCommand(event, OMX_CommandFlush, data2, 0x0);
 
-    } else if ((OMX_COMMANDTYPE)nData1 == OMX_CommandPortDisable) {
+    } else if ((OMX_COMMANDTYPE)data1 == OMX_CommandPortDisable) {
       QMMF_INFO("%s:%s Event callback: %s port disable", TAG, __func__,
-              OMX_PORT_NAME(nData2));
-      pThis->PushEventCommand(event,OMX_CommandPortDisable,nData2);
+              OMX_PORT_NAME(data2));
+      avcodec->PushEventCommand(event, OMX_CommandPortDisable, data2, 0x0);
 
-    } else if ((OMX_COMMANDTYPE)nData1 == OMX_CommandPortEnable) {
+    } else if ((OMX_COMMANDTYPE)data1 == OMX_CommandPortEnable) {
       QMMF_INFO("%s:%s Event callback: %s port enable", TAG, __func__,
-                OMX_PORT_NAME(nData2));
-      //TODO: use this for synchronization
-       // pThis->PushEventCommand(event,OMX_CommandPortEnable,nData2);
+                OMX_PORT_NAME(data2));
+      avcodec->PushEventCommand(event, OMX_CommandPortEnable, data2, 0x0);
 
     } else {
       QMMF_WARN("%s:%s Unimplemented command", TAG, __func__);
     }
   } else if (event == OMX_EventError) {
-    pThis->DeliverEvent(event, nData1, nData2);
+    avcodec->DeliverEvent(event, data1, data2);
 
   } else if (event == OMX_EventBufferFlag) {
     QMMF_INFO("%s:%s Event callback: Buffer flag received", TAG, __func__);
@@ -1361,41 +1554,55 @@ OMX_ERRORTYPE AVCodec::OnEvent(
   return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(OMX_IN OMX_HANDLETYPE ,
-                                         OMX_IN OMX_PTR pAppData,
-                                         OMX_IN OMX_BUFFERHEADERTYPE* pBuffer)
-{
+OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
+                      OMX_IN OMX_HANDLETYPE handle __attribute__((__unused__)),
+                      OMX_IN OMX_PTR app_data,
+                      OMX_IN OMX_BUFFERHEADERTYPE* buf_header) {
+
   //TODO: use pBuffer
-  AVCodec *avcodec = (AVCodec *)pAppData;
+  AVCodec *avcodec = (AVCodec *)app_data;
   StreamBuffer stream_buffer;
   memset(&stream_buffer, 0x0, sizeof(StreamBuffer));
   encoder_media_buffer_type* mediaBuffer =
-      (encoder_media_buffer_type*)pBuffer->pBuffer;
+      (encoder_media_buffer_type*)buf_header->pBuffer;
   assert(mediaBuffer->meta_handle != NULL);
 
   stream_buffer.handle = mediaBuffer->meta_handle;
+
+  QMMF_INFO("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
+      stream_buffer.handle->data[0], buf_header->nTimeStamp);
+
   avcodec->getInputBufferSource()->SignalBufferReturned(stream_buffer);
+  if(buf_header->nFlags & OMX_BUFFERFLAG_EOS) {
+    QMMF_INFO("%s:%s No more buffer to process on input port", TAG, __func__);
+    avcodec->getInputBufferSource()->NotifyStatus(
+        CodecInputPortStatus::kInputPortIdle);
+  }
   return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE AVCodec::OnFillBufferDone(OMX_IN OMX_HANDLETYPE ,
-                                        OMX_IN OMX_PTR pAppData,
-                                        OMX_IN OMX_BUFFERHEADERTYPE* pBuffer)
-{
-  AVCodec *avcodec = (AVCodec *)pAppData;
-  assert(pBuffer->pBuffer);
+OMX_ERRORTYPE AVCodec::OnFillBufferDone(
+                      OMX_IN OMX_HANDLETYPE handle __attribute__((__unused__)),
+                      OMX_IN OMX_PTR app_data,
+                      OMX_IN OMX_BUFFERHEADERTYPE* buf_header) {
+
+  AVCodec *avcodec = (AVCodec *)app_data;
+  assert(buf_header->pBuffer);
   CodecBuffer codec_buffer;
-  codec_buffer.pointer = pBuffer->pBuffer;
-  codec_buffer.filled_length = pBuffer->nFilledLen;
-  codec_buffer.flag = pBuffer->nFlags;
-  codec_buffer.ts = pBuffer->nTimeStamp;
+  codec_buffer.pointer = buf_header->pBuffer;
+  codec_buffer.filled_length = buf_header->nFilledLen;
+  codec_buffer.flag = buf_header->nFlags;
+  codec_buffer.ts = buf_header->nTimeStamp;
 
   if ((codec_buffer.flag) & OMX_BUFFERFLAG_EOS) {
     QMMF_INFO("%s:%s received output port EOS", TAG, __func__);
-    //TODO: check if needed
     avcodec->StopOutput();
-    avcodec->PushEventCommand(OMX_BUFFERFLAG_EOS);
+    avcodec->PushEventCommand((OMX_EVENTTYPE)0, (OMX_COMMANDTYPE)0, 0,
+        OMX_BUFFERFLAG_EOS);
   }
+
+  QMMF_INFO("%s:%s FBD buffer(%p), filled length(%d), ts(%lld)", TAG, __func__,
+      codec_buffer.pointer, codec_buffer.filled_length, codec_buffer.ts);
 
   avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer);
   return OMX_ErrorNone;

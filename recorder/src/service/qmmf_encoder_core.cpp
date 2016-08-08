@@ -293,8 +293,8 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
   QMMF_INFO("%s:%s: W(%d) H(%d) format_type(%d)", TAG, __func__, params.width,
       params.height, params.format_type);
 
-  codec_param.event_cb = [&] (OMX_EVENTTYPE event)
-      { EventCallback(event); };
+  codec_param.event_cb = [&] (OMX_EVENTTYPE event, OMX_U32 data1,
+      OMX_U32 data2) { EventCallback(event, data1, data2);};
 
   auto ret = avcodec_->ConfigureCodec(CodecType::kVideoEncoder, codec_param);
   assert(ret == NO_ERROR);
@@ -673,10 +673,9 @@ ION_ALLOC_FAILED:
   return -1;
 }
 
-void TrackEncoder::EventCallback(OMX_EVENTTYPE event)  {
-
+void TrackEncoder::EventCallback(OMX_EVENTTYPE event, OMX_U32 data1,
+                                 OMX_U32 data2) {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 

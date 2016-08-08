@@ -32,18 +32,27 @@
  */
 
 #First Stream Encoder Params
-RecordingFrame : 50
-InputFile      :/sdcard/720p.yuv
-OutputFile     :/sdcard/CodecTest.h264
-CodecType      : VideoEncode
-Width          : 1280
-Height         : 720
-FPS            : 30
-Codec          : AVC
-IFR            : 1
-Bitrate        : 10000000
-Profile        : BaseProfile
-Level          : Level-3
-InitQpI        : 0
-InitQpP        : 0
-InitQpB        : 0
+RecordingFrame     : 50
+InputFile          : /sdcard/720p.yuv
+OutputFile         : /sdcard/CodecTest.h264
+CodecType          : VideoEncode
+Width              : 1280
+Height             : 720
+FPS                : 30
+Codec              : AVC
+IFR                : 1
+Bitrate            : 10000000
+Profile            : BaseProfile
+Level              : Level-3
+RateControl        : 2
+InitQpI            : 26
+InitQpP            : 26
+InitQpB            : 26
+MinQp              : 1
+MaxQp              : 51
+IPBQPRangeMin_IQP  : 1
+IPBQPRangeMax_IQP  : 51
+IPBQPRangeMin_PQP  : 1
+IPBQPRangeMax_PQP  : 51
+IPBQPRangeMin_BQP  : 1
+IPBQPRangeMax_BQP  : 51

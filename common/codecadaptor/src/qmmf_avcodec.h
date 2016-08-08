@@ -36,9 +36,11 @@
 #include <OMX_VideoExt.h>
 #include <OMX_IndexExt.h>
 #include <libstagefrighthw/QComOMXMetadata.h>
+#include <media/hardware/HardwareAPI.h>
 
-#include "qmmf_common.h"
 #include "qmmf_omx_client.h"
+#include "qmmf_avcodec_common.h"
+
 
 namespace qmmf {
 
@@ -66,14 +68,6 @@ typedef struct CodecCmdType {
   OMX_U32         event_flags;
 }CodecCmdType;
 
-//TODO: remove Pmem structure
-typedef struct Pmem {
-  void*    buffer;
-  int      fd;
-  unsigned offset;
-  unsigned size;
-}Pmem;
-
 #define OMX_SPEC_VERSION 0x00000101
 
 template<class T>
@@ -83,35 +77,28 @@ static void InitOMXParams(T *params) {
   params->nVersion.nVersion = OMX_SPEC_VERSION;
 }
 
-class IInputCodecSource : public RefBase
-{
+class IInputCodecSource : public RefBase {
+
 public:
   virtual ~IInputCodecSource() {}
   virtual status_t Read(StreamBuffer& stream_buffer) = 0;
   virtual status_t SignalBufferReturned(StreamBuffer& stream_buffer) = 0;
-  virtual status_t Stop() = 0;
+  virtual status_t NotifyStatus(CodecInputPortStatus status) = 0;
 };
 
-class IOutputCodecSource : public RefBase
-{
+class IOutputCodecSource : public RefBase {
+
 public:
   virtual ~IOutputCodecSource() {};
   virtual status_t GetBuffer(CodecBuffer& codec_buffer) = 0;
   virtual status_t ReturnBuffer(CodecBuffer& codec_buffer) = 0;
 };
 
-//TODO: remove StoreMetaDataInBuffersParams struture
-struct StoreMetaDataInBuffersParams {
-  OMX_U32 nSize;
-  OMX_VERSIONTYPE nVersion;
-  OMX_U32 nPortIndex;
-  OMX_BOOL bStoreMetaData;
-};
-
 #define Log2(number, power)                   \
   { OMX_U32 temp = number; power = 0;         \
   while( (0 == (temp & 0x1)) &&  power < 16)  \
   { temp >>=0x1; power++; } }
+
 #define FractionToQ16(q,num,den)     \
   { OMX_U32 power; Log2(den,power);  \
   q = num << (16 - power); }
@@ -127,8 +114,8 @@ struct StoreMetaDataInBuffersParams {
   "Unknown")))))
 
 class OmxClient;
-class AVCodec : public RefBase
-{
+class AVCodec : public RefBase {
+
 public:
   AVCodec();
 
@@ -186,12 +173,6 @@ private:
 
   status_t GetVideoLevel(CodecCreateParam& codec_param);
 
-  bool IsInputPortStop();
-
-  bool IsOutputPortStop();
-
-  void StopOutput();
-
   status_t Flush(OMX_U32 nPortIndex);
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
@@ -199,9 +180,7 @@ private:
   status_t WaitState(OMX_STATETYPE state);
 
   status_t PushEventCommand(OMX_EVENTTYPE event, OMX_COMMANDTYPE command,
-                            OMX_U32);
-
-  status_t PushEventCommand(OMX_U32);
+                            OMX_U32, OMX_U32 flag);
 
   status_t EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer);
 
@@ -210,6 +189,12 @@ private:
   OMX_BUFFERHEADERTYPE* GetBufferHdr(StreamBuffer &stream_buffer);
 
   OMX_BUFFERHEADERTYPE* GetBufferHdr(CodecBuffer &codec_buffer);
+
+  bool IsInputPortStop();
+
+  bool IsOutputPortStop();
+
+  void StopOutput();
 
   status_t FreeBufferPool();
 
@@ -243,24 +228,21 @@ private:
 
   sp<OmxClient>           omx_client_;
   AVCodecEventCb          event_cb_;
-  CodecCreateParam        codec_param_;
   OMX_STATETYPE           state_;
   OMX_STATETYPE           state_pending_;
-  //TODO: check if needed
   bool                    input_stop_;
-  //TODO: check if needed
   bool                    output_stop_;
+  //port_status_ will give whether both port is enable or disable.
   bool                    port_status_;
+  //In meta mode client will fill gralloc handle
   bool                    meta_mode_;
   Mutex                   input_stop_lock_;
   Mutex                   output_stop_lock_;
   pthread_t               read_thread_;
   IInputCodecSource*      input_source_;
   IOutputCodecSource*     output_source_;
-  OMX_BUFFERHEADERTYPE**  in_buff_hdr;
-  uint32_t                in_buff_hdr_size;
-  OMX_BUFFERHEADERTYPE**  out_buff_hdr;
-  uint32_t                out_buff_hdr_size;
+  OMX_BUFFERHEADERTYPE**  in_buff_hdr_;
+  OMX_BUFFERHEADERTYPE**  out_buff_hdr_;
   CodecCmdType            cmd_buffer_[CMD_BUF_MAX_COUNT];
   uint32_t                cmd_buffer_index_;
   SignalQueue<void *>     signal_queue_;

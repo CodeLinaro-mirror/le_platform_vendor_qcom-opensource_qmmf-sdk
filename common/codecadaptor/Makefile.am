@@ -12,9 +12,17 @@ libcodec_adaptor_la_CPPFLAGS += -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
 libcodec_adaptor_la_CFLAGS   := -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
 libcodec_adaptor_la_LDFLAGS  := -lutils -lcutils -lpthread -ldl -llog
 
-# Adaptor sample test app
+# Codec Adaptor sample test app
 bin_PROGRAMS := codec_adaptor_test
 
 codec_adaptor_test_SOURCES  := test/sample/qmmf_codec_adaptor_test.cpp
 codec_adaptor_test_CPPFLAGS := $(libcodec_adaptor_la_CPPFLAGS) -I$(top_srcdir)
 codec_adaptor_test_LDADD    := libcodec_adaptor.la
+
+# Codec Adaptor gtest app
+bin_PROGRAMS += codec_adaptor_gtest
+
+codec_adaptor_gtest_SOURCES  := test/gtest/qmmf_codec_adaptor_gtest.cpp
+codec_adaptor_gtest_CPPFLAGS := $(libcodec_adaptor_la_CPPFLAGS) -I$(top_srcdir)
+codec_adaptor_gtest_LDFLAGS  := -lgtest -lgtest_main
+codec_adaptor_gtest_LDADD    := libcodec_adaptor.la
