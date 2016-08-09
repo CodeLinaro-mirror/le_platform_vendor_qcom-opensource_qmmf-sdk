@@ -388,8 +388,6 @@ status_t TrackEncoder::Stop() {
     return ret;
   }
 
-  assert(output_free_buffer_queue_.Size() == output_buffer_list_.size());
-  assert(output_occupy_buffer_queue_.Size() == 0);
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }

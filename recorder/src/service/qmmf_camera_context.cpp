@@ -498,11 +498,8 @@ status_t CameraContext::CancelRequest() {
   QMMF_INFO("%s:%s: last_frame_mumber(%lld) after CancelRequest", TAG, __func__,
       last_frame_mumber);
 
-  // FIXME: We can't call WaitUntilIdle, timeout happens randomly because
-  // encoder is not able to return all stream buffers before timeout happens
-  // in WaitUntilIdle.
-  // ret = camera_device_->WaitUntilIdle();
-  // assert(ret == NO_ERROR);
+  ret = camera_device_->WaitUntilIdle();
+  assert(ret == NO_ERROR);
 
   streaming_request_id_ = -1;
   QMMF_INFO("%s:%s: Request cancelled last frame number: %lld\n", TAG,
