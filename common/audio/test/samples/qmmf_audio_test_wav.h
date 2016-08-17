@@ -154,13 +154,13 @@ class AudioTestWav
   int32_t input_data_size_;
   int32_t current_data_size_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioTestWav(const AudioTestWav&) = delete;
   AudioTestWav(AudioTestWav&&) = delete;
   AudioTestWav& operator=(const AudioTestWav&) = delete;
   AudioTestWav& operator=(const AudioTestWav&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

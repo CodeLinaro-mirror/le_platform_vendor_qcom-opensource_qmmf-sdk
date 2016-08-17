@@ -84,7 +84,7 @@ int32_t AudioTestIon::Allocate(const int32_t number, const int32_t size) {
   request_size_ = size;
   buffer_size_ = (size + kBufferAlign - 1) & ~(kBufferAlign - 1);
 
-  /* open ion device */
+  // open ion device
   ion_device_ = open(kIonFilename, O_RDONLY);
   if (ion_device_ < 0) {
     QMMF_ERROR("%s: %s() error opening ion device: %d[%s]", TAG, __func__,
@@ -102,7 +102,7 @@ int32_t AudioTestIon::Allocate(const int32_t number, const int32_t size) {
     buffer.allocate_data.flags = 0;
     buffer.allocate_data.handle = 0;
 
-    /* allocate ion buffer */
+    // allocate ion buffer
     result = ioctl(ion_device_, ION_IOC_ALLOC, &buffer.allocate_data);
     if (result < 0) {
       QMMF_ERROR("%s: %s() ION_IOC_ALLOC ioctl command failed: %d[%s]", TAG,
@@ -114,13 +114,13 @@ int32_t AudioTestIon::Allocate(const int32_t number, const int32_t size) {
     buffer.share_data.handle = buffer.allocate_data.handle;
     buffer.share_data.fd = -1;
 
-    /* obtain unique fd for sharing */
+    // obtain unique fd for sharing
     result = ioctl(ion_device_, ION_IOC_SHARE, &buffer.share_data);
     if (result < 0) {
       QMMF_ERROR("%s: %s() ION_IOC_SHARE ioctl command failed: %d[%s]", TAG,
                  __func__, errno, strerror(errno));
 
-      /* on error, attempt to deallocate the ion buffer */
+      // on error, attempt to deallocate the ion buffer
       result = ioctl(ion_device_, ION_IOC_FREE, &buffer.free_data);
       if (result < 0) {
         QMMF_ERROR("%s: %s() ION_IOC_FREE ioctl command failed: %d[%s]", TAG,
@@ -133,7 +133,7 @@ int32_t AudioTestIon::Allocate(const int32_t number, const int32_t size) {
     ion_buffer_map_.insert({buffer.share_data.fd, buffer});
   }
 
-  /* map buffers into address space */
+  // map buffers into address space
   for (AudioIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
     buffer_value.second.data = mmap(NULL, buffer_size_, PROT_READ | PROT_WRITE,
                                     MAP_SHARED,
@@ -165,14 +165,14 @@ int32_t AudioTestIon::Deallocate() {
     QMMF_VERBOSE("%s: %s() deallocating ion buffer[%s]", TAG, __func__,
                  buffer_value.second.ToString().c_str());
 
-    /* unmap buffer from address space */
+    // unmap buffer from address space
     result = munmap(buffer_value.second.data, buffer_size_);
     if (result < 0)
       QMMF_ERROR("%s: %s() unable to unmap buffer[%d]: %d[%s]", TAG, __func__,
                  buffer_value.second.share_data.fd, errno, strerror(errno));
     buffer_value.second.data = nullptr;
 
-    /* close fd for sharing */
+    // close fd for sharing
     result = close(buffer_value.second.share_data.fd);
     if (result < 0) {
       QMMF_ERROR("%s: %s() error closing shared fd[%d]: %d[%s]", TAG, __func__,
@@ -181,7 +181,7 @@ int32_t AudioTestIon::Deallocate() {
     }
     buffer_value.second.share_data.fd = -1;
 
-    /* free ion buffer */
+    // free ion buffer
     result = ioctl(ion_device_, ION_IOC_FREE, &buffer_value.second.free_data);
     if (result < 0) {
       QMMF_ERROR("%s: %s() ION_IOC_FREE ioctl command failed: %d[%s]", TAG,
@@ -193,7 +193,7 @@ int32_t AudioTestIon::Deallocate() {
   }
   QMMF_INFO("%s: %s() deallocated all ion buffers", TAG, __func__);
 
-  /* close ion device */
+  // close ion device
   int result = close(ion_device_);
   if (result < 0) {
     QMMF_ERROR("%s: %s() error closing ion device[%d]: %d[%s]", TAG, __func__,
@@ -217,14 +217,10 @@ int32_t AudioTestIon::GetList(vector<AudioBuffer>* buffers) {
   }
 
   for (AudioIonBufferMap::value_type& ion_buffer_value : ion_buffer_map_) {
-    AudioBuffer buffer = {
-        /* data      */ ion_buffer_value.second.data,
-        /* ion_fd    */ ion_buffer_value.second.share_data.fd,
-        /* buffer_id */ ion_buffer_value.second.share_data.fd,
-        /* capacity  */ request_size_,
-        /* size      */ 0,
-        /* timestamp */ 0,
-        /* flags     */ 0 };
+    AudioBuffer buffer = { ion_buffer_value.second.data,
+                           ion_buffer_value.second.share_data.fd,
+                           ion_buffer_value.second.share_data.fd,
+                           request_size_, 0, 0, 0 };
 
     QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
@@ -253,6 +249,6 @@ int32_t AudioTestIon::Associate(AudioBuffer* buffer) {
   return 0;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

@@ -97,12 +97,12 @@ class RecorderIon
   int32_t buffer_size_;
   int32_t request_size_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   RecorderIon(const RecorderIon&) = delete;
   RecorderIon(RecorderIon&&) = delete;
   RecorderIon& operator=(const RecorderIon&) = delete;
   RecorderIon& operator=(const RecorderIon&&) = delete;
 };
 
-}; /* namespace recorder */
-}; /* namespace qmmf */
+}; // namespace recorder
+}; // namespace qmmf

@@ -81,13 +81,13 @@ class AudioFrontend {
   AudioBufferHandler buffer_handler_;
   AudioBackendMap backends_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioFrontend(const AudioFrontend&) = delete;
   AudioFrontend(AudioFrontend&&) = delete;
   AudioFrontend& operator=(const AudioFrontend&) = delete;
   AudioFrontend& operator=(const AudioFrontend&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

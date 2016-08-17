@@ -47,7 +47,7 @@ using ::std::stringstream;
 using ::std::underlying_type;
 using ::std::vector;
 
-/* basic types of audio and video devices */
+// basic types of audio and video devices
 enum class DeviceType {
   kVideoIn,
   kVideoOut,
@@ -55,22 +55,22 @@ enum class DeviceType {
   kAudioOut,
 };
 
-/* specific subtypes of video input devices */
+// specific subtypes of video input devices
 enum class VideoInSubtype {
   kNone = 0,
   kCamera,
-  kDefault /* always last */
+  kDefault // always last
 };
 
-/* specific subtypes of video output devices */
+// specific subtypes of video output devices
 enum class VideoOutSubtype {
   kNone = 0,
   kLCD,
   kHDMI,
-  kDefault /* always last */
+  kDefault // always last
 };
 
-/* specific subtypes of audio input devices */
+// specific subtypes of audio input devices
 enum class AudioInSubtype {
   kNone = 0,
   kBuiltIn,
@@ -80,10 +80,10 @@ enum class AudioInSubtype {
   kSPDIF,
   kLine,
   kUSB,
-  kDefault /* always last */
+  kDefault // always last
 };
 
-/* specific subtypes of audio output devices */
+// specific subtypes of audio output devices
 enum class AudioOutSubtype {
   kNone = 0,
   kBuiltIn,
@@ -93,10 +93,10 @@ enum class AudioOutSubtype {
   kSPDIF,
   kLine,
   kUSB,
-  kDefault /* always last */
+  kDefault // always last
 };
 
-/* handle to a specific device */
+// handle to a specific device
 typedef int32_t DeviceId;
 
 union DeviceSubType {
@@ -137,7 +137,7 @@ union DeviceSubType {
   }
 };
 
-/* describes a particular device */
+// describes a particular device
 struct DeviceInfo {
   DeviceType type;
   DeviceSubType subtype;
@@ -154,7 +154,7 @@ struct DeviceInfo {
 };
 
 struct Dimension {
-  /* represented by width then height */
+  // represented by width then height
   pair<int32_t, int32_t> dimension;
 
   string ToString() const {
@@ -239,7 +239,7 @@ union DeviceSpecificCaps{
     return stream.str();
   }
 
-  /* needed for unions with non-trivial members */
+  // needed for unions with non-trivial members
   DeviceSpecificCaps() : video(VideoCaps()) {}
   DeviceSpecificCaps(DeviceSpecificCaps& caps) : video(caps.video) {}
   DeviceSpecificCaps(const DeviceSpecificCaps& caps) : video(caps.video) {}
@@ -261,4 +261,4 @@ struct DeviceCaps {
   }
 };
 
-}; /* namespace qmmf */
+}; // namespace qmmf

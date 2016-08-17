@@ -80,13 +80,13 @@ class AudioIon
   AudioIonClientMap client_map_;
   int32_t ion_device_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioIon(const AudioIon&) = delete;
   AudioIon(AudioIon&&) = delete;
   AudioIon& operator=(const AudioIon&) = delete;
   AudioIon& operator=(const AudioIon&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

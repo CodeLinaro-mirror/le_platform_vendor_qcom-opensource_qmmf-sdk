@@ -142,7 +142,7 @@ class RecorderTestWav
   ofstream output_;
   int32_t current_data_size_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   RecorderTestWav(const RecorderTestWav&) = delete;
   RecorderTestWav(RecorderTestWav&&) = delete;
   RecorderTestWav& operator=(const RecorderTestWav&) = delete;

@@ -144,19 +144,19 @@ int32_t AudioTestWav::Configure(const string& filename_prefix,
           case kIdFmt:
             input_.read(reinterpret_cast<char*>(&header_.chunk_format),
                         sizeof header_.chunk_format);
-            /* if the format header is larger, skip the rest */
+            // if the format header is larger, skip the rest
             if (header_.chunk_header.format_size > sizeof header_.chunk_format)
               input_.seekg(header_.chunk_header.format_size -
                            sizeof header_.chunk_format, ios::cur);
             break;
         case kIdData:
-            /* stop looking for chunks */
+            // stop looking for chunks
             input_data_size_ = header_.chunk_header.format_size;
             input_start_position_ = input_.tellg();
             read_more_chunks = false;
             break;
         default:
-            /* unknown chunk, skip bytes */
+            // unknown chunk, skip bytes
             input_.seekg(header_.chunk_header.format_size, ios::cur);
         }
       } while (read_more_chunks);
@@ -227,7 +227,7 @@ void AudioTestWav::Close() {
                                            / 8);
         QMMF_INFO("%s: %s() captured %d frames", TAG, __func__, frames);
 
-        /* finalize the file */
+        // finalize the file
         header_.data_header.data_size = frames *
                                         header_.chunk_format.block_align;
         header_.riff_header.riff_size = header_.data_header.data_size +
@@ -274,6 +274,6 @@ int32_t AudioTestWav::Write(const AudioBuffer& buffer) {
   return 0;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

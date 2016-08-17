@@ -100,12 +100,12 @@ class AudioSource {
   queue<AudioMessage> messages_;
   condition_variable signal_;
 
-  /* Disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioSource(const AudioSource&) = delete;
   AudioSource(AudioSource&&) = delete;
   AudioSource& operator=(const AudioSource&) = delete;
   AudioSource& operator=(const AudioSource&&) = delete;
 };
 
-}; //namespace recorder
-}; //namespace qmmf
+}; // namespace recorder
+}; // namespace qmmf

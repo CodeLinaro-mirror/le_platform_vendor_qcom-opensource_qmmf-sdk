@@ -27,15 +27,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * This file has implementation of following classes:
- *
- * - AudioEndPointClient    : Delegation to binder proxy <IAudioService>
- *                            and implementation of binder CB.
- * - BpAudioService         : Binder proxy implementation.
- * - BpAudioServiceCallback : Binder CB proxy implementation.
- * - BnAudioServiceCallback : Binder CB stub implementation.
- */
+//
+// This file has implementation of following classes:
+//
+// - AudioEndPointClient    : Delegation to binder proxy <IAudioService>
+//                            and implementation of binder CB.
+// - BpAudioService         : Binder proxy implementation.
+// - BpAudioServiceCallback : Binder CB proxy implementation.
+// - BnAudioServiceCallback : Binder CB stub implementation.
+//
 
 #define TAG "AudioEndPointClient"
 
@@ -113,7 +113,7 @@ int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
 
   switch (state_) {
     case AudioState::kNew:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kConnect:
     case AudioState::kIdle:
@@ -183,7 +183,7 @@ int32_t AudioEndPointClient::Disconnect() {
       break;
     case AudioState::kConnect:
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kRunning:
     case AudioState::kPaused:
@@ -239,7 +239,7 @@ int32_t AudioEndPointClient::Configure(const AudioEndPointType type,
 
   switch (state_) {
     case AudioState::kConnect:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kIdle:
@@ -281,7 +281,7 @@ int32_t AudioEndPointClient::Start() {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -332,7 +332,7 @@ int32_t AudioEndPointClient::Stop(const bool flush) {
       break;
     case AudioState::kRunning:
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
@@ -364,7 +364,7 @@ int32_t AudioEndPointClient::Pause() {
 
   switch (state_) {
     case AudioState::kRunning:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -405,7 +405,7 @@ int32_t AudioEndPointClient::Resume() {
 
   switch (state_) {
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -449,7 +449,7 @@ int32_t AudioEndPointClient::SendBuffers(const vector<AudioBuffer>& buffers) {
 
   switch (state_) {
     case AudioState::kRunning:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -486,7 +486,7 @@ int32_t AudioEndPointClient::GetLatency(int32_t* latency) {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -524,7 +524,7 @@ int32_t AudioEndPointClient::GetBufferSize(int32_t* buffer_size) {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -570,7 +570,7 @@ int32_t AudioEndPointClient::SetParam(const AudioParamType type,
     case AudioState::kIdle:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -613,7 +613,7 @@ void AudioEndPointClient::NotifyBufferEvent(const AudioBuffer& buffer) {
   event_handler_(AudioEventType::kBuffer, AudioEventData(buffer));
 }
 
-/* Binder proxy implementation of IAudioService */
+// Binder proxy implementation of IAudioService
 class BpAudioService: public BpInterface<IAudioService> {
  public:
   BpAudioService(const sp<IBinder>& impl) : BpInterface<IAudioService>(impl) {}
@@ -623,7 +623,7 @@ class BpAudioService: public BpInterface<IAudioService> {
     QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
     Parcel input, output;
 
-    /* register service callback to get callbacks from audio service */
+    // register service callback to get callbacks from audio service
     input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
     input.writeStrongBinder(IInterface::asBinder(client_handler));
 
@@ -935,6 +935,6 @@ int32_t BnAudioServiceCallback::onTransact(uint32_t code, const Parcel& input,
   return 0;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

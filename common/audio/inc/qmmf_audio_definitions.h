@@ -27,9 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * Contains the definitions of enums, structs, etc. used by the audio API
- */
+//
+// Contains the definitions of enums, structs, etc. used by the audio API
+//
 
 #pragma once
 
@@ -116,8 +116,8 @@ enum class AudioEventType {
 };
 
 union AudioEventData {
-  int32_t error; /* kError */
-  AudioBuffer buffer; /* kBuffer */
+  int32_t error; // kError
+  AudioBuffer buffer; // kBuffer
 
   string ToString(const AudioEventType key) const {
     stringstream stream;
@@ -161,7 +161,7 @@ union AudioEventData {
     }
   }
 
-  /* needed for unions with non-trivial members */
+  // needed for unions with non-trivial members
   AudioEventData() : error(0) {}
   AudioEventData(int _error) : error(_error) {}
   AudioEventData(const AudioBuffer& _buffer) : buffer(_buffer) {}
@@ -183,8 +183,8 @@ enum class AudioFlagBitPosition {
 struct AudioMetadata {
   AudioFormat format;
   int32_t num_channels;
-  int32_t sample_rate;  /* rate in Hz */
-  int32_t sample_size;  /* size in bits */
+  int32_t sample_rate;  // rate in Hz
+  int32_t sample_size;  // size in bits
   CodecId codec;
   AudioCodecParams codec_params;
   uint32_t flags;
@@ -355,7 +355,7 @@ union AudioParamData {
     }
   }
 
-  /* needed for unions with non-trivial members */
+  // needed for unions with non-trivial members
   AudioParamData() : volume(0) {}
   AudioParamData(int _volume) : volume(_volume) {}
   AudioParamData(const AudioParamDeviceData& _device) : device(_device) {}
@@ -363,6 +363,6 @@ union AudioParamData {
   ~AudioParamData() {}
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

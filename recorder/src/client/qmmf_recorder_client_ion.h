@@ -79,12 +79,12 @@ class RecorderClientIon
   int32_t ion_device_;
   map<uint32_t, RecorderClientIonBufferMap> buffer_map_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   RecorderClientIon(const RecorderClientIon&) = delete;
   RecorderClientIon(RecorderClientIon&&) = delete;
   RecorderClientIon& operator=(const RecorderClientIon&) = delete;
   RecorderClientIon& operator=(const RecorderClientIon&&) = delete;
 };
 
-}; /* namespace recorder */
-}; /* namespace qmmf */
+}; // namespace recorder
+}; // namespace qmmf

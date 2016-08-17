@@ -525,6 +525,6 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
   return 0;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -87,7 +87,7 @@ class AudioService : public BnInterface<IAudioService>
   int32_t SetParam(const AudioHandle audio_handle, const AudioParamType type,
                    const AudioParamData& data) override;
 
-  /* method of BnInterface<IAudioService> */
+  // method of BnInterface<IAudioService>
   int32_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                      uint32_t flags = 0) override;
 
@@ -99,10 +99,10 @@ class AudioService : public BnInterface<IAudioService>
     void binderDied(const wp<IBinder>&) override {
       QMMF_WARN("%s() audio client died", __func__);
       lock_guard<mutex> lock(parent_->lock_);
-      /* TODO(kwestfie@codeaurora.org):
-       * Investigate issue with the following statement:
-       *   parent_->client_handlers_.find(audio_handle_)->second->clear();
-       */
+      // TODO(kwestfie@codeaurora.org):
+      // Investigate issue with the following statement:
+      //   parent_->client_handlers_.find(audio_handle_)->second->clear();
+      //
       parent_->client_handlers_.erase(audio_handle_);
     }
 
@@ -120,13 +120,13 @@ class AudioService : public BnInterface<IAudioService>
   DeathNotifierMap death_notifiers_;
   ClientHandlerMap client_handlers_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioService(const AudioService&) = delete;
   AudioService(AudioService&&) = delete;
   AudioService& operator=(const AudioService&) = delete;
   AudioService& operator=(const AudioService&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

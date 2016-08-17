@@ -74,7 +74,7 @@ enum class AudioServiceCallbackCommand {
 
 static const char* kAudioServiceName = "audio.service";
 
-/* Binder interface for callbacks from AudioService to AudioEndPointClient */
+// Binder interface for callbacks from AudioService to AudioEndPointClient
 class IAudioServiceCallback : public IInterface {
  public:
   DECLARE_META_INTERFACE(AudioServiceCallback);
@@ -112,13 +112,13 @@ class IAudioService : public IInterface {
                            const AudioParamData& data) = 0;
 };
 
-/* this class is responsible to provide callbacks from audio service */
+// this class is responsible to provide callbacks from audio service
 class BnAudioServiceCallback : public BnInterface<IAudioServiceCallback> {
  public:
   virtual int32_t onTransact(uint32_t code, const Parcel &data, Parcel *reply,
                              uint32_t flags = 0);
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

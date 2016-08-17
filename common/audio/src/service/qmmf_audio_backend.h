@@ -61,6 +61,6 @@ class IAudioBackend {
                            const AudioParamData& data) = 0;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

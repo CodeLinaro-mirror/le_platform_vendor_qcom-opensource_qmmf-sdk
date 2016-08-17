@@ -49,15 +49,15 @@ namespace qmmf {
 
 namespace recorder {
 
-/**
-This file has implementation of following classes:
-
-- RecorderClient    : Delegation to binder proxy <IRecorderService>
-                    and implementation of binder CB.
-- BpRecorderService : Binder proxy implementation.
-- BpRecorderServiceCallback : Binder CB proxy implementation.
-- BnRecorderServiceCallback : Binder CB stub implementation.
-*/
+//
+// This file has implementation of following classes:
+//
+// - RecorderClient    : Delegation to binder proxy <IRecorderService>
+//                       and implementation of binder CB.
+// - BpRecorderService : Binder proxy implementation.
+// - BpRecorderServiceCallback : Binder CB proxy implementation.
+// - BnRecorderServiceCallback : Binder CB stub implementation.
+//
 
 using namespace android;
 using ::std::underlying_type;

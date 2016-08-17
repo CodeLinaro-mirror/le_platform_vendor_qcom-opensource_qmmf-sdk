@@ -530,4 +530,4 @@ union AudioCodecParams {
   }
 };
 
-}; /* namespace qmmf */
+}; // namespace qmmf

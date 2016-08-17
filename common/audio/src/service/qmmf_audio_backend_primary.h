@@ -110,7 +110,7 @@ class AudioBackendPrimary : public IAudioBackend {
   audio_stream_in_t* hal_input_stream_;
   audio_stream_out_t* hal_output_stream_;
 
-  /* disable default, copy, assignment, and move */
+  // disable default, copy, assignment, and move
   AudioBackendPrimary() = delete;
   AudioBackendPrimary(const AudioBackendPrimary&) = delete;
   AudioBackendPrimary(AudioBackendPrimary&&) = delete;
@@ -118,6 +118,6 @@ class AudioBackendPrimary : public IAudioBackend {
   AudioBackendPrimary& operator=(const AudioBackendPrimary&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -48,7 +48,7 @@
 #include "common/audio/src/service/qmmf_audio_common.h"
 #include "common/qmmf_log.h"
 
-/* remove comment marker to mimic the AHAL instead of using it */
+// remove comment marker to mimic the AHAL instead of using it
 //#define AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
 
 namespace qmmf {
@@ -95,7 +95,7 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
 
   switch (state_) {
     case AudioState::kNew:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kConnect:
     case AudioState::kIdle:
@@ -193,7 +193,7 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
       return -result;
     }
 
-    /* set the input source to AUDIO_SOURCE_MIC */
+    // set the input source to AUDIO_SOURCE_MIC
     hal_input_stream_->common.set_parameters(&hal_input_stream_->common,
                                              "input_source=1");
   } else if (type_ == AudioEndPointType::kSink) {
@@ -266,7 +266,7 @@ int32_t AudioBackendPrimary::Close() {
       return 0;
       break;
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kConnect:
     case AudioState::kRunning:
@@ -316,7 +316,7 @@ int32_t AudioBackendPrimary::Start() {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -362,7 +362,7 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
       break;
     case AudioState::kRunning:
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
@@ -395,7 +395,7 @@ int32_t AudioBackendPrimary::Pause() {
 
   switch (state_) {
     case AudioState::kRunning:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -433,7 +433,7 @@ int32_t AudioBackendPrimary::Resume() {
 
   switch (state_) {
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -474,7 +474,7 @@ int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
 
   switch (state_) {
     case AudioState::kRunning:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -510,7 +510,7 @@ int32_t AudioBackendPrimary::GetLatency(int32_t* latency) {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -539,7 +539,7 @@ int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
 
   switch (state_) {
     case AudioState::kIdle:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -590,7 +590,7 @@ int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
     case AudioState::kIdle:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      /* proceed */
+      // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
@@ -633,19 +633,19 @@ void AudioBackendPrimary::SourceThread() {
   bool paused = false;
   bool flushing = false;
 
-  /* clear the message queue of expired messages */
+  // clear the message queue of expired messages
   while (!messages_.empty())
     messages_.pop();
 
   bool keep_running = true;
   while (keep_running) {
-    /* wait until there is something to do */
+    // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
 
-    /* process the next pending message */
+    // process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -682,7 +682,7 @@ void AudioBackendPrimary::SourceThread() {
     }
     message_lock_.unlock();
 
-    /* process the next pending buffer */
+    // process the next pending buffer
     do {
       if (!buffers.empty() && !paused) {
         AudioBuffer& buffer = buffers.front();
@@ -707,7 +707,7 @@ void AudioBackendPrimary::SourceThread() {
         ::std::this_thread::sleep_for(::std::chrono::seconds(1));
 #endif
 
-        /* if filled, return timestamped buffer to client */
+        // if filled, return timestamped buffer to client
         if (buffer.size > 0) {
           milliseconds timestamp = duration_cast<milliseconds>(
               system_clock::now().time_since_epoch());
@@ -730,19 +730,19 @@ void AudioBackendPrimary::SinkThread() {
   bool paused = false;
   bool flushing = false;
 
-  /* clear the message queue of expired messages */
+  // clear the message queue of expired messages
   while (!messages_.empty())
     messages_.pop();
 
   bool keep_running = true;
   while (keep_running) {
-    /* wait until there is something to do */
+    // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
 
-    /* process the next pending message */
+    // process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -779,7 +779,7 @@ void AudioBackendPrimary::SinkThread() {
     }
     message_lock_.unlock();
 
-    /* process the next pending buffer */
+    // process the next pending buffer
     do {
       if (!buffers.empty() && !paused) {
         AudioBuffer& buffer = buffers.front();
@@ -809,7 +809,7 @@ void AudioBackendPrimary::SinkThread() {
 #endif
 
         if (buffer.size == 0) {
-          /* return empty buffer to client */
+          // return empty buffer to client
           buffer_handler_(audio_handle_, buffer);
           buffers.pop();
         }
@@ -821,6 +821,6 @@ void AudioBackendPrimary::SinkThread() {
   }
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

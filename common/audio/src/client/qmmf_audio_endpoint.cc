@@ -221,6 +221,6 @@ int32_t AudioEndPoint::SetParam(const AudioParamType type,
   return result;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -295,11 +295,11 @@ void AudioTest::SourceThread() {
   vector<AudioBuffer> buffers;
   bool paused = false;
 
-  /* clear the message queue of expired messages */
+  // clear the message queue of expired messages
   while (!messages_.empty())
     messages_.pop();
 
-  /* send the initial list of buffers */
+  // send the initial list of buffers
   ion_.GetList(&buffers);
   int32_t result = end_point_.SendBuffers(buffers);
   assert(result == 0);
@@ -307,13 +307,13 @@ void AudioTest::SourceThread() {
 
   bool keep_running = true;
   while (keep_running) {
-    /* wait until there is something to do */
+    // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
 
-    /* process the next pending message */
+    // process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -347,7 +347,7 @@ void AudioTest::SourceThread() {
     message_lock_.unlock();
 
     if (!buffers.empty() && !paused && keep_running) {
-      /* write the data to file and reset the buffers */
+      // write the data to file and reset the buffers
       for (AudioBuffer& buffer : buffers) {
         QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
                      buffer.ToString().c_str());
@@ -360,7 +360,7 @@ void AudioTest::SourceThread() {
         buffer.timestamp = 0;
       }
 
-      /* send the buffers */
+      // send the buffers
       int32_t result = end_point_.SendBuffers(buffers);
       assert(result == 0);
       buffers.clear();
@@ -374,7 +374,7 @@ void AudioTest::SinkThread() {
   bool paused = false;
   bool keep_running = true;
 
-  /* clear the message queue of expired messages */
+  // clear the message queue of expired messages
   while (!messages_.empty())
     messages_.pop();
 
@@ -387,19 +387,19 @@ void AudioTest::SinkThread() {
     }
   }
 
-  /* send initial list of buffers */
+  // send initial list of buffers
   int32_t result = end_point_.SendBuffers(buffers);
   assert(result == 0);
   buffers.clear();
 
   while (keep_running) {
-    /* wait until there is something to do */
+    // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
 
-    /* process the next pending message */
+    // process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -433,7 +433,7 @@ void AudioTest::SinkThread() {
     message_lock_.unlock();
 
     if (!buffers.empty() && !paused && keep_running) {
-      /* reset the buffers and read data from file */
+      // reset the buffers and read data from file
       for (AudioBuffer& buffer : buffers) {
         QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
                      buffer.ToString().c_str());
@@ -450,7 +450,7 @@ void AudioTest::SinkThread() {
         }
       }
 
-      /* send the buffers */
+      // send the buffers
       int32_t result = end_point_.SendBuffers(buffers);
       assert(result == 0);
       buffers.clear();
@@ -485,9 +485,9 @@ CommandMenu::Command CommandMenu::GetCommand() {
     return Command(static_cast<Command>(selection));
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test
 
 using ::qmmf_test::common::audio::AudioTest;
 using ::qmmf_test::common::audio::CommandMenu;

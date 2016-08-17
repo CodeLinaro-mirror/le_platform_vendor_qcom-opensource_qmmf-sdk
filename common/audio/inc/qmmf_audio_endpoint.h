@@ -42,159 +42,159 @@ class AudioEndPointClient;
 
 using ::std::vector;
 
-/*
- * Client interface for audio playback or capture.
- *
- * An instance of this class represents the point from which either audio data
- * will be produced (when configured as a source), or audio data will be
- * consumed (when configured as a sink).  The endpoint, itself, needs to be
- * linked with one or more audio devices.
- *
- * All methods are synchronous unless noted explicitly below.
- *
- * Typical usage of this API:
- * ---
- * foo() {
- *   AudioEndPoint aep;
- *
- *   eap.Connect(...);
- *   eap.Configure(...);
- *   eap.GetLatency(...);
- *   eap.GetBufferSize(...);
- *   eap.SetParam(...);  NOTE: one or more times for each parameter
- *   eap.Start();
- *   eap.SendBuffers(...);  NOTE:  repeatedly call to stream data
- *   eap.Stop(...);
- *
- *   eap.Disconnect();
- * }
- */
+//
+// Client interface for audio playback or capture.
+//
+// An instance of this class represents the point from which either audio data
+// will be produced (when configured as a source), or audio data will be
+// consumed (when configured as a sink).  The endpoint, itself, needs to be
+// linked with one or more audio devices.
+//
+// All methods are synchronous unless noted explicitly below.
+//
+// Typical usage of this API:
+// ---
+// foo() {
+//   AudioEndPoint aep;
+//
+//   eap.Connect(...);
+//   eap.Configure(...);
+//   eap.GetLatency(...);
+//   eap.GetBufferSize(...);
+//   eap.SetParam(...);  NOTE: one or more times for each parameter
+//   eap.Start();
+//   eap.SendBuffers(...);  NOTE:  repeatedly call to stream data
+//   eap.Stop(...);
+//
+//   eap.Disconnect();
+// }
+//
 class AudioEndPoint {
  public:
   AudioEndPoint();
   ~AudioEndPoint();
 
-  /*
-   * Connects to the audio service and sets callback handler.
-   *
-   * handler (input): lambda function serving as a handler for asynchronous
-   *                  messages from the audio service. The client is expected
-   *                  to capture the context while setting the handler.
-   *
-   * Returns error code.
-   */
+  //
+  // Connects to the audio service and sets callback handler.
+  //
+  // handler (input): lambda function serving as a handler for asynchronous
+  //                  messages from the audio service. The client is expected
+  //                  to capture the context while setting the handler.
+  //
+  // Returns error code.
+  //
   int32_t Connect(const AudioEventHandler& handler);
 
-  /*
-   * Disconnects from the audio service.  All configuration information for
-   * this endpoint is removed.  The disconnection will fail if the endpoint is
-   * not stopped, i.e. in the Idle or New state.
-   *
-   * Returns error code.
-   */
+  //
+  // Disconnects from the audio service.  All configuration information for
+  // this endpoint is removed.  The disconnection will fail if the endpoint is
+  // not stopped, i.e. in the Idle or New state.
+  //
+  // Returns error code.
+  //
   int32_t Disconnect();
 
-  /*
-   * Configures the endpoint.  The configuration will fail if the endpoint is
-   * not in the New state.
-   *
-   * type (input): indicates source or sink
-   * devices (input): list of devices to link to the endpoint
-   * metadata (input): description of audio data used by the endpoint
-   *
-   * Returns error code.
-   */
+  //
+  // Configures the endpoint.  The configuration will fail if the endpoint is
+  // not in the New state.
+  //
+  // type (input): indicates source or sink
+  // devices (input): list of devices to link to the endpoint
+  // metadata (input): description of audio data used by the endpoint
+  //
+  // Returns error code.
+  //
   int32_t Configure(const AudioEndPointType type,
                     const vector<DeviceId>& devices,
                     const AudioMetadata& metadata);
 
-  /*
-   * Notifies the endpoint to begin streaming audio.
-   *
-   * Returns error code.
-   */
+  //
+  // Notifies the endpoint to begin streaming audio.
+  //
+  // Returns error code.
+  //
   int32_t Start();
 
-  /*
-   * Notifies the endpoint to stop streaming audio.
-   *
-   * flush (input): indicates that all bufferes committed to the endpoint be
-   *                streamed to the device before stopping.
-   *
-   * Returns error code.
-   */
+  //
+  // Notifies the endpoint to stop streaming audio.
+  //
+  // flush (input): indicates that all bufferes committed to the endpoint be
+  //                streamed to the device before stopping.
+  //
+  // Returns error code.
+  //
   int32_t Stop(const bool flush);
 
-  /*
-   * Notifies the endpoint to pause the stream.  Committed buffers will be
-   * retained.
-   *
-   * Returns error code.
-   */
+  //
+  // Notifies the endpoint to pause the stream.  Committed buffers will be
+  // retained.
+  //
+  // Returns error code.
+  //
   int32_t Pause();
 
-  /*
-   * Notifies the endpoint to resume the stream.
-   *
-   * Returns error code.
-   */
+  //
+  // Notifies the endpoint to resume the stream.
+  //
+  // Returns error code.
+  //
   int32_t Resume();
 
-  /*
-   * NOTE: Asynchronous
-   * For a source endpoint, requests the endpoint to fill the given list of
-   * empty buffers with audio data.  Once filled, each of the buffers will be
-   * returned via the handler that was registered with Connect().
-   * For a sink endpoint, delivers a list of buffers filled with audio data to
-   * the endpoint to consume.  Once a buffer is consumed, it will be returned
-   * via the handler that was registered with Connect().
-   *
-   * buffers (input): list of buffers to send to the endpoint
-   *
-   * Returns error code.
-   */
+  //
+  // NOTE: Asynchronous
+  // For a source endpoint, requests the endpoint to fill the given list of
+  // empty buffers with audio data.  Once filled, each of the buffers will be
+  // returned via the handler that was registered with Connect().
+  // For a sink endpoint, delivers a list of buffers filled with audio data to
+  // the endpoint to consume.  Once a buffer is consumed, it will be returned
+  // via the handler that was registered with Connect().
+  //
+  // buffers (input): list of buffers to send to the endpoint
+  //
+  // Returns error code.
+  //
   int32_t SendBuffers(const vector<AudioBuffer>& buffers);
 
-  /*
-   * Request for the endpoint to device latency.  In cases of multiple linked
-   * devices, the largest latency will be returned.
-   *
-   * latency (output): endpoint to device latency in milliseconds
-   *
-   * Returns error code.
-   */
+  //
+  // Request for the endpoint to device latency.  In cases of multiple linked
+  // devices, the largest latency will be returned.
+  //
+  // latency (output): endpoint to device latency in milliseconds
+  //
+  // Returns error code.
+  //
   int32_t GetLatency(int32_t* latency);
 
-  /*
-   * Request for the optimal buffer size that the client should use with the
-   * endpoint.
-   *
-   * buffer_size (output): recommended buffer_size for audio data
-   *
-   * Returns error code.
-   */
+  //
+  // Request for the optimal buffer size that the client should use with the
+  // endpoint.
+  //
+  // buffer_size (output): recommended buffer_size for audio data
+  //
+  // Returns error code.
+  //
   int32_t GetBufferSize(int32_t* buffer_size);
 
-  /*
-   * Request for the new audio paramater to be set to the given value.
-   *
-   * type (input): audio parameter to set
-   * data (input): new audio parameter value to use
-   *
-   * Returns error code.
-   */
+  //
+  // Request for the new audio paramater to be set to the given value.
+  //
+  // type (input): audio parameter to set
+  // data (input): new audio parameter value to use
+  //
+  // Returns error code.
+  //
   int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
  private:
   AudioEndPointClient* audio_endpoint_client_;
 
-  /* Disable copy, assignment, and move */
+  // Disable copy, assignment, and move
   AudioEndPoint(const AudioEndPoint&) = delete;
   AudioEndPoint(AudioEndPoint&&) = delete;
   AudioEndPoint& operator=(const AudioEndPoint&) = delete;
   AudioEndPoint& operator=(const AudioEndPoint&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -223,4 +223,4 @@ struct DeviceCapsInternal : public DeviceCaps {
   }
 };
 
-}; /* namespace qmmf */
+}; // namespace qmmf

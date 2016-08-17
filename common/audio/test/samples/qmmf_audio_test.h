@@ -106,7 +106,7 @@ class AudioTest
   queue<AudioMessage> messages_;
   condition_variable signal_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioTest(const AudioTest&) = delete;
   AudioTest(AudioTest&&) = delete;
   AudioTest& operator=(const AudioTest&) = delete;
@@ -133,13 +133,13 @@ class CommandMenu {
   Command GetCommand();
   void PrintMenu();
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   CommandMenu(const CommandMenu&) = delete;
   CommandMenu(CommandMenu&&) = delete;
   CommandMenu& operator=(const CommandMenu&) = delete;
   CommandMenu& operator=(const CommandMenu&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

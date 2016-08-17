@@ -38,14 +38,14 @@ namespace audio {
 using ::std::function;
 
 enum class AudioState {
-  kNew, /* instantiated, unconnected and unconfigured */
-  kConnect, /* connected and unconfigured */
-  kIdle, /* configured and stopped */
-  kRunning, /* streaming */
-  kPaused, /* stopped with data retention */
+  kNew,     // instantiated, unconnected and unconfigured
+  kConnect, // connected and unconfigured
+  kIdle,    // configured and stopped
+  kRunning, // streaming
+  kPaused,  // stopped with data retention
 };
 
-/* handle to a specific audio client/service connection */
+// handle to a specific audio client/service connection
 typedef int32_t AudioHandle;
 
 typedef function<void(const AudioHandle audio_handle,
@@ -53,6 +53,6 @@ typedef function<void(const AudioHandle audio_handle,
 typedef function<void(const AudioHandle audio_handle,
                       const AudioBuffer& buffer)> AudioBufferHandler;
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

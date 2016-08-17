@@ -195,6 +195,6 @@ int32_t AudioIon::Release(const AudioHandle audio_handle) {
   return result;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

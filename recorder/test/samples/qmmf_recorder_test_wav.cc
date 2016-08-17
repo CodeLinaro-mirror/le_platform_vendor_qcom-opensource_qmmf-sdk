@@ -134,7 +134,7 @@ void RecorderTestWav::Close() {
                                        / 8);
     QMMF_INFO("%s: %s() captured %d frames", TAG, __func__, frames);
 
-    /* finalize the file */
+    // finalize the file
     header_.data_header.data_size = frames * header_.chunk_format.block_align;
     header_.riff_header.riff_size = header_.data_header.data_size +
                                     sizeof(header_) - 8;

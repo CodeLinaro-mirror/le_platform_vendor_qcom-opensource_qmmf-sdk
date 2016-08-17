@@ -423,4 +423,4 @@ struct G711ParamsInternal : public G711Params {
   }
 };
 
-}; /* namespace qmmf */
+}; // namespace qmmf

@@ -76,7 +76,7 @@ void AudioFrontend::RegisterBufferHandler(const AudioBufferHandler& handler) {
 int32_t AudioFrontend::Connect(AudioHandle* audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  /* find an available AudioHandle */
+  // find an available AudioHandle
   if (current_handle_ + 1 > kAudioHandleMax)
     current_handle_ = 0;
   ++current_handle_;
@@ -365,6 +365,6 @@ int32_t AudioFrontend::SetParam(const AudioHandle audio_handle,
   return result;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

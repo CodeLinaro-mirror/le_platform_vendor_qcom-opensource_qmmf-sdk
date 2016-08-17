@@ -96,13 +96,13 @@ class AudioTestIon
   int32_t request_size_;
   AudioIonBufferMap ion_buffer_map_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioTestIon(const AudioTestIon&) = delete;
   AudioTestIon(AudioTestIon&&) = delete;
   AudioTestIon& operator=(const AudioTestIon&) = delete;
   AudioTestIon& operator=(const AudioTestIon&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

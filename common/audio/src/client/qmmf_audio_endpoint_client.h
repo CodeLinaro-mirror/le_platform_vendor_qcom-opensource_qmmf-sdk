@@ -74,7 +74,7 @@ class AudioEndPointClient {
   int32_t GetBufferSize(int32_t* buffer_size);
   int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
-  /* callbacks from service */
+  // callbacks from service
   void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
@@ -102,7 +102,7 @@ class AudioEndPointClient {
   AudioEventHandler event_handler_;
   AudioHandle audio_handle_;
 
-  /* Disable copy, assignment, and move */
+  // Disable copy, assignment, and move
   AudioEndPointClient(const AudioEndPointClient&) = delete;
   AudioEndPointClient(AudioEndPointClient&&) = delete;
   AudioEndPointClient& operator=(const AudioEndPointClient&) = delete;
@@ -115,13 +115,13 @@ class ServiceCallbackHandler : public BnAudioServiceCallback {
   ~ServiceCallbackHandler();
 
  private:
-  /* methods of BnAudioServiceCallback */
+  // methods of BnAudioServiceCallback
   void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
   AudioEndPointClient *client_;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -68,38 +68,37 @@ using ::std::vector;
 
 static const int kNumberOfBuffers = 4;
 
-AudioSource* AudioSource::instance_ = NULL;
+AudioSource* AudioSource::instance_ = nullptr;
 
 AudioSource* AudioSource::CreateAudioSource() {
-  if(!instance_) {
+  if(instance_ == nullptr) {
     instance_ = new AudioSource;
-    if(!instance_) {
-      QMMF_ERROR("%s:%s: Can't Create AudioSource Instance", TAG, __func__);
-      //return NULL;
-    }
+    if(instance_ == nullptr)
+      QMMF_ERROR("%s: %s() Can't Create AudioSource Instance", TAG, __func__);
   }
-  QMMF_INFO("%s:%s: AudioSource Instance Created Successfully(0x%x)", TAG,
-      __func__, instance_);
+  QMMF_INFO("%s: %s() AudioSource Instance Created Successfully(0x%x)", TAG,
+            __func__, instance_);
 
   return instance_;
 }
 
 AudioSource::AudioSource() : end_point_(nullptr), thread_(nullptr) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: %s() Enter", TAG, __func__);
+  QMMF_INFO("%s: %s() Exit", TAG, __func__);
 }
 
 AudioSource::~AudioSource() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: %s() Enter", TAG, __func__);
   instance_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s: %s() Exit (0x%x)", TAG, __func__, this);
 }
 
 status_t AudioSource::CreateTrackSource(const uint32_t track_id,
                                         AudioTrackParams& param) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_VERBOSE("%s: %s() INPARAM: param[%s]", TAG, __func__,
+               param.ToString().c_str());
   assert(track_id >= 100);
   assert(end_point_ == nullptr);
 
@@ -148,13 +147,13 @@ status_t AudioSource::CreateTrackSource(const uint32_t track_id,
   data_cb_ = param.data_cb;
   track_id_ = track_id;
 
-  QMMF_INFO("%s:%s: track_id(%d) Created Successfully!", TAG, __func__);
+  QMMF_INFO("%s: %s: track_id(%d) Created Successfully!", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
   int32_t result = end_point_->Disconnect();
@@ -166,13 +165,13 @@ status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
   delete end_point_;
   end_point_ = nullptr;
 
-  QMMF_INFO("%s:%s: track_id(%d) Deleted Successfully!", TAG, __func__);
+  QMMF_INFO("%s: %s: track_id[%d] Deleted Successfully!", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t AudioSource::StartTrackSource(const uint32_t track_id) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s(): Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
   int32_t result = end_point_->Start();
@@ -182,14 +181,14 @@ status_t AudioSource::StartTrackSource(const uint32_t track_id) {
   thread_ = new thread(AudioSource::ThreadEntry, this);
   assert(thread_ != nullptr);
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Started Succesffuly!", TAG, __func__,
+  QMMF_VERBOSE("%s: %s() TrackSource id[%d] Started Succesffuly!", TAG, __func__,
       track_id);
   return NO_ERROR;
 }
 
 status_t AudioSource::StopTrackSource(const uint32_t track_id) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
   AudioMessage message;
@@ -209,14 +208,14 @@ status_t AudioSource::StopTrackSource(const uint32_t track_id) {
   int32_t result = end_point_->Stop(false);
   assert(result == 0);
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Stopped Successfully!", TAG, __func__,
+  QMMF_VERBOSE("%s: %s() TrackSource id[%d] Stopped Successfully!", TAG, __func__,
       track_id);
   return NO_ERROR;
 }
 
 status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
   AudioMessage message;
@@ -230,14 +229,14 @@ status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
   int32_t result = end_point_->Pause();
   assert(result == 0);
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Paused Successfully!", TAG, __func__,
+  QMMF_VERBOSE("%s: %s() TrackSource id[%d] Paused Successfully!", TAG, __func__,
       track_id);
   return NO_ERROR;
 }
 
 status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
   int32_t result = end_point_->Resume();
@@ -251,15 +250,15 @@ status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   message_lock_.unlock();
   signal_.notify_one();
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Resumed Successfully!", TAG, __func__,
+  QMMF_VERBOSE("%s: %s() TrackSource id[%d] Resumed Successfully!", TAG, __func__,
       track_id);
   return NO_ERROR;
 }
 
 status_t AudioSource::ReturnTrackBuffer(const uint32_t track_id,
     const std::vector<BnBuffer> &buffers) {
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s: %s() Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
@@ -313,11 +312,11 @@ void AudioSource::Thread() {
   queue<BnBuffer> bn_buffers;
   bool paused = false;
 
-  /* clear the message queue of expired messages */
+  // clear the message queue of expired messages
   while (!messages_.empty())
     messages_.pop();
 
-  /* send the initial list of buffers */
+  // send the initial list of buffers
   vector<AudioBuffer> initial_buffers;
   ion_.GetList(&initial_buffers);
   int32_t result = end_point_->SendBuffers(initial_buffers);
@@ -326,13 +325,13 @@ void AudioSource::Thread() {
 
   bool keep_running = true;
   while (keep_running) {
-    /* wait until there is something to do */
+    // wait until there is something to do
     if (bn_buffers.empty() && buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
 
-    /* process the next pending message */
+    // process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -372,7 +371,7 @@ void AudioSource::Thread() {
     }
     message_lock_.unlock();
 
-    /* process buffers from endpoint */
+    // process buffers from endpoint
     if (!buffers.empty() && !paused && keep_running) {
       AudioBuffer buffer = buffers.front();
       QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
@@ -387,7 +386,7 @@ void AudioSource::Thread() {
       buffers.pop();
     }
 
-    /* process buffers from client */
+    // process buffers from client
     if (!bn_buffers.empty() && !paused && keep_running) {
       BnBuffer bn_buffer = bn_buffers.front();
       QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s]", TAG, __func__,
@@ -410,5 +409,5 @@ void AudioSource::Thread() {
   }
 }
 
-}; //namespace recorder
-}; //namespace qmmf
+}; // namespace recorder
+}; // namespace qmmf
