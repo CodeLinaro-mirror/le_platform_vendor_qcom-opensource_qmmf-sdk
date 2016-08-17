@@ -87,7 +87,7 @@ class AudioSource {
   static void ThreadEntry(AudioSource* source);
   void Thread();
 
-  void ErrorHandler(int error);
+  void ErrorHandler(const int32_t error);
   void BufferHandler(const AudioBuffer& buffer);
 
   uint32_t track_id_;

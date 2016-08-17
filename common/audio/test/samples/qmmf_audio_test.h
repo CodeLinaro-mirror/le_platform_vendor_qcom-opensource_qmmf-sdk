@@ -70,7 +70,7 @@ class AudioTest
   void Pause();
   void Resume();
 
-  void ErrorHandler(int error);
+  void ErrorHandler(const int32_t error);
   void BufferHandler(const AudioBuffer& buffer);
 
  private:
@@ -95,8 +95,8 @@ class AudioTest
   AudioEndPointType type_;
 
   AudioTestIon ion_;
-  int buffer_size_;
-  int buffer_number_;
+  int32_t buffer_size_;
+  int32_t buffer_number_;
 
   AudioTestWav wav_;
   string filename_prefix_;

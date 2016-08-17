@@ -29,6 +29,9 @@
 
 #define TAG "AudioEndPoint"
 
+#include <vector>
+#include <type_traits>
+
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
@@ -38,6 +41,9 @@
 namespace qmmf {
 namespace common {
 namespace audio {
+
+using ::std::vector;
+using ::std::underlying_type;
 
 AudioEndPoint::AudioEndPoint()
     : audio_endpoint_client_(nullptr) {
@@ -56,7 +62,7 @@ AudioEndPoint::~AudioEndPoint() {
   QMMF_INFO("%s: %s() endpoint destroyed", TAG, __func__);
 }
 
-int AudioEndPoint::Connect(AudioEventHandler& handler) {
+int32_t AudioEndPoint::Connect(const AudioEventHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
                handler.target_type().name());
@@ -65,14 +71,14 @@ int AudioEndPoint::Connect(AudioEventHandler& handler) {
   if (audio_endpoint_client_ == nullptr)
     return -ENOMEM;
 
-  int result = audio_endpoint_client_->Connect(handler);
+  int32_t result = audio_endpoint_client_->Connect(handler);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Connect failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::Disconnect() {
+int32_t AudioEndPoint::Disconnect() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   if (audio_endpoint_client_ == nullptr) {
@@ -80,48 +86,47 @@ int AudioEndPoint::Disconnect() {
     return 0;
   }
 
-  int result = audio_endpoint_client_->Disconnect();
+  int32_t result = audio_endpoint_client_->Disconnect();
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Disconnect failed: %d", TAG, __func__, result);
 
   delete audio_endpoint_client_;
   audio_endpoint_client_ = nullptr;
 
-QMMF_DEBUG("%s: %s() KCW 1", TAG, __func__);
   return result;
 }
 
-int AudioEndPoint::Configure(AudioEndPointType type,
-                             const DeviceIdList& devices,
-                             const AudioMetadata& metadata) {
+int32_t AudioEndPoint::Configure(const AudioEndPointType type,
+                                 const vector<DeviceId>& devices,
+                                 const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
-  QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
-               devices.ToString().c_str());
+               static_cast<underlying_type<AudioEndPointType>::type>(type));
+  for (const DeviceId device : devices)
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
                metadata.ToString().c_str());
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->Configure(type, devices, metadata);
+  int32_t result = audio_endpoint_client_->Configure(type, devices, metadata);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Configure failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::Start() {
+int32_t AudioEndPoint::Start() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->Start();
+  int32_t result = audio_endpoint_client_->Start();
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Start failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::Stop(bool flush) {
+int32_t AudioEndPoint::Stop(const bool flush) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
                flush ? "true" : "false");
@@ -131,54 +136,54 @@ int AudioEndPoint::Stop(bool flush) {
     return 0;
   }
 
-  int result = audio_endpoint_client_->Stop(flush);
+  int32_t result = audio_endpoint_client_->Stop(flush);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Stop failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::Pause() {
+int32_t AudioEndPoint::Pause() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->Pause();
+  int32_t result = audio_endpoint_client_->Pause();
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Pause failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::Resume() {
+int32_t AudioEndPoint::Resume() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->Resume();
+  int32_t result = audio_endpoint_client_->Resume();
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Resume failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::SendBuffers(const AudioBufferList& buffers) {
+int32_t AudioEndPoint::SendBuffers(const vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  for (const AudioBuffer& buffer : buffers.list)
+  for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->SendBuffers(buffers);
+  int32_t result = audio_endpoint_client_->SendBuffers(buffers);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->SendBuffers failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioEndPoint::GetLatency(int* latency) {
+int32_t AudioEndPoint::GetLatency(int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->GetLatency(latency);
+  int32_t result = audio_endpoint_client_->GetLatency(latency);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->GetLatency failed: %d", TAG, __func__, result);
 
@@ -186,11 +191,11 @@ int AudioEndPoint::GetLatency(int* latency) {
   return result;
 }
 
-int AudioEndPoint::GetBufferSize(int* buffer_size) {
+int32_t AudioEndPoint::GetBufferSize(int32_t* buffer_size) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->GetBufferSize(buffer_size);
+  int32_t result = audio_endpoint_client_->GetBufferSize(buffer_size);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->GetBufferSize failed: %d", TAG, __func__,
                result);
@@ -200,15 +205,16 @@ int AudioEndPoint::GetBufferSize(int* buffer_size) {
   return result;
 }
 
-int AudioEndPoint::SetParam(AudioParamType type, const AudioParamData& data) {
+int32_t AudioEndPoint::SetParam(const AudioParamType type,
+                                const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
+               static_cast<underlying_type<AudioParamType>::type>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
   assert(audio_endpoint_client_ != nullptr);
 
-  int result = audio_endpoint_client_->SetParam(type, data);
+  int32_t result = audio_endpoint_client_->SetParam(type, data);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->SetParam failed: %d", TAG, __func__, result);
 

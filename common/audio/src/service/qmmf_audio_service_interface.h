@@ -30,6 +30,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
@@ -50,6 +51,7 @@ using ::android::IInterface;
 using ::android::Parcel;
 using ::android::sp;
 using ::android::status_t;
+using ::std::vector;
 
 enum class AudioServiceCommand {
   kAudioConnect = IBinder::FIRST_CALL_TRANSACTION,
@@ -77,7 +79,7 @@ class IAudioServiceCallback : public IInterface {
  public:
   DECLARE_META_INTERFACE(AudioServiceCallback);
 
-  virtual void NotifyErrorEvent(int error) = 0;
+  virtual void NotifyErrorEvent(const int32_t error) = 0;
   virtual void NotifyBufferEvent(const AudioBuffer& buffer) = 0;
 };
 
@@ -85,32 +87,36 @@ class IAudioService : public IInterface {
  public:
   DECLARE_META_INTERFACE(AudioService);
 
-  virtual int Connect(const sp<IAudioServiceCallback>& client_handler,
-                      AudioHandle* audio_handle) = 0;
-  virtual int Disconnect(AudioHandle audio_handle) = 0;
-  virtual int Configure(AudioHandle audio_handle, AudioEndPointType type,
-                        const DeviceIdList& devices,
-                        const AudioMetadata& metadata) = 0;
+  virtual int32_t Connect(const sp<IAudioServiceCallback>& client_handler,
+                          AudioHandle* audio_handle) = 0;
+  virtual int32_t Disconnect(const AudioHandle audio_handle) = 0;
+  virtual int32_t Configure(const AudioHandle audio_handle,
+                            const AudioEndPointType type,
+                            const vector<DeviceId>& devices,
+                            const AudioMetadata& metadata) = 0;
 
-  virtual int Start(AudioHandle audio_handle) = 0;
-  virtual int Stop(AudioHandle audio_handle, bool flush) = 0;
-  virtual int Pause(AudioHandle audio_handle) = 0;
-  virtual int Resume(AudioHandle audio_handle) = 0;
+  virtual int32_t Start(const AudioHandle audio_handle) = 0;
+  virtual int32_t Stop(const AudioHandle audio_handle, const bool flush) = 0;
+  virtual int32_t Pause(const AudioHandle audio_handle) = 0;
+  virtual int32_t Resume(const AudioHandle audio_handle) = 0;
 
-  virtual int SendBuffers(AudioHandle audio_handle,
-                          const AudioBufferList& buffers) = 0;
+  virtual int32_t SendBuffers(const AudioHandle audio_handle,
+                              const vector<AudioBuffer>& buffers) = 0;
 
-  virtual int GetLatency(AudioHandle audio_handle, int* latency) = 0;
-  virtual int GetBufferSize(AudioHandle audio_handle, int* buffer_size) = 0;
-  virtual int SetParam(AudioHandle audio_handle, AudioParamType type,
-                       const AudioParamData& data) = 0;
+  virtual int32_t GetLatency(const AudioHandle audio_handle,
+                             int32_t* latency) = 0;
+  virtual int32_t GetBufferSize(const AudioHandle audio_handle,
+                                int32_t* buffer_size) = 0;
+  virtual int32_t SetParam(const AudioHandle audio_handle,
+                           const AudioParamType type,
+                           const AudioParamData& data) = 0;
 };
 
 /* this class is responsible to provide callbacks from audio service */
 class BnAudioServiceCallback : public BnInterface<IAudioServiceCallback> {
  public:
-  virtual status_t onTransact(uint32_t code, const Parcel &data, Parcel *reply,
-                              uint32_t flags = 0);
+  virtual int32_t onTransact(uint32_t code, const Parcel &data, Parcel *reply,
+                             uint32_t flags = 0);
 };
 
 }; /* namespace audio */

@@ -54,13 +54,13 @@ class RecorderTestWav
   RecorderTestWav();
   ~RecorderTestWav();
 
-  int Configure(const string& filename_prefix,
+  int32_t Configure(const string& filename_prefix,
                 const AudioTrackCreateParam& params);
 
-  int Open();
+  int32_t Open();
   void Close();
 
-  int Write(const BufferDescriptor& buffer);
+  int32_t Write(const BufferDescriptor& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {
@@ -140,7 +140,7 @@ class RecorderTestWav
   string filename_;
   WavHeader header_;
   ofstream output_;
-  int current_data_size_;
+  int32_t current_data_size_;
 
   /* disable copy, assignment, and move */
   RecorderTestWav(const RecorderTestWav&) = delete;

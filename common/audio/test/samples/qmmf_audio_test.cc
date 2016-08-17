@@ -39,6 +39,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
@@ -50,9 +51,8 @@ namespace common {
 namespace audio {
 
 using ::qmmf::AudioFormat;
-using ::qmmf::DeviceIdList;
+using ::qmmf::DeviceId;
 using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioBufferList;
 using ::qmmf::common::audio::AudioEndPoint;
 using ::qmmf::common::audio::AudioEndPointType;
 using ::qmmf::common::audio::AudioEventHandler;
@@ -67,6 +67,7 @@ using ::std::mutex;
 using ::std::queue;
 using ::std::thread;
 using ::std::unique_lock;
+using ::std::vector;
 
 static const char* kDefaultFilePrefix = "/data/qmmf_audio_test";
 static const int kDefaultNumberOfBuffers = 4;
@@ -89,8 +90,8 @@ void AudioTest::Connect() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   AudioEventHandler audio_handler =
-    [this] (AudioEventType event_type, const AudioEventData& event_data)
-           -> void {
+    [this] (const AudioEventType event_type,
+            const AudioEventData& event_data) -> void {
       switch (event_type) {
         case AudioEventType::kError:
           ErrorHandler(event_data.error);
@@ -108,7 +109,7 @@ void AudioTest::Connect() {
 void AudioTest::Disconnect() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  int result = end_point_.Disconnect();
+  int32_t result = end_point_.Disconnect();
   assert(result == 0);
 
   result = ion_.Deallocate();
@@ -117,12 +118,12 @@ void AudioTest::Disconnect() {
 
 void AudioTest::ConfigureSource() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  int result;
+  int32_t result;
 
   type_ = AudioEndPointType::kSource;
 
-  DeviceIdList devices;
-  devices.ids.push_back(0);
+  vector<DeviceId> devices;
+  devices.push_back(0);
 
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);
@@ -137,7 +138,7 @@ void AudioTest::ConfigureSource() {
   result = end_point_.Configure(type_, devices, metadata);
   assert(result == 0);
 
-  int latency;
+  int32_t latency;
   result = end_point_.GetLatency(&latency);
   assert(result == 0);
   QMMF_INFO("%s: %s() latency is %d", TAG, __func__, latency);
@@ -155,12 +156,12 @@ void AudioTest::ConfigureSource() {
 
 void AudioTest::ConfigureSink() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  int result;
+  int32_t result;
 
   type_ = AudioEndPointType::kSink;
 
-  DeviceIdList devices;
-  devices.ids.push_back(0);
+  vector<DeviceId> devices;
+  devices.push_back(0);
 
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);
@@ -170,7 +171,7 @@ void AudioTest::ConfigureSink() {
   result = end_point_.Configure(type_, devices, metadata);
   assert(result == 0);
 
-  int latency;
+  int32_t latency;
   result = end_point_.GetLatency(&latency);
   assert(result == 0);
   QMMF_INFO("%s: %s() latency is %d", TAG, __func__, latency);
@@ -214,7 +215,7 @@ void AudioTest::Stop() {
     thread_ = nullptr;
   }
 
-  int result = end_point_.Stop(false);
+  int32_t result = end_point_.Stop(false);
   assert(result == 0);
 }
 
@@ -229,14 +230,14 @@ void AudioTest::Pause() {
   message_lock_.unlock();
   signal_.notify_one();
 
-  int result = end_point_.Pause();
+  int32_t result = end_point_.Pause();
   assert(result == 0);
 }
 
 void AudioTest::Resume() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  int result = end_point_.Resume();
+  int32_t result = end_point_.Resume();
   assert(result == 0);
 
   AudioMessage message;
@@ -248,9 +249,9 @@ void AudioTest::Resume() {
   signal_.notify_one();
 }
 
-void AudioTest::ErrorHandler(int error) {
+void AudioTest::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__, error);
+  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
 
   assert(false);
 }
@@ -291,7 +292,7 @@ void AudioTest::ThreadEntry() {
 
 void AudioTest::SourceThread() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  AudioBufferList buffers;
+  vector<AudioBuffer> buffers;
   bool paused = false;
 
   /* clear the message queue of expired messages */
@@ -300,14 +301,14 @@ void AudioTest::SourceThread() {
 
   /* send the initial list of buffers */
   ion_.GetList(&buffers);
-  int result = end_point_.SendBuffers(buffers);
+  int32_t result = end_point_.SendBuffers(buffers);
   assert(result == 0);
-  buffers.list.clear();
+  buffers.clear();
 
   bool keep_running = true;
   while (keep_running) {
     /* wait until there is something to do */
-    if (buffers.list.empty() && messages_.empty()) {
+    if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
@@ -338,16 +339,16 @@ void AudioTest::SourceThread() {
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
           QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                        message.buffer.ToString().c_str());
-          buffers.list.push_back(message.buffer);
+          buffers.push_back(message.buffer);
           break;
       }
       messages_.pop();
     }
     message_lock_.unlock();
 
-    if (!buffers.list.empty() && !paused && keep_running) {
+    if (!buffers.empty() && !paused && keep_running) {
       /* write the data to file and reset the buffers */
-      for (AudioBuffer& buffer : buffers.list) {
+      for (AudioBuffer& buffer : buffers) {
         QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
                      buffer.ToString().c_str());
 
@@ -360,16 +361,16 @@ void AudioTest::SourceThread() {
       }
 
       /* send the buffers */
-      int result = end_point_.SendBuffers(buffers);
+      int32_t result = end_point_.SendBuffers(buffers);
       assert(result == 0);
-      buffers.list.clear();
+      buffers.clear();
     }
   }
 }
 
 void AudioTest::SinkThread() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  AudioBufferList buffers;
+  vector<AudioBuffer> buffers;
   bool paused = false;
   bool keep_running = true;
 
@@ -378,8 +379,8 @@ void AudioTest::SinkThread() {
     messages_.pop();
 
   ion_.GetList(&buffers);
-  for (AudioBuffer& buffer : buffers.list) {
-    int result = wav_.Read(&buffer);
+  for (AudioBuffer& buffer : buffers) {
+    int32_t result = wav_.Read(&buffer);
     if (result == AudioTestWav::kEOF) {
       keep_running = false;
       break;
@@ -387,13 +388,13 @@ void AudioTest::SinkThread() {
   }
 
   /* send initial list of buffers */
-  int result = end_point_.SendBuffers(buffers);
+  int32_t result = end_point_.SendBuffers(buffers);
   assert(result == 0);
-  buffers.list.clear();
+  buffers.clear();
 
   while (keep_running) {
     /* wait until there is something to do */
-    if (buffers.list.empty() && messages_.empty()) {
+    if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       signal_.wait(lk);
     }
@@ -424,16 +425,16 @@ void AudioTest::SinkThread() {
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
           QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                        message.buffer.ToString().c_str());
-          buffers.list.push_back(message.buffer);
+          buffers.push_back(message.buffer);
           break;
       }
       messages_.pop();
     }
     message_lock_.unlock();
 
-    if (!buffers.list.empty() && !paused && keep_running) {
+    if (!buffers.empty() && !paused && keep_running) {
       /* reset the buffers and read data from file */
-      for (AudioBuffer& buffer : buffers.list) {
+      for (AudioBuffer& buffer : buffers) {
         QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
                      buffer.ToString().c_str());
 
@@ -442,7 +443,7 @@ void AudioTest::SinkThread() {
         buffer.size = 0;
         buffer.timestamp = 0;
 
-        int result = wav_.Read(&buffer);
+        int32_t result = wav_.Read(&buffer);
         if (result == AudioTestWav::kEOF) {
           keep_running = false;
           break;
@@ -450,9 +451,9 @@ void AudioTest::SinkThread() {
       }
 
       /* send the buffers */
-      int result = end_point_.SendBuffers(buffers);
+      int32_t result = end_point_.SendBuffers(buffers);
       assert(result == 0);
-      buffers.list.clear();
+      buffers.clear();
     }
   }
 }

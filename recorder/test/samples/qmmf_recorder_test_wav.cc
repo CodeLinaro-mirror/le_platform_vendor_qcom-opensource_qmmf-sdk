@@ -32,11 +32,12 @@
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 
 #include <cerrno>
+#include <cstdint>
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <cstdint>
 #include <string>
+#include <type_traits>
 
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "common/qmmf_log.h"
@@ -48,6 +49,7 @@ using ::std::ios;
 using ::std::ofstream;
 using ::std::streampos;
 using ::std::string;
+using ::std::underlying_type;
 
 static const uint32_t kIdRiff = 0x46464952;
 static const uint32_t kIdWave = 0x45564157;
@@ -65,23 +67,17 @@ RecorderTestWav::~RecorderTestWav() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
-int RecorderTestWav::Configure(const string& filename_prefix,
-                               const AudioTrackCreateParam& params) {
+int32_t RecorderTestWav::Configure(const string& filename_prefix,
+                                   const AudioTrackCreateParam& params) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: filename_prefix[%s]", TAG, __func__,
                filename_prefix.c_str());
-  QMMF_VERBOSE("%s: %s() INPARAM: params.sample_rate[%u]", TAG, __func__,
-               params.sample_rate);
-  QMMF_VERBOSE("%s: %s() INPARAM: params.channels[%u]", TAG, __func__,
-               params.channels);
-  QMMF_VERBOSE("%s: %s() INPARAM: params.bit_depth[%u]", TAG, __func__,
-               params.bit_depth);
-  QMMF_VERBOSE("%s: %s() INPARAM: params.format_type[%u]", TAG, __func__,
-               params.format_type);
+  QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
+               params.ToString().c_str());
 
-  if (params.format_type != AudioFormat::kPCM) {
+  if (params.format != AudioFormat::kPCM) {
     QMMF_ERROR("%s: %s() non-PCM format given: %d", TAG, __func__,
-               static_cast<int>(params.format_type));
+               static_cast<underlying_type<AudioFormat>::type>(params.format));
     return -EINVAL;
   }
 
@@ -108,7 +104,7 @@ int RecorderTestWav::Configure(const string& filename_prefix,
   return 0;
 }
 
-int RecorderTestWav::Open() {
+int32_t RecorderTestWav::Open() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   if (filename_.empty()) {
@@ -149,11 +145,10 @@ void RecorderTestWav::Close() {
   }
 }
 
-int RecorderTestWav::Write(const BufferDescriptor& buffer) {
+int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer.data[%p]", TAG, __func__, buffer.data);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer.size[%zu]", TAG, __func__,
-               buffer.size);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
 
   streampos before = output_.tellp();
   output_.write(reinterpret_cast<const char *>(buffer.data),

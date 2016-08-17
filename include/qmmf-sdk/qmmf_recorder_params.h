@@ -32,14 +32,25 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <iomanip>
 #include <functional>
+#include <sstream>
+#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "qmmf-sdk/qmmf_codec.h"
+#include "qmmf-sdk/qmmf_device.h"
 
 namespace qmmf {
 
 namespace recorder {
+
+using ::std::setbase;
+using ::std::string;
+using ::std::stringstream;
+using ::std::vector;
+using ::std::underlying_type;
 
 #define MAX_IN_DEVICES 4
 
@@ -72,6 +83,18 @@ struct BufferDescriptor {
   uint32_t buf_id;
   size_t   capacity;
   int32_t  fd;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "data[" << data << "] ";
+    stream << "size[" << size << "] ";
+    stream << "timestamp[" << timestamp << "] ";
+    stream << "flag[" << setbase(16) << flag << setbase(10) << "] ";
+    stream << "buf_id[" << buf_id << "] ";
+    stream << "capacity[" << capacity << "] ";
+    stream << "fd[" << fd << "]";
+    return stream.str();
+  }
 };
 
 enum class MetaParamType {
@@ -116,17 +139,32 @@ struct TrackCb {
 /// Audio output device is used for routing audio to output
 /// to external devices say through HDMI. In all other usecases
 /// out_device will be set to AUDIO_DEVICE_NONE
-/// \TODO: define AudioInputDevice??
 struct AudioTrackCreateParam {
-  int32_t          in_device[MAX_IN_DEVICES];
-  int32_t          num_in_devices;
+  vector<DeviceId> in_devices;
   uint32_t         sample_rate;
   uint32_t         channels;
   uint32_t         bit_depth;
-  AudioFormat      format_type;
-  AudioCodecParams codec_param;
-  int32_t          out_device;
+  AudioFormat      format;
+  AudioCodecParams codec_params;
+  DeviceId         out_device;
   uint32_t         flags;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "in_devices[";
+    for (const DeviceId device : in_devices)
+      stream << device << ", ";
+    stream << "SIZE[" << in_devices.size() << "]], ";
+    stream << "sample_rate[" << sample_rate << "] ";
+    stream << "channels[" << channels << "] ";
+    stream << "bit_depth[" << bit_depth << "] ";
+    stream << "format["
+           << static_cast<underlying_type<AudioFormat>::type>(format) << "] ";
+    stream << "codec_params[" << codec_params.ToString(format) << "] ";
+    stream << "out_device[" << out_device << "] ";
+    stream << "flags[" << flags << "]";
+    return stream.str();
+  }
 };
 
 /// \brief create time parameters for a video track
@@ -141,6 +179,20 @@ struct VideoTrackCreateParam {
   VideoFormat      format_type;
   VideoCodecParams codec_param;
   uint32_t out_device;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "camera_id[" << camera_id << "] ";
+    stream << "width[" << width << "] ";
+    stream << "height[" << height << "] ";
+    stream << "frame_rate[" << frame_rate << "] ";
+    stream << "format_type["
+           << static_cast<underlying_type<VideoFormat>::type>(format_type)
+           << "] ";
+    stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
+    stream << "out_device[" << out_device << "]";
+    return stream.str();
+  }
 };
 
 /// \brief Parameters passed to StartCamera API
@@ -159,6 +211,17 @@ struct CameraStartParam {
   uint32_t zsl_height;
   uint32_t frame_rate;
   uint32_t flags;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "zsl_mode[" << boolalpha << zsl_mode << noboolalpha << "]";
+    stream << "zsl_queue_depth[" << zsl_queue_depth << "] ";
+    stream << "zsl_width[" << zsl_width << "] ";
+    stream << "zsl_height[" << zsl_height << "] ";
+    stream << "frame_rate[" << frame_rate << "] ";
+    stream << "flags[" << flags << "]";
+    return stream.str();
+  }
 };
 
 /// \brief For thumbnail images only kJPEG is supported
@@ -168,6 +231,17 @@ struct ImageParam {
   uint32_t    height;
   uint32_t    image_quality;
   ImageFormat image_format;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "width[" << width << "]";
+    stream << "height[" << height << "] ";
+    stream << "image_quality[" << image_quality << "] ";
+    stream << "image_format["
+           << static_cast<underlying_type<ImageFormat>::type>(image_format)
+           << "]";
+    return stream.str();
+  }
 };
 
 /// \brief Advance configuration for image capture
@@ -195,6 +269,24 @@ struct ImageCaptureConfig {
   bool with_raw;
   ImageFormat raw_image_format;
   std::vector<ImageParam> thumbnail_image_param;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "sensor_frame_skip_interval[" << sensor_frame_skip_interval
+           << "] ";
+    stream << "with_exif[" << boolalpha << with_exif << noboolalpha << "] ";
+    stream << "with_camera_meta[" << boolalpha << with_camera_meta
+           << noboolalpha << "] ";
+    stream << "with_raw[" << boolalpha << with_raw << noboolalpha << "] ";
+    stream << "raw_image_format["
+           << static_cast<underlying_type<ImageFormat>::type>(raw_image_format)
+           << "] ";
+    stream << "thumbnail_image_param[";
+    for (const ImageParam image_param : thumbnail_image_param)
+      stream << image_param.ToString() << ", ";
+    stream << "SIZE[" << thumbnail_image_param.size() << "]]";
+    return stream.str();
+  }
 };
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,

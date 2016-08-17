@@ -491,10 +491,11 @@ status_t RecorderImpl::ResumeSession(const uint32_t session_id) {
 status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
                                         const uint32_t track_id,
                                         const AudioTrackCreateParam& param) {
-
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
-      session_id, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+               param.ToString().c_str());
 
   if(!IsSessionIdValid(session_id)) {
     QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
@@ -504,11 +505,11 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   AudioTrackParams audio_track_params;
   memset(&audio_track_params, 0x00, sizeof audio_track_params);
   audio_track_params.track_id = track_id;
-  audio_track_params.sample_rate = param.sample_rate;
-  audio_track_params.channels = param.channels;
-  audio_track_params.bit_depth = param.bit_depth;
-  audio_track_params.format_type = param.format_type;
-  audio_track_params.codec_param = param.codec_param;
+  audio_track_params.params.sample_rate = param.sample_rate;
+  audio_track_params.params.channels = param.channels;
+  audio_track_params.params.bit_depth = param.bit_depth;
+  audio_track_params.params.format = param.format;
+  audio_track_params.params.codec_params = param.codec_params;
   audio_track_params.data_cb =
       [this] (uint32_t track_id, std::vector<BnBuffer> buffers,
               void *meta_param, MetaParamType meta_type, size_t meta_size)
@@ -524,8 +525,8 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
         track_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: TrackSource for track_id(%d) Added Successfully in"
-      " AudioSource", TAG, __func__, track_id);
+  QMMF_INFO("%s:%s: TrackSource for track_id(%d) Added Successfully in AudioSource",
+            TAG, __func__, track_id);
 
   // Assosiate track to session.
   TrackInfo track_info;
@@ -549,7 +550,6 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
 
 status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
                                         const uint32_t track_id) {
-
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);

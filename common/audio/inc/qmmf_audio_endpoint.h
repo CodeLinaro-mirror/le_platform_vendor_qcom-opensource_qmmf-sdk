@@ -29,6 +29,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "common/audio/inc/qmmf_audio_definitions.h"
 
 namespace qmmf {
@@ -36,6 +39,8 @@ namespace common {
 namespace audio {
 
 class AudioEndPointClient;
+
+using ::std::vector;
 
 /*
  * Client interface for audio playback or capture.
@@ -78,7 +83,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int Connect(AudioEventHandler& handler);
+  int32_t Connect(const AudioEventHandler& handler);
 
   /*
    * Disconnects from the audio service.  All configuration information for
@@ -87,7 +92,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int Disconnect();
+  int32_t Disconnect();
 
   /*
    * Configures the endpoint.  The configuration will fail if the endpoint is
@@ -99,15 +104,16 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int Configure(AudioEndPointType type, const DeviceIdList& devices,
-                const AudioMetadata& metadata);
+  int32_t Configure(const AudioEndPointType type,
+                    const vector<DeviceId>& devices,
+                    const AudioMetadata& metadata);
 
   /*
    * Notifies the endpoint to begin streaming audio.
    *
    * Returns error code.
    */
-  int Start();
+  int32_t Start();
 
   /*
    * Notifies the endpoint to stop streaming audio.
@@ -117,7 +123,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int Stop(bool flush);
+  int32_t Stop(const bool flush);
 
   /*
    * Notifies the endpoint to pause the stream.  Committed buffers will be
@@ -125,14 +131,14 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int Pause();
+  int32_t Pause();
 
   /*
    * Notifies the endpoint to resume the stream.
    *
    * Returns error code.
    */
-  int Resume();
+  int32_t Resume();
 
   /*
    * NOTE: Asynchronous
@@ -147,7 +153,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int SendBuffers(const AudioBufferList& buffers);
+  int32_t SendBuffers(const vector<AudioBuffer>& buffers);
 
   /*
    * Request for the endpoint to device latency.  In cases of multiple linked
@@ -157,7 +163,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int GetLatency(int* latency);
+  int32_t GetLatency(int32_t* latency);
 
   /*
    * Request for the optimal buffer size that the client should use with the
@@ -167,7 +173,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int GetBufferSize(int* buffer_size);
+  int32_t GetBufferSize(int32_t* buffer_size);
 
   /*
    * Request for the new audio paramater to be set to the given value.
@@ -177,7 +183,7 @@ class AudioEndPoint {
    *
    * Returns error code.
    */
-  int SetParam(AudioParamType type, const AudioParamData& data);
+  int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
  private:
   AudioEndPointClient* audio_endpoint_client_;

@@ -56,19 +56,19 @@ using ::std::stringstream;
 class AudioTestWav
 {
  public:
-  static const int kEOF;
+  static const int32_t kEOF;
 
   AudioTestWav();
   ~AudioTestWav();
 
-  int Configure(const string& filename_prefix, AudioEndPointType type,
-                AudioMetadata *metadata);
+  int32_t Configure(const string& filename_prefix, const AudioEndPointType type,
+                    AudioMetadata *metadata);
 
-  int Open();
+  int32_t Open();
   void Close();
 
-  int Read(AudioBuffer* buffer);
-  int Write(const AudioBuffer& buffer);
+  int32_t Read(AudioBuffer* buffer);
+  int32_t Write(const AudioBuffer& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {
@@ -151,8 +151,8 @@ class AudioTestWav
   ofstream output_;
   ifstream input_;
   streampos input_start_position_;
-  int input_data_size_;
-  int current_data_size_;
+  int32_t input_data_size_;
+  int32_t current_data_size_;
 
   /* disable copy, assignment, and move */
   AudioTestWav(const AudioTestWav&) = delete;

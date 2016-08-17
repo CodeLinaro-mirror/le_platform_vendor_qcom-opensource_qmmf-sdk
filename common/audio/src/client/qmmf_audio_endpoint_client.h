@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 #include <binder/IBinder.h>
 #include <utils/RefBase.h>
@@ -49,30 +50,32 @@ using ::android::sp;
 using ::android::wp;
 using ::std::lock_guard;
 using ::std::mutex;
+using ::std::vector;
 
 class AudioEndPointClient {
  public:
   AudioEndPointClient();
   ~AudioEndPointClient();
 
-  int Connect(AudioEventHandler& handler);
-  int Disconnect();
-  int Configure(AudioEndPointType type, const DeviceIdList& devices,
-                const AudioMetadata& metadata);
+  int32_t Connect(const AudioEventHandler& handler);
+  int32_t Disconnect();
+  int32_t Configure(const AudioEndPointType type,
+                    const vector<DeviceId>& devices,
+                    const AudioMetadata& metadata);
 
-  int Start();
-  int Stop(bool flush);
-  int Pause();
-  int Resume();
+  int32_t Start();
+  int32_t Stop(const bool flush);
+  int32_t Pause();
+  int32_t Resume();
 
-  int SendBuffers(const AudioBufferList& buffers);
+  int32_t SendBuffers(const vector<AudioBuffer>& buffers);
 
-  int GetLatency(int* latency);
-  int GetBufferSize(int* buffer_size);
-  int SetParam(AudioParamType type, const AudioParamData& data);
+  int32_t GetLatency(int32_t* latency);
+  int32_t GetBufferSize(int32_t* buffer_size);
+  int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
   /* callbacks from service */
-  void NotifyErrorEvent(int error);
+  void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
  private:
@@ -113,7 +116,7 @@ class ServiceCallbackHandler : public BnAudioServiceCallback {
 
  private:
   /* methods of BnAudioServiceCallback */
-  void NotifyErrorEvent(int error);
+  void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
   AudioEndPointClient *client_;

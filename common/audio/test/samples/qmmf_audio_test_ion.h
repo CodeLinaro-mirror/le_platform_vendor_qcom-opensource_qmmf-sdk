@@ -33,6 +33,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <linux/msm_ion.h>
 
@@ -43,11 +44,11 @@ namespace common {
 namespace audio {
 
 using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioBufferList;
 using ::std::map;
 using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
+using ::std::vector;
 
 class AudioTestIon
 {
@@ -55,11 +56,11 @@ class AudioTestIon
   AudioTestIon();
   ~AudioTestIon();
 
-  int Allocate(int number, int size);
-  int Deallocate();
+  int32_t Allocate(const int32_t number, const int32_t size);
+  int32_t Deallocate();
 
-  int GetList(AudioBufferList* buffers);
-  int Associate(AudioBuffer* buffer);
+  int32_t GetList(vector<AudioBuffer>* buffers);
+  int32_t Associate(AudioBuffer* buffer);
 
  private:
   struct AudioIonBuffer {
@@ -88,10 +89,12 @@ class AudioTestIon
     }
   };
 
-  int ion_device_;
-  int buffer_size_;
-  int request_size_;
-  map<int, AudioIonBuffer> buffer_map_;
+  typedef map<int32_t, AudioIonBuffer> AudioIonBufferMap;
+
+  int32_t ion_device_;
+  int32_t buffer_size_;
+  int32_t request_size_;
+  AudioIonBufferMap ion_buffer_map_;
 
   /* disable copy, assignment, and move */
   AudioTestIon(const AudioTestIon&) = delete;

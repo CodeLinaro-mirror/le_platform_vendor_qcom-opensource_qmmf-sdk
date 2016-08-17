@@ -39,6 +39,8 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <vector>
+#include <type_traits>
 
 #include <hardware/audio.h>
 
@@ -63,27 +65,28 @@ using ::std::mutex;
 using ::std::queue;
 using ::std::thread;
 using ::std::unique_lock;
+using ::std::vector;
+using ::std::underlying_type;
 
-AudioBackendPrimary::AudioBackendPrimary(AudioHandle audio_handle,
-    AudioErrorHandler error_handler,
-    AudioReadCompleteHandler read_complete_handler,
-    AudioWriteCompleteHandler write_complete_handler)
-    : audio_handle_(audio_handle),
-      error_handler_(error_handler),
-      read_complete_handler_(read_complete_handler),
-      write_complete_handler_(write_complete_handler),
-      state_(AudioState::kNew) {}
+AudioBackendPrimary::AudioBackendPrimary(const AudioHandle audio_handle,
+    const AudioErrorHandler& error_handler,
+    const AudioBufferHandler& buffer_handler)
+    : audio_handle_(audio_handle), error_handler_(error_handler),
+      buffer_handler_(buffer_handler), state_(AudioState::kNew) {
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
+}
 
 AudioBackendPrimary::~AudioBackendPrimary() {}
 
-int AudioBackendPrimary::Open(AudioEndPointType type,
-                              const DeviceIdList& devices,
-                              const AudioMetadata& metadata) {
+int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
+                                  const vector<DeviceId>& devices,
+                                  const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
-  QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
-               devices.ToString().c_str());
+               static_cast<underlying_type<AudioEndPointType>::type>(type));
+  for (const DeviceId device : devices)
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
                metadata.ToString().c_str());
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
@@ -99,7 +102,13 @@ int AudioBackendPrimary::Open(AudioEndPointType type,
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -235,23 +244,25 @@ int AudioBackendPrimary::Open(AudioEndPointType type,
     }
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
+               static_cast<underlying_type<AudioEndPointType>::type>(type_));
     return -ENOSYS;
   }
 #endif
 
   state_ = AudioState::kIdle;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
   return 0;
 }
 
-int AudioBackendPrimary::Close() {
+int32_t AudioBackendPrimary::Close() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
     case AudioState::kNew:
       QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
-                static_cast<int>(state_));
+                static_cast<underlying_type<AudioState>::type>(state_));
       return 0;
       break;
     case AudioState::kIdle:
@@ -261,7 +272,13 @@ int AudioBackendPrimary::Close() {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -273,7 +290,7 @@ int AudioBackendPrimary::Close() {
     hal_device_->close_output_stream(hal_device_, hal_output_stream_);
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
+               static_cast<underlying_type<AudioEndPointType>::type>(type_));
     return -ENOSYS;
   }
 
@@ -284,6 +301,8 @@ int AudioBackendPrimary::Close() {
 #endif
 
   state_ = AudioState::kNew;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
   return result;
@@ -292,7 +311,7 @@ int AudioBackendPrimary::Close() {
 #endif
 }
 
-int AudioBackendPrimary::Start() {
+int32_t AudioBackendPrimary::Start() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -304,7 +323,13 @@ int AudioBackendPrimary::Start() {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -316,11 +341,13 @@ int AudioBackendPrimary::Start() {
   }
 
   state_ = AudioState::kRunning;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
   return 0;
 }
 
-int AudioBackendPrimary::Stop(bool flush) {
+int32_t AudioBackendPrimary::Stop(const bool flush) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
                flush ? "true" : "false");
@@ -330,12 +357,17 @@ int AudioBackendPrimary::Stop(bool flush) {
     case AudioState::kConnect:
     case AudioState::kIdle:
       QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
-                static_cast<int>(state_));
+                static_cast<underlying_type<AudioState>::type>(state_));
       return 0;
       break;
     case AudioState::kRunning:
     case AudioState::kPaused:
       /* proceed */
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
       break;
   }
 
@@ -352,11 +384,13 @@ int AudioBackendPrimary::Stop(bool flush) {
   delete thread_;
 
   state_ = AudioState::kIdle;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
   return 0;
 }
 
-int AudioBackendPrimary::Pause() {
+int32_t AudioBackendPrimary::Pause() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -368,7 +402,13 @@ int AudioBackendPrimary::Pause() {
     case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -382,11 +422,13 @@ int AudioBackendPrimary::Pause() {
   signal_.notify_one();
 
   state_ = AudioState::kPaused;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
   return 0;
 }
 
-int AudioBackendPrimary::Resume() {
+int32_t AudioBackendPrimary::Resume() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -398,7 +440,13 @@ int AudioBackendPrimary::Resume() {
     case AudioState::kIdle:
     case AudioState::kRunning:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -412,13 +460,15 @@ int AudioBackendPrimary::Resume() {
   signal_.notify_one();
 
   state_ = AudioState::kRunning;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<underlying_type<AudioState>::type>(state_));
 
   return 0;
 }
 
-int AudioBackendPrimary::SendBuffers(const AudioBufferList& buffers) {
+int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  for (const AudioBuffer& buffer : buffers.list)
+  for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
 
@@ -431,15 +481,21 @@ int AudioBackendPrimary::SendBuffers(const AudioBufferList& buffers) {
     case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
 
   AudioMessage message;
   message.type = AudioMessageType::kMessageBuffer;
-  for (const AudioBuffer& buffer : buffers.list)
-    message.buffers.list.push_back(buffer);
+  for (const AudioBuffer& buffer : buffers)
+    message.buffers.push_back(buffer);
 
   message_lock_.lock();
   messages_.push(message);
@@ -449,7 +505,7 @@ int AudioBackendPrimary::SendBuffers(const AudioBufferList& buffers) {
   return 0;
 }
 
-int AudioBackendPrimary::GetLatency(int* latency) {
+int32_t AudioBackendPrimary::GetLatency(int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -461,7 +517,13 @@ int AudioBackendPrimary::GetLatency(int* latency) {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -472,7 +534,7 @@ int AudioBackendPrimary::GetLatency(int* latency) {
   return 0;
 }
 
-int AudioBackendPrimary::GetBufferSize(int* buffer_size) {
+int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -484,7 +546,13 @@ int AudioBackendPrimary::GetBufferSize(int* buffer_size) {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -498,7 +566,7 @@ int AudioBackendPrimary::GetBufferSize(int* buffer_size) {
         &hal_output_stream_->common);
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
+               static_cast<underlying_type<AudioEndPointType>::type>(type_));
     return -ENOSYS;
   }
 #else
@@ -510,11 +578,11 @@ int AudioBackendPrimary::GetBufferSize(int* buffer_size) {
   return 0;
 }
 
-int AudioBackendPrimary::SetParam(AudioParamType type,
-                                  const AudioParamData& data) {
+int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
+                                      const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
+               static_cast<underlying_type<AudioParamType>::type>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
 
@@ -527,7 +595,13 @@ int AudioBackendPrimary::SetParam(AudioParamType type,
     case AudioState::kNew:
     case AudioState::kConnect:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
+                 __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<underlying_type<AudioState>::type>(state_));
       return -ENOSYS;
       break;
   }
@@ -549,7 +623,7 @@ void AudioBackendPrimary::ThreadEntry() {
     case AudioEndPointType::kSink: SinkThread(); break;
     default:
       QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-                 static_cast<int>(type_));
+                 static_cast<underlying_type<AudioEndPointType>::type>(type_));
   }
 }
 
@@ -596,11 +670,11 @@ void AudioBackendPrimary::SourceThread() {
 
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          for (const AudioBuffer& buffer : message.buffers.list)
+          for (const AudioBuffer& buffer : message.buffers) {
             QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                          buffer.ToString().c_str());
-          for (const AudioBuffer& buffer : message.buffers.list)
             buffers.push(buffer);
+          }
           break;
       }
 
@@ -639,7 +713,7 @@ void AudioBackendPrimary::SourceThread() {
               system_clock::now().time_since_epoch());
           buffer.timestamp = timestamp.count();
 
-          read_complete_handler_(audio_handle_, buffer);
+          buffer_handler_(audio_handle_, buffer);
           buffers.pop();
         }
       }
@@ -693,11 +767,11 @@ void AudioBackendPrimary::SinkThread() {
 
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          for (const AudioBuffer& buffer : message.buffers.list)
+          for (const AudioBuffer& buffer : message.buffers) {
             QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                          buffer.ToString().c_str());
-          for (const AudioBuffer& buffer : message.buffers.list)
             buffers.push(buffer);
+          }
           break;
       }
 
@@ -724,7 +798,7 @@ void AudioBackendPrimary::SinkThread() {
           buffer.timestamp = 0;
         }
 #else
-        for (auto index = 0; index < buffer.size; ++index) {
+        for (size_t index = 0; index < buffer.size; ++index) {
           unsigned char* charbuf = static_cast<unsigned char*>(buffer.data);
           QMMF_INFO("%s: %s() consumed buffer[%d][0x%x]", TAG, __func__, index,
                     charbuf[index]);
@@ -736,7 +810,7 @@ void AudioBackendPrimary::SinkThread() {
 
         if (buffer.size == 0) {
           /* return empty buffer to client */
-          write_complete_handler_(audio_handle_, buffer);
+          buffer_handler_(audio_handle_, buffer);
           buffers.pop();
         }
       }

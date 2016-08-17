@@ -33,11 +33,20 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace qmmf {
 
-typedef int32_t  CodecID;
+using ::std::boolalpha;
+using ::std::noboolalpha;
+using ::std::setbase;
+using ::std::string;
+using ::std::stringstream;
+using ::std::vector;
+using ::std::underlying_type;
+
+typedef int32_t CodecId;
 
 #define MAX_PLANE 3
 
@@ -98,7 +107,7 @@ enum class HEVCLevelType {
 
 /// @brief Data structure for specifying the initial quantization values to
 /// video encoder
-typedef struct VideoEncodeInitQP {
+struct VideoEncodeInitQP {
   uint32_t    init_IQP;       ///< First Iframe QP
   uint32_t    init_PQP;       ///< First Pframe QP
   uint32_t    init_BQP;       ///< First Bframe QP
@@ -110,21 +119,49 @@ typedef struct VideoEncodeInitQP {
                               ///<       and use value specified in init_PQP
                               ///< Bit 2: Enable initial QP for B
                               ///<       and use value specified in init_BQP
-} VideoEncodeInitQP;
 
-typedef struct VideoEncodeQPRange {
+  string ToString() const {
+    stringstream stream;
+    stream << "init_IQP[" << init_IQP << "] ";
+    stream << "init_PQP[" << init_PQP << "] ";
+    stream << "init_BQP[" << init_BQP << "] ";
+    stream << "init_QP_mode[" << setbase(16) << init_QP_mode << setbase(10)
+           << "]";
+    return stream.str();
+  }
+};
+
+struct VideoEncodeQPRange {
   uint32_t    min_QP;
   uint32_t    max_QP;
-} VideoEncodeQPRange;
 
-typedef struct VideoEncodeIPBQPRange {
+  string ToString() const {
+    stringstream stream;
+    stream << "min_QP[" << min_QP << "] ";
+    stream << "max_QP[" << max_QP << "]";
+    return stream.str();
+  }
+};
+
+struct VideoEncodeIPBQPRange {
   uint32_t    min_IQP;
   uint32_t    max_IQP;
   uint32_t    min_PQP;
   uint32_t    max_PQP;
   uint32_t    min_BQP;
   uint32_t    max_BQP;
-} VideoEncodeIPBQPRange;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "min_IQP[" << min_IQP << "] ";
+    stream << "max_IQP[" << max_IQP << "] ";
+    stream << "min_PQP[" << min_PQP << "] ";
+    stream << "max_PQP[" << max_PQP << "] ";
+    stream << "min_BQP[" << min_BQP << "] ";
+    stream << "max_BQP[" << max_BQP << "]";
+    return stream.str();
+  }
+};
 
 typedef struct VideoQPParams {
   bool                  enable_init_qp;
@@ -133,6 +170,20 @@ typedef struct VideoQPParams {
   VideoEncodeQPRange    qp_range;
   bool                  enable_qp_IBP_range;
   VideoEncodeIPBQPRange qp_IBP_range;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "enable_init_qp[" << boolalpha << enable_init_qp << noboolalpha
+           << "] ";
+    stream << "init_qp[" << init_qp.ToString() << "]";
+    stream << "enable_qp_range[" << boolalpha << enable_qp_range << noboolalpha
+           << "] ";
+    stream << "qp_range[" << qp_range.ToString() << "]";
+    stream << "enable_qp_IBP_range[" << boolalpha << enable_qp_IBP_range
+           << noboolalpha << "] ";
+    stream << "qp_IBP_range[" << qp_IBP_range.ToString() << "]";
+    return stream.str();
+  }
 } VideoQPParams;
 
 enum class VideoRateControlType {
@@ -143,7 +194,7 @@ enum class VideoRateControlType {
   kConstant,
 };
 
-typedef struct AVCParams {
+struct AVCParams {
   uint32_t             idr_interval;
   uint32_t             bitrate;
   AVCProfileType       profile;
@@ -152,9 +203,28 @@ typedef struct AVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
-} AVCParams;
 
-typedef struct HEVCParams {
+  string ToString() const {
+    stringstream stream;
+    stream << "idr_interval[" << idr_interval << "] ";
+    stream << "bitrate[" << bitrate << "] ";
+    stream << "profile["
+           << static_cast<underlying_type<AVCProfileType>::type>(profile)
+           << "] ";
+    stream << "level["
+           << static_cast<underlying_type<AVCLevelType>::type>(level) << "] ";
+    stream << "ratecontrol_type["
+           << static_cast<underlying_type<VideoRateControlType>::type>
+                         (ratecontrol_type)
+           << "] ";
+    stream << "qp_params[" << qp_params.ToString() << "] ";
+    stream << "ltr_count[" << ltr_count << "] ";
+    stream << "hier_layer[" << hier_layer << "]";
+    return stream.str();
+  }
+};
+
+struct HEVCParams {
   int32_t              idr_interval;
   uint32_t             bitrate;
   HEVCProfileType      profile;
@@ -163,34 +233,104 @@ typedef struct HEVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
-} HEVCParams;
 
-typedef struct JPEGParams {
+  string ToString() const {
+    stringstream stream;
+    stream << "idr_interval[" << idr_interval << "] ";
+    stream << "bitrate[" << bitrate << "] ";
+    stream << "profile["
+           << static_cast<underlying_type<HEVCProfileType>::type>(profile)
+           << "] ";
+    stream << "level["
+           << static_cast<underlying_type<HEVCLevelType>::type>(level) << "] ";
+    stream << "ratecontrol_type["
+           << static_cast<underlying_type<VideoRateControlType>::type>
+                         (ratecontrol_type)
+           << "] ";
+    stream << "qp_params[" << qp_params.ToString() << "] ";
+    stream << "ltr_count[" << ltr_count << "] ";
+    stream << "hier_layer[" << hier_layer << "]";
+    return stream.str();
+  }
+};
+
+struct JPEGParams {
   int32_t quality;
-} JPEGParams;
 
-typedef union VideoCodecParams {
+  string ToString() const {
+    stringstream stream;
+    stream << "quality[" << quality << "]";
+    return stream.str();
+  }
+};
+
+union VideoCodecParams {
   HEVCParams hevc;
   AVCParams  avc;
   JPEGParams jpeg;
-} VideoCodecParam;
 
-typedef struct VideoEncodeIDRInterval {
+  string ToString(const VideoFormat key) const {
+    stringstream stream;
+    switch (key) {
+      case VideoFormat::kHEVC:
+        stream << "hevc[" << hevc.ToString() << "]";
+        break;
+      case VideoFormat::kAVC:
+        stream << "avc[" << avc.ToString() << "]";
+        break;
+      case VideoFormat::kYUV:
+      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerIdeal:
+        stream << "N/A";
+        break;
+      default:
+        stream << "Invalid Key["
+               << static_cast<underlying_type<VideoFormat>::type>(key) << "]";
+        break;
+    }
+    return stream.str();
+  }
+};
+
+struct VideoEncodeIDRInterval {
   int32_t    idr_period;
   int32_t    num_P_frames;
   int32_t    num_B_frames;
-} VideoEncodeIDRInterval;
 
-typedef struct VideoEncLtrUse {
+  string ToString() const {
+    stringstream stream;
+    stream << "idr_period[" << idr_period << "] ";
+    stream << "num_P_frames[" << num_P_frames << "] ";
+    stream << "num_B_frames[" << num_B_frames << "]";
+    return stream.str();
+  }
+};
+
+struct VideoEncLtrUse {
   int32_t id;
   int32_t frame;
-} VideoLtrUse;
 
-typedef struct VideoEncIdrInterval {
+  string ToString() const {
+    stringstream stream;
+    stream << "id[" << id << "] ";
+    stream << "frame[" << frame << "]";
+    return stream.str();
+  }
+};
+
+struct VideoEncIdrInterval {
   int32_t idr_period;
   int32_t num_pframes;
   int32_t num_bframes;
-} VideoIdrInterval;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "idr_period[" << idr_period << "] ";
+    stream << "num_pframes[" << num_pframes << "] ";
+    stream << "num_bframes[" << num_bframes << "]";
+    return stream.str();
+  }
+};
 
 enum class ImageFormat {
   kJPEG,
@@ -206,12 +346,21 @@ enum class ImageMetaDataType {
   kCameraMeta,
 };
 
-typedef struct {
+struct PlaneInfo {
   uint32_t stride;
   uint32_t scanline;
   uint32_t width;
   uint32_t height;
-} PlaneInfo;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "stride[" << stride << "] ";
+    stream << "scanline[" << scanline << "] ";
+    stream << "width[" << width << "] ";
+    stream << "height[" << height << "]";
+    return stream.str();
+  }
+};
 
 enum class BufferFormat {
   kNV12,
@@ -221,11 +370,22 @@ enum class BufferFormat {
   kRAW16
 };
 
-typedef struct {
+struct MetaInfo {
   BufferFormat format;
   uint32_t  num_planes;
   PlaneInfo plane_info[MAX_PLANE];
-} MetaInfo;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "format["
+           << static_cast<underlying_type<BufferFormat>::type>(format) << "] ";
+    stream << "num_planes[" << num_planes << "] ";
+    stream << "plane_info[";
+    for (uint32_t idx = 0; idx < num_planes; ++idx)
+      stream << "[" << plane_info[idx].ToString() << "], ";
+    return stream.str();
+  }
+};
 
 enum class AudioFormat {
   kPCM,
@@ -238,17 +398,53 @@ union CodecFormat {
   VideoFormat video;
   AudioFormat audio;
   ImageFormat image;
+
+  string ToString(const CodecType key) const {
+    stringstream stream;
+    switch (key) {
+      case CodecType::kVideoEncoder:
+      case CodecType::kVideoDecoder:
+        stream << "video["
+               << static_cast<underlying_type<VideoFormat>::type>(video) << "]";
+        break;
+      case CodecType::kAudioEncoder:
+      case CodecType::kAudioDecoder:
+        stream << "audio["
+               << static_cast<underlying_type<AudioFormat>::type>(audio) << "]";
+        break;
+      case CodecType::kImageEncoder:
+      case CodecType::kImageDecoder:
+        stream << "image["
+               << static_cast<underlying_type<ImageFormat>::type>(image) << "]";
+        break;
+      default:
+        stream << "Invalid Key["
+               << static_cast<underlying_type<CodecType>::type>(key) << "]";
+        break;
+    }
+    return stream.str();
+  }
 };
 
 struct CodecInfo {
-  CodecType   type;
+  CodecType type;
   CodecFormat format;
+  CodecId id;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "type[" << static_cast<underlying_type<CodecType>::type>(type)
+           << "] ";
+    stream << "format[" << format.ToString(type) << "] ";
+    stream << "id[" << id << "]";
+    return stream.str();
+  }
 };
 
 enum class AACFormat {
   kADTS,
   kADIF,
-  kRAW,
+  kRaw,
 };
 
 enum class AACMode {
@@ -262,11 +458,29 @@ struct AACParams {
   AACMode   mode;
   int32_t   frame_length;
   int32_t   bit_rate;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "format[" << static_cast<underlying_type<AACFormat>::type>(format)
+           << "]";
+    stream << "mode[" << static_cast<underlying_type<AACMode>::type>(mode)
+           << "]";
+    stream << "frame_length[" << frame_length << "] ";
+    stream << "bit_rate[" << bit_rate << "]";
+    return stream.str();
+  }
 };
 
 struct AMRParams {
   bool    isWAMR;
   int32_t bit_rate;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "frame_length[" << boolalpha << isWAMR << noboolalpha << "] ";
+    stream << "bit_rate[" << bit_rate << "]";
+    return stream.str();
+  }
 };
 
 enum class G711Mode {
@@ -277,12 +491,43 @@ enum class G711Mode {
 struct G711Params {
   G711Mode mode;
   int32_t  bit_rate;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "mode[" << static_cast<underlying_type<G711Mode>::type>(mode)
+           << "]";
+    stream << "bit_rate[" << bit_rate << "]";
+    return stream.str();
+  }
 };
 
 union AudioCodecParams {
   AACParams  aac;
   AMRParams  amr;
   G711Params g711;
+
+  string ToString(const AudioFormat key) const {
+    stringstream stream;
+    switch (key) {
+      case AudioFormat::kPCM:
+       stream << "N/A";
+      break;
+    case AudioFormat::kAAC:
+      stream << "aac[" << aac.ToString() << "]";
+      break;
+    case AudioFormat::kAMR:
+      stream << "amr[" << amr.ToString() << "]";
+      break;
+    case AudioFormat::kG711:
+      stream << "g711[" << g711.ToString() << "]";
+      break;
+      default:
+        stream << "Invalid Key["
+               << static_cast<underlying_type<AudioFormat>::type>(key) << "]";
+        break;
+    }
+    return stream.str();
+  }
 };
 
 }; /* namespace qmmf */

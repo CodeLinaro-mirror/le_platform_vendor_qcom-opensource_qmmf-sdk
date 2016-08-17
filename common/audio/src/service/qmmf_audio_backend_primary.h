@@ -33,6 +33,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <vector>
 
 #include <hardware/audio.h>
 
@@ -48,28 +49,30 @@ using ::std::condition_variable;
 using ::std::mutex;
 using ::std::queue;
 using ::std::thread;
+using ::std::vector;
 
 class AudioBackendPrimary : public IAudioBackend {
  public:
-  AudioBackendPrimary(AudioHandle audio_handle, AudioErrorHandler error_handler,
-                      AudioReadCompleteHandler read_complete_handler,
-                      AudioWriteCompleteHandler write_complete_handler);
+  AudioBackendPrimary(const AudioHandle audio_handle,
+                      const AudioErrorHandler& error_handler,
+                      const AudioBufferHandler& buffer_handler);
   ~AudioBackendPrimary();
 
-  int Open(AudioEndPointType type, const DeviceIdList& devices,
-           const AudioMetadata& metadata) override;
-  int Close() override;
+  int32_t Open(const AudioEndPointType type, const vector<DeviceId>& devices,
+               const AudioMetadata& metadata) override;
+  int32_t Close() override;
 
-  int Start() override;
-  int Stop(bool flush) override;
-  int Pause() override;
-  int Resume() override;
+  int32_t Start() override;
+  int32_t Stop(const bool flush) override;
+  int32_t Pause() override;
+  int32_t Resume() override;
 
-  int SendBuffers(const AudioBufferList& buffers) override;
+  int32_t SendBuffers(const vector<AudioBuffer>& buffers) override;
 
-  int GetLatency(int* latency) override;
-  int GetBufferSize(int* buffer_size) override;
-  int SetParam(AudioParamType type, const AudioParamData& data) override;
+  int32_t GetLatency(int32_t* latency) override;
+  int32_t GetBufferSize(int32_t* buffer_size) override;
+  int32_t SetParam(const AudioParamType type,
+                   const AudioParamData& data) override;
 
  private:
   enum class AudioMessageType {
@@ -81,7 +84,7 @@ class AudioBackendPrimary : public IAudioBackend {
 
   struct AudioMessage {
     AudioMessageType type;
-    AudioBufferList buffers;
+    vector<AudioBuffer> buffers;
     bool flush;
   };
 
@@ -95,8 +98,7 @@ class AudioBackendPrimary : public IAudioBackend {
   AudioState state_;
 
   AudioErrorHandler error_handler_;
-  AudioReadCompleteHandler read_complete_handler_;
-  AudioWriteCompleteHandler write_complete_handler_;
+  AudioBufferHandler buffer_handler_;
 
   thread* thread_;
   mutex message_lock_;

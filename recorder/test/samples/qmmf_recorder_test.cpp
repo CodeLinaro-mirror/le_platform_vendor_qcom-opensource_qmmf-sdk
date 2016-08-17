@@ -546,12 +546,13 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   AudioTrackCreateParam audio_track_params;
   memset(&audio_track_params, 0x0, sizeof audio_track_params);
 
-  audio_track_params.in_device[0]   = 0;
-  audio_track_params.num_in_devices = 1;
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>(0));
   audio_track_params.sample_rate    = 48000;
   audio_track_params.channels       = 1;
   audio_track_params.bit_depth      = 16;
-  audio_track_params.format_type    = AudioFormat::kPCM;
+  audio_track_params.format         = AudioFormat::kPCM;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
   audio_track_params.out_device     = 0;
   audio_track_params.flags          = 0;
 
@@ -908,16 +909,15 @@ void RecorderTest::CreateAudioOnlySession() {
 
   uint32_t audio_track_id = 101;
   AudioTrackCreateParam audio_track_params;
-  memset(&audio_track_params, 0x0, sizeof audio_track_params);
-
-  audio_track_params.in_device[0]   = 0;
-  audio_track_params.num_in_devices = 1;
-  audio_track_params.sample_rate    = 48000;
-  audio_track_params.channels       = 1;
-  audio_track_params.bit_depth      = 16;
-  audio_track_params.format_type    = AudioFormat::kPCM;
-  audio_track_params.out_device     = 0;
-  audio_track_params.flags          = 0;
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>(0));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kPCM;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
 
   TrackCb audio_track_cb;
   audio_track_cb.data_cb =

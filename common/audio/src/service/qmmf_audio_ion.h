@@ -54,13 +54,13 @@ class AudioIon
   AudioIon();
   ~AudioIon();
 
-  int Associate(AudioHandle audio_handle, AudioBuffer* buffer);
-  int Release(AudioHandle audio_handle);
+  int32_t Associate(const AudioHandle audio_handle, AudioBuffer* buffer);
+  int32_t Release(const AudioHandle audio_handle);
 
  private:
   struct AudioIonBuffer {
     void *data;
-    int capacity;
+    int32_t capacity;
     struct ion_fd_data share_data;
 
     string ToString() const {
@@ -74,10 +74,11 @@ class AudioIon
     }
   };
 
-  typedef map<int, AudioIonBuffer> AudioIonBufferMap;
+  typedef map<int32_t, AudioIonBuffer> AudioIonBufferMap;
+  typedef map<AudioHandle, AudioIonBufferMap> AudioIonClientMap;
 
-  int ion_device_;
-  map<AudioHandle, AudioIonBufferMap> buffer_map_;
+  AudioIonClientMap client_map_;
+  int32_t ion_device_;
 
   /* disable copy, assignment, and move */
   AudioIon(const AudioIon&) = delete;

@@ -35,6 +35,8 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <vector>
+#include <type_traits>
 
 #include <binder/IInterface.h>
 #include <binder/Parcel.h>
@@ -57,49 +59,40 @@ using ::android::sp;
 using ::std::lock_guard;
 using ::std::map;
 using ::std::mutex;
+using ::std::vector;
+using ::std::underlying_type;
 
 AudioService::AudioService() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  auto error_handler =
-    [this](AudioHandle audio_handle, int error) -> void {
-      auto client_handler = client_handlers_.find(audio_handle);
-      if (client_handler == client_handlers_.end()) {
+  AudioErrorHandler error_handler =
+    [this](const AudioHandle audio_handle, const int32_t error) -> void {
+      ClientHandlerMap::iterator client_handler_iterator =
+          client_handlers_.find(audio_handle);
+      if (client_handler_iterator == client_handlers_.end()) {
         QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
                    audio_handle);
         return;
       }
 
-      client_handler->second->NotifyErrorEvent(error);
+      client_handler_iterator->second->NotifyErrorEvent(error);
     };
 
-  auto read_complete_handler =
-    [this](AudioHandle audio_handle, const AudioBuffer& buffer) -> void {
-      auto client_handler = client_handlers_.find(audio_handle);
-      if (client_handler == client_handlers_.end()) {
+  AudioBufferHandler buffer_handler =
+    [this](const AudioHandle audio_handle, const AudioBuffer& buffer) -> void {
+      ClientHandlerMap::iterator client_handler_iterator =
+          client_handlers_.find(audio_handle);
+      if (client_handler_iterator == client_handlers_.end()) {
         QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
                    audio_handle);
         return;
       }
 
-      client_handler->second->NotifyBufferEvent(buffer);
-    };
-
-  auto write_complete_handler =
-    [this](AudioHandle audio_handle, const AudioBuffer& buffer) -> void {
-      auto client_handler = client_handlers_.find(audio_handle);
-      if (client_handler == client_handlers_.end()) {
-        QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
-                   audio_handle);
-        return;
-      }
-
-      client_handler->second->NotifyBufferEvent(buffer);
+      client_handler_iterator->second->NotifyBufferEvent(buffer);
     };
 
   audio_frontend_.RegisterErrorHandler(error_handler);
-  audio_frontend_.RegisterReadCompleteHandler(read_complete_handler);
-  audio_frontend_.RegisterWriteCompleteHandler(write_complete_handler);
+  audio_frontend_.RegisterBufferHandler(buffer_handler);
 
   QMMF_INFO("%s: %s() service instantiated", TAG, __func__);
 }
@@ -112,12 +105,12 @@ AudioService::~AudioService()
   QMMF_INFO("%s: %s: service destroyed", TAG, __func__);
 }
 
-int AudioService::Connect(const sp<IAudioServiceCallback>& client_handler,
-                          AudioHandle* audio_handle) {
+int32_t AudioService::Connect(const sp<IAudioServiceCallback>& client_handler,
+                              AudioHandle* audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Connect(audio_handle);
+  int32_t result = audio_frontend_.Connect(audio_handle);
   if (result < 0) {
     QMMF_ERROR("%s: %s() frontend->Connect failed: %d", TAG, __func__, result);
     return result;
@@ -138,60 +131,64 @@ int AudioService::Connect(const sp<IAudioServiceCallback>& client_handler,
   return result;
 }
 
-int AudioService::Disconnect(AudioHandle audio_handle) {
+int32_t AudioService::Disconnect(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Disconnect(audio_handle);
+  int32_t result = audio_frontend_.Disconnect(audio_handle);
   if (result < 0) {
     QMMF_ERROR("%s: %s() frontend->Disconnect failed: %d", TAG, __func__,
                result);
     return result;
   }
 
-  auto client_handler = client_handlers_.find(audio_handle);
-  if (client_handler == client_handlers_.end()) {
+  ClientHandlerMap::iterator client_handler_iterator =
+      client_handlers_.find(audio_handle);
+  if (client_handler_iterator == client_handlers_.end()) {
     QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
                audio_handle);
     return -EINVAL;
   }
 
-  auto death_notifier = death_notifiers_.find(audio_handle);
-  if (death_notifier == death_notifiers_.end()) {
+  DeathNotifierMap::iterator death_notifier_iterator =
+      death_notifiers_.find(audio_handle);
+  if (death_notifier_iterator == death_notifiers_.end()) {
     QMMF_ERROR("%s: %s() no death notifier for key[%d]", TAG, __func__,
                audio_handle);
     return -EINVAL;
   }
 
-  IInterface::asBinder(
-      client_handler->second)->unlinkToDeath(death_notifier->second);
-  client_handler->second.clear();
-  death_notifier->second.clear();
-  client_handlers_.erase(client_handler);
-  death_notifiers_.erase(death_notifier);
+  IInterface::asBinder(client_handler_iterator->second)->
+      unlinkToDeath(death_notifier_iterator->second);
+  client_handler_iterator->second.clear();
+  death_notifier_iterator->second.clear();
+  client_handlers_.erase(client_handler_iterator);
+  death_notifiers_.erase(death_notifier_iterator);
 
   ion_.Release(audio_handle);
 
   return 0;
 }
 
-int AudioService::Configure(AudioHandle audio_handle, AudioEndPointType type,
-                            const DeviceIdList& devices,
-                            const AudioMetadata& metadata) {
+int32_t AudioService::Configure(const AudioHandle audio_handle,
+                                const AudioEndPointType type,
+                                const vector<DeviceId>& devices,
+                                const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
-  QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
-               devices.ToString().c_str());
+               static_cast<underlying_type<AudioEndPointType>::type>(type));
+  for (const DeviceId device : devices)
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
                metadata.ToString().c_str());
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Configure(audio_handle, type, devices, metadata);
+  int32_t result = audio_frontend_.Configure(audio_handle, type, devices,
+                                             metadata);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Configure failed: %d", TAG, __func__,
                result);
@@ -199,20 +196,20 @@ int AudioService::Configure(AudioHandle audio_handle, AudioEndPointType type,
   return result;
 }
 
-int AudioService::Start(AudioHandle audio_handle) {
+int32_t AudioService::Start(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Start(audio_handle);
+  int32_t result = audio_frontend_.Start(audio_handle);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Start failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioService::Stop(AudioHandle audio_handle, bool flush) {
+int32_t AudioService::Stop(const AudioHandle audio_handle, const bool flush) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
@@ -220,14 +217,14 @@ int AudioService::Stop(AudioHandle audio_handle, bool flush) {
                flush ? "true" : "false");
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Stop(audio_handle, flush);
+  int32_t result = audio_frontend_.Stop(audio_handle, flush);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Stop failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioService::Pause(AudioHandle audio_handle) {
+int32_t AudioService::Pause(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
@@ -240,30 +237,30 @@ int AudioService::Pause(AudioHandle audio_handle) {
   return result;
 }
 
-int AudioService::Resume(AudioHandle audio_handle) {
+int32_t AudioService::Resume(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.Resume(audio_handle);
+  int32_t result = audio_frontend_.Resume(audio_handle);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Resume failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioService::SendBuffers(AudioHandle audio_handle,
-                              const AudioBufferList& buffers) {
+int32_t AudioService::SendBuffers(const AudioHandle audio_handle,
+                                  const vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  for (const AudioBuffer& buffer : buffers.list)
+  for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.SendBuffers(audio_handle, buffers);
+  int32_t result = audio_frontend_.SendBuffers(audio_handle, buffers);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->SendBuffers failed: %d", TAG, __func__,
                result);
@@ -271,13 +268,14 @@ int AudioService::SendBuffers(AudioHandle audio_handle,
   return result;
 }
 
-int AudioService::GetLatency(AudioHandle audio_handle, int* latency) {
+int32_t AudioService::GetLatency(const AudioHandle audio_handle,
+                                 int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.GetLatency(audio_handle, latency);
+  int32_t result = audio_frontend_.GetLatency(audio_handle, latency);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->GetLatency failed: %d", TAG, __func__,
                result);
@@ -286,13 +284,14 @@ int AudioService::GetLatency(AudioHandle audio_handle, int* latency) {
   return result;
 }
 
-int AudioService::GetBufferSize(AudioHandle audio_handle, int* buffer_size) {
+int32_t AudioService::GetBufferSize(const AudioHandle audio_handle,
+                                    int32_t* buffer_size) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.GetBufferSize(audio_handle, buffer_size);
+  int32_t result = audio_frontend_.GetBufferSize(audio_handle, buffer_size);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->GetBufferSize failed: %d", TAG, __func__,
                result);
@@ -302,26 +301,27 @@ int AudioService::GetBufferSize(AudioHandle audio_handle, int* buffer_size) {
   return result;
 }
 
-int AudioService::SetParam(AudioHandle audio_handle, AudioParamType type,
-                           const AudioParamData& data) {
+int32_t AudioService::SetParam(const AudioHandle audio_handle,
+                               const AudioParamType type,
+                               const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
+               static_cast<underlying_type<AudioParamType>::type>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
   lock_guard<mutex> lock(lock_);
 
-  int result = audio_frontend_.SetParam(audio_handle, type, data);
+  int32_t result = audio_frontend_.SetParam(audio_handle, type, data);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->SetParam failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
-                             uint32_t flags) {
+int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
+                                 Parcel* output, uint32_t flags) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: code[%u]", TAG, __func__, code);
   QMMF_VERBOSE("%s: %s() INPARAM: flags[%u]", TAG, __func__, flags);
@@ -336,12 +336,12 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
 
       QMMF_DEBUG("%s: %s-AudioConnect() TRACE", TAG, __func__);
       AudioHandle audio_handle;
-      int result = Connect(client_handler, &audio_handle);
+      int32_t result = Connect(client_handler, &audio_handle);
       QMMF_VERBOSE("%s: %s-AudioConnect() OUTPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
 
       output->writeInt32(static_cast<int32_t>(audio_handle));
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -351,9 +351,9 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioDisconnect() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioDisconnect() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int result = Disconnect(audio_handle);
+      int32_t result = Disconnect(audio_handle);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -362,8 +362,10 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       AudioEndPointType type =
           static_cast<AudioEndPointType>(input.readInt32());
 
-      DeviceIdList devices;
-      devices.FromParcel(input);
+      vector<DeviceId> devices;
+      size_t number_of_devices = static_cast<size_t>(input.readUint32());
+      for (size_t index = 0; index < number_of_devices; ++index)
+        devices.push_back(static_cast<DeviceId>(input.readInt32()));
 
       AudioMetadata metadata;
       metadata.FromParcel(input);
@@ -372,14 +374,14 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: type[%d]", TAG, __func__,
-                   static_cast<int>(type));
-      QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: devices[%s]", TAG,
-                   __func__, devices.ToString().c_str());
+                   static_cast<underlying_type<AudioEndPointType>::type>(type));
+      for (const DeviceId device : devices)
+        QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: metadata[%s]", TAG,
                    __func__, metadata.ToString().c_str());
-      int result = Configure(audio_handle, type, devices, metadata);
+      int32_t result = Configure(audio_handle, type, devices, metadata);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -389,9 +391,9 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioStart() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioStart() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int result = Start(audio_handle);
+      int32_t result = Start(audio_handle);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -404,9 +406,9 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
                    __func__, audio_handle);
       QMMF_VERBOSE("%s: %s-AudioStop() INPARAM: flush[%s]", TAG, __func__,
                    flush ? "true" : "false");
-      int result = Stop(audio_handle, flush);
+      int32_t result = Stop(audio_handle, flush);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -416,9 +418,9 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioPause() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioPause() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int result = Pause(audio_handle);
+      int32_t result = Pause(audio_handle);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -428,19 +430,24 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioResume() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioResume() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int result = Resume(audio_handle);
+      int32_t result = Resume(audio_handle);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
     case AudioServiceCommand::kAudioSendBuffers: {
       AudioHandle audio_handle = static_cast<AudioHandle>(input.readInt32());
 
-      AudioBufferList buffers;
-      buffers.FromParcel(input, true);
+      vector<AudioBuffer> buffers;
+      size_t number_of_buffers = static_cast<size_t>(input.readUint32());
+      for (size_t index = 0; index < number_of_buffers; ++index) {
+        AudioBuffer buffer;
+        buffer.FromParcel(input, true);
+        buffers.push_back(buffer);
+      }
 
-      for (AudioBuffer& buffer : buffers.list) {
+      for (AudioBuffer& buffer : buffers) {
         if (buffer.ion_fd != -1)
           ion_.Associate(audio_handle, &buffer);
       }
@@ -448,12 +455,12 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioSendBuffers() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioSendBuffers() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      for (const AudioBuffer& buffer : buffers.list)
+      for (const AudioBuffer& buffer : buffers)
         QMMF_VERBOSE("%s: %s-AudioSendBuffers() INPARAM: buffer[%s]", TAG,
                      __func__, buffer.ToString().c_str());
-      int result = SendBuffers(audio_handle, buffers);
+      int32_t result = SendBuffers(audio_handle, buffers);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 
@@ -463,13 +470,13 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioGetLatency() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioGetLatency() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int latency;
-      int result = GetLatency(audio_handle, &latency);
+      int32_t latency;
+      int32_t result = GetLatency(audio_handle, &latency);
       QMMF_VERBOSE("%s: %s-AudioGetLatency() OUTPARAM: latency[%d]", TAG,
                    __func__, latency);
 
-      output->writeInt32(static_cast<int32_t>(latency));
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(latency);
+      output->writeInt32(result);
       break;
     }
 
@@ -479,13 +486,13 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_DEBUG("%s: %s-AudioGetBufferSize() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioGetBufferSize() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      int buffer_size;
-      int result = GetBufferSize(audio_handle, &buffer_size);
+      int32_t buffer_size;
+      int32_t result = GetBufferSize(audio_handle, &buffer_size);
       QMMF_VERBOSE("%s: %s-AudioGetBufferSize() OUTPARAM: buffer_size[%d]", TAG,
                    __func__, buffer_size);
 
-      output->writeInt32(static_cast<int32_t>(buffer_size));
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(buffer_size);
+      output->writeInt32(result);
       break;
     }
 
@@ -501,12 +508,12 @@ int AudioService::onTransact(uint32_t code, const Parcel& input, Parcel* output,
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: type[%d]", TAG, __func__,
-                   static_cast<int>(type));
+                   static_cast<underlying_type<AudioParamType>::type>(type));
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: data[%s]", TAG, __func__,
                    data.ToString(type).c_str());
-      int result = SetParam(audio_handle, type, data);
+      int32_t result = SetParam(audio_handle, type, data);
 
-      output->writeInt32(static_cast<int32_t>(result));
+      output->writeInt32(result);
       break;
     }
 

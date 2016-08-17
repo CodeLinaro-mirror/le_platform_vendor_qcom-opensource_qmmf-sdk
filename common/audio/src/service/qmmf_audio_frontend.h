@@ -30,6 +30,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_backend.h"
@@ -40,41 +41,45 @@ namespace common {
 namespace audio {
 
 using ::std::map;
+using ::std::vector;
 
 class AudioFrontend {
  public:
   AudioFrontend();
   ~AudioFrontend();
 
-  void RegisterErrorHandler(AudioErrorHandler handler);
-  void RegisterReadCompleteHandler(AudioReadCompleteHandler handler);
-  void RegisterWriteCompleteHandler(AudioWriteCompleteHandler handler);
+  void RegisterErrorHandler(const AudioErrorHandler& handler);
+  void RegisterBufferHandler(const AudioBufferHandler& handler);
 
-  int Connect(AudioHandle* audio_handle);
-  int Disconnect(AudioHandle audio_handle);
-  int Configure(AudioHandle audio_handle, AudioEndPointType type,
-                const DeviceIdList& devices, const AudioMetadata& metadata);
+  int32_t Connect(AudioHandle* audio_handle);
+  int32_t Disconnect(const AudioHandle audio_handle);
+  int32_t Configure(const AudioHandle audio_handle,
+                    const AudioEndPointType type,
+                    const vector<DeviceId>& devices,
+                    const AudioMetadata& metadata);
 
-  int Start(AudioHandle audio_handle);
-  int Stop(AudioHandle audio_handle, bool flush);
-  int Pause(AudioHandle audio_handle);
-  int Resume(AudioHandle audio_handle);
+  int32_t Start(const AudioHandle audio_handle);
+  int32_t Stop(const AudioHandle audio_handle, const bool flush);
+  int32_t Pause(const AudioHandle audio_handle);
+  int32_t Resume(const AudioHandle audio_handle);
 
-  int SendBuffers(AudioHandle audio_handle, const AudioBufferList& buffers);
+  int32_t SendBuffers(const AudioHandle audio_handle,
+                      const vector<AudioBuffer>& buffers);
 
-  int GetLatency(AudioHandle audio_handle, int* latency);
-  int GetBufferSize(AudioHandle audio_handle, int* buffer_size);
-  int SetParam(AudioHandle audio_handle, AudioParamType type,
-               const AudioParamData& data);
+  int32_t GetLatency(const AudioHandle audio_handle, int32_t* latency);
+  int32_t GetBufferSize(const AudioHandle audio_handle, int32_t* buffer_size);
+  int32_t SetParam(const AudioHandle audio_handle, const AudioParamType type,
+                   const AudioParamData& data);
 
  private:
   static const AudioHandle kAudioHandleMax;
 
+  typedef map<AudioHandle, IAudioBackend*> AudioBackendMap;
+
   AudioHandle current_handle_;
   AudioErrorHandler error_handler_;
-  AudioReadCompleteHandler read_complete_handler_;
-  AudioWriteCompleteHandler write_complete_handler_;
-  map<AudioHandle, IAudioBackend*> backends_;
+  AudioBufferHandler buffer_handler_;
+  AudioBackendMap backends_;
 
   /* disable copy, assignment, and move */
   AudioFrontend(const AudioFrontend&) = delete;

@@ -32,10 +32,12 @@
 #include "recorder/src/service/qmmf_audio_source.h"
 
 #include <condition_variable>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <vector>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
@@ -49,9 +51,8 @@ namespace recorder {
 using namespace ::android;
 
 using ::qmmf::AudioFormat;
-using ::qmmf::DeviceIdList;
+using ::qmmf::DeviceId;
 using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioBufferList;
 using ::qmmf::common::audio::AudioEndPoint;
 using ::qmmf::common::audio::AudioEndPointType;
 using ::qmmf::common::audio::AudioEventHandler;
@@ -63,6 +64,7 @@ using ::std::mutex;
 using ::std::queue;
 using ::std::thread;
 using ::std::unique_lock;
+using ::std::vector;
 
 static const int kNumberOfBuffers = 4;
 
@@ -116,24 +118,23 @@ status_t AudioSource::CreateTrackSource(const uint32_t track_id,
       }
     };
 
-  int result = end_point_->Connect(audio_handler);
+  int32_t result = end_point_->Connect(audio_handler);
   assert(result == 0);
 
-  DeviceIdList devices;
-  devices.ids.push_back(0);
+  vector<DeviceId> devices;
+  devices.push_back(0);
 
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);
   metadata.format = AudioFormat::kPCM;
-  metadata.num_channels = param.channels;
-  metadata.sample_rate = param.sample_rate;
-  metadata.sample_size = param.bit_depth;
+  metadata.num_channels = param.params.channels;
+  metadata.sample_rate = param.params.sample_rate;
+  metadata.sample_size = param.params.bit_depth;
 
-  result = end_point_->Configure(AudioEndPointType::kSource, devices,
-                                     metadata);
+  result = end_point_->Configure(AudioEndPointType::kSource, devices, metadata);
   assert(result == 0);
 
-  int buffer_size;
+  int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
   assert(result == 0);
   QMMF_INFO("%s: %s() buffer_size is %d", TAG, __func__, buffer_size);
@@ -156,7 +157,7 @@ status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
-  int result = end_point_->Disconnect();
+  int32_t result = end_point_->Disconnect();
   assert(result == 0);
 
   result = ion_.Deallocate();
@@ -174,7 +175,7 @@ status_t AudioSource::StartTrackSource(const uint32_t track_id) {
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
-  int result = end_point_->Start();
+  int32_t result = end_point_->Start();
   assert(result == 0);
 
   assert(thread_ == nullptr);
@@ -205,7 +206,7 @@ status_t AudioSource::StopTrackSource(const uint32_t track_id) {
     thread_ = nullptr;
   }
 
-  int result = end_point_->Stop(false);
+  int32_t result = end_point_->Stop(false);
   assert(result == 0);
 
   QMMF_VERBOSE("%s:%s: TrackSource id(%d) Stopped Successfully!", TAG, __func__,
@@ -226,7 +227,7 @@ status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
   message_lock_.unlock();
   signal_.notify_one();
 
-  int result = end_point_->Pause();
+  int32_t result = end_point_->Pause();
   assert(result == 0);
 
   QMMF_VERBOSE("%s:%s: TrackSource id(%d) Paused Successfully!", TAG, __func__,
@@ -239,7 +240,7 @@ status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(track_id == track_id_);
 
-  int result = end_point_->Resume();
+  int32_t result = end_point_->Resume();
   assert(result == 0);
 
   AudioMessage message;
@@ -278,7 +279,7 @@ status_t AudioSource::ReturnTrackBuffer(const uint32_t track_id,
   return NO_ERROR;
 }
 
-void AudioSource::ErrorHandler(int error) {
+void AudioSource::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__, error);
 
@@ -317,11 +318,11 @@ void AudioSource::Thread() {
     messages_.pop();
 
   /* send the initial list of buffers */
-  AudioBufferList initial_buffers;
+  vector<AudioBuffer> initial_buffers;
   ion_.GetList(&initial_buffers);
-  int result = end_point_->SendBuffers(initial_buffers);
+  int32_t result = end_point_->SendBuffers(initial_buffers);
   assert(result == 0);
-  initial_buffers.list.clear();
+  initial_buffers.clear();
 
   bool keep_running = true;
   while (keep_running) {
@@ -399,9 +400,9 @@ void AudioSource::Thread() {
       buffer.size = 0;
       buffer.timestamp = 0;
 
-      AudioBufferList send_buffers;
-      send_buffers.list.push_back(buffer);
-      int result = end_point_->SendBuffers(send_buffers);
+      vector<AudioBuffer> send_buffers;
+      send_buffers.push_back(buffer);
+      int32_t result = end_point_->SendBuffers(send_buffers);
       assert(result == 0);
 
       bn_buffers.pop();

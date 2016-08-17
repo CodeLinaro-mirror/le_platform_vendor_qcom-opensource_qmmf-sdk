@@ -101,13 +101,16 @@ struct VideoTrackParams {
 };
 
 struct AudioTrackParams {
+  AudioTrackCreateParam  params;
   uint32_t               track_id;
-  uint32_t               sample_rate;
-  uint32_t               channels;
-  uint32_t               bit_depth;
-  AudioFormat            format_type;
-  AudioCodecParams       codec_param;
   buffer_callback        data_cb;
+
+  string ToString() const {
+    stringstream stream;
+    stream << "params[" << params.ToString() << "] ";
+    stream << "track_id[" << track_id << "] ";
+    return stream.str();
+  }
 };
 
 struct CameraStreamParam {

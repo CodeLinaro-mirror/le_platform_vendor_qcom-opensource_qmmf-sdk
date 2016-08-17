@@ -147,7 +147,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       case RECORDER_CREATE_AUDIOTRACK: {
         uint32_t session_id = data.readUint32();
         uint32_t track_id = data.readUint32();
-        AudioTrackCreateParamI params;
+        AudioTrackCreateParamInternal params;
         params.FromParcel(data);
         ret = CreateAudioTrack(session_id, track_id, params);
         reply->writeInt32(ret);
@@ -643,8 +643,10 @@ status_t RecorderService::CreateAudioTrack(const uint32_t session_id,
                                            const uint32_t track_id,
                                            const AudioTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
-      session_id, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+               param.ToString().c_str());
   assert(recorder_ != NULL);
 
   auto ret = recorder_->CreateAudioTrack(session_id, track_id, param);
