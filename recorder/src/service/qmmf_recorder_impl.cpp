@@ -34,240 +34,242 @@
 
 namespace qmmf {
 
-  namespace recorder {
+namespace recorder {
 
-    RecorderImpl* RecorderImpl::instance_ = nullptr;
+RecorderImpl* RecorderImpl::instance_ = nullptr;
 
-    RecorderImpl* RecorderImpl::CreateRecorder() {
+RecorderImpl* RecorderImpl::CreateRecorder() {
 
-      if(!instance_) {
-        instance_ = new RecorderImpl;
-        if(!instance_) {
-          QMMF_ERROR("%s:%s: Can't Create Recorder Instance!", TAG, __func__);
-          return NULL;
-        }
-      }
-      QMMF_INFO("%s:%s: Recorder Instance Created Successfully(0x%x)", TAG,
-          __func__, instance_);
-      return instance_;
+  if(!instance_) {
+    instance_ = new RecorderImpl;
+    if(!instance_) {
+      QMMF_ERROR("%s:%s: Can't Create Recorder Instance!", TAG, __func__);
+      return NULL;
     }
+  }
+  QMMF_INFO("%s:%s: Recorder Instance Created Successfully(0x%x)", TAG,
+      __func__, instance_);
+  return instance_;
+}
 
-    RecorderImpl::RecorderImpl()
-      : unique_id_(0), camera_source_(nullptr), audio_source_(nullptr) {
+RecorderImpl::RecorderImpl()
+  : unique_id_(0), camera_source_(nullptr), audio_source_(nullptr) {
 
-        QMMF_INFO("%s:%s: Enter", TAG, __func__);
-        QMMF_INFO("%s:%s: Exit", TAG, __func__);
-      }
+    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+    QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  }
 
-    RecorderImpl::~RecorderImpl() {
+RecorderImpl::~RecorderImpl() {
 
-      QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-      if (audio_source_) {
-        delete audio_source_;
-        audio_source_ = nullptr;
-      }
-      if (camera_source_) {
-        delete camera_source_;
-        camera_source_ = nullptr;
-      }
-      if (encoder_core_) {
-        delete encoder_core_;
-        encoder_core_ = nullptr;
-      }
-      instance_ = nullptr;
-      QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  if (audio_source_) {
+    delete audio_source_;
+    audio_source_ = nullptr;
+  }
+  if (camera_source_) {
+    delete camera_source_;
+    camera_source_ = nullptr;
+  }
+  if (encoder_core_) {
+    delete encoder_core_;
+    encoder_core_ = nullptr;
+  }
+  instance_ = nullptr;
+  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+}
+
+status_t RecorderImpl::Connect(const sp<RemoteCallBack>& remote_cb) {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  assert(remote_cb.get() != nullptr);
+  remote_cb_ = remote_cb;
+
+  audio_source_ = AudioSource::CreateAudioSource();
+  if (!audio_source_) {
+    QMMF_ERROR("%s:%s: Can't Create AudioSource Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: AudioSource Instance Created Successfully!", TAG,
+      __func__);
+
+  camera_source_ = CameraSource::CreateCameraSource();
+  if (!camera_source_) {
+    QMMF_ERROR("%s:%s: Can't Create CameraSource Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: CameraSource Instance Created Successfully!", TAG,
+      __func__);
+
+  encoder_core_ = EncoderCore::CreateEncoderCore();
+  if (!encoder_core_) {
+    QMMF_ERROR("%s:%s: Can't Create EncoderCore Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: EncoderCore Instance Created Successfully!", TAG,
+      __func__);
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::Disconnect() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  uint32_t num_sessions = session_ids_.size();
+  QMMF_INFO("%s:%s: running num sessions(%d)", TAG, __func__, num_sessions);
+  if(num_sessions > 0) {
+    // If sessions are already running and client issues a disconnect cmd
+    // explicilty OR It died for some reason (deathNotifier notified and issued
+    // a internal disconnect), in both cases clean up is required, died client
+    // can come up again anytime.
+    for (auto& iter : session_ids_) {
+      QMMF_INFO("%s:%s: session_id(%d) to Stop & Delete", TAG, __func__);
+      auto ret = StopSession((iter), false);
+      assert(ret == NO_ERROR);
+      ret = DeleteSession((iter));
+      assert(ret == NO_ERROR);
     }
+  }
+  session_ids_.clear();
 
-    status_t RecorderImpl::Connect(sp<RemoteCallBack>& remote_cb) {
+  if (audio_source_) {
+    delete audio_source_;
+    audio_source_ = nullptr;
+  }
+  if (camera_source_) {
+    delete camera_source_;
+    camera_source_ = nullptr;
+  }
+  if (encoder_core_) {
+    delete encoder_core_;
+    encoder_core_ = nullptr;
+  }
+  return NO_ERROR;
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+}
 
-      QMMF_INFO("%s:%s: Enter", TAG, __func__);
+status_t RecorderImpl::StartCamera(const uint32_t camera_id,
+                                   const CameraStartParam &param) {
 
-      assert(remote_cb.get() != nullptr);
-      remote_cb_ = remote_cb;
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->StartCamera(camera_id, param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
 
-      audio_source_ = AudioSource::CreateAudioSource();
-      if (!audio_source_) {
-        QMMF_ERROR("%s:%s: Can't Create AudioSource Instance!", TAG, __func__);
-        return NO_MEMORY;
-      }
-      QMMF_INFO("%s:%s: AudioSource Instance Created Successfully!", TAG,
-          __func__);
+status_t RecorderImpl::StopCamera(const uint32_t camera_id) {
 
-      camera_source_ = CameraSource::CreateCameraSource();
-      if (!camera_source_) {
-        QMMF_ERROR("%s:%s: Can't Create CameraSource Instance!", TAG, __func__);
-        return NO_MEMORY;
-      }
-      QMMF_INFO("%s:%s: CameraSource Instance Created Successfully!", TAG,
-          __func__);
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->StopCamera(camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: StopCamera Failed!!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
 
-      encoder_core_ = EncoderCore::CreateEncoderCore();
-      if (!encoder_core_) {
-        QMMF_ERROR("%s:%s: Can't Create EncoderCore Instance!", TAG, __func__);
-        return NO_MEMORY;
-      }
-      QMMF_INFO("%s:%s: EncoderCore Instance Created Successfully!", TAG,
-          __func__);
+status_t RecorderImpl::CreateSession(uint32_t *session_id) {
 
-      QMMF_INFO("%s:%s: Exit", TAG, __func__);
-      return NO_ERROR;
+  if(!camera_source_) {
+    QMMF_ERROR("%s:%s: Can't Create Session! Connect Should be called before"
+        " Calling CreateSession", TAG, __func__);
+    return NO_INIT;
+  }
+  ++unique_id_;
+  *session_id = unique_id_;
+  session_ids_.push_back(*session_id);
+  QMMF_INFO("%s:%s: session_id = %d ", TAG, __func__, *session_id);
+}
+
+status_t RecorderImpl::DeleteSession(const uint32_t session_id) {
+
+  int32_t ret = NO_ERROR;
+
+  if(!IsSessionIdValid(session_id)) {
+    QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
+  if (tracks.size() > 0) {
+    QMMF_ERROR("%s:%s: Session(%d) Can't be deleted until all tracks(%d) within"
+        "this session are stopped & deleted(%d)!", TAG, __func__, session_id,
+        tracks.size());
+    return INVALID_OPERATION;
+  }
+  sessions_.removeItem(session_id);
+
+  bool match = false;
+  uint32_t idx = -1;
+  for (uint32_t i = 0; i < session_ids_.size(); ++i) {
+    if (session_id == session_ids_[i]) {
+      match = true;
+      idx = i;
+      break;
     }
+  }
+  assert(match == true);
+  session_ids_.removeAt(idx);
+  return ret;
+}
 
-    status_t RecorderImpl::Disconnect() {
+status_t RecorderImpl::StartSession(const uint32_t session_id) {
 
-      QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  uint32_t ret = NO_ERROR;
 
-      uint32_t num_sessions = session_ids_.size();
-      QMMF_INFO("%s:%s: running num sessions(%d)", TAG, __func__, num_sessions);
-      if(num_sessions > 0) {
-        // If sessions are already running and client issues a disconnect cmd
-        // explicilty OR It died for some reason (deathNotifier notified and issued
-        // a internal disconnect), in both cases clean up is required, died client
-        // can come up again anytime.
-        for (auto& iter : session_ids_) {
-          QMMF_INFO("%s:%s: session_id(%d) to Stop & Delete", TAG, __func__);
-          auto ret = StopSession((iter), false);
-          assert(ret == NO_ERROR);
-          ret = DeleteSession((iter));
-          assert(ret == NO_ERROR);
-        }
-      }
-      session_ids_.clear();
+  if(!IsSessionValid(session_id)) {
+    QMMF_ERROR("%s:%s: Session Id is not valid Or No track is associated"
+        " with this sesssion(%d)", TAG, __func__, session_id);
+    return BAD_VALUE;
+  }
 
-      if (audio_source_) {
-        delete audio_source_;
-        audio_source_ = nullptr;
-      }
-      if (camera_source_) {
-        delete camera_source_;
-        camera_source_ = nullptr;
-      }
-      if (encoder_core_) {
-        delete encoder_core_;
-        encoder_core_ = nullptr;
-      }
-      return NO_ERROR;
-      QMMF_INFO("%s:%s: Exit", TAG, __func__);
-    }
+  Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
+  size_t num_tracks = tracks.size();
+  QMMF_INFO("%s:%s: Number of tracks(%d) to start in session(%d)!", TAG,
+      __func__, num_tracks, session_id);
 
-    status_t RecorderImpl::StartCamera(std::vector<uint32_t> camera_id,
-        CameraStartParam &param) {
+  // All the tracks associated to one session starts together.
+  for(uint8_t i = 0; i < num_tracks; i++) {
 
+    if (tracks[i].type == TrackType::kVideo) {
       assert(camera_source_ != NULL);
+      ret = camera_source_->StartTrackSource(tracks[i].track_id);
 
-      auto ret = camera_source_->StartCamera(camera_id, param);
       if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
-        return BAD_VALUE;
+        ret = BAD_VALUE;
+        QMMF_ERROR("%s:%s: StartTrackSource failed for track_id(%d) and"
+            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
+        break;
       }
-      return ret;
-    }
+      QMMF_INFO("%s:%s: track_id(%d) Started Successfully :session_id(%d)",
+          TAG, __func__, tracks[i].track_id, session_id);
 
-    status_t RecorderImpl::StopCamera(std::vector<uint32_t> camera_id) {
-
-      assert(camera_source_ != NULL);
-
-      QMMF_INFO("%s:%s: Enter", TAG, __func__);
-      auto ret = camera_source_->StopCamera(camera_id);
+      VideoFormat fmt_type = tracks[i].video_params.params.format_type;
+      if ( (fmt_type == VideoFormat::kHEVC) ||
+           (fmt_type == VideoFormat::kAVC) ) {
+        assert(encoder_core_ != NULL);
+        ret = encoder_core_->StartTrackEncoder(tracks[i].track_id);
+      // Initial debug purpose.
+      assert(ret == NO_ERROR);
       if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: StopCamera Failed!!", TAG, __func__);
-        return BAD_VALUE;
+        ret = BAD_VALUE;
+        QMMF_ERROR("%s:%s: StartTrackEncoder failed for track_id(%d) and"
+            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
+        break;
       }
-      return ret;
-    }
+  }
 
-    status_t RecorderImpl::CreateSession(uint32_t *session_id) {
-
-      if(!camera_source_) {
-        QMMF_ERROR("%s:%s: Can't Create Session! Connect Should be called before"
-            " Calling CreateSession", TAG, __func__);
-        return NO_INIT;
-      }
-      ++unique_id_;
-      *session_id = unique_id_;
-      session_ids_.push_back(*session_id);
-      QMMF_INFO("%s:%s: session_id = %d ", TAG, __func__, *session_id);
-    }
-
-    status_t RecorderImpl::DeleteSession(const uint32_t session_id) {
-
-      int32_t ret = NO_ERROR;
-
-      if(!IsSessionIdValid(session_id)) {
-        QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
-        return BAD_VALUE;
-      }
-
-      Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
-      if (tracks.size() > 0) {
-        QMMF_ERROR("%s:%s: Session(%d) Can't be deleted until all tracks(%d) within"
-            "this session are stopped & deleted(%d)!", TAG, __func__, session_id,
-            tracks.size());
-        return INVALID_OPERATION;
-      }
-      sessions_.removeItem(session_id);
-
-      bool match = false;
-      uint32_t idx = -1;
-      for (uint32_t i = 0; i < session_ids_.size(); ++i) {
-        if (session_id == session_ids_[i]) {
-          match = true;
-          idx = i;
-          break;
-        }
-      }
-      assert(match == true);
-      session_ids_.removeAt(idx);
-      return ret;
-    }
-
-    status_t RecorderImpl::StartSession(const uint32_t session_id) {
-
-      uint32_t ret = NO_ERROR;
-
-      if(!IsSessionValid(session_id)) {
-        QMMF_ERROR("%s:%s: Session Id is not valid Or No track is associated"
-            " with this sesssion(%d)", TAG, __func__, session_id);
-        return BAD_VALUE;
-      }
-
-      Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
-      size_t num_tracks = tracks.size();
-      QMMF_INFO("%s:%s: Number of tracks(%d) to start in session(%d)!", TAG,
-          __func__, num_tracks, session_id);
-
-      // All the tracks associated to one session starts together.
-      for(uint8_t i = 0; i < num_tracks; i++) {
-
-        if (tracks[i].type == TrackType::kVideo) {
-          assert(camera_source_ != NULL);
-          ret = camera_source_->StartTrackSource(tracks[i].track_id);
-
-          if (ret != NO_ERROR) {
-            ret = BAD_VALUE;
-            QMMF_ERROR("%s:%s: StartTrackSource failed for track_id(%d) and"
-                "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
-            break;
-          }
-          QMMF_INFO("%s:%s: track_id(%d) Started Successfully :session_id(%d)",
-              TAG, __func__, tracks[i].track_id, session_id);
-
-          if ( (tracks[i].params.format_type == VideoFormat::kHEVC) ||
-              (tracks[i].params.format_type == VideoFormat::kAVC) ) {
-            assert(encoder_core_ != NULL);
-            ret = encoder_core_->StartTrackEncoder(tracks[i].track_id);
-          // Initial debug purpose.
-          assert(ret == NO_ERROR);
-          if (ret != NO_ERROR) {
-            ret = BAD_VALUE;
-            QMMF_ERROR("%s:%s: StartTrackEncoder failed for track_id(%d) and"
-                "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
-            break;
-          }
-      }
-
-    } else if (tracks[i].type == TrackType::kAudio) {
+  } else if (tracks[i].type == TrackType::kAudio) {
       assert(audio_source_ != NULL);
       ret = audio_source_->StartTrackSource(tracks[i].track_id);
 
@@ -279,16 +281,16 @@ namespace qmmf {
       }
       QMMF_INFO("%s:%s: track_id(%d) Started Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
-    }
+      }
   }
 
   if(ret == NO_ERROR) {
     QMMF_INFO("%s:%s: session_id(%d) with num tracks(%d) Started"
-    " Successfully!", TAG, __func__, session_id, num_tracks);
+        " Successfully!", TAG, __func__, session_id, num_tracks);
   }
   return ret;
-  //TODO: Send session status callback to application.
-  //propably not from here??
+//TODO: Send session status callback to application.
+//propably not from here??
 }
 
 status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
@@ -322,8 +324,8 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
         break;
       }
       // Stop TrackEncoder
-      if ( (tracks[i].params.format_type == VideoFormat::kHEVC) ||
-          (tracks[i].params.format_type == VideoFormat::kAVC) ) {
+      VideoFormat fmt_type = tracks[i].video_params.params.format_type;
+      if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC)) {
         // Initial debug purpose.
         assert(encoder_core_ != NULL);
         ret = encoder_core_->StopTrackEncoder(tracks[i].track_id);
@@ -394,8 +396,9 @@ status_t RecorderImpl::PauseSession(const uint32_t session_id) {
       QMMF_INFO("%s:%s: track_id(%d) Paused Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
 
-      if ( (tracks[i].params.format_type == VideoFormat::kHEVC) ||
-           (tracks[i].params.format_type == VideoFormat::kAVC) ) {
+      VideoFormat fmt_type = tracks[i].video_params.params.format_type;
+      if ( (fmt_type == VideoFormat::kHEVC) ||
+           (fmt_type == VideoFormat::kAVC) ) {
         //TODO: Add logic to stop TrackEncoder
       }
 
@@ -453,8 +456,9 @@ status_t RecorderImpl::ResumeSession(const uint32_t session_id) {
       QMMF_INFO("%s:%s: track_id(%d) Resumed Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
 
-      if ( (tracks[i].params.format_type == VideoFormat::kHEVC) ||
-           (tracks[i].params.format_type == VideoFormat::kAVC) ) {
+      VideoFormat fmt_type = tracks[i].video_params.params.format_type;
+      if ( (fmt_type == VideoFormat::kHEVC) ||
+           (fmt_type == VideoFormat::kAVC) ) {
         //TODO: Add logic to stop TrackEncoder
       }
 
@@ -484,13 +488,12 @@ status_t RecorderImpl::ResumeSession(const uint32_t session_id) {
 }
 
 status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
-                                        uint32_t track_id,
+                                        const uint32_t track_id,
                                         const AudioTrackCreateParam& param) {
+
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-               AudioTrackCreateParamI(param).ToString().c_str());
+  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
+      session_id, track_id);
 
   if(!IsSessionIdValid(session_id)) {
     QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
@@ -506,7 +509,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   audio_track_params.format_type = param.format_type;
   audio_track_params.codec_param = param.codec_param;
   audio_track_params.data_cb =
-      [this] (uint32_t track_id, std::vector<BnTrackBuffer> buffers,
+      [this] (uint32_t track_id, std::vector<BnBuffer> buffers,
               void *meta_param, TrackMetaParamType meta_type, size_t meta_size)
               -> void {
         AudioTrackBufferCallback(track_id, buffers, meta_param, meta_type,
@@ -520,8 +523,8 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
         track_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: TrackSource for track_id(%d) Added Successfully in AudioSource",
-            TAG, __func__, track_id);
+  QMMF_INFO("%s:%s: TrackSource for track_id(%d) Added Successfully in"
+      " AudioSource", TAG, __func__, track_id);
 
   // Assosiate track to session.
   TrackInfo track_info;
@@ -545,6 +548,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
 
 status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
                                         const uint32_t track_id) {
+
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
@@ -590,8 +594,8 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
 }
 
 status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
-                                        uint32_t track_id,
-                                        VideoTrackCreateParam& param) {
+                                        const uint32_t track_id,
+                                        const VideoTrackCreateParam& params) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
@@ -600,40 +604,25 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
     return BAD_VALUE;
   }
 
-  if(param.num_cameras > 1) {
-    QMMF_ERROR("%s:%s: Multi Camera not supported!", TAG, __func__);
-    return BAD_VALUE;
-  }
-  DebugVideoTrackCreateParam(__func__, &param);
-
   VideoTrackParams video_track_params;
   memset(&video_track_params, 0x0, sizeof video_track_params);
   video_track_params.track_id    = track_id;
-  video_track_params.width       = param.width;
-  video_track_params.height      = param.height;
-  video_track_params.frame_rate  = param.frame_rate;
-  video_track_params.format_type  = param.format_type;
-  video_track_params.codec_param = param.codec_param;
+  video_track_params.params      = params;
   video_track_params.data_cb     = [&] (uint32_t track_id,
-      std::vector<BnTrackBuffer> buffers, void *meta_param,
+      std::vector<BnBuffer> buffers, void *meta_param,
       TrackMetaParamType meta_type, size_t meta_size)
       { VideoTrackBufferCallback(track_id, buffers, meta_param, meta_type,
         meta_size);
       };
-  //std::copy(param.camera_ids, param.camera_ids + param.num_cameras,
-  //    video_track_params.camera_ids.begin());
-  for(uint32_t i = 0; i < param.num_cameras; i++) {
-    video_track_params.camera_ids.push_back(param.camera_ids[i]);
-  }
   // TODO: define VideoOutDevices, and have switch case, for now assuming
   // 1 is encode, 2 is preview
-  if(param.out_device == 1) {
+  if(params.out_device == 1) {
     video_track_params.camera_stream_type = CameraStreamType::kVideo;
-  } else if (param.out_device == 2) {
+  } else if (params.out_device == 2) {
     video_track_params.camera_stream_type = CameraStreamType::kPreview;
   } else {
     QMMF_ERROR("%s:%s: out_device(%d) is not supported!", TAG, __func__,
-               param.out_device);
+               params.out_device);
     return BAD_VALUE;
   }
 
@@ -650,8 +639,8 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
 
   // If video codec type is set to YUV then no need to create Encoder instance.
   // direct YUV frame will go to client.
-  if ( (video_track_params.format_type == VideoFormat::kHEVC)
-      || (video_track_params.format_type == VideoFormat::kAVC) ){
+  if ( (params.format_type == VideoFormat::kHEVC)
+      || (params.format_type == VideoFormat::kAVC) ){
 
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
@@ -670,7 +659,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kVideo;
-  track_info.params = video_track_params;
+  track_info.video_params = video_track_params;
 
   Vector<TrackInfo> tracks;
   if (!sessions_.isEmpty()) {
@@ -679,7 +668,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
   tracks.add(track_info);
   // Update existing entry or add new one.
   // replaceValueFor() performs as add if entry doesn't exist.
-  sessions_.add(session_id, tracks);
+  sessions_.replaceValueFor(session_id, tracks);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -718,8 +707,8 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t session_id,
     return ret;
   }
 
-  if ((track_info.params.format_type == VideoFormat::kHEVC) ||
-       (track_info.params.format_type == VideoFormat::kAVC)) {
+  VideoFormat fmt_type = track_info.video_params.params.format_type;
+  if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC)) {
 
     assert(encoder_core_ != NULL);
     ret = encoder_core_->DeleteTrackEncoder(track_info.track_id);
@@ -750,21 +739,21 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t session_id,
 
 status_t RecorderImpl::ReturnTrackBuffer(const uint32_t session_id,
                                          const uint32_t track_id,
-                                         std::vector<BnTrackBuffer> &buffers) {
+                                         std::vector<BnBuffer> &buffers) {
+
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& buffer : buffers)
+  QMMF_VERBOSE("%s:%s: session_id(%u):track_id(%d)", TAG, __func__, session_id,
+      track_id);
+  for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s:%s INPARAM: buffers[%s]", TAG, __func__,
                  buffer.ToString().c_str());
-  uint32_t ret = NO_ERROR;
 
+  uint32_t ret = NO_ERROR;
   if (!IsTrackValid(session_id, track_id)) {
     QMMF_ERROR("%s:%s: Session_id(%d):Track id(%d) is not valid!", TAG,
         __func__, session_id, track_id);
     return BAD_VALUE;
   }
-
   Vector<TrackInfo> tracks;
   tracks = sessions_.valueFor(session_id);
 
@@ -780,16 +769,17 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t session_id,
 
   if (track_info.type == TrackType::kVideo) {
 
-    if ( (track_info.params.format_type == VideoFormat::kYUV) ||
-         (track_info.params.format_type == VideoFormat::kBayerRDI) ||
-         (track_info.params.format_type == VideoFormat::kBayerRDI) ) {
+    VideoFormat fmt_type = track_info.video_params.params.format_type;
+    if ( (fmt_type == VideoFormat::kYUV)
+         || (fmt_type == VideoFormat::kBayerRDI)
+         || (fmt_type == VideoFormat::kBayerRDI) ) {
       // Return buffers back to camera source.
       assert(camera_source_ != NULL);
       ret = camera_source_->ReturnTrackBuffer(track_id, buffers);
       assert(ret == NO_ERROR);
 
-    } else if ( (track_info.params.format_type == VideoFormat::kHEVC)
-              || (track_info.params.format_type == VideoFormat::kAVC) ) {
+    } else if ( (fmt_type == VideoFormat::kHEVC)
+                || (fmt_type == VideoFormat::kAVC) ) {
       assert(encoder_core_ != NULL);
       ret = encoder_core_->ReturnTrackBuffer(track_id, buffers);
       assert(ret == NO_ERROR);
@@ -821,16 +811,20 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
 
 }
 
-status_t RecorderImpl::CaptureImage(std::vector<uint32_t> camera_id,
-                                    ImageParam &param) {
+status_t RecorderImpl::CaptureImage(const uint32_t camera_id,
+                                    const ImageParam &param,
+                                    const uint32_t num_images,
+                                    const std::vector<CameraMetadata> &meta) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
   assert(camera_source_ != NULL);
-  CaptureImageCb cb = [&] (void* buffer, uint32_t size) {
-      CaptureImageCallback(buffer, size); };
 
-  auto ret = camera_source_->CaptureImage(camera_id, param, cb);
+  SnapshotCb cb = [&] (uint32_t camera_id, uint32_t count,
+      BnBuffer buf) { SnapshotCallback(camera_id, count, buf); };
+
+  auto ret = camera_source_->CaptureImage(camera_id, param, num_images, meta,
+                                          cb);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -841,55 +835,112 @@ status_t RecorderImpl::CaptureImage(std::vector<uint32_t> camera_id,
   return ret;
 }
 
+status_t RecorderImpl::ConfigImageCapture(const uint32_t camera_id,
+                                          const ImageCaptureConfig &config) {
+
+  //NOT IMPLEMENTED.
+  return NO_ERROR;
+}
+
+
 status_t RecorderImpl::CancelCaptureImage() {
 
+  //NOT IMPLEMENTED.
+  return NO_ERROR;
 }
 
-status_t RecorderImpl::SetCameraParam(uint32_t camera_id,
+status_t RecorderImpl::ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                                const uint32_t buffer_id) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->ReturnImageCaptureBuffer(camera_id, buffer_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ReturnImageCaptureBuffer failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+
+status_t RecorderImpl::SetCameraParam(const uint32_t camera_id,
+                                      const CameraMetadata &meta) {
+
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->SetCameraParam(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: SetCameraParam failed!", TAG, __func__);
+    return ret;
+  }
+  return ret;
+}
+
+status_t RecorderImpl::GetCameraParam(const uint32_t camera_id,
                                       CameraMetadata &meta) {
-  camera_source_->SetCameraParam(camera_id, meta);
+
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->GetCameraParam(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: GetCameraParam failed!", TAG, __func__);
+    return ret;
+  }
+  return ret;
 }
 
-status_t RecorderImpl::GetCameraParam(uint32_t camera_id,
-                                      CameraMetadata &meta) {
-  camera_source_->GetCameraParam(camera_id, meta);
+status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t camera_id,
+                                              CameraMetadata &meta) {
+
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->GetDefaultCaptureParam(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: GetDefaultCaptureParam failed!", TAG, __func__);
+    return ret;
+  }
+  return ret;
 }
 
-status_t RecorderImpl::CreateOverlayObject(OverlayParam &param,
+status_t RecorderImpl::CreateOverlayObject(const OverlayParam &param,
                                            uint32_t *overlay_id) {
-
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteOverlayObject(const uint32_t overlay_id) {
 
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::GetOverlayObjectParams(const uint32_t overlay_id,
-                                              OverlayParam &param)
-{
-
+                                              OverlayParam &param) {
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                                 OverlayParam &param) {
-
+                                                 const OverlayParam &param) {
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::SetOverlayObject(const uint32_t session_id,
                                         const uint32_t track_id,
                                         const uint32_t overlay_id) {
-
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::RemoveOverlayObject(const uint32_t session_id,
                                            const uint32_t track_id,
                                            const uint32_t overlay_id) {
-
+  // NOT IMPLEMENTED YET.
+  return NO_ERROR;
 }
 
-
+// Data callback handlers.
 void RecorderImpl::VideoTrackBufferCallback(uint32_t track_id,
-                                            std::vector<BnTrackBuffer> buffers,
+                                            std::vector<BnBuffer> buffers,
                                             void *meta_param,
                                             TrackMetaParamType meta_type,
                                             size_t meta_size) {
@@ -900,13 +951,13 @@ void RecorderImpl::VideoTrackBufferCallback(uint32_t track_id,
 }
 
 void RecorderImpl::AudioTrackBufferCallback(uint32_t track_id,
-                                            std::vector<BnTrackBuffer> buffers,
+                                            std::vector<BnBuffer> buffers,
                                             void *meta_param,
                                             TrackMetaParamType meta_type,
                                             size_t meta_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& buffer : buffers)
+  QMMF_VERBOSE("%s:%s INPARAM: track_id(%u)", TAG, __func__, track_id);
+  for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
   assert(remote_cb_.get() != nullptr);
@@ -915,10 +966,11 @@ void RecorderImpl::AudioTrackBufferCallback(uint32_t track_id,
                                    meta_size);
 }
 
-void RecorderImpl::CaptureImageCallback(void* buffer, uint32_t buffer_size) {
+void RecorderImpl::SnapshotCallback(uint32_t camera_id, uint32_t count,
+                                    BnBuffer& buffer) {
 
   assert(remote_cb_.get() != nullptr);
-  remote_cb_->NotifySnapshotData(buffer, buffer_size);
+  remote_cb_->NotifySnapshotData(camera_id, count, buffer);
 }
 
 bool RecorderImpl::IsSessionIdValid(const uint32_t session_id) {

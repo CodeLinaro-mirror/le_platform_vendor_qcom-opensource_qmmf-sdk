@@ -204,11 +204,11 @@ enum class AudioFlagBitPosition {
 
 struct AudioMetadata {
   AudioFormat format;
-  int num_channels;
-  int sample_rate;  /* rate in Hz */
-  int sample_size;  /* size in bits */
+  int32_t num_channels;
+  int32_t sample_rate;  /* rate in Hz */
+  int32_t sample_size;  /* size in bits */
   CodecID codec;
-  AudioFormat codec_type;
+  AudioFormat codec_type;   //FIXME: there are two entries of same struct.
   AudioCodecParams codec_params;
   uint32_t flags;
 
@@ -220,30 +220,32 @@ struct AudioMetadata {
     stream << "sample_size[" << sample_size << "]";
     stream << "codec[" << codec << "]";
     stream << "codec_type[" << static_cast<int>(codec_type) << "]";
-    stream << "codec_params[" << codec_params.ToString(codec_type) << "]";
     stream << "flags[" << setbase(16) << flags << setbase(10) << "]";
     return stream.str();
   }
 
   void ToParcel(Parcel* parcel) const {
+
     parcel->writeInt32(static_cast<int32_t>(format));
-    parcel->writeInt32(static_cast<int32_t>(num_channels));
-    parcel->writeInt32(static_cast<int32_t>(sample_rate));
-    parcel->writeInt32(static_cast<int32_t>(sample_size));
-    parcel->writeInt32(static_cast<int32_t>(codec));
+    parcel->writeInt32(num_channels);
+    parcel->writeInt32(sample_rate);
+    parcel->writeInt32(sample_size);
+    parcel->writeInt32(codec);
     parcel->writeInt32(static_cast<int32_t>(codec_type));
-    codec_params.ToParcel(codec_type, parcel);
+    //codec_params.ToParcel(codec_type, parcel); //FIXME: ToParcel method is
+    // removed from external struct.
     parcel->writeUint32(flags);
   }
 
   void FromParcel(const Parcel& parcel) {
     format = static_cast<AudioFormat>(parcel.readInt32());
-    num_channels = static_cast<int>(parcel.readInt32());
-    sample_rate = static_cast<int>(parcel.readInt32());
-    sample_size = static_cast<int>(parcel.readInt32());
-    codec = static_cast<CodecID>(parcel.readInt32());
+    num_channels = parcel.readInt32();
+    sample_rate = parcel.readInt32();
+    sample_size = parcel.readInt32();
+    codec = parcel.readInt32();
     codec_type = static_cast<AudioFormat>(parcel.readInt32());
-    codec_params.FromParcel(parcel);
+    //codec_params.FromParcel(parcel);//FIXME: ToParcel method is
+    // removed from external struct.
     flags = parcel.readUint32();
   }
 };

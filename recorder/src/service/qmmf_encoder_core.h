@@ -62,7 +62,7 @@ class EncoderCore {
   status_t DeleteTrackEncoder(uint32_t track_id);
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
-                             std::vector<BnTrackBuffer> &buffers);
+                             std::vector<BnBuffer> &buffers);
  private:
 
   bool isTrackValid(uint32_t track_id);
@@ -106,7 +106,7 @@ class TrackEncoder : public IOutputCodecSource {
   status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
 
   // Method to handle returned buffers from client.
-  status_t OnBufferReturnFromClient(std::vector<BnTrackBuffer> &buffers);
+  status_t OnBufferReturnFromClient(std::vector<BnBuffer> &buffers);
 
  private:
 

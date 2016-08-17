@@ -80,26 +80,24 @@ enum class CameraStreamFormat {
   kNV21,
 };
 
-typedef struct CameraStreamDim {
+struct CameraStreamDim {
     uint32_t width;
     uint32_t height;
-} CameraStreamDim;
+};
 
-typedef std::function<void(uint32_t track_id, std::vector<BnTrackBuffer>
-    buffers, void *meta_param, TrackMetaParamType meta_type, size_t meta_size)>
+typedef std::function<void(uint32_t track_id, std::vector<BnBuffer> buffers,
+    void *meta_param, TrackMetaParamType meta_type, size_t meta_size)>
     buffer_callback;
 
-typedef struct VideoTrackParams {
+typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
+                           BnBuffer buffer)>  SnapshotCb;
+
+struct VideoTrackParams {
+  VideoTrackCreateParam  params;
   uint32_t               track_id;
-  std::vector<uint32_t>  camera_ids;
-  uint32_t               width;
-  uint32_t               height;
-  uint32_t               frame_rate;
-  VideoFormat            format_type;
-  VideoCodecParams       codec_param;
   CameraStreamType       camera_stream_type;
   buffer_callback        data_cb;
-} VideoTrackParams;
+};
 
 struct AudioTrackParams {
   uint32_t               track_id;
@@ -109,131 +107,19 @@ struct AudioTrackParams {
   AudioFormat            format_type;
   AudioCodecParams       codec_param;
   buffer_callback        data_cb;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "track_id[" << track_id << "] ";
-    stream << "sample_rate[" << sample_rate << "] ";
-    stream << "channels[" << channels << "] ";
-    stream << "bit_depth[" << bit_depth << "] ";
-    stream << "format_type[" << static_cast<int>(format_type) << "] ";
-    stream << "codec_param[" << codec_param.ToString(format_type) << "] ";
-    return stream.str();
-  }
 };
 
-typedef struct CameraStreamParam {
+struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
   CameraStreamFormat cam_stream_format;
   CameraStreamType   cam_stream_type;
   uint32_t           frame_rate;
   uint32_t           id;
-} CameraStreamParam;
+};
 
-typedef struct Buffer {
+struct Buffer {
   CameraStreamParam  stream_param;
   StreamBuffer       stream_buffer;
-} Buffer;
-
-extern "C" void DebugCameraStartParams (const char* func,
-                                        CameraStartParam* params);
-extern "C" void DebugVideoTrackCreateParam (const char* _func_,
-                                            VideoTrackCreateParam* params);
-extern "C" void DebugVideoTrackParams (const char* _func_,
-                                       VideoTrackParams* params);
-
-#if 0
-// Thread safe Queue
-template <class T>
-class TSQueue
-{
- public:
-  typedef typename List<T>::iterator iterator;
-
-  iterator begin() {
-    Mutex::Autolock autoLock(lock_);
-    return queue_.begin();
-  }
-
-  void PushBack(const T& item) {
-    Mutex::Autolock autoLock(lock_);
-    queue_.push_back(item);
-  }
-
-  int32_t Size() {
-    Mutex::Autolock autoLock(lock_);
-    return queue_.size();
-  }
-
-  bool Empty() {
-   Mutex::Autolock autoLock(lock_);
-   return queue_.empty();
-  }
-
-  iterator End() {
-    Mutex::Autolock autoLock(lock_);
-    return queue_.end();
-  }
-
-  void Erase(iterator it) {
-    Mutex::Autolock autoLock(lock_);
-    queue_.erase(it);
-  }
-
-  void Clear() {
-    Mutex::Autolock autoLock(lock_);
-    queue_.clear();
-  }
-
- private:
-  List<T> queue_;
-  Mutex lock_;
-};
-#endif
-// Thread safe KeyedVector
-template <class T1, class T2>
-class TSKeyedVector
-{
- public:
-
-  void Add(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      map_.add(buffer.handle, 1);
-  }
-
-  uint32_t ValueFor(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      return map_.valueFor(buffer.handle);
-  }
-
-  void RemoveItem(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      map_.removeItem(buffer.handle);
-  }
-
-  int32_t Size() {
-      Mutex::Autolock autoLock(lock_);
-      return map_.size();
-  }
-
-  bool IsEmpty() {
-       Mutex::Autolock autoLock(lock_);
-       return map_.isEmpty();
-  }
-
-  void ReplaceValueFor(StreamBuffer& buffer, uint32_t value) {
-      Mutex::Autolock autoLock(lock_);
-      map_.replaceValueFor(buffer.handle, value);
-  }
-
-  void Clear() {
-      Mutex::Autolock autoLock(lock_);
-      map_.clear();
-  }
-
- private:
-  DefaultKeyedVector<T1, T2> map_;
-  Mutex lock_;
 };
 
 }; //namespace recorder.

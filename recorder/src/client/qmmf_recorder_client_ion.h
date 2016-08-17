@@ -53,15 +53,15 @@ class RecorderClientIon
   RecorderClientIon();
   ~RecorderClientIon();
 
-  int Associate(uint32_t track_id, const BnTrackBuffer& bn_buffer,
-                TrackBuffer* buffer);
-  int Release(uint32_t track_id);
+  int32_t Associate(uint32_t track_id, const BnBuffer& bn_buffer,
+                BufferDescriptor* buffer);
+  int32_t Release(uint32_t track_id);
 
  private:
   struct RecorderClientIonBuffer {
-    void *data;
-    int capacity;
-    struct ion_fd_data share_data;
+    void    *data;
+    int32_t capacity;
+    struct  ion_fd_data share_data;
 
     string ToString() const {
       stringstream stream;
@@ -74,9 +74,9 @@ class RecorderClientIon
     }
   };
 
-  typedef map<int, RecorderClientIonBuffer> RecorderClientIonBufferMap;
+  typedef map<int32_t, RecorderClientIonBuffer> RecorderClientIonBufferMap;
 
-  int ion_device_;
+  int32_t ion_device_;
   map<uint32_t, RecorderClientIonBufferMap> buffer_map_;
 
   /* disable copy, assignment, and move */

@@ -54,17 +54,22 @@ class CameraSource {
 
   ~CameraSource();
 
-  status_t StartCamera(std::vector<uint32_t> camera_ids,
-                       CameraStartParam &param);
+  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param);
 
-  status_t StopCamera(std::vector<uint32_t> camera_ids);
+  status_t StopCamera(const uint32_t camera_id);
 
-  status_t CaptureImage(std::vector<uint32_t> camera_id,
-                        ImageParam &param, const CaptureImageCb& cb);
+  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+                        const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta,
+                        const SnapshotCb& cb);
 
   status_t CancelCaptureImage();
 
-  status_t CreateTrackSource(const uint32_t track_id, VideoTrackParams& param);
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                           const uint32_t buffer_id);
+
+  status_t CreateTrackSource(const uint32_t track_id,
+                             const VideoTrackParams& param);
 
   status_t DeleteTrackSource(const uint32_t track_id);
 
@@ -77,13 +82,16 @@ class CameraSource {
   status_t ResumeTrackSource(const uint32_t track_id);
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
-                             std::vector<BnTrackBuffer> &buffers);
+                             std::vector<BnBuffer> &buffers);
 
-  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
 
-  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
 
-  status_t CreateOverlayObject(OverlayParam &param, uint32_t *overlay_id);
+  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                  CameraMetadata &meta);
+
+  status_t CreateOverlayObject(const OverlayParam &param, uint32_t *overlay_id);
 
   status_t DeleteOverlayObject(const uint32_t overlay_id);
 
@@ -91,7 +99,7 @@ class CameraSource {
                                   OverlayParam &param);
 
   status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     OverlayParam &param);
+                                     const OverlayParam &param);
 
   status_t SetOverlayObject(const uint32_t track_id, const uint32_t overlay_id);
 
@@ -122,7 +130,7 @@ class CameraSource {
 // Encoder, and manages buffer circulation, skip etc.
 class TrackSource : public IInputCodecSource {
  public:
-  TrackSource(VideoTrackParams& params, sp<CameraContext>& context);
+  TrackSource(const VideoTrackParams& params, const sp<CameraContext>& context);
 
   ~TrackSource();
 
@@ -152,7 +160,7 @@ class TrackSource : public IInputCodecSource {
   // anyone, Camera context's port or rescaler.
   void OnFrameAvailable(StreamBuffer& buffer);
 
-  status_t ReturnTrackBuffer(std::vector<BnTrackBuffer>& buffers);
+  status_t ReturnTrackBuffer(std::vector<BnBuffer>& buffers);
 
   bool IsStop();
 
@@ -168,7 +176,9 @@ class TrackSource : public IInputCodecSource {
 
   uint32_t TrackId() { return track_params_.track_id; }
 
-  static const nsecs_t kWaitDuration = 5e9; // 5 sec.
+#ifdef ENABLE_FRAME_DUMP
+  status_t DumpYUV(StreamBuffer& buffer);
+#endif
 
   VideoTrackParams    track_params_;
   sp<IBufferConsumer> buffer_consumer_impl_;

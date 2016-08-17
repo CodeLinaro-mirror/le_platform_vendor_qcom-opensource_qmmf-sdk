@@ -93,8 +93,6 @@ int32_t RecorderTest::Disconnect() {
 int32_t RecorderTest::StartCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::vector<uint32_t> camera_ids;
-  camera_ids.push_back(0);
 
   CameraStartParam camera_params;
   memset(&camera_params, 0x0, sizeof camera_params);
@@ -105,7 +103,8 @@ int32_t RecorderTest::StartCamera() {
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
 
-  auto ret = recorder_.StartCamera(camera_ids, camera_params);
+  camera_id_ = 0;
+  auto ret = recorder_.StartCamera(camera_id_, camera_params);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
@@ -118,10 +117,7 @@ int32_t RecorderTest::StopCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> camera_ids;
-  camera_ids.push_back(0);
-
-  auto ret = recorder_.StopCamera(camera_ids);
+  auto ret = recorder_.StopCamera(camera_id_);
   if(ret != 0) {
     ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
   }
@@ -134,26 +130,29 @@ int32_t RecorderTest::TakeSnapshot() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> camera_ids;
-  camera_ids.push_back(0);
-
   ImageParam image_param;
   memset(&image_param, 0x0, sizeof image_param);
-  // Only 1 image at a time is supported for now.
-  image_param.num_images = 1;
-  image_param.main_image_param.width = 3840;
-  image_param.main_image_param.height = 2160;
-  image_param.main_image_param.image_format = ImageFormat::kJPEG;
-  image_param.main_image_param.image_quality = 95;
-  image_param.sensor_frame_skip_interval = 0; // not supported for now.
-  image_param.with_exif = false; // not supported for now.
-  image_param.with_camera_meta = false; // not supported for now.
-  image_param.with_raw = false; // not supported for now.
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
-  CaptureImageCb cb = [&] ( void *buffer, uint32_t buffer_size) {
-      SnapshotCb(buffer, buffer_size); };
+  ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_sequence_count,
+      BufferDescriptor buffer) { SnapshotCb(camera_id_, image_sequence_count,
+      buffer); };
 
-  auto ret = recorder_.CaptureImage(camera_ids, image_param, cb);
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+  ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+  assert(ret == NO_ERROR);
+
+  meta_array.push_back(meta);
+
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
   if(ret != 0) {
     ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
   }
@@ -184,15 +183,14 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
   //TODO: change it vector.
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 3840;
-  video_track_param.height        = 2160;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type    = VideoFormat::kYUV;
-  video_track_param.out_device    = 0x01;
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 3840;
+  video_track_param.height      = 2160;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.out_device  = 0x01;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -210,16 +208,15 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
   video_track_id = 2;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 1920;
-  video_track_param.height        = 1080;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type    = VideoFormat::kYUV;
-  video_track_param.out_device    = 0x01;
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 1920;
+  video_track_param.height      = 1080;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.out_device  = 0x01;
 
   memset(&video_track_cb, 0x0, sizeof (video_track_cb));
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -263,15 +260,13 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  //TODO: change it vector.
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 3840;
-  video_track_param.height        = 2160;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = (type == VideoCodecType::kTypeAVC) ?
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 3840;
+  video_track_param.height      = 2160;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
       VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device    = 0x01;
+  video_track_param.out_device  = 0x01;
 
   switch (video_track_param.format_type) {
     case VideoFormat::kAVC:
@@ -326,7 +321,7 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack4KEncDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -379,14 +374,13 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
   //TODO: change it vector.
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 1920;
-  video_track_param.height        = 1080;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = (type == VideoCodecType::kTypeAVC) ?
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 1920;
+  video_track_param.height      = 1080;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
       VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device    = 0x1;
+  video_track_param.out_device  = 0x1;
 
   switch (video_track_param.format_type) {
     case VideoFormat::kAVC:
@@ -440,7 +434,7 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
       break;
   }
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -495,14 +489,13 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
   //TODO: change it vector.
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 1920;
-  video_track_param.height        = 1080;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = (type == VideoCodecType::kTypeAVC) ?
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 1920;
+  video_track_param.height      = 1080;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
       VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device    = 0x01;
+  video_track_param.out_device  = 0x01;
 
   switch (video_track_param.format_type) {
     case VideoFormat::kAVC:
@@ -557,7 +550,7 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -587,16 +580,15 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
   video_track_id = 2;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_ids[0] = 0;
-  video_track_param.num_cameras   = 1;
-  video_track_param.width         = 3840;
-  video_track_param.height        = 2160;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = VideoFormat::kYUV;
-  video_track_param.out_device    = 0x01;
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 3840;
+  video_track_param.height      = 2160;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.out_device  = 0x01;
 
   memset(&video_track_cb, 0x0, sizeof (video_track_cb));
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -632,7 +624,7 @@ void RecorderTest::CreateAudioOnlySession() {
   auto result = recorder_.CreateSession(session_status_cb, &session_id);
   assert(result == NO_ERROR);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
- 
+
   uint32_t audio_track_id = 101;
   AudioTrackCreateParam audio_track_params;
   memset(&audio_track_params, 0x0, sizeof audio_track_params);
@@ -648,7 +640,7 @@ void RecorderTest::CreateAudioOnlySession() {
 
   TrackCb audio_track_cb;
   audio_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<TrackBuffer> buffers,
+      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
               void* meta_param, TrackMetaParamType meta_type, size_t meta_size)
               -> void {
         AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
@@ -711,7 +703,7 @@ int32_t RecorderTest::CreateAudioVideoSession() {
   audio_track_params.flags          = 132;
 
   TrackCb audio_track_cb;
-  audio_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  audio_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers,  void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size, uint32_t buffer_pool_id) { AudioTrackDataCb(track_id,
       buffers, meta_param, meta_type, meta_size, buffer_pool_id); };
@@ -732,13 +724,11 @@ int32_t RecorderTest::CreateAudioVideoSession() {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_ids[0] = 11;
-  video_track_param.camera_ids[1] = 22;
-  video_track_param.num_cameras   = 2;
+  video_track_param.camera_id     = 11;
   video_track_param.width         = 1920;
   video_track_param.height        = 1080;
   video_track_param.frame_rate    = 30;
-  video_track_param.format_type    = VideoFormat::kAVC;
+  video_track_param.format_type   = VideoFormat::kAVC;
   video_track_param.out_device    = 0x01;
   video_track_param.codec_param.avc.idr_interval = 120;
   video_track_param.codec_param.avc.bitrate      = 6000000;
@@ -763,7 +753,7 @@ int32_t RecorderTest::CreateAudioVideoSession() {
   video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 56;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<TrackBuffer>
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, void *meta_param, TrackMetaParamType meta_type,
       size_t meta_size) { VideoTrackDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
@@ -883,7 +873,9 @@ int32_t RecorderTest::DeleteSession()
   return 0;
 }
 
-void RecorderTest::SnapshotCb(void *buffer, uint32_t buffer_size) {
+void RecorderTest::SnapshotCb(uint32_t camera_id,
+                              uint32_t image_sequence_count,
+                              BufferDescriptor buffer) {
 
   String8 file_path;
   size_t written_len;
@@ -897,15 +889,15 @@ void RecorderTest::SnapshotCb(void *buffer, uint32_t buffer_size) {
     goto FAIL;
   }
 
-  written_len = fwrite(buffer, sizeof(uint8_t), buffer_size, file);
+  written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
   TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
-  if (buffer_size != written_len) {
+  if (buffer.size != written_len) {
     ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
           strerror(errno));
     goto FAIL;
   }
   TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
-            buffer, written_len, file_path.string());
+            buffer.data, written_len, file_path.string());
 
   snapshot_count++;
 
@@ -913,6 +905,8 @@ FAIL:
   if (file != NULL) {
     fclose(file);
   }
+  // Return buffer back to recorder service.
+  recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
 }
 
 void RecorderTest::RecorderCallbackHandler(EventType event_type,
@@ -930,13 +924,13 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
 }
 
 void RecorderTest::AudioTrackDataCb(uint32_t track_id,
-                                    std::vector<TrackBuffer> buffers,
+                                    std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
                                     TrackMetaParamType meta_type,
                                     size_t meta_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  for (const TrackBuffer& buffer : buffers) {
+  for (const BufferDescriptor& buffer : buffers) {
     int result = wav_.Write(buffer);
     assert(result == 0);
   }
@@ -962,7 +956,7 @@ void RecorderTest::AudioTrackEventCb(uint32_t track_id, EventType event_type,
 }
 
 void RecorderTest::VideoTrack4KYUVDataCb(uint32_t track_id,
-                                    std::vector<TrackBuffer> buffers,
+                                    std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
                                     TrackMetaParamType meta_type,
                                     size_t meta_size) {
@@ -1038,8 +1032,8 @@ void RecorderTest::VideoTrack4KYUVEventCb(uint32_t track_id, EventType event_typ
 }
 
 void RecorderTest::VideoTrack1080pYUVDataCb(uint32_t track_id,
-                                            std::vector<TrackBuffer> buffers,
-                                            void *meta_param,
+                                            std::vector<BufferDescriptor>
+                                            buffers, void *meta_param,
                                             TrackMetaParamType meta_type,
                                             size_t meta_size) {
 
@@ -1114,7 +1108,7 @@ void RecorderTest::VideoTrack1080pYUVEventCb(uint32_t track_id,
 }
 
 void RecorderTest::VideoTrack4KEncDataCb(uint32_t track_id,
-                                    std::vector<TrackBuffer> buffers,
+                                    std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
                                     TrackMetaParamType meta_type,
                                     size_t meta_size) {
@@ -1139,7 +1133,7 @@ void RecorderTest::VideoTrack4KEncDataCb(uint32_t track_id,
       QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
       assert(0);
     }
-    if(iter.flag & static_cast<uint32_t>(TrackBufferFlags::kFlagEOS)) {
+    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       QMMF_INFO("%s:%s EOS Last buffer!", TAG, __func__);
       close(file_fd_);
       file_fd_ = -1;
@@ -1162,7 +1156,7 @@ void RecorderTest::VideoTrack4KEncEventCb(uint32_t track_id, EventType event_typ
 }
 
 void RecorderTest::VideoTrack1080pEncDataCb(uint32_t track_id,
-                                    std::vector<TrackBuffer> buffers,
+                                    std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
                                     TrackMetaParamType meta_type,
                                     size_t meta_size) {
@@ -1187,7 +1181,7 @@ void RecorderTest::VideoTrack1080pEncDataCb(uint32_t track_id,
       QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
       assert(0);
     }
-    if(iter.flag & static_cast<uint32_t>(TrackBufferFlags::kFlagEOS)) {
+    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       QMMF_INFO("%s:%s EOS Last buffer!", TAG, __func__);
       close(file_fd_);
       file_fd_ = -1;

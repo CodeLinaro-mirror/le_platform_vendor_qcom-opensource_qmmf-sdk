@@ -1,6 +1,5 @@
 source_files := qmmf_recorder_service.cpp
 source_files += ../client/qmmf_recorder_client.cpp
-source_files += qmmf_recorder_common.cpp
 source_files += qmmf_recorder_impl.cpp
 source_files += qmmf_recorder_ion.cc
 source_files += qmmf_remote_cb.cpp

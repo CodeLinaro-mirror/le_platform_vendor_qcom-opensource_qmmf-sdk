@@ -31,6 +31,7 @@
 
 #include <utils/List.h>
 #include <utils/Mutex.h>
+#include <utils/KeyedVector.h>
 #include <utils/Condition.h>
 #include <utils/Log.h>
 #include <system/graphics.h>
@@ -77,8 +78,7 @@ typedef struct {
 
 // Thread safe Queue
 template <class T>
-class TSQueue
-{
+class TSQueue {
  public:
   typedef typename List<T>::iterator iterator;
 
@@ -124,67 +124,57 @@ class TSQueue
 
 const nsecs_t kWaitDelay = 500000000; // 0.5s
 
-//TODO: make generic signal queue
 template <class T>
-class SignalQueue
-{
-public:
-
-  SignalQueue(uint32_t size):cmd_queue_size(size)
-  {
-      QMMF_INFO("%s: Enter",__func__);
-      QMMF_INFO("%s: Exit",__func__);
+class SignalQueue {
+ public:
+  SignalQueue(uint32_t size):cmd_queue_size(size) {
+    QMMF_INFO("%s: Enter",__func__);
+    QMMF_INFO("%s: Exit",__func__);
   }
 
-  ~SignalQueue()
-  {
-
-      QMMF_INFO("%s: Enter",__func__);
-      cmd_queue_size = -1;
-      QMMF_INFO("%s: Exit",__func__);
+  ~SignalQueue() {
+    QMMF_INFO("%s: Enter",__func__);
+    cmd_queue_size = -1;
+    QMMF_INFO("%s: Exit",__func__);
   }
 
-  T Pop()
-  {
-      void* item = NULL;
-      status_t ret = 0;
-      uint32_t size;
+  T Pop() {
+    void* item = NULL;
+    status_t ret = 0;
+    uint32_t size;
 
+    {
+      Mutex::Autolock l(cmd_queue_mutex_);
+      size = cmd_queue_.size();
+    }
+    if(size == 0) {
+      // wait for signal or for data to come into queue
+      Mutex::Autolock l(lock_);
+      while (size == 0) {
+        ret = wait_for_cmd_.waitRelative(lock_, kWaitDelay);
+        if (TIMED_OUT == ret) {
+            QMMF_WARN("%s: Wait for cmd.. timed out", __func__);
+            {
+              Mutex::Autolock l(cmd_queue_mutex_);
+              size = cmd_queue_.size();
+            }
+            continue;
+        } else {
+            break;
+        }
+      }
+    }
+    if (ret == 0) {
       {
         Mutex::Autolock l(cmd_queue_mutex_);
-        size = cmd_queue_.size();
+        item = *cmd_queue_.begin();
+        cmd_queue_.erase(cmd_queue_.begin());
       }
-      if(size == 0) {
-        // wait for signal or for data to come into queue
-        Mutex::Autolock l(lock_);
-        while (size == 0) {
-            ret = wait_for_cmd_.waitRelative(lock_, kWaitDelay);
-            if (TIMED_OUT == ret) {
-                QMMF_WARN("%s: Wait for cmd.. timed out", __func__);
-                {
-                  Mutex::Autolock l(cmd_queue_mutex_);
-                  size = cmd_queue_.size();
-                }
-                continue;
-            } else
-                break;
-        }
-      }
-
-      if (ret == 0) {
-        {
-          Mutex::Autolock l(cmd_queue_mutex_);
-          item = *cmd_queue_.begin();
-          cmd_queue_.erase(cmd_queue_.begin());
-        }
-      }
-
-      return item;
+    }
+    return item;
   }
 
-  status_t Push(void* item)
-  {
-
+  status_t Push(void* item) {
     uint32_t size;
     {
       Mutex::Autolock l(cmd_queue_mutex_);
@@ -197,28 +187,70 @@ public:
     {
       Mutex::Autolock l(cmd_queue_mutex_);
       cmd_queue_.push_back(item);
-
     }
-
     Mutex::Autolock autoLock(lock_);
     wait_for_cmd_.signal();
-    return 0;
+    return NO_ERROR;
   }
 
-  void Clear()
-  {
+  void Clear() {
     QMMF_INFO("%s: Enter",__func__);
     Mutex::Autolock l(cmd_queue_mutex_);
     cmd_queue_.clear();
     QMMF_INFO("%s: Exit",__func__);
   }
 
-private:
-    Mutex      lock_;
-    Condition  wait_for_cmd_;
-    Mutex      cmd_queue_mutex_;
-    List<T>    cmd_queue_;
-    uint32_t   cmd_queue_size;
+ private:
+  Mutex      lock_;
+  Condition  wait_for_cmd_;
+  Mutex      cmd_queue_mutex_;
+  List<T>    cmd_queue_;
+  uint32_t   cmd_queue_size;
+
 }; //SignalQueue
+
+// Thread safe KeyedVector
+template <class T1, class T2>
+class TSKeyedVector {
+ public:
+  void Add(StreamBuffer& buffer) {
+      Mutex::Autolock autoLock(lock_);
+      map_.add(buffer.handle, 1);
+  }
+
+  uint32_t ValueFor(StreamBuffer& buffer) {
+      Mutex::Autolock autoLock(lock_);
+      return map_.valueFor(buffer.handle);
+  }
+
+  void RemoveItem(StreamBuffer& buffer) {
+      Mutex::Autolock autoLock(lock_);
+      map_.removeItem(buffer.handle);
+  }
+
+  int32_t Size() {
+      Mutex::Autolock autoLock(lock_);
+      return map_.size();
+  }
+
+  bool IsEmpty() {
+       Mutex::Autolock autoLock(lock_);
+       return map_.isEmpty();
+  }
+
+  void ReplaceValueFor(StreamBuffer& buffer, uint32_t value) {
+      Mutex::Autolock autoLock(lock_);
+      map_.replaceValueFor(buffer.handle, value);
+  }
+
+  void Clear() {
+      Mutex::Autolock autoLock(lock_);
+      map_.clear();
+  }
+
+ private:
+  DefaultKeyedVector<T1, T2> map_;
+  Mutex lock_;
+};
 
 }; //namespace qmmf.

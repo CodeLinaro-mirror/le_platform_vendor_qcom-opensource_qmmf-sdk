@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <utils/Log.h>
+
 // Remove comment markers to define LOG_LEVEL_DEBUG for debugging-related logs
 //#define LOG_LEVEL_DEBUG
 

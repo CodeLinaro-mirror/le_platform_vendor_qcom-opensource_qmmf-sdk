@@ -49,10 +49,11 @@ class RemoteCallBack : public RefBase {
     void NotifySessionEvent(EventType event_type, void *event_data,
                             size_t event_data_size);
 
-    void NotifySnapshotData(void *buffer, uint32_t bufferSize);
+    void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
+                            BnBuffer& buffer);
 
     void NotifyVideoTrackData(uint32_t track_id,
-                              std::vector<BnTrackBuffer> &buffers,
+                              std::vector<BnBuffer> &buffers,
                               void *meta_param, TrackMetaParamType meta_type,
                               size_t meta_size);
 
@@ -60,7 +61,7 @@ class RemoteCallBack : public RefBase {
                                void *event_data, size_t event_data_size);
 
     void NotifyAudioTrackData(uint32_t track_id,
-                              std::vector<BnTrackBuffer> &buffers,
+                              std::vector<BnBuffer> &buffers,
                               void *meta_param, TrackMetaParamType meta_type,
                               size_t meta_size);
 

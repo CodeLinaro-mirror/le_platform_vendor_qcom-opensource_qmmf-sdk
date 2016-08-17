@@ -69,20 +69,22 @@ class RecorderGtest : public ::testing::Test {
                               void *event_data,
                               size_t event_data_size);
 
-  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
-                        void *meta_param, TrackMetaParamType meta_type,
-                        size_t meta_size);
+  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                           buffers, void *meta_param, TrackMetaParamType
+                           meta_type, size_t meta_size);
 
-  void VideoTrackEncDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
-                        void *meta_param, TrackMetaParamType meta_type,
-                        size_t meta_size);
+  void VideoTrackEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                           buffers, void *meta_param, TrackMetaParamType
+                           meta_type, size_t meta_size);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
-  void SnapshotCb(void *buffer, uint32_t buffer_size);
+  void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
+                  BufferDescriptor buffer);
 
   Recorder              recorder_;
+  uint32_t              camera_id_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      camera_start_params_;

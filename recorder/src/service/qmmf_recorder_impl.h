@@ -52,14 +52,13 @@ class RecorderImpl
 
   ~RecorderImpl();
 
-  status_t Connect(sp<RemoteCallBack>& remote_cb);
+  status_t Connect(const sp<RemoteCallBack>& remote_cb);
 
   status_t Disconnect();
 
-  status_t StartCamera(std::vector<uint32_t> camera_ids,
-                       CameraStartParam &param);
+  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param);
 
-  status_t StopCamera(std::vector<uint32_t> camera_ids);
+  status_t StopCamera(const uint32_t camera_id);
 
   status_t CreateSession(uint32_t *session_id);
 
@@ -74,12 +73,12 @@ class RecorderImpl
   status_t ResumeSession(const uint32_t session_id);
 
   status_t CreateAudioTrack(const uint32_t session_id,
-                            uint32_t track_id,
+                            const uint32_t track_id,
                             const AudioTrackCreateParam& param);
 
   status_t CreateVideoTrack(const uint32_t session_id,
-                            uint32_t track_id,
-                            VideoTrackCreateParam& param);
+                            const uint32_t track_id,
+                            const VideoTrackCreateParam& param);
 
   status_t DeleteAudioTrack(const uint32_t session_id,
                             const uint32_t track_id);
@@ -89,7 +88,7 @@ class RecorderImpl
 
   status_t ReturnTrackBuffer(const uint32_t session_id,
                              const uint32_t track_id,
-                             std::vector<BnTrackBuffer> &buffers);
+                             std::vector<BnBuffer> &buffers);
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
@@ -103,16 +102,26 @@ class RecorderImpl
                               void *param,
                               size_t param_size);
 
-  status_t CaptureImage(std::vector<uint32_t> camera_id,
-                        ImageParam &param);
+  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+                        const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta);
+
+  status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageCaptureConfig &config);
 
   status_t CancelCaptureImage();
 
-  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                    const uint32_t buffer_id);
 
-  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
 
-  status_t CreateOverlayObject(OverlayParam &param,
+  status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
+
+  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                  CameraMetadata &meta);
+
+  status_t CreateOverlayObject(const OverlayParam &param,
                                uint32_t *overlay_id);
 
   status_t DeleteOverlayObject(const uint32_t overlay_id);
@@ -121,7 +130,7 @@ class RecorderImpl
                                   OverlayParam &param);
 
   status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     OverlayParam &param);
+                                     const OverlayParam &param);
 
   status_t SetOverlayObject(const uint32_t session_id,
                             const uint32_t track_id,
@@ -131,19 +140,20 @@ class RecorderImpl
                                const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  // Data callback handlers.
   void VideoTrackBufferCallback(uint32_t track_id,
-                                std::vector<BnTrackBuffer> buffers,
+                                std::vector<BnBuffer> buffers,
                                 void *meta_param,
                                 TrackMetaParamType meta_type,
                                 size_t meta_size);
 
   void AudioTrackBufferCallback(uint32_t track_id,
-                                std::vector<BnTrackBuffer> buffers,
+                                std::vector<BnBuffer> buffers,
                                 void *meta_param,
                                 TrackMetaParamType meta_type,
                                 size_t meta_size);
 
-  void CaptureImageCallback(void* buffer, uint32_t buffer_size);
+  void SnapshotCallback(uint32_t camera_id, uint32_t count, BnBuffer& buffer);
 
  private:
 
@@ -156,7 +166,7 @@ class RecorderImpl
   typedef struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
-    VideoTrackParams params;
+    VideoTrackParams video_params;
     AudioTrackParams audio_params;
     //TODO: Add union and pack AudioTrack params.
   } TrackInfo;

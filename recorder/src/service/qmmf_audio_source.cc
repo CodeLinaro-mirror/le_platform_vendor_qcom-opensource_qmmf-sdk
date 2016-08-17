@@ -97,8 +97,7 @@ status_t AudioSource::CreateTrackSource(const uint32_t track_id,
                                         AudioTrackParams& param) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-               param.ToString().c_str());
+
   assert(track_id >= 100);
   assert(end_point_ == nullptr);
 
@@ -257,15 +256,15 @@ status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
 }
 
 status_t AudioSource::ReturnTrackBuffer(const uint32_t track_id,
-    const std::vector<BnTrackBuffer> &buffers) {
+    const std::vector<BnBuffer> &buffers) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& buffer : buffers)
+  for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
   assert(track_id == track_id_);
 
-  for (const BnTrackBuffer& buffer : buffers) {
+  for (const BnBuffer& buffer : buffers) {
     AudioMessage message;
     message.type = AudioMessageType::kMessageBnBuffer;
     message.bn_buffer = buffer;
@@ -310,7 +309,7 @@ void AudioSource::ThreadEntry(AudioSource* source) {
 void AudioSource::Thread() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   queue<AudioBuffer> buffers;
-  queue<BnTrackBuffer> bn_buffers;
+  queue<BnBuffer> bn_buffers;
   bool paused = false;
 
   /* clear the message queue of expired messages */
@@ -378,9 +377,9 @@ void AudioSource::Thread() {
       QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
                    buffer.ToString().c_str());
 
-      BnTrackBuffer bn_buffer;
+      BnBuffer bn_buffer;
       ion_.Export(buffer, &bn_buffer);
-      vector<BnTrackBuffer> send_buffers;
+      vector<BnBuffer> send_buffers;
       send_buffers.push_back(bn_buffer);
       data_cb_(track_id_, send_buffers, nullptr, TrackMetaParamType::kNone, 0);
 
@@ -389,7 +388,7 @@ void AudioSource::Thread() {
 
     /* process buffers from client */
     if (!bn_buffers.empty() && !paused && keep_running) {
-      BnTrackBuffer bn_buffer = bn_buffers.front();
+      BnBuffer bn_buffer = bn_buffers.front();
       QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s]", TAG, __func__,
                    bn_buffer.ToString().c_str());
 

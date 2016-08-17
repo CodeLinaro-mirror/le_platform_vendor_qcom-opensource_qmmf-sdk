@@ -64,7 +64,7 @@ class AudioSource {
   status_t ResumeTrackSource(const uint32_t track_id);
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
-                             const std::vector<BnTrackBuffer> &buffers);
+                             const std::vector<BnBuffer> &buffers);
 
  private:
   enum class AudioMessageType {
@@ -77,8 +77,8 @@ class AudioSource {
 
   struct AudioMessage {
     AudioMessageType type;
-    AudioBuffer buffer;
-    BnTrackBuffer bn_buffer;
+    AudioBuffer      buffer;
+    BnBuffer         bn_buffer;
   };
 
   static AudioSource* instance_;

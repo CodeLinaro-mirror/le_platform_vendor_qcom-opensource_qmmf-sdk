@@ -85,7 +85,8 @@ public:
 
     int32_t DeleteSession();
 
-    void SnapshotCb(void *buffer, uint32_t buffer_size);
+    void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
+                    BufferDescriptor buffer);
 
     void RecorderCallbackHandler(EventType event_type, void *event_data,
                                  size_t event_data_size);
@@ -93,15 +94,15 @@ public:
     void SessionCallbackHandler(EventType event_type,
                                 void *event_data, size_t event_data_size);
 
-    void AudioTrackDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
-                          void *meta_param, TrackMetaParamType meta_type,
-                          size_t meta_size);
+    void AudioTrackDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                          buffers, void *meta_param, TrackMetaParamType
+                          meta_type, size_t meta_size);
 
     void AudioTrackEventCb(uint32_t track_id, EventType event_type,
                            void *event_data, size_t event_data_size);
 
     void VideoTrack4KYUVDataCb(uint32_t track_id,
-                               std::vector<TrackBuffer> buffers,
+                               std::vector<BufferDescriptor> buffers,
                                void *meta_param, TrackMetaParamType meta_type,
                                size_t meta_size);
 
@@ -109,15 +110,15 @@ public:
                                 void *event_data, size_t event_data_size);
 
     void VideoTrack1080pYUVDataCb(uint32_t track_id,
-                                  std::vector<TrackBuffer> buffers,
-                                  void *meta_param, TrackMetaParamType meta_type,
-                                  size_t meta_size);
+                                  std::vector<BufferDescriptor> buffers,
+                                  void *meta_param, TrackMetaParamType
+                                  meta_type, size_t meta_size);
 
     void VideoTrack1080pYUVEventCb(uint32_t track_id, EventType event_type,
                                    void *event_data, size_t event_data_size);
 
     void VideoTrack4KEncDataCb(uint32_t track_id,
-                               std::vector<TrackBuffer> buffers,
+                               std::vector<BufferDescriptor> buffers,
                                void *meta_param, TrackMetaParamType meta_type,
                                size_t meta_size);
 
@@ -125,9 +126,9 @@ public:
                                 void *event_data, size_t event_data_size);
 
     void VideoTrack1080pEncDataCb(uint32_t track_id,
-                                  std::vector<TrackBuffer> buffers,
-                                  void *meta_param, TrackMetaParamType meta_type,
-                                  size_t meta_size);
+                                  std::vector<BufferDescriptor> buffers,
+                                  void *meta_param, TrackMetaParamType
+                                  meta_type, size_t meta_size);
 
     void VideoTrack1080pEncEventCb(uint32_t track_id, EventType event_type,
                                    void *event_data, size_t event_data_size);
@@ -139,7 +140,8 @@ private:
     // <session_id, vector<track_ids> >
     std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
-    int32_t file_fd_;
+    uint32_t  camera_id_;
+    int32_t  file_fd_;
 };
 
 class CmdMenu

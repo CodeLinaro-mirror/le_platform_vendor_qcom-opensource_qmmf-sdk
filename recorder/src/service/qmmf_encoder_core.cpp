@@ -212,7 +212,7 @@ status_t EncoderCore::DeleteTrackEncoder(uint32_t track_id) {
 }
 
 status_t EncoderCore::ReturnTrackBuffer(const uint32_t track_id,
-                                        std::vector<BnTrackBuffer> &buffers) {
+                                        std::vector<BnBuffer> &buffers) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
@@ -269,29 +269,26 @@ TrackEncoder::~TrackEncoder() {
 }
 
 status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
-                            VideoTrackParams& params) {
+                            VideoTrackParams& track_params) {
 
-  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, params.track_id);
-  track_params_ = params;
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, track_params.track_id);
+  track_params_ = track_params;
 
   avcodec_ = new AVCodec();
   if(!avcodec_.get()) {
     QMMF_ERROR("%s:%s: track_id(%d) AVCodec failed", TAG, __func__,
-        params.track_id);
+        track_params.track_id);
     return NO_MEMORY;
   }
 
   CodecCreateParam codec_param;
   memset(&codec_param, 0x0, sizeof(codec_param));
 
-  codec_param.video_param.width        = params.width;
-  codec_param.video_param.height       = params.height;
-  codec_param.video_param.frame_rate   = params.frame_rate;
-  codec_param.video_param.format_type  = params.format_type;
-  codec_param.video_param.codec_param  = params.codec_param;
+  codec_param.video_param = track_params.params;
 
-  QMMF_INFO("%s:%s: W(%d) H(%d) format_type(%d)", TAG, __func__, params.width,
-      params.height, params.format_type);
+  QMMF_INFO("%s:%s: W(%d) H(%d) format_type(%d)", TAG, __func__,
+      track_params.params.width, track_params.params.height,
+      track_params.params.format_type);
 
   codec_param.event_cb = [&] (OMX_EVENTTYPE event, OMX_U32 data1,
       OMX_U32 data2) { EventCallback(event, data1, data2);};
@@ -300,7 +297,7 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) Failed to configure AVCodec!", TAG, __func__,
-        params.track_id);
+        track_params.track_id);
     return ret;
   }
 
@@ -310,7 +307,7 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at input port!", TAG,
-        __func__, params.track_id);
+        __func__, track_params.track_id);
     return ret;
   }
 
@@ -319,20 +316,20 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) output buffer allocation failed!!", TAG,
-        __func__, params.track_id);
+        __func__, track_params.track_id);
     return ret;
   }
   ret = avcodec_->UseBuffer(kPortIndexOutput, static_cast<void*>(this));
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at output port!", TAG,
-        __func__, params.track_id);
+        __func__, track_params.track_id);
     // TODO: Deallocate ouput port buffers.
     //ReleaseBuffer();
     return ret;
   }
 
   QMMF_INFO("%s:%s: track_id(%d) AVCodec(0x%x) Instantiated!" , TAG, __func__,
-      params.track_id, avcodec_.get());
+      track_params.track_id, avcodec_.get());
 
   for(auto& iter : output_buffer_list_) {
       QMMF_INFO("%s:%s:  Adding buffer fd(%d) to output_free_buffer_queue_ list"
@@ -342,11 +339,11 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
 
 #ifdef DUMP_BITSTREAM
   String8 bitstream_filepath;
-  const char* type_string = (params.format_type == VideoFormat::kAVC) ? "h264"
-      : "h265";
+  VideoFormat fmt_type = track_params.params.format_type;
+  const char* type_string = (fmt_type == VideoFormat::kAVC) ? "h264" : "h265";
   String8 extension(type_string);
   bitstream_filepath.appendFormat(FRAME_DUMP_PATH"/track_enc_%d.%s",
-      params.track_id, type_string);
+      track_params.track_id, type_string);
   file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
        0655);
 #endif
@@ -498,8 +495,8 @@ status_t TrackEncoder::ReturnBuffer(CodecBuffer& codec_buffer) {
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 
-status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnTrackBuffer>
-                                            &bn_buffers) {
+status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
+                                                &bn_buffers) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   int32_t ret = NO_ERROR;
@@ -548,12 +545,12 @@ void TrackEncoder::NotifyBufferToClient(CodecBuffer& codec_buffer) {
   assert(track_params_.data_cb != nullptr);
 
   bool found = false;
-  BnTrackBuffer bn_buffer;
+  BnBuffer bn_buffer;
   memset(&bn_buffer, 0x0, sizeof bn_buffer);
 
   uint32_t flags = 0x0;
   if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
-    flags |= static_cast<uint32_t>(TrackBufferFlags::kFlagEOS);
+    flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
     eos_atoutput_ = true;
   }
   //TODO: Add CodecConfig flag too.
@@ -582,7 +579,7 @@ void TrackEncoder::NotifyBufferToClient(CodecBuffer& codec_buffer) {
     }
   }
   assert(found == true);
-  std::vector<BnTrackBuffer> bn_buffers;
+  std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
   track_params_.data_cb(TrackId(), bn_buffers, nullptr,
       TrackMetaParamType::kNone, 0);

@@ -33,20 +33,15 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include <tuple>
 #include <vector>
-
-#include <binder/Parcel.h>
 
 namespace qmmf {
 
-using ::android::Parcel;
-using ::std::boolalpha;
-using ::std::noboolalpha;
 using ::std::string;
 using ::std::stringstream;
-using ::std::tuple;
 using ::std::vector;
+
+typedef int32_t  CodecID;
 
 enum class CodecType {
   kVideoEncoder,
@@ -57,10 +52,6 @@ enum class CodecType {
   kImageDecoder,
 };
 
-/*
- * Codec type for video tracks. If the codec type is set as YUV
- * no encoding is done on the track buffers returned to client.
- */
 enum class VideoFormat {
   kHEVC,
   kAVC,
@@ -96,24 +87,20 @@ enum class HEVCLevelType {
   kLevel5_2,
 };
 
-/* @brief param data for kInitQPType
- * init_IQP       : First Iframe QP
- * init_PQP       : First Pframe QP
- * init_BQP       : First Bframe QP
- * init_QP_mode : Bit field indicating which frame type(s) shall
- *                            use the specified initial QP.
- *                         Bit 0: Enable initial QP for I/IDR
- *                                and use value specified in init_IQP
- *                         Bit 1: Enable initial QP for P
- *                                and use value specified in init_PQP
- *                         Bit 2: Enable initial QP for B
- *                                and use value specified in init_BQP
- */
+/// @brief Data structure for specifying the initial quantization values to
+/// video encoder
 typedef struct VideoEncodeInitQP {
-  uint32_t    init_IQP;
-  uint32_t    init_PQP;
-  uint32_t    init_BQP;
-  uint32_t    init_QP_mode;
+  uint32_t    init_IQP;       ///< First Iframe QP
+  uint32_t    init_PQP;       ///< First Pframe QP
+  uint32_t    init_BQP;       ///< First Bframe QP
+  uint32_t    init_QP_mode;   ///< Bit field indicating which frame type(s) shall
+                              ///< use the specified initial QP.
+                              ///< Bit 0: Enable initial QP for I/IDR
+                              ///<       and use value specified in init_IQP
+                              ///< Bit 1: Enable initial QP for P
+                              ///<       and use value specified in init_PQP
+                              ///< Bit 2: Enable initial QP for B
+                              ///<       and use value specified in init_BQP
 } VideoEncodeInitQP;
 
 typedef struct VideoEncodeQPRange {
@@ -169,12 +156,6 @@ typedef struct JPEGParams {
   int32_t quality;
 } JPEGParams;
 
-/*
- * Detail video encoder paramters
- *
- * The values of the union structure is interpreted based on the
- * codec type
- */
 typedef union VideoCodecParams {
   HEVCParams hevc;
   AVCParams  avc;
@@ -190,7 +171,6 @@ enum class VideoTrackParamType {
   kCamFrameCropType,
 };
 
-/* @brief param data for kIntraPeriodType */
 typedef struct VideoEncodeIDRInterval {
   int32_t    idr_period;
   int32_t    num_P_frames;
@@ -211,8 +191,6 @@ enum class ImageMetaDataType {
   kCameraMeta,
 };
 
-
-/* list of formats for audio codecs */
 enum class AudioFormat {
   kPCM,
   kAAC,
@@ -220,146 +198,15 @@ enum class AudioFormat {
   kG711,
 };
 
-/* Handle to a specific codec */
-typedef int CodecID;
-
-struct CodecIDList {
-  vector<CodecID> ids;
-
-  string ToString() const {
-    stringstream stream;
-    for (CodecID id : ids)
-      stream << id << ", ";
-    stream << "SIZE[" << ids.size() << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeUint32(static_cast<uint32_t>(ids.size()));
-    for (CodecID id : ids)
-      parcel->writeInt32(static_cast<int32_t>(id));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
-    for (size_t index = 0; index < number_of_elements; ++index)
-      ids.push_back(static_cast<CodecID>(parcel.readInt32()));
-  }
-};
-
 union CodecFormat {
   VideoFormat video;
-  AudioFormat    audio;
-  ImageFormat    image;
-
-  string ToString(CodecType key) const {
-    stringstream stream;
-    switch (key) {
-      case CodecType::kVideoEncoder:
-      case CodecType::kVideoDecoder:
-        stream << "video[" << static_cast<int>(video) << "]";
-        break;
-      case CodecType::kAudioEncoder:
-      case CodecType::kAudioDecoder:
-        stream << "audio[" << static_cast<int>(audio) << "]";
-        break;
-      case CodecType::kImageEncoder:
-      case CodecType::kImageDecoder:
-        stream << "image[" << static_cast<int>(image) << "]";
-        break;
-    }
-    return stream.str();
-  }
-
-  void ToParcel(CodecType key, Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(key));
-    switch (key) {
-      case CodecType::kVideoEncoder:
-      case CodecType::kVideoDecoder:
-        parcel->writeInt32(static_cast<int32_t>(video));
-        break;
-      case CodecType::kAudioEncoder:
-      case CodecType::kAudioDecoder:
-        parcel->writeInt32(static_cast<int32_t>(audio));
-        break;
-      case CodecType::kImageEncoder:
-      case CodecType::kImageDecoder:
-        parcel->writeInt32(static_cast<int32_t>(image));
-        break;
-    }
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    CodecType key = static_cast<CodecType>(parcel.readInt32());
-    switch (key) {
-      case CodecType::kVideoEncoder:
-      case CodecType::kVideoDecoder:
-        video = static_cast<VideoFormat>(parcel.readInt32());
-        break;
-      case CodecType::kAudioEncoder:
-      case CodecType::kAudioDecoder:
-        audio = static_cast<AudioFormat>(parcel.readInt32());
-        break;
-      case CodecType::kImageEncoder:
-      case CodecType::kImageDecoder:
-        image = static_cast<ImageFormat>(parcel.readInt32());
-        break;
-    }
-  }
+  AudioFormat audio;
+  ImageFormat image;
 };
 
 struct CodecInfo {
-  CodecType type;
+  CodecType   type;
   CodecFormat format;
-  CodecID id;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "type[" << static_cast<int>(type) << "] ";
-    stream << "format[" << format.ToString(type) << "] ";
-    stream << "id[" << id << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(type));
-    format.ToParcel(type, parcel);
-    parcel->writeInt32(static_cast<int32_t>(id));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    type = static_cast<CodecType>(parcel.readInt32());
-    format.FromParcel(parcel);
-    id = static_cast<CodecID>(parcel.readInt32());
-  }
-};
-
-struct CodecInfoList {
-  vector<CodecInfo> codec_infos;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "codecs[";
-    for (const CodecInfo& codec_info : codec_infos)
-      stream << codec_info.ToString() << ", ";
-    stream << "SIZE[" << codec_infos.size() << "]]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeUint32(static_cast<uint32_t>(codec_infos.size()));
-    for (const CodecInfo& codec_info : codec_infos)
-      codec_info.ToParcel(parcel);
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
-    for (size_t index = 0; index < number_of_elements; ++index) {
-      CodecInfo codec_info;
-      codec_info.FromParcel(parcel);
-      codec_infos.push_back(codec_info);
-    }
-  }
 };
 
 enum class AudioTrackParamType {
@@ -381,54 +228,14 @@ enum class AACMode {
 
 struct AACParams {
   AACFormat format;
-  AACMode mode;
-  int frame_length;
-  int bit_rate;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "format[" << static_cast<int>(format) << "] ";
-    stream << "mode[" << static_cast<int>(mode) << "] ";
-    stream << "frame_length[" << frame_length << "] ";
-    stream << "bit_rate[" << bit_rate << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(format));
-    parcel->writeInt32(static_cast<int32_t>(mode));
-    parcel->writeInt32(static_cast<int32_t>(frame_length));
-    parcel->writeInt32(static_cast<int32_t>(bit_rate));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    format = static_cast<AACFormat>(parcel.readInt32());
-    mode = static_cast<AACMode>(parcel.readInt32());
-    frame_length = static_cast<int>(parcel.readInt32());
-    bit_rate = static_cast<int>(parcel.readInt32());
-  }
+  AACMode   mode;
+  int32_t   frame_length;
+  int32_t   bit_rate;
 };
 
 struct AMRParams {
-  bool isWAMR;
-  int bit_rate;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "frame_length[" << boolalpha << isWAMR << noboolalpha << "] ";
-    stream << "bit_rate[" << bit_rate << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(isWAMR));
-    parcel->writeInt32(static_cast<int32_t>(bit_rate));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    isWAMR = static_cast<bool>(parcel.readInt32());
-    bit_rate = static_cast<int>(parcel.readInt32());
-  }
+  bool    isWAMR;
+  int32_t bit_rate;
 };
 
 enum class G711Mode {
@@ -438,69 +245,13 @@ enum class G711Mode {
 
 struct G711Params {
   G711Mode mode;
-  int bit_rate;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "mode[" << static_cast<int>(mode) << "] ";
-    stream << "bit_rate[" << bit_rate << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(mode));
-    parcel->writeInt32(static_cast<int32_t>(bit_rate));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    mode = static_cast<G711Mode>(parcel.readInt32());
-    bit_rate = static_cast<int>(parcel.readInt32());
-  }
+  int32_t  bit_rate;
 };
 
 union AudioCodecParams {
-  AACParams aac;
-  AMRParams amr;
+  AACParams  aac;
+  AMRParams  amr;
   G711Params g711;
-
-  string ToString(AudioFormat key) const {
-    stringstream stream;
-    switch (key) {
-      case AudioFormat::kPCM:
-        stream << "N/A (PCM)";
-        break;
-      case AudioFormat::kAAC:
-        stream << "aac[" << aac.ToString() << "]";
-        break;
-      case AudioFormat::kAMR:
-        stream << "amr[" << amr.ToString() << "]";
-        break;
-      case AudioFormat::kG711:
-        stream << "g711[" << g711.ToString() << "]";
-        break;
-    }
-    return stream.str();
-  }
-
-  void ToParcel(AudioFormat key, Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(key));
-    switch (key) {
-      case AudioFormat::kPCM: /* nothing to write */ break;
-      case AudioFormat::kAAC: aac.ToParcel(parcel); break;
-      case AudioFormat::kAMR: amr.ToParcel(parcel); break;
-      case AudioFormat::kG711: g711.ToParcel(parcel); break;
-    }
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    AudioFormat key = static_cast<AudioFormat>(parcel.readInt32());
-    switch (key) {
-      case AudioFormat::kPCM: /* nothing to read */ break;
-      case AudioFormat::kAAC: aac.FromParcel(parcel); break;
-      case AudioFormat::kAMR: amr.FromParcel(parcel); break;
-      case AudioFormat::kG711: g711.FromParcel(parcel); break;
-    }
-  }
 };
 
 }; /* namespace qmmf */
