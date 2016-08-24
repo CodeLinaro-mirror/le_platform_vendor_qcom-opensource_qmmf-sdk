@@ -131,7 +131,7 @@ status_t EncoderCore::StartTrackEncoder(uint32_t track_id) {
   }
 
   QMMF_INFO("%s:%s: track_id(%d) TrackEncoder Started Successfully!", TAG,
-      __func__);
+      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -286,9 +286,9 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
 
   codec_param.video_param = track_params.params;
 
-  QMMF_INFO("%s:%s: W(%d) H(%d) format_type(%d)", TAG, __func__,
-      track_params.params.width, track_params.params.height,
-      track_params.params.format_type);
+  QMMF_INFO("%s:%s: track_id(%d) W(%d) H(%d) format_type(%d)", TAG, __func__,
+      track_params.track_id, track_params.params.width,
+      track_params.params.height, track_params.params.format_type);
 
   codec_param.event_cb = [&] (OMX_EVENTTYPE event, OMX_U32 data1,
       OMX_U32 data2) { EventCallback(event, data1, data2);};
@@ -332,8 +332,9 @@ status_t TrackEncoder::Init(const sp<TrackSource>& track_source,
       track_params.track_id, avcodec_.get());
 
   for(auto& iter : output_buffer_list_) {
-      QMMF_INFO("%s:%s:  Adding buffer fd(%d) to output_free_buffer_queue_ list"
-          , TAG, __func__, iter.fd);
+      QMMF_INFO("%s:%s: track_id(%d) Adding buffer fd(%d) to "
+          "output_free_buffer_queue list", TAG, __func__, track_params.track_id,
+          iter.fd);
       output_free_buffer_queue_.PushBack(iter);
   }
 
@@ -456,10 +457,10 @@ status_t TrackEncoder::ReturnBuffer(CodecBuffer& codec_buffer) {
   List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
-    QMMF_VERBOSE("%s:%s Checking match (0x%x)vs(0x%x) ", TAG, __func__,
-        (*it).pointer,  codec_buffer.pointer);
+    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
+        __func__, TrackId(), (*it).pointer,  codec_buffer.pointer);
     if (((*it).pointer) == (codec_buffer.pointer)) {
-      QMMF_VERBOSE("%s:%s Buffer found", TAG, __func__);
+      QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
       wait_for_frame_.signal();
@@ -479,8 +480,8 @@ status_t TrackEncoder::ReturnBuffer(CodecBuffer& codec_buffer) {
       List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if (((*it).pointer) == (codec_buffer.pointer)) {
-          QMMF_INFO("%s:%s EOS is already done! moving buffer from Out to In"
-              " queue!", TAG, __func__);
+          QMMF_INFO("%s:%s track_id(%d) EOS is already done! moving buffer from"
+              " Out to In queue!", TAG, __func__, TrackId());
           output_free_buffer_queue_.PushBack(*it);
           output_occupy_buffer_queue_.Erase(it);
           break;

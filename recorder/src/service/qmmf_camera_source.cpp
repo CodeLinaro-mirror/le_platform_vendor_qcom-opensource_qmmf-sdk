@@ -547,7 +547,8 @@ status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
   if(status == CodecInputPortStatus::kInputPortStop) {
     // Encoder Received the EOS with valid last buffer successfully, stop the
     // camera stream and clear the received buffer queue.
-    QMMF_INFO("%s:%s: EOS acknowledged by Encoder!!", TAG, __func__);
+    QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
+        __func__, TrackId());
     assert(camera_context_.get() != nullptr);
     auto ret = camera_context_->StopStream(TrackId());
     assert(ret == NO_ERROR);
@@ -557,8 +558,8 @@ status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
     // All input port buffers from encoder are returned, Being encoded queue
     // should be zero at this point.
     assert(frames_being_encoded_.Size() == 0);
-    QMMF_INFO("%s:%s: All queued buffers are returned from encoder!!", TAG,
-        __func__);
+    QMMF_INFO("%s:%s: track_id(%d) All queued buffers are returned from"
+        " encoder!!", TAG, __func__, TrackId());
     // wait_for_idle_ will not be needed once we make stop api as async.
     Mutex::Autolock lock(idle_lock_);
     wait_for_idle_.signal();
