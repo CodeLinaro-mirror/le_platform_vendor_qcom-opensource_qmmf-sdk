@@ -248,7 +248,7 @@ TrackEncoder::TrackEncoder(int32_t ion_device)
 
 TrackEncoder::~TrackEncoder() {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
   for(auto& iter : output_buffer_list_) {
 
@@ -432,7 +432,7 @@ status_t TrackEncoder::GetBuffer(CodecBuffer& codec_buffer) {
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
-  QMMF_VERBOSE("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
       __func__, TrackId(), codec_buffer.pointer, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -503,22 +503,22 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
   int32_t ret = NO_ERROR;
 
   //Buffer came back from client, now put this buffer in free queue.
-  QMMF_DEBUG("%s:%s: Number of buffers(%d) returned from client", TAG,
-      __func__, bn_buffers.size());
+  QMMF_DEBUG("%s:%s: track_id(%d) Number of buffers(%d) returned from client",
+      TAG, __func__, TrackId(), bn_buffers.size());
 
   assert(output_occupy_buffer_queue_.Size() > 0);
 
   for (auto& iter : bn_buffers) {
-    List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
     bool match = false;
-    QMMF_VERBOSE("%s:%s output_occupy_buffer_queue_.size(%d)", TAG, __func__,
-        output_occupy_buffer_queue_.Size());
+    QMMF_DEBUG("%s:%s track_id(%d) output_occupy_buffer_queue_.size(%d)",
+        TAG, __func__, TrackId(), output_occupy_buffer_queue_.Size());
     {
       Mutex::Autolock lock(queue_lock_);
+      List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if ((*it).fd == iter.buffer_id) {
-          QMMF_VERBOSE("%s:%s: buffer_id(%d) found in list", TAG, __func__,
-              iter.buffer_id);
+          QMMF_DEBUG("%s:%s: track_id(%d) buffer_id(%d) found in list", TAG,
+              __func__, TrackId(), iter.buffer_id);
           // Move buffer to free queue, and signal AVCodec's output thread if it
           // is waiting for buffer.
           output_free_buffer_queue_.PushBack((*it));
@@ -526,14 +526,15 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
           output_occupy_buffer_queue_.Erase(it);
           wait_for_frame_.signal();
           match = true;
+          break;
         }
       }
       // Make sure all buffers are part of occupy queue.
       assert(match == true);
-      QMMF_VERBOSE("%s:%s output_occupy_buffer_queue_.size(%d)", TAG, __func__,
-          output_occupy_buffer_queue_.Size());
-      QMMF_VERBOSE("%s:%s output_free_buffer_queue_.size(%d)", TAG, __func__,
-          output_free_buffer_queue_.Size());
+      QMMF_DEBUG("%s:%s track_id(%d) output_occupy_buffer_queue_.size(%d)", TAG,
+          __func__, TrackId(), output_occupy_buffer_queue_.Size());
+      QMMF_DEBUG("%s:%s track_id(%d) output_free_buffer_queue_.size(%d)", TAG,
+          __func__, TrackId(), output_free_buffer_queue_.Size());
     }
   }
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -560,12 +561,12 @@ void TrackEncoder::NotifyBufferToClient(CodecBuffer& codec_buffer) {
     Mutex::Autolock lock(queue_lock_);
     List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
-      QMMF_VERBOSE("%s:%s Checking match (0x%x) vs (0x%x) ", TAG, __func__,
-          (*it).pointer,  codec_buffer.pointer);
+      QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x) vs (0x%x) ", TAG,
+          __func__, TrackId(), (*it).pointer,  codec_buffer.pointer);
       if (((*it).pointer) ==  (codec_buffer.pointer)) {
-        QMMF_VERBOSE("%s:%s fd(%d):filled_length(%d):ts(%lld):frame_length(%d)",
-            TAG, __func__,  (*it).fd, codec_buffer.filled_length,
-            codec_buffer.ts, (*it).frame_length);
+        QMMF_VERBOSE("%s:%s track_id(%d) fd(%d):filled_length(%d):ts(%lld):"
+            "frame_length(%d)", TAG, __func__, TrackId(), (*it).fd,
+            codec_buffer.filled_length, codec_buffer.ts, (*it).frame_length);
         bn_buffer.ion_fd    = (*it).fd;
         bn_buffer.size      = codec_buffer.filled_length;
         bn_buffer.timestamp = codec_buffer.ts;
