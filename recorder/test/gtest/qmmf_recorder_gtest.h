@@ -73,9 +73,13 @@ class RecorderGtest : public ::testing::Test {
                            buffers, void *meta_param, TrackMetaParamType
                            meta_type, size_t meta_size);
 
-  void VideoTrackEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, void *meta_param, TrackMetaParamType
-                           meta_type, size_t meta_size);
+  void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                              buffers, void *meta_param, TrackMetaParamType
+                              meta_type, size_t meta_size);
+
+  void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                              buffers, void *meta_param, TrackMetaParamType
+                              meta_type, size_t meta_size);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
@@ -83,14 +87,17 @@ class RecorderGtest : public ::testing::Test {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer);
 
+  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
+                     int32_t file_fd);
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
-  int32_t               bitstream_filefd_;
-
+  int32_t               track1_bitstream_filefd_;
+  int32_t               track2_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 };
 
