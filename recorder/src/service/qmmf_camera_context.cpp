@@ -54,7 +54,7 @@ CameraContext::~CameraContext() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   if(camera_device_.get()) {
     camera_device_.clear();
-    camera_device_ = NULL;
+    camera_device_ = nullptr;
   }
   //TODO: check all active ports
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -129,7 +129,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   return ret;
 FAIL:
   camera_device_.clear();
-  camera_device_= NULL;
+  camera_device_= nullptr;
   return ret;
 }
 
@@ -138,8 +138,8 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   int32_t ret = NO_ERROR;
   int64_t last_frame_number;
 
-  assert(camera_id_ != camera_id);
-  assert(camera_device_.get() != NULL);
+  assert(camera_id_ == camera_id);
+  assert(camera_device_.get() != nullptr);
 
   if (streaming_request_id_ > 0) {
     QMMF_ERROR("%s:%s: Streaming Request still running! delete all tracks "
@@ -151,7 +151,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   assert(ret == NO_ERROR);
 
   camera_device_.clear();
-  camera_device_ = NULL;
+  camera_device_ = nullptr;
 
   QMMF_INFO("%s:%s: Camera Closed Succussfully!", TAG, __func__);
   return ret;
@@ -241,12 +241,12 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
   // 4. Create port and link it with adaptor stream.
   // 5. Create producer interface in port and link consumer.
 
-  assert(camera_device_.get() != NULL);
+  assert(camera_device_.get() != nullptr);
   assert(param.id != 0);
 
   sp<CameraPort> port;
   port = new CameraPort(param, CameraPortType::kVideo, this);
-  assert(port.get() != NULL);
+  assert(port.get() != nullptr);
 
   auto ret = port->Init();
   if(ret != NO_ERROR) {
@@ -282,7 +282,7 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
   sp<CameraPort> port = active_ports_.valueFor(track_id);
-  assert(port.get() != NULL);
+  assert(port.get() != nullptr);
   if (port->GetNumConsumers() > 0) {
     // Port still being used by another consumer, eventually this port would be
     // deleted once consumers count would become zero.
@@ -309,7 +309,7 @@ status_t CameraContext::StartStream(const uint32_t track_id,
   }
 
   sp<CameraPort> port = active_ports_.valueFor(track_id);
-  assert(port.get() != NULL);
+  assert(port.get() != nullptr);
 
   auto ret = port->Start(track_id, consumer);
   assert(ret == NO_ERROR);
@@ -326,7 +326,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   }
 
   sp<CameraPort> port = active_ports_.valueFor(track_id);
-  assert(port.get() != NULL);
+  assert(port.get() != nullptr);
 
   auto ret = port->Stop(track_id);
   assert(ret == NO_ERROR);
@@ -417,7 +417,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
   int32_t ret = NO_ERROR;
-  assert(camera_device_.get() != NULL);
+  assert(camera_device_.get() != nullptr);
 
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
@@ -450,7 +450,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
   Mutex::Autolock lock(device_access_lock_);
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  assert(camera_device_.get() != NULL);
+  assert(camera_device_.get() != nullptr);
   auto ret = camera_device_->DeleteStream(stream_id);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: Camera Device Stream(%d) deleted successfully!", TAG,
@@ -482,7 +482,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   for (size_t i = 0; i < size; i++) {
     sp<CameraPort> port = active_ports_.valueAt(i);
-    assert(port != NULL);
+    assert(port != nullptr);
 
     int32_t cam_stream_id = port->GetCameraStreamId();
     if (port->getPortState() == PortState::PORT_READYTOSTART) {
@@ -600,7 +600,7 @@ void CameraContext::NonZslCaptureCallback(int32_t stream_id,
   QMMF_VERBOSE("%s:%s: stream_buffer(0x%x):ion_fd(%d):size(%d):width(%d)", TAG,
       __func__, buffer.handle, buffer.fd, buffer.size, width);
 
-  void *vaddr = mmap(NULL, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+  void *vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
       buffer.fd, 0);
   assert(vaddr != nullptr);
 
@@ -678,7 +678,7 @@ CameraPort::~CameraPort() {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   buffer_producer_impl_.clear();
-  buffer_producer_impl_ = NULL;
+  buffer_producer_impl_ = nullptr;
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
@@ -703,7 +703,7 @@ status_t CameraPort::Init() {
   cam_stream_params_.cb = [&] (int32_t stream_id, StreamBuffer buffer)
       { StreamCallback (stream_id, buffer); };
 
-  assert(context_ != NULL);
+  assert(context_ != nullptr);
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_, &stream_id);
   if (ret != NO_ERROR && stream_id < 0) {
@@ -725,7 +725,7 @@ status_t CameraPort::Init() {
 status_t CameraPort::DeInit() {
 
   assert(ready_to_start_ == false);
-  assert(context_ != NULL);
+  assert(context_ != nullptr);
 
   auto ret = context_->DeleteDeviceStream(camera_stream_id_);
   if(ret != NO_ERROR) {
@@ -741,7 +741,7 @@ status_t CameraPort::DeInit() {
 status_t CameraPort::Start(const uint32_t consumer_id,
                            const sp<IBufferConsumer>& consumer) {
 
-  assert(consumer.get() != NULL);
+  assert(consumer.get() != nullptr);
   // Establish buffer communication link between consumer (TrackSource) and
   // Buffer Producer interface of camera port.
   AddConsumer(consumer_id, consumer);
@@ -812,7 +812,7 @@ status_t CameraPort::AddConsumer(const uint32_t consumer_id,
 
   consumer_map_.add(consumer_id, consumer);
   // Add consumer to port's producer interface.
-  assert(buffer_producer_impl_.get() != NULL);
+  assert(buffer_producer_impl_.get() != nullptr);
   buffer_producer_impl_->AddConsumer(consumer);
   consumer->SetProducerHandle(buffer_producer_impl_);
   QMMF_DEBUG("%s:%s: ConsumerId(%d):(0x%x) has been added to CameraPort(0x%x)."
@@ -825,9 +825,9 @@ status_t CameraPort::RemoveConsumer(const uint32_t consumer_id) {
   Mutex::Autolock lock(consumer_lock_);
 
   sp<IBufferConsumer> consumer = consumer_map_.valueFor(consumer_id);
-  assert(consumer.get() != NULL);
+  assert(consumer.get() != nullptr);
   // Remove consumer from port's producer interface.
-  assert(buffer_producer_impl_.get() != NULL);
+  assert(buffer_producer_impl_.get() != nullptr);
   buffer_producer_impl_->RemoveConsumer(consumer);
 
   consumer_map_.removeItem(consumer_id);
@@ -876,7 +876,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
 
   QMMF_VERBOSE("%s:%s: Enter stream_id(%d)", TAG, __func__, stream_id);
   assert(stream_id == camera_stream_id_);
-  assert(buffer_producer_impl_.get() != NULL);
+  assert(buffer_producer_impl_.get() != nullptr);
 
   QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%x ts: %lld\n", TAG,
       __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
