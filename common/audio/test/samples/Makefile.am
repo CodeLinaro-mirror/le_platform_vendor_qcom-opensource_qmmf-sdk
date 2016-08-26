@@ -6,6 +6,7 @@ source_files += qmmf_audio_test_ion.cc
 source_files += qmmf_audio_test_wav.cc
 
 cpp_flags := -I$(top_srcdir)
+cpp_flags += -I$(top_srcdir)/include
 cpp_flags += -DHAVE_PTHREADS
 cpp_flags += -DLINUX_ENABLED=1
 cpp_flags += -std=c++11
