@@ -1,5 +1,6 @@
 BUILD_COMPONENTS :=
 BUILD_COMPONENTS += common/cameraadaptor
+BUILD_COMPONENTS += common/overlay
 BUILD_COMPONENTS += common/audio/src/client
 BUILD_COMPONENTS += common/audio/src/service
 BUILD_COMPONENTS += common/audio/test/samples
