@@ -75,8 +75,6 @@ public:
 
   OMX_ERRORTYPE GetExtensionIndex(OMX_STRING param_name, OMX_INDEXTYPE* index);
 
-  OMX_ERRORTYPE GetState(OMX_STATETYPE*  state);
-
   OMX_ERRORTYPE GetParameter(OMX_INDEXTYPE param_index, OMX_PTR param_data);
 
   OMX_ERRORTYPE SetParameter(OMX_INDEXTYPE param_index, OMX_PTR param_data);

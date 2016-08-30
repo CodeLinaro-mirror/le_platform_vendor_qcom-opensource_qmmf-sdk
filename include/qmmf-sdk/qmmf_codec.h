@@ -61,6 +61,16 @@ enum class VideoFormat {
   kBayerIdeal,
 };
 
+enum class CodecParamType {
+  kBitRateType,
+  kFrameRateType,
+  kInsertIDRType,
+  kIDRIntervalType,
+  kCamFrameCropType,
+  kMarkLtrType,
+  kUseLtrType,
+};
+
 enum class AVCProfileType {
   kBaseline,
   kMain,
@@ -141,6 +151,8 @@ typedef struct AVCParams {
   AVCLevelType         level;
   VideoRateControlType ratecontrol_type;
   VideoQPParams        qp_params;
+  uint32_t             ltr_count;
+  uint32_t             hier_layer;
 } AVCParams;
 
 typedef struct HEVCParams {
@@ -150,6 +162,8 @@ typedef struct HEVCParams {
   HEVCLevelType        level;
   VideoRateControlType ratecontrol_type;
   VideoQPParams        qp_params;
+  uint32_t             ltr_count;
+  uint32_t             hier_layer;
 } HEVCParams;
 
 typedef struct JPEGParams {
@@ -176,6 +190,30 @@ typedef struct VideoEncodeIDRInterval {
   int32_t    num_P_frames;
   int32_t    num_B_frames;
 } VideoEncodeIDRInterval;
+
+typedef struct VideoEncLtrUse {
+  int32_t id;
+  int32_t frame;
+} VideoLtrUse;
+
+typedef struct VideoEncIdrInterval {
+  int32_t idr_period;
+  int32_t num_pframes;
+  int32_t num_bframes;
+} VideoIdrInterval;
+
+//Dynamic Video Encode Parameters
+typedef struct VideoEncSetParam {
+  uint32_t            bitrate;
+  uint32_t            fps;
+  uint32_t            idr_request;
+  uint32_t            ltr_mark;
+  uint32_t            ltr_period;
+  uint32_t            max_hip_layer;
+  uint32_t            ltr_count;
+  VideoEncLtrUse      ltr_use;
+  VideoEncIdrInterval idr_interval;
+} VideoEncSetParam;
 
 enum class ImageFormat {
   kJPEG,

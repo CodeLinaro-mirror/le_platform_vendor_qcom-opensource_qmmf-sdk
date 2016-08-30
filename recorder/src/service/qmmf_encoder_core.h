@@ -56,7 +56,7 @@ class EncoderCore {
   status_t StopTrackEncoder(uint32_t track_id);
 
   status_t SetTrackEncoderParams(uint32_t track_id,
-                                 VideoTrackParamType param_type, void* param,
+                                 CodecParamType param_type, void* param,
                                  uint32_t param_size);
 
   status_t DeleteTrackEncoder(uint32_t track_id);
@@ -93,7 +93,7 @@ class TrackEncoder : public IOutputCodecSource {
 
   status_t Stop();
 
-  status_t SetParams(VideoTrackParamType param_type, void* param,
+  status_t SetParams(CodecParamType param_type, void* param,
                      uint32_t param_size);
 
   status_t ReleaseHeaders();

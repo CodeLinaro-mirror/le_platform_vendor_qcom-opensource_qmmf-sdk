@@ -26,33 +26,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* RecordingFrame: Number of Frame to encode
- * CodecType     : Available codec AVC, HEVC
+/* IDR_INTERVAL  : Default profile is BaseProfile. Test will set B frame 0 and
+                   input value will be numer of P frame.
+ * LTR_MARK      : Make sure LTRCount is set while creating encoder.
+ * LTR_USE       : Make sure LTRCount and LTR_MARK is set.
  */
 
-RecordingFrame     : -1
-InputFile          : /data/720p.yuv
-OutputFile         : /data/CodecTest.h264
-CodecType          : VideoEncode
-Width              : 1280
-Height             : 720
-FPS                : 30
-Codec              : AVC
-IFR                : 1
-Bitrate            : 10000000
-Profile            : BaseProfile
-Level              : Level-3
-RateControl        : 2
-InitQpI            : 26
-InitQpP            : 26
-InitQpB            : 26
-MinQp              : 1
-MaxQp              : 51
-IPBQPRangeMin_IQP  : 1
-IPBQPRangeMax_IQP  : 51
-IPBQPRangeMin_PQP  : 1
-IPBQPRangeMax_PQP  : 51
-IPBQPRangeMin_BQP  : 1
-IPBQPRangeMax_BQP  : 51
-Ltr_Count          : 0
-Hier_Layer         : 0
+Bitrate       : 6000000
+Framerate     : 0
+Request_IDR   : 1
+IDR_INTERVAL  : 0
+LTR_MARK      : 0
+LTR_USE       : 0

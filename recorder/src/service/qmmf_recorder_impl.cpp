@@ -805,10 +805,17 @@ status_t RecorderImpl::SetAudioTrackParam(const uint32_t session_id,
 
 status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
                                           const uint32_t track_id,
-                                          VideoTrackParamType type,
+                                          CodecParamType type,
                                           void *param,
                                           size_t param_size) {
+  assert(encoder_core_ != nullptr);
+  auto ret = encoder_core_->SetTrackEncoderParams(track_id, type, param,
+                                                  param_size);
+  if(ret != OK) {
+    QMMF_ERROR("%s:%s: Failed to set video track parameter", TAG, __func__);
+  }
 
+  return ret;
 }
 
 status_t RecorderImpl::CaptureImage(const uint32_t camera_id,

@@ -87,6 +87,21 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
     return ret;
   }
 
+  if(argc > 3) {
+    if(!strncmp(argv[3], "-d", sizeof("-d"))) {
+      ret = ParseDynamicConfig(argv[4]);
+      if(ret != 0) {
+          QMMF_ERROR("%s:%s Error while parsing dynamic-config.txt", TAG,
+              __func__);
+          return ret;
+      }
+    } else {
+      QMMF_INFO("%s:%s  Usage: %s -c config.txt -d dynamic-config.txt",TAG,
+          __func__, argv[0]);
+      return -1;
+    }
+  }
+
   avcodec_ = new AVCodec();
   if(avcodec_ ==  nullptr) {
     QMMF_ERROR("%s:%s avcodec creation failed", TAG, __func__);
@@ -211,7 +226,7 @@ status_t CodecTest::ResumeCodec() {
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
-  ret =  avcodec_->ResumeCodec();
+  ret = avcodec_->ResumeCodec();
   assert(ret == OK);
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -223,8 +238,58 @@ status_t CodecTest::PauseCodec() {
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
 
-  ret =  avcodec_->PauseCodec();
+  ret = avcodec_->PauseCodec();
   assert(ret == OK);
+
+  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  return ret;
+}
+
+status_t CodecTest::SetCodecParameters() {
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  status_t ret = 0;
+  VideoEncSetParam param;
+  CodecParamType param_type;
+
+  if(!dynamic_params_.isEmpty()) {
+    for(size_t i = 0; i < dynamic_params_.size(); i++) {
+      memset(&param, 0x0, sizeof(param));
+      const char* key = dynamic_params_.keyAt(i).string();
+      uint32_t value = dynamic_params_.valueAt(i);
+
+      if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
+        param_type = CodecParamType::kBitRateType;
+        param.bitrate = value;
+      } else if(!strncmp("Framerate", key, strlen("Framerate"))) {
+        param_type = CodecParamType::kFrameRateType;
+        param.fps = value;
+      } else if(!strncmp("Request_IDR", key, strlen("Request_IDR"))) {
+        param_type = CodecParamType::kInsertIDRType;
+        param.idr_request = value;
+      } else if(!strncmp("LTR_MARK", key, strlen("LTR_MARK"))) {
+        param_type = CodecParamType::kMarkLtrType;
+        param.ltr_mark = value;
+      } else if(!strncmp("LTR_USE", key, strlen("LTR_USE"))) {
+        param_type = CodecParamType::kUseLtrType;
+        param.ltr_use.id = value;
+        param.ltr_use.frame = 5;
+      } else if(!strncmp("IDR_INTERVAL", key, strlen("IDR_INTERVAL"))) {
+        param_type = CodecParamType::kIDRIntervalType;
+        param.idr_interval.num_pframes = value;
+        param.idr_interval.num_bframes = 0;
+        param.idr_interval.idr_period = 0;
+      } else if(!strncmp("Max_HIP_Layer", key, strlen("Max_HIP_Layer"))) {
+        param_type = CodecParamType::kBitRateType;
+        //param.video_param.bitrate = value;
+      } else {
+          ALOGE("Unknown Key %s", key);
+          ret = -1;
+      }
+
+      ret = avcodec_->SetParameters(param_type, &param, sizeof(param));
+      assert(ret == OK);
+    }
+  }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
@@ -508,12 +573,20 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
        params->create_param.video_param.codec_param.hevc.bitrate = atoi(value);
     } else if(!strncmp("Profile", key, strlen("Profile"))) {
       //TODO: remove hard code value
-      params->create_param.video_param.codec_param.avc.profile =
-        AVCProfileType::kBaseline;
+      if(avc)
+        params->create_param.video_param.codec_param.avc.profile =
+          AVCProfileType::kBaseline;
+      else
+        params->create_param.video_param.codec_param.hevc.profile =
+          HEVCProfileType::kMain;
     } else if(!strncmp("Level", key, strlen("Level"))) {
       //TODO: remove hard code value
-      params->create_param.video_param.codec_param.avc.level =
-        AVCLevelType::kLevel3;
+      if(avc)
+        params->create_param.video_param.codec_param.avc.level =
+          AVCLevelType::kLevel3;
+      else
+        params->create_param.video_param.codec_param.hevc.level =
+          HEVCLevelType::kLevel3;
     } else if(!strncmp("RateControl", key, strlen("RateControl"))) {
       //TODO: remove hard code value
       if(avc)
@@ -609,7 +682,17 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
       else
           params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
               atoi(value);
-    }else {
+    } else if(!strncmp("Ltr_Count", key, strlen("Ltr_Count"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.ltr_count = atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.ltr_count = atoi(value);
+    } else if(!strncmp("Hier_Layer", key, strlen("Hier_Layer"))) {
+      if(avc)
+          params->create_param.video_param.codec_param.avc.hier_layer = atoi(value);
+      else
+          params->create_param.video_param.codec_param.hevc.hier_layer = atoi(value);
+    } else {
         QMMF_ERROR("%s:%s Unknown Key %s found", TAG, __func__, key);
         goto READ_FAILED;
     }
@@ -620,6 +703,54 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
 READ_FAILED:
   fclose(fp);
   return -1;
+}
+
+status_t CodecTest::ParseDynamicConfig(char *fileName) {
+  FILE *fp;
+  const int MAX_LINE = 128;
+  char line[MAX_LINE];
+  char value[50];
+  char key[25];
+
+  if(!(fp = fopen(fileName,"r"))) {
+      ALOGE("failed to open config file: %s", fileName);
+      return -1;
+  }
+
+  while(fgets(line,MAX_LINE-1,fp)) {
+    if((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
+      continue;
+    memset(value, 0x0, sizeof(value));
+    memset(key, 0x0, sizeof(key));
+    int len = strlen(line);
+    int i,j = 0;
+
+    int pos = strcspn(line,":");
+    for(i = 0; i< pos; i++){
+      if(line[i] != ' ') {
+        key[j] = line[i];
+        j++;
+      }
+    }
+
+    key[j] = '\0';
+    j = 0;
+    for(i = pos+1; i< len; i++) {
+      if(line[i] != ' ') {
+        value[j] = line[i];
+        j++;
+      }
+    }
+    value[j] = '\0';
+
+    if((atoi(value) > 0)) {
+      String8 key_string(key);
+      dynamic_params_.add(key_string, atoi(value));
+    }
+  }
+
+  fclose(fp);
+  return 0;
 }
 
 InputCodecSourceImpl::InputCodecSourceImpl(char* file_name,
@@ -669,7 +800,7 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
   status_t ret = 0;
 
   static OMX_TICKS time_stamp = 0;
-  static int32_t frame_count = 1;
+  static int32_t frame_count = 0;
 
   if(input_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available. Wait for new buffer", TAG, __func__);
@@ -698,12 +829,6 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
     }
   }
 
-  if((num_frame_read != -1) && (frame_count > num_frame_read)) {
-    QMMF_INFO("%s:%s Number of Frame read completed(%d). Send EOS", TAG, __func__,
-        frame_count);
-    ret = -1;
-  }
-
   stream_buffer.handle = buffer.handle;
 
   input_occupy_buffer_queue_.PushBack(buffer);
@@ -711,6 +836,13 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
 
   time_stamp = time_stamp + (OMX_TICKS)(1000000 / 30);
   stream_buffer.timestamp = time_stamp;
+  frame_count++;
+
+  if((num_frame_read != -1) && (frame_count > num_frame_read)) {
+    QMMF_INFO("%s:%s Number of Frame read completed(%d). Send EOS", TAG, __func__,
+        frame_count);
+    ret = -1;
+  }
 
   return ret;
 }
@@ -886,6 +1018,16 @@ void OutputCodecSourceImpl::BufferStatus() {
   assert(output_occupy_buffer_queue_.Size() == 0);
 }
 
+void CmdMenu::PrintDynamicParams() {
+  DefaultKeyedVector<String8, uint32_t> param = ctx_.GetDynamicParam();
+  if(!param.isEmpty()) {
+    for(size_t i = 0; i < param.size(); i++) {
+      printf("   %c. Set Param:(%s : %d)\n", CmdMenu::SET_CODEC_PARAM_CMD,
+          param.keyAt(i).string(), param.valueAt(i));
+    }
+  }
+}
+
 void CmdMenu::PrintMenu() {
 
   printf("\n\n=========== QIPCAM TEST MENU ===================\n\n");
@@ -898,6 +1040,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Stop Codec\n", CmdMenu::STOP_CODEC_CMD);
   printf("   %c. Pause Codec\n", CmdMenu::PAUSE_CODEC_CMD);
   printf("   %c. Resume Codec\n", CmdMenu::RESUME_CODEC_CMD);
+  PrintDynamicParams();
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -950,6 +1093,11 @@ int main(int argc,char *argv[]) {
       case CmdMenu::RESUME_CODEC_CMD:
       {
         test_context.ResumeCodec();
+      }
+      break;
+      case CmdMenu::SET_CODEC_PARAM_CMD:
+      {
+        test_context.SetCodecParameters();
       }
       break;
        case CmdMenu::EXIT_CMD:

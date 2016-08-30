@@ -163,7 +163,7 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id) {
 }
 
 status_t EncoderCore::SetTrackEncoderParams(uint32_t track_id,
-                                            VideoTrackParamType param_type,
+                                            CodecParamType param_type,
                                             void* param, uint32_t param_size) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
@@ -390,12 +390,18 @@ status_t TrackEncoder::Stop() {
   return ret;
 }
 
-status_t TrackEncoder::SetParams(VideoTrackParamType param_type, void* param,
+status_t TrackEncoder::SetParams(CodecParamType param_type, void* param,
                                  uint32_t param_size) {
 
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  assert(avcodec_ != nullptr);
+  auto ret = avcodec_->SetParameters(param_type, param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: set parameter failed for track(%d)", TAG, __func__,
+        TrackId());
+  }
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
 }
 
 

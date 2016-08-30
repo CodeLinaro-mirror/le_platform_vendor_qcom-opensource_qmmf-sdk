@@ -98,7 +98,7 @@ class RecorderImpl {
 
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              VideoTrackParamType type,
+                              CodecParamType type,
                               void *param,
                               size_t param_size);
 

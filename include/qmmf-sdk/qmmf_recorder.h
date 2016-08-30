@@ -189,7 +189,7 @@ class Recorder {
   /// param_size should be set to sizeof the param data structure
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              VideoTrackParamType type, const void *param,
+                              CodecParamType type, const void *param,
                               size_t param_size);
 
   /// \brief Deletes Audio track. The track can be deleted only when the session
