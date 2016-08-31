@@ -160,7 +160,7 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -197,7 +197,12 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
                                    video_track_param, video_track_cb);
 
   assert(ret == 0);
-  track_ids.push_back(video_track_id);
+
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
 
   video_track_id = 2;
   memset(&video_track_param, 0x0, sizeof video_track_param);
@@ -225,9 +230,13 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
                                    video_track_param, video_track_cb);
 
   assert(ret == 0);
-  track_ids.push_back(video_track_id);
 
-  sessions_.insert(std::make_pair(session_id, track_ids));
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -238,7 +247,7 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -339,8 +348,13 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
   assert(file_fd1_ >= 0);
 #endif
 
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -350,7 +364,7 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
 int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -453,7 +467,11 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   assert(file_fd1_ >= 0);
 #endif
 
-  track_ids.push_back(video_track_id);
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
 
   //Create Audio track.
   uint32_t audio_track_id = 101;
@@ -487,8 +505,12 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
                                       audio_track_params, audio_track_cb);
   assert(ret == NO_ERROR);
 
-  track_ids.push_back(audio_track_id);
-  sessions_.insert({session_id, track_ids});
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert({session_id, tracks});
 
   ret = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
   assert(ret == NO_ERROR);
@@ -502,7 +524,7 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -592,7 +614,11 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                    video_track_param, video_track_cb);
   assert(ret == 0);
-  track_ids.push_back(video_track_id);
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
 
 #ifdef DUMP_BITSTREAM
   String8 bitstream_filepath;
@@ -633,8 +659,12 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
                                    video_track_param, video_track_cb);
   assert(ret == 0);
 
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -645,7 +675,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -735,7 +765,11 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                    video_track_param, video_track_cb);
   assert(ret == 0);
-  track_ids.push_back(video_track_id);
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
 
 #ifdef DUMP_BITSTREAM
   String8 bitstream_filepath;
@@ -768,7 +802,10 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
                                    video_track_param, video_track_cb);
   assert(ret == 0);
 
-  track_ids.push_back(video_track_id);
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = video_track_id;
+  track_info.type     = TrackType::kVideoTrack;
+  tracks.push_back(track_info);
 
 #ifdef DUMP_BITSTREAM
   bitstream_filepath.clear();
@@ -779,7 +816,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
       0655);
   assert(file_fd2_ >= 0);
 #endif
-  sessions_.insert(std::make_pair(session_id, track_ids));
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -788,7 +825,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
 void RecorderTest::CreateAudioOnlySession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::vector<uint32_t> track_ids;
+  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -832,8 +869,13 @@ void RecorderTest::CreateAudioOnlySession() {
                                       audio_track_params, audio_track_cb);
   assert(result == NO_ERROR);
 
-  track_ids.push_back(audio_track_id);
-  sessions_.insert({session_id, track_ids});
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert({session_id, tracks});
 
   result = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
   assert(result == NO_ERROR);
@@ -844,14 +886,14 @@ void RecorderTest::CreateAudioOnlySession() {
 int32_t RecorderTest::StartSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
 
   bool has_audio = false;
-  for (auto track_id : it->second) {
-    if (track_id >= 100) has_audio = true;
+  for (auto track_info : it->second) {
+    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
   }
   if (has_audio) {
     result = wav_.Open();
@@ -864,14 +906,14 @@ int32_t RecorderTest::StartSession() {
 int32_t RecorderTest::StopSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
   assert(result == NO_ERROR);
 
   bool has_audio = false;
-  for (auto track_id : it->second) {
-    if (track_id >= 100) has_audio = true;
+  for (auto track_info : it->second) {
+    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
   }
   if (has_audio)
     wav_.Close();
@@ -882,7 +924,7 @@ int32_t RecorderTest::StopSession() {
 int32_t RecorderTest::PauseSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.PauseSession(session_id);
   assert(ret == 0);
@@ -892,34 +934,90 @@ int32_t RecorderTest::PauseSession() {
 int32_t RecorderTest::ResumeSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ResumeSession(session_id);
   assert(ret == 0);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
+int32_t RecorderTest::EnableOverlay() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  // Enable overlay on all existing video tracks.
+
+  // Create Overlay object
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kStaticImage;
+  object_params.location = OverlayLocationType::kBottomRight;
+  std::string str("/usr/bin/overlay_test.rgba");
+  str.copy(object_params.image_info.image_location, str.length());
+  object_params.image_info.width  = 102;
+  object_params.image_info.height = 420;
+  session_iter_ it = sessions_.begin();
+
+  for (auto track_info : it->second) {
+
+    if (track_info.type == TrackType::kVideoTrack) {
+      std::vector<uint32_t> object_ids;
+      uint32_t object_id;
+      auto ret = recorder_.CreateOverlayObject(track_info.track_id,
+                                               object_params, &object_id);
+      assert(ret == 0);
+
+      ret = recorder_.SetOverlay(track_info.track_id, object_id);
+      assert(ret == 0);
+
+      // One track can have multiple types of overlay.
+      object_ids.push_back(object_id);
+      overlay_ids_.insert(std::make_pair(track_info.track_id, object_ids));
+    }
+  }
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+int32_t RecorderTest::DisableOverlay() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  session_iter_ it = sessions_.begin();
+  for (auto track_info : it->second) {
+
+    if (track_info.type == TrackType::kVideoTrack) {
+      std::vector<uint32_t> overlay_ids;
+      overlay_ids = overlay_ids_[track_info.track_id];
+      for (auto overlay_id : overlay_ids) {
+        TEST_INFO("%s:%s: TrackId(%d):overlayId(%d) to Disable!", TAG, __func__,
+            track_info.track_id, overlay_id);
+        auto ret = recorder_.RemoveOverlay(track_info.track_id, overlay_id);
+        assert(ret == 0);
+        ret = recorder_.DeleteOverlayObject(track_info.track_id, overlay_id);
+        assert(ret == 0);
+      }
+    }
+  }
+  overlay_ids_.clear();
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
 int32_t RecorderTest::DeleteSession()
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator iter =
-      sessions_.begin();
-  uint32_t session_id = iter->first;
-  std::vector<uint32_t> tracks;
-  tracks = iter->second;
+  session_iter_ it = sessions_.begin();
+  uint32_t session_id = it->first;
   // Delete all the tracks associated to session.
-  status_t result;
-  for (size_t i = 0; i < tracks.size(); i++) {
-    if (tracks[i] >= 100)
-      result = recorder_.DeleteAudioTrack(session_id, tracks[i]);
-    else
-      result = recorder_.DeleteVideoTrack(session_id, tracks[i]);
-    assert(result == 0);
+  status_t ret;
+  for (auto track_info : it->second) {
+      if (track_info.type == TrackType::kAudioTrack)
+        ret = recorder_.DeleteAudioTrack(session_id, track_info.track_id);
+      else
+        ret = recorder_.DeleteVideoTrack(session_id, track_info.track_id);
+      assert(ret == 0);
   }
   // Once all tracks are deleted successfully delete session.
-  result = recorder_.DeleteSession(session_id);
+  ret = recorder_.DeleteSession(session_id);
 
-  sessions_.erase(iter);
+  sessions_.erase(it);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -987,7 +1085,7 @@ void RecorderTest::AudioTrackDataCb(uint32_t track_id,
   }
 
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1007,10 +1105,10 @@ void RecorderTest::AudioTrackEventCb(uint32_t track_id, EventType event_type,
 }
 
 void RecorderTest::VideoTrack4KYUVDataCb(uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    void *meta_param,
-                                    TrackMetaParamType meta_type,
-                                    size_t meta_size) {
+                                         std::vector<BufferDescriptor> buffers,
+                                         void *meta_param,
+                                         TrackMetaParamType meta_type,
+                                         size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
 
@@ -1037,7 +1135,7 @@ void RecorderTest::VideoTrack4KYUVDataCb(uint32_t track_id,
   }
 #endif
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1083,7 +1181,7 @@ void RecorderTest::VideoTrack1080pYUVDataCb(uint32_t track_id,
 #endif
 
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1110,7 +1208,7 @@ void RecorderTest::VideoTrack4KEncDataCb(uint32_t track_id,
   DumpBitStream(buffers, file_fd1_);
 #endif
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1136,7 +1234,7 @@ void RecorderTest::VideoTrack1080pEncDataCb1(uint32_t track_id,
   DumpBitStream(buffers, file_fd1_);
 #endif
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1154,7 +1252,7 @@ void RecorderTest::VideoTrack1080pEncDataCb2(uint32_t track_id,
   DumpBitStream(buffers, file_fd2_);
 #endif
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == 0);
@@ -1272,6 +1370,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
   printf("   %c. Pause Session\n", CmdMenu::PAUSE_SESSION_CMD);
   printf("   %c. Resume Session\n", CmdMenu::RESUME_SESSION_CMD);
+  printf("   %c. Enable Overlay\n", CmdMenu::ENABLE_OVERLAY_CMD);
+  printf("   %c. Disable Overlay\n", CmdMenu::DISABLE_OVERLAY_CMD);
   printf("   %c. Delete Session\n", CmdMenu::DELETE_SESSION_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
@@ -1364,6 +1464,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::RESUME_SESSION_CMD: {
         test_context.ResumeSession();
+      }
+      break;
+      case CmdMenu::ENABLE_OVERLAY_CMD: {
+        test_context.EnableOverlay();
+      }
+      break;
+      case CmdMenu::DISABLE_OVERLAY_CMD: {
+        test_context.DisableOverlay();
       }
       break;
       case CmdMenu::DELETE_SESSION_CMD: {

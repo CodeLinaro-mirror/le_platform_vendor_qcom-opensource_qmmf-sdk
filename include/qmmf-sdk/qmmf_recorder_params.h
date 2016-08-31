@@ -41,7 +41,6 @@ namespace qmmf {
 
 namespace recorder {
 
-#define MAX_STRING_LENGTH 128
 #define MAX_IN_DEVICES 4
 
 typedef int32_t status_t;
@@ -200,63 +199,6 @@ struct ImageCaptureConfig {
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
                            BufferDescriptor buffer)>  ImageCaptureCb;
-
-enum class OverlayType {
-  kDateType,
-  kUserText,
-  kStaticImage,
-  kBoundingBox,
-  kPrivacyMask
-};
-
-enum class OverlayLocationType {
-  kTopLEft,
-  kTopRight,
-  kCenter,
-  kBottomLeft,
-  kBottomRight,
-  kNone
-};
-
-enum class OverlayTimeType {
-  kHHMMSS_24HR,
-  kHHMMSS_AMPM,
-  kHHMM_24HR,
-  kHHMM_AMPM
-};
-
-enum class OverlayDateType { kYYYYMMDD, kMMDDYYYY };
-
-struct OverlayDateTimeType {
-  OverlayTimeType time_type;
-  OverlayDateType date_type;
-};
-
-struct BoundingBox {
-  int32_t startX;
-  int32_t startY;
-  int32_t width;
-  int32_t height;
-  char box_name[MAX_STRING_LENGTH];
-};
-
-struct OverlayImageInfo {
-  char image_location[MAX_STRING_LENGTH];
-  int32_t width;
-  int32_t height;
-};
-
-struct OverlayParam {
-  OverlayType type;
-  OverlayLocationType location;
-  uint32_t textColor;
-  union {
-    OverlayDateTimeType date_time_type;
-    char user_text[MAX_STRING_LENGTH];
-    OverlayImageInfo image_info;
-    BoundingBox bounding_box;
-  };
-};
 
 };
 };  // namespace qmmf::recorder

@@ -37,11 +37,13 @@
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 
 using namespace cameraadaptor;
 using namespace android;
+using namespace overlay;
 
 namespace recorder {
 
@@ -91,22 +93,29 @@ class CameraSource {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
-  status_t CreateOverlayObject(const OverlayParam &param, uint32_t *overlay_id);
+  status_t CreateOverlayObject(const uint32_t track_id,
+                               OverlayParam *param,
+                               uint32_t *overlay_id);
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id);
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id);
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param);
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     const OverlayParam &param);
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
+                                     OverlayParam *param);
 
-  status_t SetOverlayObject(const uint32_t track_id, const uint32_t overlay_id);
+  status_t SetOverlayObject(const uint32_t track_id,
+                            const uint32_t overlay_id);
 
   status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
-  const sp<TrackSource>& getTrackSource(uint32_t track_id);
+
+  const sp<TrackSource>& GetTrackSource(uint32_t track_id);
 
  private:
 
@@ -166,6 +175,22 @@ class TrackSource : public IInputCodecSource {
 
   void ClearInputQueue();
 
+  // Overlay Apis. TrackSource has instance of Overlay to deal with static
+  // and dynamic types of overlay.
+  status_t CreateOverlayObject(OverlayParam *param, uint32_t *overlay_id);
+
+  status_t DeleteOverlayObject(const uint32_t overlay_id);
+
+  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+                                  OverlayParam &param);
+
+  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
+                                     OverlayParam *param);
+
+  status_t SetOverlayObject(const uint32_t overlay_id);
+
+  status_t RemoveOverlayObject(const uint32_t overlay_id);
+
  private:
 
   // Method to provide consumer interface, it would be used by producer to
@@ -202,9 +227,12 @@ class TrackSource : public IInputCodecSource {
 
   sp<CameraContext>     camera_context_;
 
+  Overlay  overlay_;
+  bool     enable_overlay_;
+
 #ifdef DEBUG_TRACK_FPS
-  struct timeval prevtv_;;
-  uint32_t count_;;
+  struct timeval prevtv_;
+  uint32_t count_;
 #endif
 };
 

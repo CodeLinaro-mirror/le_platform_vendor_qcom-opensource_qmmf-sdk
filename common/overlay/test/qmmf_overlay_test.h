@@ -33,7 +33,7 @@
 
 #include <utils/String8.h>
 
-#include "qmmf_overlay.h"
+#include "qmmf-sdk/qmmf_overlay.h"
 
 
 using namespace qmmf;
@@ -75,13 +75,13 @@ private:
     OverlayLocationType mDateLocation;
     OverlayDateType mDateFormat;
     OverlayTimeType mTimeFormat;
-    uint8_t mDateAndTimeId;
+    uint32_t mDateAndTimeId;
 
     bool mUserText;
     OverlayLocationType mTextLocation;
     String8 mText;
 
-    QIPCamOverlay mOverlayHandle;
+    Overlay mOverlayHandle;
 };
 
 #endif

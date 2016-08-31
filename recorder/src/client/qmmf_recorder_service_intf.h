@@ -39,6 +39,7 @@
 #include <camera/CameraMetadata.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 namespace recorder {
@@ -47,6 +48,7 @@ using namespace android;
 using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
+using namespace overlay;
 
 #define QMMF_RECORDER_SERVICE_NAME "recorder.service"
 
@@ -213,23 +215,25 @@ class IRecorderService : public IInterface {
   virtual status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                           CameraMetadata &meta) = 0;
 
-  virtual status_t CreateOverlayObject(const OverlayParam &param,
+  virtual status_t CreateOverlayObject(const uint32_t track_id,
+                                       OverlayParam *param,
                                        uint32_t *overlay_id) = 0;
 
-  virtual status_t DeleteOverlayObject(const uint32_t overlay_id) = 0;
+  virtual status_t DeleteOverlayObject(const uint32_t track_id,
+                                       const uint32_t overlay_id) = 0;
 
-  virtual status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  virtual status_t GetOverlayObjectParams(const uint32_t track_id,
+                                          const uint32_t overlay_id,
                                           OverlayParam &param) = 0;
 
-  virtual status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                             const OverlayParam &param) = 0;
+  virtual status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                             const uint32_t overlay_id,
+                                             OverlayParam *param) = 0;
 
-  virtual status_t SetOverlayObject(const uint32_t session_id,
-                                    const uint32_t track_id,
+  virtual status_t SetOverlayObject(const uint32_t track_id,
                                     const uint32_t overlay_id) = 0;
 
-  virtual status_t RemoveOverlayObject(const uint32_t session_id,
-                                       const uint32_t track_id,
+  virtual status_t RemoveOverlayObject(const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
 };
 
@@ -286,11 +290,10 @@ class IRecorderServiceCallback : public IInterface {
 };
 
 //This class is responsible to provide callbacks from recoder service.
-class BnRecorderServiceCallback : public BnInterface<IRecorderServiceCallback>
-{
-public:
-    virtual status_t onTransact(uint32_t code, const Parcel& data,
-                                 Parcel* reply, uint32_t flags = 0) override;
+class BnRecorderServiceCallback : public BnInterface<IRecorderServiceCallback> {
+ public:
+  virtual status_t onTransact(uint32_t code, const Parcel& data,
+                              Parcel* reply, uint32_t flags = 0) override;
 };
 
 }; //namespace recorder

@@ -645,7 +645,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != NULL);
-    ret = encoder_core_->AddSource(camera_source_->getTrackSource(track_id),
+    ret = encoder_core_->AddSource(camera_source_->GetTrackSource(track_id),
                                    video_track_params);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: track_id(%d) AddSource failed!", TAG, __func__,
@@ -900,42 +900,92 @@ status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
-status_t RecorderImpl::CreateOverlayObject(const OverlayParam &param,
+status_t RecorderImpl::CreateOverlayObject(const uint32_t track_id,
+                                           OverlayParam *param,
                                            uint32_t *overlay_id) {
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->CreateOverlayObject(track_id, param, overlay_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreateOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderImpl::DeleteOverlayObject(const uint32_t overlay_id) {
-
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::GetOverlayObjectParams(const uint32_t overlay_id,
-                                              OverlayParam &param) {
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                                 const OverlayParam &param) {
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::SetOverlayObject(const uint32_t session_id,
-                                        const uint32_t track_id,
-                                        const uint32_t overlay_id) {
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::RemoveOverlayObject(const uint32_t session_id,
-                                           const uint32_t track_id,
+status_t RecorderImpl::DeleteOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
-  // NOT IMPLEMENTED YET.
-  return NO_ERROR;
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->DeleteOverlayObject(track_id, overlay_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: DeleteOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::GetOverlayObjectParams(const uint32_t track_id,
+                                              const uint32_t overlay_id,
+                                              OverlayParam &param) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->GetOverlayObjectParams(track_id, overlay_id,
+                                                    param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: GetOverlayObjectParams failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t track_id,
+                                                 const uint32_t overlay_id,
+                                                 OverlayParam *param) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->UpdateOverlayObjectParams(track_id, overlay_id,
+                                                       param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: UpdateOverlayObjectParams failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::SetOverlayObject(const uint32_t track_id,
+                                        const uint32_t overlay_id) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->SetOverlayObject(track_id, overlay_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: SetOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::RemoveOverlayObject(const uint32_t track_id,
+                                           const uint32_t overlay_id) {
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->RemoveOverlayObject(track_id, overlay_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: RemoveOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
 // Data callback handlers.

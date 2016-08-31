@@ -357,13 +357,14 @@ status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
-status_t Recorder::CreateOverlayObject(const OverlayParam &param,
-                                      uint32_t *overlay_id) {
+status_t Recorder::CreateOverlayObject(const uint32_t track_id,
+                                       const OverlayParam &param,
+                                       uint32_t *overlay_id) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->CreateOverlayObject(param, overlay_id);
+  auto ret = recorder_client_->CreateOverlayObject(track_id, param, overlay_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
   }
@@ -372,12 +373,13 @@ status_t Recorder::CreateOverlayObject(const OverlayParam &param,
   return ret;
 }
 
-status_t Recorder::DeleteOverlayObject(const uint32_t overlay_id) {
+status_t Recorder::DeleteOverlayObject(const uint32_t track_id,
+                                       const uint32_t overlay_id) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->DeleteOverlayObject(overlay_id);
+  auto ret = recorder_client_->DeleteOverlayObject(track_id, overlay_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
   }
@@ -386,13 +388,15 @@ status_t Recorder::DeleteOverlayObject(const uint32_t overlay_id) {
   return ret;
 }
 
-status_t Recorder::GetOverlayObjectParams(const uint32_t overlay_id,
+status_t Recorder::GetOverlayObjectParams(const uint32_t track_id,
+                                          const uint32_t overlay_id,
                                           OverlayParam &param) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->GetOverlayObjectParams(overlay_id, param);
+  auto ret = recorder_client_->GetOverlayObjectParams(track_id, overlay_id,
+                                                      param);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
   }
@@ -401,13 +405,15 @@ status_t Recorder::GetOverlayObjectParams(const uint32_t overlay_id,
   return ret;
 }
 
-status_t Recorder::UpdateOverlayObjectParams(const uint32_t overlay_id,
+status_t Recorder::UpdateOverlayObjectParams(const uint32_t track_id,
+                                             const uint32_t overlay_id,
                                              const OverlayParam &param) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->UpdateOverlayObjectParams(overlay_id, param);
+  auto ret = recorder_client_->UpdateOverlayObjectParams(track_id, overlay_id,
+                                                         param);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
   }
@@ -416,14 +422,13 @@ status_t Recorder::UpdateOverlayObjectParams(const uint32_t overlay_id,
   return ret;
 }
 
-status_t Recorder::SetOverlay(const uint32_t session_id,
-                              const uint32_t track_id,
+status_t Recorder::SetOverlay(const uint32_t track_id,
                               const uint32_t overlay_id) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->SetOverlay(session_id, track_id, overlay_id);
+  auto ret = recorder_client_->SetOverlay(track_id, overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: SetOverlay failed!", __func__);
   }
@@ -432,14 +437,12 @@ status_t Recorder::SetOverlay(const uint32_t session_id,
   return ret;
 }
 
-status_t Recorder::RemoveOverlay(const uint32_t session_id,
-                                 const uint32_t track_id,
+status_t Recorder::RemoveOverlay(const uint32_t track_id,
                                  const uint32_t overlay_id) {
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->RemoveOverlay(session_id, track_id,
-                                             overlay_id);
+  auto ret = recorder_client_->RemoveOverlay(track_id, overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: RemoveOverlay failed!", __func__);
   }

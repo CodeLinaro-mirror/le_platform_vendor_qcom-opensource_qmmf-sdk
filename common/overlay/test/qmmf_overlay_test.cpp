@@ -52,15 +52,15 @@ OverlayTest::OverlayTest()
     mInputHeight = -1;
     mStaticImage = false;
     mStaticImagePath.setTo("");
-    mImageLocation = OverlayLocationType::OVERLAYLOCATIONTYPE_TOPLEFT;
+    mImageLocation = OverlayLocationType::kTopLeft;
     mStaticImageId = -1;
     mDateAndTime = false;
-    mDateLocation = OverlayLocationType::OVERLAYLOCATIONTYPE_TOPRIGHT;
-    mDateFormat = OverlayDateType::OVERLAYDATETYPE_YYYYMMDD;
-    mTimeFormat = OverlayTimeType::OVERLAYTIMETYPE_HHMM_AMPM;
+    mDateLocation = OverlayLocationType::kTopRight;
+    mDateFormat = OverlayDateType::kYYYYMMDD;
+    mTimeFormat = OverlayTimeType::kHHMM_AMPM;
     mDateAndTimeId = -1;
     mUserText = false;
-    mTextLocation = OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMRIGHT;
+    mTextLocation = OverlayLocationType::kBottomRight;
     mText.setTo("");
     ALOGD("%s: Exit ",__func__);
 }
@@ -197,20 +197,20 @@ int32_t OverlayTest::applyOverlay()
         goto ERROR;
     }
 
-    ret = mOverlayHandle.init(BufferFormat::FORMAT_YUV_NV21);
+    ret = mOverlayHandle.init(BufFormat::FORMAT_YUV_NV21);
     if(ret != 0) {
         ALOGE("%s: Overlay:Init failed!", __func__);
         return ret;
     }
 
     if(mDateAndTime) {
-        OverlayItemParam param;
+        OverlayParam param;
         memset(&param, 0x0, sizeof param);
-        param.type      = OverlayType::OVERLAYTYPE_DATE_TIME;
+        param.type      = OverlayType::kDateType;
         param.location  = mDateLocation;
-        param.textColor = 0xFFFF0000; //SK_ColorRED
-        param.dateAndTimeType.dateType = mDateFormat;
-        param.dateAndTimeType.timeType = mTimeFormat;
+        param.text_color = 0xFFFF0000; //SK_ColorRED
+        param.date_time_type.date_type = mDateFormat;
+        param.date_time_type.time_type = mTimeFormat;
 
         ret = mOverlayHandle.createOverlayItem(param, &mDateAndTimeId);
         if(ret != 0) {
@@ -226,7 +226,7 @@ int32_t OverlayTest::applyOverlay()
     buf.frameLen = mSize;
     buf.width    = mInputWidth;
     buf.height   = mInputHeight;
-    buf.format   = BufferFormat::FORMAT_YUV_NV21; //TODO: take from config file.
+    buf.format   = BufFormat::FORMAT_YUV_NV21; //TODO: take from config file.
 
     ret = mOverlayHandle.applyOverlay(buf);
     if(ret != 0) {

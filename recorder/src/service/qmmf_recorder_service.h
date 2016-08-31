@@ -140,23 +140,24 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
-  status_t CreateOverlayObject(const OverlayParam &param,
+  status_t CreateOverlayObject(const uint32_t track_id, OverlayParam *param,
                                uint32_t *overlay_id) override;
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id) override;
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id) override;
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param) override;
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     const OverlayParam &param) override;
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
+                                     OverlayParam *param) override;
 
-  status_t SetOverlayObject(const uint32_t session_id,
-                            const uint32_t track_id,
+  status_t SetOverlayObject(const uint32_t track_id,
                             const uint32_t overlay_id) override;
 
-  status_t RemoveOverlayObject(const uint32_t session_id,
-                               const uint32_t track_id,
+  status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id) override;
 
   RecorderImpl*                recorder_;

@@ -45,13 +45,14 @@
 #include <SkBlurMaskFilter.h>
 #endif
 
-#include "qmmf_overlay.h"
+#include "qmmf-sdk/qmmf_overlay.h"
+#include "qmmf_overlay_item.h"
 
 namespace qmmf {
 
 namespace overlay {
 
-QIPCamOverlay::QIPCamOverlay()
+Overlay::Overlay()
                 :mFrameWidth(0),
                  mFrameHeight(0),
                  mTargetC2dSurfaceId(-1),
@@ -60,7 +61,7 @@ QIPCamOverlay::QIPCamOverlay()
                  mId(0)
 { }
 
-QIPCamOverlay::~QIPCamOverlay()
+Overlay::~Overlay()
 {
     OVDBG_INFO("%s: Enter ",__func__);
 
@@ -84,7 +85,7 @@ QIPCamOverlay::~QIPCamOverlay()
     OVDBG_INFO("%s: Exit ",__func__);
 }
 
-int32_t QIPCamOverlay::init(BufferFormat format)
+int32_t Overlay::init(const BufFormat& format)
 {
     OVDBG_LEVEL2("%s:Enter",__func__);
 
@@ -128,26 +129,25 @@ int32_t QIPCamOverlay::init(BufferFormat format)
     return ret;
 }
 
-int32_t QIPCamOverlay::createOverlayItem(OverlayItemParam& param,
-                             uint8_t* overlayId)
+int32_t Overlay::createOverlayItem(OverlayParam& param, uint32_t* overlayId)
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
 
     OverlayItem* overlayItem = NULL;
     switch(param.type) {
-        case OverlayType::OVERLAYTYPE_DATE_TIME:
+        case OverlayType::kDateType:
             overlayItem = new OverlayItemDateAndTime(mIonDevice);
             break;
-        case OverlayType::OVERLAYTYPE_USERTEXT:
+        case OverlayType::kUserText:
             overlayItem = new OverlayItemText(mIonDevice);
             break;
-        case OverlayType::OVERLAYTYPE_STATICIMAGE:
+        case OverlayType::kStaticImage:
             overlayItem = new OverlayItemStaticImage(mIonDevice);
             break;
-        case OverlayType::OVERLAYTYPE_BOUNDINGBOX:
+        case OverlayType::kBoundingBox:
             overlayItem = new OverlayItemBoundingBox(mIonDevice);
             break;
-        case OverlayType::OVERLAYTYPE_PRIVACYMASK:
+        case OverlayType::kPrivacyMask:
             overlayItem = new OverlayItemPrivacyMask(mIonDevice);
             break;
         default:
@@ -174,8 +174,8 @@ int32_t QIPCamOverlay::createOverlayItem(OverlayItemParam& param,
     time and will be marked as dirty whenever their configuration
     changes at run time after first draw.
     */
-    if((param.type == OverlayType::OVERLAYTYPE_STATICIMAGE)
-        || (param.type == OverlayType::OVERLAYTYPE_PRIVACYMASK)) {
+    if((param.type == OverlayType::kStaticImage)
+        || (param.type == OverlayType::kPrivacyMask)) {
         overlayItem->markDirty(false);
     } else {
         overlayItem->markDirty(true);
@@ -190,7 +190,7 @@ int32_t QIPCamOverlay::createOverlayItem(OverlayItemParam& param,
     return ret;
 }
 
-int32_t QIPCamOverlay::deleteOverlayItem(uint32_t overlayId)
+int32_t Overlay::deleteOverlayItem(uint32_t overlayId)
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
     Mutex::Autolock lock(mLock);
@@ -210,8 +210,8 @@ int32_t QIPCamOverlay::deleteOverlayItem(uint32_t overlayId)
     return ret;
 }
 
-int32_t QIPCamOverlay::getOverlayItemParams(uint32_t overlayId,
-         OverlayItemParam& param)
+int32_t Overlay::getOverlayParams(uint32_t overlayId,
+         OverlayParam& param)
 {
     int32_t ret = 0;
 
@@ -228,8 +228,8 @@ int32_t QIPCamOverlay::getOverlayItemParams(uint32_t overlayId,
     return ret;
 }
 
-int32_t QIPCamOverlay::updateOverlayItemParams(uint32_t overlayId,
-                             OverlayItemParam& param)
+int32_t Overlay::updateOverlayParams(uint32_t overlayId,
+                             OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
     Mutex::Autolock lock(mLock);
@@ -245,7 +245,7 @@ int32_t QIPCamOverlay::updateOverlayItemParams(uint32_t overlayId,
     return overlayItem->updateParameters(param);
 }
 
-int32_t QIPCamOverlay::enableOverlayItem(uint32_t overlayId)
+int32_t Overlay::enableOverlayItem(uint32_t overlayId)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
     Mutex::Autolock lock(mLock);
@@ -265,7 +265,7 @@ int32_t QIPCamOverlay::enableOverlayItem(uint32_t overlayId)
     return ret;
 }
 
-int32_t QIPCamOverlay::disableOverlayItem(uint32_t overlayId)
+int32_t Overlay::disableOverlayItem(uint32_t overlayId)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
     Mutex::Autolock lock(mLock);
@@ -285,7 +285,7 @@ int32_t QIPCamOverlay::disableOverlayItem(uint32_t overlayId)
     return ret;
 }
 
-int32_t QIPCamOverlay::applyOverlay(const TargetBuf& buffer)
+int32_t Overlay::applyOverlay(const TargetBuf& buffer)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
     int32_t ret = 0;
@@ -403,30 +403,33 @@ int32_t QIPCamOverlay::applyOverlay(const TargetBuf& buffer)
         }
     }
 
+    C2dObjects c2d_objects;
+    memset(&c2d_objects, 0x0, sizeof c2d_objects);
     //Iterate all updated overlayItems, and get coordinates.
     for(size_t i = 0, j = 0; i < mOverlayItems.size(); i++) {
         DrawInfo drawInfo;
         memset(&drawInfo, 0x0, sizeof drawInfo);
+
         if(mOverlayItems.valueAt(i)->isActive()) {
             mOverlayItems.valueAt(i)->getDrawInfo(buffer.width, buffer.height,
                 &drawInfo);
-            mC2dObjects[j].surface_id  = drawInfo.c2dSurfaceId;
-            mC2dObjects[j].config_mask = C2D_ALPHA_BLEND_SRC_ATOP
+            c2d_objects.objects[j].surface_id  = drawInfo.c2dSurfaceId;
+            c2d_objects.objects[j].config_mask = C2D_ALPHA_BLEND_SRC_ATOP
                                         |C2D_TARGET_RECT_BIT;
-            mC2dObjects[j].target_rect.x       = drawInfo.x << 16;
-            mC2dObjects[j].target_rect.y       = drawInfo.y << 16;
-            mC2dObjects[j].target_rect.width   = drawInfo.width << 16;
-            mC2dObjects[j].target_rect.height  = drawInfo.height << 16;
+            c2d_objects.objects[j].target_rect.x       = drawInfo.x << 16;
+            c2d_objects.objects[j].target_rect.y       = drawInfo.y << 16;
+            c2d_objects.objects[j].target_rect.width   = drawInfo.width << 16;
+            c2d_objects.objects[j].target_rect.height  = drawInfo.height << 16;
 
-            OVDBG_LEVEL2("%s: mC2dObjects[%d].surface_id=%d", __func__, j,
-                mC2dObjects[j].surface_id);
-            OVDBG_LEVEL2("%s: mC2dObjects[%d].target_rect.x=%d", __func__, j,
+            OVDBG_LEVEL2("%s: c2d_objects[%d].surface_id=%d", __func__, j,
+                c2d_objects.objects[j].surface_id);
+            OVDBG_LEVEL2("%s: c2d_objects[%d].target_rect.x=%d", __func__, j,
                 drawInfo.x);
-            OVDBG_LEVEL2("%s: mC2dObjects[%d].target_rect.y=%d", __func__, j,
+            OVDBG_LEVEL2("%s: c2d_objects[%d].target_rect.y=%d", __func__, j,
                 drawInfo.y);
-            OVDBG_LEVEL2("%s: mC2dObjects[%d].target_rect.width=%d", __func__,
+            OVDBG_LEVEL2("%s: c2d_objects[%d].target_rect.width=%d", __func__,
                 j, drawInfo.width);
-            OVDBG_LEVEL2("%s: mC2dObjects[%d].target_rect.height=%d", __func__,
+            OVDBG_LEVEL2("%s: c2d_objects[%d].target_rect.height=%d", __func__,
                 j, drawInfo.height);
             ++numActiveOverlays;
             ++j;
@@ -435,10 +438,11 @@ int32_t QIPCamOverlay::applyOverlay(const TargetBuf& buffer)
 
     OVDBG_LEVEL2("%s: numActiveOverlays=%d", __func__, numActiveOverlays);
     for(size_t i = 0; i < (numActiveOverlays-1); i++) {
-        mC2dObjects[i].next = &mC2dObjects[i+1];
+        c2d_objects.objects[i].next = &c2d_objects.objects[i+1];
     }
 
-    ret = c2dDraw(mTargetC2dSurfaceId, 0, 0, 0, 0, mC2dObjects, numActiveOverlays);
+    ret = c2dDraw(mTargetC2dSurfaceId, 0, 0, 0, 0, c2d_objects.objects,
+                  numActiveOverlays);
     if(ret != C2D_STATUS_OK) {
        OVDBG_ERROR("%s: c2dDraw failed!",__func__);
        goto EXIT;
@@ -465,20 +469,20 @@ EXIT:
     return ret;
 }
 
-uint32_t QIPCamOverlay::getC2dColorFormat(const BufferFormat& format)
+uint32_t Overlay::getC2dColorFormat(const BufFormat& format)
 {
     uint32_t c2dColorFormat = C2D_COLOR_FORMAT_420_NV12;
     switch (format) {
-        case BufferFormat::FORMAT_YUV_NV12:
+        case BufFormat::FORMAT_YUV_NV12:
             c2dColorFormat = C2D_COLOR_FORMAT_420_NV12;
             break;
-        case BufferFormat::FORMAT_YUV_NV21:
+        case BufFormat::FORMAT_YUV_NV21:
             c2dColorFormat = C2D_COLOR_FORMAT_420_NV21;
             break;
-        case BufferFormat::FORMAT_RGB_888:
+        case BufFormat::FORMAT_RGB_888:
             c2dColorFormat = C2D_COLOR_FORMAT_888_RGB;
             break;
-        case BufferFormat::FORMAT_RGBA_8888:
+        case BufFormat::FORMAT_RGBA_8888:
             c2dColorFormat = C2D_COLOR_FORMAT_8888_RGBA;
             break;
         default:
@@ -489,7 +493,7 @@ uint32_t QIPCamOverlay::getC2dColorFormat(const BufferFormat& format)
     return c2dColorFormat;
 }
 
-bool QIPCamOverlay::isOverlayItemValid(uint32_t overlayId)
+bool Overlay::isOverlayItemValid(uint32_t overlayId)
 {
     OVDBG_LEVEL1("%s: Enter overlayId(%d)",__func__, overlayId);
     bool valid = false;
@@ -513,7 +517,7 @@ OverlayItem::OverlayItem(int32_t ionDeviceId)
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
     memset(&mHandleData, 0x0, sizeof mHandleData);
-    mLocationType = OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMLEFT;
+    mLocationType = OverlayLocationType::kBottomLeft;
     OVDBG_LEVEL2("%s:Exit ", __func__);
 }
 
@@ -619,7 +623,7 @@ OverlayItemStaticImage::OverlayItemStaticImage(int32_t ionDeviceId)
                        , mImagePath()
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
-    mType = OverlayType::OVERLAYTYPE_STATICIMAGE;
+    mType = OverlayType::kStaticImage;
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
@@ -630,23 +634,23 @@ OverlayItemStaticImage::~OverlayItemStaticImage()
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-int32_t OverlayItemStaticImage::init(OverlayItemParam& param)
+int32_t OverlayItemStaticImage::init(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
     int32_t ret = 0;
 
-    if(param.imageInfo.width <= 0 || param.imageInfo.height <= 0) {
+    if(param.image_info.width <= 0 || param.image_info.height <= 0) {
         OVDBG_ERROR("%s: Image Width & Height is not correct!", __func__);
         return BAD_VALUE;
     }
 
     mLocationType = param.location;
-    mWidth        = param.imageInfo.width;
-    mHeight       = param.imageInfo.height;
+    mWidth        = param.image_info.width;
+    mHeight       = param.image_info.height;
 
-    mImagePath.setTo(param.imageInfo.imageLocation,
-             strlen(param.imageInfo.imageLocation) + 1);
+    mImagePath.setTo(param.image_info.image_location,
+             strlen(param.image_info.image_location) + 1);
 
     ret = createSurface();
     if(ret != 0) {
@@ -676,27 +680,27 @@ void OverlayItemStaticImage::getDrawInfo(uint32_t targetWidth,
     int32_t y = 0;
 
     switch (mLocationType) {
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPLEFT:
+        case OverlayLocationType::kTopLeft:
             x = xMargin;
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPRIGHT:
+        case OverlayLocationType::kTopRight:
             x = targetWidth - (mWidth + xMargin);
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_CENTER:
+        case OverlayLocationType::kCenter:
             x = (targetWidth - mWidth)/2;
             y = (targetHeight - mHeight)/2;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMLEFT:
+        case OverlayLocationType::kBottomLeft:
             x = xMargin;
             y = targetHeight - (mHeight + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMRIGHT:
+        case OverlayLocationType::kBottomRight:
             x = targetWidth - (mWidth + xMargin);
             y = targetHeight - (mHeight + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_NONE:
+        case OverlayLocationType::kNone:
         default:
             x = mX;
             y = mY;
@@ -709,36 +713,36 @@ void OverlayItemStaticImage::getDrawInfo(uint32_t targetWidth,
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-void OverlayItemStaticImage::getParameters(OverlayItemParam& param)
+void OverlayItemStaticImage::getParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
-    param.type             = OverlayType::OVERLAYTYPE_STATICIMAGE;
+    param.type             = OverlayType::kStaticImage;
     param.location         = mLocationType;
-    param.imageInfo.width  = mWidth;
-    param.imageInfo.height = mHeight;
+    param.image_info.width  = mWidth;
+    param.image_info.height = mHeight;
     std::string str(mImagePath.string());
-    str.copy(param.imageInfo.imageLocation, mImagePath.length());
+    str.copy(param.image_info.image_location, mImagePath.length());
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemStaticImage::updateParameters(OverlayItemParam& param)
+int32_t OverlayItemStaticImage::updateParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
     int32_t ret = 0;
 
-    if(strcmp(mImagePath.string(), param.imageInfo.imageLocation) != 0) {
+    if(strcmp(mImagePath.string(), param.image_info.image_location) != 0) {
         OVDBG_ERROR("%s: Image Path Can't be changed at run time!!", __func__);
         return BAD_VALUE;
     }
 
-    if(param.imageInfo.width <= 0 || param.imageInfo.height <= 0) {
+    if(param.image_info.width <= 0 || param.image_info.height <= 0) {
         OVDBG_ERROR("%s: Image Width & Height is not correct!", __func__);
         return BAD_VALUE;
     }
 
     mLocationType = param.location;
-    mWidth        = param.imageInfo.width;
-    mHeight       = param.imageInfo.height;
+    mWidth        = param.image_info.width;
+    mHeight       = param.image_info.height;
 
     OVDBG_LEVEL2("%s:Exit ",__func__);
     return ret;
@@ -749,7 +753,6 @@ int32_t OverlayItemStaticImage::createSurface()
     OVDBG_LEVEL2("%s:Enter ",__func__);
 
     int32_t   ret = 0;
-    uint32_t *pixels = NULL;
     uint32_t size = mWidth * mHeight * 4;
 
     ionMemInfo memInfo;
@@ -760,7 +763,7 @@ int32_t OverlayItemStaticImage::createSurface()
        OVDBG_ERROR("%s:allocateIonMemory failed",__func__);
        return ret;
     }
-    pixels = (uint32_t*)memInfo.vaddr;
+    uint32_t* pixels = (uint32_t*)memInfo.vaddr;
 
     //Load raw logo image file.
     FILE *file = 0;
@@ -824,9 +827,9 @@ OverlayItemDateAndTime::OverlayItemDateAndTime(int32_t ionDeviceId)
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
     memset(&mDateAndTimeType, 0x0, sizeof mDateAndTimeType);
-    mDateAndTimeType.timeType = OverlayTimeType::OVERLAYTIMETYPE_HHMM_24HR;
-    mDateAndTimeType.dateType = OverlayDateType::OVERLAYDATETYPE_MMDDYYYY;
-    mType                     = OverlayType::OVERLAYTYPE_DATE_TIME;
+    mDateAndTimeType.time_type = OverlayTimeType::kHHMM_24HR;
+    mDateAndTimeType.date_type = OverlayDateType::kMMDDYYYY;
+    mType                     = OverlayType::kDateType;
     OVDBG_LEVEL2("%s:Exit", __func__);
 }
 
@@ -836,15 +839,15 @@ OverlayItemDateAndTime::~OverlayItemDateAndTime()
     OVDBG_LEVEL2("%s:Exit ", __func__);
 }
 
-int32_t OverlayItemDateAndTime::init(OverlayItemParam& param)
+int32_t OverlayItemDateAndTime::init(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
     mLocationType = param.location;
-    mTextColor    = param.textColor;
+    mTextColor    = param.text_color;
 
-    mDateAndTimeType.dateType = param.dateAndTimeType.dateType;
-    mDateAndTimeType.timeType = param.dateAndTimeType.timeType;
+    mDateAndTimeType.date_type = param.date_time_type.date_type;
+    mDateAndTimeType.time_type = param.date_time_type.time_type;
     mWidth  = DATETIME_TEXT_BUF_WIDTH;
     mHeight = DATETIME_TEXT_BUF_HEIGHT;
 
@@ -888,26 +891,26 @@ int32_t OverlayItemDateAndTime::updateAndDraw()
     nowtime = tv.tv_sec;
     time = localtime(&nowtime);
 
-    switch(mDateAndTimeType.dateType) {
-        case OverlayDateType::OVERLAYDATETYPE_YYYYMMDD:
+    switch(mDateAndTimeType.date_type) {
+        case OverlayDateType::kYYYYMMDD:
             strftime(dateBuf, sizeof dateBuf, "%Y/%m/%d", time);
             break;
-        case OverlayDateType::OVERLAYDATETYPE_MMDDYYYY:
+        case OverlayDateType::kMMDDYYYY:
         default:
             strftime(dateBuf, sizeof dateBuf, "%m/%d/%Y", time);
             break;
     }
-    switch(mDateAndTimeType.timeType) {
-        case OverlayTimeType::OVERLAYTIMETYPE_HHMMSS_24HR:
+    switch(mDateAndTimeType.time_type) {
+        case OverlayTimeType::kHHMMSS_24HR:
             strftime(timeBuf, sizeof timeBuf, "%H:%M:%S", time);
             break;
-        case OverlayTimeType::OVERLAYTIMETYPE_HHMMSS_AMPM:
+        case OverlayTimeType::kHHMMSS_AMPM:
             strftime(timeBuf, sizeof timeBuf, "%r", time);
             break;
-        case OverlayTimeType::OVERLAYTIMETYPE_HHMM_24HR:
+        case OverlayTimeType::kHHMM_24HR:
             strftime(timeBuf, sizeof timeBuf, "%H:%M", time);
             break;
-        case OverlayTimeType::OVERLAYTIMETYPE_HHMM_AMPM:
+        case OverlayTimeType::kHHMM_AMPM:
         default:
             strftime(timeBuf, sizeof timeBuf, "%I:%M %p", time);
             break;
@@ -951,27 +954,27 @@ void OverlayItemDateAndTime::getDrawInfo(uint32_t targetWidth,
 
     //(0,0) is at topleft corner.
     switch (mLocationType) {
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPLEFT:
+        case OverlayLocationType::kTopLeft:
             x = xMargin;
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPRIGHT:
+        case OverlayLocationType::kTopRight:
             x = targetWidth - (drawInfo->width + xMargin);
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_CENTER:
+        case OverlayLocationType::kCenter:
             x = (targetWidth - drawInfo->width)/2;
             y = (targetHeight - drawInfo->height)/2;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMLEFT:
+        case OverlayLocationType::kBottomLeft:
             x = xMargin;
             y = targetHeight - (drawInfo->height + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMRIGHT:
+        case OverlayLocationType::kBottomRight:
             x = targetWidth - (drawInfo->width + xMargin);
             y = targetHeight - (drawInfo->height + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_NONE:
+        case OverlayLocationType::kNone:
         default:
             break;
     }
@@ -981,26 +984,26 @@ void OverlayItemDateAndTime::getDrawInfo(uint32_t targetWidth,
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-void OverlayItemDateAndTime::getParameters(OverlayItemParam& param)
+void OverlayItemDateAndTime::getParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
-    param.type      = OverlayType::OVERLAYTYPE_DATE_TIME;
+    param.type      = OverlayType::kDateType;
     param.location  = mLocationType;
-    param.textColor = mTextColor;
-    param.dateAndTimeType.dateType = mDateAndTimeType.dateType;
-    param.dateAndTimeType.timeType = mDateAndTimeType.timeType;
+    param.text_color = mTextColor;
+    param.date_time_type.date_type = mDateAndTimeType.date_type;
+    param.date_time_type.time_type = mDateAndTimeType.time_type;
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemDateAndTime::updateParameters(OverlayItemParam& param)
+int32_t OverlayItemDateAndTime::updateParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
     int32_t ret = 0;
     mLocationType = param.location;
-    mTextColor    = param.textColor;
+    mTextColor    = param.text_color;
 
-    mDateAndTimeType.dateType = param.dateAndTimeType.dateType;
-    mDateAndTimeType.timeType = param.dateAndTimeType.timeType;
+    mDateAndTimeType.date_type = param.date_time_type.date_type;
+    mDateAndTimeType.time_type = param.date_time_type.time_type;
     OVDBG_LEVEL2("%s:Exit ",__func__);
     return ret;
 }
@@ -1010,7 +1013,6 @@ int32_t OverlayItemDateAndTime::createSurface()
     OVDBG_LEVEL2("%s: Enter", __func__);
 
     int32_t ret = 0;
-    void *pixels;
     int32_t size = mWidth * mHeight * 4;
     ionMemInfo memInfo;
     memset(&memInfo, 0x0, sizeof(ionMemInfo));
@@ -1020,7 +1022,7 @@ int32_t OverlayItemDateAndTime::createSurface()
        OVDBG_ERROR("%s:allocateIonMemory failed",__func__);
        return ret;
     }
-    pixels = memInfo.vaddr;
+    void* pixels = memInfo.vaddr;
     OVDBG_LEVEL1("%s: ION memory allocated fd = %d",__func__,memInfo.fd);
 
 #if USE_SKIA
@@ -1088,7 +1090,7 @@ OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ionDeviceId)
 
 {
     OVDBG_INFO("%s: Enter", __func__);
-    mType = OverlayType::OVERLAYTYPE_BOUNDINGBOX;
+    mType = OverlayType::kBoundingBox;
     OVDBG_INFO("%s: Exit", __func__);
 }
 
@@ -1099,27 +1101,27 @@ OverlayItemBoundingBox::~OverlayItemBoundingBox()
     OVDBG_INFO("%s: Exit", __func__);
 }
 
-int32_t OverlayItemBoundingBox::init(OverlayItemParam& param)
+int32_t OverlayItemBoundingBox::init(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
-    if((param.boundingBox.width <= 0) || (param.boundingBox.height <= 0)) {
+    if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
         return BAD_VALUE;
     }
-    if(param.boundingBox.startX < 0 || param.boundingBox.startY < 0) {
+    if(param.bounding_box.startX < 0 || param.bounding_box.startY < 0) {
         return BAD_VALUE;
     }
 
-    mX          = param.boundingBox.startX;
-    mY          = param.boundingBox.startY;
-    mWidth      = param.boundingBox.width;
-    mHeight     = param.boundingBox.height;
-    mBBoxColor  = param.textColor;
+    mX          = param.bounding_box.startX;
+    mY          = param.bounding_box.startY;
+    mWidth      = param.bounding_box.width;
+    mHeight     = param.bounding_box.height;
+    mBBoxColor  = param.text_color;
 
-    int32_t textLen = strlen(param.boundingBox.boxName);
+    int32_t textLen = strlen(param.bounding_box.box_name);
 
     int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
-    mBBoxName.setTo(param.boundingBox.boxName, textLimit);
+    mBBoxName.setTo(param.bounding_box.box_name, textLimit);
     auto ret = createSurface();
     if(ret != 0) {
         OVDBG_ERROR("%s: createSurface failed!", __func__);
@@ -1208,43 +1210,43 @@ void OverlayItemBoundingBox::getDrawInfo(uint32_t targetWidth,
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-void OverlayItemBoundingBox::getParameters(OverlayItemParam& param)
+void OverlayItemBoundingBox::getParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
-    param.type      = OverlayType::OVERLAYTYPE_BOUNDINGBOX;
-    param.location  = OverlayLocationType::OVERLAYLOCATIONTYPE_NONE;
-    param.textColor = mBBoxColor;
-    param.boundingBox.startX = mX;
-    param.boundingBox.startY = mY;
-    param.boundingBox.width  = mWidth;
-    param.boundingBox.height = mHeight;
+    param.type      = OverlayType::kBoundingBox;
+    param.location  = OverlayLocationType::kNone;
+    param.text_color = mBBoxColor;
+    param.bounding_box.startX = mX;
+    param.bounding_box.startY = mY;
+    param.bounding_box.width  = mWidth;
+    param.bounding_box.height = mHeight;
     std::string str(mBBoxName.string());
-    str.copy(param.boundingBox.boxName, mBBoxName.length());
+    str.copy(param.bounding_box.box_name, mBBoxName.length());
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemBoundingBox::updateParameters(OverlayItemParam& param)
+int32_t OverlayItemBoundingBox::updateParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
     int32_t ret = 0;
 
-    if((param.boundingBox.width <= 0) || (param.boundingBox.height <= 0)) {
+    if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
         return BAD_VALUE;
     }
-    if(param.boundingBox.startX < 0 || param.boundingBox.startY < 0) {
+    if(param.bounding_box.startX < 0 || param.bounding_box.startY < 0) {
         return BAD_VALUE;
     }
-    mX          = param.boundingBox.startX;
-    mY          = param.boundingBox.startY;
-    mWidth      = param.boundingBox.width;
-    mHeight     = param.boundingBox.height;
-    mBBoxColor  = param.textColor;
+    mX          = param.bounding_box.startX;
+    mY          = param.bounding_box.startY;
+    mWidth      = param.bounding_box.width;
+    mHeight     = param.bounding_box.height;
+    mBBoxColor  = param.text_color;
 
     mBBoxName.clear();
-    int32_t textLen = strlen(param.boundingBox.boxName);
+    int32_t textLen = strlen(param.bounding_box.box_name);
 
     int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
-    mBBoxName.setTo(param.boundingBox.boxName, textLimit);
+    mBBoxName.setTo(param.bounding_box.box_name, textLimit);
     markDirty(true);
     OVDBG_LEVEL2("%s:Exit ",__func__);
     return ret;
@@ -1253,7 +1255,6 @@ int32_t OverlayItemBoundingBox::updateParameters(OverlayItemParam& param)
 int32_t OverlayItemBoundingBox::createSurface()
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
-    void *pixels;
     int32_t size = BOUNDING_BOX_BUF_WIDTH * BOUNDING_BOX_BUF_HEIGHT * 4;
 
     ionMemInfo memInfo;
@@ -1263,7 +1264,7 @@ int32_t OverlayItemBoundingBox::createSurface()
        OVDBG_ERROR("%s:allocateIonMemory failed",__func__);
        return ret;
     }
-    pixels = memInfo.vaddr;
+    void* pixels = memInfo.vaddr;
     OVDBG_LEVEL1("%s: Ion memory allocated fd(%d)", __func__, memInfo.fd);
 #if USE_SKIA
     //Create Skia canvas outof ION memory.
@@ -1325,7 +1326,7 @@ OverlayItemText::OverlayItemText(int32_t ionDeviceId)
                 , mText()
 {
     OVDBG_LEVEL2("%s:Enter ", __func__);
-    mType = OverlayType::OVERLAYTYPE_USERTEXT;
+    mType = OverlayType::kUserText;
     OVDBG_LEVEL2("%s:Exit ", __func__);
 }
 
@@ -1336,14 +1337,14 @@ OverlayItemText::~OverlayItemText()
     OVDBG_LEVEL2("%s:Exit ", __func__);
 }
 
-int32_t OverlayItemText::init(OverlayItemParam& param)
+int32_t OverlayItemText::init(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
     mLocationType = param.location;
-    mTextColor    = param.textColor;
+    mTextColor    = param.text_color;
 
-    mText.setTo(param.userText, strlen(param.userText) + 1);
+    mText.setTo(param.user_text, strlen(param.user_text) + 1);
     mWidth  = TEXT_BUF_WIDTH;
     mHeight = TEXT_BUF_HEIGHT;
 
@@ -1402,27 +1403,27 @@ void OverlayItemText::getDrawInfo(uint32_t targetWidth,
 
     //(0,0) is at topleft corner.
     switch (mLocationType) {
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPLEFT:
+        case OverlayLocationType::kTopLeft:
             x = xMargin;
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_TOPRIGHT:
+        case OverlayLocationType::kTopRight:
             x = targetWidth - (drawInfo->width + xMargin);
             y = yMargin;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_CENTER:
+        case OverlayLocationType::kCenter:
             x = (targetWidth - drawInfo->width)/2;
             y = (targetHeight - drawInfo->height)/2;
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMLEFT:
+        case OverlayLocationType::kBottomLeft:
             x = xMargin;
             y = targetHeight - (drawInfo->height + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_BOTTOMRIGHT:
+        case OverlayLocationType::kBottomRight:
             x = targetWidth - (drawInfo->width + xMargin);
             y = targetHeight - (drawInfo->height + yMargin);
             break;
-        case OverlayLocationType::OVERLAYLOCATIONTYPE_NONE:
+        case OverlayLocationType::kNone:
         default:
             x = mX;
             y = mY;
@@ -1435,25 +1436,25 @@ void OverlayItemText::getDrawInfo(uint32_t targetWidth,
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-void OverlayItemText::getParameters(OverlayItemParam& param)
+void OverlayItemText::getParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
-    param.type      = OverlayType::OVERLAYTYPE_USERTEXT;
+    param.type      = OverlayType::kUserText;
     param.location  = mLocationType;
-    param.textColor = mTextColor;
+    param.text_color = mTextColor;
     std::string str(mText.string());
-    str.copy(param.userText, mText.length());
+    str.copy(param.user_text, mText.length());
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemText::updateParameters(OverlayItemParam& param)
+int32_t OverlayItemText::updateParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
     int32_t ret = 0;
     mLocationType = param.location;
-    mTextColor    = param.textColor;
+    mTextColor    = param.text_color;
     mText.clear();
-    mText.setTo(param.userText, strlen(param.userText) + 1);
+    mText.setTo(param.user_text, strlen(param.user_text) + 1);
     markDirty(true);
     OVDBG_LEVEL2("%s:Exit ",__func__);
     return ret;
@@ -1462,8 +1463,6 @@ int32_t OverlayItemText::updateParameters(OverlayItemParam& param)
 int32_t OverlayItemText::createSurface()
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
-
-    void *pixels;
     int32_t size = mWidth * mHeight * 4;
     ionMemInfo memInfo;
     memset(&memInfo, 0x0, sizeof(ionMemInfo));
@@ -1473,7 +1472,7 @@ int32_t OverlayItemText::createSurface()
        OVDBG_ERROR("%s:allocateIonMemory failed",__func__);
        return ret;
     }
-    pixels = memInfo.vaddr;
+    void* pixels = memInfo.vaddr;
     OVDBG_INFO("%s: Ion memory allocated fd = %d", __func__, memInfo.fd);
 #if USE_SKIA
     //Create Skia canvas outof ION memory.
@@ -1539,7 +1538,7 @@ OverlayItemPrivacyMask::OverlayItemPrivacyMask(int32_t ionDeviceId)
                         :OverlayItem(ionDeviceId)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
-    mType = OverlayType::OVERLAYTYPE_PRIVACYMASK;
+    mType = OverlayType::kPrivacyMask;
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
@@ -1549,21 +1548,21 @@ OverlayItemPrivacyMask::~OverlayItemPrivacyMask()
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-int32_t OverlayItemPrivacyMask::init(OverlayItemParam& param)
+int32_t OverlayItemPrivacyMask::init(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
-    if((param.privacyMask.width <= 0) || (param.privacyMask.height <= 0)) {
+    if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
         return BAD_VALUE;
     }
-    if(param.privacyMask.startX < 0 || param.privacyMask.startY < 0) {
+    if(param.bounding_box.startX < 0 || param.bounding_box.startY < 0) {
         return BAD_VALUE;
     }
 
-    mX          = param.privacyMask.startX;
-    mY          = param.privacyMask.startY;
-    mWidth      = param.privacyMask.width;
-    mHeight     = param.privacyMask.height;
+    mX          = param.bounding_box.startX;
+    mY          = param.bounding_box.startY;
+    mWidth      = param.bounding_box.width;
+    mHeight     = param.bounding_box.height;
 
     auto ret = createSurface();
     if(ret != 0) {
@@ -1594,33 +1593,33 @@ void OverlayItemPrivacyMask::getDrawInfo(uint32_t targetWidth,
     OVDBG_LEVEL2("%s: Exit", __func__);
 }
 
-void OverlayItemPrivacyMask::getParameters(OverlayItemParam& param)
+void OverlayItemPrivacyMask::getParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
-    param.type      = OverlayType::OVERLAYTYPE_PRIVACYMASK;
-    param.location  = OverlayLocationType::OVERLAYLOCATIONTYPE_NONE;
-    param.privacyMask.startX = mX;
-    param.privacyMask.startY = mY;
-    param.privacyMask.width  = mWidth;
-    param.privacyMask.height = mHeight;
+    param.type      = OverlayType::kPrivacyMask;
+    param.location  = OverlayLocationType::kNone;
+    param.bounding_box.startX = mX;
+    param.bounding_box.startY = mY;
+    param.bounding_box.width  = mWidth;
+    param.bounding_box.height = mHeight;
     OVDBG_LEVEL2("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemPrivacyMask::updateParameters(OverlayItemParam& param)
+int32_t OverlayItemPrivacyMask::updateParameters(OverlayParam& param)
 {
     OVDBG_LEVEL2("%s:Enter ",__func__);
     int32_t ret = 0;
 
-    if((param.privacyMask.width <= 0) || (param.privacyMask.height <= 0)) {
+    if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
         return BAD_VALUE;
     }
-    if(param.privacyMask.startX < 0 || param.privacyMask.startY < 0) {
+    if(param.bounding_box.startX < 0 || param.bounding_box.startY < 0) {
         return BAD_VALUE;
     }
-    mX          = param.privacyMask.startX;
-    mY          = param.privacyMask.startY;
-    mWidth      = param.privacyMask.width;
-    mHeight     = param.privacyMask.height;
+    mX          = param.bounding_box.startX;
+    mY          = param.bounding_box.startY;
+    mWidth      = param.bounding_box.width;
+    mHeight     = param.bounding_box.height;
 
     OVDBG_LEVEL2("%s:Exit ",__func__);
     return ret;
@@ -1630,7 +1629,6 @@ int32_t OverlayItemPrivacyMask::createSurface()
 {
     OVDBG_LEVEL2("%s: Enter", __func__);
 
-    void *pixels;
     int32_t size = mWidth * mHeight * 4;
     uint32_t color = PRIVACY_MASK_COLOR;
     ionMemInfo memInfo;
@@ -1641,7 +1639,7 @@ int32_t OverlayItemPrivacyMask::createSurface()
         OVDBG_ERROR("%s:allocateIonMemory failed",__func__);
         return ret;
     }
-    pixels = memInfo.vaddr;
+    void* pixels = memInfo.vaddr;
     OVDBG_LEVEL1("%s: Ion memory allocated fd(%d)", __func__, memInfo.fd);
 
 #if USE_SKIA

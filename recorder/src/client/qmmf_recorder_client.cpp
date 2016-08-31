@@ -800,7 +800,8 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
-status_t RecorderClient::CreateOverlayObject(const OverlayParam &param,
+status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
+                                             const OverlayParam &param,
                                              uint32_t *overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -809,8 +810,9 @@ status_t RecorderClient::CreateOverlayObject(const OverlayParam &param,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->CreateOverlayObject(const_cast<OverlayParam&>
-                                                      (param), overlay_id);
+  auto ret = recorder_service_->CreateOverlayObject(track_id,
+                                                    const_cast<OverlayParam*>
+                                                    (&param), overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s CreateOverlayObject failed!", TAG, __func__);
   }
@@ -818,7 +820,8 @@ status_t RecorderClient::CreateOverlayObject(const OverlayParam &param,
   return ret;
 }
 
-status_t RecorderClient::DeleteOverlayObject(const uint32_t overlay_id) {
+status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
+                                             const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
@@ -826,7 +829,7 @@ status_t RecorderClient::DeleteOverlayObject(const uint32_t overlay_id) {
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->DeleteOverlayObject(overlay_id);
+  auto ret = recorder_service_->DeleteOverlayObject(track_id, overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s DeleteOverlayObject failed!", TAG, __func__);
   }
@@ -834,7 +837,8 @@ status_t RecorderClient::DeleteOverlayObject(const uint32_t overlay_id) {
   return ret;
 }
 
-status_t RecorderClient::GetOverlayObjectParams(const uint32_t overlay_id,
+status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
+                                                const uint32_t overlay_id,
                                                 OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -843,7 +847,8 @@ status_t RecorderClient::GetOverlayObjectParams(const uint32_t overlay_id,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->GetOverlayObjectParams(overlay_id, param);
+  auto ret = recorder_service_->GetOverlayObjectParams(track_id, overlay_id,
+                                                       param);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s GetOverlayObjectParams failed!", TAG, __func__);
   }
@@ -851,7 +856,8 @@ status_t RecorderClient::GetOverlayObjectParams(const uint32_t overlay_id,
   return ret;
 }
 
-status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t overlay_id,
+status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
+                                                   const uint32_t overlay_id,
                                                    const OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -860,8 +866,8 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t overlay_id,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->UpdateOverlayObjectParams(overlay_id,
-                                           const_cast<OverlayParam &>(param));
+  auto ret = recorder_service_->UpdateOverlayObjectParams(track_id, overlay_id,
+                                             const_cast<OverlayParam*>(&param));
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s UpdateOverlayObjectParams failed!", TAG, __func__);
   }
@@ -869,8 +875,7 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t overlay_id,
   return ret;
 }
 
-status_t RecorderClient::SetOverlay(const uint32_t session_id,
-                                    const uint32_t track_id,
+status_t RecorderClient::SetOverlay(const uint32_t track_id,
                                     const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -878,8 +883,7 @@ status_t RecorderClient::SetOverlay(const uint32_t session_id,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->SetOverlayObject(session_id, track_id,
-                                                overlay_id);
+  auto ret = recorder_service_->SetOverlayObject(track_id, overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s SetOverlay failed!", TAG, __func__);
   }
@@ -887,8 +891,7 @@ status_t RecorderClient::SetOverlay(const uint32_t session_id,
   return ret;
 }
 
-status_t RecorderClient::RemoveOverlay(const uint32_t session_id,
-                                       const uint32_t track_id,
+status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
                                        const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -897,8 +900,7 @@ status_t RecorderClient::RemoveOverlay(const uint32_t session_id,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->RemoveOverlayObject(session_id, track_id,
-                                                   overlay_id);
+  auto ret = recorder_service_->RemoveOverlayObject(track_id, overlay_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s RemoveOverlay failed!", TAG, __func__);
   }
@@ -1531,17 +1533,17 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return ret;
   }
 
-  status_t CreateOverlayObject(const OverlayParam &params,
+  status_t CreateOverlayObject(const uint32_t track_id, OverlayParam *params,
                                uint32_t *overlay_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    uint32_t param_size = sizeof(params);
+    data.writeUint32(track_id);
+    uint32_t param_size = sizeof(OverlayParam);
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
     memset(blob.data(), 0x0, param_size);
-    OverlayParam *overlay_params = const_cast<OverlayParam*>(&params);
-    memcpy(blob.data(), reinterpret_cast<void*>(overlay_params), param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_CREATE_OVERLAYOBJECT), data, &reply);
     blob.release();
@@ -1549,19 +1551,23 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return reply.readInt32();;
   }
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id) {
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
     data.writeUint32(overlay_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_DELETE_OVERLAYOBJECT), data, &reply);
     return reply.readInt32();
   }
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
     data.writeUint32(overlay_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                           RECORDER_GET_OVERLAYOBJECT_PARAMS), data, &reply);
@@ -1577,30 +1583,29 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return ret;
   }
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     const OverlayParam &params) {
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
+                                     OverlayParam *params) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
     data.writeUint32(overlay_id);
-    uint32_t param_size = sizeof params;
+    uint32_t param_size = sizeof(OverlayParam);
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
     memset(blob.data(), 0x0, param_size);
-    OverlayParam *overlay_params = const_cast<OverlayParam*>(&params);
-    memcpy(blob.data(), reinterpret_cast<void*>(overlay_params), param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_UPDATE_OVERLAYOBJECT_PARAMS), data, &reply);
     blob.release();
     return reply.readInt32();
   }
 
-  status_t SetOverlayObject(const uint32_t session_id,
-                            const uint32_t track_id,
+  status_t SetOverlayObject(const uint32_t track_id,
                             const uint32_t overlay_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(session_id);
     data.writeUint32(track_id);
     data.writeUint32(overlay_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
@@ -1608,12 +1613,10 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return reply.readInt32();
   }
 
-  status_t RemoveOverlayObject(const uint32_t session_id,
-                               const uint32_t track_id,
+  status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(session_id);
     data.writeUint32(track_id);
     data.writeUint32(overlay_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::

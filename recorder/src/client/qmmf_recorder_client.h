@@ -122,24 +122,26 @@ class RecorderClient {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
-  status_t CreateOverlayObject(const OverlayParam &param,
+  status_t CreateOverlayObject(const uint32_t track_id,
+                               const OverlayParam &param,
                                uint32_t *overlay_id);
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id);
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id);
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param);
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
                                      const OverlayParam &param);
 
-  status_t SetOverlay(const uint32_t session_id, const uint32_t track_id,
-                      const uint32_t overlay_id);
+  status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  status_t RemoveOverlay(const uint32_t session_uuid, const uint32_t track_id,
-                         const uint32_t overlay_id);
+  status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  // Callback handlers from service.
+  // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size);
 

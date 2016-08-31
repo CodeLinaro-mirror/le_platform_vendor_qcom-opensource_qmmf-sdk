@@ -90,6 +90,10 @@ class RecorderTest {
 
   int32_t DeleteSession();
 
+  int32_t EnableOverlay();
+
+  int32_t DisableOverlay();
+
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer);
 
@@ -157,8 +161,24 @@ class RecorderTest {
 
   Recorder recorder_;
   RecorderTestWav wav_;
+
+  enum class TrackType {
+    kAudioTrack,
+    kVideoTrack
+  };
+
+  struct TrackInfo {
+    uint32_t  track_id;
+    TrackType type;
+  };
   // <session_id, vector<track_ids> >
-  std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  std::map <uint32_t , std::vector<TrackInfo> > sessions_;
+  typedef std::map <uint32_t, std::vector<TrackInfo> >::iterator session_iter_;
+
+  // <track_id, vector<overlay_ids> >
+  // One track can have multiple overlay objects.
+  std::map <uint32_t , std::vector<uint32_t> > overlay_ids_;
+  typedef std::map <uint32_t, std::vector<uint32_t> >::iterator overlay_iter_;
 
   uint32_t camera_id_;
   // TODO: consolidate all data related to one track in separate class.
@@ -187,6 +207,8 @@ public:
         TAKE_SNAPSHOT_CMD                 = 'S',
         PAUSE_SESSION_CMD                 = 'P',
         RESUME_SESSION_CMD                = 'R',
+        ENABLE_OVERLAY_CMD                = 'O',
+        DISABLE_OVERLAY_CMD               = 'L',
         DELETE_SESSION_CMD                = 'D',
         EXIT_CMD                          = 'X',
         INVALID_CMD                       = '0'
