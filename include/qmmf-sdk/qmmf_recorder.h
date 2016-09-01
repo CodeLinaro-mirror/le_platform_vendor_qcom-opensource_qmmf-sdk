@@ -221,7 +221,7 @@ class Recorder {
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
-                        const std::vector<CameraMetadata> &meta,
+                        const std::vector<android::CameraMetadata> &meta,
                         const ImageCaptureCb& cb);
 
   /// \brief Enables clients to configure advance image capture paramters
@@ -246,11 +246,13 @@ class Recorder {
   /// defined camera/CameraMetadata.h. Typical usage would be to get
   /// meta param through GetCameraParam, then update it using update
   /// function of CameraMetadata and then set this through SetCameraParam
-  status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
+  status_t SetCameraParam(const uint32_t camera_id,
+                          const android::CameraMetadata &meta);
 
   /// Compelementary API of SetCameraParam. Clients generally calls
   /// GetCameraParam to get default camerametadata params
-  status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
+  status_t GetCameraParam(const uint32_t camera_id,
+                          android::CameraMetadata &meta);
 
   /// Complementary API of CaptureImage. Clients generally calls
   /// GetDefaultCaptureParam to get default capture params. this API is
@@ -258,7 +260,7 @@ class Recorder {
   /// While GetCameraParam gives default params for video record. This API is
   /// applicable only for non-zsl capture.
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  android::CameraMetadata &meta);
 
   /// \brief Create overlay object of type static image, date/time, bounding box,
   /// simple text, and privacy mask.

@@ -35,7 +35,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/msm_ion.h>
-
+#include <utils/Log.h>
 #include "qmmf_overlay_test.h"
 
 using namespace android;
@@ -56,8 +56,8 @@ OverlayTest::OverlayTest()
     mStaticImageId = -1;
     mDateAndTime = false;
     mDateLocation = OverlayLocationType::kTopRight;
-    mDateFormat = OverlayDateType::kYYYYMMDD;
-    mTimeFormat = OverlayTimeType::kHHMM_AMPM;
+    mDateFormat = OverlayDateFormatType::kYYYYMMDD;
+    mTimeFormat = OverlayTimeFormatType::kHHMM_AMPM;
     mDateAndTimeId = -1;
     mUserText = false;
     mTextLocation = OverlayLocationType::kBottomRight;
@@ -145,10 +145,10 @@ int32_t OverlayTest::parseConfig(char *fileName) {
             mDateLocation = static_cast<OverlayLocationType>(atoi(value));
             ALOGD("%s: mDateLocation=%d", __func__, mDateLocation);
         } else if(!strncmp("DateFormat", key, sizeof "DateFormat")) {
-            mDateFormat = static_cast<OverlayDateType>(atoi(value));
+            mDateFormat = static_cast<OverlayDateFormatType>(atoi(value));
             ALOGD("%s: mDateFormat=%d", __func__, mDateFormat);
         } else if(!strncmp("TimeFormat", key, sizeof "TimeFormat")) {
-            mTimeFormat = static_cast<OverlayTimeType>(atoi(value));
+            mTimeFormat = static_cast<OverlayTimeFormatType>(atoi(value));
             ALOGD("%s: mTimeFormat=%d", __func__, mTimeFormat);
         } else if(!strncmp("UserText", key, sizeof "UserText")) {
             mUserText = atoi(value) ? true:false;
@@ -197,7 +197,7 @@ int32_t OverlayTest::applyOverlay()
         goto ERROR;
     }
 
-    ret = mOverlayHandle.init(BufFormat::FORMAT_YUV_NV21);
+    ret = mOverlayHandle.Init(TargetBufferFormat::kYUVNV12);
     if(ret != 0) {
         ALOGE("%s: Overlay:Init failed!", __func__);
         return ret;
@@ -206,36 +206,36 @@ int32_t OverlayTest::applyOverlay()
     if(mDateAndTime) {
         OverlayParam param;
         memset(&param, 0x0, sizeof param);
-        param.type      = OverlayType::kDateType;
-        param.location  = mDateLocation;
+        param.type       = OverlayType::kDateType;
+        param.location   = mDateLocation;
         param.text_color = 0xFFFF0000; //SK_ColorRED
-        param.date_time_type.date_type = mDateFormat;
-        param.date_time_type.time_type = mTimeFormat;
+        param.date_time.date_format   = mDateFormat;
+        param.date_time.time_format   = mTimeFormat;
 
-        ret = mOverlayHandle.createOverlayItem(param, &mDateAndTimeId);
+        ret = mOverlayHandle.CreateOverlayItem(param, &mDateAndTimeId);
         if(ret != 0) {
             ALOGE("%s: createOverlayItem failed!", __func__);
         }
-        mOverlayHandle.enableOverlayItem(mDateAndTimeId);
+        mOverlayHandle.EnableOverlayItem(mDateAndTimeId);
     }
 
-    TargetBuf buf;
+    OverlayTargetBuffer buf;
     memset(&buf, 0x0, sizeof buf);
 
-    buf.ionFd    = mIonFd;
-    buf.frameLen = mSize;
-    buf.width    = mInputWidth;
-    buf.height   = mInputHeight;
-    buf.format   = BufFormat::FORMAT_YUV_NV21; //TODO: take from config file.
+    buf.ion_fd    = mIonFd;
+    buf.frame_len = mSize;
+    buf.width     = mInputWidth;
+    buf.height    = mInputHeight;
+    buf.format    = TargetBufferFormat::kYUVNV12; //TODO: take from config file.
 
-    ret = mOverlayHandle.applyOverlay(buf);
+    ret = mOverlayHandle.ApplyOverlay(buf);
     if(ret != 0) {
         ALOGE("%s: applyOverlay failed!", __func__);
     }
 
     //Dump output.
     //TODO: take out file from config file.
-    outputFile = fopen("/data/local/tmp/output.yuv", "wb");
+    outputFile = fopen("/data/output.yuv", "wb");
     if(outputFile) {
         bytes = fwrite(pixels, 1, mSize, outputFile);
         fclose(outputFile);

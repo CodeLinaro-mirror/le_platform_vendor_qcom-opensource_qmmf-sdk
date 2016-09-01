@@ -29,21 +29,15 @@
 
 #pragma once
 
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <utils/Mutex.h>
-#include <utils/String8.h>
 #include <sys/types.h>
-#include <utils/RefBase.h>
-#include <utils/KeyedVector.h>
+#include <map>
+#include <mutex>
 
 namespace qmmf {
 
 namespace overlay {
 
 #define MAX_STRING_LENGTH 128
-
-using namespace android;
 
 enum class OverlayType {
   kDateType,
@@ -62,23 +56,23 @@ enum class OverlayLocationType {
   kNone
 };
 
-enum class OverlayTimeType {
+enum class OverlayTimeFormatType {
   kHHMMSS_24HR,
   kHHMMSS_AMPM,
   kHHMM_24HR,
   kHHMM_AMPM
 };
 
-enum class OverlayDateType { kYYYYMMDD, kMMDDYYYY };
+enum class OverlayDateFormatType { kYYYYMMDD, kMMDDYYYY };
 
 struct OverlayDateTimeType {
-  OverlayTimeType time_type;
-  OverlayDateType date_type;
+  OverlayTimeFormatType time_format;
+  OverlayDateFormatType date_format;
 };
 
 struct BoundingBox {
-  int32_t startX;
-  int32_t startY;
+  int32_t start_x;
+  int32_t start_y;
   int32_t width;
   int32_t height;
   char box_name[MAX_STRING_LENGTH];
@@ -95,104 +89,85 @@ struct OverlayParam {
   OverlayLocationType location;
   uint32_t text_color;
   union {
-    OverlayDateTimeType date_time_type;
+    OverlayDateTimeType date_time;
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
   };
 };
 
-typedef struct PrivacyMask {
-    int32_t       startX;
-    int32_t       startY;
-    int32_t       width;
-    int32_t       height;
-} PrivacyMask;
-
-enum class BufFormat {
-    FORMAT_YUV_NV12,
-    FORMAT_YUV_NV21,
-    FORMAT_RGB_888,
-    FORMAT_RGBA_8888,
+struct PrivacyMask {
+  int32_t  start_x;
+  int32_t  start_y;
+  int32_t  width;
+  int32_t  height;
 };
 
-typedef struct TargetBuf {
-    BufFormat format;
-    uint32_t  width;
-    uint32_t  height;
-    uint32_t  ionFd;
-    uint32_t  frameLen;
-} TargetBuf;
+enum class TargetBufferFormat {
+  kYUVNV12,
+  kYUVNV21,
+};
+
+struct OverlayTargetBuffer {
+  TargetBufferFormat format;
+  uint32_t  width;
+  uint32_t  height;
+  uint32_t  ion_fd;
+  uint32_t  frame_len;
+};
 
 class OverlayItem;
 
-/*
-This class provides facility to embed different
-Kinds of overlay on topof Camera stream buffers.
-*/
+// This class provides facility to embed different
+// Kinds of overlay on topof Camera stream buffers.
 class Overlay {
+ public:
+  Overlay();
 
-public:
-    Overlay();
+  ~Overlay();
 
-   ~Overlay();
+  // Initialise overlay with format of buffer.
+  int32_t Init(const TargetBufferFormat& format);
 
-    /**
-    Initialise overlay with format of buffer.
-    */
-    int32_t init(const BufFormat& format);
+  // Create overlay item of type static image, date/time, bounding box,
+  // simple text, or privacy mask. this Api provides overlay item id which
+  // can be use for further configurartion change to item.
+  int32_t CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id);
 
-    /**
-    Create overlay item of type static image, date/time, bounding box,
-    simple text, or privacy mask. this Api provides overlay item id which
-    can be use for further configurartion change to item.
-    */
-    int32_t createOverlayItem(OverlayParam& param, uint32_t* overlayId);
+  // Overlay item can be deleted at any point of time after creation.
+  int32_t DeleteOverlayItem(uint32_t overlay_id);
 
-    /**
-    Overlay item can be deleted at any point of time after creation.
-    */
-    int32_t deleteOverlayItem(uint32_t overlayId);
+  // Overlay item's parameters can be queried using this Api, it is recommended
+  // to call get parameters first before setting new parameters using Api
+  // updateOverlayItem.
+  int32_t GetOverlayParams(uint32_t overlay_id, OverlayParam& param);
 
-    /**
-    Overlay item's parameters can be queried using this Api, it is recommended
-    to call get parameters first before setting new parameters using Api
-    updateOverlayItem.
-    */
-    int32_t getOverlayParams(uint32_t overlayId, OverlayParam& param);
+  // Overlay item's configuration can be change at run time using this Api.
+  // user has to provide overlay Id and updated parameters.
+  int32_t UpdateOverlayParams(uint32_t overlay_id, OverlayParam& param);
 
-    /**
-    Overlay item's configuration can be change at run time using this Api.
-    user has to provide overlay Id and updated parameters.
-    */
-    int32_t updateOverlayParams(uint32_t overlayId, OverlayParam& param);
+  // Overlay Item can be enable/disable at run time.
+  int32_t EnableOverlayItem(uint32_t overlay_id);
+  int32_t DisableOverlayItem(uint32_t overlay_id);
 
-    /**
-    Overlay Item can be enable/disable at run time.
-    */
-    int32_t enableOverlayItem(uint32_t overlayId);
-    int32_t disableOverlayItem(uint32_t overlayId);
+  // Provide input YUV buffer to apply overlay.
+  int32_t ApplyOverlay(const OverlayTargetBuffer& buffer);
 
-    /**
-    provide input YUV buffer to apply overlay.
-    */
-    int32_t applyOverlay(const TargetBuf& buffer);
+ private:
 
-private:
+  uint32_t GetC2dColorFormat(const TargetBufferFormat& format);
 
-    uint32_t getC2dColorFormat(const BufFormat& format);
+  bool IsOverlayItemValid(uint32_t overlay_id);
 
-    bool isOverlayItemValid(uint32_t overlayId);
+  std::map <uint32_t, OverlayItem* > overlay_items_;
 
-    DefaultKeyedVector<uint32_t, sp<OverlayItem> > mOverlayItems;
-
-    uint32_t     mFrameWidth;
-    uint32_t     mFrameHeight;
-    uint32_t     mTargetC2dSurfaceId;
-    int32_t      mIonDevice;
-    uint8_t      mNumActiveOverlays;
-    uint32_t     mId;
-    Mutex        mLock;
+  uint32_t     frame_width_;
+  uint32_t     frame_height_;
+  uint32_t     target_c2dsurface_id_;
+  int32_t      ion_device_;
+  uint8_t      num_active_overlays_;
+  uint32_t     id_;
+  std::mutex   lock_;
 };
 
 }; // namespace overlay

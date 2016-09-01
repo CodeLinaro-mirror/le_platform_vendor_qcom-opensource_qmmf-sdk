@@ -32,6 +32,8 @@
 #include <linux/msm_kgsl.h>
 #include <linux/msm_ion.h>
 #include <adreno/c2d2.h>
+#include <utils/String8.h>
+
 #if USE_SKIA
 #include <SkCanvas.h>
 #endif
@@ -75,85 +77,82 @@ struct C2dObjects {
 };
 
 //Base class for all types of overlays.
-class OverlayItem : public RefBase
-{
-public:
+class OverlayItem {
+ public:
+  OverlayItem(int32_t ion_device);
 
-    OverlayItem(int32_t ionDeviceId);
+  virtual ~OverlayItem();
 
-    ~OverlayItem();
+  virtual int32_t Init(OverlayParam& param) = 0 ;
 
-    virtual int32_t init(OverlayParam& param) = 0 ;
+  virtual int32_t UpdateAndDraw() = 0;
 
-    virtual int32_t updateAndDraw() = 0;
+  virtual void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                           DrawInfo* draw_info) = 0 ;
 
-    virtual void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-        DrawInfo* drawInfo) = 0 ;
+  virtual void GetParameters(OverlayParam& param) = 0;
 
-    virtual void getParameters(OverlayParam& param) = 0;
+  virtual int32_t UpdateParameters(OverlayParam& param) = 0;
 
-    virtual int32_t updateParameters(OverlayParam& param) = 0;
+  OverlayType& GetItemType() {return type_; }
 
-    OverlayType& getItemType() {return mType; }
+  void MarkDirty(bool dirty);
 
-    void markDirty(bool dirty);
+  void Activate(bool value);
 
-    void activate(bool value);
+  bool IsActive() { return is_active_; }
 
-    bool isActive() { return mIsActive; }
+ protected:
 
-protected:
+  struct IonMemInfo {
+      uint32_t               size;
+      int32_t                fd;
+      void *                 vaddr;
+      struct ion_handle_data handle_data;
+  };
 
-    struct ionMemInfo {
-        uint32_t               size;
-        int32_t                fd;
-        void *                 vaddr;
-        struct ion_handle_data handleData;
-    };
+  int32_t AllocateIonMemory(IonMemInfo& mem_info, uint32_t size);
 
-    int32_t allocateIonMemory(ionMemInfo& memInfo, uint32_t size);
+  int32_t                x_;
+  int32_t                y_;
+  uint32_t               width_;
+  uint32_t               height_;
+  uint32_t               c2dsurface_id_;
+  void *                 gpu_addr_;
+  void *                 vaddr_;
+  int32_t                ion_fd_;
+  uint32_t               size_;
+  struct ion_handle_data handle_data_;
+  OverlayLocationType    location_type_;
+  bool                   dirty_;
+  int32_t                ion_device_;
+  OverlayType            type_;
 
-    int32_t                mX;
-    int32_t                mY;
-    uint32_t               mWidth;
-    uint32_t               mHeight;
-    uint32_t               mC2dSurfaceId;
-    void *                 mGpuAddr;
-    void *                 mVaddr;
-    int32_t                mIonFd;
-    uint32_t               mSize;
-    struct ion_handle_data mHandleData;
-    OverlayLocationType    mLocationType;
-    bool                   mDirty;
-    int32_t                mIonDevice;
-    OverlayType            mType;
-
-private:
-    bool                   mIsActive;
+ private:
+  bool                   is_active_;
 };
 
-class OverlayItemStaticImage : public OverlayItem
-{
+class OverlayItemStaticImage : public OverlayItem {
 
-public:
-    OverlayItemStaticImage(int32_t ionDeviceId);
+ public:
+  OverlayItemStaticImage(int32_t ion_device);
 
-    virtual ~OverlayItemStaticImage();
+  virtual ~OverlayItemStaticImage();
 
-    int32_t init(OverlayParam& param) override;
+  int32_t Init(OverlayParam& param) override;
 
-    int32_t updateAndDraw() override;
+  int32_t UpdateAndDraw() override;
 
-    void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-        DrawInfo* drawInfo) override;
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+      DrawInfo* draw_info) override;
 
-    void getParameters(OverlayParam& param) override;
+  void GetParameters(OverlayParam& param) override;
 
-    int32_t updateParameters(OverlayParam& param) override;
-private:
-    int32_t createSurface();
+  int32_t UpdateParameters(OverlayParam& param) override;
+ private:
+  int32_t CreateSurface();
 
-    String8 mImagePath;
+  android::String8 image_path_;
 };
 
 #define DATETIME_TEXT_BUF_WIDTH        240
@@ -162,32 +161,30 @@ private:
 #define DATETIME_TARGET_HEIGHT_PERCENT  10
 #define DATETIME_PIXEL_SIZE             42
 
-class OverlayItemDateAndTime: public OverlayItem
-{
+class OverlayItemDateAndTime: public OverlayItem {
+ public:
+  OverlayItemDateAndTime(int32_t ion_device);
 
-public:
-    OverlayItemDateAndTime(int32_t ionDeviceId);
+  virtual ~OverlayItemDateAndTime();
 
-    virtual ~OverlayItemDateAndTime();
+  int32_t Init(OverlayParam& param) override;
 
-    int32_t init(OverlayParam& param) override;
+  int32_t UpdateAndDraw() override;
 
-    int32_t updateAndDraw() override;
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   DrawInfo* draw_info) override;
 
-    void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-                     DrawInfo* drawInfo) override;
+  void GetParameters(OverlayParam& param) override;
 
-    void getParameters(OverlayParam& param) override;
+  int32_t UpdateParameters(OverlayParam& param) override;
 
-    int32_t updateParameters(OverlayParam& param) override;
+ private:
+  int32_t CreateSurface();
 
-private:
-    int32_t createSurface();
-
-    OverlayDateTimeType mDateAndTimeType;
-    uint32_t            mTextColor;
+  OverlayDateTimeType date_time_type_;
+  uint32_t            text_color_;
 #if USE_SKIA
-    SkCanvas*              mCanvas;
+  SkCanvas*            canvas_;
 #endif
 };
 
@@ -199,34 +196,32 @@ private:
 #define BOUNDING_BOX_TEXT_PERCENT  20
 #define BOUNDING_BOX_TEXT_MARGIN   5
 
-class OverlayItemBoundingBox: public OverlayItem
-{
+class OverlayItemBoundingBox: public OverlayItem {
+ public:
+  OverlayItemBoundingBox(int32_t ion_device);
 
-public:
-    OverlayItemBoundingBox(int32_t ionDeviceId);
+  virtual ~OverlayItemBoundingBox();
 
-    virtual ~OverlayItemBoundingBox();
+  int32_t Init(OverlayParam& param) override;
 
-    int32_t init(OverlayParam& param) override;
+  int32_t UpdateAndDraw() override;
 
-    int32_t updateAndDraw() override;
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   DrawInfo* draw_info) override;
 
-    void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-                     DrawInfo* drawInfo) override;
+  void GetParameters(OverlayParam& param) override;
 
-    void getParameters(OverlayParam& param) override;
+  int32_t UpdateParameters(OverlayParam& param) override;
+ private:
 
-    int32_t updateParameters(OverlayParam& param) override;
-private:
+  int32_t CreateSurface();
 
-    int32_t createSurface();
-
-    uint32_t    mBBoxColor;
+  uint32_t    bbox_color_;
 #if USE_SKIA
-    SkCanvas*   mCanvas;
+  SkCanvas*   canvas_;
 #endif
-    String8     mBBoxName;
-    uint32_t    mTextHeight;
+  android::String8  bbox_name_;
+  uint32_t          text_height_;
 };
 
 #define TEXT_BUF_WIDTH              480
@@ -235,63 +230,58 @@ private:
 #define TEXT_TARGET_HEIGHT_PERCENT  10
 #define TEXT_SIZE                   25
 
-class OverlayItemText: public OverlayItem
-{
+class OverlayItemText: public OverlayItem {
+ public:
+  OverlayItemText(int32_t ion_device);
 
-public:
-    OverlayItemText(int32_t ionDeviceId);
+  virtual ~OverlayItemText();
 
-    virtual ~OverlayItemText();
+  int32_t Init(OverlayParam& param) override;
 
-    int32_t init(OverlayParam& param) override;
+  int32_t UpdateAndDraw() override;
 
-    int32_t updateAndDraw() override;
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   DrawInfo* draw_info) override;
 
-    void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-        DrawInfo* drawInfo) override;
+  void GetParameters(OverlayParam& param) override;
 
-    void getParameters(OverlayParam& param) override;
+  int32_t UpdateParameters(OverlayParam& param) override;
 
-    int32_t updateParameters(OverlayParam& param) override;
+ private:
+  int32_t CreateSurface();
 
-private:
-    int32_t createSurface();
-
-    uint32_t      mTextColor;
-    String8       mText;
+  uint32_t          text_color_;
+  android::String8  text_;
 #if USE_SKIA
-    SkCanvas*     mCanvas;
+  SkCanvas*         canvas_;
 #endif
 
 };
 
 #define PRIVACY_MASK_COLOR         0xF9838383
 
-class OverlayItemPrivacyMask: public OverlayItem
-{
+class OverlayItemPrivacyMask: public OverlayItem {
+ public:
 
-public:
+  OverlayItemPrivacyMask(int32_t ion_device);
 
-    OverlayItemPrivacyMask(int32_t ionDeviceId);
+  virtual ~OverlayItemPrivacyMask();
 
-    virtual ~OverlayItemPrivacyMask();
+  int32_t Init(OverlayParam& param) override;
 
-    int32_t init(OverlayParam& param) override;
+  int32_t UpdateAndDraw() override;
 
-    int32_t updateAndDraw() override;
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   DrawInfo * draw_info) override;
 
-    void getDrawInfo(uint32_t targetWidth, uint32_t targetHeight,
-                     DrawInfo * drawInfo) override;
+  void GetParameters(OverlayParam& param) override;
 
-    void getParameters(OverlayParam& param) override;
+  int32_t UpdateParameters(OverlayParam& param) override;
 
-    int32_t updateParameters(OverlayParam& param) override;
-
-private:
-
-    int32_t createSurface();
+ private:
+  int32_t CreateSurface();
 #if USE_SKIA
-    SkCanvas*   mCanvas;
+  SkCanvas*   canvas_;
 #endif
 };
 

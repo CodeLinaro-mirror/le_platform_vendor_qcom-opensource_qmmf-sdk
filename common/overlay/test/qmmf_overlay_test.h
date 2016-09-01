@@ -32,12 +32,12 @@
 #define OVERLAY_TEST_H
 
 #include <utils/String8.h>
-
 #include "qmmf-sdk/qmmf_overlay.h"
 
 
 using namespace qmmf;
 using namespace overlay;
+using namespace android;
 
 class OverlayTest
 {
@@ -73,8 +73,8 @@ private:
 
     bool mDateAndTime;
     OverlayLocationType mDateLocation;
-    OverlayDateType mDateFormat;
-    OverlayTimeType mTimeFormat;
+    OverlayDateFormatType mDateFormat;
+    OverlayTimeFormatType mTimeFormat;
     uint32_t mDateAndTimeId;
 
     bool mUserText;
