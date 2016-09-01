@@ -82,48 +82,47 @@ Overlay::~Overlay() {
   OVDBG_INFO("%s: Exit ",__func__);
 }
 
-int32_t Overlay::Init(const TargetBufferFormat& format)
-{
-    OVDBG_LEVEL2("%s:Enter",__func__);
+int32_t Overlay::Init(const TargetBufferFormat& format) {
 
-    uint32_t c2dColotFormat = GetC2dColorFormat(format);
-    // Create dummy C2D surface, it is required to Initialize
-    // C2D driver before calling any c2d Apis.
-    C2D_YUV_SURFACE_DEF surface_def = {
-        c2dColotFormat,
-        1 * 4,
-        1 * 4,
-        (void*)0xaaaaaaaa,
-        (void*)0xaaaaaaaa,
-        1 * 4,
-        (void*)0xaaaaaaaa,
-        (void*)0xaaaaaaaa,
-        1 * 4,
-        (void*)0xaaaaaaaa,
-        (void*)0xaaaaaaaa,
-        1 * 4,
-    };
+  OVDBG_LEVEL2("%s:Enter",__func__);
+  uint32_t c2dColotFormat = GetC2dColorFormat(format);
+  // Create dummy C2D surface, it is required to Initialize
+  // C2D driver before calling any c2d Apis.
+  C2D_YUV_SURFACE_DEF surface_def = {
+    c2dColotFormat,
+    1 * 4,
+    1 * 4,
+    (void*)0xaaaaaaaa,
+    (void*)0xaaaaaaaa,
+    1 * 4,
+    (void*)0xaaaaaaaa,
+    (void*)0xaaaaaaaa,
+    1 * 4,
+    (void*)0xaaaaaaaa,
+    (void*)0xaaaaaaaa,
+    1 * 4,
+  };
 
-    auto ret = c2dCreateSurface(&target_c2dsurface_id_, C2D_TARGET,
-                             (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                             |C2D_SURFACE_WITH_PHYS
-                             |C2D_SURFACE_WITH_PHYS_DUMMY),
-                             &surface_def);
-    if(ret != C2D_STATUS_OK) {
-       OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
-       return ret;
-    }
-
-    ion_device_ = open("/dev/ion", O_RDONLY);
-    if (ion_device_ < 0) {
-        OVDBG_ERROR("%s: Ion dev open failed %s\n", __func__,strerror(errno));
-        c2dDestroySurface(target_c2dsurface_id_);
-        target_c2dsurface_id_ = 0;
-        return -1;
-    }
-
-    OVDBG_LEVEL2("%s: Exit",__func__);
+  auto ret = c2dCreateSurface(&target_c2dsurface_id_, C2D_TARGET,
+                              (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
+                              |C2D_SURFACE_WITH_PHYS
+                              |C2D_SURFACE_WITH_PHYS_DUMMY),
+                               &surface_def);
+  if(ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
     return ret;
+  }
+
+  ion_device_ = open("/dev/ion", O_RDONLY);
+  if (ion_device_ < 0) {
+    OVDBG_ERROR("%s: Ion dev open failed %s\n", __func__,strerror(errno));
+    c2dDestroySurface(target_c2dsurface_id_);
+    target_c2dsurface_id_ = 0;
+    return -1;
+  }
+
+  OVDBG_LEVEL2("%s: Exit",__func__);
+  return ret;
 }
 
 int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {

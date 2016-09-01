@@ -190,8 +190,9 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
       buffers, meta_param, meta_type, meta_size); };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t event_data_size) { VideoTrack4KYUVEventCb(track_id,
-      event_type, event_data, event_data_size); };
+      void *event_data, size_t event_data_size) {
+          VideoTrack4KYUVEventCb(track_id, event_type, event_data,
+                                 event_data_size); };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                    video_track_param, video_track_cb);
@@ -951,10 +952,10 @@ int32_t RecorderTest::EnableOverlay() {
   memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kBottomRight;
-  std::string str("/usr/bin/overlay_test.rgba");
+  std::string str("/etc/overlay_test.rgba");
   str.copy(object_params.image_info.image_location, str.length());
-  object_params.image_info.width  = 102;
-  object_params.image_info.height = 420;
+  object_params.image_info.width  = 451;
+  object_params.image_info.height = 109;
   session_iter_ it = sessions_.begin();
 
   for (auto track_info : it->second) {
