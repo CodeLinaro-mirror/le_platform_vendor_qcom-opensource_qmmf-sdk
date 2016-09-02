@@ -1176,31 +1176,32 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
+  uint32_t *value;
+  VideoEncIdrInterval *idr_interval;
+  VideoEncLtrUse *ltr_use;
   OMX_INDEXTYPE index;
-  VideoEncSetParam* codec_param;
 
   switch (param_type) {
     case CodecParamType::kBitRateType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
+      value = static_cast<uint32_t*>(params);
       OMX_VIDEO_CONFIG_BITRATETYPE bitrate_params;
       InitOMXParams(&bitrate_params);
       bitrate_params.nSize = sizeof(bitrate_params);
       bitrate_params.nPortIndex = kPortIndexOutput;
-      bitrate_params.nEncodeBitrate = codec_param->bitrate;
+      bitrate_params.nEncodeBitrate = *value;
       index = OMX_IndexConfigVideoBitrate;
       ret = omx_client_->SetConfig(index, &bitrate_params);
       break;
     case CodecParamType::kFrameRateType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
+      value = static_cast<uint32_t*>(params);
       OMX_CONFIG_FRAMERATETYPE fps_params;
       InitOMXParams(&fps_params);
       fps_params.nPortIndex = kPortIndexOutput;
-      fps_params.xEncodeFramerate = (OMX_U32)(codec_param->fps * 65536);
+      FractionToQ16(fps_params.xEncodeFramerate,(int)((*value) * 2), 2);
       index = OMX_IndexConfigVideoFramerate;
       ret = omx_client_->SetConfig(index, &fps_params);
       break;
     case CodecParamType::kInsertIDRType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
       OMX_CONFIG_INTRAREFRESHVOPTYPE idr_params;
       InitOMXParams(&idr_params);
       idr_params.nPortIndex = kPortIndexOutput;
@@ -1209,32 +1210,32 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
       ret = omx_client_->SetConfig(index, &idr_params);
       break;
     case CodecParamType::kIDRIntervalType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
+      idr_interval = static_cast<VideoEncIdrInterval*>(params);
       QOMX_VIDEO_INTRAPERIODTYPE intra_params;
       InitOMXParams(&intra_params);
       intra_params.nPortIndex = kPortIndexOutput;
-      intra_params.nPFrames = codec_param->idr_interval.num_pframes;
-      intra_params.nBFrames = codec_param->idr_interval.num_bframes;
-      intra_params.nIDRPeriod = codec_param->idr_interval.idr_period;
+      intra_params.nPFrames = idr_interval->num_pframes;
+      intra_params.nBFrames = idr_interval->num_bframes;
+      intra_params.nIDRPeriod = idr_interval->idr_period;
       index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod;
       ret = omx_client_->SetConfig(index, &intra_params);
       break;
     case CodecParamType::kMarkLtrType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
+      value = static_cast<uint32_t*>(params);
       QOMX_VIDEO_CONFIG_LTRMARK_TYPE  matkltr_params;
       InitOMXParams(&matkltr_params);
       matkltr_params.nPortIndex = kPortIndexInput;
-      matkltr_params.nID = codec_param->ltr_mark;
+      matkltr_params.nID = *value;
       index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRMark;
       ret = omx_client_->SetConfig(index, &matkltr_params);
       break;
     case CodecParamType::kUseLtrType:
-      codec_param = static_cast<VideoEncSetParam*>(params);
+      ltr_use = static_cast<VideoEncLtrUse*>(params);
       QOMX_VIDEO_CONFIG_LTRUSE_TYPE useltr_params;
       InitOMXParams(&useltr_params);
       useltr_params.nPortIndex = kPortIndexInput;
-      useltr_params.nID = codec_param->ltr_use.id;
-      useltr_params.nFrames = codec_param->ltr_use.frame;
+      useltr_params.nID = ltr_use->id;
+      useltr_params.nFrames = ltr_use->frame;
       index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRUse;
       ret = omx_client_->SetConfig(index, &useltr_params);
       break;
@@ -1346,7 +1347,7 @@ void* AVCodec::DeliverInput(void *arg) {
     }
 
     buf_header->nFilledLen = native_handle->data[4];
-    buf_header->nTimeStamp  = stream_buffer.timestamp;
+    buf_header->nTimeStamp  = stream_buffer.timestamp/1000;
 
     QMMF_INFO("%s:%s ETB buffer fd(%d), ts(%lld)", TAG, __func__,
         stream_buffer.handle->data[0], stream_buffer.timestamp);

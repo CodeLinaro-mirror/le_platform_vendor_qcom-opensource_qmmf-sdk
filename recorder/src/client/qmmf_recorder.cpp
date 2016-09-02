@@ -216,7 +216,7 @@ status_t Recorder::ReturnTrackBuffer(const uint32_t session_id,
 
 status_t Recorder::SetAudioTrackParam(const uint32_t session_id,
                                       const uint32_t track_id,
-                                      AudioTrackParamType type,
+                                      CodecParamType type,
                                       const void *params,
                                       size_t param_size) {
 

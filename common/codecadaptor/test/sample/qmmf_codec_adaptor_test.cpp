@@ -248,45 +248,42 @@ status_t CodecTest::PauseCodec() {
 status_t CodecTest::SetCodecParameters() {
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   status_t ret = 0;
-  VideoEncSetParam param;
   CodecParamType param_type;
 
   if(!dynamic_params_.isEmpty()) {
     for(size_t i = 0; i < dynamic_params_.size(); i++) {
-      memset(&param, 0x0, sizeof(param));
       const char* key = dynamic_params_.keyAt(i).string();
       uint32_t value = dynamic_params_.valueAt(i);
 
       if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
         param_type = CodecParamType::kBitRateType;
-        param.bitrate = value;
+        ret = avcodec_->SetParameters(param_type, &value, sizeof(value));
       } else if(!strncmp("Framerate", key, strlen("Framerate"))) {
         param_type = CodecParamType::kFrameRateType;
-        param.fps = value;
+        ret = avcodec_->SetParameters(param_type, &value, sizeof(value));
       } else if(!strncmp("Request_IDR", key, strlen("Request_IDR"))) {
         param_type = CodecParamType::kInsertIDRType;
-        param.idr_request = value;
+        ret = avcodec_->SetParameters(param_type, &value, sizeof(value));
       } else if(!strncmp("LTR_MARK", key, strlen("LTR_MARK"))) {
         param_type = CodecParamType::kMarkLtrType;
-        param.ltr_mark = value;
+        ret = avcodec_->SetParameters(param_type, &value, sizeof(value));
       } else if(!strncmp("LTR_USE", key, strlen("LTR_USE"))) {
         param_type = CodecParamType::kUseLtrType;
-        param.ltr_use.id = value;
-        param.ltr_use.frame = 5;
+        VideoEncLtrUse param;
+        param.id = value;
+        param.frame = 5;
+        ret = avcodec_->SetParameters(param_type, &param, sizeof(param));
       } else if(!strncmp("IDR_INTERVAL", key, strlen("IDR_INTERVAL"))) {
         param_type = CodecParamType::kIDRIntervalType;
-        param.idr_interval.num_pframes = value;
-        param.idr_interval.num_bframes = 0;
-        param.idr_interval.idr_period = 0;
-      } else if(!strncmp("Max_HIP_Layer", key, strlen("Max_HIP_Layer"))) {
-        param_type = CodecParamType::kBitRateType;
-        //param.video_param.bitrate = value;
+        VideoEncIdrInterval param;
+        param.num_pframes = value;
+        param.num_bframes = 0;
+        param.idr_period = 0;
+        ret = avcodec_->SetParameters(param_type, &param, sizeof(param));
       } else {
           ALOGE("Unknown Key %s", key);
           ret = -1;
       }
-
-      ret = avcodec_->SetParameters(param_type, &param, sizeof(param));
       assert(ret == OK);
     }
   }

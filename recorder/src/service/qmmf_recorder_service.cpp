@@ -234,7 +234,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         void* param = const_cast<void*>(blob.data());
         ret = SetAudioTrackParam(session_id, track_id,
-                               static_cast<AudioTrackParamType>(param_type),
+                               static_cast<CodecParamType>(param_type),
                                param, blob_size);
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -723,7 +723,7 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t session_id,
 
 status_t RecorderService::SetAudioTrackParam(const uint32_t session_id,
                                              const uint32_t track_id,
-                                             AudioTrackParamType type,
+                                             CodecParamType type,
                                              void *param,
                                              size_t param_size) {
   // NOT IMPLEMENTED YET.

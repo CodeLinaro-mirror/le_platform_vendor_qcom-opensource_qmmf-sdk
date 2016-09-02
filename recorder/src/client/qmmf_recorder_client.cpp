@@ -509,7 +509,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
 
 status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
                                             const uint32_t track_id,
-                                            AudioTrackParamType type,
+                                            CodecParamType type,
                                             const void *param,
                                             size_t param_size) {
 
@@ -1407,7 +1407,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              AudioTrackParamType type,
+                              CodecParamType type,
                               void *param,
                               size_t param_size) {
     Parcel data, reply;

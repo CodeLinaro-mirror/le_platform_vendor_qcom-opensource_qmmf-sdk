@@ -84,6 +84,8 @@ class RecorderTest {
 
   int32_t StopSession();
 
+  int32_t SetParams();
+
   int32_t PauseSession();
 
   int32_t ResumeSession();
@@ -205,6 +207,7 @@ public:
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',
+        SET_PARAM_CMD                     = 'T',
         PAUSE_SESSION_CMD                 = 'P',
         RESUME_SESSION_CMD                = 'R',
         ENABLE_OVERLAY_CMD                = 'O',

@@ -69,6 +69,8 @@ enum class CodecParamType {
   kCamFrameCropType,
   kMarkLtrType,
   kUseLtrType,
+  kAudioEffectsParamType,
+  kAudioVolumeParamType,
 };
 
 enum class AVCProfileType {
@@ -176,15 +178,6 @@ typedef union VideoCodecParams {
   JPEGParams jpeg;
 } VideoCodecParam;
 
-enum class VideoTrackParamType {
-  kBitRateType,
-  kFrameRateType,
-  kInsertIDRType,
-  kIDRIntervalType,
-  kIntraPeriodType,
-  kCamFrameCropType,
-};
-
 typedef struct VideoEncodeIDRInterval {
   int32_t    idr_period;
   int32_t    num_P_frames;
@@ -201,19 +194,6 @@ typedef struct VideoEncIdrInterval {
   int32_t num_pframes;
   int32_t num_bframes;
 } VideoIdrInterval;
-
-//Dynamic Video Encode Parameters
-typedef struct VideoEncSetParam {
-  uint32_t            bitrate;
-  uint32_t            fps;
-  uint32_t            idr_request;
-  uint32_t            ltr_mark;
-  uint32_t            ltr_period;
-  uint32_t            max_hip_layer;
-  uint32_t            ltr_count;
-  VideoEncLtrUse      ltr_use;
-  VideoEncIdrInterval idr_interval;
-} VideoEncSetParam;
 
 enum class ImageFormat {
   kJPEG,
@@ -245,11 +225,6 @@ union CodecFormat {
 struct CodecInfo {
   CodecType   type;
   CodecFormat format;
-};
-
-enum class AudioTrackParamType {
-  kAudioEffectsParamType,
-  kAudioVolumeParamType,
 };
 
 enum class AACFormat {

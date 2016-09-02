@@ -179,7 +179,7 @@ class Recorder {
   /// param_size should be set to sizeof the param data structure
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              AudioTrackParamType type, const void *param,
+                              CodecParamType type, const void *param,
                               size_t param_size);
 
   /// \brief Changes runtime video track params such as video encoder

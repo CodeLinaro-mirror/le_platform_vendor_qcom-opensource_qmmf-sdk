@@ -87,7 +87,7 @@ class RecorderClient {
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              AudioTrackParamType type, const void *param,
+                              CodecParamType type, const void *param,
                               size_t param_size);
 
   status_t SetVideoTrackParam(const uint32_t session_id,
