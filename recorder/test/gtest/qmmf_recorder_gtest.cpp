@@ -660,8 +660,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
   String8 extn(type_string);
   bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
       extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
   assert(track1_bitstream_filefd_ >= 0);
 #endif
 
@@ -1289,8 +1289,8 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
 }
 
 /*
-* SessionWith4KAnd1080pYUVTrackStartStop: This test will test session with 4k and 1080p
-*                                YUV tracks.
+* SessionWith4KAnd1080pYUVTrackStartStop: This test will test session with 4k
+*                                         and 1080p YUV tracks.
 * Api test sequence:
 *  - StartCamera
 *  - CreateSession
@@ -1399,6 +1399,157 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithOverlay: This test will apply static overlay ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   loop Start {
+*   ------------------
+*   - CreateOverlayObject
+*   - SetOverlay
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, TrackMetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    // Create Overlay object
+    OverlayParam object_params;
+    uint32_t object_id;
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kBottomRight;
+    std::string str("/etc/overlay_test.rgba");
+    str.copy(object_params.image_info.image_location, str.length());
+    object_params.image_info.width  = 451;
+    object_params.image_info.height = 109;
+    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                        &object_id);
+    assert(ret == 0);
+    // Apply overlay object on video track.
+    ret = recorder_.SetOverlay(video_track_id, object_id);
+    assert(ret == 0);
+    // Let overlay be on video for 3 sec.
+    sleep(3);
+
+    // Remove overlay object from video track.
+    ret = recorder_.RemoveOverlay(video_track_id, object_id);
+    assert(ret == 0);
+
+    // Delete overlay object.
+    ret = recorder_.DeleteOverlayObject(video_track_id, object_id);
+    assert(ret == 0);
+
+    // Let video be without overlay for 3 sec.
+    sleep(3);
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
