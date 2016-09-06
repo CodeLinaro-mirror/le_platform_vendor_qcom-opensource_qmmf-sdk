@@ -35,7 +35,6 @@
 #include <utils/String8.h>
 #include <assert.h>
 
-#include "common/qmmf_common_utils.h"
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 
@@ -1370,15 +1369,15 @@ status_t RecorderTest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
       uint32_t written_length = write(file_fd, iter.data, iter.size);
       TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
       if (written_length != exp_size) {
-        QMMF_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+        TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
         strerror(errno));
       }
     } else {
-      QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd);
+      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd);
       assert(0);
     }
     if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      QMMF_INFO("%s:%s EOS Last buffer!", TAG, __func__);
+      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
       close(file_fd);
       file_fd = -1;
     }

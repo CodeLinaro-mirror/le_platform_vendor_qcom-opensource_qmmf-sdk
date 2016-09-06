@@ -37,11 +37,9 @@
 
 namespace qmmf {
 
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-
 typedef int32_t  CodecID;
+
+#define MAX_PLANE 3
 
 enum class CodecType {
   kVideoEncoder,
@@ -55,7 +53,6 @@ enum class CodecType {
 enum class VideoFormat {
   kHEVC,
   kAVC,
-  kJPEG,
   kYUV,
   kBayerRDI,
   kBayerIdeal,
@@ -208,6 +205,27 @@ enum class ImageMetaDataType {
   kRawImage,
   kCameraMeta,
 };
+
+typedef struct {
+  uint32_t stride;
+  uint32_t scanline;
+  uint32_t width;
+  uint32_t height;
+} PlaneInfo;
+
+enum class BufferFormat {
+  kNV12,
+  kNV21,
+  kBLOB,
+  kRAW10,
+  kRAW16
+};
+
+typedef struct {
+  BufferFormat format;
+  uint32_t  num_planes;
+  PlaneInfo plane_info[MAX_PLANE];
+} MetaInfo;
 
 enum class AudioFormat {
   kPCM,

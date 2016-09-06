@@ -38,33 +38,11 @@
 #include <system/window.h>
 
 #include "common/qmmf_log.h"
+#include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
 using namespace android;
-
-#define MAX_PLANE 3
-
-typedef struct {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-} PlaneInfo;
-
-enum class BufferFormat {
-  kNV12,
-  kNV21,
-  kBLOB,
-  kRAW10,
-  kRAW16
-};
-
-typedef struct {
-  BufferFormat format;
-  uint32_t num_planes;
-  PlaneInfo plane_info[MAX_PLANE];
-} MetaInfo;
 
 typedef struct {
   MetaInfo info;
