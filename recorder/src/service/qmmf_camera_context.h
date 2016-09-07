@@ -104,6 +104,9 @@ class CameraContext : public RefBase {
 
   uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
 
+  status_t ValidateResolution(const ImageFormat format, const uint32_t width,
+                              const uint32_t height);
+
   //Camera client callbacks.
   void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
 

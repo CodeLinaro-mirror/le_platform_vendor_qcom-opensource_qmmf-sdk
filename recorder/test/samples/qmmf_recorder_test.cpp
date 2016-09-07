@@ -34,6 +34,7 @@
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <assert.h>
+#include <system/graphics.h>
 
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
@@ -122,33 +123,100 @@ int32_t RecorderTest::StopCamera() {
 int32_t RecorderTest::TakeSnapshot() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
-  image_param.width         = 3840;
-  image_param.height        = 2160;
-  image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
-
-  ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_sequence_count,
-      BufferDescriptor buffer) { SnapshotCb(camera_id_, image_sequence_count,
-      buffer); };
-
-  std::vector<CameraMetadata> meta_array;
+  int32_t ret = 0;
+  session_iter_ it = sessions_.begin();
+  uint32_t session_id = it->first;
+  int32_t input;
+  camera_metadata_entry_t entry;
   CameraMetadata meta;
-  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  assert(ret == NO_ERROR);
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == 0);
 
-  uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-  ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-  assert(ret == NO_ERROR);
+  do {
+    printf("\n");
+    printf("****** Take Snapshot *******\n" );
+    printf("  1. JPEG - 4K\n" );
+    printf("  2. RAW:YUV - 1080p \n" );
+    printf("  3. RAW:BAYER \n" );
+    printf("  0. exit \n");
+    printf("\n");
+    printf("Enter option:\n");
+    scanf("%d", &input);
 
-  meta_array.push_back(meta);
+    uint32_t w, h;
+    ImageParam image_param;
+    memset(&image_param, 0x0, sizeof image_param);
+    switch(input) {
+      case 0:
+        break;
+      case 1:
+        image_param.width         = 3840;
+        image_param.height        = 2160;
+        image_param.image_format  = ImageFormat::kJPEG;
+        image_param.image_quality = 95;
+        break;
+      case 2:
+        // Check available raw YUV resolutions.
+        if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+          entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+          for (uint32_t i = 0 ; i < entry.count; i += 4) {
+            if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+                  entry.data.i32[i+3]) {
+                TEST_INFO("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)", TAG,
+                    __func__, i, entry.data.i32[i+1], entry.data.i32[i+2]);
+              }
+            }
+          }
+        }
+        image_param.width        = 1920;
+        image_param.height       = 1080;
+        image_param.image_format = ImageFormat::kNV12;
+        break;
+      case 3:
+        if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+          entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+          for (uint32_t i = 0 ; i < entry.count; i += 2) {
+            w = entry.data.i32[i+0];
+            h = entry.data.i32[i+1];
+            TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG,
+                __func__, i, w, h);
+          }
+        }
+        image_param.width        = w;
+        image_param.height       = h;
+        image_param.image_format = ImageFormat::kBayerRDI;
+        break;
+      default:
+         printf("Wrong value entered(%d)\n", input);
+         input = 0;
+         break;
+    }
 
-  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
-  if(ret != 0) {
-    ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
-  }
+    if (input != 0) {
+      ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
+                               BufferDescriptor buffer, void *meta_param,
+                               MetaParamType meta_type, uint32_t meta_size)
+          { SnapshotCb(camera_id_, image_count, buffer,  meta_param, meta_type,
+                       meta_size); };
+
+      assert(ret == NO_ERROR);
+
+      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+      ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+      assert(ret == NO_ERROR);
+
+      std::vector<CameraMetadata> meta_array;
+      meta_array.push_back(meta);
+
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      if(ret != 0) {
+        ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
+      }
+      input = 0;
+    }
+
+  } while(input);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -184,7 +252,7 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
   video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -216,7 +284,7 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
 
   memset(&video_track_cb, 0x0, sizeof (video_track_cb));
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -325,7 +393,7 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack4KEncDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -442,7 +510,7 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   }
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -490,7 +558,7 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   TrackCb audio_track_cb;
   audio_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void* meta_param, TrackMetaParamType meta_type, size_t meta_size)
+              void* meta_param, MetaParamType meta_type, size_t meta_size)
               -> void {
         AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
       };
@@ -603,7 +671,7 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -645,7 +713,7 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
 
   memset(&video_track_cb, 0x0, sizeof (video_track_cb));
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -754,7 +822,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -788,7 +856,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
 
   memset(&video_track_cb, 0x0, sizeof (video_track_cb));
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrack1080pEncDataCb2(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -854,7 +922,7 @@ void RecorderTest::CreateAudioOnlySession() {
   TrackCb audio_track_cb;
   audio_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void* meta_param, TrackMetaParamType meta_type, size_t meta_size)
+              void* meta_param, MetaParamType meta_type, size_t meta_size)
               -> void {
         AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
       };
@@ -1111,13 +1179,49 @@ int32_t RecorderTest::DeleteSession()
 
 void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
-                              BufferDescriptor buffer) {
-
+                              BufferDescriptor buffer, void *meta_param,
+                              MetaParamType meta_type,uint32_t meta_size) {
   String8 file_path;
   size_t written_len;
   static uint32_t snapshot_count = 0;
-  file_path.appendFormat("/data/snapshot_%u.jpg", snapshot_count);
 
+  MetaInfo* meta_data;
+  if (meta_type == MetaParamType::kCamBufMetaData) {
+    meta_data = static_cast<MetaInfo*>(meta_param);
+    TEST_DBG("%s:%s: format(0x%x)", TAG, __func__, meta_data->format);
+    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
+    for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
+      TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
+          meta_data->plane_info[i].stride);
+      TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
+          meta_data->plane_info[i].scanline);
+      TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
+          meta_data->plane_info[i].width);
+      TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
+          meta_data->plane_info[i].height);
+    }
+  }
+  const char* ext_str;
+  switch (meta_data->format) {
+    case BufferFormat::kNV12:
+    ext_str = "nv12";
+    break;
+    case BufferFormat::kNV21:
+    ext_str = "nv21";
+    break;
+    case BufferFormat::kBLOB:
+    ext_str = "jpg";
+    break;
+    case BufferFormat::kRAW10:
+    ext_str = "raw10";
+    break;
+    case BufferFormat::kRAW16:
+    ext_str = "raw16";
+    break;
+    default:
+    break;
+  }
+  file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
   FILE *file = fopen(file_path.string(), "w+");
   if (!file) {
     ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
@@ -1162,7 +1266,7 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
 void RecorderTest::AudioTrackDataCb(uint32_t track_id,
                                     std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
 
@@ -1194,14 +1298,14 @@ void RecorderTest::AudioTrackEventCb(uint32_t track_id, EventType event_type,
 void RecorderTest::VideoTrack4KYUVDataCb(uint32_t track_id,
                                          std::vector<BufferDescriptor> buffers,
                                          void *meta_param,
-                                         TrackMetaParamType meta_type,
+                                         MetaParamType meta_type,
                                          size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
 
   TEST_DBG("%s:%s: meta_type=%d", TAG, __func__, meta_type);
   MetaInfo* meta_data;
-  if (meta_type == TrackMetaParamType::kCamBufMetaData) {
+  if (meta_type == MetaParamType::kCamBufMetaData) {
     meta_data = static_cast<MetaInfo*>(meta_param);
     TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
     TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
@@ -1240,13 +1344,13 @@ void RecorderTest::VideoTrack4KYUVEventCb(uint32_t track_id,
 void RecorderTest::VideoTrack1080pYUVDataCb(uint32_t track_id,
                                             std::vector<BufferDescriptor>
                                             buffers, void *meta_param,
-                                            TrackMetaParamType meta_type,
+                                            MetaParamType meta_type,
                                             size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
 
   MetaInfo* meta_data;
-  if (meta_type == TrackMetaParamType::kCamBufMetaData) {
+  if (meta_type == MetaParamType::kCamBufMetaData) {
     meta_data = static_cast<MetaInfo*>(meta_param);
     TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
     TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
@@ -1286,7 +1390,7 @@ void RecorderTest::VideoTrack1080pYUVEventCb(uint32_t track_id,
 void RecorderTest::VideoTrack4KEncDataCb(uint32_t track_id,
                                     std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
@@ -1312,7 +1416,7 @@ void RecorderTest::VideoTrack4KEncEventCb(uint32_t track_id, EventType event_typ
 void RecorderTest::VideoTrack1080pEncDataCb1(uint32_t track_id,
                                     std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
@@ -1331,7 +1435,7 @@ void RecorderTest::VideoTrack1080pEncDataCb1(uint32_t track_id,
 void RecorderTest::VideoTrack1080pEncDataCb2(uint32_t track_id,
                                     std::vector<BufferDescriptor> buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);

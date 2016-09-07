@@ -381,7 +381,7 @@ void AudioSource::Thread() {
       ion_.Export(buffer, &bn_buffer);
       vector<BnBuffer> send_buffers;
       send_buffers.push_back(bn_buffer);
-      data_cb_(track_id_, send_buffers, nullptr, TrackMetaParamType::kNone, 0);
+      data_cb_(track_id_, send_buffers, nullptr, MetaParamType::kNone, 0);
 
       buffers.pop();
     }

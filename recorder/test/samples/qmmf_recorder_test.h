@@ -97,7 +97,8 @@ class RecorderTest {
   int32_t DisableOverlay();
 
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
-                  BufferDescriptor buffer);
+                  BufferDescriptor buffer, void *meta_param,
+                  MetaParamType meta_type, uint32_t meta_size);
 
   void RecorderCallbackHandler(EventType event_type, void *event_data,
                                size_t event_data_size);
@@ -106,7 +107,7 @@ class RecorderTest {
                               void *event_data, size_t event_data_size);
 
   void AudioTrackDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                        buffers, void *meta_param, TrackMetaParamType
+                        buffers, void *meta_param, MetaParamType
                         meta_type, size_t meta_size);
 
   void AudioTrackEventCb(uint32_t track_id, EventType event_type,
@@ -114,7 +115,7 @@ class RecorderTest {
 
   void VideoTrack4KYUVDataCb(uint32_t track_id,
                              std::vector<BufferDescriptor> buffers,
-                             void *meta_param, TrackMetaParamType meta_type,
+                             void *meta_param, MetaParamType meta_type,
                              size_t meta_size);
 
   void VideoTrack4KYUVEventCb(uint32_t track_id, EventType event_type,
@@ -122,7 +123,7 @@ class RecorderTest {
 
   void VideoTrack1080pYUVDataCb(uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
-                                void *meta_param, TrackMetaParamType
+                                void *meta_param, MetaParamType
                                 meta_type, size_t meta_size);
 
   void VideoTrack1080pYUVEventCb(uint32_t track_id, EventType event_type,
@@ -130,7 +131,7 @@ class RecorderTest {
 
   void VideoTrack4KEncDataCb(uint32_t track_id,
                              std::vector<BufferDescriptor> buffers,
-                             void *meta_param, TrackMetaParamType meta_type,
+                             void *meta_param, MetaParamType meta_type,
                              size_t meta_size);
 
   void VideoTrack4KEncEventCb(uint32_t track_id, EventType event_type,
@@ -138,12 +139,12 @@ class RecorderTest {
 
   void VideoTrack1080pEncDataCb1(uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
-                                void *meta_param, TrackMetaParamType
+                                void *meta_param, MetaParamType
                                 meta_type, size_t meta_size);
 
   void VideoTrack1080pEncDataCb2(uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
-                                void *meta_param, TrackMetaParamType
+                                void *meta_param, MetaParamType
                                 meta_type, size_t meta_size);
 
   void VideoTrack1080pEncEventCb(uint32_t track_id, EventType event_type,

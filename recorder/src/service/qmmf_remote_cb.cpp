@@ -68,16 +68,19 @@ void RemoteCallBack::NotifySessionEvent(EventType event_type, void *event_data,
 
 void RemoteCallBack::NotifySnapshotData(uint32_t camera_id,
                                         uint32_t sequence_count,
-                                        BnBuffer& buffer) {
+                                        BnBuffer& buffer, void *meta_param,
+                                        MetaParamType meta_type,
+                                        uint32_t meta_size) {
 
   assert(client_cb_handle_.get() != NULL);
-  client_cb_handle_->NotifySnapshotData(camera_id, sequence_count, buffer);
+  client_cb_handle_->NotifySnapshotData(camera_id, sequence_count, buffer,
+                                        meta_param, meta_type, meta_size);
 }
 
 void RemoteCallBack::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
                                           void *meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   assert(client_cb_handle_.get() != nullptr);
@@ -98,7 +101,7 @@ void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
 void RemoteCallBack::NotifyAudioTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
                                           void *meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   assert(client_cb_handle_.get() != nullptr);
