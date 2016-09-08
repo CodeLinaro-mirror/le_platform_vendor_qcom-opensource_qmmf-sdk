@@ -192,7 +192,35 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
       CameraStreamParameters stream_param;
       memset(&stream_param, 0x0, sizeof(stream_param));
 
-      stream_param.format       = HAL_PIXEL_FORMAT_BLOB;
+      int32_t format;
+      switch (param.image_format) {
+        case ImageFormat::kJPEG:
+        format = HAL_PIXEL_FORMAT_BLOB;
+        break;
+        case ImageFormat::kNV12:
+        format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+        break;
+        case ImageFormat::kBayerRDI:
+        format = HAL_PIXEL_FORMAT_RAW10;
+        break;
+        case ImageFormat::kBayerIdeal:
+          // Not supported.
+          QMMF_ERROR("%s:%s ImageFormat::kBayerIdeal is Not supported!", TAG,
+              __func__);
+          return BAD_VALUE;
+        break;
+        default:
+        format = HAL_PIXEL_FORMAT_BLOB;
+        break;
+      }
+
+      ret = ValidateResolution(param.image_format, param.width, param.height);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: format(0x%x),width(%d):height(%d) Not supported!",
+            TAG, __func__, param.image_format, param.width, param.height);
+        return BAD_VALUE;
+      }
+      stream_param.format       = format;
       stream_param.width        = param.width;
       stream_param.height       = param.height;
       stream_param.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
@@ -372,10 +400,15 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-
-  int32_t ret = NO_ERROR;
+  CameraMetadata static_meta;
+  camera_metadata_entry_t entry;
+  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
+  assert(ret == NO_ERROR);
   if (!snapshot_request_.metadata.isEmpty()) {
     meta.clear();
+    // Append static meta data.
+    meta.append(static_meta);
+    // Append default snapshot meta data.
     meta.append(snapshot_request_.metadata);
   } else {
     QMMF_WARN("%s:%s Camera is not started Or it is started in zsl mode!\n",
@@ -596,39 +629,147 @@ void CameraContext::NonZslCaptureCallback(int32_t stream_id,
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
 
-  uint32_t width  = buffer.info.plane_info[0].width;
-  QMMF_VERBOSE("%s:%s: stream_buffer(0x%x):ion_fd(%d):size(%d):width(%d)", TAG,
-      __func__, buffer.handle, buffer.fd, buffer.size, width);
-
-  void *vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
-      buffer.fd, 0);
-  assert(vaddr != nullptr);
-
-  assert(0 < buffer.info.num_planes);
-  uint32_t jpeg_size = GetJpegSize((uint8_t*) vaddr, width);
-  QMMF_VERBOSE("%s:%s: jpeg_size(%d)", TAG, __func__, jpeg_size);
-  assert(0 < jpeg_size);
-
-  if (vaddr) {
-    munmap(vaddr, buffer.size);
-    vaddr = nullptr;
+  QMMF_DEBUG("%s:%s format(0x%x):num_planes(%d) ", TAG, __func__,
+      buffer.info.format, buffer.info.num_planes);
+  for (int32_t i = 0; i < buffer.info.num_planes; ++i) {
+    QMMF_DEBUG("%s:%s plane_info[%d].stride=%d", TAG, __func__, i,
+        buffer.info.plane_info[i].stride);
+    QMMF_DEBUG("%s:%s plane_info[%d].scanline=%d", TAG, __func__, i,
+        buffer.info.plane_info[i].scanline);
+    QMMF_DEBUG("%s:%s plane_info[%d].width=%d", TAG, __func__, i,
+        buffer.info.plane_info[i].width);
+    QMMF_DEBUG("%s:%s plane_info[%d].height=%d", TAG, __func__, i,
+        buffer.info.plane_info[i].height);
   }
+  QMMF_DEBUG("%s:%s fd(0x%x):size(%d) ", TAG, __func__, buffer.fd, buffer.size);
+
+  uint32_t content_size;
+  int32_t width = -1, height = -1;
+  void* vaddr = nullptr;
+  switch (buffer.info.format) {
+    case BufferFormat::kNV12:
+    case BufferFormat::kNV21:
+    case BufferFormat::kRAW10:
+    case BufferFormat::kRAW16:
+      width  = buffer.info.plane_info[0].width;
+      height = buffer.info.plane_info[0].height;
+      content_size = buffer.size;
+      break;
+    case BufferFormat::kBLOB:
+      vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+          buffer.fd, 0);
+      assert(vaddr != nullptr);
+      assert(0 < buffer.info.num_planes);
+      content_size = GetJpegSize((uint8_t*) vaddr,
+                                buffer.info.plane_info[0].width);
+      QMMF_INFO("%s:%s: jpeg buffer size(%d)", TAG, __func__, content_size);
+      assert(0 < content_size);
+      if (vaddr) {
+        munmap(vaddr, buffer.size);
+        vaddr = nullptr;
+      }
+      width  = -1;
+      height = -1;
+    break;
+    default:
+    break;
+  }
+
   BnBuffer bn_buffer;
   memset(&bn_buffer, 0x0, sizeof bn_buffer);
   bn_buffer.ion_fd    = buffer.fd;
-  bn_buffer.size      = jpeg_size;
+  bn_buffer.size      = content_size;
   bn_buffer.timestamp = buffer.timestamp;
-  bn_buffer.width     = -1;
-  bn_buffer.height    = -1;
+  bn_buffer.width     = width;
+  bn_buffer.height    = height;
   bn_buffer.buffer_id = buffer.fd;
   bn_buffer.capacity  = buffer.size;
 
   snapshot_buffer_list_.add(buffer.fd, buffer);
 
   assert(client_snapshot_cb_ != nullptr);
-  client_snapshot_cb_(camera_id_, 1, bn_buffer);
+  client_snapshot_cb_(camera_id_, 1, bn_buffer, static_cast<void*>(&buffer.info)
+                      , MetaParamType::kCamBufMetaData, sizeof (MetaInfo));
 
   QMMF_VERBOSE("%s:%s Exit ", TAG, __func__);
+}
+
+status_t CameraContext::ValidateResolution(const ImageFormat format,
+                                           const uint32_t width,
+                                           const uint32_t height) {
+
+  QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
+
+  CameraMetadata static_meta;
+  camera_metadata_entry_t entry;
+  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
+  assert(ret == NO_ERROR);
+
+  bool supported = false;
+  int32_t w, h;
+  switch (format) {
+    case ImageFormat::kJPEG:
+    //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available in static
+    // meta.
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
+      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        w = entry.data.i32[i+0];
+        h = entry.data.i32[i+1];
+        QMMF_INFO("%s:%s:(%d) Supported Jpeg:(%d)x(%d)",TAG, __func__, i, w, h);
+        if(w == width && h == height) {
+          supported = true;
+          break;
+        }
+      }
+    }
+    supported = true;
+    break;
+    case ImageFormat::kNV12:
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            w = entry.data.i32[i+1];
+            h = entry.data.i32[i+2];
+            QMMF_DEBUG("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)",TAG, __func__,
+                i, w, h);
+            if(w == width && h == height) {
+              supported = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+    break;
+    case ImageFormat::kBayerRDI:
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        w = entry.data.i32[i+0];
+        h = entry.data.i32[i+1];
+        QMMF_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG, __func__, i,
+            width, height);
+        if(w == width && h == height) {
+          supported = true;
+          break;
+        }
+      }
+    }
+    break;
+    default:
+    break;
+  }
+  if (!supported) {
+    QMMF_ERROR("%s:%s: format(0x%x):width(%d):height(%d) not supported!", TAG,
+        __func__, format, width, height);
+    return BAD_VALUE;
+  }
+  QMMF_VERBOSE("%s:%s Exit ", TAG, __func__);
+  return NO_ERROR;
 }
 
 //Camera device callbacks

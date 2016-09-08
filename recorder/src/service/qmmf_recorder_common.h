@@ -86,11 +86,12 @@ struct CameraStreamDim {
 };
 
 typedef std::function<void(uint32_t track_id, std::vector<BnBuffer> buffers,
-    void *meta_param, TrackMetaParamType meta_type, size_t meta_size)>
+    void *meta_param, MetaParamType meta_type, size_t meta_size)>
     buffer_callback;
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-                           BnBuffer buffer)>  SnapshotCb;
+    BnBuffer buffer, void *meta_param, MetaParamType meta_type,
+    uint32_t meta_size)>  SnapshotCb;
 
 struct VideoTrackParams {
   VideoTrackCreateParam  params;

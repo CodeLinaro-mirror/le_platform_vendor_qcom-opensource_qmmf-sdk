@@ -590,7 +590,7 @@ void TrackEncoder::NotifyBufferToClient(CodecBuffer& codec_buffer) {
   std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
   track_params_.data_cb(TrackId(), bn_buffers, nullptr,
-      TrackMetaParamType::kNone, 0);
+      MetaParamType::kNone, 0);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 

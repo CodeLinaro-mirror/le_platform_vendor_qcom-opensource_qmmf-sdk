@@ -74,7 +74,7 @@ struct BufferDescriptor {
   int32_t  fd;
 };
 
-enum class TrackMetaParamType {
+enum class MetaParamType {
   kNone,
   kCamBufMetaData,
   kVideoCrop,
@@ -103,7 +103,7 @@ enum class BufferFlags { kFlagEOS = (1 << 1), kFlagCodecConfig = (1 << 2) };
 /// data
 struct TrackCb {
   std::function<void(uint32_t track_id, std::vector<BufferDescriptor> buffers,
-                     void *meta_param, TrackMetaParamType meta_type,
+                     void *meta_param, MetaParamType meta_type,
                      size_t meta_size)>
       data_cb;
   std::function<void(uint32_t track_id, EventType event_type, void *event_data,
@@ -198,7 +198,9 @@ struct ImageCaptureConfig {
 };
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-                           BufferDescriptor buffer)>  ImageCaptureCb;
+                           BufferDescriptor buffer, void *meta_param,
+                           MetaParamType meta_type, size_t meta_size)>
+    ImageCaptureCb;
 
 };
 };  // namespace qmmf::recorder

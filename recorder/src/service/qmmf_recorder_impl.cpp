@@ -510,7 +510,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   audio_track_params.codec_param = param.codec_param;
   audio_track_params.data_cb =
       [this] (uint32_t track_id, std::vector<BnBuffer> buffers,
-              void *meta_param, TrackMetaParamType meta_type, size_t meta_size)
+              void *meta_param, MetaParamType meta_type, size_t meta_size)
               -> void {
         AudioTrackBufferCallback(track_id, buffers, meta_param, meta_type,
                                  meta_size);
@@ -610,7 +610,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
   video_track_params.params      = params;
   video_track_params.data_cb     = [&] (uint32_t track_id,
       std::vector<BnBuffer> buffers, void *meta_param,
-      TrackMetaParamType meta_type, size_t meta_size)
+      MetaParamType meta_type, size_t meta_size)
       { VideoTrackBufferCallback(track_id, buffers, meta_param, meta_type,
         meta_size);
       };
@@ -828,7 +828,10 @@ status_t RecorderImpl::CaptureImage(const uint32_t camera_id,
   assert(camera_source_ != NULL);
 
   SnapshotCb cb = [&] (uint32_t camera_id, uint32_t count,
-      BnBuffer buf) { SnapshotCallback(camera_id, count, buf); };
+      BnBuffer buf, void *meta_param, MetaParamType meta_type,
+      uint32_t meta_size) { SnapshotCallback(camera_id, count, buf, meta_param,
+                                           meta_type, meta_size);
+      };
 
   auto ret = camera_source_->CaptureImage(camera_id, param, num_images, meta,
                                           cb);
@@ -999,7 +1002,7 @@ status_t RecorderImpl::RemoveOverlayObject(const uint32_t track_id,
 void RecorderImpl::VideoTrackBufferCallback(uint32_t track_id,
                                             std::vector<BnBuffer> buffers,
                                             void *meta_param,
-                                            TrackMetaParamType meta_type,
+                                            MetaParamType meta_type,
                                             size_t meta_size) {
 
   assert(remote_cb_.get() != nullptr);
@@ -1010,7 +1013,7 @@ void RecorderImpl::VideoTrackBufferCallback(uint32_t track_id,
 void RecorderImpl::AudioTrackBufferCallback(uint32_t track_id,
                                             std::vector<BnBuffer> buffers,
                                             void *meta_param,
-                                            TrackMetaParamType meta_type,
+                                            MetaParamType meta_type,
                                             size_t meta_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id(%u)", TAG, __func__, track_id);
@@ -1024,10 +1027,13 @@ void RecorderImpl::AudioTrackBufferCallback(uint32_t track_id,
 }
 
 void RecorderImpl::SnapshotCallback(uint32_t camera_id, uint32_t count,
-                                    BnBuffer& buffer) {
+                                    BnBuffer& buffer, void *meta_param,
+                                    MetaParamType meta_type,
+                                    uint32_t meta_size) {
 
   assert(remote_cb_.get() != nullptr);
-  remote_cb_->NotifySnapshotData(camera_id, count, buffer);
+  remote_cb_->NotifySnapshotData(camera_id, count, buffer, meta_param,
+                                 meta_type, meta_size);
 }
 
 bool RecorderImpl::IsSessionIdValid(const uint32_t session_id) {

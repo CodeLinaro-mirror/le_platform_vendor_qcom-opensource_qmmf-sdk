@@ -257,8 +257,11 @@ TEST_F(RecorderGtest, 4KSnapshot) {
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer) -> void
-        { SnapshotCb(camera_id, image_count, buffer); };
+                                BufferDescriptor buffer, void *meta_param,
+                                MetaParamType meta_type, uint32_t
+                                meta_size) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
+          meta_size); };
 
     auto ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
@@ -340,7 +343,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-        buffers, void *meta_param, TrackMetaParamType meta_type,
+        buffers, void *meta_param, MetaParamType meta_type,
         size_t meta_size) { VideoTrackYUVDataCb(track_id,
         buffers, meta_param, meta_type, meta_size); };
 
@@ -455,7 +458,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-        buffers, void *meta_param, TrackMetaParamType meta_type,
+        buffers, void *meta_param, MetaParamType meta_type,
         size_t meta_size) { VideoTrackOneEncDataCb(track_id,
         buffers, meta_param, meta_type, meta_size); };
 
@@ -569,7 +572,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   TrackCb video_track_cb;
   video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void *meta_param, TrackMetaParamType meta_type,
+              void *meta_param, MetaParamType meta_type,
               size_t meta_size)
               -> void { VideoTrackOneEncDataCb(track_id, buffers, meta_param,
                                                meta_type, meta_size); };
@@ -699,7 +702,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     TrackCb video_track_cb;
     video_track_cb.data_cb =
         [this] (uint32_t track_id, std::vector<BufferDescriptor>
-               buffers, void *meta_param, TrackMetaParamType meta_type,
+               buffers, void *meta_param, MetaParamType meta_type,
                size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
         buffers, meta_param, meta_type, meta_size); };
 
@@ -813,7 +816,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   TrackCb video_track_cb;
   video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor>
-             buffers, void *meta_param, TrackMetaParamType meta_type,
+             buffers, void *meta_param, MetaParamType meta_type,
              size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
              buffers, meta_param, meta_type, meta_size); };
 
@@ -935,7 +938,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
 
     video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor>
-              buffers, void *meta_param, TrackMetaParamType meta_type,
+              buffers, void *meta_param, MetaParamType meta_type,
               size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
     buffers, meta_param, meta_type, meta_size); };
 
@@ -961,7 +964,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
 
     video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor>
-              buffers, void *meta_param, TrackMetaParamType meta_type,
+              buffers, void *meta_param, MetaParamType meta_type,
               size_t meta_size) -> void { VideoTrackTwoEncDataCb(track_id,
     buffers, meta_param, meta_type, meta_size); };
 
@@ -1083,7 +1086,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
 
   video_track_cb.data_cb =
     [this] (uint32_t track_id, std::vector<BufferDescriptor>
-            buffers, void *meta_param, TrackMetaParamType meta_type,
+            buffers, void *meta_param, MetaParamType meta_type,
             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
   buffers, meta_param, meta_type, meta_size); };
 
@@ -1109,7 +1112,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
 
   video_track_cb.data_cb =
     [this] (uint32_t track_id, std::vector<BufferDescriptor>
-            buffers, void *meta_param, TrackMetaParamType meta_type,
+            buffers, void *meta_param, MetaParamType meta_type,
             size_t meta_size) -> void { VideoTrackTwoEncDataCb(track_id,
   buffers, meta_param, meta_type, meta_size); };
 
@@ -1232,7 +1235,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
     TrackCb video_track_cb;
     video_track_cb.data_cb =
         [this] (uint32_t track_id, std::vector<BufferDescriptor>
-                buffers, void *meta_param, TrackMetaParamType meta_type,
+                buffers, void *meta_param, MetaParamType meta_type,
                 size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
         buffers, meta_param, meta_type, meta_size); };
 
@@ -1343,7 +1346,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   TrackCb video_track_cb;
   video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor>
-              buffers, void *meta_param, TrackMetaParamType meta_type,
+              buffers, void *meta_param, MetaParamType meta_type,
               size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -1474,7 +1477,7 @@ TEST_F(RecorderGtest, 1080pEncWithOverlay) {
   TrackCb video_track_cb;
   video_track_cb.data_cb =
       [this] (uint32_t track_id, std::vector<BufferDescriptor>
-             buffers, void *meta_param, TrackMetaParamType meta_type,
+             buffers, void *meta_param, MetaParamType meta_type,
              size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -1601,7 +1604,7 @@ TEST_F(RecorderGtest, CameraParamTest) {
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, TrackMetaParamType meta_type,
+      buffers, void *meta_param, MetaParamType meta_type,
       size_t meta_size) { VideoTrackYUVDataCb(track_id,
       buffers, meta_param, meta_type, meta_size); };
 
@@ -1694,7 +1697,7 @@ void RecorderGtest::SessionCallbackHandler(EventType event_type,
 void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         void *meta_param,
-                                        TrackMetaParamType meta_type,
+                                        MetaParamType meta_type,
                                         size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
@@ -1742,7 +1745,7 @@ FAIL:
 void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         void *meta_param,
-                                        TrackMetaParamType meta_type,
+                                        MetaParamType meta_type,
                                         size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
@@ -1762,7 +1765,7 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
 void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
                                           std::vector<BufferDescriptor> buffers,
                                           void *meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
@@ -1821,7 +1824,8 @@ void RecorderGtest::VideoTrackEventCb(uint32_t track_id, EventType event_type,
 
 void RecorderGtest::SnapshotCb(uint32_t camera_id,
                                uint32_t image_sequence_count,
-                               BufferDescriptor buffer) {
+                               BufferDescriptor buffer, void *meta_param,
+                               MetaParamType meta_type, uint32_t size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   String8 file_path;

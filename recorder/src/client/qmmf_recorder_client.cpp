@@ -963,7 +963,10 @@ void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
 
 void RecorderClient::NotifySnapshotData(uint32_t camera_id,
                                         uint32_t image_sequence_count,
-                                        BnBuffer& buffer) {
+                                        BnBuffer& buffer, void *meta_param,
+                                        MetaParamType meta_type,
+                                        uint32_t meta_size) {
+
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   assert(image_capture_cb_ != nullptr);
   assert(ion_device_ > 0);
@@ -995,7 +998,8 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   snapshot_buf.buf_id    = buffer.buffer_id;
   snapshot_buf.fd        = buffer.ion_fd;
 
-  image_capture_cb_(camera_id, image_sequence_count, snapshot_buf);
+  image_capture_cb_(camera_id, image_sequence_count, snapshot_buf, meta_param,
+                    meta_type, meta_size);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1003,7 +1007,7 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
 void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &bn_buffers,
                                           void *meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
@@ -1137,7 +1141,7 @@ void RecorderClient::NotifyVideoTrackEvent(uint32_t track_id,
 void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
                                           const std::vector<BnBuffer>&
                                           bn_buffers, void* meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -1655,9 +1659,13 @@ void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
 
 void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
                                                 uint32_t image_sequence_count,
-                                                BnBuffer& buffer) {
+                                                BnBuffer& buffer,
+                                                void *meta_param,
+                                                MetaParamType meta_type,
+                                                uint32_t meta_size) {
   assert(client_ != NULL);
-  client_->NotifySnapshotData(camera_id, image_sequence_count, buffer);
+  client_->NotifySnapshotData(camera_id, image_sequence_count, buffer,
+                              meta_param, meta_type, meta_size);
 }
 
 
@@ -1665,7 +1673,7 @@ void ServiceCallbackHandler::NotifyVideoTrackData(uint32_t track_id,
                                                   std::vector<BnBuffer>
                                                   &bn_buffers,
                                                   void *meta_param,
-                                                  TrackMetaParamType meta_type,
+                                                  MetaParamType meta_type,
                                                   size_t meta_size) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
@@ -1686,7 +1694,7 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
 void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
                                                   const std::vector<BnBuffer>&
                                                   bn_buffers, void* meta_param,
-                                                  TrackMetaParamType meta_type,
+                                                  MetaParamType meta_type,
                                                   size_t meta_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
@@ -1740,7 +1748,8 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   }
 
   void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
-                          BnBuffer& buffer) {
+                          BnBuffer& buffer, void *meta_param,
+                          MetaParamType meta_type, uint32_t meta_size) {
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::
@@ -1754,13 +1763,25 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     data.writeBlob(size, false, &blob);
     memset(blob.data(), 0x0, size);
     memcpy(blob.data(), reinterpret_cast<void*>(&buffer), size);
+    // Pack meta
+    data.writeUint32(meta_size);
+    android::Parcel::WritableBlob meta_blob;
+    if(meta_size > 0) {
+      data.writeBlob(meta_size, false, &meta_blob);
+      memset(meta_blob.data(), 0x0, meta_size);
+      memcpy(meta_blob.data(), meta_param, meta_size);
+      data.writeUint32(static_cast<uint32_t>(meta_type));
+    }
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
         RECORDER_NOTIFY_SNAPSHOT_DATA), data, &reply, IBinder::FLAG_ONEWAY);
     blob.release();
+    if(meta_size > 0) {
+      meta_blob.release();
+    }
   }
 
   void NotifyVideoTrackData(uint32_t track_id, std::vector<BnBuffer>
-                            &buffers, void *meta_param, TrackMetaParamType
+                            &buffers, void *meta_param, MetaParamType
                             meta_type, size_t meta_size) {
 
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
@@ -1815,7 +1836,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
       memset(blob.data(), 0x0, size);
       memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), size);
     }
-    //Pack meta
+    // Pack meta
     data.writeUint32(meta_size);
     android::Parcel::WritableBlob meta_blob;
     if(meta_size > 0) {
@@ -1841,7 +1862,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
   void NotifyAudioTrackData(uint32_t track_id,
                             const std::vector<BnBuffer>& buffers,
-                            void* meta_param, TrackMetaParamType meta_type,
+                            void* meta_param, MetaParamType meta_type,
                             size_t meta_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
@@ -1937,8 +1958,21 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       memset(&bn_buffer, 0x0, sizeof bn_buffer);
       memcpy(&bn_buffer, buf, size);
       bn_buffer.ion_fd = ion_fd;
-      NotifySnapshotData(camera_id, count, bn_buffer);
+      uint32_t meta_size, meta_type;
+      void* meta_param = nullptr;
+      android::Parcel::ReadableBlob meta_blob;
+      data.readUint32(&meta_size);
+      if (meta_size > 0) {
+        data.readBlob(meta_size, &meta_blob);
+        meta_param = const_cast<void*>(meta_blob.data());
+        data.readUint32(&meta_type);
+      }
+      NotifySnapshotData(camera_id, count, bn_buffer, meta_param,
+                         static_cast<MetaParamType>(meta_type), meta_size);
       blob.release();
+      if(meta_size > 0) {
+        meta_blob.release();
+      }
       return NO_ERROR;
     }
     break;
@@ -1981,7 +2015,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         data.readUint32(&meta_type);
       }
       NotifyVideoTrackData(track_id, buffers, meta_param,
-                           static_cast<TrackMetaParamType>(meta_type),
+                           static_cast<MetaParamType>(meta_type),
                            meta_size);
       if(meta_size > 0) {
         meta_blob.release();
@@ -2011,7 +2045,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
                    TAG, __func__, buffer.ToString().c_str());
       NotifyAudioTrackData(track_id, buffers, nullptr,
-                           TrackMetaParamType::kNone, 0);
+                           MetaParamType::kNone, 0);
       return NO_ERROR;
     }
     break;

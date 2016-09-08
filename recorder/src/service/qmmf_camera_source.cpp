@@ -788,7 +788,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     bn_buffers.push_back(bn_buffer);
     track_params_.data_cb(TrackId(), bn_buffers,
                           static_cast<void*>(&buffer.info),
-                          TrackMetaParamType::kCamBufMetaData,
+                          MetaParamType::kCamBufMetaData,
                           sizeof (MetaInfo));
   } else {
     // Push buffers into encoder queue.
