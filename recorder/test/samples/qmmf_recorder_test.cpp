@@ -183,8 +183,8 @@ int32_t RecorderTest::TakeSnapshot() {
                 __func__, i, w, h);
           }
         }
-        image_param.width        = w;
-        image_param.height       = h;
+        image_param.width        = w; // 5344
+        image_param.height       = h; // 4016
         image_param.image_format = ImageFormat::kBayerRDI;
         break;
       default:
@@ -1181,6 +1181,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
                               BufferDescriptor buffer, void *meta_param,
                               MetaParamType meta_type,uint32_t meta_size) {
+
+  TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
   static uint32_t snapshot_count = 0;
@@ -1247,6 +1249,7 @@ FAIL:
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
+  TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
 void RecorderTest::RecorderCallbackHandler(EventType event_type,

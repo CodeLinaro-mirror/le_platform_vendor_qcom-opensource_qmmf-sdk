@@ -8,8 +8,6 @@ libcodec_adaptor_la_CPPFLAGS := -std=c++11 -Wall
 libcodec_adaptor_la_CPPFLAGS += -I$(top_srcdir)/include
 libcodec_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
 libcodec_adaptor_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
-libcodec_adaptor_la_CPPFLAGS += -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
-libcodec_adaptor_la_CFLAGS   := -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
 libcodec_adaptor_la_LDFLAGS  := -lutils -lcutils -lpthread -ldl -llog
 
 # Codec Adaptor sample test app

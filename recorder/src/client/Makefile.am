@@ -11,7 +11,7 @@ libqmmf_recorder_client_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_recorder_client_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_client_la_CPPFLAGS += -DHAVE_PTHREADS
 libqmmf_recorder_client_la_CPPFLAGS += -DLINUX_ENABLED=1
-libqmmf_recorder_client_la_CPPFLAGS += -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
+libqmmf_recorder_client_la_CPPFLAGS += -std=c++11
 libqmmf_recorder_client_la_LDFLAGS  := -llog -lbinder -lutils -lcutils
 libqmmf_recorder_client_la_LDFLAGS  += -lcamera_client -lcamera_metadata
 

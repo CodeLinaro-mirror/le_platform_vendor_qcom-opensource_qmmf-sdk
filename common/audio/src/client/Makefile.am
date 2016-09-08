@@ -8,9 +8,6 @@ cpp_flags := -I$(top_srcdir)
 cpp_flags += -DHAVE_PTHREADS
 cpp_flags += -DLINUX_ENABLED=1
 cpp_flags += -std=c++11
-cpp_flags += -std=gnu++0x
-cpp_flags += -std=c++0x
-cpp_flags += -std=gnu++11
 
 ld_flags := -llog
 ld_flags += -lbinder
