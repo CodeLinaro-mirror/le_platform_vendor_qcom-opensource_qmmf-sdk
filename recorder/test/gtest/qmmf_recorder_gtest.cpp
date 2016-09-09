@@ -33,11 +33,12 @@
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <utils/Errors.h>
-#include <camera/CameraMetadata.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <camera/CameraMetadata.h>
+#include <system/graphics.h>
 
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
 
@@ -222,12 +223,12 @@ TEST_F(RecorderGtest, CreateDeleteSession) {
 }
 
 /*
-* 4KSnapshot: This test will test 4K snapshot.
+* 4KSnapshot: This test will test 4K JPEG snapshot.
 * Api test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
-*   - CaptureImage
+*   - CaptureImage - JPEG
 *   ------------------
 *   } loop End
 *  - StopCamera
@@ -250,7 +251,30 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
   CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == entry.data.i32[i+1]
+              && image_param.height == entry.data.i32[i+2]) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -263,14 +287,172 @@ TEST_F(RecorderGtest, 4KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
           meta_size); };
 
-    auto ret = recorder_.GetCameraParam(camera_id_, meta);
+    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
     assert(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* 1080pRawYUVSnapshot: This test will test 1080p YUV snapshot.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - Raw YUV
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 1920;
+  image_param.height        = 1080;
+  image_param.image_format  = ImageFormat::kNV12;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == entry.data.i32[i+1]
+              && image_param.height == entry.data.i32[i+2]) {
+            res_supported = true; // 1920x1080 YUV res supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer, void *meta_param,
+                                MetaParamType meta_type, uint32_t
+                                meta_size) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
+          meta_size); };
 
     uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
     assert(ret == NO_ERROR);
 
     meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* RawBayerRDI10Snapshot: This test will test BayerRDI (10 bits packed) snapshot.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - BayerRDI 10 bits
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, RawBayerRDI10Snapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+  int32_t w = 0, h = 0;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  // Check Supported bayer snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      w = entry.data.i32[i+0];
+      h = entry.data.i32[i+1];
+      TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG,
+          __func__, i, w, h);
+    }
+  }
+  assert(w > 0 && h > 0);
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width        = w; // 5344
+  image_param.height       = h; // 4016
+  image_param.image_format = ImageFormat::kBayerRDI;
+
+  std::vector<CameraMetadata> meta_array;
+  meta_array.push_back(meta);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer, void *meta_param,
+                                MetaParamType meta_type, uint32_t
+                                meta_size) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
+          meta_size); };
+
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
     assert(ret == NO_ERROR);
@@ -1827,36 +2009,70 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
                                BufferDescriptor buffer, void *meta_param,
                                MetaParamType meta_type, uint32_t size) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
   static uint32_t snapshot_count = 0;
-  file_path.appendFormat("/data/snapshot_%u.jpg", snapshot_count);
 
-  FILE *file = fopen(file_path.string(), "w+");
-  if (!file) {
-    ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-        file_path.string());
-    goto FAIL;
+  MetaInfo* meta_data;
+  if (meta_type == MetaParamType::kCamBufMetaData) {
+    meta_data = static_cast<MetaInfo*>(meta_param);
+  }
+  bool dump_file = true;
+  if (meta_data->format != BufferFormat::kBLOB) {
+    // Don't save Raw YUV and Bayer data into file, data is big in size, it can
+    // fill up the disk space very soon, if you want to save then make dump_file
+    // variable true.
+    dump_file = false;
   }
 
-  written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
-  TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
-  if (buffer.size != written_len) {
-    ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-          strerror(errno));
-    goto FAIL;
-  }
-  TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
-            buffer.data, written_len, file_path.string());
+  if (dump_file) {
+    const char* ext_str;
+    switch (meta_data->format) {
+      case BufferFormat::kNV12:
+      ext_str = "nv12";
+      break;
+      case BufferFormat::kNV21:
+      ext_str = "nv21";
+      break;
+      case BufferFormat::kBLOB:
+      ext_str = "jpg";
+      break;
+      case BufferFormat::kRAW10:
+      ext_str = "raw10";
+      break;
+      case BufferFormat::kRAW16:
+      ext_str = "raw16";
+      break;
+      default:
+      break;
+    }
+    file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+    FILE *file = fopen(file_path.string(), "w+");
+    if (!file) {
+      ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
+          file_path.string());
+      goto FAIL;
+    }
 
-  snapshot_count++;
+    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
+    TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
+    if (buffer.size != written_len) {
+      ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+            strerror(errno));
+      goto FAIL;
+    }
+    TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+              buffer.data, written_len, file_path.string());
 
-FAIL:
-  if (file != NULL) {
-    fclose(file);
+    snapshot_count++;
+
+  FAIL:
+    if (file != NULL) {
+      fclose(file);
+    }
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s:%s Exit", TAG, __func__);
 }
