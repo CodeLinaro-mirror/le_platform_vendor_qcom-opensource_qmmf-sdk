@@ -55,7 +55,8 @@ class RecorderTestWav
   ~RecorderTestWav();
 
   int32_t Configure(const string& filename_prefix,
-                const AudioTrackCreateParam& params);
+                    const uint32_t track_id,
+                    const AudioTrackCreateParam& params);
 
   int32_t Open();
   void Close();

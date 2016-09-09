@@ -47,13 +47,13 @@ using namespace qmmf;
 
 typedef  struct ion_allocation_data IonHandleData;
 
-typedef struct TestInitParams {
+struct TestInitParams {
   uint32_t          record_frame;
   char              input_file[MAX_FILE_NAME];
   char              output_file[MAX_FILE_NAME];
   CodecType         codec_type;
   CodecCreateParam  create_param;
-} TestInitParams;
+};
 
 class InputCodecSourceImpl;
 class OutputCodecSourceImpl;

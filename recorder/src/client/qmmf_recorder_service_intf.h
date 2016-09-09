@@ -103,8 +103,8 @@ struct BnBuffer {
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
     stream << "buffer_id[" << buffer_id << "] ";
-    stream << "flag[" << setbase(16) << flag << setbase(10) << "]";
-    stream << "capacity[" << capacity << "] ";
+    stream << "flag[" << setbase(16) << flag << setbase(10) << "] ";
+    stream << "capacity[" << capacity << "]";
     return stream.str();
   }
 

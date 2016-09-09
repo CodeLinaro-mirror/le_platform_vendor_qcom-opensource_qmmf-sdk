@@ -46,12 +46,6 @@ namespace qmmf {
 
 namespace recorder {
 
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-using ::std::underlying_type;
-
 #define MAX_IN_DEVICES 4
 
 typedef int32_t status_t;
@@ -84,12 +78,13 @@ struct BufferDescriptor {
   size_t   capacity;
   int32_t  fd;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "data[" << data << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "flag[" << setbase(16) << flag << setbase(10) << "] ";
+    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
+           << "] ";
     stream << "buf_id[" << buf_id << "] ";
     stream << "capacity[" << capacity << "] ";
     stream << "fd[" << fd << "]";
@@ -125,7 +120,7 @@ enum class BufferFlags { kFlagEOS = (1 << 1), kFlagCodecConfig = (1 << 2) };
 /// Track event_cb returns async error events and data_cb returns periodic
 /// data
 struct TrackCb {
-  std::function<void(uint32_t track_id, std::vector<BufferDescriptor> buffers,
+  std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
                      void *meta_param, MetaParamType meta_type,
                      size_t meta_size)>
       data_cb;
@@ -140,17 +135,17 @@ struct TrackCb {
 /// to external devices say through HDMI. In all other usecases
 /// out_device will be set to AUDIO_DEVICE_NONE
 struct AudioTrackCreateParam {
-  vector<DeviceId> in_devices;
-  uint32_t         sample_rate;
-  uint32_t         channels;
-  uint32_t         bit_depth;
-  AudioFormat      format;
-  AudioCodecParams codec_params;
-  DeviceId         out_device;
-  uint32_t         flags;
+  ::std::vector<DeviceId> in_devices;
+  uint32_t                sample_rate;
+  uint32_t                channels;
+  uint32_t                bit_depth;
+  AudioFormat             format;
+  AudioCodecParams        codec_params;
+  DeviceId                out_device;
+  uint32_t                flags;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "in_devices[";
     for (const DeviceId device : in_devices)
       stream << device << ", ";
@@ -159,7 +154,8 @@ struct AudioTrackCreateParam {
     stream << "channels[" << channels << "] ";
     stream << "bit_depth[" << bit_depth << "] ";
     stream << "format["
-           << static_cast<underlying_type<AudioFormat>::type>(format) << "] ";
+           << static_cast<::std::underlying_type<AudioFormat>::type>(format)
+           << "] ";
     stream << "codec_params[" << codec_params.ToString(format) << "] ";
     stream << "out_device[" << out_device << "] ";
     stream << "flags[" << flags << "]";
@@ -180,14 +176,15 @@ struct VideoTrackCreateParam {
   VideoCodecParams codec_param;
   uint32_t out_device;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "camera_id[" << camera_id << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "format_type["
-           << static_cast<underlying_type<VideoFormat>::type>(format_type)
+           << static_cast<::std::underlying_type<VideoFormat>::type>
+                         (format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
     stream << "out_device[" << out_device << "]";
@@ -212,9 +209,10 @@ struct CameraStartParam {
   uint32_t frame_rate;
   uint32_t flags;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "zsl_mode[" << boolalpha << zsl_mode << noboolalpha << "]";
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "zsl_mode[" << ::std::boolalpha << zsl_mode << ::std::noboolalpha
+           << "]";
     stream << "zsl_queue_depth[" << zsl_queue_depth << "] ";
     stream << "zsl_width[" << zsl_width << "] ";
     stream << "zsl_height[" << zsl_height << "] ";
@@ -232,13 +230,14 @@ struct ImageParam {
   uint32_t    image_quality;
   ImageFormat image_format;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "width[" << width << "]";
     stream << "height[" << height << "] ";
     stream << "image_quality[" << image_quality << "] ";
     stream << "image_format["
-           << static_cast<underlying_type<ImageFormat>::type>(image_format)
+           << static_cast<::std::underlying_type<ImageFormat>::type>
+                         (image_format)
            << "]";
     return stream.str();
   }
@@ -268,18 +267,21 @@ struct ImageCaptureConfig {
   bool with_camera_meta;
   bool with_raw;
   ImageFormat raw_image_format;
-  std::vector<ImageParam> thumbnail_image_param;
+  ::std::vector<ImageParam> thumbnail_image_param;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "sensor_frame_skip_interval[" << sensor_frame_skip_interval
            << "] ";
-    stream << "with_exif[" << boolalpha << with_exif << noboolalpha << "] ";
-    stream << "with_camera_meta[" << boolalpha << with_camera_meta
-           << noboolalpha << "] ";
-    stream << "with_raw[" << boolalpha << with_raw << noboolalpha << "] ";
+    stream << "with_exif[" << ::std::boolalpha << with_exif
+           << ::std::noboolalpha << "] ";
+    stream << "with_camera_meta[" << ::std::boolalpha << with_camera_meta
+           << ::std::noboolalpha << "] ";
+    stream << "with_raw[" << ::std::boolalpha << with_raw << ::std::noboolalpha
+           << "] ";
     stream << "raw_image_format["
-           << static_cast<underlying_type<ImageFormat>::type>(raw_image_format)
+           << static_cast<::std::underlying_type<ImageFormat>::type>
+                         (raw_image_format)
            << "] ";
     stream << "thumbnail_image_param[";
     for (const ImageParam image_param : thumbnail_image_param)

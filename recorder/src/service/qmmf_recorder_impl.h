@@ -35,6 +35,7 @@
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_audio_source.h"
+#include "recorder/src/service/qmmf_audio_encoder_core.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_encoder_core.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
@@ -176,9 +177,10 @@ class RecorderImpl {
   } TrackInfo;
 
   uint32_t            unique_id_;
-  AudioSource*        audio_source_;
   CameraSource*       camera_source_;
   EncoderCore*        encoder_core_;
+  AudioSource*        audio_source_;
+  AudioEncoderCore*   audio_encoder_core_;
   Vector<uint32_t>    session_ids_;
   sp<RemoteCallBack>  remote_cb_;
 

@@ -59,6 +59,11 @@ using ::std::string;
 using ::std::stringstream;
 using ::std::underlying_type;
 
+enum class BufferFlags {
+  kFlagEOS = (1 << 1),
+  kFlagCodecConfig = (1 << 2)
+};
+
 struct AudioBuffer {
   void* data;
   int32_t ion_fd;

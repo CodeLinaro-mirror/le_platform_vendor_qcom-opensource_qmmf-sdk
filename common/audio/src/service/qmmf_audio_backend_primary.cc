@@ -56,7 +56,7 @@ namespace common {
 namespace audio {
 
 using ::std::chrono::duration_cast;
-using ::std::chrono::milliseconds;
+using ::std::chrono::microseconds;
 using ::std::chrono::system_clock;
 using ::std::condition_variable;
 using ::std::function;
@@ -84,7 +84,7 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
                                   const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type));
+               static_cast<int>(type));
   for (const DeviceId device : devices)
     QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
@@ -174,8 +174,32 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
                           AUDIO_CHANNEL_REPRESENTATION_POSITION, channel_bits);
     config.frame_count = 0;
 
-    result = hal_device_->open_input_stream(hal_device_, 0x999,
-                                            AUDIO_DEVICE_IN_BUILTIN_MIC,
+    audio_devices_t audio_devices = 0;
+    for (const DeviceId device : devices) {
+      switch (device) {
+        case static_cast<int32_t>(AudioDeviceId::kDefault):
+          audio_devices |= AUDIO_DEVICE_IN_DEFAULT;
+          break;
+        case static_cast<int32_t>(AudioDeviceId::kCommunication):
+          audio_devices |= AUDIO_DEVICE_IN_COMMUNICATION;
+          break;
+        case static_cast<int32_t>(AudioDeviceId::kAmbient):
+          audio_devices |= AUDIO_DEVICE_IN_AMBIENT;
+          break;
+        case static_cast<int32_t>(AudioDeviceId::kBuiltIn):
+          audio_devices |= AUDIO_DEVICE_IN_BUILTIN_MIC;
+          break;
+        case static_cast<int32_t>(AudioDeviceId::kHeadSet):
+          audio_devices |= AUDIO_DEVICE_IN_WIRED_HEADSET;
+          break;
+      }
+    }
+    if (audio_devices == 0) {
+      QMMF_ERROR("%s: %s() no valid device IDs specified", TAG, __func__);
+      return -EINVAL;
+    }
+
+    result = hal_device_->open_input_stream(hal_device_, 0x999, audio_devices,
                                             &config, &hal_input_stream_,
                                             AUDIO_INPUT_FLAG_NONE,
                                             "input_stream",
@@ -382,6 +406,10 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
 
   thread_->join();
   delete thread_;
+
+  // clear the message queue of remaining messages
+  while (!messages_.empty())
+    messages_.pop();
 
   state_ = AudioState::kIdle;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
@@ -631,11 +659,6 @@ void AudioBackendPrimary::SourceThread() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   queue<AudioBuffer> buffers;
   bool paused = false;
-  bool flushing = false;
-
-  // clear the message queue of expired messages
-  while (!messages_.empty())
-    messages_.pop();
 
   bool keep_running = true;
   while (keep_running) {
@@ -664,7 +687,6 @@ void AudioBackendPrimary::SourceThread() {
         case AudioMessageType::kMessageStop:
           QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
           paused = false;
-          flushing = message.flush;
           keep_running = false;
           break;
 
@@ -683,44 +705,46 @@ void AudioBackendPrimary::SourceThread() {
     message_lock_.unlock();
 
     // process the next pending buffer
-    do {
-      if (!buffers.empty() && !paused) {
-        AudioBuffer& buffer = buffers.front();
-        QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
-                     buffer.ToString().c_str());
+    if (!buffers.empty() && !paused) {
+      AudioBuffer& buffer = buffers.front();
+      QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
+                   buffer.ToString().c_str());
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-        int result = hal_input_stream_->read(hal_input_stream_, buffer.data,
-                                             buffer.capacity);
-        if (result < 0) {
-          QMMF_ERROR("%s: %s() failed to read input stream: %d", TAG,
-                     __func__, result);
-          error_handler_(audio_handle_, result);
-          buffer.size = 0;
-        } else {
-          buffer.size = result;
-        }
+      int result = hal_input_stream_->read(hal_input_stream_, buffer.data,
+                                           buffer.capacity);
+      if (result < 0) {
+        QMMF_ERROR("%s: %s() failed to read input stream: %d", TAG,
+                   __func__, result);
+        error_handler_(audio_handle_, result);
+        buffer.size = 0;
+      } else {
+        buffer.size = result;
+      }
 #else
-        memset(buffer.data, 0xFF, buffer.capacity);
-        memset(buffer.data, 0x11, 1);
-        buffer.size = buffer.capacity;
-        ::std::this_thread::sleep_for(::std::chrono::seconds(1));
+      memset(buffer.data, 0xFF, buffer.capacity);
+      memset(buffer.data, 0x11, 1);
+      buffer.size = buffer.capacity;
+      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
 #endif
 
-        // if filled, return timestamped buffer to client
-        if (buffer.size > 0) {
-          milliseconds timestamp = duration_cast<milliseconds>(
+      // if filled, return timestamped buffer to client
+      if (buffer.size > 0) {
+        microseconds timestamp = duration_cast<microseconds>(
               system_clock::now().time_since_epoch());
-          buffer.timestamp = timestamp.count();
+        buffer.timestamp = timestamp.count();
 
-          buffer_handler_(audio_handle_, buffer);
-          buffers.pop();
+        if (keep_running == false) {
+          QMMF_DEBUG("%s: %s() setting EOS flag", TAG, __func__);
+          buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
+        } else {
+          buffer.flags = 0;
         }
-      }
 
-      if (buffers.empty() || paused)
-        flushing = false;
-    } while (flushing == true);
+        buffer_handler_(audio_handle_, buffer);
+        buffers.pop();
+      }
+    }
   }
 }
 

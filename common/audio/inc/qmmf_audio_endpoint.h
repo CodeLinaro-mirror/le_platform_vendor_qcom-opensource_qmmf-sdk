@@ -57,16 +57,16 @@ using ::std::vector;
 // foo() {
 //   AudioEndPoint aep;
 //
-//   eap.Connect(...);
-//   eap.Configure(...);
-//   eap.GetLatency(...);
-//   eap.GetBufferSize(...);
-//   eap.SetParam(...);  NOTE: one or more times for each parameter
-//   eap.Start();
-//   eap.SendBuffers(...);  NOTE:  repeatedly call to stream data
-//   eap.Stop(...);
+//   aep.Connect(...);
+//   aep.Configure(...);
+//   aep.GetLatency(...);
+//   aep.GetBufferSize(...);
+//   aep.SetParam(...);  NOTE: one or more times for each parameter
+//   aep.Start();
+//   aep.SendBuffers(...);  NOTE:  repeatedly call to stream data
+//   aep.Stop(...);
 //
-//   eap.Disconnect();
+//   aep.Disconnect();
 // }
 //
 class AudioEndPoint {

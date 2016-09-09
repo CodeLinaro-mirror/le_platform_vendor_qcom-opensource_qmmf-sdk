@@ -31,6 +31,7 @@
 
 #include <iomanip>
 #include <map>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -38,6 +39,7 @@
 #include <linux/msm_ion.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
@@ -45,6 +47,7 @@ namespace recorder {
 
 using ::qmmf::common::audio::AudioBuffer;
 using ::std::map;
+using ::std::queue;
 using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
@@ -60,8 +63,16 @@ class RecorderIon
   int32_t Deallocate();
 
   int32_t GetList(vector<AudioBuffer>* buffers);
-  int32_t Import(const BnBuffer& bn_buffer, AudioBuffer* buffer);
-  int32_t Export(const AudioBuffer& buffer, BnBuffer* bn_buffer);
+  int32_t GetList(queue<CodecBuffer>* buffers);
+
+  int32_t Import(const BnBuffer& bn_buffer, AudioBuffer* audio_buffer);
+  int32_t Export(const AudioBuffer& audio_buffer, BnBuffer* bn_buffer);
+
+  int32_t Import(const StreamBuffer& stream_buffer, AudioBuffer* audio_buffer);
+  int32_t Export(const AudioBuffer& audio_buffer, StreamBuffer* stream_buffer);
+
+  int32_t Import(const BnBuffer& bn_buffer, CodecBuffer* codec_buffer);
+  int32_t Export(const CodecBuffer& codec_buffer, BnBuffer* bn_buffer);
 
  private:
   struct RecorderIonBuffer {

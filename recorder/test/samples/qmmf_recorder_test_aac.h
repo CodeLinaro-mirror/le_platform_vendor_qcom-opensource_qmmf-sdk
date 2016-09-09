@@ -29,49 +29,66 @@
 
 #pragma once
 
-#include <map>
+#include <cstdint>
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <sstream>
+#include <string>
 
-#include "recorder/src/service/qmmf_audio_track_source.h"
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-namespace qmmf {
-namespace recorder {
+using ::qmmf::recorder::AudioTrackCreateParam;
+using ::qmmf::recorder::BufferDescriptor;
+using ::std::ifstream;
+using ::std::ofstream;
+using ::std::setbase;
+using ::std::streampos;
+using ::std::string;
+using ::std::stringstream;
 
-using ::std::map;
-
-class AudioSource {
+class RecorderTestAac
+{
  public:
-  static AudioSource* CreateAudioSource();
+  RecorderTestAac();
+  ~RecorderTestAac();
 
-  ~AudioSource();
+  int32_t Configure(const string& filename_prefix,
+                    const uint32_t track_id,
+                    const AudioTrackCreateParam& params);
 
-  status_t CreateTrackSource(const uint32_t track_id, AudioTrackParams& params);
-  status_t DeleteTrackSource(const uint32_t track_id);
+  int32_t Open();
+  void Close();
 
-  status_t StartTrackSource(const uint32_t track_id);
-  status_t StopTrackSource(const uint32_t track_id);
-  status_t PauseTrackSource(const uint32_t track_id);
-  status_t ResumeTrackSource(const uint32_t track_id);
-
-  status_t ReturnTrackBuffer(const uint32_t track_id,
-                             const std::vector<BnBuffer>& buffers);
-
-  AudioEncodedTrackSource* getTrackSource(uint32_t track_id);
+  int32_t Write(const BufferDescriptor& buffer);
 
  private:
-  typedef map<uint32_t, IAudioTrackSource*> AudioTrackSourceMap;
+  struct __attribute__((packed)) AacRawHeader {
+    uint64_t sync : 12;
+    uint64_t id : 1;
+    uint64_t layer : 2;
+    uint64_t crc : 1;
+    uint64_t profile : 2;
+    uint64_t sample_rate : 4;
+    uint64_t private_bit : 1;
+    uint64_t channels : 3;
+    uint64_t original : 1;
+    uint64_t home : 1;
+    uint64_t copyright_id : 1;
+    uint64_t copyright_start : 1;
+    uint64_t frame_length : 13;
+    uint64_t fullness : 11;
+    uint64_t raw_data : 2;
+  };
 
-  AudioSource();
-  static AudioSource* instance_;
-
-  AudioTrackSourceMap track_source_map_;
+  string filename_;
+  ofstream output_;
+  AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
-  AudioSource(const AudioSource&) = delete;
-  AudioSource(AudioSource&&) = delete;
-  AudioSource& operator=(const AudioSource&) = delete;
-  AudioSource& operator=(const AudioSource&&) = delete;
+  RecorderTestAac(const RecorderTestAac&) = delete;
+  RecorderTestAac(RecorderTestAac&&) = delete;
+  RecorderTestAac& operator=(const RecorderTestAac&) = delete;
+  RecorderTestAac& operator=(const RecorderTestAac&&) = delete;
 };
-
-}; // namespace recorder
-}; // namespace qmmf

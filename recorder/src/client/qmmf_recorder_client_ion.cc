@@ -113,6 +113,7 @@ int RecorderClientIon::Associate(uint32_t track_id,
       buffer->flag = bn_buffer.flag;
       buffer->buf_id = bn_buffer.buffer_id;
       buffer->capacity = bn_buffer.capacity;
+      buffer->fd = bn_buffer.buffer_id;
       QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
                    buffer->ToString().c_str());
       return 0;

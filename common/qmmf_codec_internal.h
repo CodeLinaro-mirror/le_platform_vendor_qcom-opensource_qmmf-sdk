@@ -30,16 +30,12 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
 #include <binder/Parcel.h>
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
-
-using ::android::Parcel;
-using ::std::vector;
 
 struct VideoEncodeInitQPInternal : public VideoEncodeInitQP {
   VideoEncodeInitQPInternal() {}
@@ -48,14 +44,14 @@ struct VideoEncodeInitQPInternal : public VideoEncodeInitQP {
   VideoEncodeInitQPInternal(const VideoEncodeInitQP& base)
       : VideoEncodeInitQP(const_cast<VideoEncodeInitQP&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(init_IQP);
     parcel->writeUint32(init_PQP);
     parcel->writeUint32(init_BQP);
     parcel->writeUint32(init_QP_mode);
   }
 
-  VideoEncodeInitQPInternal& FromParcel(const Parcel& parcel) {
+  VideoEncodeInitQPInternal& FromParcel(const ::android::Parcel& parcel) {
     init_IQP = parcel.readUint32();
     init_PQP = parcel.readUint32();
     init_BQP = parcel.readUint32();
@@ -71,12 +67,12 @@ struct VideoEncodeQPRangeInternal : public VideoEncodeQPRange {
   VideoEncodeQPRangeInternal(const VideoEncodeQPRange& base)
       : VideoEncodeQPRange(const_cast<VideoEncodeQPRange&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(min_QP);
     parcel->writeUint32(max_QP);
   }
 
-  VideoEncodeQPRangeInternal& FromParcel(const Parcel& parcel) {
+  VideoEncodeQPRangeInternal& FromParcel(const ::android::Parcel& parcel) {
     min_QP = parcel.readUint32();
     max_QP = parcel.readUint32();
     return *this;
@@ -90,7 +86,7 @@ struct VideoEncodeIPBQPRangeInternal : public VideoEncodeIPBQPRange {
   VideoEncodeIPBQPRangeInternal(const VideoEncodeIPBQPRange& base)
       : VideoEncodeIPBQPRange(const_cast<VideoEncodeIPBQPRange&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(min_IQP);
     parcel->writeUint32(max_IQP);
     parcel->writeUint32(min_PQP);
@@ -99,7 +95,7 @@ struct VideoEncodeIPBQPRangeInternal : public VideoEncodeIPBQPRange {
     parcel->writeUint32(max_BQP);
   }
 
-  VideoEncodeIPBQPRangeInternal& FromParcel(const Parcel& parcel) {
+  VideoEncodeIPBQPRangeInternal& FromParcel(const ::android::Parcel& parcel) {
     min_IQP = parcel.readUint32();
     max_IQP = parcel.readUint32();
     min_PQP = parcel.readUint32();
@@ -116,7 +112,7 @@ struct VideoQPParamsInternal : public VideoQPParams {
   VideoQPParamsInternal(const VideoQPParams& base)
       : VideoQPParams(const_cast<VideoQPParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(enable_init_qp));
     VideoEncodeInitQPInternal(init_qp).ToParcel(parcel);
     parcel->writeInt32(static_cast<int32_t>(enable_qp_range));
@@ -125,7 +121,7 @@ struct VideoQPParamsInternal : public VideoQPParams {
     VideoEncodeIPBQPRangeInternal(qp_IBP_range).ToParcel(parcel);
   }
 
-  VideoQPParamsInternal& FromParcel(const Parcel& parcel) {
+  VideoQPParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     enable_init_qp = static_cast<bool>(parcel.readInt32());
     init_qp = VideoEncodeInitQPInternal().FromParcel(parcel);
     enable_qp_range = static_cast<bool>(parcel.readInt32());
@@ -142,7 +138,7 @@ struct AVCParamsInternal : public AVCParams {
   AVCParamsInternal(const AVCParams& base)
       : AVCParams(const_cast<AVCParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(idr_interval);
     parcel->writeUint32(bitrate);
     parcel->writeInt32(static_cast<int32_t>(profile));
@@ -153,7 +149,7 @@ struct AVCParamsInternal : public AVCParams {
     parcel->writeUint32(hier_layer);
   }
 
-  AVCParamsInternal& FromParcel(const Parcel& parcel) {
+  AVCParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     idr_interval = parcel.readUint32();
     bitrate = parcel.readUint32();
     profile = static_cast<AVCProfileType>(parcel.readInt32());
@@ -172,7 +168,7 @@ struct HEVCParamsInternal : public HEVCParams {
   HEVCParamsInternal(const HEVCParams& base)
       : HEVCParams(const_cast<HEVCParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(idr_interval);
     parcel->writeUint32(bitrate);
     parcel->writeInt32(static_cast<int32_t>(profile));
@@ -183,7 +179,7 @@ struct HEVCParamsInternal : public HEVCParams {
     parcel->writeUint32(hier_layer);
   }
 
-  HEVCParamsInternal& FromParcel(const Parcel& parcel) {
+  HEVCParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     idr_interval = parcel.readUint32();
     bitrate = parcel.readUint32();
     profile = static_cast<HEVCProfileType>(parcel.readInt32());
@@ -202,11 +198,11 @@ struct JPEGParamsInternal : public JPEGParams {
   JPEGParamsInternal(const JPEGParams& base)
       : JPEGParams(const_cast<JPEGParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(quality);
   }
 
-  JPEGParamsInternal& FromParcel(const Parcel& parcel) {
+  JPEGParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     quality = parcel.readInt32();
     return *this;
   }
@@ -219,13 +215,13 @@ struct VideoEncodeIDRIntervalInternal : public VideoEncodeIDRInterval {
   VideoEncodeIDRIntervalInternal(const VideoEncodeIDRInterval& base)
       : VideoEncodeIDRInterval(const_cast<VideoEncodeIDRInterval&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(idr_period);
     parcel->writeInt32(num_P_frames);
     parcel->writeInt32(num_B_frames);
   }
 
-  VideoEncodeIDRIntervalInternal& FromParcel(const Parcel& parcel) {
+  VideoEncodeIDRIntervalInternal& FromParcel(const ::android::Parcel& parcel) {
     idr_period = parcel.readInt32();
     num_P_frames = parcel.readInt32();
     num_B_frames = parcel.readInt32();
@@ -239,12 +235,12 @@ struct VideoEncLtrUseInternal : public VideoEncLtrUse {
   VideoEncLtrUseInternal(const VideoEncLtrUse& base)
       : VideoEncLtrUse(const_cast<VideoEncLtrUse&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(id);
     parcel->writeInt32(frame);
   }
 
-  VideoEncLtrUseInternal& FromParcel(const Parcel& parcel) {
+  VideoEncLtrUseInternal& FromParcel(const ::android::Parcel& parcel) {
     id = parcel.readInt32();
     frame = parcel.readInt32();
     return *this;
@@ -258,13 +254,13 @@ struct VideoEncIdrIntervalInternal : public VideoEncIdrInterval {
   VideoEncIdrIntervalInternal(const VideoEncIdrInterval& base)
       : VideoEncIdrInterval(const_cast<VideoEncIdrInterval&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(idr_period);
     parcel->writeInt32(num_pframes);
     parcel->writeInt32(num_bframes);
   }
 
-  VideoEncIdrIntervalInternal& FromParcel(const Parcel& parcel) {
+  VideoEncIdrIntervalInternal& FromParcel(const ::android::Parcel& parcel) {
     idr_period = parcel.readInt32();
     num_pframes = parcel.readInt32();
     num_bframes = parcel.readInt32();
@@ -278,14 +274,14 @@ struct PlaneInfoInternal : public PlaneInfo {
   PlaneInfoInternal(const PlaneInfo& base)
       : PlaneInfo(const_cast<PlaneInfo&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(stride);
     parcel->writeUint32(scanline);
     parcel->writeUint32(width);
     parcel->writeUint32(height);
   }
 
-  PlaneInfoInternal& FromParcel(const Parcel& parcel) {
+  PlaneInfoInternal& FromParcel(const ::android::Parcel& parcel) {
     stride = parcel.readUint32();
     scanline = parcel.readUint32();
     width = parcel.readUint32();
@@ -300,14 +296,14 @@ struct MetaInfoInternal : public MetaInfo {
   MetaInfoInternal(const MetaInfo& base)
       : MetaInfo(const_cast<MetaInfo&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(format));
     parcel->writeUint32(num_planes);
     for (uint32_t idx = 0; idx < num_planes; ++idx)
       PlaneInfoInternal(plane_info[idx]).ToParcel(parcel);
   }
 
-  MetaInfoInternal& FromParcel(const Parcel& parcel) {
+  MetaInfoInternal& FromParcel(const ::android::Parcel& parcel) {
     format = static_cast<BufferFormat>(parcel.readInt32());
     num_planes = parcel.readUint32();
     for (int idx = 0; idx < num_planes; ++idx)
@@ -322,29 +318,26 @@ struct CodecInfoInternal : public CodecInfo {
   CodecInfoInternal(const CodecInfo& base)
       : CodecInfo(const_cast<CodecInfo&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<CodecType>::type>(type));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(type));
     switch (type) {
       case CodecType::kVideoEncoder:
       case CodecType::kVideoDecoder:
-        parcel->writeInt32(
-            static_cast<underlying_type<VideoFormat>::type>(format.video));
+        parcel->writeInt32(static_cast<int32_t>(format.video));
         break;
       case CodecType::kAudioEncoder:
       case CodecType::kAudioDecoder:
-        parcel->writeInt32(
-            static_cast<underlying_type<AudioFormat>::type>(format.audio));
+        parcel->writeInt32(static_cast<int32_t>(format.audio));
         break;
       case CodecType::kImageEncoder:
       case CodecType::kImageDecoder:
-        parcel->writeInt32(
-            static_cast<underlying_type<ImageFormat>::type>(format.image));
+        parcel->writeInt32(static_cast<int32_t>(format.image));
         break;
     }
     parcel->writeInt32(static_cast<int32_t>(id));
   }
 
-  CodecInfoInternal& FromParcel(const Parcel& parcel) {
+  CodecInfoInternal& FromParcel(const ::android::Parcel& parcel) {
     type = static_cast<CodecType>(parcel.readInt32());
     switch (type) {
       case CodecType::kVideoEncoder:
@@ -371,14 +364,14 @@ struct AACParamsInternal : public AACParams {
   AACParamsInternal(const AACParams& base)
       : AACParams(const_cast<AACParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<AACFormat>::type>(format));
-    parcel->writeInt32(static_cast<underlying_type<AACMode>::type>(mode));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(format));
+    parcel->writeInt32(static_cast<int32_t>(mode));
     parcel->writeInt32(frame_length);
     parcel->writeInt32(bit_rate);
   }
 
-  AACParamsInternal& FromParcel(const Parcel& parcel) {
+  AACParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     format = static_cast<AACFormat>(parcel.readInt32());
     mode = static_cast<AACMode>(parcel.readInt32());
     frame_length = parcel.readInt32();
@@ -393,12 +386,12 @@ struct AMRParamsInternal : public AMRParams {
   AMRParamsInternal(const AMRParams& base)
       : AMRParams(const_cast<AMRParams&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(isWAMR));
     parcel->writeInt32(bit_rate);
   }
 
-  AMRParamsInternal& FromParcel(const Parcel& parcel) {
+  AMRParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     isWAMR = static_cast<bool>(parcel.readInt32());
     bit_rate = parcel.readInt32();
     return *this;
@@ -411,12 +404,12 @@ struct G711ParamsInternal : public G711Params {
   G711ParamsInternal(const G711Params& base)
       : G711Params(const_cast<G711Params&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<G711Mode>::type>(mode));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(mode));
     parcel->writeInt32(bit_rate);
   }
 
-  G711ParamsInternal& FromParcel(const Parcel& parcel) {
+  G711ParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     mode = static_cast<G711Mode>(parcel.readInt32());
     bit_rate = parcel.readInt32();
     return *this;

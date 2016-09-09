@@ -49,6 +49,7 @@ using ::std::ios;
 using ::std::ofstream;
 using ::std::streampos;
 using ::std::string;
+using ::std::to_string;
 using ::std::underlying_type;
 
 static const uint32_t kIdRiff = 0x46464952;
@@ -68,10 +69,12 @@ RecorderTestWav::~RecorderTestWav() {
 }
 
 int32_t RecorderTestWav::Configure(const string& filename_prefix,
+                                   const uint32_t track_id,
                                    const AudioTrackCreateParam& params) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: filename_prefix[%s]", TAG, __func__,
                filename_prefix.c_str());
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
                params.ToString().c_str());
 
@@ -82,6 +85,7 @@ int32_t RecorderTestWav::Configure(const string& filename_prefix,
   }
 
   filename_ = filename_prefix;
+  filename_.append(to_string(track_id));
   filename_.append(kFilenameSuffix);
 
   header_.riff_header.riff_id = kIdRiff;

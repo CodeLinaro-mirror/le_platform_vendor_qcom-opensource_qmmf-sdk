@@ -34,17 +34,8 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
-#include <vector>
 
 namespace qmmf {
-
-using ::std::boolalpha;
-using ::std::noboolalpha;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-using ::std::underlying_type;
 
 typedef int32_t CodecId;
 
@@ -120,13 +111,13 @@ struct VideoEncodeInitQP {
                               ///< Bit 2: Enable initial QP for B
                               ///<       and use value specified in init_BQP
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "init_IQP[" << init_IQP << "] ";
     stream << "init_PQP[" << init_PQP << "] ";
     stream << "init_BQP[" << init_BQP << "] ";
-    stream << "init_QP_mode[" << setbase(16) << init_QP_mode << setbase(10)
-           << "]";
+    stream << "init_QP_mode[" << ::std::setbase(16) << init_QP_mode
+           << ::std::setbase(10) << "]";
     return stream.str();
   }
 };
@@ -135,8 +126,8 @@ struct VideoEncodeQPRange {
   uint32_t    min_QP;
   uint32_t    max_QP;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "min_QP[" << min_QP << "] ";
     stream << "max_QP[" << max_QP << "]";
     return stream.str();
@@ -151,8 +142,8 @@ struct VideoEncodeIPBQPRange {
   uint32_t    min_BQP;
   uint32_t    max_BQP;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "min_IQP[" << min_IQP << "] ";
     stream << "max_IQP[" << max_IQP << "] ";
     stream << "min_PQP[" << min_PQP << "] ";
@@ -171,16 +162,16 @@ typedef struct VideoQPParams {
   bool                  enable_qp_IBP_range;
   VideoEncodeIPBQPRange qp_IBP_range;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "enable_init_qp[" << boolalpha << enable_init_qp << noboolalpha
-           << "] ";
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "enable_init_qp[" << ::std::boolalpha << enable_init_qp
+           << ::std::noboolalpha << "] ";
     stream << "init_qp[" << init_qp.ToString() << "]";
-    stream << "enable_qp_range[" << boolalpha << enable_qp_range << noboolalpha
-           << "] ";
+    stream << "enable_qp_range[" << ::std::boolalpha << enable_qp_range
+           << ::std::noboolalpha << "] ";
     stream << "qp_range[" << qp_range.ToString() << "]";
-    stream << "enable_qp_IBP_range[" << boolalpha << enable_qp_IBP_range
-           << noboolalpha << "] ";
+    stream << "enable_qp_IBP_range[" << ::std::boolalpha << enable_qp_IBP_range
+           << ::std::noboolalpha << "] ";
     stream << "qp_IBP_range[" << qp_IBP_range.ToString() << "]";
     return stream.str();
   }
@@ -204,17 +195,18 @@ struct AVCParams {
   uint32_t             ltr_count;
   uint32_t             hier_layer;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "idr_interval[" << idr_interval << "] ";
     stream << "bitrate[" << bitrate << "] ";
     stream << "profile["
-           << static_cast<underlying_type<AVCProfileType>::type>(profile)
+           << static_cast<::std::underlying_type<AVCProfileType>::type>(profile)
            << "] ";
     stream << "level["
-           << static_cast<underlying_type<AVCLevelType>::type>(level) << "] ";
+           << static_cast<::std::underlying_type<AVCLevelType>::type>(level)
+           << "] ";
     stream << "ratecontrol_type["
-           << static_cast<underlying_type<VideoRateControlType>::type>
+           << static_cast<::std::underlying_type<VideoRateControlType>::type>
                          (ratecontrol_type)
            << "] ";
     stream << "qp_params[" << qp_params.ToString() << "] ";
@@ -234,17 +226,19 @@ struct HEVCParams {
   uint32_t             ltr_count;
   uint32_t             hier_layer;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "idr_interval[" << idr_interval << "] ";
     stream << "bitrate[" << bitrate << "] ";
     stream << "profile["
-           << static_cast<underlying_type<HEVCProfileType>::type>(profile)
+           << static_cast<::std::underlying_type<HEVCProfileType>::type>
+                         (profile)
            << "] ";
     stream << "level["
-           << static_cast<underlying_type<HEVCLevelType>::type>(level) << "] ";
+           << static_cast<::std::underlying_type<HEVCLevelType>::type>(level)
+           << "] ";
     stream << "ratecontrol_type["
-           << static_cast<underlying_type<VideoRateControlType>::type>
+           << static_cast<::std::underlying_type<VideoRateControlType>::type>
                          (ratecontrol_type)
            << "] ";
     stream << "qp_params[" << qp_params.ToString() << "] ";
@@ -257,8 +251,8 @@ struct HEVCParams {
 struct JPEGParams {
   int32_t quality;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "quality[" << quality << "]";
     return stream.str();
   }
@@ -269,8 +263,8 @@ union VideoCodecParams {
   AVCParams  avc;
   JPEGParams jpeg;
 
-  string ToString(const VideoFormat key) const {
-    stringstream stream;
+  ::std::string ToString(const VideoFormat key) const {
+    ::std::stringstream stream;
     switch (key) {
       case VideoFormat::kHEVC:
         stream << "hevc[" << hevc.ToString() << "]";
@@ -285,7 +279,8 @@ union VideoCodecParams {
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<VideoFormat>::type>(key) << "]";
+               << static_cast<::std::underlying_type<VideoFormat>::type>(key)
+               << "]";
         break;
     }
     return stream.str();
@@ -297,8 +292,8 @@ struct VideoEncodeIDRInterval {
   int32_t    num_P_frames;
   int32_t    num_B_frames;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "idr_period[" << idr_period << "] ";
     stream << "num_P_frames[" << num_P_frames << "] ";
     stream << "num_B_frames[" << num_B_frames << "]";
@@ -310,8 +305,8 @@ struct VideoEncLtrUse {
   int32_t id;
   int32_t frame;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "id[" << id << "] ";
     stream << "frame[" << frame << "]";
     return stream.str();
@@ -323,8 +318,8 @@ struct VideoEncIdrInterval {
   int32_t num_pframes;
   int32_t num_bframes;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "idr_period[" << idr_period << "] ";
     stream << "num_pframes[" << num_pframes << "] ";
     stream << "num_bframes[" << num_bframes << "]";
@@ -352,8 +347,8 @@ struct PlaneInfo {
   uint32_t width;
   uint32_t height;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "stride[" << stride << "] ";
     stream << "scanline[" << scanline << "] ";
     stream << "width[" << width << "] ";
@@ -375,10 +370,11 @@ struct MetaInfo {
   uint32_t  num_planes;
   PlaneInfo plane_info[MAX_PLANE];
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "format["
-           << static_cast<underlying_type<BufferFormat>::type>(format) << "] ";
+           << static_cast<::std::underlying_type<BufferFormat>::type>(format)
+           << "] ";
     stream << "num_planes[" << num_planes << "] ";
     stream << "plane_info[";
     for (uint32_t idx = 0; idx < num_planes; ++idx)
@@ -399,27 +395,31 @@ union CodecFormat {
   AudioFormat audio;
   ImageFormat image;
 
-  string ToString(const CodecType key) const {
-    stringstream stream;
+  ::std::string ToString(const CodecType key) const {
+    ::std::stringstream stream;
     switch (key) {
       case CodecType::kVideoEncoder:
       case CodecType::kVideoDecoder:
         stream << "video["
-               << static_cast<underlying_type<VideoFormat>::type>(video) << "]";
+               << static_cast<::std::underlying_type<VideoFormat>::type>(video)
+               << "]";
         break;
       case CodecType::kAudioEncoder:
       case CodecType::kAudioDecoder:
         stream << "audio["
-               << static_cast<underlying_type<AudioFormat>::type>(audio) << "]";
+               << static_cast<::std::underlying_type<AudioFormat>::type>(audio)
+               << "]";
         break;
       case CodecType::kImageEncoder:
       case CodecType::kImageDecoder:
         stream << "image["
-               << static_cast<underlying_type<ImageFormat>::type>(image) << "]";
+               << static_cast<::std::underlying_type<ImageFormat>::type>(image)
+               << "]";
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<CodecType>::type>(key) << "]";
+               << static_cast<::std::underlying_type<CodecType>::type>(key)
+               << "]";
         break;
     }
     return stream.str();
@@ -431,9 +431,10 @@ struct CodecInfo {
   CodecFormat format;
   CodecId id;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "type[" << static_cast<underlying_type<CodecType>::type>(type)
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "type["
+           << static_cast<::std::underlying_type<CodecType>::type>(type)
            << "] ";
     stream << "format[" << format.ToString(type) << "] ";
     stream << "id[" << id << "]";
@@ -455,15 +456,17 @@ enum class AACMode {
 
 struct AACParams {
   AACFormat format;
-  AACMode   mode;
-  int32_t   frame_length;
-  int32_t   bit_rate;
+  AACMode mode;
+  int32_t frame_length;
+  int32_t bit_rate;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "format[" << static_cast<underlying_type<AACFormat>::type>(format)
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "format["
+           << static_cast<::std::underlying_type<AACFormat>::type>(format)
            << "]";
-    stream << "mode[" << static_cast<underlying_type<AACMode>::type>(mode)
+    stream << "mode["
+           << static_cast<::std::underlying_type<AACMode>::type>(mode)
            << "]";
     stream << "frame_length[" << frame_length << "] ";
     stream << "bit_rate[" << bit_rate << "]";
@@ -475,9 +478,10 @@ struct AMRParams {
   bool    isWAMR;
   int32_t bit_rate;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "frame_length[" << boolalpha << isWAMR << noboolalpha << "] ";
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "frame_length[" << ::std::boolalpha << isWAMR
+           << ::std::noboolalpha << "] ";
     stream << "bit_rate[" << bit_rate << "]";
     return stream.str();
   }
@@ -492,9 +496,10 @@ struct G711Params {
   G711Mode mode;
   int32_t  bit_rate;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "mode[" << static_cast<underlying_type<G711Mode>::type>(mode)
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "mode["
+           << static_cast<::std::underlying_type<G711Mode>::type>(mode)
            << "]";
     stream << "bit_rate[" << bit_rate << "]";
     return stream.str();
@@ -506,8 +511,8 @@ union AudioCodecParams {
   AMRParams  amr;
   G711Params g711;
 
-  string ToString(const AudioFormat key) const {
-    stringstream stream;
+  ::std::string ToString(const AudioFormat key) const {
+    ::std::stringstream stream;
     switch (key) {
       case AudioFormat::kPCM:
        stream << "N/A";
@@ -523,7 +528,8 @@ union AudioCodecParams {
       break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<AudioFormat>::type>(key) << "]";
+               << static_cast<::std::underlying_type<AudioFormat>::type>(key)
+               << "]";
         break;
     }
     return stream.str();

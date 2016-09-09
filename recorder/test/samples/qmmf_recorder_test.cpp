@@ -38,6 +38,7 @@
 
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
+#include "recorder/test/samples/qmmf_recorder_test_aac.h"
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -542,17 +543,19 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   tracks.push_back(track_info);
 
   //Create Audio track.
-  uint32_t audio_track_id = 101;
+  uint32_t audio_track_id = 102;
   AudioTrackCreateParam audio_track_params;
   memset(&audio_track_params, 0x0, sizeof audio_track_params);
-
-  audio_track_params.in_devices.push_back(static_cast<DeviceId>(0));
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
   audio_track_params.sample_rate    = 48000;
   audio_track_params.channels       = 1;
   audio_track_params.bit_depth      = 16;
-  audio_track_params.format         = AudioFormat::kPCM;
+  audio_track_params.format         = AudioFormat::kAAC;
   memset(&audio_track_params.codec_params, 0x0,
          sizeof audio_track_params.codec_params);
+  audio_track_params.codec_params.aac.format = AACFormat::kADTS;
+  audio_track_params.codec_params.aac.mode = AACMode::kAALC;
   audio_track_params.out_device     = 0;
   audio_track_params.flags          = 0;
 
@@ -576,13 +579,16 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
 
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id = audio_track_id;
-  track_info.type     = TrackType::kAudioTrack;
+  track_info.type     = TrackType::kAudioAACTrack;
   tracks.push_back(track_info);
 
   sessions_.insert({session_id, tracks});
 
-  ret = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
+  RecorderTestAac *aac = new RecorderTestAac();
+  ret = aac->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                       audio_track_params);
   assert(ret == NO_ERROR);
+  aac_map_.insert({audio_track_id, aac});
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -891,8 +897,7 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
   return 0;
 }
 
-void RecorderTest::CreateAudioOnlySession() {
-
+void RecorderTest::CreateAudioPCMTrack() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   std::vector<TrackInfo> tracks;
 
@@ -909,7 +914,9 @@ void RecorderTest::CreateAudioOnlySession() {
 
   uint32_t audio_track_id = 101;
   AudioTrackCreateParam audio_track_params;
-  audio_track_params.in_devices.push_back(static_cast<DeviceId>(0));
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
   audio_track_params.sample_rate = 48000;
   audio_track_params.channels    = 1;
   audio_track_params.bit_depth   = 16;
@@ -940,13 +947,270 @@ void RecorderTest::CreateAudioOnlySession() {
   TrackInfo track_info;
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id = audio_track_id;
-  track_info.type     = TrackType::kAudioTrack;
+  track_info.type     = TrackType::kAudioPCMTrack;
   tracks.push_back(track_info);
 
   sessions_.insert({session_id, tracks});
 
-  result = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
+  RecorderTestWav *wav = new RecorderTestWav();
+  result = wav->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
   assert(result == NO_ERROR);
+  wav_map_.insert({audio_track_id, wav});
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+void RecorderTest::CreateAudio2PCMTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::vector<TrackInfo> tracks;
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [&] (EventType event_type, void *event_data, size_t event_data_size) {
+        SessionCallbackHandler(event_type, event_data, event_data_size);
+      };
+
+  uint32_t session_id;
+  auto result = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(result == NO_ERROR);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  TrackCb audio_track_cb;
+  audio_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+              void* meta_param, MetaParamType meta_type, size_t meta_size)
+              -> void {
+        AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
+      };
+
+  audio_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+        AudioTrackEventCb(track_id, event_type, event_data, event_data_size);
+      };
+
+  uint32_t audio_track_id = 101;
+  AudioTrackCreateParam audio_track_params;
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kPCM;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
+
+  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
+                                      audio_track_params, audio_track_cb);
+  assert(result == NO_ERROR);
+
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioPCMTrack;
+  tracks.push_back(track_info);
+
+  RecorderTestWav *wav = new RecorderTestWav();
+  result = wav->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
+  assert(result == NO_ERROR);
+  wav_map_.insert({audio_track_id, wav});
+
+  audio_track_id = 102;
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kPCM;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
+
+  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
+                                      audio_track_params, audio_track_cb);
+  assert(result == NO_ERROR);
+
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioPCMTrack;
+  tracks.push_back(track_info);
+
+  wav = new RecorderTestWav();
+  result = wav->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
+  assert(result == NO_ERROR);
+  wav_map_.insert({audio_track_id, wav});
+
+  sessions_.insert({session_id, tracks});
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+void RecorderTest::CreateAudioAACTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::vector<TrackInfo> tracks;
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [&] (EventType event_type, void *event_data, size_t event_data_size) {
+        SessionCallbackHandler(event_type, event_data, event_data_size);
+      };
+
+  uint32_t session_id;
+  auto result = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(result == NO_ERROR);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  TrackCb audio_track_cb;
+  audio_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+              void* meta_param, MetaParamType meta_type, size_t meta_size)
+              -> void {
+        AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
+      };
+
+  audio_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+        AudioTrackEventCb(track_id, event_type, event_data, event_data_size);
+      };
+
+  AudioTrackCreateParam audio_track_params;
+  uint32_t audio_track_id;
+
+  audio_track_id = 101;
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kAAC;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.codec_params.aac.format = AACFormat::kADTS;
+  audio_track_params.codec_params.aac.mode = AACMode::kAALC;
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
+
+  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
+                                      audio_track_params, audio_track_cb);
+  assert(result == NO_ERROR);
+
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioAACTrack;
+  tracks.push_back(track_info);
+
+  sessions_.insert({session_id, tracks});
+
+  RecorderTestAac *aac = new RecorderTestAac();
+  result = aac->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
+  assert(result == NO_ERROR);
+  aac_map_.insert({audio_track_id, aac});
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+void RecorderTest::CreateAudioPCMAACTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::vector<TrackInfo> tracks;
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [&] (EventType event_type, void *event_data, size_t event_data_size) {
+        SessionCallbackHandler(event_type, event_data, event_data_size);
+      };
+
+  uint32_t session_id;
+  auto result = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(result == NO_ERROR);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  TrackCb audio_track_cb;
+  audio_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+              void* meta_param, MetaParamType meta_type, size_t meta_size)
+              -> void {
+        AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
+      };
+
+  audio_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+        AudioTrackEventCb(track_id, event_type, event_data, event_data_size);
+      };
+
+  uint32_t audio_track_id = 101;
+  AudioTrackCreateParam audio_track_params;
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kPCM;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
+
+  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
+                                      audio_track_params, audio_track_cb);
+  assert(result == NO_ERROR);
+
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioPCMTrack;
+  tracks.push_back(track_info);
+
+  RecorderTestWav *wav = new RecorderTestWav();
+  result = wav->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
+  assert(result == NO_ERROR);
+  wav_map_.insert({audio_track_id, wav});
+
+  audio_track_id = 102;
+  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                                     (AudioDeviceId::kBuiltIn));
+  audio_track_params.sample_rate = 48000;
+  audio_track_params.channels    = 1;
+  audio_track_params.bit_depth   = 16;
+  audio_track_params.format      = AudioFormat::kAAC;
+  memset(&audio_track_params.codec_params, 0x0,
+         sizeof audio_track_params.codec_params);
+  audio_track_params.codec_params.aac.format = AACFormat::kADTS;
+  audio_track_params.codec_params.aac.mode = AACMode::kAALC;
+  audio_track_params.out_device  = 0;
+  audio_track_params.flags       = 0;
+
+  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
+                                      audio_track_params, audio_track_cb);
+  assert(result == NO_ERROR);
+
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id = audio_track_id;
+  track_info.type     = TrackType::kAudioAACTrack;
+  tracks.push_back(track_info);
+
+  RecorderTestAac *aac = new RecorderTestAac();
+  result = aac->Configure(kDefaultAudioFilenamePrefix, audio_track_id,
+                          audio_track_params);
+  assert(result == NO_ERROR);
+  aac_map_.insert({audio_track_id, aac});
+
+  sessions_.insert({session_id, tracks});
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -959,13 +1223,19 @@ int32_t RecorderTest::StartSession() {
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
 
-  bool has_audio = false;
   for (auto track_info : it->second) {
-    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
-  }
-  if (has_audio) {
-    result = wav_.Open();
-    assert(result == NO_ERROR);
+    if (track_info.type == TrackType::kAudioPCMTrack) {
+      auto wav_iterator = wav_map_.find(track_info.track_id);
+      assert(wav_iterator != wav_map_.end());
+      result = wav_iterator->second->Open();
+      assert(result == NO_ERROR);
+    }
+    else if (track_info.type == TrackType::kAudioAACTrack) {
+      auto aac_iterator = aac_map_.find(track_info.track_id);
+      assert(aac_iterator != aac_map_.end());
+      result = aac_iterator->second->Open();
+      assert(result == NO_ERROR);
+    }
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -979,12 +1249,18 @@ int32_t RecorderTest::StopSession() {
   auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
   assert(result == NO_ERROR);
 
-  bool has_audio = false;
   for (auto track_info : it->second) {
-    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
+    if (track_info.type == TrackType::kAudioPCMTrack) {
+      auto wav_iterator = wav_map_.find(track_info.track_id);
+      assert(wav_iterator != wav_map_.end());
+      wav_iterator->second->Close();
+    }
+    else if (track_info.type == TrackType::kAudioAACTrack) {
+      auto aac_iterator = aac_map_.find(track_info.track_id);
+      assert(aac_iterator != aac_map_.end());
+      aac_iterator->second->Close();
+    }
   }
-  if (has_audio)
-    wav_.Close();
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -1163,8 +1439,22 @@ int32_t RecorderTest::DeleteSession()
   // Delete all the tracks associated to session.
   status_t ret;
   for (auto track_info : it->second) {
-      if (track_info.type == TrackType::kAudioTrack)
+      if (track_info.type == TrackType::kAudioPCMTrack ||
+          track_info.type == TrackType::kAudioAACTrack ) {
         ret = recorder_.DeleteAudioTrack(session_id, track_info.track_id);
+        if (track_info.type == TrackType::kAudioPCMTrack) {
+          auto wav_iterator = wav_map_.find(track_info.track_id);
+          assert(wav_iterator != wav_map_.end());
+          delete wav_iterator->second;
+          wav_map_.erase(wav_iterator->first);
+        }
+        else if (track_info.type == TrackType::kAudioAACTrack) {
+          auto aac_iterator = aac_map_.find(track_info.track_id);
+          assert(aac_iterator != aac_map_.end());
+          delete aac_iterator->second;
+          aac_map_.erase(aac_iterator->first);
+        }
+      }
       else
         ret = recorder_.DeleteVideoTrack(session_id, track_info.track_id);
       assert(ret == 0);
@@ -1271,11 +1561,32 @@ void RecorderTest::AudioTrackDataCb(uint32_t track_id,
                                     void *meta_param,
                                     MetaParamType meta_type,
                                     size_t meta_size) {
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Enter track_id[%d]", TAG, __func__, track_id);
+  bool track_found = false;
 
-  for (const BufferDescriptor& buffer : buffers) {
-    int result = wav_.Write(buffer);
-    assert(result == 0);
+  auto wav_iterator = wav_map_.find(track_id);
+  if (wav_iterator != wav_map_.end()) {
+    for (const BufferDescriptor& buffer : buffers) {
+      int32_t result = wav_iterator->second->Write(buffer);
+      assert(result == 0);
+    }
+    track_found = true;
+  }
+
+  auto aac_iterator = aac_map_.find(track_id);
+  if (aac_iterator != aac_map_.end()) {
+    for (const BufferDescriptor& buffer : buffers) {
+      if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+        break;
+      int32_t result = aac_iterator->second->Write(buffer);
+      assert(result == 0);
+    }
+    track_found = true;
+  }
+
+  if (track_found == false) {
+    TEST_ERROR("%s:%s: no file endpoint found for given track id", TAG, __func__);
+    assert(0);
   }
 
   // Return buffers back to service.
@@ -1290,7 +1601,7 @@ void RecorderTest::AudioTrackDataCb(uint32_t track_id,
 void RecorderTest::AudioTrackEventCb(uint32_t track_id, EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s:%s: Enter track_id[%d]", TAG, __func__, track_id);
 
   if (event_type == EventType::kError)
     assert(false);
@@ -1558,7 +1869,13 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
     CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
-      CmdMenu::CREATE_AUD_SESSION_CMD);
+      CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
+      CmdMenu::CREATE_2PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (AAC mono)\n",
+      CmdMenu::CREATE_AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + AAC mono)\n",
+      CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -1636,11 +1953,22 @@ int main(int argc,char *argv[]) {
         test_context.SessionTwo1080pEncTracks(VideoCodecType::kTypeAVC);
       }
       break;
-      case CmdMenu::CREATE_AUD_SESSION_CMD: {
-          test_context.CreateAudioOnlySession();
+      case CmdMenu::CREATE_PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMTrack();
       }
       break;
-
+      case CmdMenu::CREATE_2PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudio2PCMTrack();
+      }
+      break;
+      case CmdMenu::CREATE_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioAACTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMAACTrack();
+      }
+      break;
       case CmdMenu::START_SESSION_CMD: {
         test_context.StartSession();
       }

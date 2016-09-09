@@ -53,7 +53,11 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
 }
 
 RecorderImpl::RecorderImpl()
-  : unique_id_(0), camera_source_(nullptr), audio_source_(nullptr) {
+  : unique_id_(0),
+    camera_source_(nullptr),
+    encoder_core_(nullptr),
+    audio_source_(nullptr),
+    audio_encoder_core_(nullptr) {
 
     QMMF_INFO("%s:%s: Enter", TAG, __func__);
     QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -63,10 +67,6 @@ RecorderImpl::~RecorderImpl() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-  if (audio_source_) {
-    delete audio_source_;
-    audio_source_ = nullptr;
-  }
   if (camera_source_) {
     delete camera_source_;
     camera_source_ = nullptr;
@@ -74,6 +74,14 @@ RecorderImpl::~RecorderImpl() {
   if (encoder_core_) {
     delete encoder_core_;
     encoder_core_ = nullptr;
+  }
+  if (audio_source_) {
+    delete audio_source_;
+    audio_source_ = nullptr;
+  }
+  if (audio_encoder_core_) {
+    delete audio_encoder_core_;
+    audio_encoder_core_ = nullptr;
   }
   instance_ = nullptr;
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
@@ -85,14 +93,6 @@ status_t RecorderImpl::Connect(const sp<RemoteCallBack>& remote_cb) {
 
   assert(remote_cb.get() != nullptr);
   remote_cb_ = remote_cb;
-
-  audio_source_ = AudioSource::CreateAudioSource();
-  if (!audio_source_) {
-    QMMF_ERROR("%s:%s: Can't Create AudioSource Instance!", TAG, __func__);
-    return NO_MEMORY;
-  }
-  QMMF_INFO("%s:%s: AudioSource Instance Created Successfully!", TAG,
-      __func__);
 
   camera_source_ = CameraSource::CreateCameraSource();
   if (!camera_source_) {
@@ -108,6 +108,22 @@ status_t RecorderImpl::Connect(const sp<RemoteCallBack>& remote_cb) {
     return NO_MEMORY;
   }
   QMMF_INFO("%s:%s: EncoderCore Instance Created Successfully!", TAG,
+      __func__);
+
+  audio_source_ = AudioSource::CreateAudioSource();
+  if (!audio_source_) {
+    QMMF_ERROR("%s:%s: Can't Create AudioSource Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: AudioSource Instance Created Successfully!", TAG,
+      __func__);
+
+  audio_encoder_core_ = AudioEncoderCore::CreateAudioEncoderCore();
+  if (!audio_encoder_core_) {
+    QMMF_ERROR("%s:%s: Can't Create AudioEncoderCore Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: AudioEncoderCore Instance Created Successfully!", TAG,
       __func__);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -135,10 +151,6 @@ status_t RecorderImpl::Disconnect() {
   }
   session_ids_.clear();
 
-  if (audio_source_) {
-    delete audio_source_;
-    audio_source_ = nullptr;
-  }
   if (camera_source_) {
     delete camera_source_;
     camera_source_ = nullptr;
@@ -146,6 +158,14 @@ status_t RecorderImpl::Disconnect() {
   if (encoder_core_) {
     delete encoder_core_;
     encoder_core_ = nullptr;
+  }
+  if (audio_source_) {
+    delete audio_source_;
+    audio_source_ = nullptr;
+  }
+  if (audio_encoder_core_) {
+    delete audio_encoder_core_;
+    audio_encoder_core_ = nullptr;
   }
   return NO_ERROR;
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -260,29 +280,41 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
            (fmt_type == VideoFormat::kAVC) ) {
         assert(encoder_core_ != NULL);
         ret = encoder_core_->StartTrackEncoder(tracks[i].track_id);
-      // Initial debug purpose.
-      assert(ret == NO_ERROR);
-      if (ret != NO_ERROR) {
-        ret = BAD_VALUE;
-        QMMF_ERROR("%s:%s: StartTrackEncoder failed for track_id(%d) and"
-            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
-        break;
+        // Initial debug purpose.
+        assert(ret == NO_ERROR);
+        if (ret != NO_ERROR) {
+          ret = BAD_VALUE;
+          QMMF_ERROR("%s:%s: StartTrackEncoder failed for track_id(%d) and"
+              "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
+          break;
+        }
       }
-  }
-
-  } else if (tracks[i].type == TrackType::kAudio) {
+    }
+    else if (tracks[i].type == TrackType::kAudio) {
       assert(audio_source_ != NULL);
-      ret = audio_source_->StartTrackSource(tracks[i].track_id);
 
+      ret = audio_source_->StartTrackSource(tracks[i].track_id);
       if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: audio->StartTrackSource failed for session_id(%d)/track_id(%d): %d",
+                   TAG, __func__, session_id, tracks[i].track_id, ret);
         ret = BAD_VALUE;
-        QMMF_ERROR("%s:%s: StartTrackSource failed for track_id(%d) and"
-            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
         break;
       }
       QMMF_INFO("%s:%s: track_id(%d) Started Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
+
+      if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
+        assert(audio_encoder_core_ != NULL);
+
+        ret = audio_encoder_core_->StartTrackEncoder(tracks[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s:%s: audio->StartTrackEncoder failed for session_id(%d)/track_id(%d): %d",
+                     TAG, __func__, session_id, tracks[i].track_id, ret);
+          ret = BAD_VALUE;
+          break;
+        }
       }
+    }
   }
 
   if(ret == NO_ERROR) {
@@ -344,17 +376,28 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
 
     } else if (tracks[i].type == TrackType::kAudio) {
       assert(audio_source_ != NULL);
+
       ret = audio_source_->StopTrackSource(tracks[i].track_id);
-      // Initial debug purpose.
-      assert(ret == NO_ERROR);
       if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: audio->StopTrackSource failed for session_id(%d)/track_id(%d): %d",
+                   TAG, __func__, session_id, tracks[i].track_id, ret);
         ret = BAD_VALUE;
-        QMMF_ERROR("%s:%s: StopTrackSource failed for track_id(%d) and"
-            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
         break;
       }
       QMMF_INFO("%s:%s: track_id(%d) Stopped Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
+
+      if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
+        assert(audio_encoder_core_ != NULL);
+
+        ret = audio_encoder_core_->StopTrackEncoder(tracks[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s:%s: audio->StartTrackEncoder failed for session_id(%d)/track_id(%d): %d",
+                     TAG, __func__, session_id, tracks[i].track_id, ret);
+          ret = BAD_VALUE;
+          break;
+        }
+      }
     }
   }
 
@@ -405,16 +448,28 @@ status_t RecorderImpl::PauseSession(const uint32_t session_id) {
 
     } else if (tracks[i].type == TrackType::kAudio) {
       assert(audio_source_ != NULL);
-      ret = audio_source_->PauseTrackSource(tracks[i].track_id);
 
+      ret = audio_source_->PauseTrackSource(tracks[i].track_id);
       if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: audio->PauseTrackSource failed for session_id(%d)/track_id(%d): %d",
+                   TAG, __func__, session_id, tracks[i].track_id, ret);
         ret = BAD_VALUE;
-        QMMF_ERROR("%s:%s: PauseTrackSource failed for track_id(%d) and"
-            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
         break;
       }
       QMMF_INFO("%s:%s: track_id(%d) Paused Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
+
+      if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
+        assert(audio_encoder_core_ != NULL);
+
+        ret = audio_encoder_core_->PauseTrackEncoder(tracks[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s:%s: audio->PauseTrackEncoder failed for session_id(%d)/track_id(%d): %d",
+                     TAG, __func__, session_id, tracks[i].track_id, ret);
+          ret = BAD_VALUE;
+          break;
+        }
+      }
     }
   }
 
@@ -465,17 +520,28 @@ status_t RecorderImpl::ResumeSession(const uint32_t session_id) {
 
     } else if (tracks[i].type == TrackType::kAudio) {
       assert(audio_source_ != NULL);
-      ret = audio_source_->ResumeTrackSource(tracks[i].track_id);
 
+      ret = audio_source_->ResumeTrackSource(tracks[i].track_id);
       if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: audio->ResumeTrackSource failed for session_id(%d)/track_id(%d): %d",
+                   TAG, __func__, session_id, tracks[i].track_id, ret);
         ret = BAD_VALUE;
-        QMMF_ERROR("%s:%s: ResumeTrackSource failed for track_id(%d) and"
-            "session_id(%d)", TAG, __func__, tracks[i].track_id, session_id);
         break;
       }
       QMMF_INFO("%s:%s: track_id(%d) Resumed Successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
 
+      if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
+        assert(audio_encoder_core_ != NULL);
+
+        ret = audio_encoder_core_->ResumeTrackEncoder(tracks[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s:%s: audio->ResumeTrackEncoder failed for session_id(%d)/track_id(%d): %d",
+                     TAG, __func__, session_id, tracks[i].track_id, ret);
+          ret = BAD_VALUE;
+          break;
+        }
+      }
     }
   }
 
@@ -496,6 +562,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
                param.ToString().c_str());
+  status_t result;
 
   if(!IsSessionIdValid(session_id)) {
     QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
@@ -505,11 +572,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   AudioTrackParams audio_track_params;
   memset(&audio_track_params, 0x00, sizeof audio_track_params);
   audio_track_params.track_id = track_id;
-  audio_track_params.params.sample_rate = param.sample_rate;
-  audio_track_params.params.channels = param.channels;
-  audio_track_params.params.bit_depth = param.bit_depth;
-  audio_track_params.params.format = param.format;
-  audio_track_params.params.codec_params = param.codec_params;
+  audio_track_params.params = param;
   audio_track_params.data_cb =
       [this] (uint32_t track_id, std::vector<BnBuffer> buffers,
               void *meta_param, MetaParamType meta_type, size_t meta_size)
@@ -519,14 +582,27 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
       };
 
   assert(audio_source_ != NULL);
-  auto ret = audio_source_->CreateTrackSource(track_id, audio_track_params);
-  if(ret != NO_ERROR) {
+  result = audio_source_->CreateTrackSource(track_id, audio_track_params);
+  if(result != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateTrackSource id(%d) failed!", TAG, __func__,
-        track_id);
+               track_id);
     return BAD_VALUE;
   }
   QMMF_INFO("%s:%s: TrackSource for track_id(%d) Added Successfully in AudioSource",
             TAG, __func__, track_id);
+
+  if (param.format != AudioFormat::kPCM) {
+    assert(audio_encoder_core_ != NULL);
+
+    result = audio_encoder_core_->
+        AddSource(*(audio_source_->getTrackSource(track_id)),
+                  audio_track_params);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: audio->AddSource failed for session_id(%d)/track_id(%d): %d",
+                 TAG, __func__, session_id, track_id, result);
+      return BAD_VALUE;
+    }
+  }
 
   // Assosiate track to session.
   TrackInfo track_info;
@@ -545,7 +621,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   sessions_.add(session_id, tracks);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
@@ -553,6 +629,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  status_t result;
 
   if (!IsTrackValid(session_id, track_id)) {
     QMMF_ERROR("%s:%s: Session_id(%d):Track id(%d) is not valid!", TAG,
@@ -576,10 +653,22 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
   }
   assert(track_info.type == TrackType::kAudio);
   assert(audio_source_ != NULL);
-  auto ret = audio_source_->DeleteTrackSource(track_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed!", TAG, __func__);
-    return ret;
+  result = audio_source_->DeleteTrackSource(track_id);
+  if (result != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed: %d", TAG,
+               __func__, result);
+    return result;
+  }
+
+  if (track_info.audio_params.params.format != AudioFormat::kPCM) {
+    assert(audio_encoder_core_ != NULL);
+
+    result = audio_encoder_core_->DeleteTrackEncoder(track_info.track_id);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: audio->AddSource failed for session_id(%d)/track_id(%d): %d",
+                 TAG, __func__, session_id, track_id, result);
+      return result;
+    }
   }
 
   tracks.removeAt(idx);
@@ -591,7 +680,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
       tracks.size(), session_id);
 
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
@@ -787,9 +876,15 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t session_id,
     }
 
   } else {
-    assert(audio_source_ != NULL);
-    ret = audio_source_->ReturnTrackBuffer(track_id, buffers);
-    assert(ret == NO_ERROR);
+    if (track_info.audio_params.params.format != AudioFormat::kPCM) {
+      assert(audio_encoder_core_ != NULL);
+      ret = audio_encoder_core_->ReturnTrackBuffer(track_id, buffers);
+      assert(ret == NO_ERROR);
+    } else {
+      assert(audio_source_ != NULL);
+      ret = audio_source_->ReturnTrackBuffer(track_id, buffers);
+      assert(ret == NO_ERROR);
+    }
   }
 
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
@@ -1057,7 +1152,7 @@ bool RecorderImpl::IsSessionValid(const uint32_t session_id) {
   bool valid = false;
   if (IsSessionIdValid(session_id)) {
     size_t size = sessions_.size();
-    QMMF_INFO("%s: Number of Session exist = %d",__func__, size);
+    QMMF_VERBOSE("%s: Number of Session exist = %d",__func__, size);
     for(size_t i = 0; i < size; i++) {
       if (session_id == sessions_.keyAt(i)) {
           valid = true;

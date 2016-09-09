@@ -31,7 +31,6 @@
 
 #include <cstdint>
 #include <utility>
-#include <vector>
 
 #include <binder/Parcel.h>
 
@@ -39,41 +38,32 @@
 
 namespace qmmf {
 
-using ::android::Parcel;
-using ::std::get;
-using ::std::pair;
-using ::std::vector;
-
 struct DeviceInfoInternal : public DeviceInfo {
   DeviceInfoInternal() {}
   DeviceInfoInternal(DeviceInfo& base) : DeviceInfo(base) {}
   DeviceInfoInternal(const DeviceInfo& base)
       : DeviceInfo(const_cast<DeviceInfo&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<DeviceType>::type>(type));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(type));
     switch (type) {
       case DeviceType::kVideoIn:
-        parcel->writeInt32(static_cast<underlying_type<VideoInSubtype>::type>
-                                      (subtype.video_in));
+        parcel->writeInt32(static_cast<int32_t>(subtype.video_in));
         break;
       case DeviceType::kVideoOut:
-        parcel->writeInt32(static_cast<underlying_type<VideoOutSubtype>::type>
-                                      (subtype.video_out));
+        parcel->writeInt32(static_cast<int32_t>(subtype.video_out));
         break;
       case DeviceType::kAudioIn:
-        parcel->writeInt32(static_cast<underlying_type<AudioInSubtype>::type>
-                                      (subtype.audio_in));
+        parcel->writeInt32(static_cast<int32_t>(subtype.audio_in));
         break;
       case DeviceType::kAudioOut:
-        parcel->writeInt32(static_cast<underlying_type<AudioOutSubtype>::type>
-                                      (subtype.audio_out));
+        parcel->writeInt32(static_cast<int32_t>(subtype.audio_out));
         break;
     }
     parcel->writeInt32(static_cast<int32_t>(id));
   }
 
-  DeviceInfoInternal& FromParcel(const Parcel& parcel) {
+  DeviceInfoInternal& FromParcel(const ::android::Parcel& parcel) {
     type = static_cast<DeviceType>(parcel.readInt32());
     switch (type) {
       case DeviceType::kVideoIn:
@@ -100,15 +90,15 @@ struct DimensionInternal : public Dimension {
   DimensionInternal(const Dimension& base)
       : Dimension(const_cast<Dimension&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(get<0>(dimension));
-    parcel->writeInt32(get<1>(dimension));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(::std::get<0>(dimension));
+    parcel->writeInt32(::std::get<1>(dimension));
   }
 
-  DimensionInternal& FromParcel(const Parcel& parcel) {
+  DimensionInternal& FromParcel(const ::android::Parcel& parcel) {
     int32_t width = parcel.readInt32();
     int32_t height = parcel.readInt32();
-    dimension = pair<int32_t, int32_t>(width, height);
+    dimension = ::std::pair<int32_t, int32_t>(width, height);
     return *this;
   }
 };
@@ -119,7 +109,7 @@ struct VideoCapsInternal : public VideoCaps {
   VideoCapsInternal(const VideoCaps& base)
       : VideoCaps(const_cast<VideoCaps&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(static_cast<uint32_t>(dimensions.size()));
     for (const Dimension& dimension : dimensions)
       DimensionInternal(dimension).ToParcel(parcel);
@@ -128,11 +118,10 @@ struct VideoCapsInternal : public VideoCaps {
       parcel->writeInt32(frame_rate);
     parcel->writeUint32(static_cast<uint32_t>(formats.size()));
     for (ImageFormat format : formats)
-      parcel->writeInt32(
-          static_cast<underlying_type<ImageFormat>::type>(format));
+      parcel->writeInt32(static_cast<int32_t>(format));
   }
 
-  VideoCapsInternal& FromParcel(const Parcel& parcel) {
+  VideoCapsInternal& FromParcel(const ::android::Parcel& parcel) {
     size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
     for (size_t index = 0; index < number_of_elements; ++index)
       dimensions.push_back(DimensionInternal().FromParcel(parcel));
@@ -154,11 +143,10 @@ struct AudioCapsInternal : public AudioCaps {
   AudioCapsInternal(const AudioCaps& base)
       : AudioCaps(const_cast<AudioCaps&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(static_cast<uint32_t>(formats.size()));
     for (AudioFormat format : formats)
-      parcel->writeInt32(
-          static_cast<underlying_type<AudioFormat>::type>(format));
+      parcel->writeInt32(static_cast<int32_t>(format));
     parcel->writeUint32(static_cast<uint32_t>(sample_rates.size()));
     for (int32_t sample_rate : sample_rates)
       parcel->writeInt32(sample_rate);
@@ -170,7 +158,7 @@ struct AudioCapsInternal : public AudioCaps {
       parcel->writeInt32(bit_depth);
   }
 
-  AudioCapsInternal& FromParcel(const Parcel& parcel) {
+  AudioCapsInternal& FromParcel(const ::android::Parcel& parcel) {
     size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
     for (size_t index = 0; index < number_of_elements; ++index)
       formats.push_back(static_cast<AudioFormat>(parcel.readInt32()));
@@ -193,8 +181,8 @@ struct DeviceCapsInternal : public DeviceCaps {
   DeviceCapsInternal(const DeviceCaps& base)
       : DeviceCaps(const_cast<DeviceCaps&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<DeviceType>::type>(type));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(type));
     switch (type) {
       case DeviceType::kVideoIn:
       case DeviceType::kVideoOut:
@@ -207,7 +195,7 @@ struct DeviceCapsInternal : public DeviceCaps {
     }
   }
 
-  DeviceCapsInternal& FromParcel(const Parcel& parcel) {
+  DeviceCapsInternal& FromParcel(const ::android::Parcel& parcel) {
     type = static_cast<DeviceType>(parcel.readInt32());
     switch (type) {
       case DeviceType::kVideoIn:

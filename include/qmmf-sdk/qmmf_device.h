@@ -40,13 +40,6 @@
 
 namespace qmmf {
 
-using ::std::get;
-using ::std::pair;
-using ::std::string;
-using ::std::stringstream;
-using ::std::underlying_type;
-using ::std::vector;
-
 // basic types of audio and video devices
 enum class DeviceType {
   kVideoIn,
@@ -99,38 +92,54 @@ enum class AudioOutSubtype {
 // handle to a specific device
 typedef int32_t DeviceId;
 
+// TODO(kwestfie@codeaurora.org): remove when system is handling devices
+enum class AudioDeviceId {
+  kDefault = 0,
+  kCommunication,
+  kAmbient,
+  kBuiltIn,
+  kHeadSet,
+  kBlueToothSCO,
+  kBlueToothA2DP,
+};
+
 union DeviceSubType {
   VideoInSubtype video_in;
   VideoOutSubtype video_out;
   AudioInSubtype audio_in;
   AudioOutSubtype audio_out;
 
-  string ToString(const DeviceType key) const {
-    stringstream stream;
+  ::std::string ToString(const DeviceType key) const {
+    ::std::stringstream stream;
     switch (key) {
       case DeviceType::kVideoIn:
         stream << "video_in["
-               << static_cast<underlying_type<VideoInSubtype>::type>(video_in)
+               << static_cast<::std::underlying_type<VideoInSubtype>::type>
+                             (video_in)
                << "]";
         break;
       case DeviceType::kVideoOut:
         stream << "video_out["
-               << static_cast<underlying_type<VideoOutSubtype>::type>(video_out)
+               << static_cast<::std::underlying_type<VideoOutSubtype>::type>
+                             (video_out)
                << "]";
         break;
       case DeviceType::kAudioIn:
         stream << "audio_in["
-               << static_cast<underlying_type<AudioInSubtype>::type>(audio_in)
+               << static_cast<::std::underlying_type<AudioInSubtype>::type>
+                             (audio_in)
                << "]";
         break;
       case DeviceType::kAudioOut:
         stream << "audio_out["
-               << static_cast<underlying_type<AudioOutSubtype>::type>(audio_out)
+               << static_cast<::std::underlying_type<AudioOutSubtype>::type>
+                             (audio_out)
                << "]";
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<DeviceType>::type>(key) << "]";
+               << static_cast<::std::underlying_type<DeviceType>::type>(key)
+               << "]";
         break;
     }
     return stream.str();
@@ -143,9 +152,10 @@ struct DeviceInfo {
   DeviceSubType subtype;
   DeviceId id;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "type[" << static_cast<underlying_type<DeviceType>::type>(type)
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "type["
+           << static_cast<::std::underlying_type<DeviceType>::type>(type)
            << "] ";
     stream << "subtype[" << subtype.ToString(type) << "] ";
     stream << "id[" << id << "]";
@@ -155,23 +165,23 @@ struct DeviceInfo {
 
 struct Dimension {
   // represented by width then height
-  pair<int32_t, int32_t> dimension;
+  ::std::pair<int32_t, int32_t> dimension;
 
-  string ToString() const {
-    stringstream stream;
-    stream << get<0>(dimension) << ", ";
-    stream << get<1>(dimension);
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << ::std::get<0>(dimension) << ", ";
+    stream << ::std::get<1>(dimension);
     return stream.str();
   }
 };
 
 struct VideoCaps {
-  vector<Dimension> dimensions;
-  vector<int32_t> frame_rates;
-  vector<ImageFormat> formats;
+  ::std::vector<Dimension> dimensions;
+  ::std::vector<int32_t> frame_rates;
+  ::std::vector<ImageFormat> formats;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "dimensions[";
     for (const Dimension& dimension : dimensions)
       stream << dimension.ToString() << ", ";
@@ -182,23 +192,25 @@ struct VideoCaps {
     stream << "SIZE[" << frame_rates.size() << "]], ";
     stream << "formats[";
     for (ImageFormat format : formats)
-      stream << static_cast<underlying_type<ImageFormat>::type>(format) << ", ";
+      stream << static_cast<::std::underlying_type<ImageFormat>::type>(format)
+             << ", ";
     stream << "SIZE[" << formats.size() << "]]";
     return stream.str();
   }
 };
 
 struct AudioCaps {
-  vector<AudioFormat> formats;
-  vector<int32_t> sample_rates;
-  vector<int32_t> channels;
-  vector<int32_t> bit_depths;
+  ::std::vector<AudioFormat> formats;
+  ::std::vector<int32_t> sample_rates;
+  ::std::vector<int32_t> channels;
+  ::std::vector<int32_t> bit_depths;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "formats[";
     for (AudioFormat format : formats)
-      stream << static_cast<underlying_type<AudioFormat>::type>(format) << ", ";
+      stream << static_cast<::std::underlying_type<AudioFormat>::type>(format)
+             << ", ";
     stream << "SIZE[" << formats.size() << "]]";
     stream << "sample_rates[";
     for (int32_t sample_rate : sample_rates)
@@ -220,8 +232,8 @@ union DeviceSpecificCaps{
   VideoCaps video;
   AudioCaps audio;
 
-  string ToString(const DeviceType key) const {
-    stringstream stream;
+  ::std::string ToString(const DeviceType key) const {
+    ::std::stringstream stream;
     switch (key) {
       case DeviceType::kVideoIn:
       case DeviceType::kVideoOut:
@@ -233,7 +245,8 @@ union DeviceSpecificCaps{
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<DeviceType>::type>(key) << "]";
+               << static_cast<::std::underlying_type<DeviceType>::type>(key)
+               << "]";
         break;
     }
     return stream.str();
@@ -252,9 +265,10 @@ struct DeviceCaps {
   DeviceType type;
   DeviceSpecificCaps caps;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "type[" << static_cast<underlying_type<DeviceType>::type>(type)
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "type["
+           << static_cast<::std::underlying_type<DeviceType>::type>(type)
            << "] ";
     stream << "caps[" << caps.ToString(type) << "]";
     return stream.str();
