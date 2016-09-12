@@ -189,6 +189,7 @@ status_t RecorderImpl::CreateSession(uint32_t *session_id) {
   *session_id = unique_id_;
   session_ids_.push_back(*session_id);
   QMMF_INFO("%s:%s: session_id = %d ", TAG, __func__, *session_id);
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteSession(const uint32_t session_id) {
