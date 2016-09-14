@@ -55,7 +55,7 @@ Recorder::~Recorder() {
   }
 }
 
-status_t Recorder::Connect(RecorderCb& callback) {
+status_t Recorder::Connect(const RecorderCb& callback) {
 
   auto ret = recorder_client_->Connect(callback);
   if(NO_ERROR != ret) {
@@ -77,7 +77,7 @@ status_t Recorder::Disconnect() {
   return ret;
 }
 
-status_t Recorder::StartCamera(std::vector<uint32_t> &camera_id,
+status_t Recorder::StartCamera(const uint32_t camera_id,
                                const CameraStartParam &params) {
 
   assert(recorder_client_ != NULL);
@@ -90,7 +90,7 @@ status_t Recorder::StartCamera(std::vector<uint32_t> &camera_id,
   return ret;
 }
 
-status_t Recorder::StopCamera(std::vector<uint32_t> &camera_id) {
+status_t Recorder::StopCamera(const uint32_t camera_id) {
 
   assert(recorder_client_ != NULL);
 
@@ -102,15 +102,13 @@ status_t Recorder::StopCamera(std::vector<uint32_t> &camera_id) {
   return ret;
 }
 
-status_t Recorder::CreateSession(SessionCb& cb, uint32_t *session_id) {
+status_t Recorder::CreateSession(const SessionCb& cb, uint32_t *session_id) {
 
   assert(recorder_client_ != NULL);
-
   auto ret = recorder_client_->CreateSession(cb, session_id);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: CreateSession failed!", __func__);
   }
-
   return ret;
 }
 
@@ -175,9 +173,9 @@ status_t Recorder::ResumeSession(const uint32_t session_id) {
 }
 
 status_t Recorder::CreateAudioTrack(const uint32_t session_id,
-                                    uint32_t track_id,
+                                    const uint32_t track_id,
                                     const AudioTrackCreateParam& params,
-                                    TrackCb& cb) {
+                                    const TrackCb& cb) {
 
   assert(recorder_client_ != NULL);
 
@@ -190,235 +188,267 @@ status_t Recorder::CreateAudioTrack(const uint32_t session_id,
   return ret;
 }
 
-status_t Recorder::CreateVideoTrack(const uint32_t session_id,uint32_t track_id,
+status_t Recorder::CreateVideoTrack(const uint32_t session_id,
+                                    const uint32_t track_id,
                                     const VideoTrackCreateParam& param,
-                                    TrackCb& cb)
-{
-    assert(recorder_client_ != NULL);
+                                    const TrackCb& cb) {
 
-    auto ret = recorder_client_->CreateVideoTrack(session_id, track_id, param,
-                                                   cb);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
-    }
-
-    return ret;
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->CreateVideoTrack(session_id, track_id, param,
+                                                cb);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
+  }
+  return ret;
 }
 
 status_t Recorder::ReturnTrackBuffer(const uint32_t session_id,
                                      const uint32_t track_id,
-                                     std::vector<TrackBuffer> &buffers) {
-  assert(recorder_client_ != NULL);
+                                     std::vector<BufferDescriptor> &buffers) {
 
+  assert(recorder_client_ != NULL);
   auto ret = recorder_client_->ReturnTrackBuffer(session_id, track_id, buffers);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s: ReturnTrackBuffer failed!", __func__);
+    QMMF_ERROR("%s: ReturnTrackBuffer failed!", __func__);
   }
   return ret;
 }
 
 status_t Recorder::SetAudioTrackParam(const uint32_t session_id,
-                                      uint32_t track_id,
-                                      AudioTrackParamType type,
+                                      const uint32_t track_id,
+                                      CodecParamType type,
                                       const void *params,
                                       size_t param_size) {
 
   assert(recorder_client_ != NULL);
-
   auto ret = recorder_client_->SetAudioTrackParam(session_id, track_id,
                                                   type, params, param_size);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s: SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s: SetAudioTrackParam failed!", __func__);
+  }
+  return ret;
+}
+
+status_t Recorder::SetVideoTrackParam(const uint32_t session_id,
+                                      const uint32_t track_id,
+                                      CodecParamType type,
+                                      const void *params,
+                                      size_t param_size) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetVideoTrackParam(session_id, track_id,
+                                                  type, params, param_size);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
+  }
+  return ret;
+}
+
+status_t Recorder::DeleteAudioTrack(const uint32_t session_id,
+                                    const uint32_t track_id) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->DeleteAudioTrack(session_id, track_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: DeleteAudioTrack failed!", __func__);
+  }
+  return ret;
+}
+
+status_t Recorder::DeleteVideoTrack(const uint32_t session_id,
+                                    const uint32_t track_id) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->DeleteVideoTrack(session_id, track_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: DeleteVideoTrack failed!", __func__);
   }
 
   return ret;
 }
 
-status_t Recorder::SetVideoTrackParam(const uint32_t session_id,
-                                      uint32_t track_id,
-                                      VideoTrackParamType type,
-                                      const void *params,
-                                      size_t param_size)
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::CaptureImage(const uint32_t camera_id,
+                                const ImageParam &param,
+                                const uint32_t num_images,
+                                const std::vector<CameraMetadata> &meta,
+                                const ImageCaptureCb& cb) {
 
-    auto ret = recorder_client_->SetVideoTrackParam(session_id, track_id,
-                                                    type, params, param_size);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
-    }
-
-    return ret;
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->CaptureImage(camera_id, param, num_images,
+                                            meta, cb);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: CaptureImage failed!", __func__);
+  }
+  return ret;
 }
 
-status_t Recorder::DeleteAudioTrack(const uint32_t session_id,
-                                    uint32_t track_id)
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::ConfigImageCapture(const uint32_t camera_id,
+                                      const ImageCaptureConfig &config) {
 
-    auto ret = recorder_client_->DeleteAudioTrack(session_id, track_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: DeleteAudioTrack failed!", __func__);
-    }
-
-    return ret;
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->ConfigImageCapture(camera_id, config);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
+  }
+  return ret;
 }
 
-status_t Recorder::DeleteVideoTrack(const uint32_t session_id,
-                                    uint32_t track_id)
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::CancelCaptureImage() {
 
-    auto ret = recorder_client_->DeleteVideoTrack(session_id, track_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: DeleteVideoTrack failed!", __func__);
-    }
-
-    return ret;
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->CancelCaptureImage();
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
+  }
+  return ret;
 }
 
-status_t Recorder::CaptureImage(std::vector<uint32_t> &camera_id,
-                                const ImageParam &params,
-                                CaptureImageCb& cb)
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                            const BufferDescriptor &buffer) {
 
-    auto ret = recorder_client_->CaptureImage(camera_id, params, cb);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: CaptureImage failed!", __func__);
-    }
-
-    return ret;
+  QMMF_DEBUG("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->ReturnImageCaptureBuffer(camera_id, buffer);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: ReturnImageCaptureBuffer failed!", __func__);
+  }
+  QMMF_DEBUG("%s: Exit" ,__func__);
+  return ret;
 }
 
-status_t Recorder::CancelCaptureImage()
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::SetCameraParam(const uint32_t camera_id,
+                                  const CameraMetadata &meta) {
 
-    auto ret = recorder_client_->CancelCaptureImage();
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
-    }
-
-    return ret;
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetCameraParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: SetCameraParam failed!", __func__);
+  }
+  QMMF_INFO("%s: Exit" ,__func__);
+  return ret;
 }
 
-status_t Recorder::SetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-{
-    assert(recorder_client_ != NULL);
+status_t Recorder::GetCameraParam(const uint32_t camera_id,
+                                  CameraMetadata &meta) {
 
-    auto ret = recorder_client_->SetCameraParam(camera_id, meta);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: SetCameraParam failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetCameraParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: GetCameraParam failed!", __func__);
+  }
 
-    return ret;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::GetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
+                                          CameraMetadata &meta) {
 
-    auto ret = recorder_client_->GetCameraParam(camera_id, meta);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: GetCameraParam failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetDefaultCaptureParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
+  }
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::CreateOverlayObject(const OverlayParam &param,
-                                       uint32_t *overlay_id)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::CreateOverlayObject(const uint32_t track_id,
+                                       const OverlayParam &param,
+                                       uint32_t *overlay_id) {
 
-    auto ret = recorder_client_->CreateOverlayObject(param, overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  auto ret = recorder_client_->CreateOverlayObject(track_id, param, overlay_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::DeleteOverlayObject(const uint32_t overlay_id)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::DeleteOverlayObject(const uint32_t track_id,
+                                       const uint32_t overlay_id) {
 
-    auto ret = recorder_client_->DeleteOverlayObject(overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  auto ret = recorder_client_->DeleteOverlayObject(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::GetOverlayObjectParams(const uint32_t overlay_id,
-                                          OverlayParam &param)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::GetOverlayObjectParams(const uint32_t track_id,
+                                          const uint32_t overlay_id,
+                                          OverlayParam &param) {
 
-    auto ret = recorder_client_->GetOverlayObjectParams(overlay_id, param);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  auto ret = recorder_client_->GetOverlayObjectParams(track_id, overlay_id,
+                                                      param);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                             const OverlayParam &param)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::UpdateOverlayObjectParams(const uint32_t track_id,
+                                             const uint32_t overlay_id,
+                                             const OverlayParam &param) {
 
-    auto ret = recorder_client_->UpdateOverlayObjectParams(overlay_id, param);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  auto ret = recorder_client_->UpdateOverlayObjectParams(track_id, overlay_id,
+                                                         param);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::SetOverlay(const uint32_t session_id,
-                              const uint32_t track_id,
-                              const uint32_t overlay_id)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::SetOverlay(const uint32_t track_id,
+                              const uint32_t overlay_id) {
 
-    auto ret = recorder_client_->SetOverlay(session_id, track_id, overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: SetOverlay failed!", __func__);
-    }
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  auto ret = recorder_client_->SetOverlay(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: SetOverlay failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
-status_t Recorder::RemoveOverlay(const uint32_t session_id,
-                                 const uint32_t track_id,
-                                 const uint32_t overlay_id)
-{
-    QMMF_INFO("%s: Enter" ,__func__);
-    assert(recorder_client_ != NULL);
+status_t Recorder::RemoveOverlay(const uint32_t track_id,
+                                 const uint32_t overlay_id) {
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
 
-    auto ret = recorder_client_->RemoveOverlay(session_id, track_id,
-                                               overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s: RemoveOverlay failed!", __func__);
-    }
+  auto ret = recorder_client_->RemoveOverlay(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s: RemoveOverlay failed!", __func__);
+  }
 
-    QMMF_INFO("%s: Exit", __func__);
-    return ret;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
 }; //namespace recoder.

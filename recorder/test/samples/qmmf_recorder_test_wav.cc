@@ -43,7 +43,7 @@
 
 using ::qmmf::AudioFormat;
 using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::TrackBuffer;
+using ::qmmf::recorder::BufferDescriptor;
 using ::std::ios;
 using ::std::ofstream;
 using ::std::streampos;
@@ -149,7 +149,7 @@ void RecorderTestWav::Close() {
   }
 }
 
-int RecorderTestWav::Write(const TrackBuffer& buffer) {
+int RecorderTestWav::Write(const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer.data[%p]", TAG, __func__, buffer.data);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer.size[%zu]", TAG, __func__,

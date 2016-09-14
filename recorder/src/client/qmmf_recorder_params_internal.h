@@ -50,24 +50,6 @@ using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
 
-struct TrackBufferI : public TrackBuffer {
-  TrackBufferI(){}
-  TrackBufferI(TrackBuffer& base) : TrackBuffer(base) {}
-  TrackBufferI(const TrackBuffer& base)
-      : TrackBuffer(const_cast<TrackBuffer&>(base)) {}
-
-  string ToString() const {
-    stringstream stream;
-    stream << "data[" << data << "] ";
-    stream << "size[" << size << "] ";
-    stream << "timestamp[" << timestamp << "] ";
-    stream << "flag[" << setbase(16) << flag << setbase(10) << "]";
-    stream << "buf_id[" << buf_id << "] ";
-    stream << "capacity[" << capacity << "] ";
-    return stream.str();
-  }
-};
-
 struct AudioTrackCreateParamI : public AudioTrackCreateParam {
   AudioTrackCreateParamI(){}
   AudioTrackCreateParamI(AudioTrackCreateParam& base)
@@ -75,50 +57,37 @@ struct AudioTrackCreateParamI : public AudioTrackCreateParam {
   AudioTrackCreateParamI(const AudioTrackCreateParam& base)
       : AudioTrackCreateParam(const_cast<AudioTrackCreateParam&>(base)) {}
 
-  string ToString() const {
-    stringstream stream;
-    stream << "in_device[";
-    for (auto index = 0; index < num_in_devices; ++index)
-      stream << "[" << in_device[index] << "]";
-    stream << "] ";
-    stream << "num_in_devices[" << num_in_devices << "] ";
-    stream << "sample_rate[" << sample_rate << "] ";
-    stream << "channels[" << channels << "] ";
-    stream << "bit_depth[" << bit_depth << "] ";
-    stream << "format_type[" << static_cast<int>(format_type) << "]";
-    stream << "codec_param[" << codec_param.ToString(format_type) << "]";
-    stream << "out_device[" << out_device << "]";
-    stream << "flags[" << setbase(16) << flags << setbase(10) << "]";
-    return stream.str();
-  }
-
   void ToParcel(Parcel* parcel) const {
     parcel->writeInt32(num_in_devices);
-    for (auto index = 0; index < num_in_devices; ++index)
+    for (auto index = 0; index < num_in_devices; ++index) {
       parcel->writeInt32(in_device[index]);
+    }
     parcel->writeUint32(sample_rate);
     parcel->writeUint32(channels);
     parcel->writeUint32(bit_depth);
     parcel->writeInt32(static_cast<int32_t>(format_type));
-    codec_param.ToParcel(format_type, parcel);
+    //codec_param.ToParcel(format_type, parcel); FIXME: ToParcel method is removed
+    // from CodecParam
     parcel->writeInt32(out_device);
     parcel->writeUint32(flags);
   }
 
   void FromParcel(const Parcel& parcel) {
     num_in_devices = parcel.readInt32();
-    for (auto index = 0; index < num_in_devices; ++index)
+    for (auto index = 0; index < num_in_devices; ++index) {
       in_device[index] = parcel.readInt32();
+    }
     sample_rate = parcel.readUint32();
     channels = parcel.readUint32();
     bit_depth = parcel.readUint32();
     format_type = static_cast<AudioFormat>(parcel.readInt32());
-    codec_param.FromParcel(parcel);
+    //codec_param.FromParcel(parcel); FIXME: FromParcel method is removed
+    // from CodecParam
     out_device = parcel.readInt32();
     flags = parcel.readUint32();
   }
 };
 
-}; /* recorder */
-}; /* qmmf */
+}; // recorder
+}; // qmmf
 

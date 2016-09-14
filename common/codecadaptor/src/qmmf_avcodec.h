@@ -125,7 +125,8 @@ public:
 
   status_t ConfigureCodec(CodecType codec_type, CodecCreateParam& codec_param);
 
-  status_t SetParameters(CodecType codec_type, CodecSetParam& codec_param);
+  status_t SetParameters(CodecParamType param_type, void *codec_param,
+                         size_t param_size);
 
   status_t GetBufferRequirements(OMX_U32 port_index, uint32_t *buf_count,
                                  uint32_t *buf_size);
@@ -159,12 +160,6 @@ private:
   status_t SetupHEVCEncoderParameters(CodecCreateParam& codec_param);
 
   status_t ConfigureBitrate(CodecCreateParam& codec_param);
-
-  status_t SetVideoParameters(VideoTrackParamType type, const void *param,
-                              size_t param_size);
-
-  status_t SetAudioParameters(AudioTrackParamType type, const void *param,
-                              size_t param_size);
 
   status_t SetPortParams(OMX_U32 ePortIndex,OMX_U32 nWidth, OMX_U32 nHeight,
                          OMX_U32 nFrameRate);
@@ -234,8 +229,6 @@ private:
   bool                    output_stop_;
   //port_status_ will give whether both port is enable or disable.
   bool                    port_status_;
-  //In meta mode client will fill gralloc handle
-  bool                    meta_mode_;
   Mutex                   input_stop_lock_;
   Mutex                   output_stop_lock_;
   pthread_t               read_thread_;

@@ -8,7 +8,7 @@ qmmf_server_CPPFLAGS += -I$(top_srcdir)/
 
 qmmf_server_CPPFLAGS += -I$(LIBGRALLOC)
 qmmf_server_CPPFLAGS += -I$(MMCORE_CFLAGS)
-qmmf_server_CPPFLAGS += -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
+qmmf_server_CPPFLAGS += -std=c++11
 
 qmmf_server_LDFLAGS  := -lutils -lcutils -llog -lbinder
 qmmf_server_LDADD    := ../common/audio/src/service/libqmmf_audio_service.la

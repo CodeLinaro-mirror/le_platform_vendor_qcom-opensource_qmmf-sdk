@@ -37,6 +37,12 @@
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_codec.h>
 
+// Enable this define to dump YUV data from YUV track
+#define DUMP_YUV_FRAMES
+
+// Enable this define to dump encoded bit stream data.
+#define DUMP_BITSTREAM
+
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
@@ -46,100 +52,141 @@ enum class VideoCodecType {
   kTypeHEVC
 };
 
-class RecorderTest
-{
-public:
-    RecorderTest();
+class RecorderTest {
+ public:
+  RecorderTest();
 
-    ~RecorderTest();
+  ~RecorderTest();
 
-    int32_t Connect();
+  int32_t Connect();
 
-    int32_t Disconnect();
+  int32_t Disconnect();
 
-    int32_t StartCamera();
+  int32_t StartCamera();
 
-    int32_t StopCamera();
+  int32_t StopCamera();
 
-    int32_t TakeSnapshot();
+  int32_t TakeSnapshot();
 
-    int32_t Session4KAnd1080pYUVTracks();
+  int32_t Session4KAnd1080pYUVTracks();
 
-    int32_t Session4KEncTrack(const VideoCodecType& type);
+  int32_t Session4KEncTrack(const VideoCodecType& type);
 
-    int32_t Session1080pEncTrack(const VideoCodecType& type);
+  int32_t Session1080pEncTrack(const VideoCodecType& type);
 
-    int32_t Session4KYUVAnd1080pEncTracks(const VideoCodecType& type);
+  int32_t Session4KYUVAnd1080pEncTracks(const VideoCodecType& type);
 
-    void CreateAudioOnlySession();
+  int32_t SessionTwo1080pEncTracks(const VideoCodecType& type);
 
-    int32_t CreateAudioVideoSession();
+  void CreateAudioOnlySession();
 
-    int32_t StartSession();
+  int32_t StartSession();
 
-    int32_t StopSession();
+  int32_t StopSession();
 
-    int32_t PauseSession();
+  int32_t SetParams();
 
-    int32_t ResumeSession();
+  int32_t PauseSession();
 
-    int32_t DeleteSession();
+  int32_t ResumeSession();
 
-    void SnapshotCb(void *buffer, uint32_t buffer_size);
+  int32_t DeleteSession();
 
-    void RecorderCallbackHandler(EventType event_type, void *event_data,
-                                 size_t event_data_size);
+  int32_t EnableOverlay();
 
-    void SessionCallbackHandler(EventType event_type,
-                                void *event_data, size_t event_data_size);
+  int32_t DisableOverlay();
 
-    void AudioTrackDataCb(uint32_t track_id, std::vector<TrackBuffer> buffers,
-                          void *meta_param, TrackMetaParamType meta_type,
-                          size_t meta_size);
+  void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
+                  BufferDescriptor buffer, void *meta_param,
+                  MetaParamType meta_type, uint32_t meta_size);
 
-    void AudioTrackEventCb(uint32_t track_id, EventType event_type,
-                           void *event_data, size_t event_data_size);
+  void RecorderCallbackHandler(EventType event_type, void *event_data,
+                               size_t event_data_size);
 
-    void VideoTrack4KYUVDataCb(uint32_t track_id,
-                               std::vector<TrackBuffer> buffers,
-                               void *meta_param, TrackMetaParamType meta_type,
-                               size_t meta_size);
+  void SessionCallbackHandler(EventType event_type,
+                              void *event_data, size_t event_data_size);
 
-    void VideoTrack4KYUVEventCb(uint32_t track_id, EventType event_type,
-                                void *event_data, size_t event_data_size);
+  void AudioTrackDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                        buffers, void *meta_param, MetaParamType
+                        meta_type, size_t meta_size);
 
-    void VideoTrack1080pYUVDataCb(uint32_t track_id,
-                                  std::vector<TrackBuffer> buffers,
-                                  void *meta_param, TrackMetaParamType meta_type,
-                                  size_t meta_size);
+  void AudioTrackEventCb(uint32_t track_id, EventType event_type,
+                         void *event_data, size_t event_data_size);
 
-    void VideoTrack1080pYUVEventCb(uint32_t track_id, EventType event_type,
-                                   void *event_data, size_t event_data_size);
+  void VideoTrack4KYUVDataCb(uint32_t track_id,
+                             std::vector<BufferDescriptor> buffers,
+                             void *meta_param, MetaParamType meta_type,
+                             size_t meta_size);
 
-    void VideoTrack4KEncDataCb(uint32_t track_id,
-                               std::vector<TrackBuffer> buffers,
-                               void *meta_param, TrackMetaParamType meta_type,
-                               size_t meta_size);
+  void VideoTrack4KYUVEventCb(uint32_t track_id, EventType event_type,
+                              void *event_data, size_t event_data_size);
 
-    void VideoTrack4KEncEventCb(uint32_t track_id, EventType event_type,
-                                void *event_data, size_t event_data_size);
+  void VideoTrack1080pYUVDataCb(uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                void *meta_param, MetaParamType
+                                meta_type, size_t meta_size);
 
-    void VideoTrack1080pEncDataCb(uint32_t track_id,
-                                  std::vector<TrackBuffer> buffers,
-                                  void *meta_param, TrackMetaParamType meta_type,
-                                  size_t meta_size);
+  void VideoTrack1080pYUVEventCb(uint32_t track_id, EventType event_type,
+                                 void *event_data, size_t event_data_size);
 
-    void VideoTrack1080pEncEventCb(uint32_t track_id, EventType event_type,
-                                   void *event_data, size_t event_data_size);
+  void VideoTrack4KEncDataCb(uint32_t track_id,
+                             std::vector<BufferDescriptor> buffers,
+                             void *meta_param, MetaParamType meta_type,
+                             size_t meta_size);
 
-private:
+  void VideoTrack4KEncEventCb(uint32_t track_id, EventType event_type,
+                              void *event_data, size_t event_data_size);
 
-    Recorder recorder_;
-    RecorderTestWav wav_;
-    // <session_id, vector<track_ids> >
-    std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  void VideoTrack1080pEncDataCb1(uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                void *meta_param, MetaParamType
+                                meta_type, size_t meta_size);
 
-    int32_t file_fd_;
+  void VideoTrack1080pEncDataCb2(uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                void *meta_param, MetaParamType
+                                meta_type, size_t meta_size);
+
+  void VideoTrack1080pEncEventCb(uint32_t track_id, EventType event_type,
+                                 void *event_data, size_t event_data_size);
+
+#ifdef DUMP_BITSTREAM
+  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
+                         int32_t file_fd);
+#endif
+
+#ifdef DUMP_YUV_FRAMES
+  status_t DumpYUVFrame(uint32_t track_id, MetaInfo* meta_data,
+                        BufferDescriptor buffer);
+#endif
+
+ private:
+
+  Recorder recorder_;
+  RecorderTestWav wav_;
+
+  enum class TrackType {
+    kAudioTrack,
+    kVideoTrack
+  };
+
+  struct TrackInfo {
+    uint32_t  track_id;
+    TrackType type;
+  };
+  // <session_id, vector<track_ids> >
+  std::map <uint32_t , std::vector<TrackInfo> > sessions_;
+  typedef std::map <uint32_t, std::vector<TrackInfo> >::iterator session_iter_;
+
+  // <track_id, vector<overlay_ids> >
+  // One track can have multiple overlay objects.
+  std::map <uint32_t , std::vector<uint32_t> > overlay_ids_;
+  typedef std::map <uint32_t, std::vector<uint32_t> >::iterator overlay_iter_;
+
+  uint32_t camera_id_;
+  // TODO: consolidate all data related to one track in separate class.
+  int32_t  file_fd1_;
+  int32_t  file_fd2_;
 };
 
 class CmdMenu
@@ -156,12 +203,16 @@ public:
         CREATE_1080pENC_AVC_SESSION_CMD   = '8',
         CREATE_1080pENC_HEVC_SESSION_CMD  = '9',
         CREATE_4KYUV_1080pENC_SESSION_CMD = 'V',
+        CREATE_TWO_1080pENC_SESSION_CMD   = 'M',
         CREATE_AUD_SESSION_CMD            = 'K',
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',
+        SET_PARAM_CMD                     = 'T',
         PAUSE_SESSION_CMD                 = 'P',
         RESUME_SESSION_CMD                = 'R',
+        ENABLE_OVERLAY_CMD                = 'O',
+        DISABLE_OVERLAY_CMD               = 'L',
         DELETE_SESSION_CMD                = 'D',
         EXIT_CMD                          = 'X',
         INVALID_CMD                       = '0'

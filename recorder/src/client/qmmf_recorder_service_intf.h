@@ -39,6 +39,7 @@
 #include <camera/CameraMetadata.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 namespace recorder {
@@ -47,6 +48,7 @@ using namespace android;
 using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
+using namespace overlay;
 
 #define QMMF_RECORDER_SERVICE_NAME "recorder.service"
 
@@ -69,9 +71,12 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_SET_AUDIOTRACK_PARAMS,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
-  RECORDER_CANCEL_CAPTURE_IMAGE,
+  RECORDER_CONFIG_IMAGECAPTURE,
+  RECORDER_CANCEL_IMAGECAPTURE,
+  RECORDER_RETURN_IMAGECAPTURE_BUFFER,
   RECORDER_SET_CAMERA_PARAMS,
   RECORDER_GET_CAMERA_PARAMS,
+  RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_CREATE_OVERLAYOBJECT,
   RECORDER_DELETE_OVERLAYOBJECT,
   RECORDER_GET_OVERLAYOBJECT_PARAMS,
@@ -80,15 +85,15 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_REMOVE_OVERLAYOBJECT,
 };
 
-typedef struct BnTrackBuffer {
+struct BnBuffer {
   uint32_t  ion_fd;
-  uint64_t  size;
+  uint32_t  size;
   int64_t   timestamp;
   uint32_t  width;
   uint32_t  height;
   uint32_t  buffer_id;
   uint32_t  flag;
-  uint64_t  capacity;
+  uint32_t  capacity;
 
   string ToString() const {
     stringstream stream;
@@ -108,13 +113,13 @@ typedef struct BnTrackBuffer {
       parcel->writeFileDescriptor(ion_fd);
     else
       parcel->writeUint32(ion_fd);
-    parcel->writeUint64(size);
+    parcel->writeUint32(size);
     parcel->writeInt64(timestamp);
     parcel->writeUint32(width);
     parcel->writeUint32(height);
     parcel->writeUint32(buffer_id);
     parcel->writeUint32(flag);
-    parcel->writeUint64(capacity);
+    parcel->writeUint32(capacity);
   }
 
   void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
@@ -122,15 +127,15 @@ typedef struct BnTrackBuffer {
       ion_fd = parcel.readFileDescriptor();
     else
       ion_fd = parcel.readUint32();
-    size = parcel.readUint64();
+    size = parcel.readUint32();
     timestamp = parcel.readInt64();
     width = parcel.readUint32();
     height = parcel.readUint32();
     buffer_id = parcel.readUint32();
     flag = parcel.readUint32();
-    capacity = parcel.readUint64();
+    capacity = parcel.readUint32();
   }
-} BnTrackBuffer;
+};
 
 class IRecorderServiceCallback;
 class IRecorderService : public IInterface {
@@ -141,10 +146,10 @@ class IRecorderService : public IInterface {
 
   virtual status_t Disconnect() = 0;
 
-  virtual status_t StartCamera(std::vector<uint32_t> camera_id,
-                               CameraStartParam &param) = 0;
+  virtual status_t StartCamera(const uint32_t camera_id,
+                               const CameraStartParam &param) = 0;
 
-  virtual status_t StopCamera(std::vector<uint32_t> camera_id) = 0;
+  virtual status_t StopCamera(const uint32_t camera_id) = 0;
 
   virtual status_t CreateSession(uint32_t *session_id) = 0;
 
@@ -159,12 +164,12 @@ class IRecorderService : public IInterface {
   virtual status_t ResumeSession(const uint32_t session_id) = 0;
 
   virtual status_t CreateAudioTrack(const uint32_t session_id,
-                                    uint32_t track_id,
+                                    const uint32_t track_id,
                                     const AudioTrackCreateParam& param) = 0;
 
   virtual status_t CreateVideoTrack(const uint32_t session_id,
-                                    uint32_t track_id,
-                                    VideoTrackCreateParam& param) = 0;
+                                    const uint32_t track_id,
+                                    const VideoTrackCreateParam& param) = 0;
 
   virtual status_t DeleteAudioTrack(const uint32_t session_id,
                                     const uint32_t track_id) = 0;
@@ -174,48 +179,61 @@ class IRecorderService : public IInterface {
 
   virtual status_t ReturnTrackBuffer(const uint32_t session_id,
                                      const uint32_t track_id,
-                                     std::vector<BnTrackBuffer> &buffers) = 0;
+                                     std::vector<BnBuffer> &buffers) = 0;
 
   virtual status_t SetAudioTrackParam(const uint32_t session_id,
                                       const uint32_t track_id,
-                                      AudioTrackParamType type,
+                                      CodecParamType type,
                                       void *param,
                                       size_t param_size) = 0;
 
   virtual status_t SetVideoTrackParam(const uint32_t session_id,
                                       const uint32_t track_id,
-                                      VideoTrackParamType type,
+                                      CodecParamType type,
                                       void *param,
                                       size_t param_size) = 0;
 
-  virtual status_t CaptureImage(std::vector<uint32_t> camera_id,
-                                ImageParam &param) = 0;
+  virtual status_t CaptureImage(const uint32_t camera_id,
+                                const ImageParam &param,
+                                const uint32_t num_images,
+                                const std::vector<CameraMetadata> &meta) = 0;
+
+  virtual status_t ConfigImageCapture(const uint32_t camera_id,
+                                      const ImageCaptureConfig &config) = 0;
 
   virtual status_t CancelCaptureImage() = 0;
 
-  virtual status_t SetCameraParam(uint32_t camera_id,
+  virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                            const uint32_t buffer_id) = 0;
+
+  virtual status_t SetCameraParam(const uint32_t camera_id,
+                                  const CameraMetadata &meta) = 0;
+
+  virtual status_t GetCameraParam(const uint32_t camera_id,
                                   CameraMetadata &meta) = 0;
 
-  virtual status_t GetCameraParam(uint32_t camera_id,
-                                  CameraMetadata &meta) = 0;
+  virtual status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                          CameraMetadata &meta) = 0;
 
-  virtual status_t CreateOverlayObject(OverlayParam &param,
+  virtual status_t CreateOverlayObject(const uint32_t track_id,
+                                       OverlayParam *param,
                                        uint32_t *overlay_id) = 0;
 
-  virtual status_t DeleteOverlayObject(const uint32_t overlay_id) = 0;
+  virtual status_t DeleteOverlayObject(const uint32_t track_id,
+                                       const uint32_t overlay_id) = 0;
 
-  virtual status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  virtual status_t GetOverlayObjectParams(const uint32_t track_id,
+                                          const uint32_t overlay_id,
                                           OverlayParam &param) = 0;
 
-  virtual status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                             OverlayParam &param) = 0;
+  virtual status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                             const uint32_t overlay_id,
+                                             OverlayParam *param) = 0;
 
-  virtual status_t SetOverlayObject(const uint32_t session_id,
-                                    const uint32_t track_id,
+  virtual status_t SetOverlayObject(const uint32_t track_id,
                                     const uint32_t overlay_id) = 0;
 
-  virtual status_t RemoveOverlayObject(const uint32_t session_id,
-                                       const uint32_t track_id,
+  virtual status_t RemoveOverlayObject(const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
 };
 
@@ -240,12 +258,16 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifySessionEvent(EventType event_type, void *event_data,
                                   size_t event_data_size) = 0;
 
-  virtual void NotifySnapshotData(void *buffer, uint32_t bufferSize) = 0;
+  virtual void NotifySnapshotData(uint32_t camera_id,
+                                  uint32_t image_sequence_count,
+                                  BnBuffer& buffer, void *meta_param,
+                                  MetaParamType meta_type,
+                                  uint32_t meta_size) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t track_id,
-                                    std::vector<BnTrackBuffer> &buffers,
+                                    std::vector<BnBuffer> &buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) = 0;
 
   virtual void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
@@ -253,9 +275,9 @@ class IRecorderServiceCallback : public IInterface {
                                      size_t event_data_size) = 0;
 
   virtual void NotifyAudioTrackData(uint32_t track_id,
-                                    const std::vector<BnTrackBuffer> &buffers,
+                                    const std::vector<BnBuffer> &buffers,
                                     void *meta_param,
-                                    TrackMetaParamType meta_type,
+                                    MetaParamType meta_type,
                                     size_t meta_size) = 0;
 
   virtual void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
@@ -270,11 +292,10 @@ class IRecorderServiceCallback : public IInterface {
 };
 
 //This class is responsible to provide callbacks from recoder service.
-class BnRecorderServiceCallback : public BnInterface<IRecorderServiceCallback>
-{
-public:
-    virtual status_t onTransact(uint32_t code, const Parcel& data,
-                                 Parcel* reply, uint32_t flags = 0) override;
+class BnRecorderServiceCallback : public BnInterface<IRecorderServiceCallback> {
+ public:
+  virtual status_t onTransact(uint32_t code, const Parcel& data,
+                              Parcel* reply, uint32_t flags = 0) override;
 };
 
 }; //namespace recorder

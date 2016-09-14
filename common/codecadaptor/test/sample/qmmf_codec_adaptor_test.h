@@ -35,6 +35,7 @@
 #include <utils/Log.h>
 #include <linux/msm_ion.h>
 #include <utils/Condition.h>
+#include <utils/KeyedVector.h>
 #include <cutils/native_handle.h>
 #include <media/msm_media_info.h>
 
@@ -76,12 +77,19 @@ public:
 
   status_t ResumeCodec();
 
+  status_t SetCodecParameters();
+
+  DefaultKeyedVector<String8, uint32_t>& GetDynamicParam() {
+    return dynamic_params_ ;}
+
 private:
   bool IsStop();
 
   void CodecEventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
   status_t ParseConfig(char *fileName, TestInitParams* params);
+
+  status_t ParseDynamicConfig(char *fileName);
 
   status_t AllocateBuffer(OMX_U32 port);
 
@@ -96,6 +104,7 @@ private:
   Vector<IonHandleData>     ion_handle_data;
   sp<InputCodecSourceImpl>  input_source_impl_;
   sp<OutputCodecSourceImpl> output_source_impl_;
+  DefaultKeyedVector<String8, uint32_t> dynamic_params_;
 }; //class CodecTest
 
 class InputCodecSourceImpl : public IInputCodecSource {
@@ -116,7 +125,7 @@ public:
   void AddBufferList(Vector<StreamBuffer>& list);
 
 private:
-  status_t   ReadFile(int32_t fd, uint32_t size, int32_t *byte_read);
+  status_t ReadFile(int32_t fd, uint32_t size, int32_t *byte_read);
 
   FILE*                 input_file_;
   Mutex                 wait_for_frame_lock_;
@@ -155,14 +164,15 @@ class CmdMenu {
 
 public:
   enum CommandType {
-    CREATE_CODEC_CMD  = '1',
-    DELETE_CODEC_CMD  = '2',
-    START_CODEC_CMD   = '3',
-    STOP_CODEC_CMD    = '4',
-    PAUSE_CODEC_CMD   = '5',
-    RESUME_CODEC_CMD  = '6',
-    EXIT_CMD          = 'X',
-    INVALID_CMD       = '0'
+    CREATE_CODEC_CMD     = '1',
+    DELETE_CODEC_CMD     = '2',
+    START_CODEC_CMD      = '3',
+    STOP_CODEC_CMD       = '4',
+    PAUSE_CODEC_CMD      = '5',
+    RESUME_CODEC_CMD     = '6',
+    SET_CODEC_PARAM_CMD  = '7',
+    EXIT_CMD             = 'X',
+    INVALID_CMD          = '0'
   };
 
   struct Command {
@@ -180,6 +190,8 @@ public:
   Command GetCommand();
 
   void PrintMenu();
+
+  void PrintDynamicParams();
 
   CodecTest &ctx_;
 };

@@ -56,13 +56,13 @@ class EncoderCore {
   status_t StopTrackEncoder(uint32_t track_id);
 
   status_t SetTrackEncoderParams(uint32_t track_id,
-                                 VideoTrackParamType param_type, void* param,
+                                 CodecParamType param_type, void* param,
                                  uint32_t param_size);
 
   status_t DeleteTrackEncoder(uint32_t track_id);
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
-                             std::vector<BnTrackBuffer> &buffers);
+                             std::vector<BnBuffer> &buffers);
  private:
 
   bool isTrackValid(uint32_t track_id);
@@ -93,7 +93,7 @@ class TrackEncoder : public IOutputCodecSource {
 
   status_t Stop();
 
-  status_t SetParams(VideoTrackParamType param_type, void* param,
+  status_t SetParams(CodecParamType param_type, void* param,
                      uint32_t param_size);
 
   status_t ReleaseHeaders();
@@ -106,7 +106,7 @@ class TrackEncoder : public IOutputCodecSource {
   status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
 
   // Method to handle returned buffers from client.
-  status_t OnBufferReturnFromClient(std::vector<BnTrackBuffer> &buffers);
+  status_t OnBufferReturnFromClient(std::vector<BnBuffer> &buffers);
 
  private:
 

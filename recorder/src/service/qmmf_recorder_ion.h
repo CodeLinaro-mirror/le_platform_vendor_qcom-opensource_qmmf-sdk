@@ -59,8 +59,8 @@ class RecorderIon
   int Deallocate();
 
   int GetList(AudioBufferList* buffers);
-  int Import(const BnTrackBuffer& bn_buffer, AudioBuffer* buffer);
-  int Export(const AudioBuffer& buffer, BnTrackBuffer* bn_buffer);
+  int Import(const BnBuffer& bn_buffer, AudioBuffer* buffer);
+  int Export(const AudioBuffer& buffer, BnBuffer* bn_buffer);
 
  private:
   struct RecorderIonBuffer {

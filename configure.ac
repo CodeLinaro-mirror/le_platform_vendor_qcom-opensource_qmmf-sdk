@@ -56,6 +56,7 @@ AC_SUBST([LIBS])
 
 AC_CONFIG_FILES([ \
     Makefile \
+    common/overlay/Makefile \
     common/cameraadaptor/Makefile \
     common/audio/src/client/Makefile \
     common/audio/src/service/Makefile \

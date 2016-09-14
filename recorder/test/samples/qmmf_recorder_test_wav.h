@@ -40,7 +40,7 @@
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 
 using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::TrackBuffer;
+using ::qmmf::recorder::BufferDescriptor;
 using ::std::ifstream;
 using ::std::ofstream;
 using ::std::setbase;
@@ -60,7 +60,7 @@ class RecorderTestWav
   int Open();
   void Close();
 
-  int Write(const TrackBuffer& buffer);
+  int Write(const BufferDescriptor& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {

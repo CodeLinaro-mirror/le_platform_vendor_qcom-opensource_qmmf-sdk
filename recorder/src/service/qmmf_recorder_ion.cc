@@ -56,7 +56,7 @@ using ::qmmf::common::audio::AudioBufferList;
 using ::std::map;
 
 static const char* kIonFilename = "/dev/ion";
-static const int kBufferAlign = 4096;
+static const int kBufferAlign   = 4096;
 
 RecorderIon::RecorderIon()
     : ion_device_(-1), buffer_size_(0), request_size_(0) {
@@ -80,6 +80,7 @@ int RecorderIon::Allocate(int number, int size) {
 
   if (number <= 0) return -EINVAL;
   if (size <= 0) return -EINVAL;
+
   request_size_ = size;
   buffer_size_ = (size + kBufferAlign - 1) & ~(kBufferAlign - 1);
 
@@ -232,7 +233,7 @@ int RecorderIon::GetList(AudioBufferList* buffers) {
   return 0;
 }
 
-int RecorderIon::Import(const BnTrackBuffer& bn_buffer, AudioBuffer* buffer) {
+int RecorderIon::Import(const BnBuffer& bn_buffer, AudioBuffer* buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
                bn_buffer.ToString().c_str());
@@ -251,14 +252,14 @@ int RecorderIon::Import(const BnTrackBuffer& bn_buffer, AudioBuffer* buffer) {
   buffer->size = bn_buffer.size;
   buffer->timestamp = bn_buffer.timestamp;
   buffer->flags = bn_buffer.flag;
-  
+
 
   QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
                buffer->ToString().c_str());
   return 0;
 }
 
-int RecorderIon::Export(const AudioBuffer& buffer, BnTrackBuffer* bn_buffer) {
+int RecorderIon::Export(const AudioBuffer& buffer, BnBuffer* bn_buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());

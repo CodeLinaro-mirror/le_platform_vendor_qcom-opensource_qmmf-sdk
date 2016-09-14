@@ -198,9 +198,17 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param) {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
+  bool enable_init_qp = false;
+  bool enable_qp_range = false;
+  bool enable_qp_IBP_range = false;
   uint32_t width = codec_param.video_param.width;
   uint32_t height = codec_param.video_param.height;
   uint32_t frame_rate = codec_param.video_param.frame_rate;
+  uint32_t init_IQP, init_PQP, init_BQP;
+  uint32_t min_QP, max_QP;
+  uint32_t min_IQP, max_IQP,  min_PQP, max_PQP, min_BQP, max_BQP;
+  uint32_t ltr_count, hier_num_layer;
+  VideoRateControlType rate_control;
 
   //Prepend SPS/PPS to IDR frames
   PrependSPSPPSToIDRFramesParams param;
@@ -231,9 +239,73 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param) {
 
   switch(codec_param.video_param.format_type) {
     case VideoFormat::kAVC:
+      enable_init_qp =
+        codec_param.video_param.codec_param.avc.qp_params.enable_init_qp;
+      enable_qp_range =
+        codec_param.video_param.codec_param.avc.qp_params.enable_qp_range;
+      enable_qp_IBP_range =
+        codec_param.video_param.codec_param.avc.qp_params.enable_qp_IBP_range;
+      init_IQP =
+        codec_param.video_param.codec_param.avc.qp_params.init_qp.init_IQP;
+      init_PQP =
+        codec_param.video_param.codec_param.avc.qp_params.init_qp.init_PQP;
+      init_BQP =
+        codec_param.video_param.codec_param.avc.qp_params.init_qp.init_BQP;
+      min_QP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_range.min_QP;
+      max_QP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_range.max_QP;
+      min_IQP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP;
+      max_IQP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP;
+      min_PQP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP;
+      max_PQP=
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP;
+      min_BQP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP;
+      max_BQP =
+        codec_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP;
+      ltr_count = codec_param.video_param.codec_param.avc.ltr_count;
+      hier_num_layer = codec_param.video_param.codec_param.avc.hier_layer;
+      rate_control = codec_param.video_param.codec_param.avc.ratecontrol_type;
+
       ret = SetupAVCEncoderParameters(codec_param);
       break;
     case VideoFormat::kHEVC:
+      enable_init_qp =
+        codec_param.video_param.codec_param.hevc.qp_params.enable_init_qp;
+      enable_qp_range =
+        codec_param.video_param.codec_param.hevc.qp_params.enable_qp_range;
+      enable_qp_IBP_range =
+        codec_param.video_param.codec_param.hevc.qp_params.enable_qp_IBP_range;
+      init_IQP =
+        codec_param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP;
+      init_PQP =
+        codec_param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP;
+      init_BQP =
+        codec_param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP;
+      min_QP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_range.min_QP;
+      max_QP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_range.max_QP;
+      min_IQP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP;
+      max_IQP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP;
+      min_PQP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP;
+      max_PQP=
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP;
+      min_BQP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP;
+      max_BQP =
+        codec_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP;
+      ltr_count = codec_param.video_param.codec_param.hevc.ltr_count;
+      hier_num_layer = codec_param.video_param.codec_param.hevc.hier_layer;
+      rate_control = codec_param.video_param.codec_param.hevc.ratecontrol_type;
+
       ret = SetupHEVCEncoderParameters(codec_param);
       break;
     default:
@@ -244,6 +316,139 @@ status_t AVCodec::ConfigureVideoEncoder(CodecCreateParam& codec_param) {
   if(ret != OK) {
     QMMF_ERROR("%s:%s Failed to set up codec parameter", TAG, __func__);
     return ret;
+  }
+
+  //SetUp QP parameter.
+  if(enable_init_qp) {
+    if(rate_control != VideoRateControlType::kDisable) {
+      // RC ON
+      QOMX_EXTNINDEX_VIDEO_INITIALQP initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = init_IQP;
+      initqp.nQpP = init_PQP;
+      initqp.nQpB = init_BQP;
+      initqp.bEnableInitQp = 0x7; // Intial QP applied to all frame
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    } else {
+      // RC OFF
+      OMX_VIDEO_PARAM_QUANTIZATIONTYPE initqp;
+      InitOMXParams(&initqp);
+      initqp.nPortIndex = kPortIndexOutput;
+      initqp.nQpI = init_IQP;
+      initqp.nQpP = init_PQP;
+      initqp.nQpB = init_BQP;
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
+                (OMX_PTR)&initqp);
+      if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
+        return ret;
+      }
+    }
+  }
+
+  if(enable_qp_range) {
+    OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
+      return ret;
+    }
+    qp_range.minQP = min_QP;
+    qp_range.maxQP = max_QP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
+              (OMX_PTR)&qp_range);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
+      return ret;
+    }
+  }
+
+  if(enable_qp_IBP_range) {
+    OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;
+    InitOMXParams(&qp_range);
+    qp_range.nPortIndex = kPortIndexOutput;
+
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
+    qp_range.minIQP = min_IQP;
+    qp_range.maxIQP = max_IQP;
+    qp_range.minPQP = min_PQP;
+    qp_range.maxPQP = max_PQP;
+    qp_range.minBQP = min_BQP;
+    qp_range.maxBQP = max_BQP;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
+              (OMX_PTR)&qp_range);
+    if(ret != OK) {
+      QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
+      return ret;
+    }
+  }
+
+  if(ltr_count > 0) {
+    QOMX_VIDEO_PARAM_LTRCOUNT_TYPE ltr_frame;
+    InitOMXParams(&ltr_frame);
+    ltr_frame.nPortIndex = kPortIndexOutput;
+
+    ret = omx_client_->GetParameter((OMX_INDEXTYPE)QOMX_IndexParamVideoLTRCount,
+              (OMX_PTR)&ltr_frame);
+    if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to get ltr count parameter", TAG, __func__);
+        return ret;
+    }
+
+    ltr_frame.nCount = ltr_count;
+    ret = omx_client_->SetParameter((OMX_INDEXTYPE)QOMX_IndexParamVideoLTRCount,
+              (OMX_PTR)&ltr_frame);
+    if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set ltr count parameter", TAG, __func__);
+        return ret;
+    }
+  }
+
+  if(hier_num_layer > 0) {
+    QOMX_VIDEO_HIERARCHICALLAYERS hier_layer;
+    InitOMXParams(&hier_layer);
+    hier_layer.nPortIndex = kPortIndexOutput;
+
+    ret = omx_client_->GetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexHierarchicalStructure,
+              (OMX_PTR)&hier_layer);
+    if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to get hierarchial parameter", TAG, __func__);
+        return ret;
+    }
+
+    hier_layer.eHierarchicalCodingType = QOMX_HIERARCHICALCODING_P;
+    hier_layer.nNumLayers = hier_num_layer;
+
+    ret = omx_client_->SetParameter(
+              (OMX_INDEXTYPE)OMX_QcomIndexHierarchicalStructure,
+              (OMX_PTR)&hier_layer);
+    if (ret != OK) {
+        QMMF_ERROR("%s:%s Failed to set hierarchial parameter", TAG, __func__);
+        return ret;
+    }
   }
 
   ret = ConfigureBitrate(codec_param);
@@ -401,100 +606,6 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecCreateParam& param) {
     return ret;
   }
 
-  //SetUp QP parameter.
-  if(param.video_param.codec_param.avc.qp_params.enable_init_qp) {
-    VideoRateControlType mode = param.video_param.codec_param.avc.ratecontrol_type;
-    if (mode != VideoRateControlType::kDisable) {
-      // RC ON
-      QOMX_EXTNINDEX_VIDEO_INITIALQP initqp;
-      InitOMXParams(&initqp);
-      initqp.nPortIndex = kPortIndexOutput;
-      initqp.nQpI = param.video_param.codec_param.avc.qp_params.init_qp.init_IQP;
-      initqp.nQpP = param.video_param.codec_param.avc.qp_params.init_qp.init_PQP;
-      initqp.nQpB = param.video_param.codec_param.avc.qp_params.init_qp.init_BQP;
-      initqp.bEnableInitQp = 0x7;
-      ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
-        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
-        return ret;
-      }
-    } else {
-      // RC OFF
-      OMX_VIDEO_PARAM_QUANTIZATIONTYPE initqp;
-      InitOMXParams(&initqp);
-      initqp.nPortIndex = kPortIndexOutput;
-      initqp.nQpI = param.video_param.codec_param.avc.qp_params.init_qp.init_IQP;
-      initqp.nQpP = param.video_param.codec_param.avc.qp_params.init_qp.init_PQP;
-      initqp.nQpB = param.video_param.codec_param.avc.qp_params.init_qp.init_BQP;
-      ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
-        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
-        return ret;
-      }
-    }
-  }
-
-  if(param.video_param.codec_param.avc.qp_params.enable_qp_range) {
-    OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
-    InitOMXParams(&qp_range);
-    qp_range.nPortIndex = kPortIndexOutput;
-    ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
-      QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
-      return ret;
-    }
-    qp_range.minQP = param.video_param.codec_param.avc.qp_params.qp_range.min_QP;
-    qp_range.maxQP = param.video_param.codec_param.avc.qp_params.qp_range.max_QP;
-
-    ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
-      return ret;
-    }
-  }
-
-  if(param.video_param.codec_param.avc.qp_params.enable_qp_IBP_range) {
-    OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;
-    InitOMXParams(&qp_range);
-    qp_range.nPortIndex = kPortIndexOutput;
-
-    ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
-      return ret;
-    }
-    qp_range.minIQP =
-              param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP;
-    qp_range.maxIQP =
-              param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP;
-    qp_range.minPQP =
-              param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP;
-    qp_range.maxPQP =
-              param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP;
-    qp_range.minBQP =
-             param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP;
-    qp_range.maxBQP =
-             param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP;
-
-    ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
-      return ret;
-    }
-  }
-
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -530,118 +641,24 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecCreateParam& param) {
     return ret;
   }
 
-   QOMX_VIDEO_INTRAPERIODTYPE intra;
-   intra.nPortIndex = kPortIndexOutput;
-   omx_client_->GetConfig(
-            (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
-            (OMX_PTR)&intra);
-   if (ret != OK) {
+  QOMX_VIDEO_INTRAPERIODTYPE intra;
+  intra.nPortIndex = kPortIndexOutput;
+  omx_client_->GetConfig(
+          (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
+          (OMX_PTR)&intra);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get video intra period", TAG, __func__);
     return ret;
   }
    intra.nPFrames = frame_rate*iframe_interval;
    //TODO: remove hard code B frame value
-   intra.nBFrames = 0;
-   ret = omx_client_->SetConfig(
-            (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
-            (OMX_PTR)&intra);
-   if (ret != OK) {
+  intra.nBFrames = 0;
+  ret = omx_client_->SetConfig(
+          (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
+          (OMX_PTR)&intra);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to set video intra period", TAG, __func__);
     return ret;
-  }
-
-  //SetUp QP parameter.
-  if(param.video_param.codec_param.hevc.qp_params.enable_init_qp) {
-    VideoRateControlType mode = param.video_param.codec_param.hevc.ratecontrol_type;
-    if (mode != VideoRateControlType::kDisable) {
-      // RC ON
-      QOMX_EXTNINDEX_VIDEO_INITIALQP initqp;
-      InitOMXParams(&initqp);
-      initqp.nPortIndex = kPortIndexOutput;
-      initqp.nQpI = param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP;
-      initqp.nQpP = param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP;
-      initqp.nQpB = param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP;
-      initqp.bEnableInitQp = 0x7;
-      ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
-        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
-        return ret;
-      }
-    } else {
-      // RC OFF
-      OMX_VIDEO_PARAM_QUANTIZATIONTYPE initqp;
-      InitOMXParams(&initqp);
-      initqp.nPortIndex = kPortIndexOutput;
-      initqp.nQpI = param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP;
-      initqp.nQpP = param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP;
-      initqp.nQpB = param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP;
-      ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
-        QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
-        return ret;
-      }
-    }
-  }
-
-  if(param.video_param.codec_param.hevc.qp_params.enable_qp_range) {
-    OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
-    InitOMXParams(&qp_range);
-    qp_range.nPortIndex = kPortIndexOutput;
-    ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
-      QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
-      return ret;
-    }
-    qp_range.minQP = param.video_param.codec_param.hevc.qp_params.qp_range.min_QP;
-    qp_range.maxQP = param.video_param.codec_param.hevc.qp_params.qp_range.max_QP;
-
-    ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
-      return ret;
-    }
-  }
-
-  if(param.video_param.codec_param.hevc.qp_params.enable_qp_IBP_range) {
-    OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;
-    InitOMXParams(&qp_range);
-    qp_range.nPortIndex = kPortIndexOutput;
-
-    ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
-      return ret;
-    }
-    qp_range.minIQP =
-              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP;
-    qp_range.maxIQP =
-              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP;
-    qp_range.minPQP =
-              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP;
-    qp_range.maxPQP =
-              param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP;
-    qp_range.minBQP =
-             param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP;
-    qp_range.maxBQP =
-             param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP;
-
-    ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if(ret != OK) {
-      QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
-      return ret;
-    }
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -1154,6 +1171,88 @@ status_t AVCodec::ResumeCodec() {
   return ret;
 }
 
+status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
+                                size_t param_size) {
+
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
+  status_t ret = 0;
+  uint32_t *value;
+  VideoEncIdrInterval *idr_interval;
+  VideoEncLtrUse *ltr_use;
+  OMX_INDEXTYPE index;
+
+  switch (param_type) {
+    case CodecParamType::kBitRateType:
+      value = static_cast<uint32_t*>(params);
+      OMX_VIDEO_CONFIG_BITRATETYPE bitrate_params;
+      InitOMXParams(&bitrate_params);
+      bitrate_params.nSize = sizeof(bitrate_params);
+      bitrate_params.nPortIndex = kPortIndexOutput;
+      bitrate_params.nEncodeBitrate = *value;
+      index = OMX_IndexConfigVideoBitrate;
+      ret = omx_client_->SetConfig(index, &bitrate_params);
+      break;
+    case CodecParamType::kFrameRateType:
+      value = static_cast<uint32_t*>(params);
+      OMX_CONFIG_FRAMERATETYPE fps_params;
+      InitOMXParams(&fps_params);
+      fps_params.nPortIndex = kPortIndexOutput;
+      FractionToQ16(fps_params.xEncodeFramerate,(int)((*value) * 2), 2);
+      index = OMX_IndexConfigVideoFramerate;
+      ret = omx_client_->SetConfig(index, &fps_params);
+      break;
+    case CodecParamType::kInsertIDRType:
+      OMX_CONFIG_INTRAREFRESHVOPTYPE idr_params;
+      InitOMXParams(&idr_params);
+      idr_params.nPortIndex = kPortIndexOutput;
+      idr_params.IntraRefreshVOP = OMX_TRUE;
+      index = OMX_IndexConfigVideoIntraVOPRefresh;
+      ret = omx_client_->SetConfig(index, &idr_params);
+      break;
+    case CodecParamType::kIDRIntervalType:
+      idr_interval = static_cast<VideoEncIdrInterval*>(params);
+      QOMX_VIDEO_INTRAPERIODTYPE intra_params;
+      InitOMXParams(&intra_params);
+      intra_params.nPortIndex = kPortIndexOutput;
+      intra_params.nPFrames = idr_interval->num_pframes;
+      intra_params.nBFrames = idr_interval->num_bframes;
+      intra_params.nIDRPeriod = idr_interval->idr_period;
+      index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod;
+      ret = omx_client_->SetConfig(index, &intra_params);
+      break;
+    case CodecParamType::kMarkLtrType:
+      value = static_cast<uint32_t*>(params);
+      QOMX_VIDEO_CONFIG_LTRMARK_TYPE  matkltr_params;
+      InitOMXParams(&matkltr_params);
+      matkltr_params.nPortIndex = kPortIndexInput;
+      matkltr_params.nID = *value;
+      index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRMark;
+      ret = omx_client_->SetConfig(index, &matkltr_params);
+      break;
+    case CodecParamType::kUseLtrType:
+      ltr_use = static_cast<VideoEncLtrUse*>(params);
+      QOMX_VIDEO_CONFIG_LTRUSE_TYPE useltr_params;
+      InitOMXParams(&useltr_params);
+      useltr_params.nPortIndex = kPortIndexInput;
+      useltr_params.nID = ltr_use->id;
+      useltr_params.nFrames = ltr_use->frame;
+      index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRUse;
+      ret = omx_client_->SetConfig(index, &useltr_params);
+      break;
+    default:
+      QMMF_ERROR("%s:%s Unknown param type", TAG, __func__);
+      return -1;
+  }
+
+  if(ret != OK) {
+    QMMF_ERROR("%s:%s Failed to set codec param", TAG, __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  return ret;
+}
+
 bool AVCodec::IsInputPortStop() {
 
   Mutex::Autolock autoLock(input_stop_lock_);
@@ -1248,7 +1347,7 @@ void* AVCodec::DeliverInput(void *arg) {
     }
 
     buf_header->nFilledLen = native_handle->data[4];
-    buf_header->nTimeStamp  = stream_buffer.timestamp;
+    buf_header->nTimeStamp  = stream_buffer.timestamp/1000;
 
     QMMF_INFO("%s:%s ETB buffer fd(%d), ts(%lld)", TAG, __func__,
         stream_buffer.handle->data[0], stream_buffer.timestamp);
@@ -1392,28 +1491,6 @@ status_t AVCodec::EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
 status_t AVCodec::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
 
   return omx_client_->FillThisBuffer(buffer);
-}
-
-status_t AVCodec::SetVideoParameters(
-    VideoTrackParamType type  __attribute__((__unused__)),
-    const void *param  __attribute__((__unused__)),
-    size_t param_size  __attribute__((__unused__))) {
-
-  status_t ret = 0;
-  QMMF_INFO("%s:%s Enter", TAG, __func__);
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
-  return ret;
-}
-
-status_t AVCodec::SetAudioParameters(
-    AudioTrackParamType type  __attribute__((__unused__)),
-    const void *param  __attribute__((__unused__)),
-    size_t param_size  __attribute__((__unused__))) {
-
-  status_t ret = 0;
-  QMMF_INFO("%s:%s Enter", TAG, __func__);
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
-  return ret;
 }
 
 status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous) {

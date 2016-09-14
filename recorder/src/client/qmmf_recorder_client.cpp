@@ -63,174 +63,175 @@ using namespace android;
 RecorderClient::RecorderClient()
                 : recorder_service_(nullptr)
                 , death_notifier_(nullptr)
-                , ion_device_(-1)
-{
-    QMMF_INFO("%s:%s Enter ", TAG, __func__);
-    sp<ProcessState> proc(ProcessState::self());
-    proc->startThreadPool();
-    QMMF_INFO("%s:%s Exit (0x%x)", TAG, __func__, this);
+                , ion_device_(-1) {
+
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  sp<ProcessState> proc(ProcessState::self());
+  proc->startThreadPool();
+  QMMF_INFO("%s:%s Exit (0x%x)", TAG, __func__, this);
 }
 
-RecorderClient::~RecorderClient()
-{
-    QMMF_INFO("%s:%s Enter ", TAG, __func__);
+RecorderClient::~RecorderClient() {
 
-    if (recorder_service_ != nullptr) {
-      recorder_service_.clear();
-      recorder_service_ = nullptr;
-    }
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
-    QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
-}
-
-status_t RecorderClient::Connect(RecorderCb& cb)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
-
-    if (CheckServiceStatus()) {
-      QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
-      return NO_ERROR;
-    }
-
-    //TODO: close in disconnect.
-    ion_device_ = open("/dev/ion", O_RDONLY);
-    if (ion_device_ < 0) {
-        QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
-        return NO_INIT;
-    }
-
-    recorder_cb_ = cb;
-
-    death_notifier_ = new DeathNotifier(this);
-    if (nullptr == death_notifier_.get()) {
-        QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
-        return NO_MEMORY;
-    }
-
-    sp<IBinder> service_handle;
-    sp<IServiceManager> service_manager = defaultServiceManager();
-
-    service_handle = service_manager->getService(String16(QMMF_RECORDER_SERVICE_NAME));
-    if(service_handle.get() == nullptr) {
-        QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
-                         QMMF_RECORDER_SERVICE_NAME);
-        return NO_INIT;
-    }
-
-    recorder_service_ = interface_cast<IRecorderService>(service_handle);
-    IInterface::asBinder(recorder_service_)->linkToDeath(death_notifier_);
-
-    sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
-    auto ret = recorder_service_->Connect(handler);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
-                             QMMF_RECORDER_SERVICE_NAME);
-    }
-
-    if (!session_cb_list_.isEmpty()) {
-      session_cb_list_.clear();
-    }
-
-    if (!track_cb_list_.isEmpty()) {
-      track_cb_list_.clear();
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
-}
-
-status_t RecorderClient::Disconnect()
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
-
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
-
-    auto ret = recorder_service_->Disconnect();
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
-    }
-
-    recorder_service_->asBinder(recorder_service_)->
-        unlinkToDeath(death_notifier_);
-
+  if (recorder_service_ != nullptr) {
     recorder_service_.clear();
-    recorder_service_ = NULL;
+    recorder_service_ = nullptr;
+  }
 
-    death_notifier_.clear();
-    death_notifier_ = NULL;
-
-    if (!session_cb_list_.isEmpty()) {
-      session_cb_list_.clear();
-    }
-    if (!track_cb_list_.isEmpty()) {
-      track_cb_list_.clear();
-    }
-    if(!sessions_.isEmpty()) {
-      sessions_.clear();
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
 }
 
-status_t RecorderClient::StartCamera(std::vector<uint32_t> &camera_id,
-                                     const CameraStartParam &param)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::Connect(const RecorderCb& cb) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    auto ret = recorder_service_->StartCamera(camera_id,
-                                          const_cast<CameraStartParam&>(param));
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s StartCamera failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  if (CheckServiceStatus()) {
+    QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
+    return NO_ERROR;
+  }
+
+  //TODO: close in disconnect.
+  ion_device_ = open("/dev/ion", O_RDONLY);
+  if (ion_device_ < 0) {
+    QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
+    return NO_INIT;
+  }
+
+  recorder_cb_ = cb;
+
+  death_notifier_ = new DeathNotifier(this);
+  if (nullptr == death_notifier_.get()) {
+    QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
+    return NO_MEMORY;
+  }
+
+  sp<IBinder> service_handle;
+  sp<IServiceManager> service_manager = defaultServiceManager();
+
+  service_handle = service_manager->
+      getService(String16(QMMF_RECORDER_SERVICE_NAME));
+  if(service_handle.get() == nullptr) {
+    QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
+                     QMMF_RECORDER_SERVICE_NAME);
+    return NO_INIT;
+  }
+
+  recorder_service_ = interface_cast<IRecorderService>(service_handle);
+  IInterface::asBinder(recorder_service_)->linkToDeath(death_notifier_);
+
+  sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
+  auto ret = recorder_service_->Connect(handler);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
+        QMMF_RECORDER_SERVICE_NAME);
+  }
+
+  if (!session_cb_list_.isEmpty()) {
+    session_cb_list_.clear();
+  }
+
+  if (!track_cb_list_.isEmpty()) {
+    track_cb_list_.clear();
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::StopCamera(std::vector<uint32_t> &camera_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::Disconnect() {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    auto ret = recorder_service_->StopCamera(camera_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s StopCamera failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->Disconnect();
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
+  }
+
+  recorder_service_->asBinder(recorder_service_)->
+      unlinkToDeath(death_notifier_);
+
+  recorder_service_.clear();
+  recorder_service_ = NULL;
+
+  death_notifier_.clear();
+  death_notifier_ = NULL;
+
+  if (!session_cb_list_.isEmpty()) {
+    session_cb_list_.clear();
+  }
+  if (!track_cb_list_.isEmpty()) {
+    track_cb_list_.clear();
+  }
+  if(!sessions_.isEmpty()) {
+    sessions_.clear();
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::CreateSession(SessionCb& cb, uint32_t* session_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::StartCamera(const uint32_t camera_id,
+                                     const CameraStartParam &param) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    auto ret = recorder_service_->CreateSession(session_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s CreateSession failed!", TAG, __func__);
-    }
-    assert(*session_id != 0);
-    session_cb_list_.add(*session_id, cb);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
 
-    Vector<uint32_t> tracks;
-    sessions_.add(*session_id, tracks);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  auto ret = recorder_service_->StartCamera(camera_id,
+                                        const_cast<CameraStartParam&>(param));
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s StartCamera failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderClient::StopCamera(const uint32_t camera_id) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
+
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->StopCamera(camera_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s StopCamera failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderClient::CreateSession(const SessionCb& cb,
+                                       uint32_t* session_id) {
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
+
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->CreateSession(session_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s CreateSession failed!", TAG, __func__);
+  }
+  assert(*session_id != 0);
+  session_cb_list_.add(*session_id, cb);
+
+  Vector<uint32_t> tracks;
+  sessions_.add(*session_id, tracks);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderClient::DeleteSession(const uint32_t session_id) {
@@ -269,55 +270,55 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
   return ret;
 }
 
-status_t RecorderClient::StartSession(const uint32_t session_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::StartSession(const uint32_t session_id) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    auto ret = recorder_service_->StartSession(session_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s StartSession failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->StartSession(session_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s StartSession failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::StopSession(const uint32_t session_id, bool do_flush)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::StopSession(const uint32_t session_id,
+                                     bool do_flush) {
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
 
-    auto ret = recorder_service_->StopSession(session_id, do_flush);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s StopSession failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  auto ret = recorder_service_->StopSession(session_id, do_flush);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s StopSession failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::PauseSession(const uint32_t session_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::PauseSession(const uint32_t session_id) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
-    auto ret = recorder_service_->PauseSession(session_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s PauseSession failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->PauseSession(session_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s PauseSession failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderClient::ResumeSession(const uint32_t session_id)
@@ -338,16 +339,15 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
 }
 
 status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
-                                          uint32_t track_id,
+                                          const uint32_t track_id,
                                           const AudioTrackCreateParam& param,
-                                          TrackCb& cb) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-               AudioTrackCreateParamI(param).ToString().c_str());
-  Mutex::Autolock lock(lock_);
+                                          const TrackCb& cb) {
 
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
+      session_id, track_id);
+
+  Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -373,12 +373,12 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
 }
 
 status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
-                                          uint32_t track_id,
+                                          const uint32_t track_id,
                                           const VideoTrackCreateParam& param,
-                                          TrackCb& cb) {
+                                          const TrackCb& cb) {
+
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
-
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -408,14 +408,12 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
 status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
                                            const uint32_t track_id,
-                                           std::vector<TrackBuffer> &buffers) {
+                                           std::vector<BufferDescriptor>
+                                              &buffers) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const TrackBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
-                 TrackBufferI(buffer).ToString().c_str());
+  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
+      session_id, track_id);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -423,7 +421,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
 
   uint32_t ret = NO_ERROR;
   if (track_id < 100) {
-    std::vector<BnTrackBuffer> bn_buffers_ret;
+    std::vector<BnBuffer> bn_buffers_ret;
     {
       Mutex::Autolock lock(list_lock_);
       if (track_in_buffers_.indexOfKey(track_id) < 0) {
@@ -431,7 +429,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
             track_id);
         return BAD_VALUE;
       }
-      Vector<BnTrackBuffer> bn_buffers;
+      Vector<BnBuffer> bn_buffers;
       bn_buffers = track_in_buffers_.valueFor(track_id);
       size_t num_buf_return = buffers.size();
       for (size_t i = 0; i < num_buf_return; ++i) {
@@ -441,7 +439,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
           idx = -1;
           if (buf_id == bn_buffers[j].buffer_id) {
             QMMF_VERBOSE("%s:%s: track_id(%d) buffer_id(%d) matched in "
-                " BnTrackBuffer list!", TAG, __func__, track_id, buf_id);
+                " BnBuffer list!", TAG, __func__, track_id, buf_id);
             // Add buffer to return list
             bn_buffers_ret.push_back(bn_buffers[j]);
             idx = j;
@@ -475,7 +473,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
     }
     // Debug purpose only.
     for (size_t i = 0; i < track_in_buffers_.size(); ++i) {
-      Vector<BnTrackBuffer> vec = track_in_buffers_.valueAt(i);
+      Vector<BnBuffer> vec = track_in_buffers_.valueAt(i);
       QMMF_VERBOSE("%s:%s: track_id(%d): Num pending buffers(%d)", TAG,
           __func__, track_in_buffers_.keyAt(i), vec.size());
       for (size_t j = 0; j < vec.size(); ++j) {
@@ -483,18 +481,18 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
       }
     }
   } else {
-    std::vector<BnTrackBuffer> bn_buffers_ret;
+    std::vector<BnBuffer> bn_buffers_ret;
 
-    for (const TrackBuffer& buffer : buffers) {
-      BnTrackBuffer bn_buffer = {
-        buffer.buf_id,    /* ion_fd */
-        buffer.size,      /* size */
-        buffer.timestamp, /* timestamp */
-        0,                /* width */
-        0,                /* height */
-        buffer.buf_id,    /* buffer_id */
-        buffer.flag,      /* flag */
-        buffer.capacity   /* capacity */
+    for (const BufferDescriptor& buffer : buffers) {
+      BnBuffer bn_buffer = {
+        buffer.buf_id,    // ion_fd
+        buffer.size,      // size
+        buffer.timestamp, // timestamp
+        0,                // width
+        0,                // height
+        buffer.buf_id,    // buffer_id
+        buffer.flag,      // flag
+        buffer.capacity   // capacity
       };
       bn_buffers_ret.push_back(bn_buffer);
     }
@@ -510,56 +508,57 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
 }
 
 status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
-                                            uint32_t track_id,
-                                            AudioTrackParamType type,
+                                            const uint32_t track_id,
+                                            CodecParamType type,
                                             const void *param,
-                                            size_t param_size)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+                                            size_t param_size) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->SetAudioTrackParam(session_id, track_id,
-        type, const_cast<void*>(param), param_size);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->SetAudioTrackParam(session_id, track_id,
+      type, const_cast<void*>(param), param_size);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
-                                            uint32_t track_id,
-                                            VideoTrackParamType type,
+                                            const uint32_t track_id,
+                                            CodecParamType type,
                                             const void *param,
-                                            size_t param_size)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+                                            size_t param_size) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->SetVideoTrackParam(session_id, track_id,
-                                    type, const_cast<void*>(param), param_size);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s SetVideoTrackParam failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->SetVideoTrackParam(session_id, track_id,
+                                  type, const_cast<void*>(param), param_size);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s SetVideoTrackParam failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
-                                          uint32_t track_id) {
+                                          const uint32_t track_id) {
+
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  Mutex::Autolock lock(lock_);
 
+  Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -588,16 +587,15 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
 }
 
 status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
-                                          uint32_t track_id) {
+                                          const uint32_t track_id) {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, track_id);
-  Mutex::Autolock lock(lock_);
   int32_t ret = NO_ERROR;
 
+  Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-
   // Return pending buffers back to service if any.
   // TODO: Application should return all the buffers after calling stop track
   // then only service would give stop track event callback, once this is done
@@ -606,8 +604,8 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
     QMMF_ERROR("%s:%s: Not a valid track_id(%d)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  std::vector<BnTrackBuffer> bn_buffers_ret;
-  Vector<BnTrackBuffer> vec = track_in_buffers_.valueFor(track_id);
+  std::vector<BnBuffer> bn_buffers_ret;
+  Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
   QMMF_VERBOSE("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
       track_id, vec.size());
 
@@ -669,188 +667,245 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   return ret;
 }
 
-status_t RecorderClient::CaptureImage(std::vector<uint32_t> &camera_id,
+status_t RecorderClient::CaptureImage(const uint32_t camera_id,
                                       const ImageParam &param,
-                                      CaptureImageCb& cb)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+                                      const uint32_t num_images,
+                                      const std::vector<CameraMetadata> &meta,
+                                      const ImageCaptureCb& cb) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
-    image_capture_cb_ = cb;
-    auto ret = recorder_service_->CaptureImage(camera_id,
-                                               const_cast<ImageParam&>(param));
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s CaptureImage failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  image_capture_cb_ = cb;
+  auto ret = recorder_service_->CaptureImage(camera_id, param, num_images,
+                                             meta);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s CaptureImage failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::CancelCaptureImage()
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
+                                            const ImageCaptureConfig &config) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->CancelCaptureImage();
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s CancelCaptureImage failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->ConfigImageCapture(camera_id, config);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s ConfigImageCapture failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::SetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::CancelCaptureImage() {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->SetCameraParam(camera_id, meta);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s SetCameraParam failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->CancelCaptureImage();
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s CancelCaptureImage failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::GetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                                  const BufferDescriptor
+                                                      &buffer) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
-
-    auto ret = recorder_service_->GetCameraParam(camera_id, meta);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s GetCameraParam failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  // Unmap buffer from client process, and close duped ION fd.
+  if (buffer.data) {
+    munmap(buffer.data, buffer.capacity);
+    close(buffer.fd);
+    QMMF_DEBUG("%s:%s fd(%d) closed!", TAG, __func__, buffer.fd);
+  }
+  QMMF_DEBUG("%s:%s Returning buf_id(%d) back to service!", TAG, __func__,
+      buffer.buf_id);
+  auto ret = recorder_service_->ReturnImageCaptureBuffer(camera_id,
+                                                         buffer.buf_id);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s ReturnImageCaptureBuffer failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::CreateOverlayObject(const OverlayParam &param,
-                                             uint32_t *overlay_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
+                                        const CameraMetadata &meta) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->CreateOverlayObject(const_cast<OverlayParam&>
-                                                        (param), overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s CreateOverlayObject failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = recorder_service_->SetCameraParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s SetCameraParam failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::DeleteOverlayObject(const uint32_t overlay_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
+                                        CameraMetadata &meta) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->DeleteOverlayObject(overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s DeleteOverlayObject failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->GetCameraParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s GetCameraParam failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::GetOverlayObjectParams(const uint32_t overlay_id,
-                                                OverlayParam &param)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
+                                                CameraMetadata &meta) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->GetOverlayObjectParams(overlay_id, param);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s GetOverlayObjectParams failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->GetDefaultCaptureParam(camera_id, meta);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s GetDefaultCaptureParam failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                                   const OverlayParam &param)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
+                                             const OverlayParam &param,
+                                             uint32_t *overlay_id) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->UpdateOverlayObjectParams(overlay_id,
-                                             const_cast<OverlayParam &>(param));
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s UpdateOverlayObjectParams failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->CreateOverlayObject(track_id,
+                                                    const_cast<OverlayParam*>
+                                                    (&param), overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s CreateOverlayObject failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::SetOverlay(const uint32_t session_id,
-                                    const uint32_t track_id,
-                                    const uint32_t overlay_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
+                                             const uint32_t overlay_id) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->SetOverlayObject(session_id, track_id,
-                                                  overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s SetOverlay failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->DeleteOverlayObject(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s DeleteOverlayObject failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
-status_t RecorderClient::RemoveOverlay(const uint32_t session_id,
-                                       const uint32_t track_id,
-                                       const uint32_t overlay_id)
-{
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    Mutex::Autolock lock(lock_);
+status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
+                                                const uint32_t overlay_id,
+                                                OverlayParam &param) {
 
-    if (!CheckServiceStatus()) {
-      return NO_INIT;
-    }
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-    auto ret = recorder_service_->RemoveOverlayObject(session_id, track_id,
-                                                     overlay_id);
-    if(NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s RemoveOverlay failed!", TAG, __func__);
-    }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-    return ret;
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->GetOverlayObjectParams(track_id, overlay_id,
+                                                       param);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s GetOverlayObjectParams failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
+                                                   const uint32_t overlay_id,
+                                                   const OverlayParam &param) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->UpdateOverlayObjectParams(track_id, overlay_id,
+                                             const_cast<OverlayParam*>(&param));
+  if(NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s UpdateOverlayObjectParams failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderClient::SetOverlay(const uint32_t track_id,
+                                    const uint32_t overlay_id) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->SetOverlayObject(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s SetOverlay failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
+                                       const uint32_t overlay_id) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  auto ret = recorder_service_->RemoveOverlayObject(track_id, overlay_id);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s RemoveOverlay failed!", TAG, __func__);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 bool RecorderClient::CheckServiceStatus() {
@@ -895,7 +950,7 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
 }
 
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
-                                                 size_t event_data_size) {
+                                         size_t event_data_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -906,23 +961,59 @@ void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void RecorderClient::NotifySnapshotData(void *buffer, uint32_t buffer_size) {
-  if (nullptr != image_capture_cb_) {
-    image_capture_cb_(buffer, buffer_size);
+void RecorderClient::NotifySnapshotData(uint32_t camera_id,
+                                        uint32_t image_sequence_count,
+                                        BnBuffer& buffer, void *meta_param,
+                                        MetaParamType meta_type,
+                                        uint32_t meta_size) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  assert(image_capture_cb_ != nullptr);
+  assert(ion_device_ > 0);
+  struct ion_fd_data ion_info_fd;
+  memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
+
+  assert(buffer.ion_fd > 0);
+  assert(buffer.buffer_id > 0);
+
+  ion_info_fd.fd = buffer.ion_fd;
+  auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
+        ion_info_fd.fd);
+    return;
   }
+  QMMF_VERBOSE("%s:%s: ion_fd(%d)", TAG, __func__, ion_info_fd.fd);
+  void* vaddr = mmap(NULL, buffer.capacity, PROT_READ | PROT_WRITE,
+                     MAP_SHARED, ion_info_fd.fd, 0);
+  assert(vaddr != NULL);
+
+  BufferDescriptor snapshot_buf;
+  memset(&snapshot_buf, 0x0, sizeof snapshot_buf);
+  snapshot_buf.data      = vaddr;
+  snapshot_buf.size      = buffer.size;
+  snapshot_buf.timestamp = buffer.timestamp;
+  snapshot_buf.flag      = buffer.flag;
+  snapshot_buf.capacity  = buffer.capacity;
+  snapshot_buf.buf_id    = buffer.buffer_id;
+  snapshot_buf.fd        = buffer.ion_fd;
+
+  image_capture_cb_(camera_id, image_sequence_count, snapshot_buf, meta_param,
+                    meta_type, meta_size);
+
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
-                                          std::vector<BnTrackBuffer>
-                                          &bn_buffers,
+                                          std::vector<BnBuffer> &bn_buffers,
                                           void *meta_param,
-                                          TrackMetaParamType meta_type,
+                                          MetaParamType meta_type,
                                           size_t meta_size) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s track_id = %d ", TAG, __func__, track_id);
 
-  std::vector<TrackBuffer> track_buffers;
+  std::vector<BufferDescriptor> track_buffers;
   for (size_t i = 0; i < bn_buffers.size(); i++) {
 
     bool is_mapped = false;
@@ -1001,7 +1092,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       }
     }
 
-    TrackBuffer buffer;
+    BufferDescriptor buffer;
     memset(&buffer, 0x0, sizeof buffer);
     buffer.data      = buf_info.pointer;
     buffer.size      = bn_buffers[i].size;
@@ -1014,7 +1105,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
     {
       Mutex::Autolock lock(list_lock_);
 
-      Vector<BnTrackBuffer> bn_bufs;
+      Vector<BnBuffer> bn_bufs;
       if (track_in_buffers_.isEmpty()) {
         bn_bufs.push_back(bn_buffers[i]);
       } else {
@@ -1026,9 +1117,9 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       QMMF_VERBOSE("%s:%s: track_id(%d): Num received buffer(%d)", TAG, __func__,
           track_id, bn_bufs.size());
       for (size_t i = 0; i < bn_bufs.size(); ++i) {
-          QMMF_VERBOSE("%s:%s: \t \t \t buf_id(%d)", TAG, __func__,
-              bn_bufs[i].buffer_id);
-        }
+        QMMF_VERBOSE("%s:%s: \t \t \t buf_id(%d)", TAG, __func__,
+            bn_bufs[i].buffer_id);
+      }
     }
   }
 
@@ -1048,22 +1139,25 @@ void RecorderClient::NotifyVideoTrackEvent(uint32_t track_id,
 }
 
 void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
-    const std::vector<BnTrackBuffer>& bn_buffers, void* meta_param,
-    TrackMetaParamType meta_type, size_t meta_size) {
+                                          const std::vector<BnBuffer>&
+                                          bn_buffers, void* meta_param,
+                                          MetaParamType meta_type,
+                                          size_t meta_size) {
+
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& bn_buffer : bn_buffers)
+  for (const BnBuffer& bn_buffer : bn_buffers)
     QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
                  bn_buffer.ToString().c_str());
 
-  std::vector<TrackBuffer> track_buffers;
-  for (const BnTrackBuffer& bn_buffer : bn_buffers) {
-    TrackBuffer buffer;
+  std::vector<BufferDescriptor> track_buffers;
+  for (const BnBuffer& bn_buffer : bn_buffers) {
+    BufferDescriptor buffer;
     buffer_ion_.Associate(track_id, bn_buffer, &buffer);
     track_buffers.push_back(buffer);
   }
 
-  // get the handle to client callback.
+  // Get the handle to client callback.
   TrackCb callback = track_cb_list_.valueFor(track_id);
   callback.data_cb(track_id, track_buffers, meta_param, meta_type, meta_size);
 
@@ -1087,441 +1181,452 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
 }
 
 //Binder Proxy implementation of IRecoderService.
-class BpRecorderService: public BpInterface<IRecorderService>
-{
-public:
-    BpRecorderService(const sp<IBinder>& impl)
-    : BpInterface<IRecorderService>(impl) {}
+class BpRecorderService: public BpInterface<IRecorderService> {
+ public:
+  BpRecorderService(const sp<IBinder>& impl)
+  : BpInterface<IRecorderService>(impl) {}
 
-    status_t Connect(const sp<IRecorderServiceCallback>& service_cb)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        //Register service callback to get callbacks from recorder service.
-        //eg : JPEG buffer, Tracks elementry buffers, Recorder/Session status
-        //callbacks etc.
-        data.writeStrongBinder(IInterface::asBinder(service_cb));
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CONNECT), data, &reply);
-        return reply.readInt32();
+  status_t Connect(const sp<IRecorderServiceCallback>& service_cb) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    //Register service callback to get callbacks from recorder service.
+    //eg : JPEG buffer, Tracks elementry buffers, Recorder/Session status
+    //callbacks etc.
+    data.writeStrongBinder(IInterface::asBinder(service_cb));
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_CONNECT), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t Disconnect() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_DISCONNECT), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t StartCamera(const uint32_t camera_id,
+                       const CameraStartParam &param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    uint32_t param_size = sizeof param;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    CameraStartParam* start_param;
+    start_param = const_cast<CameraStartParam*>(&param);
+    memcpy(blob.data(), reinterpret_cast<void*>(start_param), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_START_CAMERA), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t StopCamera(const uint32_t camera_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_STOP_CAMERA), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t CreateSession(uint32_t *session_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_CREATE_SESSION), data, &reply);
+    uint32_t id;
+    reply.readUint32(&id);
+    *session_id = id;
+    assert(id != 0);
+    return reply.readInt32();
+  }
+
+  status_t DeleteSession(const uint32_t session_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    assert(session_id != 0);
+    data.writeUint32(session_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_DELETE_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t StartSession(const uint32_t session_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    assert(session_id != 0);
+    data.writeUint32(session_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_START_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t StopSession(const uint32_t session_id, bool do_flush) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    assert(session_id != 0);
+    data.writeUint32(session_id);
+    data.writeInt32(do_flush);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_STOP_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t PauseSession(const uint32_t session_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    assert(session_id != 0);
+    data.writeUint32(session_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_PAUSE_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t ResumeSession(const uint32_t session_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    assert(session_id != 0);
+    data.writeUint32(session_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_RESUME_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
+                            const AudioTrackCreateParam& param) {
+    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
+    QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
+        session_id, track_id);
+    Parcel data, reply;
+
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    AudioTrackCreateParamI(param).ToParcel(&data);
+
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_CREATE_AUDIOTRACK),
+        data, &reply);
+
+    return reply.readInt32();
+  }
+
+  status_t CreateVideoTrack(const uint32_t session_id,
+                            const uint32_t track_id,
+                            const VideoTrackCreateParam& params) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    uint32_t param_size = sizeof params;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    VideoTrackCreateParam* track_params =
+        const_cast<VideoTrackCreateParam*>(&params);
+    memcpy(blob.data(), reinterpret_cast<void*>(track_params), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_CREATE_VIDEOTRACK), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t DeleteAudioTrack(const uint32_t session_id,
+                            const uint32_t track_id) {
+    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
+    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_DELETE_AUDIOTRACK),
+        data, &reply);
+
+    return reply.readInt32();
+  }
+
+  status_t DeleteVideoTrack(const uint32_t session_id,
+                            const uint32_t track_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_DELETE_VIDEOTRACK), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t ReturnTrackBuffer(const uint32_t session_id,
+                             const uint32_t track_id,
+                             std::vector<BnBuffer> &buffers) {
+
+    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
+    QMMF_VERBOSE("%s:%s INPARAM: session_id(%d):track_id(%u)", TAG, __func__,
+        session_id, track_id);
+    for (const BnBuffer& buffer : buffers) {
+      QMMF_VERBOSE("%s:%s INPARAM: buffers[%s]", TAG, __func__,
+          buffer.ToString().c_str());
     }
 
-    status_t Disconnect()
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_DISCONNECT), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t StartCamera(std::vector<uint32_t> camera_id,
-                         CameraStartParam &param)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(camera_id.size());
-        for(uint32_t i = 0; i < camera_id.size(); i++) {
-            data.writeUint32(camera_id[i]);
-        }
-        uint32_t param_size = sizeof param;
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    if (track_id < 100) {
+      uint32_t size = buffers.size();
+      assert(size > 0);
+      data.writeUint32(size);
+      // TODO: combine all BnBuffers together in single blob
+      for (uint32_t i = 0; i < size; i++) {
+        uint32_t param_size = sizeof (BnBuffer);
         data.writeUint32(param_size);
         android::Parcel::WritableBlob blob;
         data.writeBlob(param_size, false, &blob);
         memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_START_CAMERA), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
-
-    status_t StopCamera(std::vector<uint32_t> camera_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(camera_id.size());
-        for(uint32_t i = 0; i < camera_id.size(); i++) {
-            data.writeUint32(camera_id[i]);
-        }
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_STOP_CAMERA), data, &reply);
-        return reply.readInt32();
-    }
-    status_t CreateSession(uint32_t *session_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CREATE_SESSION), data, &reply);
-        uint32_t id;
-        reply.readUint32(&id);
-        *session_id = id;
-        assert(id != 0);
-        return reply.readInt32();
-    }
-
-    status_t DeleteSession(const uint32_t session_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        assert(session_id != 0);
-        data.writeUint32(session_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_DELETE_SESSION), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t StartSession(const uint32_t session_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        assert(session_id != 0);
-        data.writeUint32(session_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-            RECORDER_START_SESSION), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t StopSession(const uint32_t session_id, bool do_flush)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        assert(session_id != 0);
-        data.writeUint32(session_id);
-        data.writeInt32(do_flush);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-            RECORDER_STOP_SESSION), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t PauseSession(const uint32_t session_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        assert(session_id != 0);
-        data.writeUint32(session_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_PAUSE_SESSION), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t ResumeSession(const uint32_t session_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        assert(session_id != 0);
-        data.writeUint32(session_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_RESUME_SESSION), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t CreateAudioTrack(const uint32_t session_id, uint32_t track_id,
-                              const AudioTrackCreateParam& param)
-    {
-      QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-      QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-      QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-      QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
-                   AudioTrackCreateParamI(param).ToString().c_str());
-      Parcel data, reply;
-
-      data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-      data.writeUint32(session_id);
-      data.writeUint32(track_id);
-      AudioTrackCreateParamI(param).ToParcel(&data);
-
-      remote()->transact(
-          uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_CREATE_AUDIOTRACK),
-          data, &reply);
-
-      return reply.readInt32();
-    }
-
-    status_t CreateVideoTrack(const uint32_t session_id,
-                              uint32_t track_id,
-                              VideoTrackCreateParam& param)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        uint32_t param_size = sizeof param;
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CREATE_VIDEOTRACK), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
-
-    status_t DeleteAudioTrack(const uint32_t session_id,
-                              const uint32_t track_id)
-    {
-      QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-      QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-      QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-      Parcel data, reply;
-
-      data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-      data.writeUint32(session_id);
-      data.writeUint32(track_id);
-
-      remote()->transact(
-          uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_DELETE_AUDIOTRACK),
-          data, &reply);
-
-      return reply.readInt32();
-    }
-
-    status_t DeleteVideoTrack(const uint32_t session_id,
-                              const uint32_t track_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_DELETE_VIDEOTRACK), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t ReturnTrackBuffer(const uint32_t session_id,
-                               const uint32_t track_id,
-                               std::vector<BnTrackBuffer> &buffers) {
-      QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-      QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-      QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-      for (const BnTrackBuffer& buffer : buffers)
-        QMMF_VERBOSE("%s:%s INPARAM: buffers[%s]", TAG, __func__,
-                     buffer.ToString().c_str());
-      Parcel data, reply;
-
-      data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-      data.writeUint32(session_id);
-      data.writeUint32(track_id);
-
-      if (track_id < 100) {
-        size_t size = buffers.size();
-        assert(size > 0);
-        data.writeUint32(size);
-        // TODO: combine all BnBuffers together in single blob
-        for (size_t i = 0; i < size; i++) {
-          uint32_t param_size = sizeof (BnTrackBuffer);
-          data.writeUint32(param_size);
-          android::Parcel::WritableBlob blob;
-          data.writeBlob(param_size, false, &blob);
-          memset(blob.data(), 0x0, param_size);
-          buffers[i].ion_fd = buffers[i].buffer_id;
-          memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
-        }
-      } else {
-        data.writeInt32(static_cast<int32_t>(buffers.size()));
-        for (const BnTrackBuffer& buffer : buffers)
-          buffer.ToParcel(&data, false);
+        buffers[i].ion_fd = buffers[i].buffer_id;
+        memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
       }
-
-      remote()->transact(
-          uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_RETURN_TRACKBUFFER),
-          data, &reply);
-
-      return reply.readInt32();
+    } else {
+      data.writeInt32(static_cast<int32_t>(buffers.size()));
+      for (const BnBuffer& buffer : buffers) {
+        buffer.ToParcel(&data, false);
+      }
     }
 
-    status_t SetAudioTrackParam(const uint32_t session_id,
-                                const uint32_t track_id,
-                                AudioTrackParamType type,
-                                void *param,
-                                size_t param_size)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        data.writeUint32(static_cast<uint32_t>(type));
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_SET_AUDIOTRACK_PARAMS), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_RETURN_TRACKBUFFER),
+        data, &reply);
 
-    status_t SetVideoTrackParam(const uint32_t session_id,
-                                const uint32_t track_id,
-                                VideoTrackParamType type,
-                                void *param,
-                                size_t param_size)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        data.writeUint32(static_cast<uint32_t>(type));
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_SET_VIDEOTRACK_PARAMS), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
+    return reply.readInt32();
+  }
 
-    status_t CaptureImage(std::vector<uint32_t> camera_id,
-                          ImageParam &param)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(camera_id.size());
-        for(uint32_t i = 0; i < camera_id.size(); i++) {
-            data.writeUint32(camera_id[i]);
-        }
-        uint32_t param_size = sizeof param;
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CAPTURE_IMAGE), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
-
-    status_t CancelCaptureImage()
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CANCEL_CAPTURE_IMAGE), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(camera_id);
-        meta.writeToParcel(&data);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_SET_CAMERA_PARAMS), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(camera_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                    RECORDER_GET_CAMERA_PARAMS), data, &reply);
-        auto ret = reply.readInt32();
-        if (NO_ERROR == ret) {
-          ret = meta.readFromParcel(&reply);
-        }
-        return ret;
-    }
-
-    status_t CreateOverlayObject(OverlayParam &params,
-                                 uint32_t *overlay_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        uint32_t param_size = sizeof(params);
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&params), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CREATE_OVERLAYOBJECT), data, &reply);
-        blob.release();
-        *overlay_id = reply.readUint32();
-        return reply.readInt32();;
-    }
-
-    status_t DeleteOverlayObject(const uint32_t overlay_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(overlay_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_DELETE_OVERLAYOBJECT), data, &reply);
-        return reply.readInt32();
-    }
-
-    status_t GetOverlayObjectParams(const uint32_t overlay_id,
-                                    OverlayParam &param)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(overlay_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                              RECORDER_GET_OVERLAYOBJECT_PARAMS), data, &reply);
-        auto ret = reply.readInt32();
-        if (NO_ERROR == ret) {
-            uint32_t param_size;
-            reply.readUint32(&param_size);
-            android::Parcel::ReadableBlob blob;
-            reply.readBlob(param_size, &blob);
-            memcpy(&param, blob.data(), param_size);
-            blob.release();
-        }
-        return ret;
-    }
-
-    status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                       OverlayParam &param)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(overlay_id);
-        uint32_t param_size = sizeof param;
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                           RECORDER_UPDATE_OVERLAYOBJECT_PARAMS), data, &reply);
-        blob.release();
-        return reply.readInt32();
-    }
-
-    status_t SetOverlayObject(const uint32_t session_id,
+  status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              const uint32_t overlay_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        data.writeUint32(overlay_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                           RECORDER_SET_OVERLAYOBJECT), data, &reply);
-        return reply.readInt32();
-    }
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_SET_AUDIOTRACK_PARAMS), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
 
-    status_t RemoveOverlayObject(const uint32_t session_id,
-                                 const uint32_t track_id,
-                                 const uint32_t overlay_id)
-    {
-        Parcel data, reply;
-        data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-        data.writeUint32(session_id);
-        data.writeUint32(track_id);
-        data.writeUint32(overlay_id);
-        remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                           RECORDER_REMOVE_OVERLAYOBJECT), data, &reply);
-        return reply.readInt32();
+  status_t SetVideoTrackParam(const uint32_t session_id,
+                              const uint32_t track_id,
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_SET_VIDEOTRACK_PARAMS), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+                        const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    uint32_t param_size = sizeof param;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    ImageParam *image_param;
+    image_param = const_cast<ImageParam*>(&param);
+    memcpy(blob.data(), reinterpret_cast<void*>(image_param), param_size);
+    data.writeUint32(num_images);
+    data.writeUint32(meta.size());
+    for (uint8_t i = 0; i < meta.size(); ++i) {
+      meta[i].writeToParcel(&data);
     }
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_CAPTURE_IMAGE), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageCaptureConfig &config) {
+
+  }
+
+  status_t CancelCaptureImage() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_CANCEL_IMAGECAPTURE), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                    const uint32_t buffer_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    data.writeUint32(buffer_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_RETURN_IMAGECAPTURE_BUFFER), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t SetCameraParam(const uint32_t camera_id,
+                          const CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    meta.writeToParcel(&data);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_SET_CAMERA_PARAMS), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t GetCameraParam(const uint32_t camera_id,
+                          CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_CAMERA_PARAMS), data, &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+      ret = meta.readFromParcel(&reply);
+    }
+    return ret;
+  }
+
+  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                  CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_DEFAULT_CAPTURE_PARAMS), data,
+                                &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+      ret = meta.readFromParcel(&reply);
+    }
+    return ret;
+  }
+
+  status_t CreateOverlayObject(const uint32_t track_id, OverlayParam *params,
+                               uint32_t *overlay_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    uint32_t param_size = sizeof(OverlayParam);
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_CREATE_OVERLAYOBJECT), data, &reply);
+    blob.release();
+    *overlay_id = reply.readUint32();
+    return reply.readInt32();;
+  }
+
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(overlay_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                            RECORDER_DELETE_OVERLAYOBJECT), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
+                                  OverlayParam &param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(overlay_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                          RECORDER_GET_OVERLAYOBJECT_PARAMS), data, &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+        uint32_t param_size;
+        reply.readUint32(&param_size);
+        android::Parcel::ReadableBlob blob;
+        reply.readBlob(param_size, &blob);
+        memcpy(&param, blob.data(), param_size);
+        blob.release();
+    }
+    return ret;
+  }
+
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
+                                     OverlayParam *params) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(overlay_id);
+    uint32_t param_size = sizeof(OverlayParam);
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_UPDATE_OVERLAYOBJECT_PARAMS), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t SetOverlayObject(const uint32_t track_id,
+                            const uint32_t overlay_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(overlay_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_SET_OVERLAYOBJECT), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t RemoveOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(overlay_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_REMOVE_OVERLAYOBJECT), data, &reply);
+    return reply.readInt32();
+  }
 
 };
 
@@ -1552,17 +1657,23 @@ void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void ServiceCallbackHandler::NotifySnapshotData(void *buffer,
-                                                uint32_t buffer_size) {
+void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
+                                                uint32_t image_sequence_count,
+                                                BnBuffer& buffer,
+                                                void *meta_param,
+                                                MetaParamType meta_type,
+                                                uint32_t meta_size) {
   assert(client_ != NULL);
-  client_->NotifySnapshotData(buffer, buffer_size);
+  client_->NotifySnapshotData(camera_id, image_sequence_count, buffer,
+                              meta_param, meta_type, meta_size);
 }
 
+
 void ServiceCallbackHandler::NotifyVideoTrackData(uint32_t track_id,
-                                                  std::vector<BnTrackBuffer>
+                                                  std::vector<BnBuffer>
                                                   &bn_buffers,
                                                   void *meta_param,
-                                                  TrackMetaParamType meta_type,
+                                                  MetaParamType meta_type,
                                                   size_t meta_size) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
@@ -1581,11 +1692,13 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
 }
 
 void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
-    const std::vector<BnTrackBuffer>& bn_buffers, void* meta_param,
-    TrackMetaParamType meta_type, size_t meta_size) {
+                                                  const std::vector<BnBuffer>&
+                                                  bn_buffers, void* meta_param,
+                                                  MetaParamType meta_type,
+                                                  size_t meta_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& bn_buffer : bn_buffers)
+  for (const BnBuffer& bn_buffer : bn_buffers)
     QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
                  bn_buffer.ToString().c_str());
   assert(client_ != NULL);
@@ -1603,7 +1716,7 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
-               static_cast<int>(event_type));
+      static_cast<int>(event_type));
   assert(client_ != NULL);
 
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
@@ -1634,23 +1747,41 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
   }
 
-  void NotifySnapshotData(void *buffer, uint32_t buffer_size) {
+  void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
+                          BnBuffer& buffer, void *meta_param,
+                          MetaParamType meta_type, uint32_t meta_size) {
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::
         getInterfaceDescriptor());
-    data.writeUint32(buffer_size);
+    data.writeUint32(camera_id);
+    data.writeUint32(image_sequence_count);
+    data.writeFileDescriptor(buffer.ion_fd);
+    uint32_t size = sizeof buffer;
+    data.writeUint32(size);
     android::Parcel::WritableBlob blob;
-    data.writeBlob(buffer_size, false, &blob);
-    memcpy(blob.data(), buffer, buffer_size);
+    data.writeBlob(size, false, &blob);
+    memset(blob.data(), 0x0, size);
+    memcpy(blob.data(), reinterpret_cast<void*>(&buffer), size);
+    // Pack meta
+    data.writeUint32(meta_size);
+    android::Parcel::WritableBlob meta_blob;
+    if(meta_size > 0) {
+      data.writeBlob(meta_size, false, &meta_blob);
+      memset(meta_blob.data(), 0x0, meta_size);
+      memcpy(meta_blob.data(), meta_param, meta_size);
+      data.writeUint32(static_cast<uint32_t>(meta_type));
+    }
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
-                                RECORDER_NOTIFY_SNAPSHOT_DATA),
-                       data, &reply, IBinder::FLAG_ONEWAY);
+        RECORDER_NOTIFY_SNAPSHOT_DATA), data, &reply, IBinder::FLAG_ONEWAY);
     blob.release();
+    if(meta_size > 0) {
+      meta_blob.release();
+    }
   }
 
-  void NotifyVideoTrackData(uint32_t track_id, std::vector<BnTrackBuffer>
-                            &buffers, void *meta_param, TrackMetaParamType
+  void NotifyVideoTrackData(uint32_t track_id, std::vector<BnBuffer>
+                            &buffers, void *meta_param, MetaParamType
                             meta_type, size_t meta_size) {
 
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
@@ -1698,14 +1829,14 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d mapping:%d", TAG, __func__,
             i, buffers[i].ion_fd, true);
       }
-      uint32_t size = sizeof (BnTrackBuffer);
+      uint32_t size = sizeof (BnBuffer);
       data.writeUint32(size);
       android::Parcel::WritableBlob blob;
       data.writeBlob(size, false, &blob);
       memset(blob.data(), 0x0, size);
       memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), size);
     }
-    //Pack meta
+    // Pack meta
     data.writeUint32(meta_size);
     android::Parcel::WritableBlob meta_blob;
     if(meta_size > 0) {
@@ -1730,12 +1861,12 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   }
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnTrackBuffer>& buffers,
-                            void* meta_param, TrackMetaParamType meta_type,
+                            const std::vector<BnBuffer>& buffers,
+                            void* meta_param, MetaParamType meta_type,
                             size_t meta_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-    for (const BnTrackBuffer& buffer : buffers)
+    for (const BnBuffer& buffer : buffers)
       QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
                    buffer.ToString().c_str());
     Parcel data, reply;
@@ -1744,7 +1875,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         IRecorderServiceCallback::getInterfaceDescriptor());
     data.writeUint32(track_id);
     data.writeInt32(static_cast<int32_t>(buffers.size()));
-    for (const BnTrackBuffer& buffer : buffers)
+    for (const BnBuffer& buffer : buffers)
       buffer.ToParcel(&data, true);
 
     remote()->transact(
@@ -1815,21 +1946,40 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
     }
     break;
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_SNAPSHOT_DATA: {
-
-      uint32_t size;
+      uint32_t camera_id, count, size;
+      data.readUint32(&camera_id);
+      data.readUint32(&count);
+      uint32_t ion_fd = dup(data.readFileDescriptor());
       data.readUint32(&size);
       android::Parcel::ReadableBlob blob;
       data.readBlob(size, &blob);
-      void* buffer = const_cast<void*>(blob.data());
-      NotifySnapshotData(buffer, size);
+      void* buf = const_cast<void*>(blob.data());
+      BnBuffer bn_buffer;
+      memset(&bn_buffer, 0x0, sizeof bn_buffer);
+      memcpy(&bn_buffer, buf, size);
+      bn_buffer.ion_fd = ion_fd;
+      uint32_t meta_size, meta_type;
+      void* meta_param = nullptr;
+      android::Parcel::ReadableBlob meta_blob;
+      data.readUint32(&meta_size);
+      if (meta_size > 0) {
+        data.readBlob(meta_size, &meta_blob);
+        meta_param = const_cast<void*>(meta_blob.data());
+        data.readUint32(&meta_type);
+      }
+      NotifySnapshotData(camera_id, count, bn_buffer, meta_param,
+                         static_cast<MetaParamType>(meta_type), meta_size);
       blob.release();
+      if(meta_size > 0) {
+        meta_blob.release();
+      }
       return NO_ERROR;
     }
     break;
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_VIDEO_TRACK_DATA: {
 
       uint32_t track_id, vector_size;
-      std::vector<BnTrackBuffer> buffers;
+      std::vector<BnBuffer> buffers;
       data.readUint32(&track_id);
       data.readUint32(&vector_size);
       QMMF_VERBOSE("%s:Bn%s: vector_size=%d", TAG, __func__, vector_size);
@@ -1846,7 +1996,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         android::Parcel::ReadableBlob blob;
         data.readBlob(size, &blob);
         void* buffer = const_cast<void*>(blob.data());
-        BnTrackBuffer track_buffer;
+        BnBuffer track_buffer;
         memset(&track_buffer, 0x0, sizeof track_buffer);
         memcpy(&track_buffer, buffer, size);
         track_buffer.ion_fd = ion_fd;
@@ -1865,7 +2015,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         data.readUint32(&meta_type);
       }
       NotifyVideoTrackData(track_id, buffers, meta_param,
-                           static_cast<TrackMetaParamType>(meta_type),
+                           static_cast<MetaParamType>(meta_type),
                            meta_size);
       if(meta_size > 0) {
         meta_blob.release();
@@ -1882,22 +2032,20 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_AUDIO_TRACK_DATA: {
       uint32_t track_id = data.readUint32();
       size_t num_buffers = static_cast<size_t>(data.readInt32());
-      std::vector<BnTrackBuffer> buffers;
+      std::vector<BnBuffer> buffers;
       for (size_t index = 0; index < num_buffers; ++index) {
-        BnTrackBuffer buffer;
+        BnBuffer buffer;
         buffer.FromParcel(data, true);
         buffers.push_back(buffer);
       }
-
       QMMF_DEBUG("%s:%s-NotifyAudioTrackData() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: track_id[%u]",
                    TAG, __func__, track_id);
-      for (const BnTrackBuffer& buffer : buffers)
+      for (const BnBuffer& buffer : buffers)
         QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
                    TAG, __func__, buffer.ToString().c_str());
       NotifyAudioTrackData(track_id, buffers, nullptr,
-                           TrackMetaParamType::kNone, 0);
-
+                           MetaParamType::kNone, 0);
       return NO_ERROR;
     }
     break;

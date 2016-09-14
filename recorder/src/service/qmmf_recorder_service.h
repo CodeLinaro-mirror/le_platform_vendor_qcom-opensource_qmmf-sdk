@@ -72,10 +72,10 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t Disconnect() override;
 
-  status_t StartCamera(std::vector<uint32_t> camera_id,
-                       CameraStartParam &param) override;
+  status_t StartCamera(const uint32_t camera_id,
+                       const CameraStartParam &param) override;
 
-  status_t StopCamera(std::vector<uint32_t> camera_id) override;
+  status_t StopCamera(const uint32_t camera_id) override;
 
   status_t CreateSession(uint32_t *session_id) override;
 
@@ -90,12 +90,12 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ResumeSession(const uint32_t session_id) override;
 
   status_t CreateAudioTrack(const uint32_t session_id,
-                            uint32_t track_id,
+                            const uint32_t track_id,
                             const AudioTrackCreateParam& param) override;
 
   status_t CreateVideoTrack(const uint32_t session_id,
-                            uint32_t track_id,
-                            VideoTrackCreateParam& param) override;
+                            const uint32_t track_id,
+                            const VideoTrackCreateParam& param) override;
 
   status_t DeleteAudioTrack(const uint32_t session_id,
                             const uint32_t track_id) override;
@@ -105,46 +105,59 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t ReturnTrackBuffer(const uint32_t session_id,
                              const uint32_t track_id,
-                             std::vector<BnTrackBuffer> &buffers) override;
+                             std::vector<BnBuffer> &buffers) override;
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              AudioTrackParamType type,
+                              CodecParamType type,
                               void *param,
                               size_t param_size) override;
 
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              VideoTrackParamType type,
+                              CodecParamType type,
                               void *param,
                               size_t param_size) override;
 
-  status_t CaptureImage(std::vector<uint32_t> camera_id,
-                        ImageParam &param) override;
+  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+                        const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta) override;
+
+  status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageCaptureConfig &config) override;
 
   status_t CancelCaptureImage() override;
 
-  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta) override;
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                    const uint32_t  buffer_id) override;
 
-  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta) override;
+  status_t SetCameraParam(const uint32_t camera_id,
+                          const CameraMetadata &meta) override;
 
-  status_t CreateOverlayObject(OverlayParam &param,
+  status_t GetCameraParam(const uint32_t camera_id,
+                          CameraMetadata &meta) override;
+
+  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                  CameraMetadata &meta);
+
+  status_t CreateOverlayObject(const uint32_t track_id, OverlayParam *param,
                                uint32_t *overlay_id) override;
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id) override;
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id) override;
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param) override;
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     OverlayParam &param) override;
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
+                                     OverlayParam *param) override;
 
-  status_t SetOverlayObject(const uint32_t session_id,
-                            const uint32_t track_id,
+  status_t SetOverlayObject(const uint32_t track_id,
                             const uint32_t overlay_id) override;
 
-  status_t RemoveOverlayObject(const uint32_t session_id,
-                               const uint32_t track_id,
+  status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id) override;
 
   RecorderImpl*                recorder_;

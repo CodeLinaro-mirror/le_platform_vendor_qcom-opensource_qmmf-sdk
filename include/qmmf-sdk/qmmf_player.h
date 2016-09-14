@@ -96,12 +96,12 @@ public:
     status_t GrabPicture(PictureParam param, PictureCallback& cb);
 
     status_t SetAudioTrackParam(uint32_t track_id,
-                                AudioTrackParamType type,
+                                CodecParamType type,
                                 void *param,
                                 size_t param_size);
 
     status_t SetVideoTrackParam(uint32_t track_id,
-                                VideoTrackParamType type,
+                                CodecParamType type,
                                 void *param,
                                 size_t param_size);
 

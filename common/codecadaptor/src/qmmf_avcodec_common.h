@@ -31,8 +31,8 @@
 
 #include <functional>
 
-#include "qmmf-sdk/qmmf_codec.h"
-#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "include/qmmf-sdk/qmmf_codec.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "common/qmmf_common_utils.h"
 
 namespace qmmf {
@@ -57,10 +57,5 @@ typedef struct CodecCreateParam {
   VideoTrackCreateParam video_param;
   AVCodecEventCb        event_cb;
 } CodecCreateParam;
-
-typedef union CodecSetParam {
-  VideoTrackCreateParam video_param;
-  AudioTrackCreateParam audio_param;
-} CodecSetParam;
 
 }; //namespace qmmf

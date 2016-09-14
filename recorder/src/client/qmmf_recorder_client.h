@@ -46,23 +46,22 @@ namespace recorder {
 
 using namespace android;
 
-class RecorderClient
-{
+class RecorderClient {
  public:
   RecorderClient();
 
   ~RecorderClient();
 
-  status_t Connect(RecorderCb& cb);
+  status_t Connect(const RecorderCb& cb);
 
   status_t Disconnect();
 
-  status_t StartCamera(std::vector<uint32_t> &camera_id,
+  status_t StartCamera(const uint32_t camera_id,
                        const CameraStartParam &param);
 
-  status_t StopCamera(std::vector<uint32_t> &camera_id);
+  status_t StopCamera(const uint32_t camera_id);
 
-  status_t CreateSession(SessionCb& cb, uint32_t* session_id);
+  status_t CreateSession(const SessionCb& cb, uint32_t* session_id);
 
   status_t DeleteSession(const uint32_t session_id);
 
@@ -74,24 +73,26 @@ class RecorderClient
 
   status_t ResumeSession(const uint32_t session_id);
 
-  status_t CreateAudioTrack(const uint32_t session_id, uint32_t track_id,
-                            const AudioTrackCreateParam& param, TrackCb& cb);
+  status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
+                            const AudioTrackCreateParam& param,
+                            const TrackCb& cb);
 
-  status_t CreateVideoTrack(const uint32_t session_id, uint32_t track_id,
-                            const VideoTrackCreateParam& param, TrackCb& cb);
+  status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
+                            const VideoTrackCreateParam& param,
+                            const TrackCb& cb);
 
   status_t ReturnTrackBuffer(const uint32_t session_id,
                              const uint32_t track_id,
-                             std::vector<TrackBuffer> &buffers);
+                             std::vector<BufferDescriptor> &buffers);
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              AudioTrackParamType type, const void *param,
+                              CodecParamType type, const void *param,
                               size_t param_size);
 
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              VideoTrackParamType type, const void *param,
+                              CodecParamType type, const void *param,
                               size_t param_size);
 
   status_t DeleteAudioTrack(const uint32_t session_id,
@@ -100,46 +101,61 @@ class RecorderClient
   status_t DeleteVideoTrack(const uint32_t session_id,
                             const uint32_t track_id);
 
-  status_t CaptureImage(std::vector<uint32_t> &camera_id,
+  status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
-                        CaptureImageCb& cb);
+                        const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta,
+                        const ImageCaptureCb& cb);
+
+  status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageCaptureConfig &config);
 
   status_t CancelCaptureImage();
 
-  status_t SetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                    const BufferDescriptor &buffer);
 
-  status_t GetCameraParam(uint32_t camera_id, CameraMetadata &meta);
+  status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
 
-  status_t CreateOverlayObject(const OverlayParam &param,
+  status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
+
+  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+                                  CameraMetadata &meta);
+
+  status_t CreateOverlayObject(const uint32_t track_id,
+                               const OverlayParam &param,
                                uint32_t *overlay_id);
 
-  status_t DeleteOverlayObject(const uint32_t overlay_id);
+  status_t DeleteOverlayObject(const uint32_t track_id,
+                               const uint32_t overlay_id);
 
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
+  status_t GetOverlayObjectParams(const uint32_t track_id,
+                                  const uint32_t overlay_id,
                                   OverlayParam &param);
 
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
+  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+                                     const uint32_t overlay_id,
                                      const OverlayParam &param);
 
-  status_t SetOverlay(const uint32_t session_id, const uint32_t track_id,
-                      const uint32_t overlay_id);
+  status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  status_t RemoveOverlay(const uint32_t session_uuid, const uint32_t track_id,
-                         const uint32_t overlay_id);
+  status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  //Callbacks from service.
+  // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size);
 
   void NotifySessionEvent(EventType event_type, void *event_data,
                           size_t event_data_size);
 
-  void NotifySnapshotData(void *buffer, uint32_t buffer_size);
+  void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
+                          BnBuffer& buffer, void *meta_param,
+                          MetaParamType meta_type, uint32_t meta_size);
 
   void NotifyVideoTrackData(uint32_t track_id,
-                            std::vector<BnTrackBuffer> &bn_buffers,
+                            std::vector<BnBuffer> &bn_buffers,
                             void *meta_param,
-                            TrackMetaParamType meta_type,
+                            MetaParamType meta_type,
                             size_t meta_size);
 
   void NotifyVideoTrackEvent(uint32_t track_id,
@@ -148,16 +164,15 @@ class RecorderClient
                              size_t event_data_size);
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnTrackBuffer> &buffers,
+                            const std::vector<BnBuffer> &buffers,
                             void *meta_param,
-                            TrackMetaParamType meta_type,
+                            MetaParamType meta_type,
                             size_t meta_size);
 
   void NotifyAudioTrackEvent(uint32_t track_id,
                              EventType event_type,
                              void *event_data,
                              size_t event_data_size);
-  //
  private:
 
   void UpdateSessionTopology(const uint32_t session_id, const uint32_t track_id,
@@ -165,8 +180,7 @@ class RecorderClient
 
   bool CheckServiceStatus();
 
-  class DeathNotifier : public IBinder::DeathRecipient
-  {
+  class DeathNotifier : public IBinder::DeathRecipient {
    public:
     DeathNotifier(RecorderClient* parent) : parent_(parent) {}
 
@@ -193,7 +207,8 @@ class RecorderClient
   // List of Track callbacks.
   DefaultKeyedVector<uint32_t, TrackCb >   track_cb_list_;
   // Capture callback.
-  CaptureImageCb                           image_capture_cb_;
+  ImageCaptureCb                           image_capture_cb_;
+  //CaptureImageCb                           image_capture_cb_;
 
   typedef struct BufInfo {
     // Transferred ION Id.
@@ -211,10 +226,10 @@ class RecorderClient
   // map <track_id, map <buffer index, buffer_info> >
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
 
-  // This map keeps track of incoming BnTrackBuffers from service.
+  // This map keeps track of incoming BnBuffers from service.
   // and used to return buffers back to service.
-  // <track_id, vector<BnTrackBuffer>>
-  DefaultKeyedVector<uint32_t, Vector<BnTrackBuffer> > track_in_buffers_;
+  // <track_id, vector<BnBuffer>>
+  DefaultKeyedVector<uint32_t, Vector<BnBuffer> > track_in_buffers_;
   // Lock to protect track_in_buffers_.
   Mutex list_lock_;
 };
@@ -234,12 +249,15 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
   void NotifySessionEvent(EventType event_type, void *event_data,
                           size_t event_data_size) override;
 
-  void NotifySnapshotData(void *buffer, uint32_t buffer_size) override;
+  void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
+                          BnBuffer& buffer, void *meta_param,
+                          MetaParamType meta_type,
+                          uint32_t meta_size) override;
 
   void NotifyVideoTrackData(uint32_t track_id,
-                            std::vector<BnTrackBuffer> &buffers,
+                            std::vector<BnBuffer> &buffers,
                             void *meta_param,
-                            TrackMetaParamType meta_type,
+                            MetaParamType meta_type,
                             size_t meta_size) override;
 
   void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
@@ -247,9 +265,9 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
                              size_t event_data_size) override;
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnTrackBuffer> &buffers,
+                            const std::vector<BnBuffer> &buffers,
                             void *meta_param,
-                            TrackMetaParamType meta_type,
+                            MetaParamType meta_type,
                             size_t meta_size) override;
 
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,

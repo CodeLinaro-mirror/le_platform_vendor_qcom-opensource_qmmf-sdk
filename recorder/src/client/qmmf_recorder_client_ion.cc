@@ -67,30 +67,32 @@ RecorderClientIon::RecorderClientIon() : ion_device_(-1) {
 }
 
 RecorderClientIon::~RecorderClientIon() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  int result;
+
+  QMMF_DEBUG("%s:%s() TRACE", TAG, __func__);
+  int32_t ret;
 
   if (ion_device_ == -1)
-    QMMF_WARN("%s: %s() ion device is not opened", TAG, __func__);
+    QMMF_WARN("%s:%s: ion device is not opened", TAG, __func__);
 
-  /* release all ion buffers */
+  // Release all ion buffers.
   for (auto& client_map : buffer_map_) {
-    result = Release(client_map.first);
-    if (result < 0)
-      QMMF_ERROR("%s: %s() unable to release buffers for client[%d]: %d", TAG,
-                 __func__, client_map.first, result);
+    ret = Release(client_map.first);
+    if (ret < 0) {
+      QMMF_ERROR("%s:%s: unable to release buffers for client[%d]: %d", TAG,
+          __func__, client_map.first, ret);
+    }
   }
-
-  /* close ion device */
-  result = close(ion_device_);
-  if (result < 0)
-    QMMF_ERROR("%s: %s() error closing ion device[%d]: %d[%s]", TAG, __func__,
-               ion_device_, errno, strerror(errno));
+  // Close ion device.
+  ret = close(ion_device_);
+  if (ret < 0) {
+    QMMF_ERROR("%s:%s error closing ion device[%d]: %d[%s]", TAG, __func__,
+        ion_device_, errno, strerror(errno));
+  }
 }
 
 int RecorderClientIon::Associate(uint32_t track_id,
-                                 const BnTrackBuffer& bn_buffer,
-                                 TrackBuffer* buffer) {
+                                 const BnBuffer& bn_buffer,
+                                 BufferDescriptor* buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%d]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s]", TAG, __func__,
@@ -112,8 +114,6 @@ int RecorderClientIon::Associate(uint32_t track_id,
       buffer->flag = bn_buffer.flag;
       buffer->buf_id = bn_buffer.buffer_id;
       buffer->capacity = bn_buffer.capacity;
-      QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
-                   TrackBufferI(*buffer).ToString().c_str());
       return 0;
     }
   } else {
@@ -158,8 +158,6 @@ int RecorderClientIon::Associate(uint32_t track_id,
   /* save ion buffer */
   client_map->second.insert({bn_buffer.buffer_id, ion_buffer});
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
-               TrackBufferI(*buffer).ToString().c_str());
   return 0;
 }
 

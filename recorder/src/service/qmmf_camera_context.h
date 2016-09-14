@@ -60,13 +60,15 @@ class CameraContext : public RefBase {
 
   ~CameraContext();
 
-  status_t OpenCamera(uint32_t camera_id, CameraStartParam &param);
+  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param);
 
-  status_t CloseCamera(uint32_t camera_id);
+  status_t CloseCamera(const uint32_t camera_id);
 
-  status_t CaptureImage(ImageParam &param, const CaptureImageCb& cb);
+  status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta,
+                        const SnapshotCb& cb);
 
-  status_t CreateStream(CameraStreamParam& param);
+  status_t CreateStream(const CameraStreamParam& param);
 
   status_t DeleteStream(const uint32_t track_id);
 
@@ -74,10 +76,14 @@ class CameraContext : public RefBase {
 
   status_t StopStream(const uint32_t track_id);
 
-  status_t SetCameraParam(CameraMetadata &meta);
+  status_t SetCameraParam(const CameraMetadata &meta);
 
   status_t GetCameraParam(CameraMetadata &meta);
 
+  status_t GetDefaultCaptureParam(CameraMetadata &meta);
+
+  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+                                    const uint32_t buffer_id);
  private:
 
   friend class CameraPort;
@@ -97,6 +103,9 @@ class CameraContext : public RefBase {
   status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
 
   uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
+
+  status_t ValidateResolution(const ImageFormat format, const uint32_t width,
+                              const uint32_t height);
 
   //Camera client callbacks.
   void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
@@ -124,11 +133,14 @@ class CameraContext : public RefBase {
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   int32_t                  snapshot_request_id_;
-  ImageInfo                snapshot_info_;
-  CaptureImageCb           client_capture_cb_;
+  ImageParam               snapshot_param_;
+  SnapshotCb               client_snapshot_cb_;
 
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
+
+  // Maps of buffer Id and Buffer.
+  DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
 };
 
 enum class CameraPortType {
@@ -151,7 +163,7 @@ enum class PortState {
 // same.
 class CameraPort : public RefBase {
  public:
-  CameraPort(CameraStreamParam& param, CameraPortType port_type,
+  CameraPort(const CameraStreamParam& param, CameraPortType port_type,
              CameraContext *context);
 
   ~CameraPort();
