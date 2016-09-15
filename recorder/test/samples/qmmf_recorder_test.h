@@ -38,6 +38,7 @@
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_codec.h>
+#include <camera/CameraMetadata.h>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
@@ -61,6 +62,8 @@ enum class TrackType {
 };
 
 class TestTrack;
+class CmdMenu;
+
 class RecorderTest {
  public:
   RecorderTest();
@@ -125,6 +128,13 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
+  int32_t ToggleNR();
+  int32_t ToggleVHDR();
+  int32_t ToggleIR();
+  std::string GetCurrentNRMode();
+  std::string GetCurrentVHDRMode();
+  std::string GetCurrentIRMode();
+
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, void *meta_param,
                   MetaParamType meta_type, uint32_t meta_size);
@@ -138,11 +148,27 @@ class RecorderTest {
  private:
   Recorder recorder_;
 
+  friend class CmdMenu;
+  typedef std::map <uint8_t, std::string> nr_modes_map;
+  typedef std::map <uint8_t, std::string>::iterator nr_modes_iter;
+  typedef std::map <int32_t, std::string> vhdr_modes_map;
+  typedef std::map <int32_t, std::string>::iterator vhdr_modes_iter;
+  typedef std::map <int32_t, std::string> ir_modes_map;
+  typedef std::map <int32_t, std::string>::iterator ir_modes_iter;
+  void InitSupportedNRModes();
+  void InitSupportedVHDRModes();
+  void InitSupportedIRModes();
+
   // <session_id, vector<TestTrack*> >
   std::map <uint32_t , std::vector<TestTrack*> > sessions_;
   typedef std::map <uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
 
   uint32_t camera_id_;
+  bool session_enabled_;
+  CameraMetadata static_info_;
+  nr_modes_map supported_nr_modes_;
+  vhdr_modes_map supported_hdr_modes_;
+  ir_modes_map supported_ir_modes_;
 };
 
 struct TrackInfo {
@@ -194,6 +220,7 @@ class TestTrack {
   int32_t file_fd_;
 
   TrackInfo track_info_;
+
   // One track can have multiple overlay objects.
   std::vector<uint32_t> overlay_ids_;
 
@@ -241,6 +268,9 @@ public:
         ENABLE_OVERLAY_CMD                = 'O',
         DISABLE_OVERLAY_CMD               = 'L',
         DELETE_SESSION_CMD                = 'D',
+        NOISE_REDUCTION_CMD               = 'N',
+        VIDEO_HDR_CMD                     = 'H',
+        IR_MODE_CMD                       = 'I',
         EXIT_CMD                          = 'X',
         INVALID_CMD                       = '0'
     };

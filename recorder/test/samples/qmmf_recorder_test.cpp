@@ -35,6 +35,7 @@
 #include <utils/String8.h>
 #include <assert.h>
 #include <system/graphics.h>
+#include <QCamera3VendorTags.h>
 
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
@@ -49,11 +50,15 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
+using namespace qcamera;
+
 static const char* kDefaultAudioFilenamePrefix =
     "/data/qmmf_recorder_test_audio";
 
-RecorderTest::RecorderTest() {
+RecorderTest::RecorderTest() :
+            session_enabled_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  static_info_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -85,6 +90,246 @@ status_t RecorderTest::Disconnect() {
   return ret;
 }
 
+int32_t RecorderTest::ToggleNR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      uint8_t mode = meta.find(ANDROID_NOISE_REDUCTION_MODE).data.u8[0];
+      nr_modes_iter it = supported_nr_modes_.begin();
+      nr_modes_iter next;
+      while (it != supported_nr_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_nr_modes_.end()) {
+            next = supported_nr_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(ANDROID_NOISE_REDUCTION_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentNRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      uint8_t mode = meta.find(ANDROID_NOISE_REDUCTION_MODE).data.u8[0];
+      for (auto it : supported_nr_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedNRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(
+      ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)) {
+    entry = static_info_.find(
+        ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.u8[i]) {
+        case ANDROID_NOISE_REDUCTION_MODE_OFF:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_FAST:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Fast"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i],
+                                                    "High quality"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_MINIMAL:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i],
+                                                    "Minimal"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "ZSL"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid NR mode: %d\n", TAG, __func__,
+                entry.data.u8[i]);
+      }
+    }
+  }
+}
+
+int32_t RecorderTest::ToggleVHDR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+      vhdr_modes_iter it = supported_hdr_modes_.begin();
+      vhdr_modes_iter next;
+      while (it != supported_hdr_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_hdr_modes_.end()) {
+            next = supported_hdr_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(QCAMERA3_VIDEO_HDR_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentVHDRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+      for (auto it : supported_hdr_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedVHDRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
+    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.i32[i]) {
+        case QCAMERA3_VIDEO_HDR_MODE_OFF:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case QCAMERA3_VIDEO_HDR_MODE_ON:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid VHDR mode: %d\n", TAG, __func__,
+                entry.data.i32[i]);
+      }
+    }
+  }
+}
+
+
+
+int32_t RecorderTest::ToggleIR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_IR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_IR_MODE).data.i32[0];
+      ir_modes_iter it = supported_ir_modes_.begin();
+      ir_modes_iter next;
+      while (it != supported_ir_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_ir_modes_.end()) {
+            next = supported_ir_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(QCAMERA3_IR_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentIRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_IR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_IR_MODE).data.i32[0];
+      for (auto it : supported_ir_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedIRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(QCAMERA3_IR_AVAILABLE_MODES)) {
+    entry = static_info_.find(QCAMERA3_IR_AVAILABLE_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.i32[i]) {
+        case QCAMERA3_IR_MODE_OFF:
+          supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case QCAMERA3_IR_MODE_ON:
+          supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid IR mode: %d\n", TAG, __func__,
+                entry.data.i32[i]);
+      }
+    }
+  }
+}
+
 status_t RecorderTest::StartCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -104,6 +349,16 @@ status_t RecorderTest::StartCamera() {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
 
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  } else {
+    InitSupportedNRModes();
+    InitSupportedVHDRModes();
+    InitSupportedIRModes();
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -117,6 +372,7 @@ status_t RecorderTest::StopCamera() {
     ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
   }
 
+  static_info_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -842,6 +1098,7 @@ status_t RecorderTest::StartSession() {
   uint32_t session_id = it->first;
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
+  session_enabled_ = true;
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   return NO_ERROR;
 }
@@ -858,6 +1115,7 @@ status_t RecorderTest::StopSession() {
   for (auto track : it->second) {
     track->CleanUp();
   }
+  session_enabled_ = false;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
@@ -1631,7 +1889,6 @@ FAIL:
 #endif
 
 void CmdMenu::PrintMenu() {
-
   printf("\n\n=========== QMMF RECORDER TEST MENU ===================\n\n");
 
   printf(" \n\nIPCam Test Application commands \n");
@@ -1687,6 +1944,15 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Enable Overlay\n", CmdMenu::ENABLE_OVERLAY_CMD);
   printf("   %c. Disable Overlay\n", CmdMenu::DISABLE_OVERLAY_CMD);
   printf("   %c. Delete Session\n", CmdMenu::DELETE_SESSION_CMD);
+  if (ctx_.session_enabled_) {
+    printf("   %c. NR mode: %s\n", CmdMenu::NOISE_REDUCTION_CMD,
+           ctx_.GetCurrentNRMode().c_str());
+    printf("   %c. VHDR: %s\n", CmdMenu::VIDEO_HDR_CMD,
+           ctx_.GetCurrentVHDRMode().c_str());
+
+    printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
+           ctx_.GetCurrentIRMode().c_str());
+  }
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1833,6 +2099,18 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_SESSION_CMD: {
         test_context.DeleteSession();
+      }
+      break;
+      case CmdMenu::NOISE_REDUCTION_CMD: {
+        test_context.ToggleNR();
+      }
+      break;
+      case CmdMenu::VIDEO_HDR_CMD: {
+        test_context.ToggleVHDR();
+      }
+      break;
+      case CmdMenu::IR_MODE_CMD: {
+        test_context.ToggleIR();
       }
       break;
       case CmdMenu::EXIT_CMD: {

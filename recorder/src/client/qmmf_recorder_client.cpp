@@ -35,6 +35,7 @@
 #include <linux/msm_ion.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <dlfcn.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <map>
@@ -65,7 +66,8 @@ using ::std::underlying_type;
 RecorderClient::RecorderClient()
                 : recorder_service_(nullptr)
                 , death_notifier_(nullptr)
-                , ion_device_(-1) {
+                , ion_device_(-1)
+                , camera_module_(NULL) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
@@ -82,7 +84,16 @@ RecorderClient::~RecorderClient() {
     recorder_service_ = nullptr;
   }
 
+  if (NULL != camera_module_) {
+    dlclose(camera_module_->common.dso);
+  }
+  camera_module_ = NULL;
+
   QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
+}
+
+extern "C" {
+extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
 
 status_t RecorderClient::Connect(const RecorderCb& cb) {
@@ -138,6 +149,33 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   if (!track_cb_list_.isEmpty()) {
     track_cb_list_.clear();
   }
+
+  if (NULL == camera_module_) {
+    //TODO: Instead of quering vendor tag ops directly from HAL module
+    //      devise a mechanism to share them from service side.
+    auto res = Camera3DeviceClient::LoadHWModule(CAMERA_HAL_MODULE_PATH,
+                                                 CAMERA_HARDWARE_MODULE_ID,
+                                                 (const hw_module_t **)&camera_module_);
+    if ((0 != res) || (NULL == camera_module_)) {
+      QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
+      return res;
+    }
+
+    if (camera_module_->get_vendor_tag_ops) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+
+      res = set_camera_metadata_vendor_ops(&vendor_tag_ops_);
+      if (0 != res) {
+        QMMF_ERROR(
+            "%s: Could not set vendor tag descriptor, "
+            "received error %s (%d). \n",
+            __func__, strerror(-res), res);
+        return res;
+      }
+    }
+  }
+
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
 }
