@@ -694,6 +694,15 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
     return BAD_VALUE;
   }
 
+  if(!sessions_.isEmpty()) {
+    for (auto track_info : sessions_.valueFor(session_id)) {
+      if (track_id == track_info.track_id) {
+        QMMF_ERROR("%s:%s: track_id(%d) already exist!", TAG, __func__,
+            track_id);
+        return BAD_VALUE;
+      }
+    }
+  }
   VideoTrackParams video_track_params;
   memset(&video_track_params, 0x0, sizeof video_track_params);
   video_track_params.track_id    = track_id;
