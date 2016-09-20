@@ -607,55 +607,50 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   // TODO: Application should return all the buffers after calling stop track
   // then only service would give stop track event callback, once this is done
   // then no need to return buffers from delete.
-  if (track_in_buffers_.indexOfKey(track_id) < 0) {
-    QMMF_ERROR("%s:%s: Not a valid track_id(%d)", TAG, __func__, track_id);
-    return BAD_VALUE;
-  }
-  std::vector<BnBuffer> bn_buffers_ret;
-  Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
-  QMMF_VERBOSE("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
+  if (track_in_buffers_.indexOfKey(track_id) >= 0) {
+
+    std::vector<BnBuffer> bn_buffers_ret;
+    Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
+    QMMF_INFO("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
       track_id, vec.size());
 
-  for (size_t j = 0; j < vec.size(); ++j) {
-    QMMF_VERBOSE("%s:%s: track_id(%d):buf_id(%d)", TAG, __func__, track_id,
-        vec[j].buffer_id);
-    bn_buffers_ret.push_back(vec[j]);
-  }
-  if (bn_buffers_ret.size() > 0) {
-    ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
-                                               bn_buffers_ret);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: track_id(%d):ReturnTrackBuffer failed!", TAG, __func__,
-          track_id);
+    for (auto buf : vec) {
+      QMMF_VERBOSE("%s:%s: track_id(%d):buf_id(%d)", TAG, __func__, track_id,
+          buf.buffer_id);
+      bn_buffers_ret.push_back(buf);
     }
+    if (bn_buffers_ret.size() > 0) {
+      ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
+                                                 bn_buffers_ret);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: track_id(%d):ReturnTrackBuffer failed!", TAG, __func__,
+            track_id);
+      }
+    }
+    track_in_buffers_.removeItem(track_id);
   }
-  track_in_buffers_.removeItem(track_id);
 
-  QMMF_INFO("%s:%s tracks.size(%d) ", TAG, __func__,
-      sessions_.valueFor(session_id).size());
+  if (track_buf_map_.indexOfKey(track_id) >= 0) {
 
-  if (track_buf_map_.indexOfKey(track_id) < 0) {
-    QMMF_ERROR("%s:%s: Not a valid track_id(%d)", TAG, __func__, track_id);
-    return BAD_VALUE;
-  }
-  buf_info_map info_map = track_buf_map_.valueFor(track_id);
-  for (size_t j = 0; j < info_map.size(); j++) {
-    BufInfo buf_info = info_map.valueAt(j);
-    QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d)", TAG, __func__,
-        track_id, buf_info.ion_fd);
-    if (buf_info.ion_fd > 0) {
-      close(buf_info.ion_fd);
+    buf_info_map info_map = track_buf_map_.valueFor(track_id);
+    for (size_t j = 0; j < info_map.size(); j++) {
+      BufInfo buf_info = info_map.valueAt(j);
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
+          __func__, track_id, buf_info.ion_fd);
+      if (buf_info.ion_fd > 0) {
+        close(buf_info.ion_fd);
+      }
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%x and frame_len=%d",
+          TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
+      if (buf_info.pointer != NULL) {
+        munmap(buf_info.pointer, buf_info.frame_len);
+        buf_info.pointer = NULL;
+      }
+      //TODO: check owner ship of buffers, make sure application returned all
+      // the buffers after calling stop on track.
     }
-    QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%x and frame_len=%d", TAG,
-        __func__, track_id, buf_info.pointer, buf_info.frame_len);
-    if (buf_info.pointer != NULL) {
-      munmap(buf_info.pointer, buf_info.frame_len);
-      buf_info.pointer = NULL;
-    }
-    //TODO: check owner ship of buffers, make sure application returned all
-    // the buffers after calling stop on track.
+    track_buf_map_.removeItem(track_id);
   }
-  track_buf_map_.removeItem(track_id);
 
   ret = recorder_service_->DeleteVideoTrack(session_id, track_id);
   if(NO_ERROR != ret) {
@@ -665,7 +660,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   }
 
   if (track_cb_list_.indexOfKey(track_id) >= 0) {
-      track_cb_list_.removeItem(track_id);
+    track_cb_list_.removeItem(track_id);
   }
 
   UpdateSessionTopology(session_id, track_id, false /*remove*/);

@@ -208,7 +208,6 @@ class RecorderClient {
   DefaultKeyedVector<uint32_t, TrackCb >   track_cb_list_;
   // Capture callback.
   ImageCaptureCb                           image_capture_cb_;
-  //CaptureImageCb                           image_capture_cb_;
 
   typedef struct BufInfo {
     // Transferred ION Id.
