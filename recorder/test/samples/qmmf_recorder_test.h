@@ -32,6 +32,7 @@
 #include <map>
 
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
+#include "recorder/test/samples/qmmf_recorder_test_aac.h"
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -51,6 +52,7 @@ enum class TrackType {
   kNone,
   kAudioPCM,
   kAudioAAC,
+  kAudioAMR,
   kVideoYUV,
   kVideoAVC,
   kVideoHEVC
@@ -83,7 +85,13 @@ class RecorderTest {
 
   status_t SessionTwo1080pEncTracks(const TrackType& type);
 
-  status_t CreateAudioOnlySession();
+  status_t CreateAudioPCMTrack();
+
+  status_t CreateAudio2PCMTrack();
+
+  status_t CreateAudioAACTrack();
+
+  status_t CreateAudioPCMAACTrack();
 
   status_t StartSession();
 
@@ -175,7 +183,10 @@ class TestTrack {
 
   Recorder* recorder_;
 
-  RecorderTestWav wav_;
+  //TODO: Combine RecorderTestWav & RecorderTestAac classses in single class.
+  RecorderTestWav wav_output_;
+
+  RecorderTestAac aac_output_;
 
   uint32_t num_yuv_frames_;
 };
@@ -195,7 +206,10 @@ public:
         CREATE_1080pENC_HEVC_SESSION_CMD  = '9',
         CREATE_4KYUV_1080pENC_SESSION_CMD = 'V',
         CREATE_TWO_1080pENC_SESSION_CMD   = 'M',
-        CREATE_AUD_SESSION_CMD            = 'K',
+        CREATE_PCM_AUD_SESSION_CMD        = 'K',
+        CREATE_2PCM_AUD_SESSION_CMD       = 'C',
+        CREATE_AAC_AUD_SESSION_CMD        = 'E',
+        CREATE_PCM_AAC_AUD_SESSION_CMD    = 'F',
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',

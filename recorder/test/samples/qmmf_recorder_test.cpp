@@ -303,7 +303,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
   return ret;
 }
 
-// This session has one 1080p video encode and one PCM Audio track.
+// This session has one 1080p video encode and one AAC Audio track.
 status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -331,15 +331,15 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
-  info.track_type = TrackType::kAudioPCM;
+  info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
 
-  ret = audio_pcm_track->SetUp(info);
+  ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
-  tracks.push_back(audio_pcm_track);
+  tracks.push_back(audio_aac_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -380,7 +380,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
-  info.track_id   = 1;
+  info.track_id   = 2;
   info.track_type = track_type;
   info.session_id = session_id;
 
@@ -426,7 +426,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
-  info.track_id   = 1;
+  info.track_id   = 2;
   info.track_type = track_type;
   info.session_id = session_id;
 
@@ -439,7 +439,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   return ret;
 }
 
-status_t RecorderTest::CreateAudioOnlySession() {
+status_t RecorderTest::CreateAudioPCMTrack() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -470,6 +470,112 @@ status_t RecorderTest::CreateAudioOnlySession() {
   return ret;
 }
 
+status_t RecorderTest::CreateAudio2PCMTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track1->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track1);
+
+  TestTrack *audio_pcm_track2 = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_pcm_track2->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioAACTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAAC;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMAACTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 status_t RecorderTest::StartSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -491,12 +597,13 @@ status_t RecorderTest::StopSession() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
 
-  for (auto track : it->second) {
-    track->CleanUp();
-  }
   uint32_t session_id = it->first;
   auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
   assert(result == NO_ERROR);
+
+  for (auto track : it->second) {
+    track->CleanUp();
+  }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
@@ -651,10 +758,12 @@ status_t RecorderTest::DeleteSession() {
   status_t ret;
   for (auto track : it->second) {
       assert(track != nullptr);
-      if (track->GetTrackType() == TrackType::kAudioPCM)
+      if ( (track->GetTrackType() == TrackType::kAudioPCM)
+           || (track->GetTrackType() == TrackType::kAudioAAC) ) {
         ret = recorder_.DeleteAudioTrack(session_id, track->GetTrackId());
-      else
+      } else {
         ret = recorder_.DeleteVideoTrack(session_id, track->GetTrackId());
+      }
       assert(ret == 0);
       delete track;
       track = nullptr;
@@ -865,15 +974,29 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     // Create AudioTrack
     AudioTrackCreateParam audio_track_params;
     memset(&audio_track_params, 0x0, sizeof audio_track_params);
-    audio_track_params.in_device[0]   = 0;
-    audio_track_params.num_in_devices = 1;
-    audio_track_params.sample_rate    = 48000;
-    audio_track_params.channels       = 1;
-    audio_track_params.bit_depth      = 16;
-    audio_track_params.format_type    = AudioFormat::kPCM;
-    audio_track_params.out_device     = 0;
-    audio_track_params.flags          = 0;
+    audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                            (AudioDeviceId::kBuiltIn));
+    audio_track_params.sample_rate = 48000;
+    audio_track_params.channels    = 1;
+    audio_track_params.bit_depth   = 16;
+    audio_track_params.out_device  = 0;
+    audio_track_params.flags       = 0;
 
+    switch (track_info.track_type) {
+      case TrackType::kAudioPCM:
+        audio_track_params.format      = AudioFormat::kPCM;
+      break;
+      case TrackType::kAudioAAC:
+        audio_track_params.format      = AudioFormat::kAAC;
+        audio_track_params.codec_params.aac.format = AACFormat::kADTS;
+        audio_track_params.codec_params.aac.mode = AACMode::kAALC;
+      break;
+      case TrackType::kAudioAMR:
+      //TODO:
+      break;
+      default:
+      break;
+    }
     TrackCb audio_track_cb;
     audio_track_cb.data_cb =
         [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -892,9 +1015,23 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
                                       track_info.track_id,
                                       audio_track_params, audio_track_cb);
     assert(ret == NO_ERROR);
-    // Configure .wav output.
-    ret = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
-    assert(ret == NO_ERROR);
+
+    switch (track_info.track_type) {
+      case TrackType::kAudioPCM:
+        // Configure .wav output.
+        ret = wav_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+      break;
+      case TrackType::kAudioAAC:
+        // Configure .aac output.
+        ret = aac_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+      break;
+      default:
+      break;
+    }
   }
   track_info_ = track_info;
 
@@ -909,7 +1046,7 @@ status_t TestTrack::Prepare() {
   int32_t ret = NO_ERROR;
 #ifdef DUMP_BITSTREAM
   if ( (track_info_.track_type == TrackType::kVideoAVC)
-      || (track_info_.track_type == TrackType::kVideoHEVC) ) {
+     || (track_info_.track_type == TrackType::kVideoHEVC) ) {
     String8 bitstream_filepath;
     const char* type_string = (track_info_.track_type == TrackType::kVideoAVC)
          ? "h264":"h265";
@@ -925,7 +1062,10 @@ status_t TestTrack::Prepare() {
   }
 #endif
   if (track_info_.track_type == TrackType::kAudioPCM) {
-    ret = wav_.Open();
+    ret = wav_output_.Open();
+    assert(ret == NO_ERROR);
+  } else if (track_info_.track_type == TrackType::kAudioAAC) {
+    ret = aac_output_.Open();
     assert(ret == NO_ERROR);
   }
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -937,17 +1077,24 @@ status_t TestTrack::CleanUp() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
+  switch (track_info_.track_type) {
+    case TrackType::kVideoAVC:
+    case TrackType::kVideoHEVC:
 #ifdef DUMP_BITSTREAM
-  if ( (track_info_.track_type == TrackType::kVideoAVC)
-      || (track_info_.track_type == TrackType::kVideoHEVC) ) {
     if(file_fd_ > 0) {
       close(file_fd_);
       file_fd_ = -1;
     }
-  }
 #endif
-  if (track_info_.track_type == TrackType::kAudioPCM) {
-    wav_.Close();
+    break;
+    case TrackType::kAudioPCM:
+    wav_output_.Close();
+    break;
+    case TrackType::kAudioAAC:
+    aac_output_.Close();
+    break;
+    default:
+    break;
   }
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -1007,12 +1154,20 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
 
   TEST_DBG("%s:%s: Enter track_id(%dd)", TAG, __func__, track_id);
   assert (recorder_ != nullptr);
+  int32_t ret = 0;
 
   switch (track_info_.track_type) {
     case TrackType::kAudioPCM:
       for (const BufferDescriptor& buffer : buffers) {
-        int result = wav_.Write(buffer);
-        assert(result == 0);
+        ret = wav_output_.Write(buffer);
+        assert(ret == 0);
+      }
+    break;
+    case TrackType::kAudioAAC:
+      for (const BufferDescriptor& buffer : buffers) {
+        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+          break;
+        ret = aac_output_.Write(buffer);
       }
     break;
     case TrackType::kVideoYUV:
@@ -1050,7 +1205,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
     break;
   }
   // Return buffers back to service.
-  auto ret = recorder_->ReturnTrackBuffer(track_info_.session_id, track_id,
+  ret = recorder_->ReturnTrackBuffer(track_info_.session_id, track_id,
                                           buffers);
   assert(ret == 0);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -1075,7 +1230,7 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
       }
     } else {
       TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
-      assert(0);
+      return -1;
     }
     if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
@@ -1126,7 +1281,7 @@ FAIL:
 
 void CmdMenu::PrintMenu() {
 
-  printf("\n\n=========== QIPCAM TEST MENU ===================\n\n");
+  printf("\n\n=========== QMMF RECORDER TEST MENU ===================\n\n");
 
   printf(" \n\nIPCam Test Application commands \n");
   printf(" -----------------------------\n");
@@ -1149,7 +1304,15 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
     CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
-      CmdMenu::CREATE_AUD_SESSION_CMD);
+      CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
+  #ifdef MULTI_AUDIO_TRACK // Multi audio track is not supported.
+  printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
+      CmdMenu::CREATE_2PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + AAC mono)\n",
+    CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD);
+  #endif
+  printf("   %c. Create Session: (AAC mono)\n",
+      CmdMenu::CREATE_AAC_AUD_SESSION_CMD);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -1227,11 +1390,22 @@ int main(int argc,char *argv[]) {
         test_context.SessionTwo1080pEncTracks(TrackType::kVideoAVC);
       }
       break;
-      case CmdMenu::CREATE_AUD_SESSION_CMD: {
-          test_context.CreateAudioOnlySession();
+      case CmdMenu::CREATE_PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMTrack();
       }
       break;
-
+      case CmdMenu::CREATE_2PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudio2PCMTrack();
+      }
+      break;
+      case CmdMenu::CREATE_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioAACTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMAACTrack();
+      }
+      break;
       case CmdMenu::START_SESSION_CMD: {
         test_context.StartSession();
       }

@@ -112,7 +112,6 @@ int32_t RecorderTestAac::Open() {
                filename_.c_str());
     return -EBADF;
   }
-
   return 0;
 }
 
