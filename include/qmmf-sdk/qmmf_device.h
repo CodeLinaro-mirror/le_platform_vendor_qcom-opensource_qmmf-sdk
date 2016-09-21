@@ -36,7 +36,7 @@
 #include <utility>
 #include <vector>
 
-#include "include/qmmf-sdk/qmmf_codec.h"
+#include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
