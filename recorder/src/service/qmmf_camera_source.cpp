@@ -43,7 +43,7 @@ namespace qmmf {
 
 namespace recorder {
 
-static const nsecs_t kWaitDuration = 500000000; // 500 ms.
+static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
 CameraSource* CameraSource::instance_ = NULL;
 
