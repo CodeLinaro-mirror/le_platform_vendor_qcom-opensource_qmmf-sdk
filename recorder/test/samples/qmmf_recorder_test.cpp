@@ -743,6 +743,7 @@ status_t RecorderTest::DisableOverlay() {
     if ( (type == TrackType::kVideoYUV)
         || (type == TrackType::kVideoAVC)
         || (type == TrackType::kVideoHEVC) ) {
+      track->DisableOverlay();
     }
   }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -1103,8 +1104,9 @@ status_t TestTrack::CleanUp() {
 status_t TestTrack::EnableOverlay() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  // Create Overlay object
+  int32_t ret = 0;
   OverlayParam object_params;
+  // Create Static Image type overlay.
   memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kBottomRight;
@@ -1115,7 +1117,7 @@ status_t TestTrack::EnableOverlay() {
 
   uint32_t object_id;
   assert(recorder_ != nullptr);
-  auto ret = recorder_->CreateOverlayObject(track_info_.track_id,
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
                                            object_params, &object_id);
   assert(ret == 0);
 
@@ -1124,6 +1126,62 @@ status_t TestTrack::EnableOverlay() {
   // One track can have multiple types of overlay.
   overlay_ids_.push_back(object_id);
 
+  // Create Date & Time type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kDateType;
+  object_params.location = OverlayLocationType::kBottomLeft;
+  object_params.text_color = 0x202020FF; //Dark Gray
+  object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_AMPM;
+  object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+
+  uint32_t date_time_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &date_time_id);
+  assert(ret == 0);
+
+  ret = recorder_->SetOverlay(track_info_.track_id, date_time_id);
+  assert(ret == 0);
+  // One track can have multiple types of overlay.
+  overlay_ids_.push_back(date_time_id);
+
+  // Create BoundingBox type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kBoundingBox;
+  object_params.text_color = 0x33CC00FF; //Light Green
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 100;
+  object_params.bounding_box.start_y = 200;
+  object_params.bounding_box.width   = 1920/4;
+  object_params.bounding_box.height  = 1080/4;
+  std::string bb_text("Test BBox..");
+  bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+
+  uint32_t bbox_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &bbox_id);
+  assert(ret == 0);
+  ret = recorder_->SetOverlay(track_info_.track_id, bbox_id);
+  assert(ret == 0);
+  overlay_ids_.push_back(bbox_id);
+
+  // Create UserText type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kUserText;
+  object_params.location = OverlayLocationType::kTopRight;
+  object_params.text_color = 0x189BF2FF; //Light Blue
+  std::string user_text("Simple User Text For Testing!!");
+  user_text.copy(object_params.user_text, user_text.length());
+
+  uint32_t user_text_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &user_text_id);
+  assert(ret == 0);
+  ret = recorder_->SetOverlay(track_info_.track_id, user_text_id);
+  assert(ret == 0);
+  overlay_ids_.push_back(user_text_id);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1131,11 +1189,14 @@ status_t TestTrack::EnableOverlay() {
 status_t TestTrack::DisableOverlay() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = 0;
   assert(recorder_ != nullptr);
-  auto ret = recorder_->RemoveOverlay(GetTrackId(), overlay_ids_[0]);
-  assert(ret == 0);
-  ret = recorder_->DeleteOverlayObject(GetTrackId(), overlay_ids_[0]);
-  assert(ret == 0);
+  for (auto overlay_id : overlay_ids_) {
+    ret = recorder_->RemoveOverlay(GetTrackId(), overlay_id);
+    assert(ret == 0);
+    ret = recorder_->DeleteOverlayObject(GetTrackId(), overlay_id);
+    assert(ret == 0);
+  }
   overlay_ids_.clear();
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;

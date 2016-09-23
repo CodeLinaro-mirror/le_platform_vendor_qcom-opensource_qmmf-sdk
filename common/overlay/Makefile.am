@@ -7,7 +7,8 @@ liboverlay_la_CPPFLAGS := -std=c++11 -Wall
 liboverlay_la_CPPFLAGS += -I$(top_srcdir)/include
 liboverlay_la_CPPFLAGS += -I$(top_srcdir)/
 liboverlay_la_CPPFLAGS += -DUSE_SKIA=0
-liboverlay_la_LDFLAGS  := -lutils -lcutils -lpthread -ldl -llog -lC2D2
+liboverlay_la_CPPFLAGS += -DUSE_CAIRO=1
+liboverlay_la_LDFLAGS  := -lutils -lcutils -lpthread -ldl -llog -lC2D2 -lcairo
 
 # Codec Adaptor sample test app
 bin_PROGRAMS := overlay_test
