@@ -31,22 +31,10 @@
 
 #include <cstdint>
 #include <fstream>
-#include <iomanip>
-#include <ios>
 #include <iostream>
-#include <sstream>
 #include <string>
 
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
-
-using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::BufferDescriptor;
-using ::std::ifstream;
-using ::std::ofstream;
-using ::std::setbase;
-using ::std::streampos;
-using ::std::string;
-using ::std::stringstream;
 
 class RecorderTestAac
 {
@@ -54,14 +42,14 @@ class RecorderTestAac
   RecorderTestAac();
   ~RecorderTestAac();
 
-  int32_t Configure(const string& filename_prefix,
+  int32_t Configure(const ::std::string& filename_prefix,
                     const uint32_t track_id,
-                    const AudioTrackCreateParam& params);
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
   int32_t Open();
   void Close();
 
-  int32_t Write(const BufferDescriptor& buffer);
+  int32_t Write(const ::qmmf::recorder::BufferDescriptor& buffer);
 
  private:
   struct __attribute__((packed)) AacRawHeader {
@@ -82,9 +70,9 @@ class RecorderTestAac
     uint64_t raw_data : 2;
   };
 
-  string filename_;
-  ofstream output_;
-  AudioTrackCreateParam params_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
   RecorderTestAac(const RecorderTestAac&) = delete;

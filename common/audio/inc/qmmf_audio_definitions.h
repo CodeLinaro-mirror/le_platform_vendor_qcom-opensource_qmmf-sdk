@@ -50,18 +50,8 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::android::Parcel;
-using ::std::boolalpha;
-using ::std::function;
-using ::std::noboolalpha;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-using ::std::underlying_type;
-
 enum class BufferFlags {
   kFlagEOS = (1 << 1),
-  kFlagCodecConfig = (1 << 2)
 };
 
 struct AudioBuffer {
@@ -73,19 +63,20 @@ struct AudioBuffer {
   int64_t timestamp;
   uint32_t flags;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "data[" << data << "] ";
     stream << "ion_fd[" << ion_fd << "] ";
     stream << "buffer_id[" << buffer_id << "] ";
     stream << "capacity[" << capacity << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "flags[" << setbase(16) << flags << setbase(10) << "]";
+    stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
+           << "]";
     return stream.str();
   }
 
-  void ToParcel(Parcel* parcel, bool writeFileDescriptor) const {
+  void ToParcel(::android::Parcel* parcel, bool writeFileDescriptor) const {
     if (ion_fd == -1)
       parcel->writeInt32(reinterpret_cast<intptr_t>(data));
     else
@@ -101,7 +92,7 @@ struct AudioBuffer {
     parcel->writeUint32(flags);
   }
 
-  void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
+  void FromParcel(const ::android::Parcel& parcel, bool readFileDescriptor) {
     data = reinterpret_cast<void *>(parcel.readIntPtr());
     if (readFileDescriptor && data == nullptr)
       ion_fd = static_cast<int32_t>(parcel.readFileDescriptor());
@@ -124,8 +115,8 @@ union AudioEventData {
   int32_t error; // kError
   AudioBuffer buffer; // kBuffer
 
-  string ToString(const AudioEventType key) const {
-    stringstream stream;
+  ::std::string ToString(const AudioEventType key) const {
+    ::std::stringstream stream;
     switch (key) {
       case AudioEventType::kError:
         stream << "error[" << error << "]";
@@ -135,15 +126,15 @@ union AudioEventData {
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<AudioEventType>::type>(key)
+               << static_cast<::std::underlying_type<AudioEventType>::type>(key)
                << "]";
         break;
     }
     return stream.str();
   }
 
-  void ToParcel(const AudioEventType key, Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<AudioEventType>::type>(key));
+  void ToParcel(const AudioEventType key, ::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(key));
     switch (key) {
       case AudioEventType::kError:
         parcel->writeInt32(error);
@@ -154,7 +145,7 @@ union AudioEventData {
     }
   }
 
-  void FromParcel(const Parcel& parcel) {
+  void FromParcel(const ::android::Parcel& parcel) {
     AudioEventType key = static_cast<AudioEventType>(parcel.readInt32());
     switch (key) {
       case AudioEventType::kError:
@@ -173,8 +164,9 @@ union AudioEventData {
   ~AudioEventData() {}
 };
 
-typedef function<void(const AudioEventType event_type,
-                      const AudioEventData& event_data)> AudioEventHandler;
+typedef ::std::function<void(const AudioEventType event_type,
+                             const AudioEventData& event_data)>
+            AudioEventHandler;
 
 enum class AudioEndPointType {
   kSource,
@@ -194,21 +186,23 @@ struct AudioMetadata {
   AudioCodecParams codec_params;
   uint32_t flags;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "format["
-           << static_cast<underlying_type<AudioFormat>::type>(format) << "] ";
+           << static_cast<::std::underlying_type<AudioFormat>::type>(format)
+           << "] ";
     stream << "num_channels[" << num_channels << "] ";
     stream << "sample_rate[" << sample_rate << "] ";
     stream << "sample_size[" << sample_size << "]";
     stream << "codec[" << codec << "]";
     stream << "codec_params[" << codec_params.ToString(format) << "]";
-    stream << "flags[" << setbase(16) << flags << setbase(10) << "]";
+    stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
+           << "]";
     return stream.str();
   }
 
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<AudioFormat>::type>(format));
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(format));
     parcel->writeInt32(num_channels);
     parcel->writeInt32(sample_rate);
     parcel->writeInt32(sample_size);
@@ -230,7 +224,7 @@ struct AudioMetadata {
     parcel->writeUint32(flags);
   }
 
-  void FromParcel(const Parcel& parcel) {
+  void FromParcel(const ::android::Parcel& parcel) {
     format = static_cast<AudioFormat>(parcel.readInt32());
     num_channels = parcel.readInt32();
     sample_rate = parcel.readInt32();
@@ -264,41 +258,42 @@ struct AudioParamDeviceData {
   bool enable;
   DeviceId id;
 
-  string ToString() const {
-    stringstream stream;
-    stream << "enable[" << boolalpha << enable << noboolalpha << "] ";
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "enable[" << ::std::boolalpha << enable << ::std::noboolalpha
+           << "] ";
     stream << "id[" << id << "]";
     return stream.str();
   }
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(enable));
     parcel->writeInt32(static_cast<int32_t>(id));
   }
 
-  void FromParcel(const Parcel& parcel) {
+  void FromParcel(const ::android::Parcel& parcel) {
     enable = static_cast<bool>(parcel.readInt32());
     id = static_cast<DeviceId>(parcel.readInt32());
   }
 };
 
 struct AudioParamCustomData {
-  string key;
-  string value;
+  ::std::string key;
+  ::std::string value;
 
-  string ToString() const {
-    stringstream stream;
+  ::std::string ToString() const {
+    ::std::stringstream stream;
     stream << "key[" << key << "] ";
     stream << "value[" << value << "]";
     return stream.str();
   }
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeCString(key.c_str());
     parcel->writeCString(value.c_str());
   }
 
-  void FromParcel(const Parcel& parcel) {
+  void FromParcel(const ::android::Parcel& parcel) {
     key = parcel.readCString();
     value = parcel.readCString();
   }
@@ -309,8 +304,8 @@ union AudioParamData {
   AudioParamDeviceData device; /* kDevice */
   AudioParamCustomData custom; /* kCustom */
 
-  string ToString(const AudioParamType key) const {
-    stringstream stream;
+  ::std::string ToString(const AudioParamType key) const {
+    ::std::stringstream stream;
     switch (key) {
       case AudioParamType::kVolume:
         stream << "error[" << volume << "]";
@@ -323,15 +318,15 @@ union AudioParamData {
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<underlying_type<AudioParamType>::type>(key)
+               << static_cast<::std::underlying_type<AudioParamType>::type>(key)
                << "]";
         break;
     }
     return stream.str();
   }
 
-  void ToParcel(const AudioParamType key, Parcel* parcel) const {
-    parcel->writeInt32(static_cast<underlying_type<AudioParamType>::type>(key));
+  void ToParcel(const AudioParamType key, ::android::Parcel* parcel) const {
+    parcel->writeInt32(static_cast<int32_t>(key));
     switch (key) {
       case AudioParamType::kVolume:
         parcel->writeInt32(volume);
@@ -345,7 +340,7 @@ union AudioParamData {
     }
   }
 
-  void FromParcel(const Parcel& parcel) {
+  void FromParcel(const ::android::Parcel& parcel) {
     AudioParamType key = static_cast<AudioParamType>(parcel.readInt32());
     switch (key) {
       case AudioParamType::kVolume:

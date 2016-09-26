@@ -45,14 +45,6 @@
 namespace qmmf {
 namespace recorder {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::std::map;
-using ::std::queue;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-
 class RecorderIon
 {
  public:
@@ -62,35 +54,39 @@ class RecorderIon
   int32_t Allocate(const int32_t number, const int32_t size);
   int32_t Deallocate();
 
-  int32_t GetList(vector<AudioBuffer>* buffers);
-  int32_t GetList(queue<CodecBuffer>* buffers);
+  int32_t GetList(::std::vector<::qmmf::common::audio::AudioBuffer>* buffers);
+  int32_t GetList(::std::queue<CodecBuffer>* buffers);
 
-  int32_t Import(const BnBuffer& bn_buffer, AudioBuffer* audio_buffer);
-  int32_t Export(const AudioBuffer& audio_buffer, BnBuffer* bn_buffer);
+  int32_t Import(const BnBuffer& bn_buffer,
+                 ::qmmf::common::audio::AudioBuffer* audio_buffer);
+  int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
+                 BnBuffer* bn_buffer);
 
-  int32_t Import(const StreamBuffer& stream_buffer, AudioBuffer* audio_buffer);
-  int32_t Export(const AudioBuffer& audio_buffer, StreamBuffer* stream_buffer);
+  int32_t Import(const StreamBuffer& stream_buffer,
+                 ::qmmf::common::audio::AudioBuffer* audio_buffer);
+  int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
+                 StreamBuffer* stream_buffer);
 
   int32_t Import(const BnBuffer& bn_buffer, CodecBuffer* codec_buffer);
   int32_t Export(const CodecBuffer& codec_buffer, BnBuffer* bn_buffer);
 
  private:
   struct RecorderIonBuffer {
-    void *data;
+    void* data;
     struct ion_allocation_data allocate_data;
     struct ion_fd_data share_data;
     struct ion_handle_data free_data;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "allocate_data[";
       stream << "len[" << allocate_data.len << "] ";
       stream << "align[" << allocate_data.align << "] ";
-      stream << setbase(16);
+      stream << ::std::setbase(16);
       stream << "heap_id_mask[" << allocate_data.heap_id_mask << "] ";
       stream << "flags[" << allocate_data.flags << "] ";
-      stream << setbase(10);
+      stream << ::std::setbase(10);
       stream << "handle[" << allocate_data.handle << "]] ";
       stream << "share_data[";
       stream << "handle[" << share_data.handle << "] ";
@@ -101,7 +97,7 @@ class RecorderIon
     }
   };
 
-  typedef map<int32_t, RecorderIonBuffer> RecorderIonBufferMap;
+  typedef ::std::map<int32_t, RecorderIonBuffer> RecorderIonBufferMap;
 
   RecorderIonBufferMap ion_buffer_map_;
   int32_t ion_device_;

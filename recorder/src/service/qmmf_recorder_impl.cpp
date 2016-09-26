@@ -300,7 +300,7 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
         ret = BAD_VALUE;
         break;
       }
-      QMMF_INFO("%s:%s: track_id(%d) Started Successfully :session_id(%d)",
+      QMMF_INFO("%s:%s: track_id(%d) source started successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
 
       if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
@@ -313,6 +313,8 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
           ret = BAD_VALUE;
           break;
         }
+        QMMF_INFO("%s:%s: track_id(%d) source started successfully :session_id(%d)",
+            TAG, __func__, tracks[i].track_id, session_id);
       }
     }
   }
@@ -384,7 +386,7 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
         ret = BAD_VALUE;
         break;
       }
-      QMMF_INFO("%s:%s: track_id(%d) Stopped Successfully :session_id(%d)",
+      QMMF_INFO("%s:%s: track_id(%d) source stopped successfully :session_id(%d)",
           TAG, __func__, tracks[i].track_id, session_id);
 
       if (tracks[i].audio_params.params.format != AudioFormat::kPCM) {
@@ -392,11 +394,13 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
 
         ret = audio_encoder_core_->StopTrackEncoder(tracks[i].track_id);
         if (ret != NO_ERROR) {
-          QMMF_ERROR("%s:%s: audio->StartTrackEncoder failed for session_id(%d)/track_id(%d): %d",
+          QMMF_ERROR("%s:%s: audio->StopTrackEncoder failed for session_id(%d)/track_id(%d): %d",
                      TAG, __func__, session_id, tracks[i].track_id, ret);
           ret = BAD_VALUE;
           break;
         }
+        QMMF_INFO("%s:%s: track_id(%d) encoder stopped successfully :session_id(%d)",
+            TAG, __func__, tracks[i].track_id, session_id);
       }
     }
   }

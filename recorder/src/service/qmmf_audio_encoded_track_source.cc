@@ -31,8 +31,8 @@
 
 #include "recorder/src/service/qmmf_audio_track_source.h"
 
-#include <condition_variable>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <mutex>

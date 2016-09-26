@@ -45,12 +45,6 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::condition_variable;
-using ::std::mutex;
-using ::std::queue;
-using ::std::thread;
-using ::std::vector;
-
 class AudioBackendPrimary : public IAudioBackend {
  public:
   AudioBackendPrimary(const AudioHandle audio_handle,
@@ -58,7 +52,8 @@ class AudioBackendPrimary : public IAudioBackend {
                       const AudioBufferHandler& buffer_handler);
   ~AudioBackendPrimary();
 
-  int32_t Open(const AudioEndPointType type, const vector<DeviceId>& devices,
+  int32_t Open(const AudioEndPointType type,
+               const ::std::vector<DeviceId>& devices,
                const AudioMetadata& metadata) override;
   int32_t Close() override;
 
@@ -67,7 +62,7 @@ class AudioBackendPrimary : public IAudioBackend {
   int32_t Pause() override;
   int32_t Resume() override;
 
-  int32_t SendBuffers(const vector<AudioBuffer>& buffers) override;
+  int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers) override;
 
   int32_t GetLatency(int32_t* latency) override;
   int32_t GetBufferSize(int32_t* buffer_size) override;
@@ -84,7 +79,7 @@ class AudioBackendPrimary : public IAudioBackend {
 
   struct AudioMessage {
     AudioMessageType type;
-    vector<AudioBuffer> buffers;
+    ::std::vector<AudioBuffer> buffers;
     bool flush;
   };
 
@@ -100,10 +95,10 @@ class AudioBackendPrimary : public IAudioBackend {
   AudioErrorHandler error_handler_;
   AudioBufferHandler buffer_handler_;
 
-  thread* thread_;
-  mutex message_lock_;
-  queue<AudioMessage> messages_;
-  condition_variable signal_;
+  ::std::thread* thread_;
+  ::std::mutex message_lock_;
+  ::std::queue<AudioMessage> messages_;
+  ::std::condition_variable signal_;
 
   const hw_module_t* hal_module_;
   audio_hw_device_t* hal_device_;

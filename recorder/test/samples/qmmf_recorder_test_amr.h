@@ -29,58 +29,36 @@
 
 #pragma once
 
-#include <iomanip>
-#include <map>
-#include <sstream>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
 #include <string>
 
-#include <linux/msm_ion.h>
-
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/client/qmmf_recorder_service_intf.h"
 
-namespace qmmf {
-namespace recorder {
-
-class RecorderClientIon
+class RecorderTestAmr
 {
  public:
-  RecorderClientIon();
-  ~RecorderClientIon();
+  RecorderTestAmr();
+  ~RecorderTestAmr();
 
-  int32_t Associate(uint32_t track_id, const BnBuffer& bn_buffer,
-                    BufferDescriptor* buffer);
-  int32_t Release(uint32_t track_id);
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
+
+  int32_t Open();
+  void Close();
+
+  int32_t Write(const ::qmmf::recorder::BufferDescriptor& buffer);
 
  private:
-  struct RecorderClientIonBuffer {
-    void*   data;
-    int32_t capacity;
-    struct  ion_fd_data share_data;
-
-    ::std::string ToString() const {
-      ::std::stringstream stream;
-      stream << "data[" << data << "] ";
-      stream << "capacity[" << capacity << "] ";
-      stream << "share_data[";
-      stream << "handle[" << share_data.handle << "] ";
-      stream << "fd[" << share_data.fd << "]]";
-      return stream.str();
-    }
-  };
-
-  typedef ::std::map<int32_t,
-                     RecorderClientIonBuffer> RecorderClientIonBufferMap;
-
-  int32_t ion_device_;
-  ::std::map<uint32_t, RecorderClientIonBufferMap> buffer_map_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
-  RecorderClientIon(const RecorderClientIon&) = delete;
-  RecorderClientIon(RecorderClientIon&&) = delete;
-  RecorderClientIon& operator=(const RecorderClientIon&) = delete;
-  RecorderClientIon& operator=(const RecorderClientIon&&) = delete;
+  RecorderTestAmr(const RecorderTestAmr&) = delete;
+  RecorderTestAmr(RecorderTestAmr&&) = delete;
+  RecorderTestAmr& operator=(const RecorderTestAmr&) = delete;
+  RecorderTestAmr& operator=(const RecorderTestAmr&&) = delete;
 };
-
-}; // namespace recorder
-}; // namespace qmmf

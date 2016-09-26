@@ -35,8 +35,6 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::function;
-
 enum class AudioState {
   kNew,     // instantiated, unconnected and unconfigured
   kConnect, // connected and unconfigured
@@ -48,10 +46,10 @@ enum class AudioState {
 // handle to a specific audio client/service connection
 typedef int32_t AudioHandle;
 
-typedef function<void(const AudioHandle audio_handle,
-                      const int32_t error)> AudioErrorHandler;
-typedef function<void(const AudioHandle audio_handle,
-                      const AudioBuffer& buffer)> AudioBufferHandler;
+typedef ::std::function<void(const AudioHandle audio_handle,
+                             const int32_t error)> AudioErrorHandler;
+typedef ::std::function<void(const AudioHandle audio_handle,
+                             const AudioBuffer& buffer)> AudioBufferHandler;
 
 }; // namespace audio
 }; // namespace common

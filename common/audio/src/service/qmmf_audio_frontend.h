@@ -40,9 +40,6 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::map;
-using ::std::vector;
-
 class AudioFrontend {
  public:
   AudioFrontend();
@@ -55,7 +52,7 @@ class AudioFrontend {
   int32_t Disconnect(const AudioHandle audio_handle);
   int32_t Configure(const AudioHandle audio_handle,
                     const AudioEndPointType type,
-                    const vector<DeviceId>& devices,
+                    const ::std::vector<DeviceId>& devices,
                     const AudioMetadata& metadata);
 
   int32_t Start(const AudioHandle audio_handle);
@@ -64,7 +61,7 @@ class AudioFrontend {
   int32_t Resume(const AudioHandle audio_handle);
 
   int32_t SendBuffers(const AudioHandle audio_handle,
-                      const vector<AudioBuffer>& buffers);
+                      const ::std::vector<AudioBuffer>& buffers);
 
   int32_t GetLatency(const AudioHandle audio_handle, int32_t* latency);
   int32_t GetBufferSize(const AudioHandle audio_handle, int32_t* buffer_size);
@@ -74,7 +71,7 @@ class AudioFrontend {
  private:
   static const AudioHandle kAudioHandleMax;
 
-  typedef map<AudioHandle, IAudioBackend*> AudioBackendMap;
+  typedef ::std::map<AudioHandle, IAudioBackend*> AudioBackendMap;
 
   AudioHandle current_handle_;
   AudioErrorHandler error_handler_;

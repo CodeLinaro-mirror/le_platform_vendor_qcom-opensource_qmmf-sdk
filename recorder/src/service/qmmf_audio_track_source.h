@@ -43,13 +43,6 @@
 namespace qmmf {
 namespace recorder {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioEndPoint;
-using ::std::condition_variable;
-using ::std::mutex;
-using ::std::queue;
-using ::std::thread;
-
 class IAudioTrackSource {
  public:
   virtual ~IAudioTrackSource() {}
@@ -91,7 +84,7 @@ class AudioRawTrackSource : public IAudioTrackSource {
   struct AudioMessage {
     AudioMessageType type;
     union {
-      AudioBuffer buffer;
+      ::qmmf::common::audio::AudioBuffer buffer;
       BnBuffer bn_buffer;
     };
   };
@@ -100,16 +93,16 @@ class AudioRawTrackSource : public IAudioTrackSource {
   void Thread();
 
   void ErrorHandler(const int32_t error);
-  void BufferHandler(const AudioBuffer& buffer);
+  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
   AudioTrackParams track_params_;
-  AudioEndPoint* end_point_;
+  ::qmmf::common::audio::AudioEndPoint* end_point_;
   RecorderIon ion_;
 
-  thread* thread_;
-  mutex message_lock_;
-  queue<AudioMessage> messages_;
-  condition_variable signal_;
+  ::std::thread* thread_;
+  ::std::mutex message_lock_;
+  ::std::queue<AudioMessage> messages_;
+  ::std::condition_variable signal_;
 
   // disable copy, assignment, and move
   AudioRawTrackSource(const AudioRawTrackSource&) = delete;
@@ -146,18 +139,18 @@ class AudioEncodedTrackSource : public IInputCodecSource,
 
  private:
   void ErrorHandler(const int32_t error);
-  void BufferHandler(const AudioBuffer& buffer);
+  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
   AudioTrackParams track_params_;
-  AudioEndPoint* end_point_;
+  ::qmmf::common::audio::AudioEndPoint* end_point_;
   RecorderIon ion_;
-  queue<StreamBuffer> buffers_;
+  ::std::queue<StreamBuffer> buffers_;
   int32_t buffer_size_;
   bool stop_called_;
   bool stop_notify_received_;
 
-  mutex mutex_;
-  condition_variable signal_;
+  ::std::mutex mutex_;
+  ::std::condition_variable signal_;
 
   // disable copy, assignment, and move
   AudioEncodedTrackSource(const AudioEncodedTrackSource&) = delete;

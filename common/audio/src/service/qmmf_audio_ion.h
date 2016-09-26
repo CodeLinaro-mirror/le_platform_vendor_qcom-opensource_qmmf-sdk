@@ -43,11 +43,6 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::map;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-
 class AudioIon
 {
  public:
@@ -63,8 +58,8 @@ class AudioIon
     int32_t capacity;
     struct ion_fd_data share_data;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "capacity[" << capacity << "] ";
       stream << "share_data[";
@@ -74,8 +69,8 @@ class AudioIon
     }
   };
 
-  typedef map<int32_t, AudioIonBuffer> AudioIonBufferMap;
-  typedef map<AudioHandle, AudioIonBufferMap> AudioIonClientMap;
+  typedef ::std::map<int32_t, AudioIonBuffer> AudioIonBufferMap;
+  typedef ::std::map<AudioHandle, AudioIonBufferMap> AudioIonClientMap;
 
   AudioIonClientMap client_map_;
   int32_t ion_device_;

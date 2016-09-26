@@ -34,8 +34,6 @@
 #include <mutex>
 #include <queue>
 
-#include <utils/RefBase.h>
-
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -43,13 +41,6 @@
 
 namespace qmmf {
 namespace recorder {
-
-using ::android::sp;
-using ::std::condition_variable;
-using ::std::map;
-using ::std::mutex;
-using ::std::queue;
-using ::std::unique_lock;
 
 class AudioTrackEncoder : public IOutputCodecSource {
  public:
@@ -79,12 +70,12 @@ class AudioTrackEncoder : public IOutputCodecSource {
 
   AudioEncodedTrackSource* track_source_;
   AudioTrackParams track_params_;
-  sp<AVCodec> avcodec_;
-  queue<CodecBuffer> buffers_;
+  AVCodec* avcodec_;
+  ::std::queue<CodecBuffer> buffers_;
   RecorderIon ion_;
 
-  mutex mutex_;
-  condition_variable signal_;
+  ::std::mutex mutex_;
+  ::std::condition_variable signal_;
 };
 
 class AudioEncoderCore {
@@ -110,7 +101,7 @@ class AudioEncoderCore {
                              const std::vector<BnBuffer>& buffers);
 
  private:
-  typedef map<uint32_t, sp<AudioTrackEncoder>> AudioTrackEncoderMap;
+  typedef ::std::map<uint32_t, AudioTrackEncoder*> AudioTrackEncoderMap;
 
   AudioEncoderCore();
   static AudioEncoderCore* instance_;
@@ -125,4 +116,4 @@ class AudioEncoderCore {
 };
 
 }; // namespace recorder
-}; // name space qmmf
+}; // namespace qmmf

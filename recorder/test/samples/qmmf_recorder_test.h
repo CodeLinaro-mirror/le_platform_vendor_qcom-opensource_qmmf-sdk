@@ -33,6 +33,7 @@
 
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_aac.h"
+#include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -53,6 +54,7 @@ enum class TrackType {
   kAudioPCM,
   kAudioAAC,
   kAudioAMR,
+  kAudioG711,
   kVideoYUV,
   kVideoAVC,
   kVideoHEVC
@@ -91,7 +93,21 @@ class RecorderTest {
 
   status_t CreateAudioAACTrack();
 
+  status_t CreateAudio2AACTrack();
+
   status_t CreateAudioPCMAACTrack();
+
+  status_t CreateAudioAMRTrack();
+
+  status_t CreateAudio2AMRTrack();
+
+  status_t CreateAudioPCMAMRTrack();
+
+  status_t CreateAudioG711Track();
+
+  status_t CreateAudio2G711Track();
+
+  status_t CreateAudioPCMG711Track();
 
   status_t StartSession();
 
@@ -183,10 +199,9 @@ class TestTrack {
 
   Recorder* recorder_;
 
-  //TODO: Combine RecorderTestWav & RecorderTestAac classses in single class.
   RecorderTestWav wav_output_;
-
   RecorderTestAac aac_output_;
+  RecorderTestAmr amr_output_;
 
   uint32_t num_yuv_frames_;
 };
@@ -206,10 +221,17 @@ public:
         CREATE_1080pENC_HEVC_SESSION_CMD  = '9',
         CREATE_4KYUV_1080pENC_SESSION_CMD = 'V',
         CREATE_TWO_1080pENC_SESSION_CMD   = 'M',
-        CREATE_PCM_AUD_SESSION_CMD        = 'K',
-        CREATE_2PCM_AUD_SESSION_CMD       = 'C',
-        CREATE_AAC_AUD_SESSION_CMD        = 'E',
-        CREATE_PCM_AAC_AUD_SESSION_CMD    = 'F',
+        CREATE_PCM_AUD_SESSION_CMD        = 'a',
+        CREATE_2PCM_AUD_SESSION_CMD       = 'b',
+        CREATE_AAC_AUD_SESSION_CMD        = 'c',
+        CREATE_2AAC_AUD_SESSION_CMD       = 'd',
+        CREATE_PCM_AAC_AUD_SESSION_CMD    = 'e',
+        CREATE_AMR_AUD_SESSION_CMD        = 'f',
+        CREATE_2AMR_AUD_SESSION_CMD       = 'g',
+        CREATE_PCM_AMR_AUD_SESSION_CMD    = 'h',
+        CREATE_G7ll_AUD_SESSION_CMD       = 'i',
+        CREATE_2G7ll_AUD_SESSION_CMD      = 'j',
+        CREATE_PCM_G7ll_AUD_SESSION_CMD   = 'k',
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',

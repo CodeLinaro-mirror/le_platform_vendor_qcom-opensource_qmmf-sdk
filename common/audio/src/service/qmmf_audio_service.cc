@@ -36,7 +36,6 @@
 #include <map>
 #include <mutex>
 #include <vector>
-#include <type_traits>
 
 #include <binder/IInterface.h>
 #include <binder/Parcel.h>
@@ -60,7 +59,6 @@ using ::std::lock_guard;
 using ::std::map;
 using ::std::mutex;
 using ::std::vector;
-using ::std::underlying_type;
 
 AudioService::AudioService() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
@@ -180,7 +178,7 @@ int32_t AudioService::Configure(const AudioHandle audio_handle,
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type));
+               static_cast<int>(type));
   for (const DeviceId device : devices)
     QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
@@ -308,7 +306,7 @@ int32_t AudioService::SetParam(const AudioHandle audio_handle,
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioParamType>::type>(type));
+               static_cast<int>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
   lock_guard<mutex> lock(lock_);
@@ -374,7 +372,7 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: type[%d]", TAG, __func__,
-                   static_cast<underlying_type<AudioEndPointType>::type>(type));
+                   static_cast<int>(type));
       for (const DeviceId device : devices)
         QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
       QMMF_VERBOSE("%s: %s-AudioConfigure() INPARAM: metadata[%s]", TAG,
@@ -508,7 +506,7 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: type[%d]", TAG, __func__,
-                   static_cast<underlying_type<AudioParamType>::type>(type));
+                   static_cast<int>(type));
       QMMF_VERBOSE("%s: %s-AudioSetParam() INPARAM: data[%s]", TAG, __func__,
                    data.ToString(type).c_str());
       int32_t result = SetParam(audio_handle, type, data);

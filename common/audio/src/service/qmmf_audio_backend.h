@@ -37,14 +37,12 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::vector;
-
 class IAudioBackend {
  public:
   virtual ~IAudioBackend() {}
 
   virtual int32_t Open(const AudioEndPointType type,
-                       const vector<DeviceId>& devices,
+                       const ::std::vector<DeviceId>& devices,
                        const AudioMetadata& metadata) = 0;
   virtual int32_t Close() = 0;
 
@@ -53,7 +51,7 @@ class IAudioBackend {
   virtual int32_t Pause() = 0;
   virtual int32_t Resume() = 0;
 
-  virtual int32_t SendBuffers(const vector<AudioBuffer>& buffers) = 0;
+  virtual int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers) = 0;
 
   virtual int32_t GetLatency(int32_t* latency) = 0;
   virtual int32_t GetBufferSize(int32_t* buffer_size) = 0;

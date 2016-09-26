@@ -54,6 +54,7 @@ namespace recorder {
 
 using ::qmmf::common::audio::AudioBuffer;
 using ::std::map;
+using ::std::queue;
 using ::std::vector;
 
 static const char* kIonFilename = "/dev/ion";

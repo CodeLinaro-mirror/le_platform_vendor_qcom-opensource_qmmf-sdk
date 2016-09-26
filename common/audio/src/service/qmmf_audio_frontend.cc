@@ -46,10 +46,7 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::function;
-using ::std::map;
 using ::std::vector;
-using ::std::underlying_type;
 
 const AudioHandle AudioFrontend::kAudioHandleMax = 100;
 
@@ -126,7 +123,7 @@ int32_t AudioFrontend::Configure(const AudioHandle audio_handle,
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type));
+               static_cast<int>(type));
   for (const DeviceId device : devices)
     QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
@@ -342,7 +339,7 @@ int32_t AudioFrontend::SetParam(const AudioHandle audio_handle,
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioParamType>::type>(type));
+               static_cast<int>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
 

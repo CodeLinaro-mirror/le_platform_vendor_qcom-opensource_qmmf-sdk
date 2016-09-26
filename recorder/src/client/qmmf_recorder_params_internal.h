@@ -32,8 +32,6 @@
 #include <sys/types.h>
 
 #include <cstdint>
-#include <type_traits>
-#include <vector>
 
 #include <binder/Parcel.h>
 
@@ -43,10 +41,6 @@
 namespace qmmf {
 namespace recorder {
 
-using ::android::Parcel;
-using ::std::vector;
-using ::std::underlying_type;
-
 struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
   AudioTrackCreateParamInternal() {}
   AudioTrackCreateParamInternal(AudioTrackCreateParam& base)
@@ -54,14 +48,14 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
   AudioTrackCreateParamInternal(const AudioTrackCreateParam& base)
       : AudioTrackCreateParam(const_cast<AudioTrackCreateParam&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(static_cast<uint32_t>(in_devices.size()));
     for (const DeviceId device : in_devices)
       parcel->writeInt32(static_cast<int32_t>(device));
     parcel->writeUint32(sample_rate);
     parcel->writeUint32(channels);
     parcel->writeUint32(bit_depth);
-    parcel->writeInt32(static_cast<underlying_type<AudioFormat>::type>(format));
+    parcel->writeInt32(static_cast<int32_t>(format));
     switch (format) {
       case AudioFormat::kPCM:
         // nothing to write
@@ -80,7 +74,7 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
     parcel->writeUint32(flags);
   }
 
-  AudioTrackCreateParamInternal& FromParcel(const Parcel& parcel) {
+  AudioTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
     size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
     for (size_t index = 0; index < number_of_elements; ++index)
       in_devices.push_back(static_cast<DeviceId>(parcel.readInt32()));
@@ -115,13 +109,12 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
   VideoTrackCreateParamInternal(const VideoTrackCreateParam& base)
       : VideoTrackCreateParam(const_cast<VideoTrackCreateParam&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(camera_id);
     parcel->writeUint32(width);
     parcel->writeUint32(height);
     parcel->writeUint32(frame_rate);
-    parcel->writeInt32(
-        static_cast<underlying_type<VideoFormat>::type>(format_type));
+    parcel->writeInt32(static_cast<int32_t>(format_type));
     switch (format_type) {
       case VideoFormat::kHEVC:
         HEVCParamsInternal(codec_param.hevc).ToParcel(parcel);
@@ -138,7 +131,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
     parcel->writeUint32(out_device);
   }
 
-  VideoTrackCreateParamInternal& FromParcel(const Parcel& parcel) {
+  VideoTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
     camera_id = parcel.readUint32();
     width = parcel.readUint32();
     height = parcel.readUint32();
@@ -168,7 +161,7 @@ struct CameraStartParamInternal : public CameraStartParam {
   CameraStartParamInternal(const CameraStartParam& base)
       : CameraStartParam(const_cast<CameraStartParam&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(zsl_mode));
     parcel->writeUint32(zsl_queue_depth);
     parcel->writeUint32(zsl_width);
@@ -177,7 +170,7 @@ struct CameraStartParamInternal : public CameraStartParam {
     parcel->writeUint32(flags);
   }
 
-  CameraStartParamInternal& FromParcel(const Parcel& parcel) {
+  CameraStartParamInternal& FromParcel(const ::android::Parcel& parcel) {
     zsl_mode = static_cast<bool>(parcel.readInt32());
     zsl_queue_depth = parcel.readUint32();
     zsl_width = parcel.readUint32();
@@ -194,15 +187,14 @@ struct ImageParamInternal : public ImageParam {
   ImageParamInternal(const ImageParam& base)
       : ImageParam(const_cast<ImageParam&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(width);
     parcel->writeUint32(height);
     parcel->writeUint32(image_quality);
-    parcel->writeInt32(
-        static_cast<underlying_type<ImageFormat>::type>(image_format));
+    parcel->writeInt32(static_cast<int32_t>(image_format));
   }
 
-  ImageParamInternal& FromParcel(const Parcel& parcel) {
+  ImageParamInternal& FromParcel(const ::android::Parcel& parcel) {
     width = parcel.readUint32();
     height = parcel.readUint32();
     image_quality = parcel.readUint32();
@@ -218,19 +210,18 @@ struct ImageCaptureConfigInternal : public ImageCaptureConfig {
   ImageCaptureConfigInternal(const ImageCaptureConfig& base)
       : ImageCaptureConfig(const_cast<ImageCaptureConfig&>(base)) {}
 
-  void ToParcel(Parcel* parcel) const {
+  void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(sensor_frame_skip_interval);
     parcel->writeInt32(static_cast<int32_t>(with_exif));
     parcel->writeInt32(static_cast<int32_t>(with_camera_meta));
     parcel->writeInt32(static_cast<int32_t>(with_raw));
-    parcel->writeInt32(
-        static_cast<underlying_type<ImageFormat>::type>(raw_image_format));
+    parcel->writeInt32(static_cast<int32_t>(raw_image_format));
     parcel->writeUint32(thumbnail_image_param.size());
     for (const ImageParam& image_param : thumbnail_image_param)
       ImageParamInternal(image_param).ToParcel(parcel);
   }
 
-  ImageCaptureConfigInternal& FromParcel(const Parcel& parcel) {
+  ImageCaptureConfigInternal& FromParcel(const ::android::Parcel& parcel) {
     sensor_frame_skip_interval = parcel.readUint32();
     with_exif = static_cast<bool>(parcel.readInt32());
     with_camera_meta = static_cast<bool>(parcel.readInt32());

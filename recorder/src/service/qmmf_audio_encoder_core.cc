@@ -55,6 +55,7 @@ using ::std::cv_status;
 using ::std::map;
 using ::std::mutex;
 using ::std::queue;
+using ::std::unique_lock;
 
 AudioEncoderCore* AudioEncoderCore::instance_ = nullptr;
 
@@ -90,8 +91,8 @@ status_t AudioEncoderCore::AddSource(AudioEncodedTrackSource& track_source,
   QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
                params.ToString().c_str());
 
-  sp<AudioTrackEncoder> track_encoder = new AudioTrackEncoder();
-  if (track_encoder.get() == nullptr) {
+  AudioTrackEncoder* track_encoder = new AudioTrackEncoder();
+  if (track_encoder == nullptr) {
     QMMF_ERROR("%s: %s() could not instantiate track encoder", TAG, __func__);
     return ::android::NO_MEMORY;
   }
@@ -120,7 +121,7 @@ status_t AudioEncoderCore::DeleteTrackEncoder(const uint32_t track_id) {
     return ::android::BAD_VALUE;
   }
 
-  track_encoder_iterator->second.clear();
+  delete track_encoder_iterator->second;
   track_encoder_map_.erase(track_encoder_iterator->first);
 
   return ::android::NO_ERROR;
@@ -270,7 +271,8 @@ status_t AudioEncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 }
 
 AudioTrackEncoder::AudioTrackEncoder()
-    : track_source_(nullptr) {
+    : track_source_(nullptr),
+      avcodec_(nullptr) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
@@ -307,7 +309,7 @@ status_t AudioTrackEncoder::Start() {
   uint32_t count, size;
 
   avcodec_ = new AVCodec();
-  if(avcodec_.get() == nullptr) {
+  if(avcodec_ == nullptr) {
     QMMF_ERROR("%s: %s() could not instantiate avcoded", TAG, __func__);
     return ::android::NO_MEMORY;
   }
@@ -398,7 +400,8 @@ error_start_headers:
   avcodec_->ReleaseBuffer();
 
 error_start_avcodec:
-  avcodec_.clear();
+  delete avcodec_;
+  avcodec_ = nullptr;
 
   return result;
 }
@@ -410,7 +413,7 @@ status_t AudioTrackEncoder::Stop() {
   status_t result;
   int32_t iresult;
 
-  if (avcodec_.get() == nullptr) {
+  if (avcodec_ == nullptr) {
     QMMF_ERROR("%s: %s() track encoder has not been initialized", TAG,
                __func__);
     return ::android::NO_INIT;
@@ -430,7 +433,8 @@ status_t AudioTrackEncoder::Stop() {
     return_value = result;
   }
 
-  avcodec_.clear();
+  delete avcodec_;
+  avcodec_ = nullptr;
 
   return return_value;
 }
@@ -439,7 +443,7 @@ status_t AudioTrackEncoder::Pause() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
-  if (avcodec_.get() == nullptr) {
+  if (avcodec_ == nullptr) {
     QMMF_ERROR("%s: %s() track encoder has not been initialized", TAG,
                __func__);
     return ::android::NO_INIT;
@@ -459,7 +463,7 @@ status_t AudioTrackEncoder::Resume() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
-  if (avcodec_.get() == nullptr) {
+  if (avcodec_ == nullptr) {
     QMMF_ERROR("%s: %s() track encoder has not been initialized", TAG,
                __func__);
     return ::android::NO_INIT;

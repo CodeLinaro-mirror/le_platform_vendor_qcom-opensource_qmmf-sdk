@@ -30,7 +30,6 @@
 #define TAG "AudioEndPoint"
 
 #include <vector>
-#include <type_traits>
 
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 
@@ -41,9 +40,6 @@
 namespace qmmf {
 namespace common {
 namespace audio {
-
-using ::std::vector;
-using ::std::underlying_type;
 
 AudioEndPoint::AudioEndPoint()
     : audio_endpoint_client_(nullptr) {
@@ -97,11 +93,11 @@ int32_t AudioEndPoint::Disconnect() {
 }
 
 int32_t AudioEndPoint::Configure(const AudioEndPointType type,
-                                 const vector<DeviceId>& devices,
+                                 const ::std::vector<DeviceId>& devices,
                                  const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type));
+               static_cast<int>(type));
   for (const DeviceId device : devices)
     QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
@@ -165,7 +161,7 @@ int32_t AudioEndPoint::Resume() {
   return result;
 }
 
-int32_t AudioEndPoint::SendBuffers(const vector<AudioBuffer>& buffers) {
+int32_t AudioEndPoint::SendBuffers(const ::std::vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
@@ -209,7 +205,7 @@ int32_t AudioEndPoint::SetParam(const AudioParamType type,
                                 const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioParamType>::type>(type));
+               static_cast<int>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
   assert(audio_endpoint_client_ != nullptr);

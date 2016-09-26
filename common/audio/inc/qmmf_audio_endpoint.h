@@ -40,8 +40,6 @@ namespace audio {
 
 class AudioEndPointClient;
 
-using ::std::vector;
-
 //
 // Client interface for audio playback or capture.
 //
@@ -105,7 +103,7 @@ class AudioEndPoint {
   // Returns error code.
   //
   int32_t Configure(const AudioEndPointType type,
-                    const vector<DeviceId>& devices,
+                    const ::std::vector<DeviceId>& devices,
                     const AudioMetadata& metadata);
 
   //
@@ -153,7 +151,7 @@ class AudioEndPoint {
   //
   // Returns error code.
   //
-  int32_t SendBuffers(const vector<AudioBuffer>& buffers);
+  int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers);
 
   //
   // Request for the endpoint to device latency.  In cases of multiple linked

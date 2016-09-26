@@ -27,9 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderTestAac"
+#define TAG "RecorderTestAmr"
 
-#include "recorder/test/samples/qmmf_recorder_test_aac.h"
+#include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
 #include <cerrno>
 #include <cstdint>
@@ -43,8 +43,6 @@
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "common/qmmf_log.h"
 
-using ::qmmf::AACMode;
-using ::qmmf::AACFormat;
 using ::qmmf::AudioFormat;
 using ::qmmf::recorder::AudioTrackCreateParam;
 using ::qmmf::recorder::BufferDescriptor;
@@ -54,17 +52,33 @@ using ::std::streampos;
 using ::std::string;
 using ::std::to_string;
 
-static const char *kFilenameSuffix = ".aac";
+static const char *kFilenameSuffix = ".amr";
 
-RecorderTestAac::RecorderTestAac() {
+static const char kNarrowBandHeader[] = { 0x23,
+                                          0x21,
+                                          0x41,
+                                          0x4D,
+                                          0x52,
+                                          0x0A };
+static const char kWideBandHeader[] = { 0x23,
+                                        0x21,
+                                        0x41,
+                                        0x4D,
+                                        0x52,
+                                        0x2D,
+                                        0x57,
+                                        0x42,
+                                        0x0A};
+
+RecorderTestAmr::RecorderTestAmr() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
-RecorderTestAac::~RecorderTestAac() {
+RecorderTestAmr::~RecorderTestAmr() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
-int32_t RecorderTestAac::Configure(const string& filename_prefix,
+int32_t RecorderTestAmr::Configure(const string& filename_prefix,
                                    const uint32_t track_id,
                                    const AudioTrackCreateParam& params) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
@@ -74,8 +88,8 @@ int32_t RecorderTestAac::Configure(const string& filename_prefix,
   QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
                params.ToString().c_str());
 
-  if (params.format != AudioFormat::kAAC) {
-    QMMF_ERROR("%s: %s() non-AAC format given: %d", TAG, __func__,
+  if (params.format != AudioFormat::kAMR) {
+    QMMF_ERROR("%s: %s() non-AMR format given: %d", TAG, __func__,
                static_cast<int>(params.format));
     return -EINVAL;
   }
@@ -89,7 +103,7 @@ int32_t RecorderTestAac::Configure(const string& filename_prefix,
   return 0;
 }
 
-int32_t RecorderTestAac::Open() {
+int32_t RecorderTestAmr::Open() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   if (filename_.empty()) {
@@ -103,17 +117,35 @@ int32_t RecorderTestAac::Open() {
                filename_.c_str());
     return -EBADF;
   }
+
+  const char* header;
+  size_t size;
+  if (params_.codec_params.amr.isWAMR) {
+    header = kWideBandHeader;
+    size = sizeof kWideBandHeader;
+  } else {
+    header = kNarrowBandHeader;
+    size = sizeof kNarrowBandHeader;
+  }
+  streampos before = output_.tellp();
+  output_.write(header, size);
+  streampos after = output_.tellp();
+  if (after - before != size) {
+    QMMF_ERROR("%s: %s() failed to write AMR header", TAG, __func__);
+    return -EIO;
+  }
+
   return 0;
 }
 
-void RecorderTestAac::Close() {
+void RecorderTestAmr::Close() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   if (output_.is_open())
     output_.close();
 }
 
-int32_t RecorderTestAac::Write(const BufferDescriptor& buffer) {
+int32_t RecorderTestAmr::Write(const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
@@ -125,59 +157,6 @@ int32_t RecorderTestAac::Write(const BufferDescriptor& buffer) {
   if (!output_.is_open()) {
     QMMF_WARN("%s: %s() handle is not open, skipping", TAG, __func__);
     return 0;
-  }
-
-  if (params_.codec_params.aac.format == AACFormat::kRaw) {
-    AacRawHeader header;
-    memset(&header, 0x0, sizeof header);
-
-    header.sync = 0xFFF;
-    header.id = 1;
-    header.layer = 0;
-    header.crc = 1;
-    header.profile = 1;
-
-    unsigned int sample_index = params_.sample_rate;
-    if (params_.codec_params.aac.mode == AACMode::kHEVC_v1 ||
-        params_.codec_params.aac.mode == AACMode::kHEVC_v2) {
-      if (params_.sample_rate >= 24000)
-        sample_index = params_.sample_rate / 2;
-    }
-    switch (sample_index) {
-      case 96000: header.sample_rate =  0; break;
-      case 88200: header.sample_rate =  1; break;
-      case 64000: header.sample_rate =  2; break;
-      case 48000: header.sample_rate =  3; break;
-      case 44100: header.sample_rate =  4; break;
-      case 32000: header.sample_rate =  5; break;
-      case 24000: header.sample_rate =  6; break;
-      case 22050: header.sample_rate =  7; break;
-      case 16000: header.sample_rate =  8; break;
-      case 12000: header.sample_rate =  9; break;
-      case 11025: header.sample_rate = 10; break;
-      case 8000:  header.sample_rate = 11; break;
-      case 7350:  header.sample_rate = 12; break;
-      default:    header.sample_rate =  4; break;
-    }
-
-    header.private_bit = 0;
-    header.channels = params_.channels;
-    header.original = 0;
-    header.home = 0;
-    header.copyright_id = 0;
-    header.copyright_start = 0;
-    header.frame_length = buffer.size + 7;
-    header.fullness = 0x660; // CBR
-    header.raw_data = 0;
-
-QMMF_VERBOSE("%s: %s() sizeof aac header[%zu]", TAG, __func__, sizeof header);
-    streampos before = output_.tellp();
-    output_.write(reinterpret_cast<const char*>(&header), 7);
-    streampos after = output_.tellp();
-    if (after - before != 7) {
-      QMMF_ERROR("%s: %s() failed to write AAC header", TAG, __func__);
-      return -EIO;
-    }
   }
 
   streampos before = output_.tellp();

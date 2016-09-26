@@ -48,29 +48,19 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::android::BnInterface;
-using ::android::IBinder;
-using ::android::Parcel;
-using ::android::sp;
-using ::android::wp;
-using ::std::lock_guard;
-using ::std::map;
-using ::std::mutex;
-using ::std::vector;
-
-class AudioService : public BnInterface<IAudioService>
+class AudioService : public ::android::BnInterface<IAudioService>
 {
  public:
   AudioService();
   ~AudioService();
 
  private:
-  int32_t Connect(const sp<IAudioServiceCallback>& client_handler,
+  int32_t Connect(const ::android::sp<IAudioServiceCallback>& client_handler,
                   AudioHandle* audio_handle) override;
   int32_t Disconnect(const AudioHandle audio_handle) override;
   int32_t Configure(const AudioHandle audio_handle,
                     const AudioEndPointType type,
-                    const vector<DeviceId>& devices,
+                    const ::std::vector<DeviceId>& devices,
                     const AudioMetadata& metadata) override;
 
   int32_t Start(const AudioHandle audio_handle) override;
@@ -79,7 +69,7 @@ class AudioService : public BnInterface<IAudioService>
   int32_t Resume(const AudioHandle audio_handle) override;
 
   int32_t SendBuffers(const AudioHandle audio_handle,
-                      const vector<AudioBuffer>& buffers) override;
+                      const ::std::vector<AudioBuffer>& buffers) override;
 
   int32_t GetLatency(const AudioHandle audio_handle, int32_t* latency) override;
   int32_t GetBufferSize(const AudioHandle audio_handle,
@@ -87,22 +77,20 @@ class AudioService : public BnInterface<IAudioService>
   int32_t SetParam(const AudioHandle audio_handle, const AudioParamType type,
                    const AudioParamData& data) override;
 
-  // method of BnInterface<IAudioService>
-  int32_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
-                     uint32_t flags = 0) override;
+  // methods of BnInterface<IAudioService>
+  int32_t onTransact(uint32_t code, const ::android::Parcel& data,
+                     ::android::Parcel* reply, uint32_t flags = 0) override;
 
-  class DeathNotifier : public IBinder::DeathRecipient {
+  class DeathNotifier : public ::android::IBinder::DeathRecipient {
    public:
     DeathNotifier(AudioService* parent, const AudioHandle audio_handle)
         : parent_(parent), audio_handle_(audio_handle) {}
 
-    void binderDied(const wp<IBinder>&) override {
+    void binderDied(const ::android::wp<::android::IBinder>&) override {
       QMMF_WARN("%s() audio client died", __func__);
-      lock_guard<mutex> lock(parent_->lock_);
-      // TODO(kwestfie@codeaurora.org):
-      // Investigate issue with the following statement:
-      //   parent_->client_handlers_.find(audio_handle_)->second->clear();
-      //
+      ::std::lock_guard<::std::mutex> lock(parent_->lock_);
+
+      parent_->client_handlers_.find(audio_handle_)->second.clear();
       parent_->client_handlers_.erase(audio_handle_);
     }
 
@@ -111,10 +99,12 @@ class AudioService : public BnInterface<IAudioService>
   };
   friend class DeathNotifier;
 
-  typedef map<AudioHandle, sp<DeathNotifier>> DeathNotifierMap;
-  typedef map<AudioHandle, sp<IAudioServiceCallback>> ClientHandlerMap;
+  typedef ::std::map<AudioHandle,
+                     ::android::sp<DeathNotifier>> DeathNotifierMap;
+  typedef ::std::map<AudioHandle,
+                     ::android::sp<IAudioServiceCallback>> ClientHandlerMap;
 
-  mutex lock_;
+  ::std::mutex lock_;
   AudioIon ion_;
   AudioFrontend audio_frontend_;
   DeathNotifierMap death_notifiers_;

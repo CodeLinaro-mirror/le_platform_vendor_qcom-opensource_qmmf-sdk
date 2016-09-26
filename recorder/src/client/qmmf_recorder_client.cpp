@@ -281,6 +281,10 @@ status_t RecorderClient::StartSession(const uint32_t session_id) {
     return NO_INIT;
   }
 
+  Vector<uint32_t> tracks = sessions_.valueFor(session_id);
+  for (size_t i = 0; i < tracks.size(); i++)
+    buffer_ion_.Release(tracks[i]);
+
   auto ret = recorder_service_->StartSession(session_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s StartSession failed!", TAG, __func__);

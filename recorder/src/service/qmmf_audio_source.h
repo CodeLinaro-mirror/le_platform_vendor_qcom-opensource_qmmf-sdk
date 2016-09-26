@@ -37,8 +37,6 @@
 namespace qmmf {
 namespace recorder {
 
-using ::std::map;
-
 class AudioSource {
  public:
   static AudioSource* CreateAudioSource();
@@ -59,7 +57,7 @@ class AudioSource {
   AudioEncodedTrackSource* getTrackSource(uint32_t track_id);
 
  private:
-  typedef map<uint32_t, IAudioTrackSource*> AudioTrackSourceMap;
+  typedef ::std::map<uint32_t, IAudioTrackSource*> AudioTrackSourceMap;
 
   AudioSource();
   static AudioSource* instance_;

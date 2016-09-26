@@ -40,7 +40,6 @@
 #include <queue>
 #include <thread>
 #include <vector>
-#include <type_traits>
 
 #include <hardware/audio.h>
 
@@ -57,8 +56,10 @@ namespace audio {
 
 using ::std::chrono::duration_cast;
 using ::std::chrono::microseconds;
+using ::std::chrono::seconds;
 using ::std::chrono::system_clock;
 using ::std::condition_variable;
+using ::std::cv_status;
 using ::std::function;
 using ::std::map;
 using ::std::mutex;
@@ -66,7 +67,6 @@ using ::std::queue;
 using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
-using ::std::underlying_type;
 
 AudioBackendPrimary::AudioBackendPrimary(const AudioHandle audio_handle,
     const AudioErrorHandler& error_handler,
@@ -74,7 +74,7 @@ AudioBackendPrimary::AudioBackendPrimary(const AudioHandle audio_handle,
     : audio_handle_(audio_handle), error_handler_(error_handler),
       buffer_handler_(buffer_handler), state_(AudioState::kNew) {
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 }
 
 AudioBackendPrimary::~AudioBackendPrimary() {}
@@ -102,13 +102,12 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -268,14 +267,14 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
     }
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type_));
+               static_cast<int>(type_));
     return -ENOSYS;
   }
 #endif
 
   state_ = AudioState::kIdle;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
   return 0;
 }
@@ -286,7 +285,7 @@ int32_t AudioBackendPrimary::Close() {
   switch (state_) {
     case AudioState::kNew:
       QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
-                static_cast<underlying_type<AudioState>::type>(state_));
+                static_cast<int>(state_));
       return 0;
       break;
     case AudioState::kIdle:
@@ -296,13 +295,12 @@ int32_t AudioBackendPrimary::Close() {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -314,7 +312,7 @@ int32_t AudioBackendPrimary::Close() {
     hal_device_->close_output_stream(hal_device_, hal_output_stream_);
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type_));
+               static_cast<int>(type_));
     return -ENOSYS;
   }
 
@@ -326,7 +324,7 @@ int32_t AudioBackendPrimary::Close() {
 
   state_ = AudioState::kNew;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
   return result;
@@ -347,13 +345,12 @@ int32_t AudioBackendPrimary::Start() {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -366,7 +363,7 @@ int32_t AudioBackendPrimary::Start() {
 
   state_ = AudioState::kRunning;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
   return 0;
 }
@@ -381,7 +378,7 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
     case AudioState::kConnect:
     case AudioState::kIdle:
       QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
-                static_cast<underlying_type<AudioState>::type>(state_));
+                static_cast<int>(state_));
       return 0;
       break;
     case AudioState::kRunning:
@@ -390,7 +387,7 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -413,7 +410,7 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
 
   state_ = AudioState::kIdle;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
   return 0;
 }
@@ -430,13 +427,12 @@ int32_t AudioBackendPrimary::Pause() {
     case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -451,7 +447,7 @@ int32_t AudioBackendPrimary::Pause() {
 
   state_ = AudioState::kPaused;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
   return 0;
 }
@@ -468,13 +464,12 @@ int32_t AudioBackendPrimary::Resume() {
     case AudioState::kIdle:
     case AudioState::kRunning:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -489,7 +484,7 @@ int32_t AudioBackendPrimary::Resume() {
 
   state_ = AudioState::kRunning;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
-             static_cast<underlying_type<AudioState>::type>(state_));
+             static_cast<int>(state_));
 
   return 0;
 }
@@ -509,13 +504,12 @@ int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
     case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -545,13 +539,12 @@ int32_t AudioBackendPrimary::GetLatency(int32_t* latency) {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -574,13 +567,12 @@ int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
     case AudioState::kRunning:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -594,7 +586,7 @@ int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
         &hal_output_stream_->common);
   } else {
     QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<underlying_type<AudioEndPointType>::type>(type_));
+               static_cast<int>(type_));
     return -ENOSYS;
   }
 #else
@@ -610,7 +602,7 @@ int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
                                       const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<underlying_type<AudioParamType>::type>(type));
+               static_cast<int>(type));
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
 
@@ -623,13 +615,12 @@ int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
     case AudioState::kNew:
     case AudioState::kConnect:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioState>::type>(state_));
+                 static_cast<int>(state_));
       return -ENOSYS;
       break;
   }
@@ -651,7 +642,7 @@ void AudioBackendPrimary::ThreadEntry() {
     case AudioEndPointType::kSink: SinkThread(); break;
     default:
       QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-                 static_cast<underlying_type<AudioEndPointType>::type>(type_));
+                 static_cast<int>(type_));
   }
 }
 
@@ -665,7 +656,8 @@ void AudioBackendPrimary::SourceThread() {
     // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      signal_.wait(lk);
+      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
     }
 
     // process the next pending message
@@ -754,16 +746,13 @@ void AudioBackendPrimary::SinkThread() {
   bool paused = false;
   bool flushing = false;
 
-  // clear the message queue of expired messages
-  while (!messages_.empty())
-    messages_.pop();
-
   bool keep_running = true;
   while (keep_running) {
     // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      signal_.wait(lk);
+      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
     }
 
     // process the next pending message

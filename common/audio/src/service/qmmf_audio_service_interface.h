@@ -45,16 +45,8 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::android::BnInterface;
-using ::android::IBinder;
-using ::android::IInterface;
-using ::android::Parcel;
-using ::android::sp;
-using ::android::status_t;
-using ::std::vector;
-
 enum class AudioServiceCommand {
-  kAudioConnect = IBinder::FIRST_CALL_TRANSACTION,
+  kAudioConnect = ::android::IBinder::FIRST_CALL_TRANSACTION,
   kAudioDisconnect,
   kAudioConfigure,
   kAudioStart,
@@ -68,14 +60,14 @@ enum class AudioServiceCommand {
 };
 
 enum class AudioServiceCallbackCommand {
-  kAudioNotifyError = IBinder::FIRST_CALL_TRANSACTION,
+  kAudioNotifyError = ::android::IBinder::FIRST_CALL_TRANSACTION,
   kAudioNotifyBuffer,
 };
 
 static const char* kAudioServiceName = "audio.service";
 
 // Binder interface for callbacks from AudioService to AudioEndPointClient
-class IAudioServiceCallback : public IInterface {
+class IAudioServiceCallback : public ::android::IInterface {
  public:
   DECLARE_META_INTERFACE(AudioServiceCallback);
 
@@ -83,16 +75,17 @@ class IAudioServiceCallback : public IInterface {
   virtual void NotifyBufferEvent(const AudioBuffer& buffer) = 0;
 };
 
-class IAudioService : public IInterface {
+class IAudioService : public ::android::IInterface {
  public:
   DECLARE_META_INTERFACE(AudioService);
 
-  virtual int32_t Connect(const sp<IAudioServiceCallback>& client_handler,
-                          AudioHandle* audio_handle) = 0;
+  virtual int32_t Connect(
+      const ::android::sp<IAudioServiceCallback>& client_handler,
+      AudioHandle* audio_handle) = 0;
   virtual int32_t Disconnect(const AudioHandle audio_handle) = 0;
   virtual int32_t Configure(const AudioHandle audio_handle,
                             const AudioEndPointType type,
-                            const vector<DeviceId>& devices,
+                            const ::std::vector<DeviceId>& devices,
                             const AudioMetadata& metadata) = 0;
 
   virtual int32_t Start(const AudioHandle audio_handle) = 0;
@@ -101,7 +94,7 @@ class IAudioService : public IInterface {
   virtual int32_t Resume(const AudioHandle audio_handle) = 0;
 
   virtual int32_t SendBuffers(const AudioHandle audio_handle,
-                              const vector<AudioBuffer>& buffers) = 0;
+                              const ::std::vector<AudioBuffer>& buffers) = 0;
 
   virtual int32_t GetLatency(const AudioHandle audio_handle,
                              int32_t* latency) = 0;
@@ -113,10 +106,11 @@ class IAudioService : public IInterface {
 };
 
 // this class is responsible to provide callbacks from audio service
-class BnAudioServiceCallback : public BnInterface<IAudioServiceCallback> {
+class BnAudioServiceCallback
+    : public ::android::BnInterface<IAudioServiceCallback> {
  public:
-  virtual int32_t onTransact(uint32_t code, const Parcel &data, Parcel *reply,
-                             uint32_t flags = 0);
+  virtual int32_t onTransact(uint32_t code, const ::android::Parcel &data,
+                             ::android::Parcel *reply, uint32_t flags = 0);
 };
 
 }; // namespace audio

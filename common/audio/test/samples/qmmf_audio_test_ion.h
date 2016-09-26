@@ -43,13 +43,6 @@ namespace qmmf_test {
 namespace common {
 namespace audio {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::std::map;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-
 class AudioTestIon
 {
  public:
@@ -59,8 +52,8 @@ class AudioTestIon
   int32_t Allocate(const int32_t number, const int32_t size);
   int32_t Deallocate();
 
-  int32_t GetList(vector<AudioBuffer>* buffers);
-  int32_t Associate(AudioBuffer* buffer);
+  int32_t GetList(::std::vector<::qmmf::common::audio::AudioBuffer>* buffers);
+  int32_t Associate(::qmmf::common::audio::AudioBuffer* buffer);
 
  private:
   struct AudioIonBuffer {
@@ -69,16 +62,16 @@ class AudioTestIon
     struct ion_fd_data share_data;
     struct ion_handle_data free_data;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "allocate_data[";
       stream << "len[" << allocate_data.len << "] ";
       stream << "align[" << allocate_data.align << "] ";
-      stream << setbase(16);
+      stream << ::std::setbase(16);
       stream << "heap_id_mask[" << allocate_data.heap_id_mask << "] ";
       stream << "flags[" << allocate_data.flags << "] ";
-      stream << setbase(10);
+      stream << ::std::setbase(10);
       stream << "handle[" << allocate_data.handle << "]] ";
       stream << "share_data[";
       stream << "handle[" << share_data.handle << "] ";
@@ -89,7 +82,7 @@ class AudioTestIon
     }
   };
 
-  typedef map<int32_t, AudioIonBuffer> AudioIonBufferMap;
+  typedef ::std::map<int32_t, AudioIonBuffer> AudioIonBufferMap;
 
   int32_t ion_device_;
   int32_t buffer_size_;
