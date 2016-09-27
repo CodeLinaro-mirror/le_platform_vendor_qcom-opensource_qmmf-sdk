@@ -1921,14 +1921,12 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_2AAC_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz + AAC mono)\n",
     CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD);
-#ifdef AMR_AUDIO_TRACK // AMR audio track is not supported.
   printf("   %c. Create Session: (AMR mono)\n",
       CmdMenu::CREATE_AMR_AUD_SESSION_CMD);
   printf("   %c. Create Session: (AMR mono + AMR mono)\n",
       CmdMenu::CREATE_2AMR_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,8KHz + AMR mono)\n",
       CmdMenu::CREATE_PCM_AMR_AUD_SESSION_CMD);
-#endif
   printf("   %c. Create Session: (G711 mono)\n",
       CmdMenu::CREATE_G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (G711 mono + G711 mono)\n",
