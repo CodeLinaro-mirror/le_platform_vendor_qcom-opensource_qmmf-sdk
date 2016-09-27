@@ -44,8 +44,8 @@ struct __attribute__((packed)) AudioEncoderMetadata {
   uint32_t offset_to_frame;
   uint32_t frame_size;
   uint32_t encoded_pcm_samples;
-  uint32_t msw_ts;
   uint32_t lsw_ts;
+  uint32_t msw_ts;
   uint32_t nflags;
 
   string ToString() const {
@@ -53,8 +53,8 @@ struct __attribute__((packed)) AudioEncoderMetadata {
     stream << "offset_to_frame[" << offset_to_frame << "] ";
     stream << "frame_size[" << frame_size << "] ";
     stream << "encoded_pcm_samples[" << encoded_pcm_samples << "] ";
-    stream << "msw_ts[" << msw_ts << "] ";
     stream << "lsw_ts[" << lsw_ts << "] ";
+    stream << "msw_ts[" << msw_ts << "] ";
     stream << "nflags[" << ::std::setbase(16) << nflags << ::std::setbase(10)
            << "]";
     return stream.str();
