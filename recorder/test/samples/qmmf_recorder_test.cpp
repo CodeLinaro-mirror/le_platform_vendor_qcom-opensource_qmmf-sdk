@@ -1131,7 +1131,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.type = OverlayType::kDateType;
   object_params.location = OverlayLocationType::kBottomLeft;
   object_params.text_color = 0x202020FF; //Dark Gray
-  object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_AMPM;
+  object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
   uint32_t date_time_id;

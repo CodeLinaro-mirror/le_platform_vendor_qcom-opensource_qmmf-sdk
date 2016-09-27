@@ -79,6 +79,9 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 // Remove comment marker to enable backgroud surface drawing of overlay objects.
 //#define DEBUG_BACKGROUND_SURFACE
 
+// Remove comment marker to measure time taken in overlay drawing.
+//#define DEBUG_BLIT_TIME
+
 struct DrawInfo {
     uint32_t width;
     uint32_t height;

@@ -280,6 +280,11 @@ int32_t Overlay::DisableOverlayItem(uint32_t overlay_id) {
 int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
+#ifdef DEBUG_BLIT_TIME
+  struct timeval tv_start;
+  gettimeofday(&tv_start, nullptr);
+#endif
+
   int32_t ret = 0;
   int32_t obj_idx = 0;
 
@@ -457,7 +462,14 @@ EXIT:
   if (bufVaddr) {
     munmap(bufVaddr, buffer.frame_len);
   }
-
+#ifdef DEBUG_BLIT_TIME
+  struct timeval tv_end;
+  gettimeofday(&tv_end, nullptr);
+  uint64_t time_diff = (uint64_t)((tv_end.tv_sec * 1000000 + tv_end.tv_usec)
+                          - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
+  OVDBG_INFO("%s: Time taken in 2D draw + Blit=%lld ms", __func__,
+      time_diff/1000);
+#endif
   OVDBG_VERBOSE("%s: Exit ",__func__);
   return ret;
 }
@@ -620,20 +632,30 @@ void OverlayItem::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 void OverlayItem::ClearSurface() {
 
 #if USE_CAIRO
+  cairo_status_t status;
   RGBAValues bg_color;
   memset(&bg_color, 0x0, sizeof bg_color);
+  // Painting entire surface with background color or with fully transparent
+  // color doesn't work since cairo uses the OVER compositing operator
+  // by default, and blending something entirely transparent OVER something
+  // else has no effect at all until compositing operator is changed to SOURCE,
+  // the SOURCE operator copies both color and alpha values directly from the
+  // source to the destination instead of blending.
 #ifdef DEBUG_BACKGROUND_SURFACE
   ExtractColorValues(BG_DEBUG_COLOR, &bg_color);
+  cairo_set_source_rgba(cr_context_, bg_color.red, bg_color.green,
+                        bg_color.blue, bg_color.alpha);
+  cairo_set_operator(cr_context_, CAIRO_OPERATOR_SOURCE);
 #else
-  ExtractColorValues(BG_TRANSPARENT_COLOR, &bg_color);
+  cairo_set_operator(cr_context_, CAIRO_OPERATOR_CLEAR);
 #endif
-  cairo_status_t status;
-  cairo_set_source_rgba (cr_context_, bg_color.red, bg_color.green,
-                         bg_color.blue, bg_color.alpha);
-  cairo_paint_with_alpha(cr_context_, bg_color.alpha);
+  cairo_paint(cr_context_);
   cairo_surface_flush(cr_surface_);
+  cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
   status = cairo_status(cr_context_);
   assert(status == CAIRO_STATUS_SUCCESS);
+  // After flush, atleast 5ms is required to avoid flickers.
+  usleep(5000);
 #endif
 }
 
@@ -990,6 +1012,8 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   assert(status == CAIRO_STATUS_SUCCESS);
 
   cairo_surface_flush(cr_surface_);
+  // After flush, atleast 5ms is required to avoid flickers.
+  usleep(5000);
 
 #elif USE_SKIA
 
