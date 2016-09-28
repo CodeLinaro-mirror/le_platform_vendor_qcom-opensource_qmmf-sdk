@@ -40,6 +40,7 @@
 #include <cstring>
 #include <assert.h>
 #include <sys/time.h>
+#include <chrono>
 #if USE_SKIA
 #include <SkSurface.h>
 #include <SkString.h>
@@ -280,11 +281,10 @@ int32_t Overlay::DisableOverlayItem(uint32_t overlay_id) {
 int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-#ifdef DEBUG_BLIT_TIME
-  struct timeval tv_start;
-  gettimeofday(&tv_start, nullptr);
-#endif
 
+#ifdef DEBUG_BLIT_TIME
+  auto start_time = ::std::chrono::high_resolution_clock::now();
+#endif
   int32_t ret = 0;
   int32_t obj_idx = 0;
 
@@ -305,8 +305,8 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
   assert(buffer.width != 0 && buffer.height != 0);
   assert(buffer.frame_len != 0);
 
-  OVDBG_VERBOSE("%s: OverlayTargetBuffer: ion_fd = %d",__func__, buffer.ion_fd);
-  OVDBG_VERBOSE("%s: OverlayTargetBuffer: Width = %d & Height = %d & frameLength"
+  OVDBG_VERBOSE("%s:OverlayTargetBuffer: ion_fd = %d",__func__, buffer.ion_fd);
+  OVDBG_VERBOSE("%s:OverlayTargetBuffer: Width = %d & Height = %d & frameLength"
       " =% d", __func__, buffer.width, buffer.height, buffer.frame_len);
   OVDBG_VERBOSE("%s: OverlayTargetBuffer: format = %d", __func__, buffer.format);
 
@@ -463,12 +463,10 @@ EXIT:
     munmap(bufVaddr, buffer.frame_len);
   }
 #ifdef DEBUG_BLIT_TIME
-  struct timeval tv_end;
-  gettimeofday(&tv_end, nullptr);
-  uint64_t time_diff = (uint64_t)((tv_end.tv_sec * 1000000 + tv_end.tv_usec)
-                          - (tv_start.tv_sec * 1000000 + tv_start.tv_usec));
-  OVDBG_INFO("%s: Time taken in 2D draw + Blit=%lld ms", __func__,
-      time_diff/1000);
+  auto end_time = ::std::chrono::high_resolution_clock::now();
+  auto diff = ::std::chrono::duration_cast<::std::chrono::milliseconds>
+                  (end_time - start_time).count();
+  OVDBG_INFO("%s: Time taken in 2D draw + Blit=%lld ms", __func__, diff);
 #endif
   OVDBG_VERBOSE("%s: Exit ",__func__);
   return ret;
