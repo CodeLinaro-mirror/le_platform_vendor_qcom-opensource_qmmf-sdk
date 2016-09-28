@@ -9,6 +9,10 @@ BUILD_COMPONENTS += recorder/src/client
 BUILD_COMPONENTS += recorder/src/service
 BUILD_COMPONENTS += recorder/test/samples
 BUILD_COMPONENTS += recorder/test/gtest
+BUILD_COMPONENTS += display/src/client
+BUILD_COMPONENTS += display/src/service
+BUILD_COMPONENTS += display/test/samples
+BUILD_COMPONENTS += display/test/gtest
 BUILD_COMPONENTS += qmmf-server
 
 

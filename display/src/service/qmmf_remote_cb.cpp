@@ -27,50 +27,51 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <utils/Log.h>
+#define TAG "DisplayRemoteCallBack"
 
-#include <binder/IInterface.h>
-#include <binder/IBinder.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
+#include "display/src/service/qmmf_display_common.h"
+#include "display/src/service/qmmf_remote_cb.h"
 
-#include "common/audio/src/service/qmmf_audio_service.h"
-#include "recorder/src/service/qmmf_recorder_service.h"
-#include "display/src/service/qmmf_display_service.h"
-using namespace android;
-using namespace qmmf;
-using namespace qmmf::common::audio;
-using namespace recorder;
-using namespace display;
+namespace qmmf {
 
-#define INFO(...) \
-  do { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
-    ALOGD(__VA_ARGS__); \
-} while(0)
+namespace display {
 
-int32_t main(int32_t argc, char **argv) {
+RemoteCallBack::RemoteCallBack(const sp<IDisplayServiceCallback>&
+                               remote_client)
+    : client_cb_handle_(remote_client) {
 
-  // Add audio service.
-  defaultServiceManager()->addService(String16(kAudioServiceName),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", kAudioServiceName);
-
-  //Add Recorder service.
-  defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
-                  new qmmf::recorder::RecorderService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
-
-  //TODO:Add Player service.
-  //Add Display service.
-  defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
-                  new qmmf::display::DisplayService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
-
-  android::ProcessState::self()->startThreadPool();
-  IPCThreadState::self()->joinThreadPool();
-  return 0;
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
+
+RemoteCallBack::~RemoteCallBack() {
+
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+}
+
+void RemoteCallBack::notifyDisplayEvent(EventType event_type, void *event_data,
+                                         size_t event_data_size) {
+
+  assert(client_cb_handle_.get() != nullptr);
+  client_cb_handle_->notifyDisplayEvent(event_type, event_data,
+                                         event_data_size);
+}
+
+void RemoteCallBack::notifySessionEvent(EventType event_type, void *event_data,
+                                        size_t event_data_size) {
+
+  assert(client_cb_handle_.get() != NULL);
+  client_cb_handle_->notifySessionEvent(event_type, event_data,
+                                        event_data_size);
+}
+
+void RemoteCallBack::notifyVSyncEvent(int64_t time_stamp) {
+
+  assert(client_cb_handle_.get() != NULL);
+  client_cb_handle_->notifyVSyncEvent(time_stamp);
+}
+
+}; // namespace display
+
+}; // namespace qmmf

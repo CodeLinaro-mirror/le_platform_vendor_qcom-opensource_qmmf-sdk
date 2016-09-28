@@ -29,8 +29,16 @@
 
 #pragma once
 
+
+#include <sys/types.h>
+#include <cstdint>
+#include <functional>
+#include <vector>
+
 namespace qmmf {
 namespace display {
+
+typedef int32_t status_t;
 
 /*
  * This enum represents display device types where contents can be rendered.
@@ -73,10 +81,18 @@ enum class EventType {
 // Display cb will be used to return Vsync and error
 typedef struct DisplayCb {
     std::function<void( EventType event_type,
-                        void *event_data
-                        size_t event_data_size)> event_cb;
+                        void *event_data,
+                        size_t event_data_size)> EventCb;
+    std::function<void(int64_t time_stamp)> VSyncCb;
 } DisplayCb;
 
+// Session specific callbacks
+
+// Session cb will be mostly used to return state changes - to indicate
+// start, stop, pause state transition completions
+typedef struct SessionCb {
+  DisplayCb event_cb;
+} SessionCb;
 
 /*
  * This enum represents different buffer formats supported by display manager.
@@ -180,11 +196,15 @@ enum class SurfaceFormat {
                                       //    y(0), u(0), y(1), v(0), y(2), u(2), y(3), v(2)
                                       //    y(n-1), u(n-1), y(n), v(n-1)
 
-  kFormatInvalid = 0xFFFFFFFF,
+  kFormatInvalid = (int32_t)0xFFFFFFFF,
 };
 
 /*
  * Input configuration params set by the client for buffer allocation.
+ * buffer_count: Number of buffers to be allocated/used.
+ * cache: To allocate cached or uncached gralloc buffers.
+ * use_buffer: The client will allocate the buffers and display adapter
+ * shall use it.
 */
 typedef struct SurfaceConfig {
   uint32_t width;
@@ -192,6 +212,7 @@ typedef struct SurfaceConfig {
   SurfaceFormat format;
   uint32_t buffer_count;
   bool cache;
+  bool use_buffer;
 } SurfaceConfig;
 
 /*
@@ -199,6 +220,7 @@ typedef struct SurfaceConfig {
 */
 typedef struct PlaneInfo {
   void *buf;
+  int32_t ion_fd;
   uint32_t width;
   uint32_t height;
   uint32_t stride;
@@ -210,10 +232,12 @@ typedef struct PlaneInfo {
  * Holds the information about the input/output configuration of an output buffer.
 */
 typedef struct SurfaceBuffer {
-    std::vector<PlaneInfo> plane_info;
-    SurfaceFormat format;
-    int acquire_fence;
-    int release_fence;
+  int32_t buf_id;
+  PlaneInfo plane_info[4];
+  SurfaceFormat format;
+  int32_t acquire_fence;
+  int32_t release_fence;
+  size_t   capacity;
 } SurfaceBuffer;
 
 /*
@@ -258,26 +282,15 @@ enum class SurfaceBlending {
 
 /*
  * This structure defines flags associated with a layer.
- * skip : This flag shall be set by client to indicate that this layer will be handled
- *         by GPU. Display Device will not consider it for composition.
- * updating : This flag shall be set by client to indicate that this is
- *            updating/non-updating. so strategy manager will mark them for
- *            SDE/GPU composition respectively when the layer stack qualifies
- *            for cache based composition.
  * solid_fill : This flag shall be set by client to indicate that this layer
  *              is for solid fill without input buffer. Display Device will
  *              use SDE HW feature to achieve it.
  * cursor :     This flag shall be set by client to indicate that this layer
  *              is a cursor. Display Device may handle this layer using HWCursor
- * single_buffer : This flag shall be set by client to indicate that the layer
- *                  uses only a single buffer that will not be swapped out
 */
 typedef union SurfaceFlags {
-      uint32_t skip;
-      uint32_t updating;
       uint32_t solid_fill;
       uint32_t cursor;
-      uint32_t single_buffer;
 } SurfaceFlags;
 
 /*
@@ -329,5 +342,12 @@ typedef struct DisplayConfig {
   bool underscan;
 } DisplayConfig;
 
-}
-} // namespace qmmf::display
+// @brief Display specific parameters
+enum class DisplayParamType {
+  kSaturation,
+  kContrast,
+  kBrightness,
+};
+
+};
+}; // namespace qmmf::display

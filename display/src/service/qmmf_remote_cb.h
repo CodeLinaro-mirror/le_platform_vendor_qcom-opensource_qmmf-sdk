@@ -27,50 +27,34 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <utils/Log.h>
+#include "display/src/client/qmmf_display_service_intf.h"
 
-#include <binder/IInterface.h>
-#include <binder/IBinder.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
+namespace qmmf {
 
-#include "common/audio/src/service/qmmf_audio_service.h"
-#include "recorder/src/service/qmmf_recorder_service.h"
-#include "display/src/service/qmmf_display_service.h"
-using namespace android;
-using namespace qmmf;
-using namespace qmmf::common::audio;
-using namespace recorder;
-using namespace display;
+namespace display {
 
-#define INFO(...) \
-  do { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
-    ALOGD(__VA_ARGS__); \
-} while(0)
+class RemoteCallBack : public RefBase {
+   public:
+    RemoteCallBack(const sp<IDisplayServiceCallback>& remote_cb);
 
-int32_t main(int32_t argc, char **argv) {
+    ~RemoteCallBack();
 
-  // Add audio service.
-  defaultServiceManager()->addService(String16(kAudioServiceName),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", kAudioServiceName);
+    sp<IDisplayServiceCallback>& getRemoteClient() {
+       return client_cb_handle_;
+    }
 
-  //Add Recorder service.
-  defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
-                  new qmmf::recorder::RecorderService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
+    void notifyDisplayEvent(EventType event_type, void *event_data,
+                             size_t event_data_size);
 
-  //TODO:Add Player service.
-  //Add Display service.
-  defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
-                  new qmmf::display::DisplayService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
+    void notifySessionEvent(EventType event_type, void *event_data,
+                            size_t event_data_size);
 
-  android::ProcessState::self()->startThreadPool();
-  IPCThreadState::self()->joinThreadPool();
-  return 0;
-}
+    void notifyVSyncEvent(int64_t time_stamp);
+
+   private:
+    sp<IDisplayServiceCallback> client_cb_handle_;
+  };
+
+}; // namespace display
+
+}; //namespace qmmf

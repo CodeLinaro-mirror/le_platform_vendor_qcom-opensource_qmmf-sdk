@@ -27,50 +27,44 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <utils/Log.h>
+#pragma once
 
-#include <binder/IInterface.h>
-#include <binder/IBinder.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
+#include "sys/mman.h"
+#include "fcntl.h"
+#include "sdm/include/core/layer_buffer.h"
+#include "sdm/include/core/buffer_allocator.h"
 
-#include "common/audio/src/service/qmmf_audio_service.h"
-#include "recorder/src/service/qmmf_recorder_service.h"
-#include "display/src/service/qmmf_display_service.h"
-using namespace android;
-using namespace qmmf;
-using namespace qmmf::common::audio;
-using namespace recorder;
-using namespace display;
+namespace gralloc {
 
-#define INFO(...) \
-  do { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
-    ALOGD(__VA_ARGS__); \
-} while(0)
+class IAllocController;
 
-int32_t main(int32_t argc, char **argv) {
+}  // namespace gralloc
 
-  // Add audio service.
-  defaultServiceManager()->addService(String16(kAudioServiceName),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", kAudioServiceName);
+namespace qmmf {
 
-  //Add Recorder service.
-  defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
-                  new qmmf::recorder::RecorderService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
+namespace display {
 
-  //TODO:Add Player service.
-  //Add Display service.
-  defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
-                  new qmmf::display::DisplayService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
+using namespace sdm;
 
-  android::ProcessState::self()->startThreadPool();
-  IPCThreadState::self()->joinThreadPool();
-  return 0;
-}
+class DisplayBufferAllocator : public BufferAllocator {
+ public:
+  DisplayBufferAllocator();
+
+  DisplayError AllocateBuffer(BufferInfo *buffer_info) override;
+  DisplayError FreeBuffer(BufferInfo *buffer_info) override;
+  uint32_t GetBufferSize(BufferInfo *buffer_info) override;
+
+ private:
+  struct MetaBufferInfo {
+    int alloc_type;  //!< Specifies allocation type set by the buffer allocator.
+    void *base_addr; //!< Specifies base address of the allocated output buffer.
+  };
+
+  int SetBufferInfo(LayerBufferFormat format, int *target, int *flags);
+
+  gralloc::IAllocController *alloc_controller_;
+};
+
+}; // namespace display
+
+}; //namespace qmmf
