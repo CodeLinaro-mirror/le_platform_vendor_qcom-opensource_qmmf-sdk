@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 #include <binder/IBinder.h>
 #include <utils/RefBase.h>
@@ -44,46 +45,41 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::android::IBinder;
-using ::android::sp;
-using ::android::wp;
-using ::std::lock_guard;
-using ::std::mutex;
-
 class AudioEndPointClient {
  public:
   AudioEndPointClient();
   ~AudioEndPointClient();
 
-  int Connect(AudioEventHandler& handler);
-  int Disconnect();
-  int Configure(AudioEndPointType type, const DeviceIdList& devices,
-                const AudioMetadata& metadata);
+  int32_t Connect(const AudioEventHandler& handler);
+  int32_t Disconnect();
+  int32_t Configure(const AudioEndPointType type,
+                    const ::std::vector<DeviceId>& devices,
+                    const AudioMetadata& metadata);
 
-  int Start();
-  int Stop(bool flush);
-  int Pause();
-  int Resume();
+  int32_t Start();
+  int32_t Stop(const bool flush);
+  int32_t Pause();
+  int32_t Resume();
 
-  int SendBuffers(const AudioBufferList& buffers);
+  int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers);
 
-  int GetLatency(int* latency);
-  int GetBufferSize(int* buffer_size);
-  int SetParam(AudioParamType type, const AudioParamData& data);
+  int32_t GetLatency(int32_t* latency);
+  int32_t GetBufferSize(int32_t* buffer_size);
+  int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
-  /* callbacks from service */
-  void NotifyErrorEvent(int error);
+  // callbacks from service
+  void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
  private:
-  class DeathNotifier : public IBinder::DeathRecipient {
+  class DeathNotifier : public ::android::IBinder::DeathRecipient {
    public:
     DeathNotifier(AudioEndPointClient* parent) : parent_(parent) {}
 
-    void binderDied(const wp<IBinder>&) override {
+    void binderDied(const ::android::wp<::android::IBinder>&) override {
       QMMF_WARN("%s() audio service died", __func__);
 
-      lock_guard<mutex> lock(parent_->lock_);
+      ::std::lock_guard<::std::mutex> lock(parent_->lock_);
       parent_->audio_service_.clear();
       parent_->audio_service_ = nullptr;
     }
@@ -93,13 +89,13 @@ class AudioEndPointClient {
   friend class DeathNotifier;
 
   AudioState state_;
-  mutex lock_;
-  sp<IAudioService> audio_service_;
-  sp<DeathNotifier> death_notifier_;
+  ::std::mutex lock_;
+  ::android::sp<IAudioService> audio_service_;
+  ::android::sp<DeathNotifier> death_notifier_;
   AudioEventHandler event_handler_;
   AudioHandle audio_handle_;
 
-  /* Disable copy, assignment, and move */
+  // Disable copy, assignment, and move
   AudioEndPointClient(const AudioEndPointClient&) = delete;
   AudioEndPointClient(AudioEndPointClient&&) = delete;
   AudioEndPointClient& operator=(const AudioEndPointClient&) = delete;
@@ -112,13 +108,13 @@ class ServiceCallbackHandler : public BnAudioServiceCallback {
   ~ServiceCallbackHandler();
 
  private:
-  /* methods of BnAudioServiceCallback */
-  void NotifyErrorEvent(int error);
+  // methods of BnAudioServiceCallback
+  void NotifyErrorEvent(const int32_t error);
   void NotifyBufferEvent(const AudioBuffer& buffer);
 
   AudioEndPointClient *client_;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

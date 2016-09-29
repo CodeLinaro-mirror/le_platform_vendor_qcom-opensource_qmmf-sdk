@@ -29,6 +29,10 @@
 
 #pragma once
 
+#include <iomanip>
+#include <string>
+#include <sstream>
+
 #include <utils/List.h>
 #include <utils/Mutex.h>
 #include <utils/KeyedVector.h>
@@ -52,6 +56,19 @@ typedef struct {
   buffer_handle_t handle;
   int32_t fd;
   uint32_t size;
+  void *data;
+  uint32_t flags;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "data[" << data << "] ";
+    stream << "fd[" << fd << "] ";
+    stream << "size[" << size << "] ";
+    stream << "timestamp[" << timestamp << "] ";
+    stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
+           << "]";
+    return stream.str();
+  }
 } StreamBuffer;
 
 // Thread safe Queue

@@ -43,7 +43,7 @@ namespace qmmf {
 
 namespace recorder {
 
-static const nsecs_t kWaitDuration = 500000000; // 500 ms.
+static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
 CameraSource* CameraSource::instance_ = NULL;
 
@@ -525,7 +525,7 @@ status_t TrackSource::Init() {
   QMMF_INFO("%s:%s: TrackSource(0x%x)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%d)", TAG, __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
-
+  //TODO: Add mechanism to query the stream format from adaptor.
   ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
   assert(ret == NO_ERROR);
 

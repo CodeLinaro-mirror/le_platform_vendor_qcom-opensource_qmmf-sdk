@@ -59,7 +59,7 @@ static const char* ion_filename = "/dev/ion";
 RecorderClientIon::RecorderClientIon() : ion_device_(-1) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  /* open ion device */
+  // open ion device
   ion_device_ = open(ion_filename, O_RDONLY);
   if (ion_device_ < 0)
     QMMF_ERROR("%s: %s() error opening ion device: %d[%s]", TAG, __func__,
@@ -67,25 +67,24 @@ RecorderClientIon::RecorderClientIon() : ion_device_(-1) {
 }
 
 RecorderClientIon::~RecorderClientIon() {
-
-  QMMF_DEBUG("%s:%s() TRACE", TAG, __func__);
-  int32_t ret;
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  int32_t result;
 
   if (ion_device_ == -1)
-    QMMF_WARN("%s:%s: ion device is not opened", TAG, __func__);
+    QMMF_WARN("%s: %s() ion device is not opened", TAG, __func__);
 
-  // Release all ion buffers.
+  // release all ion buffers
   for (auto& client_map : buffer_map_) {
-    ret = Release(client_map.first);
-    if (ret < 0) {
-      QMMF_ERROR("%s:%s: unable to release buffers for client[%d]: %d", TAG,
-          __func__, client_map.first, ret);
+    result = Release(client_map.first);
+    if (result < 0) {
+      QMMF_ERROR("%s: %s() unable to release buffers for client[%d]: %d", TAG,
+          __func__, client_map.first, result);
     }
   }
-  // Close ion device.
-  ret = close(ion_device_);
-  if (ret < 0) {
-    QMMF_ERROR("%s:%s error closing ion device[%d]: %d[%s]", TAG, __func__,
+  // close ion device
+  result = close(ion_device_);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() error closing ion device[%d]: %d[%s]", TAG, __func__,
         ion_device_, errno, strerror(errno));
   }
 }
@@ -107,17 +106,20 @@ int RecorderClientIon::Associate(uint32_t track_id,
   if (client_map != buffer_map_.end()) {
     auto ion_buffer = client_map->second.find(bn_buffer.buffer_id);
     if (ion_buffer != client_map->second.end()) {
-      /* found the ion buffer */
+      // found the ion buffer
       buffer->data = ion_buffer->second.data;
       buffer->size = bn_buffer.size;
       buffer->timestamp = bn_buffer.timestamp;
       buffer->flag = bn_buffer.flag;
       buffer->buf_id = bn_buffer.buffer_id;
       buffer->capacity = bn_buffer.capacity;
+      buffer->fd = bn_buffer.buffer_id;
+      QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
+                   buffer->ToString().c_str());
       return 0;
     }
   } else {
-    /* create new client map */
+    // create new client map
     buffer_map_.insert({track_id, RecorderClientIonBufferMap()});
     client_map = buffer_map_.find(track_id);
   }
@@ -129,7 +131,7 @@ int RecorderClientIon::Associate(uint32_t track_id,
   ion_buffer.share_data.handle = 0;
   ion_buffer.share_data.fd = bn_buffer.ion_fd;
 
-  /* import ion handle from shared fd */
+  // import ion handle from shared fd
   result = ioctl(ion_device_, ION_IOC_IMPORT, &ion_buffer.share_data);
   if (result < 0) {
     QMMF_ERROR("%s: %s() ION_IOC_IMPORT ioctl command failed: %d[%s]", TAG,
@@ -137,7 +139,7 @@ int RecorderClientIon::Associate(uint32_t track_id,
     return errno;
   }
 
-  /* map buffers into address space */
+  // map buffers into address space
   ion_buffer.data = mmap(NULL, ion_buffer.capacity, PROT_READ | PROT_WRITE,
                          MAP_SHARED, ion_buffer.share_data.fd, 0);
   if (ion_buffer.data == MAP_FAILED) {
@@ -155,9 +157,11 @@ int RecorderClientIon::Associate(uint32_t track_id,
   QMMF_VERBOSE("%s: %s() mapped ion buffer[%s]", TAG, __func__,
                ion_buffer.ToString().c_str());
 
-  /* save ion buffer */
+  // save ion buffer
   client_map->second.insert({bn_buffer.buffer_id, ion_buffer});
 
+  QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
+               buffer->ToString().c_str());
   return 0;
 }
 
@@ -177,7 +181,7 @@ int RecorderClientIon::Release(uint32_t track_id) {
     QMMF_VERBOSE("%s: %s() releasing ion buffer[%s]", TAG, __func__,
                  buffer.second.ToString().c_str());
 
-    /* unmap buffer from address space */
+    // unmap buffer from address space
     result = munmap(buffer.second.data, buffer.second.capacity);
     if (result < 0)
       QMMF_ERROR("%s: %s() unable to unmap buffer[%d]: %d[%s]", TAG, __func__,
@@ -193,5 +197,5 @@ int RecorderClientIon::Release(uint32_t track_id) {
   return 0;
 }
 
-}; /* namespace recorder */
-}; /* namespace qmmf */
+}; // namespace recorder
+}; // namespace qmmf

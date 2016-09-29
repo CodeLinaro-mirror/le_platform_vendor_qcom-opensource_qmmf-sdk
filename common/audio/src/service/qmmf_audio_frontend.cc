@@ -33,6 +33,8 @@
 
 #include <functional>
 #include <map>
+#include <vector>
+#include <type_traits>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_backend.h"
@@ -44,8 +46,7 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::function;
-using ::std::map;
+using ::std::vector;
 
 const AudioHandle AudioFrontend::kAudioHandleMax = 100;
 
@@ -53,7 +54,7 @@ AudioFrontend::AudioFrontend() : current_handle_(0) {}
 
 AudioFrontend::~AudioFrontend() {}
 
-void AudioFrontend::RegisterErrorHandler(AudioErrorHandler handler) {
+void AudioFrontend::RegisterErrorHandler(const AudioErrorHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
                handler.target_type().name());
@@ -61,28 +62,18 @@ void AudioFrontend::RegisterErrorHandler(AudioErrorHandler handler) {
   error_handler_ = handler;
 }
 
-void AudioFrontend::RegisterReadCompleteHandler(
-    AudioReadCompleteHandler handler) {
+void AudioFrontend::RegisterBufferHandler(const AudioBufferHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
                handler.target_type().name());
 
-  read_complete_handler_ = handler;
+  buffer_handler_ = handler;
 }
 
-void AudioFrontend::RegisterWriteCompleteHandler(
-    AudioWriteCompleteHandler handler) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
-               handler.target_type().name());
-
-  write_complete_handler_ = handler;
-}
-
-int AudioFrontend::Connect(AudioHandle* audio_handle) {
+int32_t AudioFrontend::Connect(AudioHandle* audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  /* find an available AudioHandle */
+  // find an available AudioHandle
   if (current_handle_ + 1 > kAudioHandleMax)
     current_handle_ = 0;
   ++current_handle_;
@@ -98,187 +89,187 @@ int AudioFrontend::Connect(AudioHandle* audio_handle) {
   return 0;
 }
 
-int AudioFrontend::Disconnect(AudioHandle audio_handle) {
+int32_t AudioFrontend::Disconnect(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  int result;
-  if (backend->second != nullptr) {
-    result = backend->second->Close();
+  int32_t result;
+  if (backend_iterator->second != nullptr) {
+    result = backend_iterator->second->Close();
     if (result < 0)
       QMMF_ERROR("%s: %s() backend->Close failed: %d", TAG, __func__, result);
 
-    delete backend->second;
-    backend->second = nullptr;
+    delete backend_iterator->second;
+    backend_iterator->second = nullptr;
   }
 
-  backends_.erase(backend);
+  backends_.erase(backend_iterator);
 
   return result;
 }
 
-int AudioFrontend::Configure(AudioHandle audio_handle, AudioEndPointType type,
-                             const DeviceIdList& devices,
-                             const AudioMetadata& metadata) {
+int32_t AudioFrontend::Configure(const AudioHandle audio_handle,
+                                 const AudioEndPointType type,
+                                 const vector<DeviceId>& devices,
+                                 const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
                static_cast<int>(type));
-  QMMF_VERBOSE("%s: %s() INPARAM: devices[%s]", TAG, __func__,
-               devices.ToString().c_str());
+  for (const DeviceId device : devices)
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
                metadata.ToString().c_str());
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
   IAudioBackend* primary = new AudioBackendPrimary(audio_handle, error_handler_,
-                                                   read_complete_handler_,
-                                                   write_complete_handler_);
+                                                   buffer_handler_);
   if (primary == nullptr) {
     QMMF_ERROR("%s: %s() unable to allocate primary backend", TAG, __func__);
     return -ENOMEM;
   }
-  backend->second = primary;
+  backend_iterator->second = primary;
 
-  int result = backend->second->Open(type, devices, metadata);
+  int32_t result = backend_iterator->second->Open(type, devices, metadata);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Open failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioFrontend::Start(AudioHandle audio_handle) {
+int32_t AudioFrontend::Start(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->Start();
+  int32_t result = backend_iterator->second->Start();
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Start failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioFrontend::Stop(AudioHandle audio_handle, bool flush) {
+int32_t AudioFrontend::Stop(const AudioHandle audio_handle, const bool flush) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
                flush ? "true" : "false");
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->Stop(flush);
+  int32_t result = backend_iterator->second->Stop(flush);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Stop failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioFrontend::Pause(AudioHandle audio_handle) {
+int32_t AudioFrontend::Pause(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->Pause();
+  int32_t result = backend_iterator->second->Pause();
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Pause failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioFrontend::Resume(AudioHandle audio_handle) {
+int32_t AudioFrontend::Resume(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->Resume();
+  int32_t result = backend_iterator->second->Resume();
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Resume failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-int AudioFrontend::SendBuffers(AudioHandle audio_handle,
-                               const AudioBufferList& buffers) {
+int32_t AudioFrontend::SendBuffers(const AudioHandle audio_handle,
+                                   const vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  for (const AudioBuffer& buffer : buffers.list)
+  for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->SendBuffers(buffers);
+  int32_t result = backend_iterator->second->SendBuffers(buffers);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->SendBuffers failed: %d", TAG, __func__,
                result);
@@ -286,24 +277,25 @@ int AudioFrontend::SendBuffers(AudioHandle audio_handle,
   return result;
 }
 
-int AudioFrontend::GetLatency(AudioHandle audio_handle, int* latency) {
+int32_t AudioFrontend::GetLatency(const AudioHandle audio_handle,
+                                  int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->GetLatency(latency);
+  int32_t result = backend_iterator->second->GetLatency(latency);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->GetLatency failed: %d", TAG, __func__,
                result);
@@ -312,24 +304,25 @@ int AudioFrontend::GetLatency(AudioHandle audio_handle, int* latency) {
   return result;
 }
 
-int AudioFrontend::GetBufferSize(AudioHandle audio_handle, int* buffer_size) {
+int32_t AudioFrontend::GetBufferSize(const AudioHandle audio_handle,
+                                     int32_t* buffer_size) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->GetBufferSize(buffer_size);
+  int32_t result = backend_iterator->second->GetBufferSize(buffer_size);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->GetBufferSize failed: %d", TAG, __func__,
                result);
@@ -339,7 +332,8 @@ int AudioFrontend::GetBufferSize(AudioHandle audio_handle, int* buffer_size) {
   return result;
 }
 
-int AudioFrontend::SetParam(AudioHandle audio_handle, AudioParamType type,
+int32_t AudioFrontend::SetParam(const AudioHandle audio_handle,
+                            const AudioParamType type,
                             const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
@@ -349,25 +343,25 @@ int AudioFrontend::SetParam(AudioHandle audio_handle, AudioParamType type,
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
 
-  auto backend = backends_.find(audio_handle);
-  if (backend == backends_.end()) {
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
     return -EINVAL;
   }
 
-  if (backend->second == nullptr) {
+  if (backend_iterator->second == nullptr) {
     QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
                audio_handle);
     return -ENOSYS;
   }
 
-  int result = backend->second->SetParam(type, data);
+  int32_t result = backend_iterator->second->SetParam(type, data);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->SetParam failed: %d", TAG, __func__, result);
 
   return result;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

@@ -29,68 +29,28 @@
 
 #pragma once
 
-#include <cstdint>
 #include <functional>
-#include <iomanip>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include <binder/Parcel.h>
 
 namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::android::Parcel;
-using ::std::function;
-using ::std::string;
-using ::std::stringstream;
-using ::std::vector;
-
 enum class AudioState {
-  kNew, /* instantiated, unconnected and unconfigured */
-  kConnect, /* connected and unconfigured */
-  kIdle, /* configured and stopped */
-  kRunning, /* streaming */
-  kPaused, /* stopped with data retention */
+  kNew,     // instantiated, unconnected and unconfigured
+  kConnect, // connected and unconfigured
+  kIdle,    // configured and stopped
+  kRunning, // streaming
+  kPaused,  // stopped with data retention
 };
 
-/* handle to a specific audio client/service connection */
-typedef int AudioHandle;
+// handle to a specific audio client/service connection
+typedef int32_t AudioHandle;
 
-struct AudioHandleList {
-  vector<AudioHandle> handles;
+typedef ::std::function<void(const AudioHandle audio_handle,
+                             const int32_t error)> AudioErrorHandler;
+typedef ::std::function<void(const AudioHandle audio_handle,
+                             const AudioBuffer& buffer)> AudioBufferHandler;
 
-  string ToString() const {
-    stringstream stream;
-    for (AudioHandle handle : handles)
-      stream << handle << ", ";
-    stream << "SIZE[" << handles.size() << "]";
-    return stream.str();
-  }
-
-  void ToParcel(Parcel* parcel) const {
-    parcel->writeUint32(static_cast<uint32_t>(handles.size()));
-    for (AudioHandle handle : handles)
-      parcel->writeInt32(static_cast<int32_t>(handle));
-  }
-
-  void FromParcel(const Parcel& parcel) {
-    size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
-    for (auto index = 0; index < number_of_elements; ++index) {
-      AudioHandle handle;
-      handles.push_back(static_cast<AudioHandle>(parcel.readInt32()));
-    }
-  }
-};
-
-typedef function<void(AudioHandle audio_handle, int error)> AudioErrorHandler;
-typedef function<void(AudioHandle audio_handle,
-                      const AudioBuffer& buffer)> AudioReadCompleteHandler;
-typedef function<void(AudioHandle audio_handle,
-                      const AudioBuffer& buffer)> AudioWriteCompleteHandler;
-
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

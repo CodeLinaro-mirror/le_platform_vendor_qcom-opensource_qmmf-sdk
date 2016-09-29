@@ -44,15 +44,6 @@ namespace qmmf_test {
 namespace common {
 namespace audio {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioEndPoint;
-using ::qmmf::common::audio::AudioEndPointType;
-using ::std::condition_variable;
-using ::std::mutex;
-using ::std::queue;
-using ::std::string;
-using ::std::thread;
-
 class AudioTest
 {
  public:
@@ -70,8 +61,8 @@ class AudioTest
   void Pause();
   void Resume();
 
-  void ErrorHandler(int error);
-  void BufferHandler(const AudioBuffer& buffer);
+  void ErrorHandler(const int32_t error);
+  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
  private:
   enum class AudioMessageType {
@@ -83,7 +74,7 @@ class AudioTest
 
   struct AudioMessage {
     AudioMessageType type;
-    AudioBuffer buffer;
+    ::qmmf::common::audio::AudioBuffer buffer;
   };
 
   static void StaticThreadEntry(AudioTest* test);
@@ -91,22 +82,22 @@ class AudioTest
   void SourceThread();
   void SinkThread();
 
-  AudioEndPoint end_point_;
-  AudioEndPointType type_;
+  ::qmmf::common::audio::AudioEndPoint end_point_;
+  ::qmmf::common::audio::AudioEndPointType type_;
 
   AudioTestIon ion_;
-  int buffer_size_;
-  int buffer_number_;
+  int32_t buffer_size_;
+  int32_t buffer_number_;
 
   AudioTestWav wav_;
-  string filename_prefix_;
+  ::std::string filename_prefix_;
 
-  thread* thread_;
-  mutex message_lock_;
-  queue<AudioMessage> messages_;
-  condition_variable signal_;
+  ::std::thread* thread_;
+  ::std::mutex message_lock_;
+  ::std::queue<AudioMessage> messages_;
+  ::std::condition_variable signal_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioTest(const AudioTest&) = delete;
   AudioTest(AudioTest&&) = delete;
   AudioTest& operator=(const AudioTest&) = delete;
@@ -133,13 +124,13 @@ class CommandMenu {
   Command GetCommand();
   void PrintMenu();
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   CommandMenu(const CommandMenu&) = delete;
   CommandMenu(CommandMenu&&) = delete;
   CommandMenu& operator=(const CommandMenu&) = delete;
   CommandMenu& operator=(const CommandMenu&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

@@ -36,6 +36,7 @@
 #include <camera/CameraMetadata.h>
 #include <map>
 
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
@@ -45,7 +46,7 @@ namespace qmmf {
 namespace recorder {
 
 using namespace android;
-
+using namespace cameraadaptor;
 class RecorderClient {
  public:
   RecorderClient();
@@ -195,6 +196,8 @@ class RecorderClient {
   };
   friend class DeathNotifier;
 
+  vendor_tag_ops_t     vendor_tag_ops_;
+  camera_module_t      *camera_module_;
   Mutex                lock_;
   sp<IRecorderService> recorder_service_;
   sp<DeathNotifier>    death_notifier_;
@@ -208,7 +211,6 @@ class RecorderClient {
   DefaultKeyedVector<uint32_t, TrackCb >   track_cb_list_;
   // Capture callback.
   ImageCaptureCb                           image_capture_cb_;
-  //CaptureImageCb                           image_capture_cb_;
 
   typedef struct BufInfo {
     // Transferred ION Id.

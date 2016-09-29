@@ -35,9 +35,11 @@
 #include <utils/String8.h>
 #include <assert.h>
 #include <system/graphics.h>
+#include <QCamera3VendorTags.h>
 
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
+#include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -48,11 +50,15 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
+using namespace qcamera;
+
 static const char* kDefaultAudioFilenamePrefix =
     "/data/qmmf_recorder_test_audio";
 
-RecorderTest::RecorderTest() {
+RecorderTest::RecorderTest() :
+            session_enabled_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  static_info_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -61,7 +67,7 @@ RecorderTest::~RecorderTest() {
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-int32_t RecorderTest::Connect() {
+status_t RecorderTest::Connect() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -76,7 +82,7 @@ int32_t RecorderTest::Connect() {
   return ret;
 }
 
-int32_t RecorderTest::Disconnect() {
+status_t RecorderTest::Disconnect() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = recorder_.Disconnect();
@@ -84,7 +90,247 @@ int32_t RecorderTest::Disconnect() {
   return ret;
 }
 
-int32_t RecorderTest::StartCamera() {
+int32_t RecorderTest::ToggleNR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      uint8_t mode = meta.find(ANDROID_NOISE_REDUCTION_MODE).data.u8[0];
+      nr_modes_iter it = supported_nr_modes_.begin();
+      nr_modes_iter next;
+      while (it != supported_nr_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_nr_modes_.end()) {
+            next = supported_nr_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(ANDROID_NOISE_REDUCTION_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentNRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      uint8_t mode = meta.find(ANDROID_NOISE_REDUCTION_MODE).data.u8[0];
+      for (auto it : supported_nr_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedNRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(
+      ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)) {
+    entry = static_info_.find(
+        ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.u8[i]) {
+        case ANDROID_NOISE_REDUCTION_MODE_OFF:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_FAST:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Fast"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i],
+                                                    "High quality"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_MINIMAL:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i],
+                                                    "Minimal"));
+          break;
+        case ANDROID_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG:
+          supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "ZSL"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid NR mode: %d\n", TAG, __func__,
+                entry.data.u8[i]);
+      }
+    }
+  }
+}
+
+int32_t RecorderTest::ToggleVHDR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+      vhdr_modes_iter it = supported_hdr_modes_.begin();
+      vhdr_modes_iter next;
+      while (it != supported_hdr_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_hdr_modes_.end()) {
+            next = supported_hdr_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(QCAMERA3_VIDEO_HDR_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentVHDRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+      for (auto it : supported_hdr_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedVHDRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
+    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.i32[i]) {
+        case QCAMERA3_VIDEO_HDR_MODE_OFF:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case QCAMERA3_VIDEO_HDR_MODE_ON:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid VHDR mode: %d\n", TAG, __func__,
+                entry.data.i32[i]);
+      }
+    }
+  }
+}
+
+
+
+int32_t RecorderTest::ToggleIR() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_IR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_IR_MODE).data.i32[0];
+      ir_modes_iter it = supported_ir_modes_.begin();
+      ir_modes_iter next;
+      while (it != supported_ir_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_ir_modes_.end()) {
+            next = supported_ir_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(QCAMERA3_IR_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentIRMode() {
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  std::string ret("Not available");
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_IR_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_IR_MODE).data.i32[0];
+      for (auto it : supported_ir_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedIRModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(QCAMERA3_IR_AVAILABLE_MODES)) {
+    entry = static_info_.find(QCAMERA3_IR_AVAILABLE_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.i32[i]) {
+        case QCAMERA3_IR_MODE_OFF:
+          supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case QCAMERA3_IR_MODE_ON:
+          supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid IR mode: %d\n", TAG, __func__,
+                entry.data.i32[i]);
+      }
+    }
+  }
+}
+
+status_t RecorderTest::StartCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -103,11 +349,21 @@ int32_t RecorderTest::StartCamera() {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
 
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  } else {
+    InitSupportedNRModes();
+    InitSupportedVHDRModes();
+    InitSupportedIRModes();
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
 
-int32_t RecorderTest::StopCamera() {
+status_t RecorderTest::StopCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -116,11 +372,12 @@ int32_t RecorderTest::StopCamera() {
     ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
   }
 
+  static_info_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
 
-int32_t RecorderTest::TakeSnapshot() {
+status_t RecorderTest::TakeSnapshot() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
@@ -219,15 +476,13 @@ int32_t RecorderTest::TakeSnapshot() {
   } while(input);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
 // This session has two YUV video tracks 4K and 1080p.
-int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
+status_t RecorderTest::Session4KAnd1080pYUVTracks() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -238,84 +493,43 @@ int32_t RecorderTest::Session4KAnd1080pYUVTracks() {
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  //Create Video track.
-  TrackCb video_track_cb;
-  uint32_t video_track_id = 1;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-  //TODO: change it vector.
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 3840;
-  video_track_param.height      = 2160;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
+  std::vector<TestTrack*> tracks;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
+  TestTrack *yuv_4k_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 3840;
+  info.height     = 2160;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
 
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t event_data_size) {
-          VideoTrack4KYUVEventCb(track_id, event_type, event_data,
-                                 event_data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
-
+  ret = yuv_4k_track->SetUp(info);
   assert(ret == 0);
+  tracks.push_back(yuv_4k_track);
 
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
 
-  video_track_id = 2;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 1920;
-  video_track_param.height      = 1080;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
-
-  memset(&video_track_cb, 0x0, sizeof (video_track_cb));
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack1080pYUVDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t event_data_size)
-      { VideoTrack1080pYUVEventCb(track_id, event_type, event_data,
-        event_data_size);
-      };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
-
+  ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
-
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
+  tracks.push_back(yuv_1080p_track);
 
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
 // This session has one 4K video encode track
-int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
+status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -326,114 +540,30 @@ int32_t RecorderTest::Session4KEncTrack(const VideoCodecType& type) {
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  //Create Video track.
-  uint32_t video_track_id = 1;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  TestTrack *video_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 3840;
+  info.height     = 2160;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
 
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 3840;
-  video_track_param.height      = 2160;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
-      VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device  = 0x01;
+  ret = video_track->SetUp(info);
+  assert(ret == 0);
 
-  switch (video_track_param.format_type) {
-    case VideoFormat::kAVC:
-      video_track_param.codec_param.avc.idr_interval = 1;
-      video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
-      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-      video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kConstant;
-      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 56;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 56;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 56;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 56;
-      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 56;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 56;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 56;
-      break;
-    case VideoFormat::kHEVC:
-      video_track_param.codec_param.hevc.idr_interval = 1;
-      video_track_param.codec_param.hevc.bitrate      = 10000000;
-      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
-      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
-      video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kConstant;
-      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 56;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 56;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 56;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 56;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 56;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 56;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 56;
-      break;
-    default:
-      assert(0);
-      break;
-  }
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack4KEncDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t data_size) { VideoTrack4KEncEventCb(track_id,
-      event_type, event_data, data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (video_track_param.format_type ==
-      VideoFormat::kAVC) ? "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
-      video_track_id, video_track_param.width, video_track_param.height,
-      extn.string());
-  file_fd1_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-      0655);
-  assert(file_fd1_ >= 0);
-#endif
-
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
-
+  std::vector<TestTrack*> tracks;
+  tracks.push_back(video_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
-// This session has one 1080p video encode and one PCM Audio track.
-int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
+// This session has one 1080p video encode and one AAC Audio track.
+status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::vector<TrackInfo> tracks;
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
       size_t event_data_size) { SessionCallbackHandler(event_type,
@@ -443,156 +573,41 @@ int32_t RecorderTest::Session1080pEncTrack(const VideoCodecType& type) {
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  //Create Video track (1080p Encode)
-  uint32_t video_track_id = 1;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  std::vector<TestTrack*> tracks;
 
-  //TODO: change it vector.
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 1920;
-  video_track_param.height      = 1080;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
-      VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device  = 0x1;
+  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
 
-  switch (video_track_param.format_type) {
-    case VideoFormat::kAVC:
-      video_track_param.codec_param.avc.idr_interval = 1;
-      video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
-      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-      video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    case VideoFormat::kHEVC:
-      video_track_param.codec_param.hevc.idr_interval = 1;
-      video_track_param.codec_param.hevc.bitrate      = 10000000;
-      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
-      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
-      video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    default:
-      assert(0);
-      break;
-  }
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t data_size) { VideoTrack1080pEncEventCb(track_id,
-      event_type, event_data, data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
+  ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
+  tracks.push_back(enc_1080p_track);
 
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (video_track_param.format_type ==
-      VideoFormat::kAVC) ? "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
-      video_track_id, video_track_param.width, video_track_param.height,
-      extn.string());
-  file_fd1_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-      0655);
-  assert(file_fd1_ >= 0);
-#endif
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAAC;
+  info.session_id = session_id;
 
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
-
-  //Create Audio track.
-  uint32_t audio_track_id = 101;
-  AudioTrackCreateParam audio_track_params;
-  memset(&audio_track_params, 0x0, sizeof audio_track_params);
-
-  audio_track_params.in_device[0]   = 0;
-  audio_track_params.num_in_devices = 1;
-  audio_track_params.sample_rate    = 48000;
-  audio_track_params.channels       = 1;
-  audio_track_params.bit_depth      = 16;
-  audio_track_params.format_type    = AudioFormat::kPCM;
-  audio_track_params.out_device     = 0;
-  audio_track_params.flags          = 0;
-
-  TrackCb audio_track_cb;
-  audio_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void* meta_param, MetaParamType meta_type, size_t meta_size)
-              -> void {
-        AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
-      };
-
-  audio_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-        AudioTrackEventCb(track_id, event_type, event_data, event_data_size);
-      };
-
-  ret = recorder_.CreateAudioTrack(session_id, audio_track_id,
-                                      audio_track_params, audio_track_cb);
-  assert(ret == NO_ERROR);
-
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = audio_track_id;
-  track_info.type     = TrackType::kAudioTrack;
-  tracks.push_back(track_info);
-
-  sessions_.insert({session_id, tracks});
-
-  ret = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
-  assert(ret == NO_ERROR);
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
 // This session has one 4K YUV and one 1080p video encode track
-int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) {
+status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
+                                                        track_type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -603,147 +618,42 @@ int32_t RecorderTest::Session4KYUVAnd1080pEncTracks(const VideoCodecType& type) 
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  //Create Video track (1080p Encode)
-  uint32_t video_track_id = 1;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  std::vector<TestTrack*> tracks;
 
-  //TODO: change it vector.
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 1920;
-  video_track_param.height      = 1080;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
-      VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device  = 0x01;
+  TestTrack *yuv_4k_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 3840;
+  info.height     = 2160;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
 
-  switch (video_track_param.format_type) {
-    case VideoFormat::kAVC:
-      video_track_param.codec_param.avc.idr_interval = 1;
-      video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
-      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-      video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    case VideoFormat::kHEVC:
-      video_track_param.codec_param.hevc.idr_interval = 1;
-      video_track_param.codec_param.hevc.bitrate      = 10000000;
-      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
-      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
-      video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    default:
-      assert(0);
-      break;
-  }
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t data_size) { VideoTrack1080pEncEventCb(track_id,
-      event_type, event_data, data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
+  ret = yuv_4k_track->SetUp(info);
   assert(ret == 0);
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
+  tracks.push_back(yuv_4k_track);
 
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (video_track_param.format_type ==
-      VideoFormat::kAVC) ? "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
-      video_track_id, video_track_param.width, video_track_param.height,
-      extn.string());
-  file_fd1_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-      0655);
-  assert(file_fd1_ >= 0);
-#endif
-  // Create another video track - 4K YUV
-  video_track_id = 2;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = track_type;
+  info.session_id = session_id;
 
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 3840;
-  video_track_param.height      = 2160;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
-
-  memset(&video_track_cb, 0x0, sizeof (video_track_cb));
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack4KYUVDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t event_data_size)
-      { VideoTrack4KYUVEventCb(track_id, event_type, event_data,
-        event_data_size);
-      };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
+  ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
-
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
-
+  tracks.push_back(enc_1080p_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
 // This session has two 1080p video encode tracks.
-int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
+status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
@@ -754,242 +664,463 @@ int32_t RecorderTest::SessionTwo1080pEncTracks(const VideoCodecType& type) {
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  //Create Video track - 1080p Encode
-  uint32_t video_track_id = 1;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  std::vector<TestTrack*> tracks;
 
-  //TODO: change it vector.
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 1920;
-  video_track_param.height      = 1080;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = (type == VideoCodecType::kTypeAVC) ?
-      VideoFormat::kAVC : VideoFormat::kHEVC;
-  video_track_param.out_device  = 0x01;
+  TestTrack *enc_1080p_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
 
-  switch (video_track_param.format_type) {
-    case VideoFormat::kAVC:
-      video_track_param.codec_param.avc.idr_interval = 1;
-      video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
-      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-      video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    case VideoFormat::kHEVC:
-      video_track_param.codec_param.hevc.idr_interval = 1;
-      video_track_param.codec_param.hevc.bitrate      = 10000000;
-      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
-      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
-      video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kVariable;
-      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 26;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 1;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-      break;
-    default:
-      assert(0);
-      break;
-  }
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack1080pEncDataCb1(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t data_size) { VideoTrack1080pEncEventCb(track_id,
-      event_type, event_data, data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
+  ret = enc_1080p_track1->SetUp(info);
   assert(ret == 0);
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
+  tracks.push_back(enc_1080p_track1);
 
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (video_track_param.format_type ==
-      VideoFormat::kAVC) ? "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
-      video_track_id, video_track_param.width, video_track_param.height,
-      extn.string());
-  file_fd1_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-      0655);
-  assert(file_fd1_ >= 0);
-#endif
-  // Create another 1080p video track.
-  video_track_id = 2;
+  TestTrack *enc_1080p_track2 = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = track_type;
+  info.session_id = session_id;
 
-  memset(&video_track_cb, 0x0, sizeof (video_track_cb));
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, void *meta_param, MetaParamType meta_type,
-      size_t meta_size) { VideoTrack1080pEncDataCb2(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-      void *event_data, size_t event_data_size)
-      { VideoTrack1080pEncEventCb(track_id, event_type, event_data,
-        event_data_size);
-      };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, video_track_cb);
+  ret = enc_1080p_track2->SetUp(info);
   assert(ret == 0);
-
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = video_track_id;
-  track_info.type     = TrackType::kVideoTrack;
-  tracks.push_back(track_info);
-
-#ifdef DUMP_BITSTREAM
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
-      video_track_id, video_track_param.width, video_track_param.height,
-      extn.string());
-  file_fd2_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-      0655);
-  assert(file_fd2_ >= 0);
-#endif
+  tracks.push_back(enc_1080p_track2);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
-  return 0;
+  return ret;
 }
 
-void RecorderTest::CreateAudioOnlySession() {
+status_t RecorderTest::CreateAudioPCMTrack() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  std::vector<TrackInfo> tracks;
 
   SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [&] (EventType event_type, void *event_data, size_t event_data_size) {
-        SessionCallbackHandler(event_type, event_data, event_data_size);
-      };
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
 
   uint32_t session_id;
-  auto result = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(result == NO_ERROR);
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  uint32_t audio_track_id = 101;
-  AudioTrackCreateParam audio_track_params;
-  memset(&audio_track_params, 0x0, sizeof audio_track_params);
+  std::vector<TestTrack*> tracks;
 
-  audio_track_params.in_device[0]   = 0;
-  audio_track_params.num_in_devices = 1;
-  audio_track_params.sample_rate    = 48000;
-  audio_track_params.channels       = 1;
-  audio_track_params.bit_depth      = 16;
-  audio_track_params.format_type    = AudioFormat::kPCM;
-  audio_track_params.out_device     = 0;
-  audio_track_params.flags          = 0;
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
 
-  TrackCb audio_track_cb;
-  audio_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void* meta_param, MetaParamType meta_type, size_t meta_size)
-              -> void {
-        AudioTrackDataCb(track_id, buffers, meta_param, meta_type, meta_size);
-      };
-
-  audio_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-        AudioTrackEventCb(track_id, event_type, event_data, event_data_size);
-      };
-
-  result = recorder_.CreateAudioTrack(session_id, audio_track_id,
-                                      audio_track_params, audio_track_cb);
-  assert(result == NO_ERROR);
-
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
-  track_info.track_id = audio_track_id;
-  track_info.type     = TrackType::kAudioTrack;
-  tracks.push_back(track_info);
-
-  sessions_.insert({session_id, tracks});
-
-  result = wav_.Configure(kDefaultAudioFilenamePrefix, audio_track_params);
-  assert(result == NO_ERROR);
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
-int32_t RecorderTest::StartSession() {
+status_t RecorderTest::CreateAudio2PCMTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track1->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track1);
+
+  TestTrack *audio_pcm_track2 = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_pcm_track2->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioAACTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAAC;
+  info.session_id = session_id;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudio2AACTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_aac_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAAC;
+  info.session_id = session_id;
+
+  ret = audio_aac_track1->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track1);
+
+  TestTrack *audio_aac_track2 = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_aac_track2->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMAACTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  info.track_id   = 102;
+  info.track_type = TrackType::kAudioAAC;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioAMRTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_amr_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAMR;
+  info.session_id = session_id;
+
+  ret = audio_amr_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_amr_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudio2AMRTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_amr_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAMR;
+  info.session_id = session_id;
+
+  ret = audio_amr_track1->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_amr_track1);
+
+  TestTrack *audio_amr_track2 = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_amr_track2->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_amr_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMAMRTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_amr_track = new TestTrack(&recorder_);
+  info.track_id   = 102;
+  info.track_type = TrackType::kAudioAMR;
+
+  ret = audio_amr_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_amr_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioG711Track() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_g711_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioG711;
+  info.session_id = session_id;
+
+  ret = audio_g711_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_g711_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudio2G711Track() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_g711_track1 = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioG711;
+  info.session_id = session_id;
+
+  ret = audio_g711_track1->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_g711_track1);
+
+  TestTrack *audio_g711_track2 = new TestTrack(&recorder_);
+  info.track_id   = 102;
+
+  ret = audio_g711_track2->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_g711_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMG711Track() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_g711_track = new TestTrack(&recorder_);
+  info.track_id   = 102;
+  info.track_type = TrackType::kAudioG711;
+
+  ret = audio_g711_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_g711_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::StartSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
+
+  // Prepare tracks: setup files to dump track data, event etc.
+  for (auto track : it->second) {
+    track->Prepare();
+  }
   uint32_t session_id = it->first;
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
-
-  bool has_audio = false;
-  for (auto track_info : it->second) {
-    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
-  }
-  if (has_audio) {
-    result = wav_.Open();
-    assert(result == NO_ERROR);
-  }
-
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  session_enabled_ = true;
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  return NO_ERROR;
 }
 
-int32_t RecorderTest::StopSession() {
+status_t RecorderTest::StopSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
+
   uint32_t session_id = it->first;
   auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
   assert(result == NO_ERROR);
 
-  bool has_audio = false;
-  for (auto track_info : it->second) {
-    if (track_info.type == TrackType::kAudioTrack) has_audio = true;
+  for (auto track : it->second) {
+    track->CleanUp();
   }
-  if (has_audio)
-    wav_.Close();
-
+  session_enabled_ = false;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
 }
 
-int32_t RecorderTest::PauseSession() {
+status_t RecorderTest::PauseSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
@@ -999,7 +1130,17 @@ int32_t RecorderTest::PauseSession() {
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-int32_t RecorderTest::SetParams() {
+status_t RecorderTest::ResumeSession() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  session_iter_ it = sessions_.begin();
+  uint32_t session_id = it->first;
+  auto ret = recorder_.ResumeSession(session_id);
+  assert(ret == 0);
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+status_t RecorderTest::SetParams() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
@@ -1086,93 +1227,66 @@ int32_t RecorderTest::SetParams() {
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-int32_t RecorderTest::ResumeSession() {
+status_t RecorderTest::EnableOverlay() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ResumeSession(session_id);
-  assert(ret == 0);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-int32_t RecorderTest::EnableOverlay() {
-
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t ret = 0;
   // Enable overlay on all existing video tracks.
-
-  // Create Overlay object
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
-  object_params.type = OverlayType::kStaticImage;
-  object_params.location = OverlayLocationType::kBottomRight;
-  std::string str("/etc/overlay_test.rgba");
-  str.copy(object_params.image_info.image_location, str.length());
-  object_params.image_info.width  = 451;
-  object_params.image_info.height = 109;
   session_iter_ it = sessions_.begin();
-
-  for (auto track_info : it->second) {
-
-    if (track_info.type == TrackType::kVideoTrack) {
-      std::vector<uint32_t> object_ids;
-      uint32_t object_id;
-      auto ret = recorder_.CreateOverlayObject(track_info.track_id,
-                                               object_params, &object_id);
+  for (auto track : it->second) {
+    TrackType type = track->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoAVC)
+        || (type == TrackType::kVideoHEVC) ) {
+      track->EnableOverlay();
       assert(ret == 0);
-
-      ret = recorder_.SetOverlay(track_info.track_id, object_id);
-      assert(ret == 0);
-
-      // One track can have multiple types of overlay.
-      object_ids.push_back(object_id);
-      overlay_ids_.insert(std::make_pair(track_info.track_id, object_ids));
     }
   }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
-int32_t RecorderTest::DisableOverlay() {
+status_t RecorderTest::DisableOverlay() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
-  for (auto track_info : it->second) {
-
-    if (track_info.type == TrackType::kVideoTrack) {
-      std::vector<uint32_t> overlay_ids;
-      overlay_ids = overlay_ids_[track_info.track_id];
-      for (auto overlay_id : overlay_ids) {
-        TEST_INFO("%s:%s: TrackId(%d):overlayId(%d) to Disable!", TAG, __func__,
-            track_info.track_id, overlay_id);
-        auto ret = recorder_.RemoveOverlay(track_info.track_id, overlay_id);
-        assert(ret == 0);
-        ret = recorder_.DeleteOverlayObject(track_info.track_id, overlay_id);
-        assert(ret == 0);
-      }
+  for (auto track : it->second) {
+    TrackType type = track->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoAVC)
+        || (type == TrackType::kVideoHEVC) ) {
+      track->DisableOverlay();
     }
   }
-  overlay_ids_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
 }
 
-int32_t RecorderTest::DeleteSession()
-{
+status_t RecorderTest::DeleteSession() {
+
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   session_iter_ it = sessions_.begin();
   uint32_t session_id = it->first;
   // Delete all the tracks associated to session.
   status_t ret;
-  for (auto track_info : it->second) {
-      if (track_info.type == TrackType::kAudioTrack)
-        ret = recorder_.DeleteAudioTrack(session_id, track_info.track_id);
-      else
-        ret = recorder_.DeleteVideoTrack(session_id, track_info.track_id);
+  for (auto track : it->second) {
+      assert(track != nullptr);
+      if (track->GetTrackType() == TrackType::kAudioPCM ||
+          track->GetTrackType() == TrackType::kAudioAAC ||
+          track->GetTrackType() == TrackType::kAudioAMR ||
+          track->GetTrackType() == TrackType::kAudioG711) {
+        ret = recorder_.DeleteAudioTrack(session_id, track->GetTrackId());
+      } else {
+        ret = recorder_.DeleteVideoTrack(session_id, track->GetTrackId());
+      }
       assert(ret == 0);
+      delete track;
+      track = nullptr;
   }
   // Once all tracks are deleted successfully delete session.
   ret = recorder_.DeleteSession(session_id);
-
   sessions_.erase(it);
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -1266,227 +1380,471 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderTest::AudioTrackDataCb(uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) {
+TestTrack::TestTrack(Recorder* rec_instance)
+    : file_fd_(-1), recorder_(rec_instance), num_yuv_frames_(0) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-
-  for (const BufferDescriptor& buffer : buffers) {
-    int result = wav_.Write(buffer);
-    assert(result == 0);
-  }
-
-  // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == 0);
-
+  memset(&track_info_, 0x0, sizeof track_info_);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderTest::AudioTrackEventCb(uint32_t track_id, EventType event_type,
-                                     void *event_data,
-                                     size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-
-  if (event_type == EventType::kError)
-    assert(false);
-
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+TestTrack::~TestTrack() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (file_fd_ > 0) {
+    close(file_fd_);
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderTest::VideoTrack4KYUVDataCb(uint32_t track_id,
-                                         std::vector<BufferDescriptor> buffers,
-                                         void *meta_param,
-                                         MetaParamType meta_type,
-                                         size_t meta_size) {
+status_t TestTrack::SetUp(TrackInfo& track_info) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = NO_ERROR;
+  assert(recorder_ != nullptr);
 
-  TEST_DBG("%s:%s: meta_type=%d", TAG, __func__, meta_type);
-  MetaInfo* meta_data;
-  if (meta_type == MetaParamType::kCamBufMetaData) {
-    meta_data = static_cast<MetaInfo*>(meta_param);
-    TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
-    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
-    for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
-      TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].stride);
-      TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].scanline);
-      TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].width);
-      TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].height);
+  if ( (track_info.track_type == TrackType::kVideoAVC)
+      || (track_info.track_type == TrackType::kVideoHEVC)
+      || (track_info.track_type == TrackType::kVideoYUV) ) {
+    // Create Video Track.
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id   = 0;
+    video_track_param.width       = track_info.width;
+    video_track_param.height      = track_info.height;
+    video_track_param.frame_rate  = 30;
+    video_track_param.out_device  = 0x01;
+
+    switch (track_info.track_type) {
+      case TrackType::kVideoAVC:
+      video_track_param.format_type = VideoFormat::kAVC;
+      video_track_param.codec_param.avc.idr_interval = 1;
+      video_track_param.codec_param.avc.bitrate      = 10000000;
+      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+      video_track_param.codec_param.avc.ratecontrol_type =
+          VideoRateControlType::kConstant;
+      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 56;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 56;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 56;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 56;
+      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 56;
+      break;
+      case TrackType::kVideoHEVC:
+      video_track_param.format_type = VideoFormat::kHEVC;
+      video_track_param.codec_param.hevc.idr_interval = 1;
+      video_track_param.codec_param.hevc.bitrate      = 10000000;
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
+      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
+      video_track_param.codec_param.hevc.ratecontrol_type =
+          VideoRateControlType::kConstant;
+      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 56;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 56;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 56;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
+      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
+      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 56;
+      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 56;
+      break;
+      case TrackType::kVideoYUV:
+      video_track_param.format_type = VideoFormat::kYUV;
+      break;
+      default:
+      break;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, void *meta_param,
+        MetaParamType meta_type, size_t meta_size) { TrackDataCB(track_id,
+        buffers, meta_param, meta_type, meta_size); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t data_size) { TrackEventCB(track_id,
+        event_type, event_data, data_size); };
+
+    assert(recorder_ != nullptr);
+    ret = recorder_->CreateVideoTrack(track_info.session_id,
+                                           track_info.track_id,
+                                           video_track_param, video_track_cb);
+    assert(ret == 0);
+
+  } else {
+    // Create AudioTrack
+    AudioTrackCreateParam audio_track_params;
+    memset(&audio_track_params, 0x0, sizeof audio_track_params);
+    audio_track_params.in_devices.push_back(static_cast<DeviceId>
+                                            (AudioDeviceId::kBuiltIn));
+    audio_track_params.sample_rate = 48000;
+    audio_track_params.channels    = 1;
+    audio_track_params.bit_depth   = 16;
+    audio_track_params.out_device  = 0;
+    audio_track_params.flags       = 0;
+
+    switch (track_info.track_type) {
+      case TrackType::kAudioPCM:
+        audio_track_params.format = AudioFormat::kPCM;
+        break;
+      case TrackType::kAudioAAC:
+        audio_track_params.format = AudioFormat::kAAC;
+        audio_track_params.codec_params.aac.format = AACFormat::kADTS;
+        audio_track_params.codec_params.aac.mode = AACMode::kAALC;
+        break;
+      case TrackType::kAudioAMR:
+        audio_track_params.format = AudioFormat::kAMR;
+        audio_track_params.codec_params.amr.isWAMR = false;
+        audio_track_params.sample_rate = 8000;
+        break;
+      case TrackType::kAudioG711:
+        audio_track_params.format = AudioFormat::kG711;
+        audio_track_params.codec_params.g711.mode = G711Mode::kALaw;
+        audio_track_params.sample_rate = 8000;
+        break;
+      default:
+        assert(0);
+        break;
+    }
+    TrackCb audio_track_cb;
+    audio_track_cb.data_cb =
+        [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+                void* meta_param, MetaParamType meta_type, size_t meta_size)
+                -> void {
+          TrackDataCB(track_id, buffers, meta_param, meta_type, meta_size);
+        };
+
+    audio_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type, void *event_data,
+                size_t event_data_size) -> void {
+          TrackEventCB(track_id, event_type, event_data, event_data_size);
+        };
+
+    ret = recorder_->CreateAudioTrack(track_info.session_id,
+                                      track_info.track_id,
+                                      audio_track_params, audio_track_cb);
+    assert(ret == NO_ERROR);
+
+    switch (track_info.track_type) {
+      case TrackType::kAudioPCM:
+      case TrackType::kAudioG711:
+        // Configure .wav output.
+        ret = wav_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+        break;
+      case TrackType::kAudioAAC:
+        // Configure .aac output.
+        ret = aac_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+        break;
+      case TrackType::kAudioAMR:
+        // Configure .amr output.
+        ret = amr_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+        break;
+      default:
+        assert(0);
+        break;
     }
   }
-#ifdef DUMP_YUV_FRAMES
-  for (const BufferDescriptor& buffer : buffers) {
-    DumpYUVFrame(track_id, meta_data, buffer);
-  }
-#endif
-  // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == 0);
+  track_info_ = track_info;
+
   TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
-void RecorderTest::VideoTrack4KYUVEventCb(uint32_t track_id,
-                                          EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-void RecorderTest::VideoTrack1080pYUVDataCb(uint32_t track_id,
-                                            std::vector<BufferDescriptor>
-                                            buffers, void *meta_param,
-                                            MetaParamType meta_type,
-                                            size_t meta_size) {
+// Set up file to dump track data.
+status_t TestTrack::Prepare() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = NO_ERROR;
+#ifdef DUMP_BITSTREAM
+  if ( (track_info_.track_type == TrackType::kVideoAVC)
+     || (track_info_.track_type == TrackType::kVideoHEVC) ) {
+    String8 bitstream_filepath;
+    const char* type_string = (track_info_.track_type == TrackType::kVideoAVC)
+         ? "h264":"h265";
+    String8 extn(type_string);
+    bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
+        track_info_.track_id, track_info_.width, track_info_.height,
+        extn.string());
+    file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
+        0655);
+    assert(file_fd_ >= 0);
+    TEST_INFO("%s:%s: file(%s) opened successfully!!", TAG, __func__,
+        bitstream_filepath.string());
+  }
+#endif
+  if (track_info_.track_type == TrackType::kAudioPCM ||
+      track_info_.track_type == TrackType::kAudioG711) {
+    ret = wav_output_.Open();
+    assert(ret == NO_ERROR);
+  } else if (track_info_.track_type == TrackType::kAudioAAC) {
+    ret = aac_output_.Open();
+    assert(ret == NO_ERROR);
+  } else if (track_info_.track_type == TrackType::kAudioAMR) {
+    ret = amr_output_.Open();
+    assert(ret == NO_ERROR);
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
 
-  MetaInfo* meta_data;
-  if (meta_type == MetaParamType::kCamBufMetaData) {
-    meta_data = static_cast<MetaInfo*>(meta_param);
-    TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
-    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
-    for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
-      TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].stride);
-      TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].scanline);
-      TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].width);
-      TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].height);
+// Clean up file.
+status_t TestTrack::CleanUp() {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = NO_ERROR;
+  switch (track_info_.track_type) {
+    case TrackType::kVideoAVC:
+    case TrackType::kVideoHEVC:
+#ifdef DUMP_BITSTREAM
+    if(file_fd_ > 0) {
+      close(file_fd_);
+      file_fd_ = -1;
     }
+#endif
+    break;
+    case TrackType::kAudioPCM:
+    case TrackType::kAudioG711:
+    wav_output_.Close();
+    break;
+    case TrackType::kAudioAAC:
+    aac_output_.Close();
+    break;
+    case TrackType::kAudioAMR:
+    amr_output_.Close();
+    break;
+    default:
+    break;
   }
-#ifdef DUMP_YUV_FRAMES
-  for (const BufferDescriptor& buffer : buffers) {
-    auto ret = DumpYUVFrame(track_id, meta_data, buffer);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t TestTrack::EnableOverlay() {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = 0;
+  OverlayParam object_params;
+  // Create Static Image type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kStaticImage;
+  object_params.location = OverlayLocationType::kBottomRight;
+  std::string str("/etc/overlay_test.rgba");
+  str.copy(object_params.image_info.image_location, str.length());
+  object_params.image_info.width  = 451;
+  object_params.image_info.height = 109;
+
+  uint32_t object_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                           object_params, &object_id);
+  assert(ret == 0);
+
+  ret = recorder_->SetOverlay(track_info_.track_id, object_id);
+  assert(ret == 0);
+  // One track can have multiple types of overlay.
+  overlay_ids_.push_back(object_id);
+
+  // Create Date & Time type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kDateType;
+  object_params.location = OverlayLocationType::kBottomLeft;
+  object_params.text_color = 0x202020FF; //Dark Gray
+  object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
+  object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+
+  uint32_t date_time_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &date_time_id);
+  assert(ret == 0);
+
+  ret = recorder_->SetOverlay(track_info_.track_id, date_time_id);
+  assert(ret == 0);
+  // One track can have multiple types of overlay.
+  overlay_ids_.push_back(date_time_id);
+
+  // Create BoundingBox type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kBoundingBox;
+  object_params.text_color = 0x33CC00FF; //Light Green
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 100;
+  object_params.bounding_box.start_y = 200;
+  object_params.bounding_box.width   = 1920/4;
+  object_params.bounding_box.height  = 1080/4;
+  std::string bb_text("Test BBox..");
+  bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+
+  uint32_t bbox_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &bbox_id);
+  assert(ret == 0);
+  ret = recorder_->SetOverlay(track_info_.track_id, bbox_id);
+  assert(ret == 0);
+  overlay_ids_.push_back(bbox_id);
+
+  // Create UserText type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kUserText;
+  object_params.location = OverlayLocationType::kTopRight;
+  object_params.text_color = 0x189BF2FF; //Light Blue
+  std::string user_text("Simple User Text For Testing!!");
+  user_text.copy(object_params.user_text, user_text.length());
+
+  uint32_t user_text_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &user_text_id);
+  assert(ret == 0);
+  ret = recorder_->SetOverlay(track_info_.track_id, user_text_id);
+  assert(ret == 0);
+  overlay_ids_.push_back(user_text_id);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t TestTrack::DisableOverlay() {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  int32_t ret = 0;
+  assert(recorder_ != nullptr);
+  for (auto overlay_id : overlay_ids_) {
+    ret = recorder_->RemoveOverlay(GetTrackId(), overlay_id);
+    assert(ret == 0);
+    ret = recorder_->DeleteOverlayObject(GetTrackId(), overlay_id);
+    assert(ret == 0);
   }
-#endif
-
-  // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == 0);
+  overlay_ids_.clear();
   TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
-void RecorderTest::VideoTrack1080pYUVEventCb(uint32_t track_id,
-                                          EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-void RecorderTest::VideoTrack4KEncDataCb(uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) {
+void TestTrack::TrackEventCB(uint32_t track_id, EventType event_type,
+                             void *event_data, size_t event_data_size) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
 
-#ifdef DUMP_BITSTREAM
-  DumpBitStream(buffers, file_fd1_);
-#endif
+void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
+                            buffers, void *meta_param, MetaParamType meta_type,
+                            size_t meta_size) {
+
+  TEST_DBG("%s:%s: Enter track_id(%dd)", TAG, __func__, track_id);
+  assert (recorder_ != nullptr);
+  int32_t ret = 0;
+
+  switch (track_info_.track_type) {
+    case TrackType::kAudioPCM:
+    case TrackType::kAudioG711:
+      for (const BufferDescriptor& buffer : buffers) {
+        ret = wav_output_.Write(buffer);
+        assert(ret == 0);
+      }
+    break;
+    case TrackType::kAudioAAC:
+      for (const BufferDescriptor& buffer : buffers) {
+        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+          break;
+        ret = aac_output_.Write(buffer);
+        assert(ret == 0);
+      }
+    break;
+    case TrackType::kAudioAMR:
+      for (const BufferDescriptor& buffer : buffers) {
+        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+          break;
+        ret = amr_output_.Write(buffer);
+        assert(ret == 0);
+      }
+    break;
+    case TrackType::kVideoYUV:
+      MetaInfo* meta_data;
+      if (meta_type == MetaParamType::kCamBufMetaData) {
+        meta_data = static_cast<MetaInfo*>(meta_param);
+        TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
+        TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
+        for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
+          TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
+              meta_data->plane_info[i].stride);
+          TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
+              meta_data->plane_info[i].scanline);
+          TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
+              meta_data->plane_info[i].width);
+          TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
+              meta_data->plane_info[i].height);
+        }
+      }
+      #ifdef DUMP_YUV_FRAMES
+      // Dump YUV frames.
+      for (const BufferDescriptor& buffer : buffers) {
+        DumpYUVFrame(meta_data, buffer);
+      }
+      #endif
+    break;
+    case TrackType::kVideoAVC:
+    case TrackType::kVideoHEVC:
+      #ifdef DUMP_BITSTREAM
+      // Dump AVC/HEVC bitstream data
+      DumpBitStream(buffers);
+      #endif
+    break;
+    default:
+    break;
+  }
   // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  ret = recorder_->ReturnTrackBuffer(track_info_.session_id, track_id,
+                                     buffers);
   assert(ret == 0);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderTest::VideoTrack4KEncEventCb(uint32_t track_id, EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-void RecorderTest::VideoTrack1080pEncDataCb1(uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) {
-
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
-
 #ifdef DUMP_BITSTREAM
-  DumpBitStream(buffers, file_fd1_);
-#endif
-  // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == 0);
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
-}
-
-void RecorderTest::VideoTrack1080pEncDataCb2(uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) {
-
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  DumpBitStream(buffers, file_fd2_);
-#endif
-  // Return buffers back to service.
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == 0);
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
-}
-
-void RecorderTest::VideoTrack1080pEncEventCb(uint32_t track_id,
-                                             EventType event_type,
-                                             void *event_data,
-                                             size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-#ifdef DUMP_BITSTREAM
-status_t RecorderTest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                                     int32_t file_fd) {
+status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   for (auto& iter : buffers) {
-    if(file_fd > 0) {
+    if(file_fd_ > 0) {
       uint32_t exp_size = iter.size;
-      TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
-        ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
+      TEST_DBG("%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
+        ":buf_id(%d):capacity(%d)", __func__, iter.data, iter.size,
          iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
-      uint32_t written_length = write(file_fd, iter.data, iter.size);
-      TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
+      uint32_t written_length = write(file_fd_, iter.data, iter.size);
+      TEST_DBG("%s: written_length(%d)", __func__, written_length);
       if (written_length != exp_size) {
         TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
         strerror(errno));
       }
     } else {
-      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd);
-      assert(0);
+      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
+      return -1;
     }
     if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
-      close(file_fd);
-      file_fd = -1;
+      close(file_fd_);
+      file_fd_ = -1;
     }
   }
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -1494,18 +1852,16 @@ status_t RecorderTest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
 #endif
 
 #ifdef DUMP_YUV_FRAMES
-status_t RecorderTest::DumpYUVFrame(uint32_t track_id, MetaInfo* meta_data,
-                                    BufferDescriptor buffer) {
+status_t TestTrack::DumpYUVFrame(MetaInfo* meta_data, BufferDescriptor buffer) {
 
-  static uint32_t id = 0;
-  ++id;
   // Dump every 200th Frame.
-  if (id == 200) {
+  ++num_yuv_frames_;
+  if (num_yuv_frames_ == 200) {
     String8 file_path;
     size_t written_len;
-    file_path.appendFormat("/data/track_%d_%dx%d_%lld.yuv", track_id,
-        meta_data->plane_info[0].width, meta_data->plane_info[0].height,
-        buffer.timestamp);
+    file_path.appendFormat("/data/track_%d_%dx%d_%lld.yuv",
+        track_info_.track_id, meta_data->plane_info[0].width,
+        meta_data->plane_info[0].height, buffer.timestamp);
 
     FILE *file = fopen(file_path.string(), "w+");
     if (!file) {
@@ -1514,8 +1870,7 @@ status_t RecorderTest::DumpYUVFrame(uint32_t track_id, MetaInfo* meta_data,
       goto FAIL;
     }
 
-    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size,
-        file);
+    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
     TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
     if (buffer.size != written_len) {
       ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
@@ -1523,19 +1878,18 @@ status_t RecorderTest::DumpYUVFrame(uint32_t track_id, MetaInfo* meta_data,
       goto FAIL;
     }
     TEST_DBG("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
-        buffers.data, written_len, file_path.string());
+        buffer.data, written_len, file_path.string());
 FAIL:
-    if (file != NULL) {
+    if (file != nullptr) {
       fclose(file);
     }
-    id = 0;
+    num_yuv_frames_ = 0;
   }
 }
 #endif
 
 void CmdMenu::PrintMenu() {
-
-  printf("\n\n=========== QIPCAM TEST MENU ===================\n\n");
+  printf("\n\n=========== QMMF RECORDER TEST MENU ===================\n\n");
 
   printf(" \n\nIPCam Test Application commands \n");
   printf(" -----------------------------\n");
@@ -1558,7 +1912,27 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
     CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
-      CmdMenu::CREATE_AUD_SESSION_CMD);
+      CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
+      CmdMenu::CREATE_2PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (AAC mono)\n",
+      CmdMenu::CREATE_AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (AAC mono + AAC mono)\n",
+      CmdMenu::CREATE_2AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + AAC mono)\n",
+    CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (AMR mono)\n",
+      CmdMenu::CREATE_AMR_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (AMR mono + AMR mono)\n",
+      CmdMenu::CREATE_2AMR_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,8KHz + AMR mono)\n",
+      CmdMenu::CREATE_PCM_AMR_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (G711 mono)\n",
+      CmdMenu::CREATE_G7ll_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (G711 mono + G711 mono)\n",
+      CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,8KHz + G711 mono)\n",
+      CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -1568,6 +1942,15 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Enable Overlay\n", CmdMenu::ENABLE_OVERLAY_CMD);
   printf("   %c. Disable Overlay\n", CmdMenu::DISABLE_OVERLAY_CMD);
   printf("   %c. Delete Session\n", CmdMenu::DELETE_SESSION_CMD);
+  if (ctx_.session_enabled_) {
+    printf("   %c. NR mode: %s\n", CmdMenu::NOISE_REDUCTION_CMD,
+           ctx_.GetCurrentNRMode().c_str());
+    printf("   %c. VHDR: %s\n", CmdMenu::VIDEO_HDR_CMD,
+           ctx_.GetCurrentVHDRMode().c_str());
+
+    printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
+           ctx_.GetCurrentIRMode().c_str());
+  }
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1613,34 +1996,73 @@ int main(int argc,char *argv[]) {
       }
       break;
       case CmdMenu::CREATE_4KENC_AVC_SESSION_CMD: {
-        test_context.Session4KEncTrack(VideoCodecType::kTypeAVC);
+        test_context.Session4KEncTrack(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_4KENC_HEVC_SESSION_CMD: {
-        test_context.Session4KEncTrack(VideoCodecType::kTypeHEVC);
+        test_context.Session4KEncTrack(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(VideoCodecType::kTypeAVC);
+        test_context.Session1080pEncTrack(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(VideoCodecType::kTypeHEVC);
+        test_context.Session1080pEncTrack(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD: {
-        test_context.Session4KYUVAnd1080pEncTracks(VideoCodecType::kTypeAVC);
+        test_context.Session4KYUVAnd1080pEncTracks(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD: {
-        test_context.SessionTwo1080pEncTracks(VideoCodecType::kTypeAVC);
+        test_context.SessionTwo1080pEncTracks(TrackType::kVideoAVC);
       }
       break;
-      case CmdMenu::CREATE_AUD_SESSION_CMD: {
-          test_context.CreateAudioOnlySession();
+      case CmdMenu::CREATE_PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMTrack();
       }
       break;
-
+      case CmdMenu::CREATE_2PCM_AUD_SESSION_CMD: {
+          test_context.CreateAudio2PCMTrack();
+      }
+      break;
+      case CmdMenu::CREATE_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioAACTrack();
+      }
+      break;
+      case CmdMenu::CREATE_2AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudio2AACTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMAACTrack();
+      }
+      break;
+      case CmdMenu::CREATE_AMR_AUD_SESSION_CMD: {
+          test_context.CreateAudioAMRTrack();
+      }
+      break;
+      case CmdMenu::CREATE_2AMR_AUD_SESSION_CMD: {
+          test_context.CreateAudio2AMRTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_AMR_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMAMRTrack();
+      }
+      break;
+      case CmdMenu::CREATE_G7ll_AUD_SESSION_CMD: {
+          test_context.CreateAudioG711Track();
+      }
+      break;
+      case CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD: {
+          test_context.CreateAudio2G711Track();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMG711Track();
+      }
+      break;
       case CmdMenu::START_SESSION_CMD: {
         test_context.StartSession();
       }
@@ -1675,6 +2097,18 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_SESSION_CMD: {
         test_context.DeleteSession();
+      }
+      break;
+      case CmdMenu::NOISE_REDUCTION_CMD: {
+        test_context.ToggleNR();
+      }
+      break;
+      case CmdMenu::VIDEO_HDR_CMD: {
+        test_context.ToggleVHDR();
+      }
+      break;
+      case CmdMenu::IR_MODE_CMD: {
+        test_context.ToggleIR();
       }
       break;
       case CmdMenu::EXIT_CMD: {

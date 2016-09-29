@@ -43,32 +43,23 @@ namespace qmmf_test {
 namespace common {
 namespace audio {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioEndPointType;
-using ::qmmf::common::audio::AudioMetadata;
-using ::std::ifstream;
-using ::std::ofstream;
-using ::std::setbase;
-using ::std::streampos;
-using ::std::string;
-using ::std::stringstream;
-
 class AudioTestWav
 {
  public:
-  static const int kEOF;
+  static const int32_t kEOF;
 
   AudioTestWav();
   ~AudioTestWav();
 
-  int Configure(const string& filename_prefix, AudioEndPointType type,
-                AudioMetadata *metadata);
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const ::qmmf::common::audio::AudioEndPointType type,
+                    ::qmmf::common::audio::AudioMetadata *metadata);
 
-  int Open();
+  int32_t Open();
   void Close();
 
-  int Read(AudioBuffer* buffer);
-  int Write(const AudioBuffer& buffer);
+  int32_t Read(::qmmf::common::audio::AudioBuffer* buffer);
+  int32_t Write(const ::qmmf::common::audio::AudioBuffer& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {
@@ -76,11 +67,13 @@ class AudioTestWav
     uint32_t riff_size;
     uint32_t wave_id;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "riff_id[" << setbase(16) << riff_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "riff_id[" << ::std::setbase(16) << riff_id
+             << ::std::setbase(10) << "] ";
       stream << "riff_size[" << riff_size << "] ";
-      stream << "wave_id[" << setbase(16) << wave_id << setbase(10) << "] ";
+      stream << "wave_id[" << ::std::setbase(16) << wave_id
+             << ::std::setbase(10) << "] ";
       return stream.str();
     }
   };
@@ -89,9 +82,10 @@ class AudioTestWav
     uint32_t format_id;
     uint32_t format_size;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "format_id[" << setbase(16) << format_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "format_id[" << ::std::setbase(16) << format_id
+             << ::std::setbase(10) << "] ";
       stream << "format_size[" << format_size << "] ";
       return stream.str();
     }
@@ -105,8 +99,8 @@ class AudioTestWav
     uint16_t block_align;
     uint16_t bits_per_sample;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "audio_format[" << audio_format << "] ";
       stream << "num_channels[" << num_channels << "] ";
       stream << "sample_rate[" << sample_rate << "] ";
@@ -121,9 +115,10 @@ class AudioTestWav
     uint32_t data_id;
     uint32_t data_size;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "data_id[" << setbase(16) << data_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "data_id[" << ::std::setbase(16) << data_id
+             << ::std::setbase(10) << "] ";
       stream << "data_size[" << data_size << "] ";
       return stream.str();
     }
@@ -135,8 +130,8 @@ class AudioTestWav
     WavChunkFormat chunk_format;
     WavDataHeader data_header;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "riff_header[" << riff_header.ToString() << "] ";
       stream << "chunk_header[" << chunk_header.ToString() << "] ";
       stream << "chunk_format[" << chunk_format.ToString() << "] ";
@@ -145,22 +140,22 @@ class AudioTestWav
     }
   };
 
-  AudioEndPointType type_;
-  string filename_;
+  ::qmmf::common::audio::AudioEndPointType type_;
+  ::std::string filename_;
   WavHeader header_;
-  ofstream output_;
-  ifstream input_;
-  streampos input_start_position_;
-  int input_data_size_;
-  int current_data_size_;
+  ::std::ofstream output_;
+  ::std::ifstream input_;
+  ::std::streampos input_start_position_;
+  int32_t input_data_size_;
+  int32_t current_data_size_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioTestWav(const AudioTestWav&) = delete;
   AudioTestWav(AudioTestWav&&) = delete;
   AudioTestWav& operator=(const AudioTestWav&) = delete;
   AudioTestWav& operator=(const AudioTestWav&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

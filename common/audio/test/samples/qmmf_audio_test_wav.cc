@@ -75,8 +75,9 @@ AudioTestWav::~AudioTestWav() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
-int AudioTestWav::Configure(const string& filename_prefix,
-                            AudioEndPointType type, AudioMetadata* metadata) {
+int32_t AudioTestWav::Configure(const string& filename_prefix,
+                                const AudioEndPointType type,
+                                AudioMetadata* metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: filename_prefix[%s]", TAG, __func__,
                filename_prefix.c_str());
@@ -125,7 +126,7 @@ int AudioTestWav::Configure(const string& filename_prefix,
         return -EBADF;
       }
 
-      input_.read(reinterpret_cast<char *>(&header_.riff_header),
+      input_.read(reinterpret_cast<char*>(&header_.riff_header),
                   sizeof header_.riff_header);
       if (header_.riff_header.riff_id != kIdRiff ||
           header_.riff_header.wave_id != kIdWave) {
@@ -137,25 +138,25 @@ int AudioTestWav::Configure(const string& filename_prefix,
 
       bool read_more_chunks = true;
       do {
-        input_.read(reinterpret_cast<char *>(&header_.chunk_header),
+        input_.read(reinterpret_cast<char*>(&header_.chunk_header),
                     sizeof header_.chunk_header);
         switch (header_.chunk_header.format_id) {
           case kIdFmt:
-            input_.read(reinterpret_cast<char *>(&header_.chunk_format),
+            input_.read(reinterpret_cast<char*>(&header_.chunk_format),
                         sizeof header_.chunk_format);
-            /* if the format header is larger, skip the rest */
+            // if the format header is larger, skip the rest
             if (header_.chunk_header.format_size > sizeof header_.chunk_format)
               input_.seekg(header_.chunk_header.format_size -
                            sizeof header_.chunk_format, ios::cur);
             break;
         case kIdData:
-            /* stop looking for chunks */
+            // stop looking for chunks
             input_data_size_ = header_.chunk_header.format_size;
             input_start_position_ = input_.tellg();
             read_more_chunks = false;
             break;
         default:
-            /* unknown chunk, skip bytes */
+            // unknown chunk, skip bytes
             input_.seekg(header_.chunk_header.format_size, ios::cur);
         }
       } while (read_more_chunks);
@@ -179,7 +180,7 @@ int AudioTestWav::Configure(const string& filename_prefix,
   return 0;
 }
 
-int AudioTestWav::Open() {
+int32_t AudioTestWav::Open() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   if (filename_.empty()) {
@@ -226,13 +227,13 @@ void AudioTestWav::Close() {
                                            / 8);
         QMMF_INFO("%s: %s() captured %d frames", TAG, __func__, frames);
 
-        /* finalize the file */
+        // finalize the file
         header_.data_header.data_size = frames *
                                         header_.chunk_format.block_align;
         header_.riff_header.riff_size = header_.data_header.data_size +
                                         sizeof(header_) - 8;
         output_.seekp(0, ios::beg);
-        output_.write(reinterpret_cast<char *>(&header_), sizeof header_);
+        output_.write(reinterpret_cast<char*>(&header_), sizeof header_);
 
         output_.close();
       }
@@ -244,12 +245,12 @@ void AudioTestWav::Close() {
   }
 }
 
-int AudioTestWav::Read(AudioBuffer* buffer) {
+int32_t AudioTestWav::Read(AudioBuffer* buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer->ToString().c_str());
 
-  input_.read(reinterpret_cast<char *>(buffer->data), buffer->capacity);
+  input_.read(reinterpret_cast<char*>(buffer->data), buffer->capacity);
 
   buffer->size = input_.gcount();
   current_data_size_ -= buffer->size;
@@ -258,13 +259,13 @@ int AudioTestWav::Read(AudioBuffer* buffer) {
   else return 0;
 }
 
-int AudioTestWav::Write(const AudioBuffer& buffer) {
+int32_t AudioTestWav::Write(const AudioBuffer& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
 
   streampos before = output_.tellp();
-  output_.write(reinterpret_cast<const char *>(buffer.data),
+  output_.write(reinterpret_cast<const char*>(buffer.data),
                 buffer.size);
   streampos after = output_.tellp();
 
@@ -273,6 +274,6 @@ int AudioTestWav::Write(const AudioBuffer& buffer) {
   return 0;
 }
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf_test */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf_test

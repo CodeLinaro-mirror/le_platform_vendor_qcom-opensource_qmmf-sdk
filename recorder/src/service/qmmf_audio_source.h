@@ -29,25 +29,13 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
-#include <queue>
-#include <thread>
+#include <map>
 
-#include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/audio/inc/qmmf_audio_endpoint.h"
+#include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
-#include "recorder/src/service/qmmf_recorder_ion.h"
 
 namespace qmmf {
 namespace recorder {
-
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioEndPoint;
-using ::std::condition_variable;
-using ::std::mutex;
-using ::std::queue;
-using ::std::thread;
 
 class AudioSource {
  public:
@@ -55,7 +43,7 @@ class AudioSource {
 
   ~AudioSource();
 
-  status_t CreateTrackSource(const uint32_t track_id, AudioTrackParams& param);
+  status_t CreateTrackSource(const uint32_t track_id, AudioTrackParams& params);
   status_t DeleteTrackSource(const uint32_t track_id);
 
   status_t StartTrackSource(const uint32_t track_id);
@@ -64,48 +52,24 @@ class AudioSource {
   status_t ResumeTrackSource(const uint32_t track_id);
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
-                             const std::vector<BnBuffer> &buffers);
+                             const std::vector<BnBuffer>& buffers);
+
+  AudioEncodedTrackSource* getTrackSource(uint32_t track_id);
 
  private:
-  enum class AudioMessageType {
-    kMessageStop,
-    kMessagePause,
-    kMessageResume,
-    kMessageBuffer,
-    kMessageBnBuffer,
-  };
+  typedef ::std::map<uint32_t, IAudioTrackSource*> AudioTrackSourceMap;
 
-  struct AudioMessage {
-    AudioMessageType type;
-    AudioBuffer      buffer;
-    BnBuffer         bn_buffer;
-  };
-
-  static AudioSource* instance_;
   AudioSource();
+  static AudioSource* instance_;
 
-  static void ThreadEntry(AudioSource* source);
-  void Thread();
+  AudioTrackSourceMap track_source_map_;
 
-  void ErrorHandler(int error);
-  void BufferHandler(const AudioBuffer& buffer);
-
-  uint32_t track_id_;
-  buffer_callback data_cb_;
-  AudioEndPoint* end_point_;
-  RecorderIon ion_;
-
-  thread* thread_;
-  mutex message_lock_;
-  queue<AudioMessage> messages_;
-  condition_variable signal_;
-
-  /* Disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioSource(const AudioSource&) = delete;
   AudioSource(AudioSource&&) = delete;
   AudioSource& operator=(const AudioSource&) = delete;
   AudioSource& operator=(const AudioSource&&) = delete;
 };
 
-}; //namespace recorder
-}; //namespace qmmf
+}; // namespace recorder
+}; // namespace qmmf

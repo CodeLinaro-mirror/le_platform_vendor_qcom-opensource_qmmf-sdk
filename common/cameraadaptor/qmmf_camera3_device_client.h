@@ -93,6 +93,9 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t Prepare(int streamId);
   int32_t TearDown(int streamId);
 
+  static int32_t LoadHWModule(const char *path, const char *moduleId,
+                              const struct hw_module_t **pHmi);
+
  private:
   typedef enum State_t {
     STATE_ERROR,
@@ -131,8 +134,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t InternalResumeLocked();
   int32_t WaitUntilStateThenRelock(bool active, int64_t timeout);
 
-  int32_t LoadHWModule(const char *path, const char *moduleId,
-                       const struct hw_module_t **pHmi);
   int32_t CaclulateBlobSize(int32_t width, int32_t height);
   int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
                            int32_t &maxJpegSizeHeight);

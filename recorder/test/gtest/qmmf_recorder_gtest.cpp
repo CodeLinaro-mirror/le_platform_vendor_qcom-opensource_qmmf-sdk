@@ -1685,9 +1685,9 @@ TEST_F(RecorderGtest, 1080pEncWithOverlay) {
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
       test_info_->name(), i);
 
-    // Create Overlay object
+    // Create Static Image type overlay.
     OverlayParam object_params;
-    uint32_t object_id;
+    uint32_t static_img_id;
     memset(&object_params, 0x0, sizeof object_params);
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kBottomRight;
@@ -1696,20 +1696,83 @@ TEST_F(RecorderGtest, 1080pEncWithOverlay) {
     object_params.image_info.width  = 451;
     object_params.image_info.height = 109;
     ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                        &object_id);
+                                        &static_img_id);
     assert(ret == 0);
     // Apply overlay object on video track.
-    ret = recorder_.SetOverlay(video_track_id, object_id);
+    ret = recorder_.SetOverlay(video_track_id, static_img_id);
     assert(ret == 0);
+
+    // Create Date & Time type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kDateType;
+    object_params.location = OverlayLocationType::kBottomLeft;
+    object_params.text_color = 0x202020FF; //Dark Gray
+    object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
+    object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+
+    uint32_t date_time_id;
+    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                         &date_time_id);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    ret = recorder_.SetOverlay(video_track_id, date_time_id);
+    assert(ret == 0);
+
+    // Create BoundingBox type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kBoundingBox;
+    object_params.text_color = 0x33CC00FF; //Light Green
+    // Dummy coordinates for test purpose.
+    object_params.bounding_box.start_x = 100;
+    object_params.bounding_box.start_y = 200;
+    object_params.bounding_box.width   = 1920/4;
+    object_params.bounding_box.height  = 1080/4;
+    std::string bb_text("Test BBox..");
+    bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+
+    uint32_t bbox_id;
+    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                         &bbox_id);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id, bbox_id);
+    assert(ret == 0);
+
+    // Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kTopRight;
+    object_params.text_color = 0x189BF2FF; //Light Blue
+    std::string user_text("Simple User Text For Testing!!");
+    user_text.copy(object_params.user_text, user_text.length());
+
+    uint32_t user_text_id;
+    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                         &user_text_id);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id, user_text_id);
+    assert(ret == 0);
+
     // Let overlay be on video for 3 sec.
     sleep(3);
 
     // Remove overlay object from video track.
-    ret = recorder_.RemoveOverlay(video_track_id, object_id);
+    ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
+    assert(ret == 0);
+    ret = recorder_.RemoveOverlay(video_track_id, date_time_id);
+    assert(ret == 0);
+    ret = recorder_.RemoveOverlay(video_track_id, bbox_id);
+    assert(ret == 0);
+    ret = recorder_.RemoveOverlay(video_track_id, user_text_id);
     assert(ret == 0);
 
     // Delete overlay object.
-    ret = recorder_.DeleteOverlayObject(video_track_id, object_id);
+    ret = recorder_.DeleteOverlayObject(video_track_id, static_img_id);
+    assert(ret == 0);
+    ret = recorder_.DeleteOverlayObject(video_track_id, date_time_id);
+    assert(ret == 0);
+    ret = recorder_.DeleteOverlayObject(video_track_id, bbox_id);
+    assert(ret == 0);
+    ret = recorder_.DeleteOverlayObject(video_track_id, user_text_id);
     assert(ret == 0);
 
     // Let video be without overlay for 3 sec.

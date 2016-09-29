@@ -43,28 +43,23 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::map;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
-
 class AudioIon
 {
  public:
   AudioIon();
   ~AudioIon();
 
-  int Associate(AudioHandle audio_handle, AudioBuffer* buffer);
-  int Release(AudioHandle audio_handle);
+  int32_t Associate(const AudioHandle audio_handle, AudioBuffer* buffer);
+  int32_t Release(const AudioHandle audio_handle);
 
  private:
   struct AudioIonBuffer {
     void *data;
-    int capacity;
+    int32_t capacity;
     struct ion_fd_data share_data;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "capacity[" << capacity << "] ";
       stream << "share_data[";
@@ -74,18 +69,19 @@ class AudioIon
     }
   };
 
-  typedef map<int, AudioIonBuffer> AudioIonBufferMap;
+  typedef ::std::map<int32_t, AudioIonBuffer> AudioIonBufferMap;
+  typedef ::std::map<AudioHandle, AudioIonBufferMap> AudioIonClientMap;
 
-  int ion_device_;
-  map<AudioHandle, AudioIonBufferMap> buffer_map_;
+  AudioIonClientMap client_map_;
+  int32_t ion_device_;
 
-  /* disable copy, assignment, and move */
+  // disable copy, assignment, and move
   AudioIon(const AudioIon&) = delete;
   AudioIon(AudioIon&&) = delete;
   AudioIon& operator=(const AudioIon&) = delete;
   AudioIon& operator=(const AudioIon&&) = delete;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

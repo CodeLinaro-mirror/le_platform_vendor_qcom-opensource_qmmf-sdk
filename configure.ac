@@ -50,6 +50,16 @@ if test "x$with_mm_core_library" != "xno"; then
    AC_SUBST([MMCORE_CFLAGS], "${mm_core_libdir}")
 fi
 
+AC_ARG_WITH([camerahal],
+      AC_HELP_STRING([with-camerahal=@<:@dir@:>@],
+         [Specify the location of CameraHal]),
+      [camerahal_libdir=$withval],
+      with_camerahal=no)
+
+if test "x$with_camerahal" != "xno"; then
+   AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
+fi
+
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])
 AC_SUBST([LIBS])

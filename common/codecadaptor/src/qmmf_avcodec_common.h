@@ -53,9 +53,10 @@ enum class CodecInputPortStatus {
 typedef std::function<void(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2)>
             AVCodecEventCb;
 
-typedef struct CodecCreateParam {
+struct CodecCreateParam {
   VideoTrackCreateParam video_param;
+  AudioTrackCreateParam audio_param;
   AVCodecEventCb        event_cb;
-} CodecCreateParam;
+};
 
 }; //namespace qmmf

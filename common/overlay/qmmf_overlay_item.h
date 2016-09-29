@@ -36,6 +36,8 @@
 
 #if USE_SKIA
 #include <SkCanvas.h>
+#else USE_CAIRO
+#include <cairo/cairo.h>
 #endif
 
 namespace qmmf {
@@ -49,20 +51,36 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 #define OVDBG_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #define OVDBG_WARN(fmt, args...)  ALOGW(fmt, ##args)
 
-/**
-OVDBG_LEVEL1 and LEVEL2 logs will be enabled based on
-property value "persist.overlay.debug.level"
-level = 1 CCDBG_LEVEL1
-level = 2 CCDBG_LEVEL2
-*/
-#define OVDBG_LEVEL1(fmt, args...)  ALOGD(fmt, ##args)
-#define OVDBG_LEVEL2(fmt, args...)  ALOGD(fmt, ##args)
+// Remove comment markers to define LOG_LEVEL_DEBUG for debugging-related logs
+//#define LOG_LEVEL_DEBUG
+
+// Remove comment markers to define LOG_LEVEL_VERBOSE for complete logs
+//#define LOG_LEVEL_VERBOSE
+
+#ifdef LOG_LEVEL_DEBUG
+#define OVDBG_DEBUG(fmt, args...)  ALOGD(fmt, ##args)
+#else
+#define OVDBG_DEBUG(...) ((void)0)
+#endif
+
+#ifdef LOG_LEVEL_VERBOSE
+#define OVDBG_VERBOSE(fmt, args...)  ALOGD(fmt, ##args)
+#else
+#define OVDBG_VERBOSE(...) ((void)0)
+#endif
 
 #define OVERLAYITEM_X_MARGIN_PERCENT  0.5
 #define OVERLAYITEM_Y_MARGIN_PERCENT  0.5
 #define MAX_LEN       128
 #define MAX_OVERLAYS  10
+#define BG_TRANSPARENT_COLOR 0xFFFFFF00
+#define BG_DEBUG_COLOR       0xFFE5CC80 //Light gray.
+
+// Remove comment marker to enable backgroud surface drawing of overlay objects.
 //#define DEBUG_BACKGROUND_SURFACE
+
+// Remove comment marker to measure time taken in overlay drawing.
+//#define DEBUG_BLIT_TIME
 
 struct DrawInfo {
     uint32_t width;
@@ -70,6 +88,13 @@ struct DrawInfo {
     uint32_t x;
     uint32_t y;
     uint32_t c2dSurfaceId;
+};
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
 };
 
 struct C2dObjects {
@@ -113,6 +138,10 @@ class OverlayItem {
 
   int32_t AllocateIonMemory(IonMemInfo& mem_info, uint32_t size);
 
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
+
+  void ClearSurface();
+
   int32_t                x_;
   int32_t                y_;
   uint32_t               width_;
@@ -127,7 +156,10 @@ class OverlayItem {
   bool                   dirty_;
   int32_t                ion_device_;
   OverlayType            type_;
-
+#if USE_CAIRO
+  cairo_surface_t*       cr_surface_;
+  cairo_t*               cr_context_;
+#endif
  private:
   bool                   is_active_;
 };
@@ -155,11 +187,11 @@ class OverlayItemStaticImage : public OverlayItem {
   android::String8 image_path_;
 };
 
-#define DATETIME_TEXT_BUF_WIDTH        240
-#define DATETIME_TEXT_BUF_HEIGHT       135
-#define DATETIME_TARGET_WIDTH_PERCENT   10
-#define DATETIME_TARGET_HEIGHT_PERCENT  10
-#define DATETIME_PIXEL_SIZE             42
+#define DATETIME_TEXT_BUF_WIDTH         192
+#define DATETIME_TEXT_BUF_HEIGHT        108
+#define DATETIME_TARGET_WIDTH_PERCENT   12
+#define DATETIME_TARGET_HEIGHT_PERCENT  12
+#define DATETIME_PIXEL_SIZE             30
 
 class OverlayItemDateAndTime: public OverlayItem {
  public:
@@ -184,7 +216,7 @@ class OverlayItemDateAndTime: public OverlayItem {
   OverlayDateTimeType date_time_type_;
   uint32_t            text_color_;
 #if USE_SKIA
-  SkCanvas*            canvas_;
+  SkCanvas*           canvas_;
 #endif
 };
 
@@ -192,7 +224,7 @@ class OverlayItemDateAndTime: public OverlayItem {
 #define BOUNDING_BOX_BUF_HEIGHT    135
 #define BOUNDING_BOX_STROKE_WIDTH  5
 #define BOUNDING_BOX_TEXT_LIMIT    20
-#define BOUNDING_BOX_TEXT_SIZE     30
+#define BOUNDING_BOX_TEXT_SIZE     25
 #define BOUNDING_BOX_TEXT_PERCENT  20
 #define BOUNDING_BOX_TEXT_MARGIN   5
 
@@ -218,7 +250,7 @@ class OverlayItemBoundingBox: public OverlayItem {
 
   uint32_t    bbox_color_;
 #if USE_SKIA
-  SkCanvas*   canvas_;
+  SkCanvas*            canvas_;
 #endif
   android::String8  bbox_name_;
   uint32_t          text_height_;
@@ -228,7 +260,7 @@ class OverlayItemBoundingBox: public OverlayItem {
 #define TEXT_BUF_HEIGHT             60
 #define TEXT_TARGET_WIDTH_PERCENT   30
 #define TEXT_TARGET_HEIGHT_PERCENT  10
-#define TEXT_SIZE                   25
+#define TEXT_SIZE                   40
 
 class OverlayItemText: public OverlayItem {
  public:

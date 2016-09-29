@@ -3,8 +3,11 @@ bin_PROGRAMS := recorder_test
 
 recorder_test_SOURCES  := qmmf_recorder_test.cpp
 recorder_test_SOURCES  += qmmf_recorder_test_wav.cc
+recorder_test_SOURCES  += qmmf_recorder_test_aac.cc
+recorder_test_SOURCES  += qmmf_recorder_test_amr.cc
 recorder_test_CPPFLAGS := -I$(top_srcdir)/include
 recorder_test_CPPFLAGS += -I$(top_srcdir)/
+recorder_test_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 recorder_test_CPPFLAGS += -std=c++11
 recorder_test_LDFLAGS  := -lutils -lcutils -llog $(LIBGTEST)
 recorder_test_LDADD    := ../../src/client/libqmmf_recorder_client.la

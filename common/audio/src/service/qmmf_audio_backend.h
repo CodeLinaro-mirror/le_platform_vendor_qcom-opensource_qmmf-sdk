@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "common/audio/inc/qmmf_audio_definitions.h"
 
 namespace qmmf {
@@ -39,22 +41,24 @@ class IAudioBackend {
  public:
   virtual ~IAudioBackend() {}
 
-  virtual int Open(AudioEndPointType type, const DeviceIdList& devices,
-                   const AudioMetadata& metadata) = 0;
-  virtual int Close() = 0;
+  virtual int32_t Open(const AudioEndPointType type,
+                       const ::std::vector<DeviceId>& devices,
+                       const AudioMetadata& metadata) = 0;
+  virtual int32_t Close() = 0;
 
-  virtual int Start() = 0;
-  virtual int Stop(bool flush) = 0;
-  virtual int Pause() = 0;
-  virtual int Resume() = 0;
+  virtual int32_t Start() = 0;
+  virtual int32_t Stop(const bool flush) = 0;
+  virtual int32_t Pause() = 0;
+  virtual int32_t Resume() = 0;
 
-  virtual int SendBuffers(const AudioBufferList& buffers) = 0;
+  virtual int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers) = 0;
 
-  virtual int GetLatency(int* latency) = 0;
-  virtual int GetBufferSize(int* buffer_size) = 0;
-  virtual int SetParam(AudioParamType type, const AudioParamData& data) = 0;
+  virtual int32_t GetLatency(int32_t* latency) = 0;
+  virtual int32_t GetBufferSize(int32_t* buffer_size) = 0;
+  virtual int32_t SetParam(const AudioParamType type,
+                           const AudioParamData& data) = 0;
 };
 
-}; /* namespace audio */
-}; /* namespace common */
-}; /* namespace qmmf */
+}; // namespace audio
+}; // namespace common
+}; // namespace qmmf

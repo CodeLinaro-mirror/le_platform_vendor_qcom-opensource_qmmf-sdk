@@ -35,9 +35,11 @@
 #include <linux/msm_ion.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <dlfcn.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <map>
+#include <type_traits>
 
 #include "recorder/src/client/qmmf_recorder_client.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
@@ -48,22 +50,24 @@ namespace qmmf {
 
 namespace recorder {
 
-/**
-This file has implementation of following classes:
-
-- RecorderClient    : Delegation to binder proxy <IRecorderService>
-                    and implementation of binder CB.
-- BpRecorderService : Binder proxy implementation.
-- BpRecorderServiceCallback : Binder CB proxy implementation.
-- BnRecorderServiceCallback : Binder CB stub implementation.
-*/
+//
+// This file has implementation of following classes:
+//
+// - RecorderClient    : Delegation to binder proxy <IRecorderService>
+//                       and implementation of binder CB.
+// - BpRecorderService : Binder proxy implementation.
+// - BpRecorderServiceCallback : Binder CB proxy implementation.
+// - BnRecorderServiceCallback : Binder CB stub implementation.
+//
 
 using namespace android;
+using ::std::underlying_type;
 
 RecorderClient::RecorderClient()
                 : recorder_service_(nullptr)
                 , death_notifier_(nullptr)
-                , ion_device_(-1) {
+                , ion_device_(-1)
+                , camera_module_(NULL) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
@@ -80,7 +84,16 @@ RecorderClient::~RecorderClient() {
     recorder_service_ = nullptr;
   }
 
+  if (NULL != camera_module_) {
+    dlclose(camera_module_->common.dso);
+  }
+  camera_module_ = NULL;
+
   QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
+}
+
+extern "C" {
+extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
 
 status_t RecorderClient::Connect(const RecorderCb& cb) {
@@ -136,6 +149,33 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   if (!track_cb_list_.isEmpty()) {
     track_cb_list_.clear();
   }
+
+  if (NULL == camera_module_) {
+    //TODO: Instead of quering vendor tag ops directly from HAL module
+    //      devise a mechanism to share them from service side.
+    auto res = Camera3DeviceClient::LoadHWModule(CAMERA_HAL_MODULE_PATH,
+                                                 CAMERA_HARDWARE_MODULE_ID,
+                                                 (const hw_module_t **)&camera_module_);
+    if ((0 != res) || (NULL == camera_module_)) {
+      QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
+      return res;
+    }
+
+    if (camera_module_->get_vendor_tag_ops) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+
+      res = set_camera_metadata_vendor_ops(&vendor_tag_ops_);
+      if (0 != res) {
+        QMMF_ERROR(
+            "%s: Could not set vendor tag descriptor, "
+            "received error %s (%d). \n",
+            __func__, strerror(-res), res);
+        return res;
+      }
+    }
+  }
+
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
 }
@@ -279,6 +319,10 @@ status_t RecorderClient::StartSession(const uint32_t session_id) {
     return NO_INIT;
   }
 
+  Vector<uint32_t> tracks = sessions_.valueFor(session_id);
+  for (size_t i = 0; i < tracks.size(); i++)
+    buffer_ion_.Release(tracks[i]);
+
   auto ret = recorder_service_->StartSession(session_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s StartSession failed!", TAG, __func__);
@@ -344,8 +388,10 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                                           const TrackCb& cb) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
-      session_id, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+               param.ToString().c_str());
 
   Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
@@ -412,8 +458,11 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
                                               &buffers) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
-      session_id, track_id);
+  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  for (const BufferDescriptor& buffer : buffers)
+    QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
+                 buffer.ToString().c_str());
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -600,55 +649,50 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   // TODO: Application should return all the buffers after calling stop track
   // then only service would give stop track event callback, once this is done
   // then no need to return buffers from delete.
-  if (track_in_buffers_.indexOfKey(track_id) < 0) {
-    QMMF_ERROR("%s:%s: Not a valid track_id(%d)", TAG, __func__, track_id);
-    return BAD_VALUE;
-  }
-  std::vector<BnBuffer> bn_buffers_ret;
-  Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
-  QMMF_VERBOSE("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
+  if (track_in_buffers_.indexOfKey(track_id) >= 0) {
+
+    std::vector<BnBuffer> bn_buffers_ret;
+    Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
+    QMMF_INFO("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
       track_id, vec.size());
 
-  for (size_t j = 0; j < vec.size(); ++j) {
-    QMMF_VERBOSE("%s:%s: track_id(%d):buf_id(%d)", TAG, __func__, track_id,
-        vec[j].buffer_id);
-    bn_buffers_ret.push_back(vec[j]);
-  }
-  if (bn_buffers_ret.size() > 0) {
-    ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
-                                               bn_buffers_ret);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: track_id(%d):ReturnTrackBuffer failed!", TAG, __func__,
-          track_id);
+    for (auto buf : vec) {
+      QMMF_VERBOSE("%s:%s: track_id(%d):buf_id(%d)", TAG, __func__, track_id,
+          buf.buffer_id);
+      bn_buffers_ret.push_back(buf);
     }
+    if (bn_buffers_ret.size() > 0) {
+      ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
+                                                 bn_buffers_ret);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: track_id(%d):ReturnTrackBuffer failed!", TAG, __func__,
+            track_id);
+      }
+    }
+    track_in_buffers_.removeItem(track_id);
   }
-  track_in_buffers_.removeItem(track_id);
 
-  QMMF_INFO("%s:%s tracks.size(%d) ", TAG, __func__,
-      sessions_.valueFor(session_id).size());
+  if (track_buf_map_.indexOfKey(track_id) >= 0) {
 
-  if (track_buf_map_.indexOfKey(track_id) < 0) {
-    QMMF_ERROR("%s:%s: Not a valid track_id(%d)", TAG, __func__, track_id);
-    return BAD_VALUE;
-  }
-  buf_info_map info_map = track_buf_map_.valueFor(track_id);
-  for (size_t j = 0; j < info_map.size(); j++) {
-    BufInfo buf_info = info_map.valueAt(j);
-    QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d)", TAG, __func__,
-        track_id, buf_info.ion_fd);
-    if (buf_info.ion_fd > 0) {
-      close(buf_info.ion_fd);
+    buf_info_map info_map = track_buf_map_.valueFor(track_id);
+    for (size_t j = 0; j < info_map.size(); j++) {
+      BufInfo buf_info = info_map.valueAt(j);
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
+          __func__, track_id, buf_info.ion_fd);
+      if (buf_info.ion_fd > 0) {
+        close(buf_info.ion_fd);
+      }
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%x and frame_len=%d",
+          TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
+      if (buf_info.pointer != NULL) {
+        munmap(buf_info.pointer, buf_info.frame_len);
+        buf_info.pointer = NULL;
+      }
+      //TODO: check owner ship of buffers, make sure application returned all
+      // the buffers after calling stop on track.
     }
-    QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%x and frame_len=%d", TAG,
-        __func__, track_id, buf_info.pointer, buf_info.frame_len);
-    if (buf_info.pointer != NULL) {
-      munmap(buf_info.pointer, buf_info.frame_len);
-      buf_info.pointer = NULL;
-    }
-    //TODO: check owner ship of buffers, make sure application returned all
-    // the buffers after calling stop on track.
+    track_buf_map_.removeItem(track_id);
   }
-  track_buf_map_.removeItem(track_id);
 
   ret = recorder_service_->DeleteVideoTrack(session_id, track_id);
   if(NO_ERROR != ret) {
@@ -658,7 +702,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   }
 
   if (track_cb_list_.indexOfKey(track_id) >= 0) {
-      track_cb_list_.removeItem(track_id);
+    track_cb_list_.removeItem(track_id);
   }
 
   UpdateSessionTopology(session_id, track_id, false /*remove*/);
@@ -1171,7 +1215,7 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
-               static_cast<int>(event_type));
+               static_cast<underlying_type<EventType>::type>(event_type));
 
   // get the handle to client callback.
   TrackCb callback = track_cb_list_.valueFor(track_id);
@@ -1300,14 +1344,16 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
                             const AudioTrackCreateParam& param) {
     QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: session_id(%u):track_id(%u)", TAG, __func__,
-        session_id, track_id);
+    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+    QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+                 param.ToString().c_str());
     Parcel data, reply;
 
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(session_id);
     data.writeUint32(track_id);
-    AudioTrackCreateParamI(param).ToParcel(&data);
+    AudioTrackCreateParamInternal(param).ToParcel(&data);
 
     remote()->transact(
         uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_CREATE_AUDIOTRACK),
@@ -1370,8 +1416,8 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                              std::vector<BnBuffer> &buffers) {
 
     QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: session_id(%d):track_id(%u)", TAG, __func__,
-        session_id, track_id);
+    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
+    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
     for (const BnBuffer& buffer : buffers) {
       QMMF_VERBOSE("%s:%s INPARAM: buffers[%s]", TAG, __func__,
           buffer.ToString().c_str());
@@ -1716,7 +1762,7 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
-      static_cast<int>(event_type));
+               static_cast<underlying_type<EventType>::type>(event_type));
   assert(client_ != NULL);
 
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
@@ -1890,13 +1936,13 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
     QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
-                 static_cast<int>(event_type));
+                 static_cast<underlying_type<EventType>::type>(event_type));
     Parcel data, reply;
 
     data.writeInterfaceToken(
         IRecorderServiceCallback::getInterfaceDescriptor());
     data.writeUint32(track_id);
-    data.writeInt32(static_cast<int32_t>(event_type));
+    data.writeInt32(static_cast<underlying_type<EventType>::type>(event_type));
 
     remote()->transact(
         uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_AUDIO_TRACK_EVENT),
@@ -2057,7 +2103,8 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: track_id[%u]",
                    TAG, __func__, track_id);
       QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: event_type[%d]",
-                   TAG, __func__, static_cast<int>(event_type));
+                   TAG, __func__,
+                   static_cast<underlying_type<EventType>::type>(event_type));
       NotifyAudioTrackEvent(track_id, event_type, nullptr, 0);
 
       return NO_ERROR;

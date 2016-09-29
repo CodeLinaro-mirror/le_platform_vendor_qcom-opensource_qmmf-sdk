@@ -5,6 +5,7 @@ source_files := qmmf_audio_endpoint.cc
 source_files += qmmf_audio_endpoint_client.cc
 
 cpp_flags := -I$(top_srcdir)
+cpp_flags += -I$(top_srcdir)/include
 cpp_flags += -DHAVE_PTHREADS
 cpp_flags += -DLINUX_ENABLED=1
 cpp_flags += -std=c++11

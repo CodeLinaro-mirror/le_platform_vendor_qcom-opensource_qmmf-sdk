@@ -39,28 +39,20 @@
 
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::BufferDescriptor;
-using ::std::ifstream;
-using ::std::ofstream;
-using ::std::setbase;
-using ::std::streampos;
-using ::std::string;
-using ::std::stringstream;
-
 class RecorderTestWav
 {
  public:
   RecorderTestWav();
   ~RecorderTestWav();
 
-  int Configure(const string& filename_prefix,
-                const AudioTrackCreateParam& params);
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
-  int Open();
+  int32_t Open();
   void Close();
 
-  int Write(const BufferDescriptor& buffer);
+  int32_t Write(const ::qmmf::recorder::BufferDescriptor& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {
@@ -68,11 +60,13 @@ class RecorderTestWav
     uint32_t riff_size;
     uint32_t wave_id;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "riff_id[" << setbase(16) << riff_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "riff_id[" << ::std::setbase(16) << riff_id
+             << ::std::setbase(10) << "] ";
       stream << "riff_size[" << riff_size << "] ";
-      stream << "wave_id[" << setbase(16) << wave_id << setbase(10) << "] ";
+      stream << "wave_id[" << ::std::setbase(16) << wave_id
+             << ::std::setbase(10) << "] ";
       return stream.str();
     }
   };
@@ -81,9 +75,10 @@ class RecorderTestWav
     uint32_t format_id;
     uint32_t format_size;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "format_id[" << setbase(16) << format_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "format_id[" << ::std::setbase(16) << format_id
+             << ::std::setbase(10) << "] ";
       stream << "format_size[" << format_size << "] ";
       return stream.str();
     }
@@ -97,8 +92,8 @@ class RecorderTestWav
     uint16_t block_align;
     uint16_t bits_per_sample;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "audio_format[" << audio_format << "] ";
       stream << "num_channels[" << num_channels << "] ";
       stream << "sample_rate[" << sample_rate << "] ";
@@ -109,26 +104,42 @@ class RecorderTestWav
     }
   };
 
+  struct __attribute__((packed)) WavFactHeader {
+    uint32_t fact_id;
+    uint32_t fact_size;
+    uint32_t sample_length;
+
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "fact_id[" << ::std::setbase(16) << fact_id
+             << ::std::setbase(10) << "] ";
+      stream << "fact_size[" << fact_size << "] ";
+      stream << "sample_length[" << sample_length << "] ";
+      return stream.str();
+    }
+  };
+
   struct __attribute__((packed)) WavDataHeader {
     uint32_t data_id;
     uint32_t data_size;
 
-    string ToString() const {
-      stringstream stream;
-      stream << "data_id[" << setbase(16) << data_id << setbase(10) << "] ";
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "data_id[" << ::std::setbase(16) << data_id
+             << ::std::setbase(10) << "] ";
       stream << "data_size[" << data_size << "] ";
       return stream.str();
     }
   };
 
-  struct __attribute__((packed)) WavHeader {
+  struct __attribute__((packed)) WavPCMHeader {
     WavRiffHeader riff_header;
     WavChunkHeader chunk_header;
     WavChunkFormat chunk_format;
     WavDataHeader data_header;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "riff_header[" << riff_header.ToString() << "] ";
       stream << "chunk_header[" << chunk_header.ToString() << "] ";
       stream << "chunk_format[" << chunk_format.ToString() << "] ";
@@ -137,12 +148,33 @@ class RecorderTestWav
     }
   };
 
-  string filename_;
-  WavHeader header_;
-  ofstream output_;
-  int current_data_size_;
+  struct __attribute__((packed)) WavG711Header {
+    WavRiffHeader riff_header;
+    WavChunkHeader chunk_header;
+    WavChunkFormat chunk_format;
+    WavFactHeader fact_header;
+    WavDataHeader data_header;
 
-  /* disable copy, assignment, and move */
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "riff_header[" << riff_header.ToString() << "] ";
+      stream << "chunk_header[" << chunk_header.ToString() << "] ";
+      stream << "chunk_format[" << chunk_format.ToString() << "] ";
+      stream << "fact_header[" << fact_header.ToString() << "] ";
+      stream << "data_header[" << data_header.ToString() << "] ";
+      return stream.str();
+    }
+  };
+
+  void WritePCMHeader();
+  void WriteG711Header();
+
+  ::std::string filename_;
+  ::std::ofstream output_;
+  int32_t current_data_size_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
+
+  // disable copy, assignment, and move
   RecorderTestWav(const RecorderTestWav&) = delete;
   RecorderTestWav(RecorderTestWav&&) = delete;
   RecorderTestWav& operator=(const RecorderTestWav&) = delete;

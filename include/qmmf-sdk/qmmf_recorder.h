@@ -171,7 +171,7 @@ class Recorder {
   /// Clients returns these buffers through this API
   status_t ReturnTrackBuffer(const uint32_t session_id,
                              const uint32_t track_id,
-                             std::vector<BufferDescriptor> &buffers);
+                             ::std::vector<BufferDescriptor> &buffers);
 
   /// \brief Changes runtime audio track parameters such as audio source device.
   ///
@@ -221,7 +221,7 @@ class Recorder {
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
-                        const std::vector<android::CameraMetadata> &meta,
+                        const ::std::vector<::android::CameraMetadata> &meta,
                         const ImageCaptureCb& cb);
 
   /// \brief Enables clients to configure advance image capture paramters

@@ -7,6 +7,9 @@ source_files += qmmf_camera_source.cpp
 source_files += qmmf_camera_context.cpp
 source_files += qmmf_encoder_core.cpp
 source_files += qmmf_audio_source.cc
+source_files += qmmf_audio_raw_track_source.cc
+source_files += qmmf_audio_encoded_track_source.cc
+source_files += qmmf_audio_encoder_core.cc
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so

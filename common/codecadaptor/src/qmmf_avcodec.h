@@ -29,6 +29,11 @@
 #pragma once
 
 #include <fcntl.h>
+
+#include <iomanip>
+#include <string>
+#include <sstream>
+
 #include <utils/String8.h>
 #include <OMX_QCOMExtns.h>
 #include <utils/RefBase.h>
@@ -58,6 +63,18 @@ typedef struct CodecBuffer {
   uint64_t  ts;
   int32_t   flag;
   struct    ion_handle_data handle_data;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "pointer[" << pointer << "] ";
+    stream << "fd[" << fd << "] ";
+    stream << "frame_length[" << frame_length << "] ";
+    stream << "filled_length[" << filled_length << "] ";
+    stream << "ts[" << ts << "] ";
+    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
+           << "] ";
+    return stream.str();
+  }
 }CodecBuffer;
 
 typedef struct CodecCmdType {
@@ -78,19 +95,27 @@ static void InitOMXParams(T *params) {
 }
 
 class IInputCodecSource : public RefBase {
-
-public:
+ public:
   virtual ~IInputCodecSource() {}
+
+  // this method provides an input buffer to the AVCodec
   virtual status_t Read(StreamBuffer& stream_buffer) = 0;
+
+  // this method is used by AVCodec to return buffer after encoding
   virtual status_t SignalBufferReturned(StreamBuffer& stream_buffer) = 0;
+
+  // this method is used by AVCodec to notify stop
   virtual status_t NotifyStatus(CodecInputPortStatus status) = 0;
 };
 
 class IOutputCodecSource : public RefBase {
-
-public:
+ public:
   virtual ~IOutputCodecSource() {};
+
+  // this method provides free output port buffer to AVCodec
   virtual status_t GetBuffer(CodecBuffer& codec_buffer) = 0;
+
+  // this method provides filled output buffer to track
   virtual status_t ReturnBuffer(CodecBuffer& codec_buffer) = 0;
 };
 
@@ -150,6 +175,8 @@ private:
   status_t DeleteHandle();
 
   status_t ConfigureVideoEncoder(CodecCreateParam& codec_param);
+
+  status_t ConfigureAudioEncoder(CodecCreateParam& codec_param);
 
   status_t ConfigureAudioCodec(uint32_t sample_rate, uint32_t channels,
                                uint32_t bit_depth, AudioFormat format_type,
@@ -236,10 +263,12 @@ private:
   IOutputCodecSource*     output_source_;
   OMX_BUFFERHEADERTYPE**  in_buff_hdr_;
   OMX_BUFFERHEADERTYPE**  out_buff_hdr_;
+  uint32_t                 in_buff_hdr_size_;
+  uint32_t                 out_buff_hdr_size_;
   CodecCmdType            cmd_buffer_[CMD_BUF_MAX_COUNT];
   uint32_t                cmd_buffer_index_;
   SignalQueue<void *>     signal_queue_;
   static OMX_CALLBACKTYPE callbacks_;
-
+  CodecType               format_type_;
 }; // class AVCodec
 } // namespace qmmf

@@ -31,23 +31,19 @@
 
 #include <iomanip>
 #include <map>
+#include <queue>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <linux/msm_ion.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 namespace recorder {
-
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioBufferList;
-using ::std::map;
-using ::std::setbase;
-using ::std::string;
-using ::std::stringstream;
 
 class RecorderIon
 {
@@ -55,30 +51,42 @@ class RecorderIon
   RecorderIon();
   ~RecorderIon();
 
-  int Allocate(int number, int size);
-  int Deallocate();
+  int32_t Allocate(const int32_t number, const int32_t size);
+  int32_t Deallocate();
 
-  int GetList(AudioBufferList* buffers);
-  int Import(const BnBuffer& bn_buffer, AudioBuffer* buffer);
-  int Export(const AudioBuffer& buffer, BnBuffer* bn_buffer);
+  int32_t GetList(::std::vector<::qmmf::common::audio::AudioBuffer>* buffers);
+  int32_t GetList(::std::queue<CodecBuffer>* buffers);
+
+  int32_t Import(const BnBuffer& bn_buffer,
+                 ::qmmf::common::audio::AudioBuffer* audio_buffer);
+  int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
+                 BnBuffer* bn_buffer);
+
+  int32_t Import(const StreamBuffer& stream_buffer,
+                 ::qmmf::common::audio::AudioBuffer* audio_buffer);
+  int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
+                 StreamBuffer* stream_buffer);
+
+  int32_t Import(const BnBuffer& bn_buffer, CodecBuffer* codec_buffer);
+  int32_t Export(const CodecBuffer& codec_buffer, BnBuffer* bn_buffer);
 
  private:
   struct RecorderIonBuffer {
-    void *data;
+    void* data;
     struct ion_allocation_data allocate_data;
     struct ion_fd_data share_data;
     struct ion_handle_data free_data;
 
-    string ToString() const {
-      stringstream stream;
+    ::std::string ToString() const {
+      ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "allocate_data[";
       stream << "len[" << allocate_data.len << "] ";
       stream << "align[" << allocate_data.align << "] ";
-      stream << setbase(16);
+      stream << ::std::setbase(16);
       stream << "heap_id_mask[" << allocate_data.heap_id_mask << "] ";
       stream << "flags[" << allocate_data.flags << "] ";
-      stream << setbase(10);
+      stream << ::std::setbase(10);
       stream << "handle[" << allocate_data.handle << "]] ";
       stream << "share_data[";
       stream << "handle[" << share_data.handle << "] ";
@@ -89,17 +97,19 @@ class RecorderIon
     }
   };
 
-  int ion_device_;
-  int buffer_size_;
-  int request_size_;
-  map<int, RecorderIonBuffer> buffer_map_;
+  typedef ::std::map<int32_t, RecorderIonBuffer> RecorderIonBufferMap;
 
-  /* disable copy, assignment, and move */
+  RecorderIonBufferMap ion_buffer_map_;
+  int32_t ion_device_;
+  int32_t buffer_size_;
+  int32_t request_size_;
+
+  // disable copy, assignment, and move
   RecorderIon(const RecorderIon&) = delete;
   RecorderIon(RecorderIon&&) = delete;
   RecorderIon& operator=(const RecorderIon&) = delete;
   RecorderIon& operator=(const RecorderIon&&) = delete;
 };
 
-}; /* namespace recorder */
-}; /* namespace qmmf */
+}; // namespace recorder
+}; // namespace qmmf
