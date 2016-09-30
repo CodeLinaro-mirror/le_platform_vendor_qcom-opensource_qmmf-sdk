@@ -1094,11 +1094,17 @@ status_t RecorderTest::StartSession() {
   // Prepare tracks: setup files to dump track data, event etc.
   for (auto track : it->second) {
     track->Prepare();
+    TrackType type = track->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoAVC)
+        || (type == TrackType::kVideoHEVC) ) {
+      session_enabled_ = true;
+    }
   }
   uint32_t session_id = it->first;
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
-  session_enabled_ = true;
+
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   return NO_ERROR;
 }
@@ -1114,8 +1120,13 @@ status_t RecorderTest::StopSession() {
 
   for (auto track : it->second) {
     track->CleanUp();
+    TrackType type = track->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoAVC)
+        || (type == TrackType::kVideoHEVC) ) {
+      session_enabled_ = false;
+    }
   }
-  session_enabled_ = false;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
