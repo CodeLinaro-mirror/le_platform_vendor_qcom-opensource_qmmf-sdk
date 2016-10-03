@@ -1036,8 +1036,17 @@ status_t AVCodec::ConfigureBitrate(CodecCreateParam& param) {
     case VideoRateControlType::kConstant:
       control_rate = OMX_Video_ControlRateConstant;
       break;
+    case VideoRateControlType::kMaxBitrate:
+      control_rate = static_cast<OMX_VIDEO_CONTROLRATETYPE>
+                        QOMX_Video_ControlRateMaxBitrate; //MBR_CFR
+      break;
+    case VideoRateControlType::kMaxBitrateSkipFrames:
+      control_rate = static_cast<OMX_VIDEO_CONTROLRATETYPE>
+                        QOMX_Video_ControlRateMaxBitrateSkipFrames; //MBR_VFR
+      break;
     default:
       control_rate = OMX_Video_ControlRateVariable;
+      break;
   }
 
   OMX_VIDEO_PARAM_BITRATETYPE bitrate_type;

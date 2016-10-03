@@ -1159,8 +1159,8 @@ status_t RecorderTest::SetParams() {
   uint32_t session_id = it->first;
   CodecParamType param_type;
 
-  int32_t input;
-  int32_t value;
+  uint32_t input;
+  uint32_t value;
   do {
     printf("\n");
     printf("****** Set Dynamic Codec Param *******\n" );
@@ -1432,22 +1432,23 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
       video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
       video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kConstant;
+          VideoRateControlType::kMaxBitrate;
       video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 56;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 56;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 56;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
       video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
       video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
       video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
       video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 56;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+      video_track_param.codec_param.avc.ltr_count = 4;
       break;
       case TrackType::kVideoHEVC:
       video_track_param.format_type = VideoFormat::kHEVC;
@@ -1456,22 +1457,23 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
       video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
       video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kConstant;
+          VideoRateControlType::kMaxBitrateSkipFrames;
       video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 56;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 56;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 56;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 51;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 51;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 51;
       video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
       video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
       video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
       video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 26;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 56;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
+      video_track_param.codec_param.hevc.ltr_count = 4;
       break;
       case TrackType::kVideoYUV:
       video_track_param.format_type = VideoFormat::kYUV;

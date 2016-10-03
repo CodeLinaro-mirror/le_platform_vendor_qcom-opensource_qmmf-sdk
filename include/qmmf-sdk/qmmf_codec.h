@@ -183,6 +183,8 @@ enum class VideoRateControlType {
   kVariable,
   kConstantSkipFrames,
   kConstant,
+  kMaxBitrate,
+  kMaxBitrateSkipFrames,
 };
 
 struct AVCParams {
