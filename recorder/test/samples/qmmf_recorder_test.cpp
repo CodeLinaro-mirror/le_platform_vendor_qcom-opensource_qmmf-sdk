@@ -1679,7 +1679,7 @@ status_t TestTrack::EnableOverlay() {
   memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kDateType;
   object_params.location = OverlayLocationType::kBottomLeft;
-  object_params.text_color = 0x202020FF; //Dark Gray
+  object_params.color    = 0x202020FF; //Dark Gray
   object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
@@ -1696,8 +1696,8 @@ status_t TestTrack::EnableOverlay() {
 
   // Create BoundingBox type overlay.
   memset(&object_params, 0x0, sizeof object_params);
-  object_params.type = OverlayType::kBoundingBox;
-  object_params.text_color = 0x33CC00FF; //Light Green
+  object_params.type  = OverlayType::kBoundingBox;
+  object_params.color = 0x33CC00FF; //Light Green
   // Dummy coordinates for test purpose.
   object_params.bounding_box.start_x = 100;
   object_params.bounding_box.start_y = 200;
@@ -1719,7 +1719,7 @@ status_t TestTrack::EnableOverlay() {
   memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kTopRight;
-  object_params.text_color = 0x189BF2FF; //Light Blue
+  object_params.color = 0x189BF2FF; //Light Blue
   std::string user_text("Simple User Text For Testing!!");
   user_text.copy(object_params.user_text, user_text.length());
 
@@ -1731,6 +1731,25 @@ status_t TestTrack::EnableOverlay() {
   ret = recorder_->SetOverlay(track_info_.track_id, user_text_id);
   assert(ret == 0);
   overlay_ids_.push_back(user_text_id);
+
+  // Create PrivacyMask type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kPrivacyMask;
+  object_params.color = 0xFF9933FF; //Fill mask with color.
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 600;
+  object_params.bounding_box.start_y = 200;
+  object_params.bounding_box.width   = 1920/3;
+  object_params.bounding_box.height  = 1080/3;
+
+  uint32_t privacy_mask_id;
+  assert(recorder_ != nullptr);
+  ret = recorder_->CreateOverlayObject(track_info_.track_id,
+                                       object_params, &privacy_mask_id);
+  assert(ret == 0);
+  ret = recorder_->SetOverlay(track_info_.track_id, privacy_mask_id);
+  assert(ret == 0);
+  overlay_ids_.push_back(privacy_mask_id);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
