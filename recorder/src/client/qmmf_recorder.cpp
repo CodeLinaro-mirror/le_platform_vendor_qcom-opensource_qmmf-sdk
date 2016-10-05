@@ -392,7 +392,7 @@ status_t Recorder::GetOverlayObjectParams(const uint32_t track_id,
                                           const uint32_t overlay_id,
                                           OverlayParam &param) {
 
-  QMMF_INFO("%s: Enter" ,__func__);
+  QMMF_DEBUG("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
   auto ret = recorder_client_->GetOverlayObjectParams(track_id, overlay_id,
@@ -401,7 +401,7 @@ status_t Recorder::GetOverlayObjectParams(const uint32_t track_id,
     QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
   }
 
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
 
@@ -409,7 +409,7 @@ status_t Recorder::UpdateOverlayObjectParams(const uint32_t track_id,
                                              const uint32_t overlay_id,
                                              const OverlayParam &param) {
 
-  QMMF_INFO("%s: Enter" ,__func__);
+  QMMF_DEBUG("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
 
   auto ret = recorder_client_->UpdateOverlayObjectParams(track_id, overlay_id,
@@ -418,7 +418,7 @@ status_t Recorder::UpdateOverlayObjectParams(const uint32_t track_id,
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
   }
 
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
 

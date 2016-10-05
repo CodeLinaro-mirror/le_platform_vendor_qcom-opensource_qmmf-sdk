@@ -290,7 +290,7 @@ class OverlayItemText: public OverlayItem {
 
 };
 
-#define PMASK_BOX_BUF_WIDTH     135
+#define PMASK_BOX_BUF_WIDTH     240
 #define PMASK_BOX_BUF_HEIGHT    135
 
 class OverlayItemPrivacyMask: public OverlayItem {

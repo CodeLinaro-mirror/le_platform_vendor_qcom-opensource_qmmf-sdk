@@ -1817,7 +1817,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   RGBAValues mask_color;
   ExtractColorValues(mask_color_, &mask_color);
 
-  // Pain entire rectangle with color.
+  // Paint entire rectangle with color.
   cairo_set_source_rgba (cr_context_, mask_color.red, mask_color.green,
                          mask_color.blue, mask_color.alpha);
   cairo_paint(cr_context_);
@@ -1880,6 +1880,7 @@ void OverlayItemPrivacyMask::GetParameters(OverlayParam& param) {
   param.bounding_box.start_y = y_;
   param.bounding_box.width   = width_;
   param.bounding_box.height  = height_;
+  param.color = mask_color_;
   OVDBG_VERBOSE("%s:Exit ",__func__);
 }
 
