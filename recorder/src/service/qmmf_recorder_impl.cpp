@@ -917,13 +917,23 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
                                           CodecParamType type,
                                           void *param,
                                           size_t param_size) {
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   assert(encoder_core_ != nullptr);
   auto ret = encoder_core_->SetTrackEncoderParams(track_id, type, param,
                                                   param_size);
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s: Failed to set video track parameter", TAG, __func__);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to set video encode params!", TAG, __func__);
+    return ret;
   }
-
+  if (ret == NO_ERROR && type == CodecParamType::kFrameRateType) {
+    uint32_t* fps = static_cast<uint32_t*>(param);
+    ret = camera_source_->UpdateTrackFrameRate(track_id, *fps);
+    if(ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:Failed to set FrameRate to TrackSource", TAG, __func__);
+      return ret;
+    }
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 

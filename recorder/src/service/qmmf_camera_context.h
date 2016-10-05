@@ -84,6 +84,9 @@ class CameraContext : public RefBase {
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const uint32_t buffer_id);
+
+  uint32_t GetCameraFrameRate() { return camera_start_params_.frame_rate; }
+
  private:
 
   friend class CameraPort;
