@@ -2007,13 +2007,13 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
 
     stream_buffer.handle = mediaBuffer->meta_handle;
 
-    QMMF_INFO("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
+    QMMF_DEBUG("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
         stream_buffer.handle->data[0], buf_header->nTimeStamp);
   } else {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
     stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
-    QMMF_INFO("%s:%s EBD buffer[%s]", TAG, __func__,
+    QMMF_DEBUG("%s:%s EBD buffer[%s]", TAG, __func__,
               stream_buffer.ToString().c_str());
   }
 
@@ -2024,7 +2024,7 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
         CodecInputPortStatus::kInputPortIdle);
   }
 
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }
 
@@ -2092,11 +2092,11 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
         OMX_BUFFERFLAG_EOS);
   }
 
-  QMMF_INFO("%s:%s FBD buffer[%s]", TAG, __func__,
-            codec_buffer.ToString().c_str());
+  QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
+      codec_buffer.ToString().c_str());
 
   avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer);
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }
 
