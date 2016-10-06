@@ -57,7 +57,7 @@
 //#define DUMP_YUV_FRAMES
 
 // Enable this define to dump encoded bit stream data.
-#define DUMP_BITSTREAM
+//#define DUMP_BITSTREAM
 
 static const int32_t kIterationCount = 50;
 static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
