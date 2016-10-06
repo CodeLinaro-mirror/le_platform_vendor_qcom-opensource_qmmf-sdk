@@ -206,9 +206,9 @@ int32_t OverlayTest::applyOverlay()
     if(mDateAndTime) {
         OverlayParam param;
         memset(&param, 0x0, sizeof param);
-        param.type       = OverlayType::kDateType;
-        param.location   = mDateLocation;
-        param.text_color = 0xFFFF0000; //SK_ColorRED
+        param.type     = OverlayType::kDateType;
+        param.location = mDateLocation;
+        param.color    = 0xFFFF0000; //SK_ColorRED
         param.date_time.date_format   = mDateFormat;
         param.date_time.time_format   = mTimeFormat;
 

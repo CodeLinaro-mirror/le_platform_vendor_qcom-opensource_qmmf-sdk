@@ -87,7 +87,7 @@ struct OverlayImageInfo {
 struct OverlayParam {
   OverlayType type;
   OverlayLocationType location;
-  uint32_t text_color;
+  uint32_t color;
   union {
     OverlayDateTimeType date_time;
     char user_text[MAX_STRING_LENGTH];

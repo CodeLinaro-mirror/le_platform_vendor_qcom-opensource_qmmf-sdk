@@ -66,6 +66,14 @@ static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
 static const uint32_t kYUVDumpFreq   = 3600; // dump 1 frame in 2 min
 
+#define COLOR_DARK_GRAY 0x202020FF;
+#define COLOR_YELLOW    0xFFFF00FF;
+#define COLOR_BLUE      0x0000CCFF;
+#define COLOR_WHITE     0xFFFFFFFF;
+#define COLOR_ORANGE    0xFF8000FF;
+#define COLOR_LIGHT_GREEN 0x33CC00FF;
+#define COLOR_LIGHT_BLUE 0x189BF2FF;
+
 void RecorderGtest::SetUp() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
@@ -109,7 +117,6 @@ int32_t RecorderGtest::DeInit() {
   assert(ret == NO_ERROR);
   return ret;
 }
-
 
 /*
 * ConnectToService: This test case will test Connect/Disconnect Api.
@@ -689,130 +696,6 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
 }
 
 /*
-* SessionWith1080pEncTrackStartStop: This test will test session with 1080p
-* h264 track.
-* Api test sequence:
-*  - StartCamera
-*  - CreateSession
-*  - CreateVideoTrack
-*   loop Start {
-*   ------------------
-*   - StartVideoTrack
-*   - StopSession
-*   ------------------
-*   } loop End
-*  - DeleteVideoTrack
-*  - DeleteSession
-*  - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  assert(ret == NO_ERROR);
-
-  VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1920;
-  int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  assert(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id     = 0;
-  video_track_param.width         = width;
-  video_track_param.height        = height;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
-  uint32_t video_track_id = 1;
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-              void *meta_param, MetaParamType meta_type,
-              size_t meta_size)
-              -> void { VideoTrackOneEncDataCb(track_id, buffers, meta_param,
-                                               meta_type, meta_size); };
-
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
-
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-        test_info_->name(), i);
-
-    ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
-
-    // Let session run for kRecordDuration, during this time buffer with valid
-    // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
-
-    ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
-  }
-
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
-
-  ret = DeInit();
-
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-
-  assert(ret == NO_ERROR);
-
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-
-}
-
-/*
 * SessionWith4KEncTrack: This test will test session with one 4K h264 track.
 * Api test sequence:
 *  - StartCamera
@@ -925,125 +808,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* SessionWith4KEncTrackStartStop: This test will test session with one 4K h264
-*                                 track.
-* Api test sequence:
-*  - StartCamera
-*  - CreateSession
-*  - CreateVideoTrack
-*   loop Start {
-*   ------------------
-*   - StartVideoTrack
-*   - StopSession
-*   ------------------
-*   } loop End
-*  - DeleteVideoTrack
-*  - DeleteSession
-*  - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  assert(ret == NO_ERROR);
-
-  VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 2160;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  assert(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = width;
-  video_track_param.height      = height;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
-  uint32_t video_track_id = 1;
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor>
-             buffers, void *meta_param, MetaParamType meta_type,
-             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
-             buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
-
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-        test_info_->name(), i);
-
-    ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
-
-    // Let session run for kRecordDuration, during this time buffer with valid
-    // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
-
-    ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
-  }
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
-
-  ret = DeInit();
-  assert(ret == NO_ERROR);
-
   if (track1_bitstream_filefd_ > 0) {
     close(track1_bitstream_filefd_);
   }
@@ -1205,6 +969,1392 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
 }
 
 /*
+* SessionWith4KAnd1080pYUVTrack: This test will test session with 4k and 1080p
+*                                YUV tracks.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  loop Start {
+*   ------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   ------------------
+*   } loop End
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  uint32_t track1_id = 1;
+  uint32_t track2_id = 2;
+
+  std::vector<uint32_t> track_ids;
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id   = 0;
+    video_track_param.width       = 3840;
+    video_track_param.height      = 2160;
+    video_track_param.frame_rate  = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.out_device  = 0x01;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb =
+        [this] (uint32_t track_id, std::vector<BufferDescriptor>
+                buffers, void *meta_param, MetaParamType meta_type,
+                size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
+        buffers, meta_param, meta_type, meta_size); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, track1_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(track1_id);
+
+    video_track_param.width  = 1920;
+    video_track_param.height = 1080;
+    ret = recorder_.CreateVideoTrack(session_id, track2_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    track_ids.push_back(track2_id);
+
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for kRecordDuration, during this time buffer with valid
+    // data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track1_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track2_id);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithStaticImageOverlay: This test will apply static image overlay
+*                                 ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create Static Image type overlay.
+  OverlayParam object_params;
+  uint32_t static_img_id;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kStaticImage;
+  object_params.location = OverlayLocationType::kBottomRight;
+  std::string str("/etc/overlay_test.rgba");
+  str.copy(object_params.image_info.image_location, str.length());
+  object_params.image_info.width  = 451;
+  object_params.image_info.height = 109;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                      &static_img_id);
+  assert(ret == 0);
+  // Apply overlay object on video track.
+  ret = recorder_.SetOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+  uint32_t location;
+  for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    memset(&object_params, 0x0, sizeof object_params);
+    ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
+                                           object_params);
+    assert(ret == 0);
+
+    if (location == 0) {
+      object_params.location = OverlayLocationType::kTopLeft;
+    } else if (location == 1) {
+      object_params.location = OverlayLocationType::kTopRight;
+    } else if (location == 2) {
+      object_params.location = OverlayLocationType::kCenter;
+    } else if (location == 3) {
+      object_params.location = OverlayLocationType::kBottomLeft;
+    } else if (location == 4) {
+      object_params.location = OverlayLocationType::kBottomRight;
+    } else {
+      location = -1;
+    }
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
+                                              object_params);
+    assert(ret == 0);
+    // Record video with overlay.
+    sleep(5);
+  }
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* 1080pEncWithDateAndTimeOverlay: This test applies date and time overlay type
+*                                 ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create Date & Time type overlay.
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kDateType;
+  object_params.location = OverlayLocationType::kBottomLeft;
+  object_params.color    = COLOR_DARK_GRAY;
+  object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
+  object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+
+  uint32_t date_time_id;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                       &date_time_id);
+  assert(ret == 0);
+  // One track can have multiple types of overlay.
+  ret = recorder_.SetOverlay(video_track_id, date_time_id);
+  assert(ret == 0);
+  uint32_t location;
+  for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    memset(&object_params, 0x0, sizeof object_params);
+    ret = recorder_.GetOverlayObjectParams(video_track_id, date_time_id,
+                                           object_params);
+    assert(ret == 0);
+
+    // Update different types of Time & Date formats along with text color
+    // and location on video.
+    if (location == 0) {
+      object_params.location = OverlayLocationType::kTopLeft;
+      object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
+      object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+      object_params.color    = COLOR_DARK_GRAY;
+    } else if (location == 1) {
+      object_params.location = OverlayLocationType::kTopRight;
+      object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_24HR;
+      object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
+      object_params.color    = COLOR_YELLOW;
+    } else if (location == 2) {
+      object_params.location = OverlayLocationType::kCenter;
+      object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_24HR;
+      object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
+      object_params.color    = COLOR_BLUE;
+    } else if (location == 3) {
+      object_params.location = OverlayLocationType::kBottomLeft;
+      object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_AMPM;
+      object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
+      object_params.color    = COLOR_WHITE;
+    } else if (location == 4) {
+      object_params.location = OverlayLocationType::kBottomRight;
+      object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
+      object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
+      object_params.color    = COLOR_ORANGE;
+    } else {
+      location = -1;
+    }
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, date_time_id,
+                                              object_params);
+    assert(ret == 0);
+    // Record video with overlay.
+    sleep(5);
+  }
+
+  ret = recorder_.RemoveOverlay(video_track_id, date_time_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, date_time_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* 1080pEncWithBoundingBoxOverlay: This test applies bounding box overlay type
+*                                 ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create BoundingBox type overlay.
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type  = OverlayType::kBoundingBox;
+  object_params.color = COLOR_LIGHT_GREEN;
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 20;
+  object_params.bounding_box.start_y = 40;
+  object_params.bounding_box.width   = 1920/8;
+  object_params.bounding_box.height  = 1080/8;
+  std::string bb_text("Test BBox..");
+  bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+
+  uint32_t bbox_id;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                       &bbox_id);
+  assert(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    //Mimic moving bounding box.
+    for (uint32_t j = 0; j < 20; ++j) {
+      ret = recorder_.GetOverlayObjectParams(video_track_id, bbox_id,
+                                             object_params);
+      assert(ret == 0);
+
+      object_params.bounding_box.start_x = (object_params.bounding_box.start_x +
+          object_params.bounding_box.width < 1920) ?
+          object_params.bounding_box.start_x + 20 : 20;
+
+      object_params.bounding_box.width = (object_params.bounding_box.start_x +
+          object_params.bounding_box.width < 1920) ?
+          object_params.bounding_box.width + 50 : 1920/8;
+
+      object_params.bounding_box.start_y = (object_params.bounding_box.start_y +
+          object_params.bounding_box.height < 1080) ?
+          object_params.bounding_box.start_y + 10 : 40;
+
+      object_params.bounding_box.height = (object_params.bounding_box.start_y +
+          object_params.bounding_box.height < 1080) ?
+          object_params.bounding_box.height + 50 : 1080/8;
+
+      ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
+                                                object_params);
+      assert(ret == 0);
+      usleep(250000);
+    }
+
+  }
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithUserTextOverlay: This test applies custom user text ontop of 1080
+*                              video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create UserText type overlay.
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kUserText;
+  object_params.location = OverlayLocationType::kTopRight;
+  object_params.color    = COLOR_LIGHT_BLUE;
+  std::string user_text("Simple User Text For Testing!!");
+  user_text.copy(object_params.user_text, user_text.length());
+
+  uint32_t user_text_id;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                       &user_text_id);
+  assert(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, user_text_id);
+  assert(ret == 0);
+
+  uint32_t location;
+  for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    memset(&object_params, 0x0, sizeof object_params);
+    ret = recorder_.GetOverlayObjectParams(video_track_id, user_text_id,
+                                           object_params);
+    assert(ret == 0);
+
+    // Update custom with text color and location on video.
+    if (location == 0) {
+      object_params.location = OverlayLocationType::kTopLeft;
+      object_params.color    = COLOR_LIGHT_BLUE;
+      std::string user_text("TopLeft:Simple User Text!!");
+      user_text.copy(object_params.user_text, user_text.length());
+    } else if (location == 1) {
+      object_params.location = OverlayLocationType::kTopRight;
+      object_params.color    = COLOR_YELLOW;
+      std::string user_text("TopRight:Simple User Text!!");
+      user_text.copy(object_params.user_text, user_text.length());
+    } else if (location == 2) {
+      object_params.location = OverlayLocationType::kCenter;
+      object_params.color    = COLOR_BLUE;
+      std::string user_text("Center:Simple User Text!!");
+      user_text.copy(object_params.user_text, user_text.length());
+    } else if (location == 3) {
+      object_params.location = OverlayLocationType::kBottomLeft;
+      object_params.color    = COLOR_WHITE;
+      std::string user_text("BottomLeft:Simple User Text!!");
+      user_text.copy(object_params.user_text, user_text.length());
+    } else if (location == 4) {
+      object_params.location = OverlayLocationType::kBottomRight;
+      object_params.color    = COLOR_ORANGE;
+      std::string user_text("BottomRight:Simple User Text!!");
+      user_text.copy(object_params.user_text, user_text.length());
+    } else {
+      location = -1;
+    }
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, user_text_id,
+                                              object_params);
+    assert(ret == 0);
+    // Record video with overlay.
+    sleep(5);
+  }
+
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, user_text_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, user_text_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithPrivacyMaskOverlay: This test applies privacy mask overlay type
+*                                 ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create BoundingBox type overlay.
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type  = OverlayType::kPrivacyMask;
+  object_params.color = 0xFF9933FF; //Fill mask with color.
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 20;
+  object_params.bounding_box.start_y = 40;
+  object_params.bounding_box.width   = 1920/8;
+  object_params.bounding_box.height  = 1080/8;
+
+  uint32_t mask_id;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                       &mask_id);
+  assert(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, mask_id);
+  assert(ret == 0);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+      test_info_->name(), i);
+
+    for (uint32_t j = 0; j < 20; ++j) {
+      ret = recorder_.GetOverlayObjectParams(video_track_id, mask_id,
+                                             object_params);
+      assert(ret == 0);
+
+      object_params.bounding_box.start_x = (object_params.bounding_box.start_x +
+          object_params.bounding_box.width < 1920) ?
+          object_params.bounding_box.start_x + 20 : 20;
+
+      object_params.bounding_box.width = (object_params.bounding_box.start_x +
+          object_params.bounding_box.width < 1920) ?
+          object_params.bounding_box.width + 50 : 1920/8;
+
+      object_params.bounding_box.start_y = (object_params.bounding_box.start_y +
+          object_params.bounding_box.height < 1080) ?
+          object_params.bounding_box.start_y + 10 : 40;
+
+      object_params.bounding_box.height = (object_params.bounding_box.start_y +
+          object_params.bounding_box.height < 1080) ?
+          object_params.bounding_box.height + 50 : 1080/8;
+
+      ret = recorder_.UpdateOverlayObjectParams(video_track_id, mask_id,
+                                                object_params);
+      assert(ret == 0);
+      usleep(250000);
+    }
+
+  }
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, mask_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith1080pEncTrackStartStop: This test will test session with 1080p
+* h264 track.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*   loop Start {
+*   ------------------
+*   - StartVideoTrack
+*   - StopSession
+*   ------------------
+*   } loop End
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id     = 0;
+  video_track_param.width         = width;
+  video_track_param.height        = height;
+  video_track_param.frame_rate    = 30;
+  video_track_param.format_type   = format_type;
+  video_track_param.out_device    = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+              void *meta_param, MetaParamType meta_type,
+              size_t meta_size)
+              -> void { VideoTrackOneEncDataCb(track_id, buffers, meta_param,
+                                               meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for kRecordDuration, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* SessionWith4KEncTrackStartStop: This test will test session with one 4K h264
+*                                 track.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*   loop Start {
+*   ------------------
+*   - StartVideoTrack
+*   - StopSession
+*   ------------------
+*   } loop End
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 2160;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, void *meta_param, MetaParamType meta_type,
+             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
+             buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for kRecordDuration, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+  }
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith4KAnd1080pYUVTrackStartStop: This test will test session with 4k
+*                                         and 1080p YUV tracks.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack 1
+*  - CreateVideoTrack 2
+*  loop Start {
+*   ------------------
+*   - StartVideoTrack
+*   - StopSession
+*   ------------------
+*   } loop End
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  uint32_t track1_id = 1;
+  uint32_t track2_id = 2;
+
+  std::vector<uint32_t> track_ids;
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 3840;
+  video_track_param.height      = 2160;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.out_device  = 0x01;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [this] (uint32_t track_id, std::vector<BufferDescriptor>
+              buffers, void *meta_param, MetaParamType meta_type,
+              size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
+      buffers, meta_param, meta_type, meta_size); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, track1_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+  track_ids.push_back(track1_id);
+
+  video_track_param.width  = 1920;
+  video_track_param.height = 1080;
+  ret = recorder_.CreateVideoTrack(session_id, track2_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  track_ids.push_back(track2_id);
+
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for kRecordDuration, during this time buffer with valid
+    // data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+  }
+  ret = recorder_.DeleteVideoTrack(session_id, track1_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, track2_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWithTwo1080pEncTracksStartStop: This test will test session with two
 *                                        1080p h264 tracks.
 * Api test sequence:
@@ -1350,451 +2500,6 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* SessionWith4KAnd1080pYUVTrack: This test will test session with 4k and 1080p
-*                                YUV tracks.
-* Api test sequence:
-*  - StartCamera
-*  - CreateSession
-*  loop Start {
-*   ------------------
-*   - CreateVideoTrack 1
-*   - CreateVideoTrack 2
-*   - StartVideoTrack
-*   - StopSession
-*   - DeleteVideoTrack 1
-*   - DeleteVideoTrack 2
-*   ------------------
-*   } loop End
-*   - DeleteSession
-*   - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  assert(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-  uint32_t track1_id = 1;
-  uint32_t track2_id = 2;
-
-  std::vector<uint32_t> track_ids;
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-        test_info_->name(), i);
-
-    VideoTrackCreateParam video_track_param;
-    memset(&video_track_param, 0x0, sizeof video_track_param);
-
-    video_track_param.camera_id   = 0;
-    video_track_param.width       = 3840;
-    video_track_param.height      = 2160;
-    video_track_param.frame_rate  = 30;
-    video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.out_device  = 0x01;
-
-    TrackCb video_track_cb;
-    video_track_cb.data_cb =
-        [this] (uint32_t track_id, std::vector<BufferDescriptor>
-                buffers, void *meta_param, MetaParamType meta_type,
-                size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
-        buffers, meta_param, meta_type, meta_size); };
-
-    video_track_cb.event_cb =
-        [this] (uint32_t track_id, EventType event_type,
-                void *event_data, size_t event_data_size) -> void {
-        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
-
-    ret = recorder_.CreateVideoTrack(session_id, track1_id,
-                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
-    track_ids.push_back(track1_id);
-
-    video_track_param.width  = 1920;
-    video_track_param.height = 1080;
-    ret = recorder_.CreateVideoTrack(session_id, track2_id,
-                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
-
-    track_ids.push_back(track2_id);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
-
-    ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
-
-    // Let session run for kRecordDuration, during this time buffer with valid
-    // data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
-
-    ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, track1_id);
-    assert(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, track2_id);
-    assert(ret == NO_ERROR);
-  }
-
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = DeInit();
-  assert(ret == NO_ERROR);
-
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* SessionWith4KAnd1080pYUVTrackStartStop: This test will test session with 4k
-*                                         and 1080p YUV tracks.
-* Api test sequence:
-*  - StartCamera
-*  - CreateSession
-*  - CreateVideoTrack 1
-*  - CreateVideoTrack 2
-*  loop Start {
-*   ------------------
-*   - StartVideoTrack
-*   - StopSession
-*   ------------------
-*   } loop End
-*   - DeleteVideoTrack 1
-*   - DeleteVideoTrack 2
-*   - DeleteSession
-*   - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  assert(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-  uint32_t track1_id = 1;
-  uint32_t track2_id = 2;
-
-  std::vector<uint32_t> track_ids;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = 3840;
-  video_track_param.height      = 2160;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor>
-              buffers, void *meta_param, MetaParamType meta_type,
-              size_t meta_size) -> void { VideoTrackYUVDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, track1_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
-  track_ids.push_back(track1_id);
-
-  video_track_param.width  = 1920;
-  video_track_param.height = 1080;
-  ret = recorder_.CreateVideoTrack(session_id, track2_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
-
-  track_ids.push_back(track2_id);
-
-  sessions_.insert(std::make_pair(session_id, track_ids));
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-        test_info_->name(), i);
-
-    ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
-
-    // Let session run for kRecordDuration, during this time buffer with valid
-    // data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
-
-    ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
-  }
-  ret = recorder_.DeleteVideoTrack(session_id, track1_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(session_id, track2_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = DeInit();
-  assert(ret == NO_ERROR);
-
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* 1080pEncWithOverlay: This test will apply static overlay ontop of 1080 video.
-* Api test sequence:
-*  - StartCamera
-*   - CreateSession
-*   - CreateVideoTrack
-*   - StartVideoTrack
-*   loop Start {
-*   ------------------
-*   - CreateOverlayObject
-*   - SetOverlay
-*   - RemoveOverlay
-*   - DeleteOverlayObject
-*   ------------------
-*   } loop End
-*   - StopSession
-*   - DeleteVideoTrack
-*   - DeleteSession
-*  - StopCamera
-*/
-TEST_F(RecorderGtest, 1080pEncWithOverlay) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  assert(ret == NO_ERROR);
-
-  VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1920;
-  int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  assert(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id   = 0;
-  video_track_param.width       = width;
-  video_track_param.height      = height;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
-  uint32_t video_track_id = 1;
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb =
-      [this] (uint32_t track_id, std::vector<BufferDescriptor>
-             buffers, void *meta_param, MetaParamType meta_type,
-             size_t meta_size) -> void { VideoTrackOneEncDataCb(track_id,
-      buffers, meta_param, meta_type, meta_size); };
-
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void
-      { VideoTrackEventCb(track_id,
-      event_type, event_data, event_data_size); };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
-
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
-
-  ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-      test_info_->name(), i);
-
-    // Create Static Image type overlay.
-    OverlayParam object_params;
-    uint32_t static_img_id;
-    memset(&object_params, 0x0, sizeof object_params);
-    object_params.type = OverlayType::kStaticImage;
-    object_params.location = OverlayLocationType::kBottomRight;
-    std::string str("/etc/overlay_test.rgba");
-    str.copy(object_params.image_info.image_location, str.length());
-    object_params.image_info.width  = 451;
-    object_params.image_info.height = 109;
-    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                        &static_img_id);
-    assert(ret == 0);
-    // Apply overlay object on video track.
-    ret = recorder_.SetOverlay(video_track_id, static_img_id);
-    assert(ret == 0);
-
-    // Create Date & Time type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
-    object_params.type = OverlayType::kDateType;
-    object_params.location = OverlayLocationType::kBottomLeft;
-    object_params.text_color = 0x202020FF; //Dark Gray
-    object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
-    object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
-
-    uint32_t date_time_id;
-    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                         &date_time_id);
-    assert(ret == 0);
-    // One track can have multiple types of overlay.
-    ret = recorder_.SetOverlay(video_track_id, date_time_id);
-    assert(ret == 0);
-
-    // Create BoundingBox type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
-    object_params.type = OverlayType::kBoundingBox;
-    object_params.text_color = 0x33CC00FF; //Light Green
-    // Dummy coordinates for test purpose.
-    object_params.bounding_box.start_x = 100;
-    object_params.bounding_box.start_y = 200;
-    object_params.bounding_box.width   = 1920/4;
-    object_params.bounding_box.height  = 1080/4;
-    std::string bb_text("Test BBox..");
-    bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
-
-    uint32_t bbox_id;
-    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                         &bbox_id);
-    assert(ret == 0);
-    ret = recorder_.SetOverlay(video_track_id, bbox_id);
-    assert(ret == 0);
-
-    // Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
-    object_params.type = OverlayType::kUserText;
-    object_params.location = OverlayLocationType::kTopRight;
-    object_params.text_color = 0x189BF2FF; //Light Blue
-    std::string user_text("Simple User Text For Testing!!");
-    user_text.copy(object_params.user_text, user_text.length());
-
-    uint32_t user_text_id;
-    ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                         &user_text_id);
-    assert(ret == 0);
-    ret = recorder_.SetOverlay(video_track_id, user_text_id);
-    assert(ret == 0);
-
-    // Let overlay be on video for 3 sec.
-    sleep(3);
-
-    // Remove overlay object from video track.
-    ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
-    assert(ret == 0);
-    ret = recorder_.RemoveOverlay(video_track_id, date_time_id);
-    assert(ret == 0);
-    ret = recorder_.RemoveOverlay(video_track_id, bbox_id);
-    assert(ret == 0);
-    ret = recorder_.RemoveOverlay(video_track_id, user_text_id);
-    assert(ret == 0);
-
-    // Delete overlay object.
-    ret = recorder_.DeleteOverlayObject(video_track_id, static_img_id);
-    assert(ret == 0);
-    ret = recorder_.DeleteOverlayObject(video_track_id, date_time_id);
-    assert(ret == 0);
-    ret = recorder_.DeleteOverlayObject(video_track_id, bbox_id);
-    assert(ret == 0);
-    ret = recorder_.DeleteOverlayObject(video_track_id, user_text_id);
-    assert(ret == 0);
-
-    // Let video be without overlay for 3 sec.
-    sleep(3);
-  }
-
-  ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
-
-  ret = DeInit();
-  assert(ret == NO_ERROR);
   if (track1_bitstream_filefd_ > 0) {
     close(track1_bitstream_filefd_);
   }

@@ -36,7 +36,7 @@
 
 #if USE_SKIA
 #include <SkCanvas.h>
-#else USE_CAIRO
+#elif USE_CAIRO
 #include <cairo/cairo.h>
 #endif
 
@@ -290,7 +290,8 @@ class OverlayItemText: public OverlayItem {
 
 };
 
-#define PRIVACY_MASK_COLOR         0xF9838383
+#define PMASK_BOX_BUF_WIDTH     240
+#define PMASK_BOX_BUF_HEIGHT    135
 
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
@@ -315,6 +316,7 @@ class OverlayItemPrivacyMask: public OverlayItem {
 #if USE_SKIA
   SkCanvas*   canvas_;
 #endif
+  uint32_t    mask_color_;
 };
 
 }; // namespace overlay

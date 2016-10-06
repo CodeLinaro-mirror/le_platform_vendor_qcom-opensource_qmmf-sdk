@@ -165,12 +165,10 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
     return ret;
   }
 
-  // StaticImage and PrivacyMask type overlayItems never be dirty
-  // Their contents are static, all other items are dirty at Init
-  // time and will be marked as dirty whenever their configuration
-  // changes at run time after first draw.
-  if((param.type == OverlayType::kStaticImage)
-    || (param.type == OverlayType::kPrivacyMask)) {
+  // StaticImage type overlayItem never be dirty as its contents are static,
+  // all other items are dirty at Init time and will be marked as dirty whenever
+  // their configuration changes at run time after first draw.
+  if((param.type == OverlayType::kStaticImage)) {
     overlayItem->MarkDirty(false);
   } else {
     overlayItem->MarkDirty(true);
@@ -435,7 +433,7 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
   }
 
   OVDBG_VERBOSE("%s: numActiveOverlays=%d", __func__, numActiveOverlays);
-  for(int32_t i = 0; i < (numActiveOverlays-1); i++) {
+  for(size_t i = 0; i < (numActiveOverlays-1); i++) {
     c2d_objects.objects[i].next = &c2d_objects.objects[i+1];
   }
 
@@ -630,7 +628,6 @@ void OverlayItem::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 void OverlayItem::ClearSurface() {
 
 #if USE_CAIRO
-  cairo_status_t status;
   RGBAValues bg_color;
   memset(&bg_color, 0x0, sizeof bg_color);
   // Painting entire surface with background color or with fully transparent
@@ -650,8 +647,7 @@ void OverlayItem::ClearSurface() {
   cairo_paint(cr_context_);
   cairo_surface_flush(cr_surface_);
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   // After flush, atleast 5ms is required to avoid flickers.
   usleep(5000);
 #endif
@@ -875,7 +871,7 @@ int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
   location_type_ = param.location;
-  text_color_    = param.text_color;
+  text_color_    = param.color;
 
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
@@ -934,22 +930,17 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   }
   OVDBG_VERBOSE("%s: date:time (%s:%s)", __func__, date_buf, time_buf);
 
-  int32_t date_len = strlen(date_buf);
-  int32_t time_len = strlen(time_buf);
-
   double x_date, x_time, y_date, y_time;
   x_date = x_time = y_date = y_time = 0.0;
 
 #if USE_CAIRO
   // Clear the privous drawn contents.
   ClearSurface();
-  cairo_status_t status;
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                           CAIRO_FONT_WEIGHT_NORMAL);
   cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
   cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_font_extents_t font_extent;
   cairo_font_extents (cr_context_, &font_extent);
@@ -988,8 +979,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
                          text_color.blue, text_color.alpha);
 
   cairo_show_text (cr_context_, date_buf);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   // Draw time.
   cairo_text_extents_t time_text_extents;
@@ -1006,8 +996,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
   cairo_move_to (cr_context_, x_time, y_time);
   cairo_show_text (cr_context_, time_buf);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush(cr_surface_);
   // After flush, atleast 5ms is required to avoid flickers.
@@ -1020,6 +1009,8 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
 #else
   canvas_->clear(SK_ColorDKGRAY);
 #endif
+  int32_t date_len = strlen(date_buf);
+  int32_t time_len = strlen(time_buf);
 
   SkPaint paint;
   paint.setColor(text_color_);
@@ -1093,9 +1084,9 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemDateAndTime::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type      = OverlayType::kDateType;
-  param.location  = location_type_;
-  param.text_color = text_color_;
+  param.type     = OverlayType::kDateType;
+  param.location = location_type_;
+  param.color    = text_color_;
   param.date_time.date_format = date_time_type_.date_format;
   param.date_time.time_format = date_time_type_.time_format;
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1106,7 +1097,7 @@ int32_t OverlayItemDateAndTime::UpdateParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
   location_type_ = param.location;
-  text_color_    = param.text_color;
+  text_color_    = param.color;
 
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
@@ -1228,7 +1219,7 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   y_          = param.bounding_box.start_y;
   width_      = param.bounding_box.width;
   height_     = param.bounding_box.height;
-  bbox_color_ = param.text_color;
+  bbox_color_ = param.color;
 
   int32_t textLen = strlen(param.bounding_box.box_name);
 
@@ -1262,9 +1253,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  ----------
 
 #if USE_CAIRO
-
   ClearSurface();
-  cairo_status_t status;
   // Draw text first.
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                          CAIRO_FONT_WEIGHT_BOLD);
@@ -1304,8 +1293,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
   cairo_show_text (cr_context_, bbox_name_.string());
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   // Draw rectangle
   cairo_set_line_width (cr_context_, BOUNDING_BOX_STROKE_WIDTH);
@@ -1316,8 +1304,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   cairo_rectangle (cr_context_, x_rect, y_rect, BOUNDING_BOX_BUF_WIDTH,
                    BOUNDING_BOX_BUF_HEIGHT - y_rect);
   cairo_stroke (cr_context_);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush (cr_surface_);
 
@@ -1385,7 +1372,7 @@ void OverlayItemBoundingBox::GetParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   param.type      = OverlayType::kBoundingBox;
   param.location  = OverlayLocationType::kNone;
-  param.text_color = bbox_color_;
+  param.color     = bbox_color_;
   param.bounding_box.start_x = x_;
   param.bounding_box.start_y = y_;
   param.bounding_box.width  = width_;
@@ -1410,7 +1397,7 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
   y_          = param.bounding_box.start_y;
   width_      = param.bounding_box.width;
   height_     = param.bounding_box.height;
-  bbox_color_  = param.text_color;
+  bbox_color_ = param.color;
 
   bbox_name_.clear();
   int32_t textLen = strlen(param.bounding_box.box_name);
@@ -1493,10 +1480,10 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
     goto ERROR;
   }
 
-  ion_fd_        = mem_info.fd;
-  vaddr_        = mem_info.vaddr;
-  size_         = mem_info.size;
-  handle_data_   = mem_info.handle_data;
+  ion_fd_      = mem_info.fd;
+  vaddr_       = mem_info.vaddr;
+  size_        = mem_info.size;
+  handle_data_ = mem_info.handle_data;
 
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1525,7 +1512,7 @@ int32_t OverlayItemText::Init(OverlayParam& param) {
   OVDBG_VERBOSE("%s: Enter", __func__);
 
   location_type_ = param.location;
-  text_color_    = param.text_color;
+  text_color_    = param.color;
 
   text_.setTo(param.user_text, strlen(param.user_text) + 1);
   width_  = TEXT_BUF_WIDTH;
@@ -1550,13 +1537,11 @@ int32_t OverlayItemText::UpdateAndDraw() {
 
 #if USE_CAIRO
   ClearSurface();
-  cairo_status_t status;
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                           CAIRO_FONT_WEIGHT_NORMAL);
   cairo_set_font_size (cr_context_, TEXT_SIZE);
   cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_font_extents_t font_extent;
   cairo_font_extents (cr_context_, &font_extent);
@@ -1594,8 +1579,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
                          text_color.blue, text_color.alpha);
 
   cairo_show_text (cr_context_, text_.string());
-  status = cairo_status(cr_context_);
-  assert(status == CAIRO_STATUS_SUCCESS);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush(cr_surface_);
 
 #elif USE_SKIA
@@ -1675,7 +1659,7 @@ void OverlayItemText::GetParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   param.type      = OverlayType::kUserText;
   param.location  = location_type_;
-  param.text_color = text_color_;
+  param.color     = text_color_;
   std::string str(text_.string());
   str.copy(param.user_text, text_.length());
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1686,7 +1670,7 @@ int32_t OverlayItemText::UpdateParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
   location_type_ = param.location;
-  text_color_    = param.text_color;
+  text_color_    = param.color;
   text_.clear();
   text_.setTo(param.user_text, strlen(param.user_text) + 1);
   MarkDirty(true);
@@ -1808,6 +1792,7 @@ int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
   y_          = param.bounding_box.start_y;
   width_      = param.bounding_box.width;
   height_     = param.bounding_box.height;
+  mask_color_ = param.color;
 
   auto ret = CreateSurface();
   if(ret != 0) {
@@ -1819,74 +1804,26 @@ int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
 }
 
 int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
-  //Nothing to update, contents are static.
-  //Never marked as dirty.
-  return OK;
-}
 
-void OverlayItemPrivacyMask::GetDrawInfo(uint32_t targetWidth,
-                                         uint32_t targetHeight,
-                                         DrawInfo* draw_info) {
-
-  OVDBG_VERBOSE("%s: Enter", __func__);
-  draw_info->x            = x_;
-  draw_info->y            = y_;
-  draw_info->width        = width_;
-  draw_info->height       = height_;
-  draw_info->c2dSurfaceId = c2dsurface_id_;
-  OVDBG_VERBOSE("%s: Exit", __func__);
-}
-
-void OverlayItemPrivacyMask::GetParameters(OverlayParam& param) {
-
-  OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type      = OverlayType::kPrivacyMask;
-  param.location  = OverlayLocationType::kNone;
-  param.bounding_box.start_x = x_;
-  param.bounding_box.start_y = y_;
-  param.bounding_box.width   = width_;
-  param.bounding_box.height  = height_;
-  OVDBG_VERBOSE("%s:Exit ",__func__);
-}
-
-int32_t OverlayItemPrivacyMask::UpdateParameters(OverlayParam& param) {
-
-  OVDBG_VERBOSE("%s:Enter ",__func__);
+  OVDBG_VERBOSE("%s: Enter ", __func__);
   int32_t ret = 0;
 
-  if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
-    return BAD_VALUE;
-  }
-  if(param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
-    return BAD_VALUE;
-  }
-  x_      = param.bounding_box.start_x;
-  y_      = param.bounding_box.start_y;
-  width_  = param.bounding_box.width;
-  height_ = param.bounding_box.height;
-
-  OVDBG_VERBOSE("%s:Exit ",__func__);
-  return ret;
-}
-
-int32_t OverlayItemPrivacyMask::CreateSurface() {
-
-  OVDBG_VERBOSE("%s: Enter", __func__);
-
-  int32_t size = width_ * height_ * 4;
-  uint32_t color = PRIVACY_MASK_COLOR;
-  IonMemInfo mem_info;
-
-  memset(&mem_info, 0x0, sizeof(IonMemInfo));
-  auto ret = AllocateIonMemory(mem_info, size);
-  if(0 != ret) {
-    OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
+  if(!dirty_) {
+    OVDBG_DEBUG("%s: Item is not dirty! Don't draw!", __func__);
     return ret;
   }
-  void* pixels = mem_info.vaddr;
-  OVDBG_DEBUG("%s: Ion memory allocated fd(%d)", __func__, mem_info.fd);
+#if USE_CAIRO
+  ClearSurface();
+  RGBAValues mask_color;
+  ExtractColorValues(mask_color_, &mask_color);
 
-#if USE_SKIA
+  // Paint entire rectangle with color.
+  cairo_set_source_rgba (cr_context_, mask_color.red, mask_color.green,
+                         mask_color.blue, mask_color.alpha);
+  cairo_paint(cr_context_);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  cairo_surface_flush (cr_surface_);
+#elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkPaint paintBox;
   SkImageInfo imageInfo;
@@ -1916,6 +1853,101 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   canvas_->drawRect(SkRect::MakeXYWH(0,0, width_, height_), paintBox);
   canvas_->flush();
 #endif
+  // Don't paint until params gets updated by app(UpdateParameters).
+  MarkDirty(false);
+  return OK;
+}
+
+void OverlayItemPrivacyMask::GetDrawInfo(uint32_t targetWidth,
+                                         uint32_t targetHeight,
+                                         DrawInfo* draw_info) {
+
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  draw_info->x            = x_;
+  draw_info->y            = y_;
+  draw_info->width        = width_;
+  draw_info->height       = height_;
+  draw_info->c2dSurfaceId = c2dsurface_id_;
+  OVDBG_VERBOSE("%s: Exit", __func__);
+}
+
+void OverlayItemPrivacyMask::GetParameters(OverlayParam& param) {
+
+  OVDBG_VERBOSE("%s:Enter ",__func__);
+  param.type      = OverlayType::kPrivacyMask;
+  param.location  = OverlayLocationType::kNone;
+  param.bounding_box.start_x = x_;
+  param.bounding_box.start_y = y_;
+  param.bounding_box.width   = width_;
+  param.bounding_box.height  = height_;
+  param.color = mask_color_;
+  OVDBG_VERBOSE("%s:Exit ",__func__);
+}
+
+int32_t OverlayItemPrivacyMask::UpdateParameters(OverlayParam& param) {
+
+  OVDBG_VERBOSE("%s:Enter ",__func__);
+  int32_t ret = 0;
+
+  if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
+    return BAD_VALUE;
+  }
+  if(param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
+    return BAD_VALUE;
+  }
+  x_          = param.bounding_box.start_x;
+  y_          = param.bounding_box.start_y;
+  width_      = param.bounding_box.width;
+  height_     = param.bounding_box.height;
+  mask_color_ = param.color;
+
+  // Mark dirty, updated contents would be re-painted in next paint cycle.
+  MarkDirty(true);
+  OVDBG_VERBOSE("%s:Exit ",__func__);
+  return ret;
+}
+
+int32_t OverlayItemPrivacyMask::CreateSurface() {
+
+  OVDBG_VERBOSE("%s: Enter", __func__);
+
+  int32_t size = PMASK_BOX_BUF_WIDTH * PMASK_BOX_BUF_HEIGHT * 4;
+  IonMemInfo mem_info;
+  memset(&mem_info, 0x0, sizeof(IonMemInfo));
+
+  auto ret = AllocateIonMemory(mem_info, size);
+  if(0 != ret) {
+    OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
+    return ret;
+  }
+  OVDBG_DEBUG("%s: Ion memory allocated fd(%d)", __func__, mem_info.fd);
+#if USE_CAIRO
+  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
+                                                    (mem_info.vaddr),
+                                                    CAIRO_FORMAT_ARGB32,
+                                                    PMASK_BOX_BUF_WIDTH,
+                                                    PMASK_BOX_BUF_HEIGHT,
+                                                    PMASK_BOX_BUF_WIDTH * 4);
+  assert (cr_surface_ != nullptr);
+
+  cr_context_ = cairo_create (cr_surface_);
+  assert (cr_context_ != nullptr);
+#elif USE_SKIA
+  //Create Skia canvas outof ION memory.
+  SkImageInfo imageInfo;
+  memset(&imageInfo, 0x0, sizeof(imageInfo));
+  imageInfo.fWidth     = PMASK_BOX_BUF_WIDTH;
+  imageInfo.fHeight    = PMASK_BOX_BUF_HEIGHT;
+  imageInfo.fColorType = kRGBA_8888_SkColorType;
+  imageInfo.fAlphaType = kPremul_SkAlphaType;
+
+  canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
+                                      PMASK_BOX_BUF_WIDTH *4);
+  if(!canvas_) {
+    OVDBG_ERROR("%s: Skia Creation failed!!", __func__);
+    goto ERROR;
+  }
+#endif
   //Setup c2d.
   ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
                    KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
@@ -1925,12 +1957,12 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   }
 
   C2D_RGB_SURFACE_DEF c2dSurfaceDef;
-  c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS | C2D_COLOR_FORMAT_8888_RGBA;
-  c2dSurfaceDef.width  = width_;
-  c2dSurfaceDef.height = height_;
+  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  c2dSurfaceDef.width  = PMASK_BOX_BUF_WIDTH;
+  c2dSurfaceDef.height = PMASK_BOX_BUF_HEIGHT;
   c2dSurfaceDef.buffer = mem_info.vaddr;
   c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = width_*4;
+  c2dSurfaceDef.stride = PMASK_BOX_BUF_WIDTH *4;
 
   //Create source c2d surface.
   ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
@@ -1941,10 +1973,10 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
     goto ERROR;
    }
 
-  ion_fd_        = mem_info.fd;
-  vaddr_        = mem_info.vaddr;
-  size_         = mem_info.size;
-  handle_data_   = mem_info.handle_data;
+  ion_fd_      = mem_info.fd;
+  vaddr_       = mem_info.vaddr;
+  size_        = mem_info.size;
+  handle_data_ = mem_info.handle_data;
 
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
