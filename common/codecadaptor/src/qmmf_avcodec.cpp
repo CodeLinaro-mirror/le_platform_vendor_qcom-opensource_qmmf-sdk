@@ -1508,12 +1508,17 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
       break;
     case CodecParamType::kFrameRateType:
       value = static_cast<uint32_t*>(params);
-      OMX_CONFIG_FRAMERATETYPE fps_params;
-      InitOMXParams(&fps_params);
-      fps_params.nPortIndex = kPortIndexOutput;
-      FractionToQ16(fps_params.xEncodeFramerate,(int)((*value) * 2), 2);
-      index = OMX_IndexConfigVideoFramerate;
-      ret = omx_client_->SetConfig(index, &fps_params);
+      OMX_CONFIG_FRAMERATETYPE framerate;
+      InitOMXParams(&framerate);
+      framerate.nPortIndex = kPortIndexInput;
+      ret = omx_client_->GetConfig(OMX_IndexConfigVideoFramerate, &framerate);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: GetConfig for type(%d) failed!", TAG, __func__,
+            param_type);
+        return ret;
+      }
+      FractionToQ16(framerate.xEncodeFramerate, (int32_t)((*value) * 2), 2);
+      ret = omx_client_->SetConfig(OMX_IndexConfigVideoFramerate, &framerate);
       break;
     case CodecParamType::kInsertIDRType:
       OMX_CONFIG_INTRAREFRESHVOPTYPE idr_params;
@@ -1558,8 +1563,9 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
       return -1;
   }
 
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to set codec param", TAG, __func__);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s Failed to set codec param of type(%d)", TAG, __func__,
+        param_type);
     return ret;
   }
 
