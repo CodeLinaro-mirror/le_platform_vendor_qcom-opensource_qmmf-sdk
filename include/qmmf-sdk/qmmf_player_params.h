@@ -26,7 +26,13 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include <sys/types.h>
+#include <cstdint>
+#include <functional>
+#include <vector>
 
+#include "qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_codec.h"
 #pragma once
 
 namespace qmmf {
@@ -84,7 +90,7 @@ typedef struct VideoTrackCreateParam {
     uint32_t width;
     uint32_t height;
     VideoCodecType codec;
-    VideoOutDevice out_device;
+    VideoOutSubtype out_device;
 } VideoTrackCreateParam;
 
 // Audio track create time parameters
@@ -98,8 +104,10 @@ typedef struct AudioTrackCreateParam {
     uint32_t sample_rate;
     uint32_t channels;
     uint32_t bit_depth;
+    uint32_t bitrate;
+    AudioCodecParams codec_params;
     AudioCodecType codec;
-    AudioOutDevice out_device;
+    AudioInSubtype out_device;
 } AudioTrackCreateParam;
 
 typedef struct PictureParam {
@@ -110,13 +118,13 @@ typedef struct PictureParam {
 
 typedef struct PlayerCb {
     std::function<void( EventType event_type,
-                        void *event_data
+                        void *event_data,
                         size_t event_data_size)> event_cb;
 } PlayerCb;
 
 typedef struct TrackCb {
     std::function<void( EventType event_type,
-                        void *event_data
+                        void *event_data,
                         size_t event_data_size)> event_cb;
 } TrackCb;
 

@@ -33,6 +33,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
+#include "include/qmmf-sdk/qmmf_player_params.h"
 #include "common/qmmf_common_utils.h"
 
 namespace qmmf {
@@ -52,10 +53,12 @@ enum class CodecInputPortStatus {
 
 typedef std::function<void(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2)>
             AVCodecEventCb;
+typedef ::qmmf::player::AudioTrackCreateParam AudiodecodeTrackCreateParam;
 
 struct CodecCreateParam {
   VideoTrackCreateParam video_param;
   AudioTrackCreateParam audio_param;
+  AudiodecodeTrackCreateParam audio_dec_param;
   AVCodecEventCb        event_cb;
 };
 

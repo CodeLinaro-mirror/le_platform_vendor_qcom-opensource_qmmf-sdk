@@ -24,3 +24,10 @@ codec_adaptor_gtest_SOURCES  := test/gtest/qmmf_codec_adaptor_gtest.cpp
 codec_adaptor_gtest_CPPFLAGS := $(libcodec_adaptor_la_CPPFLAGS) -I$(top_srcdir)
 codec_adaptor_gtest_LDFLAGS  := -lgtest -lgtest_main
 codec_adaptor_gtest_LDADD    := libcodec_adaptor.la
+
+# Codec Adaptor sample audio secode test app
+bin_PROGRAMS += codec_adaptor_audio_decode_test
+
+codec_adaptor_audio_decode_test_SOURCES  := test/sample/qmmf_audio_decode_test.cpp
+codec_adaptor_audio_decode_test_CPPFLAGS := $(libcodec_adaptor_la_CPPFLAGS) -I$(top_srcdir)
+codec_adaptor_audio_decode_test_LDADD    := libcodec_adaptor.la
