@@ -61,8 +61,33 @@ enum class TrackType {
   kVideoHEVC
 };
 
+struct TrackInfo {
+  uint32_t  width;
+  uint32_t  height;
+  uint32_t  fps;
+  TrackType track_type;
+  uint32_t  bitrate;
+  uint32_t  session_id;
+  uint32_t  track_id;
+};
+
 class TestTrack;
 class CmdMenu;
+
+class TestInitParams {
+public:
+    uint32_t               recordTime;
+    uint32_t               numStream;
+    bool                   tnr;
+    bool                   vhdr;
+
+    TestInitParams() :
+            recordTime(0),
+            numStream(0),
+            tnr(0),
+            vhdr(0) {};
+};
+
 
 class RecorderTest {
  public:
@@ -139,6 +164,11 @@ class RecorderTest {
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
 
+  /* Config file related */
+  int32_t RunFromConfig(int32_t argc, char *argv[]);
+
+  int32_t ParseConfig(char *fileName, TestInitParams* initParams, std::vector<TrackInfo>* infos);
+
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, void *meta_param,
                   MetaParamType meta_type, uint32_t meta_size);
@@ -173,14 +203,6 @@ class RecorderTest {
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
-};
-
-struct TrackInfo {
-  uint32_t  width;
-  uint32_t  height;
-  TrackType track_type;
-  uint32_t  session_id;
-  uint32_t  track_id;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
