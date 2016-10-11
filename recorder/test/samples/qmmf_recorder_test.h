@@ -86,6 +86,10 @@ class RecorderTest {
 
   status_t Session1080pEncTrack(const TrackType& type);
 
+  status_t Session1080pEnc1080YUV(const TrackType& type);
+
+  status_t Session4KHEVCAnd1080pYUVTracks(const TrackType& type);
+
   status_t Session4KYUVAnd1080pEncTracks(const TrackType& type);
 
   status_t SessionTwo1080pEncTracks(const TrackType& type);
@@ -237,19 +241,21 @@ class CmdMenu
 {
 public:
     enum CommandType {
-        CONNECT_CMD                       = '1',
-        DISCONNECT_CMD                    = '2',
-        START_CAMERA_CMD                  = '3',
-        STOP_CAMERA_CMD                   = '4',
-        CREATE_YUV_SESSION_CMD            = '5',
-        CREATE_4KENC_AVC_SESSION_CMD      = '6',
-        CREATE_4KENC_HEVC_SESSION_CMD     = '7',
-        CREATE_1080pENC_AVC_SESSION_CMD   = '8',
-        CREATE_1080pENC_HEVC_SESSION_CMD  = '9',
-        CREATE_4KYUV_1080pENC_SESSION_CMD = 'V',
-        CREATE_TWO_1080pENC_SESSION_CMD   = 'M',
-        CREATE_PCM_AUD_SESSION_CMD        = 'a',
-        CREATE_2PCM_AUD_SESSION_CMD       = 'b',
+        CONNECT_CMD                             = '1',
+        DISCONNECT_CMD                          = '2',
+        START_CAMERA_CMD                        = '3',
+        STOP_CAMERA_CMD                         = '4',
+        CREATE_YUV_SESSION_CMD                  = '5',
+        CREATE_4KENC_AVC_SESSION_CMD            = '6',
+        CREATE_4KENC_HEVC_SESSION_CMD           = '7',
+        CREATE_1080pENC_AVC_SESSION_CMD         = '8',
+        CREATE_1080pENC_HEVC_SESSION_CMD        = '9',
+        CREATE_4KYUV_1080pENC_SESSION_CMD       = 'V',
+        CREATE_TWO_1080pENC_SESSION_CMD         = 'M',
+        CREATE_1080pENC_AVC_1080YUV_SESSION_CMD = 'E',
+        CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD   = 'F',
+        CREATE_PCM_AUD_SESSION_CMD              = 'a',
+        CREATE_2PCM_AUD_SESSION_CMD             = 'b',
         CREATE_AAC_AUD_SESSION_CMD        = 'c',
         CREATE_2AAC_AUD_SESSION_CMD       = 'd',
         CREATE_PCM_AAC_AUD_SESSION_CMD    = 'e',

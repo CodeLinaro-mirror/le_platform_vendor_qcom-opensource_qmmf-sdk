@@ -603,6 +603,97 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   return ret;
 }
 
+// In this test case session has one 1080p video encode and one 1080p YUV track.
+status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
+
+  ret = enc_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(enc_1080p_track);
+
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+// In this test case session has one 4K video HEVC and one 1080p YUV track.
+status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
+                                                      track_type) {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 3840;
+  info.height     = 2160;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
+
+  ret = enc_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(enc_1080p_track);
+
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 // This session has one 4K YUV and one 1080p video encode track
 status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
                                                         track_type) {
@@ -1943,6 +2034,10 @@ void CmdMenu::PrintMenu() {
     CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
     CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD);
+  printf("   %c. Create Session: (1080p Enc AVC + 1080 YUV)\n",
+    CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD);
+  printf("   %c. Create Session: (4K Enc HEVC + 1080 YUV)\n",
+    CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
       CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
@@ -2037,6 +2132,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD: {
         test_context.Session1080pEncTrack(TrackType::kVideoAVC);
+      }
+      break;
+      case CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD: {
+        test_context.Session1080pEnc1080YUV(TrackType::kVideoAVC);
+      }
+      break;
+      case CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD: {
+        test_context.Session4KHEVCAnd1080pYUVTracks(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD: {
