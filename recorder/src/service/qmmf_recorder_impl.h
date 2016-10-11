@@ -166,6 +166,8 @@ class RecorderImpl {
 
   bool IsSessionValid(const uint32_t session_id);
 
+  bool IsSessionStarted(const uint32_t session_id);
+
   bool IsTrackValid(const uint32_t session_id, const uint32_t track_id);
 
   typedef struct TrackInfo {
@@ -185,6 +187,7 @@ class RecorderImpl {
   sp<RemoteCallBack>  remote_cb_;
 
   DefaultKeyedVector<uint32_t, Vector<TrackInfo> > sessions_;
+  DefaultKeyedVector<uint32_t, bool> sessions_state_;
   /**Not allowed */
   RecorderImpl();
   RecorderImpl(const RecorderImpl&);
