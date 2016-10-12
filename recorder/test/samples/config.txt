@@ -1,9 +1,13 @@
 /* RecordingTime : Time duration for recording in second.
  * NumStream     : Number of stream to record.
+ * TNR           : 1(Enable tnr), 0(Disable tnr)
+ * VHDR          : 1(Enable vhdr), 0(Disable vhdr)
  */
 
 RecordingTime : 10
 NumStream     : 2
+TNR           : 0
+VHDR          : 0
 
 #First Stream Encoder Params
 Width        : 3840

@@ -1537,10 +1537,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
       ALOGE("%s:%s Unable to query default capture parameters!\n",
             TAG, __func__);
     } else {
-        if(params.tnr)
-            InitSupportedNRModes();
-        if(params.vhdr)
-            InitSupportedVHDRModes();
+        InitSupportedNRModes();
+        InitSupportedVHDRModes();
         InitSupportedIRModes();
     }
     /* StartCamera - End */
@@ -1550,6 +1548,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         ALOGE("%s:%s Number of streams and params provided not equal!!", TAG, __func__);
         return BAD_VALUE;
     }
+
+    /* Session for encoder tracks */
     SessionCb session_status_cb;
     session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
         size_t event_data_size) { SessionCallbackHandler(event_type,
@@ -1575,8 +1575,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         tracks.push_back(video_track);
         sleep(1);
     }
-        /* Test audio AAC track */
-
+    /* Test audio AAC track */
         TestTrack *audio_aac_track = new TestTrack(&recorder_);
         TrackInfo info;
         memset(&info, 0x0, sizeof info);
@@ -1602,7 +1601,32 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
+
+
     /* StartSession - End */
+
+    /* TNR & SHDR - Start */
+    if(params.tnr || params.vhdr) {
+		CameraMetadata meta;
+		auto status = recorder_.GetCameraParam(camera_id_, meta);
+		if (NO_ERROR == status) {
+			if(params.tnr) {
+				const android::String8 TNR_mode = String8("High quality");
+				meta.update(ANDROID_NOISE_REDUCTION_MODE, TNR_mode);
+			}
+			if(params.vhdr) {
+				const android::String8 VHDR_mode = String8("On");
+				meta.update(QCAMERA3_VIDEO_HDR_MODE, VHDR_mode);
+			}
+			status = recorder_.SetCameraParam(camera_id_, meta);
+			if (NO_ERROR != status) {
+				ALOGE("%s:%s Failed to apply: TNR/VHDR\n",
+						TAG, __func__);
+				return status;
+			}
+		}
+    }
+    /* TNR/SHDR - End */
 
     /* Keep recording for the given time */
     sleep(params.recordTime);
