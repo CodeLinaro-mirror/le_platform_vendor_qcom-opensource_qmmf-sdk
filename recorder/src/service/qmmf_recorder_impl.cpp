@@ -241,6 +241,12 @@ status_t RecorderImpl::DeleteSession(const uint32_t session_id) {
   }
   assert(match == true);
   session_ids_.removeAt(idx);
+
+  ssize_t state_idx = sessions_state_.indexOfKey(session_id);
+  if (NAME_NOT_FOUND != state_idx) {
+    sessions_state_.removeItem(session_id);
+  }
+
   return ret;
 }
 
@@ -252,6 +258,12 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
     QMMF_ERROR("%s:%s: Session Id is not valid Or No track is associated"
         " with this sesssion(%d)", TAG, __func__, session_id);
     return BAD_VALUE;
+  }
+
+  if (IsSessionStarted(session_id)) {
+    QMMF_INFO("%s:%s: Session Id is already started!", TAG, __func__,
+              session_id);
+    return NO_ERROR;
   }
 
   Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
@@ -322,6 +334,13 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
   if(ret == NO_ERROR) {
     QMMF_INFO("%s:%s: session_id(%d) with num tracks(%d) Started"
         " Successfully!", TAG, __func__, session_id, num_tracks);
+
+    ssize_t idx = sessions_state_.indexOfKey(session_id);
+    if (NAME_NOT_FOUND != idx) {
+      sessions_state_.replaceValueAt(idx, true);
+    } else {
+      sessions_state_.add(session_id, true);
+    }
   }
   return ret;
 //TODO: Send session status callback to application.
@@ -336,6 +355,12 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
     QMMF_ERROR("%s:%s: Session Id is not valid Or No track is associated "
         "with this sesssion(%d)", TAG, __func__, session_id);
     return BAD_VALUE;
+  }
+
+  if (!IsSessionStarted(session_id)) {
+    QMMF_INFO("%s:%s: Session Id: %d not started yet!", TAG, __func__,
+              session_id);
+    return NO_ERROR;
   }
 
   Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
@@ -408,6 +433,13 @@ status_t RecorderImpl::StopSession(const uint32_t session_id, bool do_flush) {
   if(ret == NO_ERROR) {
       QMMF_INFO("%s:%s: session_id(%d) Stopped Successfully!", TAG, __func__,
       session_id);
+
+      ssize_t idx = sessions_state_.indexOfKey(session_id);
+      if (NAME_NOT_FOUND != idx) {
+        sessions_state_.replaceValueAt(idx, false);
+      } else {
+        sessions_state_.add(session_id, false);
+      }
   }
   return ret;
   //TODO: Send session status callback to application.
@@ -917,13 +949,23 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
                                           CodecParamType type,
                                           void *param,
                                           size_t param_size) {
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   assert(encoder_core_ != nullptr);
   auto ret = encoder_core_->SetTrackEncoderParams(track_id, type, param,
                                                   param_size);
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s: Failed to set video track parameter", TAG, __func__);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to set video encode params!", TAG, __func__);
+    return ret;
   }
-
+  if (ret == NO_ERROR && type == CodecParamType::kFrameRateType) {
+    uint32_t* fps = static_cast<uint32_t*>(param);
+    ret = camera_source_->UpdateTrackFrameRate(track_id, *fps);
+    if(ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:Failed to set FrameRate to TrackSource", TAG, __func__);
+      return ret;
+    }
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -1174,6 +1216,17 @@ bool RecorderImpl::IsSessionValid(const uint32_t session_id) {
     }
   }
   return valid;
+}
+
+bool RecorderImpl::IsSessionStarted(const uint32_t session_id) {
+  bool started = false;
+
+  ssize_t idx = sessions_state_.indexOfKey(session_id);
+  if (NAME_NOT_FOUND != idx) {
+    started = sessions_state_.valueAt(idx);
+  }
+
+  return started;
 }
 
 bool RecorderImpl::IsTrackValid(const uint32_t session_id,

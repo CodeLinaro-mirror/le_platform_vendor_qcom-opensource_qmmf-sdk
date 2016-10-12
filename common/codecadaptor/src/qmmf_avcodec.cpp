@@ -1036,8 +1036,17 @@ status_t AVCodec::ConfigureBitrate(CodecCreateParam& param) {
     case VideoRateControlType::kConstant:
       control_rate = OMX_Video_ControlRateConstant;
       break;
+    case VideoRateControlType::kMaxBitrate:
+      control_rate = static_cast<OMX_VIDEO_CONTROLRATETYPE>
+                        QOMX_Video_ControlRateMaxBitrate; //MBR_CFR
+      break;
+    case VideoRateControlType::kMaxBitrateSkipFrames:
+      control_rate = static_cast<OMX_VIDEO_CONTROLRATETYPE>
+                        QOMX_Video_ControlRateMaxBitrateSkipFrames; //MBR_VFR
+      break;
     default:
       control_rate = OMX_Video_ControlRateVariable;
+      break;
   }
 
   OMX_VIDEO_PARAM_BITRATETYPE bitrate_type;
@@ -1499,12 +1508,17 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
       break;
     case CodecParamType::kFrameRateType:
       value = static_cast<uint32_t*>(params);
-      OMX_CONFIG_FRAMERATETYPE fps_params;
-      InitOMXParams(&fps_params);
-      fps_params.nPortIndex = kPortIndexOutput;
-      FractionToQ16(fps_params.xEncodeFramerate,(int)((*value) * 2), 2);
-      index = OMX_IndexConfigVideoFramerate;
-      ret = omx_client_->SetConfig(index, &fps_params);
+      OMX_CONFIG_FRAMERATETYPE framerate;
+      InitOMXParams(&framerate);
+      framerate.nPortIndex = kPortIndexInput;
+      ret = omx_client_->GetConfig(OMX_IndexConfigVideoFramerate, &framerate);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: GetConfig for type(%d) failed!", TAG, __func__,
+            param_type);
+        return ret;
+      }
+      FractionToQ16(framerate.xEncodeFramerate, (int32_t)((*value) * 2), 2);
+      ret = omx_client_->SetConfig(OMX_IndexConfigVideoFramerate, &framerate);
       break;
     case CodecParamType::kInsertIDRType:
       OMX_CONFIG_INTRAREFRESHVOPTYPE idr_params;
@@ -1549,8 +1563,9 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *params,
       return -1;
   }
 
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to set codec param", TAG, __func__);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s Failed to set codec param of type(%d)", TAG, __func__,
+        param_type);
     return ret;
   }
 
@@ -2007,13 +2022,13 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
 
     stream_buffer.handle = mediaBuffer->meta_handle;
 
-    QMMF_INFO("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
+    QMMF_DEBUG("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
         stream_buffer.handle->data[0], buf_header->nTimeStamp);
   } else {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
     stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
-    QMMF_INFO("%s:%s EBD buffer[%s]", TAG, __func__,
+    QMMF_DEBUG("%s:%s EBD buffer[%s]", TAG, __func__,
               stream_buffer.ToString().c_str());
   }
 
@@ -2024,7 +2039,7 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
         CodecInputPortStatus::kInputPortIdle);
   }
 
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }
 
@@ -2092,11 +2107,11 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
         OMX_BUFFERFLAG_EOS);
   }
 
-  QMMF_INFO("%s:%s FBD buffer[%s]", TAG, __func__,
-            codec_buffer.ToString().c_str());
+  QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
+      codec_buffer.ToString().c_str());
 
   avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer);
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }
 

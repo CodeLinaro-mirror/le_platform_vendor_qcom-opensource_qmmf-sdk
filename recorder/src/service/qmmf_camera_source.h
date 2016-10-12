@@ -93,6 +93,9 @@ class CameraSource {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
+  status_t UpdateTrackFrameRate(const uint32_t track_id,
+                                const uint32_t frame_rate);
+
   status_t CreateOverlayObject(const uint32_t track_id,
                                OverlayParam *param,
                                uint32_t *overlay_id);
@@ -191,6 +194,8 @@ class TrackSource : public IInputCodecSource {
 
   status_t RemoveOverlayObject(const uint32_t overlay_id);
 
+  void UpdateFrameRate(const uint32_t frame_rate);
+
  private:
 
   // Method to provide consumer interface, it would be used by producer to
@@ -200,6 +205,8 @@ class TrackSource : public IInputCodecSource {
   void PushFrameToQueue(StreamBuffer& buffer);
 
   uint32_t TrackId() { return track_params_.track_id; }
+
+  bool IsFrameSkip();
 
 #ifdef ENABLE_FRAME_DUMP
   status_t DumpYUV(StreamBuffer& buffer);
@@ -229,6 +236,11 @@ class TrackSource : public IInputCodecSource {
 
   Overlay  overlay_;
   bool     enable_overlay_;
+
+  double  input_frame_interval_;
+  double  output_frame_interval_;
+  double  remaining_frame_skip_time_;
+  Mutex   frame_skip_lock_;
 
 #ifdef DEBUG_TRACK_FPS
   struct timeval prevtv_;

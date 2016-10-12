@@ -45,7 +45,7 @@ namespace recorder {
 
 static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
-CameraSource* CameraSource::instance_ = NULL;
+CameraSource* CameraSource::instance_ = nullptr;
 
 CameraSource* CameraSource::CreateCameraSource() {
 
@@ -53,7 +53,7 @@ CameraSource* CameraSource::CreateCameraSource() {
     instance_ = new CameraSource;
     if(!instance_) {
       QMMF_ERROR("%s:%s: Can't Create CameraSource Instance", TAG, __func__);
-      //return NULL;
+      //return nullptr;
     }
   }
   QMMF_INFO("%s:%s: CameraSource Instance Created Successfully(0x%x)", TAG,
@@ -99,7 +99,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);
     camera_context.clear();
-    camera_context = NULL;
+    camera_context = nullptr;
     ret = NO_INIT;
     goto FAIL;
   }
@@ -251,7 +251,7 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->DeInit();
   assert(ret == NO_ERROR);
@@ -269,7 +269,7 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->StartTrack();
   assert(ret == NO_ERROR);
@@ -286,7 +286,7 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->StopTrack();
   assert(ret == NO_ERROR);
@@ -313,7 +313,7 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
   }
 
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
   auto ret = track->ReturnTrackBuffer(buffers);
   assert(ret == NO_ERROR);
   return ret;
@@ -323,7 +323,7 @@ status_t CameraSource::SetCameraParam(const uint32_t camera_id,
                                       const CameraMetadata &meta) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != NULL);
+  assert(camera_context.get() != nullptr);
 
   return camera_context->SetCameraParam(meta);
 }
@@ -332,7 +332,7 @@ status_t CameraSource::GetCameraParam(const uint32_t camera_id,
                                       CameraMetadata &meta) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != NULL);
+  assert(camera_context.get() != nullptr);
 
   return camera_context->GetCameraParam(meta);
 }
@@ -341,9 +341,24 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
                                               CameraMetadata &meta) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != NULL);
+  assert(camera_context.get() != nullptr);
 
   return camera_context->GetDefaultCaptureParam(meta);
+}
+
+status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
+                                            const uint32_t frame_rate) {
+
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  assert(track.get() != nullptr);
+
+  track->UpdateFrameRate(frame_rate);
+
+  return NO_ERROR;
 }
 
 status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
@@ -355,7 +370,7 @@ status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->CreateOverlayObject(param, overlay_id);
   if (ret != NO_ERROR) {
@@ -373,7 +388,7 @@ status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->DeleteOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -392,7 +407,7 @@ status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->GetOverlayObjectParams(overlay_id, param);
   if (ret != NO_ERROR) {
@@ -411,7 +426,7 @@ status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->UpdateOverlayObjectParams(overlay_id, param);
   if (ret != NO_ERROR) {
@@ -429,7 +444,7 @@ status_t CameraSource::SetOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->SetOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -447,7 +462,7 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   sp<TrackSource> track = track_sources_.valueFor(track_id);
-  assert(track.get() != NULL);
+  assert(track.get() != nullptr);
 
   auto ret = track->RemoveOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -488,6 +503,16 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(context.get() != nullptr);
   camera_context_ = context;
 
+  //TODO: Add logic to measure source's fps at runtime and then calculate
+  //input_frame_interval_
+  uint32_t camera_frame_rate = context->GetCameraFrameRate();
+  QMMF_INFO("%s:%s camera_frame_rate =%d", TAG, __func__, camera_frame_rate);
+  input_frame_interval_  = 1000000.0 / camera_frame_rate;
+  output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+  remaining_frame_skip_time_ = output_frame_interval_;
+  QMMF_INFO("%s:%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
+      "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
+      output_frame_interval_, remaining_frame_skip_time_);
 #ifdef DEBUG_TRACK_FPS
   timeval prevtv_ = {0x0, 0x0};
   count_ = 0;
@@ -515,7 +540,7 @@ status_t TrackSource::Init() {
   stream_param.frame_rate            = track_params_.params.frame_rate;
   stream_param.id                    = track_params_.track_id;
 
-  assert(camera_context_.get() != NULL);
+  assert(camera_context_.get() != nullptr);
   auto ret = camera_context_->CreateStream(stream_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
@@ -536,7 +561,7 @@ status_t TrackSource::Init() {
 status_t TrackSource::DeInit() {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
-  assert(camera_context_.get() != NULL);
+  assert(camera_context_.get() != nullptr);
   auto ret = camera_context_->DeleteStream(TrackId());
   assert(ret == NO_ERROR);
 
@@ -548,14 +573,14 @@ status_t TrackSource::StartTrack() {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(camera_context_.get() != NULL);
+  assert(camera_context_.get() != nullptr);
 
   Mutex::Autolock lock(stop_lock_);
   is_stop_ = false;
 
   sp<IBufferConsumer> consumer;
   consumer = GetConsumerIntf();
-  assert(consumer.get() != NULL);
+  assert(consumer.get() != nullptr);
 
   auto ret = camera_context_->StartStream(TrackId(), consumer);
   assert(ret == NO_ERROR);
@@ -594,7 +619,7 @@ status_t TrackSource::StopTrack() {
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     //Encoder is not involved in this case.
-    assert(camera_context_.get() != NULL);
+    assert(camera_context_.get() != nullptr);
     auto ret = camera_context_->StopStream(TrackId());
     assert(ret == NO_ERROR);
 
@@ -717,10 +742,14 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
   return;
 #endif
-
+  if (IsFrameSkip()) {
+    // Skip frame to adjust fps.
+    buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+    return;
+  }
 #ifdef DEBUG_TRACK_FPS
   struct timeval tv;
-  gettimeofday(&tv,NULL);
+  gettimeofday(&tv,nullptr);
   uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
                     (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
   count_++;
@@ -800,7 +829,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(bn_buffers.size() > 0);
-  assert(buffer_consumer_impl_ != NULL);
+  assert(buffer_consumer_impl_ != nullptr);
 
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
     QMMF_VERBOSE("%s:%s: track_id(%d) bn_buffers[%d].ion_fd=%d", TAG, __func__,
@@ -951,6 +980,36 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
   return ret;
 }
 
+void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
+
+  Mutex::Autolock autoLock(frame_skip_lock_);
+  assert(frame_rate > 0);
+
+  if (track_params_.params.frame_rate != frame_rate) {
+      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%d) to (%d)", TAG,
+          __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
+    track_params_.params.frame_rate = frame_rate;
+    output_frame_interval_ = 1000000.0 / frame_rate;
+    remaining_frame_skip_time_ = output_frame_interval_;
+    QMMF_INFO("%s:%s: remaining_frame_skip_time_(%f)", TAG, __func__,
+        remaining_frame_skip_time_);
+  }
+}
+
+bool TrackSource::IsFrameSkip() {
+
+  Mutex::Autolock autoLock(frame_skip_lock_);
+  bool skip;
+  remaining_frame_skip_time_ -= input_frame_interval_;
+  if (0 >= remaining_frame_skip_time_) {
+    skip = false;
+    remaining_frame_skip_time_ += output_frame_interval_;
+  } else {
+    skip = true;
+  }
+  return skip;
+}
+
 #ifdef ENABLE_FRAME_DUMP
 status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
 
@@ -959,9 +1018,9 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
   // Dump every 100th frame.
   if (id == 100) {
 
-    void *buf_vaaddr = mmap(NULL, buffer.size, PROT_READ  | PROT_WRITE,
+    void *buf_vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
                             MAP_SHARED, buffer.fd, 0);
-    assert(buf_vaaddr != NULL);
+    assert(buf_vaaddr != nullptr);
 
     String8 file_path;
     size_t written_len;
@@ -987,12 +1046,12 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
         buf_vaaddr, written_len, file_path.string());
 
 FAIL:
-    if (file != NULL) {
+    if (file != nullptr) {
       fclose(file);
     }
-    if(buf_vaaddr != NULL) {
+    if(buf_vaaddr != nullptr) {
       munmap(buf_vaaddr, buffer.size);
-      buf_vaaddr = NULL;
+      buf_vaaddr = nullptr;
     }
     id = 0;
   }

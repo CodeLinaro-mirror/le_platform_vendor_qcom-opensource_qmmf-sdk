@@ -232,7 +232,7 @@ status_t EncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 
 bool EncoderCore::isTrackValid(uint32_t track_id) {
 
-  QMMF_INFO("%s: Number of Tracks exist = %d",__func__, track_encoders_.size());
+  QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__, track_encoders_.size());
   assert(track_encoders_.size() > 0);
   return track_encoders_.indexOfKey(track_id) >= 0 ? true : false;
 }
