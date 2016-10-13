@@ -50,6 +50,9 @@ namespace recorder {
 
 #define MAX_IN_DEVICES 4
 
+#define SENSOR_VENDOR_MODE_OFFSET (24)
+#define SENSOR_VENDOR_MODE_MASK (0xff)
+
 typedef int32_t status_t;
 
 enum class EventType { kError, kStateChanged };
@@ -234,6 +237,15 @@ struct CameraStartParam {
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "flags[" << flags << "]";
     return stream.str();
+  };
+
+  void setSensorVendorMode(int32_t sensor_vendor_mode) {
+    flags &= ~(SENSOR_VENDOR_MODE_MASK);
+    flags |= sensor_vendor_mode << SENSOR_VENDOR_MODE_OFFSET;
+  };
+
+  int32_t getSensorVendorMode() const {
+    return flags >> SENSOR_VENDOR_MODE_OFFSET;
   }
 };
 

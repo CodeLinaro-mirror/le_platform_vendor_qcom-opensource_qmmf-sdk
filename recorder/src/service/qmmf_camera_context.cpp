@@ -32,9 +32,12 @@
 #include <algorithm>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <QCamera3VendorTags.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
+
+using namespace qcamera;
 
 namespace qmmf {
 
@@ -128,6 +131,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
   camera_start_params_ = param;
   result_cb_ = cb;
+  sensor_vendor_mode_ = param.getSensorVendorMode();
 
   return ret;
 FAIL:
@@ -299,6 +303,9 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     QMMF_INFO("%s:%s: Global Streaming Capture request created successfully!",
         TAG, __func__);
   }
+
+  streaming_request_.metadata.update(QCAMERA3_VENDOR_SENSOR_MODE,
+      &sensor_vendor_mode_, 1);
 
   // Add port to list of active ports.
   active_ports_.add(param.id, port);
