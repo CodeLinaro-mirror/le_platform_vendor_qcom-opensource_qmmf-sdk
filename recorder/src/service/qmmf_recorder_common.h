@@ -39,9 +39,6 @@
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
-#define CAMERA_HAL_MODULE_PATH "/usr/lib/hw/camera.msm8953.so"
-#define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.msm8953.so"
-
 #define FRAME_DUMP_PATH        "/data"
 
 // Enable ENABLE_FRAME_DUMP to dump YUV frame at TrackSource level. it will

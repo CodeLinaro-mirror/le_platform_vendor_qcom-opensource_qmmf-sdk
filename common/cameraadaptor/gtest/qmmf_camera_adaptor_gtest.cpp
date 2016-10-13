@@ -47,9 +47,6 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
-const char *Camera3Gtest::HAL_PATH = "/usr/lib/hw/camera.msm8953.so";
-const char *Camera3Gtest::GRALLOC_PATH = "/usr/lib/hw/gralloc.msm8953.so";
-
 Camera3Gtest::Camera3Gtest()
     : camera_idx_(0),
       number_of_cameras_(0),
@@ -111,7 +108,7 @@ void Camera3Gtest::SetUp() {
   device_client_ = new Camera3DeviceClient(client_cb_);
   ASSERT_TRUE(NULL != device_client_.get());
 
-  auto ret = device_client_->Initialize(HAL_PATH, GRALLOC_PATH);
+  auto ret = device_client_->Initialize();
   ASSERT_EQ(0, ret);
 
   number_of_cameras_ = device_client_->GetNumberOfCameras();

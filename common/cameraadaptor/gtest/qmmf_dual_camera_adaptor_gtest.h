@@ -68,9 +68,6 @@ class DualCamera3Gtest : public ::testing::Test {
   CameraClientCallbacks client_cb_;
   CameraContext ctx1_, ctx2_;
   bool camera_error_;
-
-  static const char *HAL_PATH;
-  static const char *GRALLOC_PATH;
 };
 
 }  // namespace cameraadaptor ends here
