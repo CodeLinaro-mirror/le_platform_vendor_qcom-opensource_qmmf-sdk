@@ -74,9 +74,13 @@ AC_CONFIG_FILES([ \
     common/codecadaptor/Makefile \
     recorder/src/client/Makefile \
     recorder/src/service/Makefile \
+    display/src/client/Makefile \
+    display/src/service/Makefile \
     qmmf-server/Makefile \
     qmmf-sdk.pc \
     recorder/test/samples/Makefile \
     recorder/test/gtest/Makefile \
+    display/test/samples/Makefile \
+    display/test/gtest/Makefile \
 ])
 AC_OUTPUT

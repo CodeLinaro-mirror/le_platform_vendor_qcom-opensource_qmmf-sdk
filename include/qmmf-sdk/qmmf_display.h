@@ -29,7 +29,12 @@
 
 #pragma once
 
-#include "qmmf-sdk/qmmf_display_params.h"
+#include <cstddef>
+#include <cstdlib>
+#include <vector>
+#include <string>
+
+#include "qmmf_display_params.h"
 
 namespace qmmf {
 namespace display {
@@ -38,36 +43,63 @@ class DisplayClient;
 class Display
 {
 public:
-    Display(DisplayType type, DisplayEventHandler &event_handler);
+  Display();
 
-    Display() = delete;
+  ~Display();
 
-    ~Display();
+  // Connect to display service.
+  status_t Connect();
 
-    // This API internally calls validate() which checks surface properties and check whether
-    // one of the available pipe's can be assigned to this surface. If surface properties meet
-    // the requirements of available pipe capabilities, one of the pipe available pipe is assigned
-    // to this layer
-    // Surface represents producer side of the buffer queue,
-    status_t CreateSurface(SurfaceConfig &surface_config, std:string &surface_uuid);
+  // Disconnect from display service.
+  // All the surfaces should be deleted before calling
+  // Disconnet Api.
+  status_t Disconnect();
 
-    status_t DestroySurface(const std:string &surface_uuid);
+  //Create a Display based on Display type
+  status_t CreateDisplay(DisplayType type, DisplayCb& cb);
 
-    status_t DequeueSurfaceBuffer(std:string &surface_uuid, SurfaceBuffer &surface_buffer);
+  //Destroy a Display based on Display type
+  status_t DestroyDisplay(DisplayType type);
 
-    status_t QueueSurfaceBuffer(const std:string &surface_uuid, SurfaceBuffer &surface_buffer, SurfaceParam &surface_param);
+  // This API internally calls prepare() which checks surface properties and
+  // check whether one of the available pipe's can be assigned to this surface.
+  // If surface properties meet the requirement of available pipe capabilities,
+  // one of the available pipe is assigned to this layer
+  // Surface represents the layer (YUV or RGB) associated with a display.
+  status_t CreateSurface(const SurfaceConfig &surface_config,
+      uint32_t* surface_id);
 
-    status_t GetDisplayParam(void *param,
-                            size_t param_size);
+  status_t DestroySurface(const uint32_t surface_id);
 
-    // Sets Dynamic display params
-    status_t SetDisplayParam(const void *param,
-                            size_t param_size);
+  // This API gets the empty buffer to be used by the client for rendering.
+  status_t DequeueSurfaceBuffer(const uint32_t surface_id,
+      SurfaceBuffer &surface_buffer);
+
+  // The client renders the data into the empty buffer and calls this API to
+  // push this data for composition and display.
+  status_t QueueSurfaceBuffer(const uint32_t surface_id,
+      const SurfaceBuffer &surface_buffer, const SurfaceParam &surface_param);
+
+  status_t GetDisplayParam(DisplayParamType param_type, void *param,
+      size_t param_size);
+
+  // Sets Dynamic display params
+  status_t SetDisplayParam(DisplayParamType param_type, const void *param,
+      size_t param_size);
+
+  // This API gets the composed layers data for WFD usecase
+  status_t DequeueWBSurfaceBuffer(const uint32_t surface_id,
+      SurfaceBuffer &surface_buffer);
+
+  // The client provides the empty writeback buffers to display.
+  status_t QueueWBSurfaceBuffer(const uint32_t surface_id,
+      const SurfaceBuffer &surface_buffer);
 
 private:
-    sp<DisplayClient> mDisplayClient;
+  DisplayClient* display_client_;
 };
 
-}
-} // namespace qmmf::display
+};
+
+}; // namespace qmmf::display
 

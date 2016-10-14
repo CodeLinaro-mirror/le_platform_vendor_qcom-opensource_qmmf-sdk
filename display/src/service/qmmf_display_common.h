@@ -27,50 +27,45 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <utils/Log.h>
+#pragma once
 
-#include <binder/IInterface.h>
-#include <binder/IBinder.h>
-#include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <binder/IPCThreadState.h>
+#include <utils/List.h>
+#include <utils/Mutex.h>
 
-#include "common/audio/src/service/qmmf_audio_service.h"
-#include "recorder/src/service/qmmf_recorder_service.h"
-#include "display/src/service/qmmf_display_service.h"
-using namespace android;
-using namespace qmmf;
-using namespace qmmf::common::audio;
-using namespace recorder;
-using namespace display;
+#include "qmmf-sdk/qmmf_display_params.h"
 
-#define INFO(...) \
-  do { \
-    printf(__VA_ARGS__); \
-    printf("\n"); \
-    ALOGD(__VA_ARGS__); \
-} while(0)
+namespace qmmf {
 
-int32_t main(int32_t argc, char **argv) {
+namespace display {
 
-  // Add audio service.
-  defaultServiceManager()->addService(String16(kAudioServiceName),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", kAudioServiceName);
+/*
+* Define LOG_LEVEL1 & 2 enable more debug logs.
+*/
+#define LOG_LEVEL1
+#define LOG_LEVEL2
 
-  //Add Recorder service.
-  defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
-                  new qmmf::recorder::RecorderService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
+// QMMF_INFO, ERROR and WARN logs are enabled by default.
+#define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
 
-  //TODO:Add Player service.
-  //Add Display service.
-  defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
-                  new qmmf::display::DisplayService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
+#ifdef LOG_LEVEL1
+#define QMMF_LEVEL1(fmt, args...)  ALOGD(fmt, ##args)
+#else
+#define QMMF_LEVEL1(...) ((void)0)
+#endif
 
-  android::ProcessState::self()->startThreadPool();
-  IPCThreadState::self()->joinThreadPool();
-  return 0;
-}
+#ifdef LOG_LEVEL2
+#define QMMF_LEVEL2(fmt, args...)  ALOGD(fmt, ##args)
+#else
+#define QMMF_LEVEL2(...) ((void)0)
+#endif
+
+/* handle to a specific display client/service connection */
+typedef int32_t DisplayHandle;
+
+#define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.msm8953.so"
+
+}; //namespace display.
+
+}; //namespace qmmf.
