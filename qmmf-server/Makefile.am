@@ -15,3 +15,4 @@ qmmf_server_LDFLAGS  := -lutils -lcutils -llog -lbinder
 qmmf_server_LDADD    := ../common/audio/src/service/libqmmf_audio_service.la
 qmmf_server_LDADD    += ../recorder/src/service/libqmmf_recorder_service.la
 qmmf_server_LDADD    += ../display/src/service/libqmmf_display_service.la
+qmmf_server_LDADD    += ../player/src/service/libqmmf_player_service.la

@@ -1,0 +1,182 @@
+/*
+* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are
+* met:
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*     * Neither the name of The Linux Foundation nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#pragma once
+
+#include <utils/KeyedVector.h>
+
+#include "include/qmmf-sdk/qmmf_player_params.h"
+#include "include/qmmf-sdk/qmmf_codec.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "player/src/service/qmmf_player_common.h"
+#include "player/src/service/qmmf_player_video_sink.h"
+
+
+namespace qmmf {
+namespace player {
+
+using namespace android;
+
+
+class VideoTrackDecoder;
+
+class VideoTrackSink;
+
+class VideoDecoderCore
+{
+
+public:
+~VideoDecoderCore();
+
+ static VideoDecoderCore* CreateVideoDecoderCore();
+
+ status_t CreateVideoTrack(VideoTrackParams& params);
+
+ status_t DequeueTrackInputBuffer(uint32_t track_id,
+                           std::vector<AVCodecBuffer>& buffers);
+
+ status_t QueueTrackInputBuffer(uint32_t track_id,
+                           std::vector<AVCodecBuffer>& buffers);
+
+ status_t PrepareTrackPipeline(uint32_t track_id, const sp<VideoTrackSink>& audio_track_sink);
+
+ status_t StartTrackDecoder(uint32_t track_id);
+
+ status_t StopTrackDecoder(uint32_t track_id);
+
+ status_t PauseTrackDecoder(uint32_t track_id);
+
+ status_t ResumeTrackDecoder(uint32_t track_id);
+
+
+ status_t SetVideoTrackDecoderParams(uint32_t track_id,
+                                 CodecParamType param_type, void* param,
+                                 uint32_t param_size);
+
+
+ status_t DeleteTrackDecoder(uint32_t track_id);
+
+private:
+
+ bool isTrackValid(uint32_t track_id);
+
+ VideoDecoderCore();
+ VideoDecoderCore(const VideoDecoderCore&);
+ VideoDecoderCore& operator=(const VideoDecoderCore&);
+
+ //Map of track id and video decoder
+ DefaultKeyedVector<uint32_t, sp<VideoTrackDecoder>> video_track_decoders_;
+// std::vector  video_tracks;
+
+ static VideoDecoderCore* instance_;
+ int32_t ion_device_;
+
+};
+
+class VideoTrackDecoder : public IInputCodecSource
+{
+
+public:
+  VideoTrackDecoder(int32_t ion_device);
+  ~VideoTrackDecoder();
+
+  status_t ConfigureTrackDecoder(VideoTrackParams& params);
+
+  status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
+
+  status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
+
+  status_t PreparePipeline(const sp<VideoTrackSink>& audio_track_sink);
+
+  status_t StartDecoder();
+
+  status_t StopDecoder();
+
+  status_t PauseDecoder();
+
+  status_t ResumeDecoder();
+
+  status_t SetVideoDecoderParams(CodecParamType param_type, void* param,
+                              uint32_t param_size);
+
+   status_t DeleteDecoder();
+
+  // this method provides an input buffer to the AVCodec
+   status_t Read(StreamBuffer& stream_buffer);
+
+  // this method is used by AVCodec to return buffer after encoding
+   status_t SignalBufferReturned(StreamBuffer& stream_buffer);
+
+  // this method is used by AVCodec to notify stop
+   status_t NotifyStatus(CodecInputPortStatus status);
+
+private:
+
+  status_t AllocInputPortBufs();
+
+  status_t AllocOutputPortBufs();
+
+  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
+
+#ifdef DUMP_YUV_FRAMES
+  void DumpYUVFrames(CodecBuffer& codec_buffer);
+#endif
+
+  uint32_t TrackId() { return video_track_params_.track_id; }
+
+  VideoTrackSink*        video_track_sink_;
+
+  VideoTrackParams       video_track_params_;
+  sp<AVCodec>            avcodec_;
+
+  //For input port
+  Vector<StreamBuffer>    input_buffer_list_;
+  TSQueue<StreamBuffer>   unfilled_frame_queue_;
+  TSQueue<StreamBuffer>   filled_frame_queue;
+  TSQueue<StreamBuffer>   frames_being_decoded_;
+
+  Vector<CodecBuffer>    output_buffer_list_;
+  TSQueue<CodecBuffer>   output_free_buffer_queue_;
+  TSQueue<CodecBuffer>   output_occupy_buffer_queue_;
+
+  Mutex                  lock_;
+  Condition              wait_for_frame_;
+  int32_t                ion_device_;
+  Mutex                  queue_lock_;
+  bool                   eos_;
+#ifdef DUMP_YUV_FRAMES
+  int32_t               file_fd_;
+#endif
+
+};
+
+
+};
+
+};

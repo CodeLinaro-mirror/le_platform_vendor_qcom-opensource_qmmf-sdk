@@ -26,14 +26,17 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+#pragma once
+
 #include <sys/types.h>
+
 #include <cstdint>
 #include <functional>
 #include <vector>
 
-#include "qmmf-sdk/qmmf_device.h"
-#include "qmmf-sdk/qmmf_codec.h"
-#pragma once
+#include "include/qmmf-sdk/qmmf_codec.h"
+#include "include/qmmf-sdk/qmmf_device.h"
 
 namespace qmmf {
 namespace player {
@@ -41,8 +44,10 @@ namespace player {
 typedef struct TrackBuffer {
     void *data;
     size_t size;
+    size_t filled_size;
     int64_t time_stamp;
     uint32_t flag;
+    uint32_t buf_id;
 } TrackBuffer;
 
 enum class TrackMetaBufferType {
@@ -73,10 +78,10 @@ enum class VideoCodecType {
 };
 
 enum class AudioCodecType {
+    kPCM,
     kAAC,
     kAMR,
-    kG711,
-    kPCM
+    kG711
 };
 
 // Video track create time parameters
@@ -89,6 +94,7 @@ typedef struct VideoTrackCreateParam {
     uint32_t num_buffers;
     uint32_t width;
     uint32_t height;
+    uint32_t frame_rate;
     VideoCodecType codec;
     VideoOutSubtype out_device;
 } VideoTrackCreateParam;
@@ -105,9 +111,9 @@ typedef struct AudioTrackCreateParam {
     uint32_t channels;
     uint32_t bit_depth;
     uint32_t bitrate;
-    AudioCodecParams codec_params;
     AudioCodecType codec;
-    AudioInSubtype out_device;
+    AudioCodecParams codec_params;
+    AudioOutSubtype out_device;
 } AudioTrackCreateParam;
 
 typedef struct PictureParam {
@@ -128,5 +134,11 @@ typedef struct TrackCb {
                         size_t event_data_size)> event_cb;
 } TrackCb;
 
-}
-} //namespace qmmf:player
+typedef struct PictureCallback {
+    std::function<void( EventType event_type,
+                        void *event_data,
+                        size_t event_data_size)> event_cb;
+} PictureCallback;
+
+};
+}; //namespace qmmf:player

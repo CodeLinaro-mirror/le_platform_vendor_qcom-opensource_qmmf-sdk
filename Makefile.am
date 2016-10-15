@@ -13,6 +13,9 @@ BUILD_COMPONENTS += display/src/client
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest
+BUILD_COMPONENTS += player/src/client
+BUILD_COMPONENTS += player/src/service
+BUILD_COMPONENTS += player/test/samples
 BUILD_COMPONENTS += qmmf-server
 
 

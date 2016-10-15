@@ -169,6 +169,8 @@ public:
 
   status_t ResumeCodec();
 
+  status_t Flush(OMX_U32 nPortIndex);
+
 private:
   // Create OMX Handle
   status_t CreateHandle(char *component_Name);
@@ -197,8 +199,6 @@ private:
   status_t GetVideoProfile(CodecCreateParam& codec_param);
 
   status_t GetVideoLevel(CodecCreateParam& codec_param);
-
-  status_t Flush(OMX_U32 nPortIndex);
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
 
