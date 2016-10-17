@@ -1,0 +1,29 @@
+source_files := qmmf_player_service.cpp
+source_files += ../client/qmmf_player_client.cpp
+source_files += qmmf_player_impl.cpp
+source_files += qmmf_player_common.cpp
+source_files += qmmf_player_remote_cb.cpp
+source_files += qmmf_player_audio_decoder_core.cpp
+source_files += qmmf_player_video_decoder_core.cpp
+source_files += qmmf_player_audio_sink.cpp
+source_files += qmmf_player_video_sink.cpp
+
+# Build qmmf player service library
+# libqmmf_player_service.so
+lib_LTLIBRARIES := libqmmf_player_service.la
+
+libqmmf_player_service_la_SOURCES := $(source_files)
+
+libqmmf_player_service_la_CPPFLAGS := -I$(top_srcdir)/include
+libqmmf_player_service_la_CPPFLAGS += -I$(top_srcdir)/
+libqmmf_player_service_la_CPPFLAGS += -I$(LIBGRALLOC)
+libqmmf_player_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
+libqmmf_player_service_la_CPPFLAGS += -DHAVE_PTHREADS
+libqmmf_player_service_la_CPPFLAGS += -DLINUX_ENABLED=1
+libqmmf_player_service_la_CPPFLAGS += -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
+libqmmf_player_service_la_CFLAGS   := -std=c++11 -std=gnu++0x -std=c++0x -std=gnu++11
+libqmmf_player_service_la_LDFLAGS  := -llog -lbinder -lutils -lcutils
+
+libqmmf_player_service_la_LIBADD   := ../client/libqmmf_player_client.la
+libqmmf_player_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la
+libqmmf_player_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la

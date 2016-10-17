@@ -39,11 +39,14 @@
 #include "common/audio/src/service/qmmf_audio_service.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
 #include "display/src/service/qmmf_display_service.h"
+#include "player/src/service/qmmf_player_service.h"
+
 using namespace android;
 using namespace qmmf;
 using namespace qmmf::common::audio;
 using namespace recorder;
 using namespace display;
+using namespace player;
 
 #define INFO(...) \
   do { \
@@ -64,11 +67,15 @@ int32_t main(int32_t argc, char **argv) {
                   new qmmf::recorder::RecorderService(), false);
   INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
 
-  //TODO:Add Player service.
+  //Add Player service.
+  defaultServiceManager()->addService(String16(QMMF_PLAYER_SERVICE_NAME),
+                  new qmmf::player::PlayerService(), false);
+  INFO("Service(%s) Added successfully!", QMMF_PLAYER_SERVICE_NAME);
+  
   //Add Display service.
   defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
                   new qmmf::display::DisplayService(), false);
-    INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
+  INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
 
   android::ProcessState::self()->startThreadPool();
   IPCThreadState::self()->joinThreadPool();

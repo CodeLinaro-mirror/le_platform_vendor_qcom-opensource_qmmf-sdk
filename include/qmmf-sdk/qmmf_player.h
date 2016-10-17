@@ -29,18 +29,34 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdlib>
+#include <vector>
+#include <string>
+
 #include "qmmf-sdk/qmmf_player_params.h"
 
 namespace qmmf {
 namespace player {
 
+using namespace android;
+
+
+typedef int32_t status_t;
+
 class PlayerClient;
+
 class Player
 {
 public:
-    Player(PlayerCb& cb);
+    Player();
 
     ~Player();
+
+    status_t Connect(PlayerCb& cb);
+
+    status_t Disconnect();
+
 
     status_t CreateAudioTrack(uint32_t track_id,
                               AudioTrackCreateParam& param,
@@ -60,13 +76,13 @@ public:
     status_t Prepare();
 
     status_t DequeueInputBuffer(uint32_t track_id,
-                                std::vector<TrackBuffer &>buffers);
+                                std::vector<TrackBuffer>& buffers);
 
     status_t QueueInputBuffer(uint32_t track_id,
-                              std::vector<TrackBuffer &>buffers,
-                              void *meta_param = nullptr,
-                              size_t meta_size = 0,
-                              TrackMetaParamType meta_type = kNone);
+                              std::vector<TrackBuffer>& buffers,
+                              void *meta_param,
+                              size_t meta_size,
+                              TrackMetaBufferType meta_type);
 
     // starts track playback. This is an async API and returns immediately without
     // waiting for actual playback to start. An event callback is called when the
@@ -106,7 +122,8 @@ public:
                                 size_t param_size);
 
 private:
-    sp<PlayerClient> mPlayerClient;
+    PlayerClient* player_client_;
 };
 
-} } // namespace qmmf::player
+}; //qmmf
+}; // player

@@ -63,6 +63,7 @@ typedef struct CodecBuffer {
   uint64_t  ts;
   int32_t   flag;
   struct    ion_handle_data handle_data;
+  uint32_t  offset_to_frame;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -168,6 +169,8 @@ public:
 
   status_t ResumeCodec();
 
+  status_t Flush(OMX_U32 nPortIndex);
+
 private:
   // Create OMX Handle
   status_t CreateHandle(char *component_Name);
@@ -177,6 +180,8 @@ private:
   status_t ConfigureVideoEncoder(CodecCreateParam& codec_param);
 
   status_t ConfigureAudioEncoder(CodecCreateParam& codec_param);
+
+  status_t ConfigureAudioDecoder(CodecCreateParam& codec_param);
 
   status_t ConfigureAudioCodec(uint32_t sample_rate, uint32_t channels,
                                uint32_t bit_depth, AudioFormat format_type,
@@ -194,8 +199,6 @@ private:
   status_t GetVideoProfile(CodecCreateParam& codec_param);
 
   status_t GetVideoLevel(CodecCreateParam& codec_param);
-
-  status_t Flush(OMX_U32 nPortIndex);
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
 
@@ -270,5 +273,7 @@ private:
   SignalQueue<void *>     signal_queue_;
   static OMX_CALLBACKTYPE callbacks_;
   CodecType               format_type_;
+  //to handle the two EOS callbacks from Audio OMX component
+  bool                    isEOSonOutput;
 }; // class AVCodec
 } // namespace qmmf

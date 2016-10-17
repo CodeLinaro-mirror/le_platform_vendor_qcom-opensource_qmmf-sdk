@@ -58,6 +58,8 @@ typedef struct {
   uint32_t size;
   void *data;
   uint32_t flags;
+  uint32_t filled_length;
+  uint32_t frame_length;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -142,7 +144,7 @@ class SignalQueue {
       Mutex::Autolock l(cmd_queue_mutex_);
       size = cmd_queue_.size();
     }
-    if(size == 0) {
+    if (size == 0) {
       // wait for signal or for data to come into queue
       Mutex::Autolock l(lock_);
       while (size == 0) {
@@ -175,7 +177,7 @@ class SignalQueue {
       Mutex::Autolock l(cmd_queue_mutex_);
       size = cmd_queue_.size();
     }
-    if(cmd_queue_size < size) {
+    if (cmd_queue_size < size) {
       QMMF_ERROR("%s: command queue size full", __func__);
       return -1;
     }
