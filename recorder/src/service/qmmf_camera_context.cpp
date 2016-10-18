@@ -366,7 +366,8 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   Mutex::Autolock lock(device_access_lock_);
-  if (!streaming_request_.metadata.isEmpty()) {
+  if ((!streaming_request_.metadata.isEmpty()) &&
+      (!streaming_request_.streamIds.isEmpty())) {
     int64_t last_frame_mumber;
     streaming_request_.metadata.clear();
     streaming_request_.metadata.append(meta);
