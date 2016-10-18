@@ -483,7 +483,7 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
 
   bool valid = false;
   size_t size = track_sources_.size();
-  QMMF_INFO("%s: Number of Tracks exist = %d",__func__, size);
+  QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__, size);
   for(size_t i = 0; i < size; i++) {
     if (track_id == track_sources_.keyAt(i)) {
         valid = true;
