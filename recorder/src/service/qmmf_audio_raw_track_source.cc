@@ -220,17 +220,17 @@ status_t AudioRawTrackSource::StopTrack() {
   message_lock_.unlock();
   signal_.notify_one();
 
-  if (thread_ != nullptr) {
-    thread_->join();
-    delete thread_;
-    thread_ = nullptr;
-  }
-
   int32_t result = end_point_->Stop(false);
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
+  }
+
+  if (thread_ != nullptr) {
+    thread_->join();
+    delete thread_;
+    thread_ = nullptr;
   }
 
   return ::android::NO_ERROR;
@@ -341,7 +341,6 @@ void AudioRawTrackSource::Thread() {
   queue<AudioBuffer> buffers;
   queue<BnBuffer> bn_buffers;
   int32_t result;
-  bool paused = false;
 
   // clear the message queue of expired messages
   while (!messages_.empty())
@@ -360,6 +359,8 @@ void AudioRawTrackSource::Thread() {
   initial_buffers.clear();
 
   bool keep_running = true;
+  bool stop_received = false;
+  bool paused = false;
   while (keep_running) {
     // wait until there is something to do
     if (bn_buffers.empty() && buffers.empty() && messages_.empty()) {
@@ -386,7 +387,7 @@ void AudioRawTrackSource::Thread() {
         case AudioMessageType::kMessageStop:
           QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
           paused = false;
-          keep_running = false;
+          stop_received = true;
           break;
 
         case AudioMessageType::kMessageBuffer:
@@ -418,11 +419,15 @@ void AudioRawTrackSource::Thread() {
       track_params_.data_cb(track_params_.track_id, {bn_buffer}, nullptr,
                             MetaParamType::kNone, 0);
 
+      if (stop_received &&
+          buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+        keep_running = false;
+
       buffers.pop();
     }
 
     // process buffers from client
-    if (!bn_buffers.empty() && !paused && keep_running) {
+    if (!bn_buffers.empty() && !paused && !stop_received) {
       BnBuffer bn_buffer = bn_buffers.front();
       QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s]", TAG, __func__,
                    bn_buffer.ToString().c_str());

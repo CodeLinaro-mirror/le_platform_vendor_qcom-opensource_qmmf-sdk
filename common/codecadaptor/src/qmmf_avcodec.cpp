@@ -1979,10 +1979,10 @@ void* AVCodec::DeliverInput(void *arg) {
       QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld)", TAG, __func__,
           stream_buffer.data, stream_buffer.fd, stream_buffer.timestamp);
     else
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld)
-         filled_length(%d) frame_length(%d)", TAG, __func__, stream_buffer.data,
-        stream_buffer.fd, stream_buffer.timestamp, stream_buffer.filled_length,
-        stream_buffer.frame_length);
+      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld) filled_length(%d) frame_length(%d)",
+          TAG, __func__, stream_buffer.data, stream_buffer.fd,
+          stream_buffer.timestamp, stream_buffer.filled_length,
+          stream_buffer.frame_length);
     ret = avcodec->EmptyThisBuffer(buf_header);
     if(ret != 0) {
         QMMF_ERROR("%s:%s ETB failed for buffer(%p)", TAG, __func__,
