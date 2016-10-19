@@ -228,12 +228,6 @@ class RecorderClient {
   // map <track_id, map <buffer index, buffer_info> >
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
 
-  // This map keeps track of incoming BnBuffers from service.
-  // and used to return buffers back to service.
-  // <track_id, vector<BnBuffer>>
-  DefaultKeyedVector<uint32_t, Vector<BnBuffer> > track_in_buffers_;
-  // Lock to protect track_in_buffers_.
-  Mutex list_lock_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {
