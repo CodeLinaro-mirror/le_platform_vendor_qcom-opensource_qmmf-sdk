@@ -1484,320 +1484,348 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
 
 int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 {
-    ALOGD("%s: Enter ",__func__);
+  ALOGD("%s: Enter ",__func__);
 
-    struct timespec t;
-    int32_t ret;
+  struct timespec t;
+  int32_t ret;
 
-    if(strcmp(argv[1], "-c")) {
-        ALOGD("Usage: %s -c config.txt",argv[0]);
-        return -1;
-    }
+  if(strcmp(argv[1], "-c")) {
+    ALOGD("Usage: %s -c config.txt",argv[0]);
+    return -1;
+  }
 
-    TestInitParams params;
-    std::vector<TrackInfo> infos;
-    ret = ParseConfig(argv[2], &params, &infos);
-    if(ret != 0) {
-        return ret;
-    }
-
-    /* Connect - Start */
-    RecorderCb recorder_status_cb;
-    recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-        size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
-        event_data_size); };
-
-    ret = recorder_.Connect(recorder_status_cb);
-
-    if (NO_ERROR  != ret) {
-        ALOGE("%s:%s Connect Failed!!", TAG, __func__);
-        return ret;
-    }
-    /* Connect - End */
-
-    /* StartCamera - Begin */
-    CameraStartParam camera_params;
-    memset(&camera_params, 0x0, sizeof camera_params);
-    camera_params.zsl_mode            = false;
-    camera_params.zsl_queue_depth     = 10;
-    camera_params.zsl_width           = 3840;
-    camera_params.zsl_height          = 2160;
-    camera_params.frame_rate          = 30;
-    camera_params.flags               = 0x0;
-
-    camera_id_ = 0;
-    ret = recorder_.StartCamera(camera_id_, camera_params);
-    if(ret != 0) {
-        ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
-        return ret;
-    }
-
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
-    if (NO_ERROR != ret) {
-      ALOGE("%s:%s Unable to query default capture parameters!\n",
-            TAG, __func__);
-    } else {
-        InitSupportedNRModes();
-        InitSupportedVHDRModes();
-        InitSupportedIRModes();
-    }
-    /* StartCamera - End */
-
-    /* Create session and add track */
-    if (params.numStream != infos.size()) {
-        ALOGE("%s:%s Number of streams and params provided not equal!!", TAG, __func__);
-        return BAD_VALUE;
-    }
-
-    /* Session for encoder tracks */
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-        size_t event_data_size) { SessionCallbackHandler(event_type,
-        event_data, event_data_size); };
-
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    if(ret != 0) {
-        ALOGE("%s:%s CreateSession Failed!!", TAG, __func__);
-        return ret;
-    }
-    TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
-
-    std::vector<TestTrack*> tracks;
-
-    for(uint32_t i=1; i <= params.numStream; i++) {
-        TestTrack *video_track = new TestTrack(&recorder_);
-        TrackInfo track_info = infos[i-1];
-        track_info.track_id = i;
-        track_info.session_id = session_id;
-        ret = video_track->SetUp(track_info);
-        assert(ret == 0);
-        tracks.push_back(video_track);
-        sleep(1);
-    }
-    /* Test audio AAC track */
-        TestTrack *audio_aac_track = new TestTrack(&recorder_);
-        TrackInfo info;
-        memset(&info, 0x0, sizeof info);
-        info.track_id   = 101;
-        info.track_type = TrackType::kAudioAAC;
-    info.session_id = session_id;
-
-    ret = audio_aac_track->SetUp(info);
-    assert(ret == 0);
-    tracks.push_back(audio_aac_track);
-
-    /* StartSession - Begin */
-    // Prepare tracks: setup files to dump track data, event etc.
-    for (uint32_t i=0;i < tracks.size();i++) {
-      tracks[i]->Prepare();
-      TrackType type = tracks[i]->GetTrackType();
-      if ( (type == TrackType::kVideoYUV)
-          || (type == TrackType::kVideoAVC)
-          || (type == TrackType::kVideoHEVC) ) {
-        session_enabled_ = true;
-      }
-    }
-
-    ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
-
-
-    /* StartSession - End */
-
-    /* TNR & SHDR - Start */
-    if(params.tnr || params.vhdr) {
-		CameraMetadata meta;
-		auto status = recorder_.GetCameraParam(camera_id_, meta);
-		if (NO_ERROR == status) {
-			if(params.tnr) {
-				const android::String8 TNR_mode = String8("High quality");
-				meta.update(ANDROID_NOISE_REDUCTION_MODE, TNR_mode);
-			}
-			if(params.vhdr) {
-				const android::String8 VHDR_mode = String8("On");
-				meta.update(QCAMERA3_VIDEO_HDR_MODE, VHDR_mode);
-			}
-			status = recorder_.SetCameraParam(camera_id_, meta);
-			if (NO_ERROR != status) {
-				ALOGE("%s:%s Failed to apply: TNR/VHDR\n",
-						TAG, __func__);
-				return status;
-			}
-		}
-    }
-    /* TNR/SHDR - End */
-
-    /* Keep recording for the given time */
-    sleep(params.recordTime);
-
-    /* StopSession - Begin */
-    ret = recorder_.StopSession(session_id, true /*flush buffers*/);
-    assert(ret == NO_ERROR);
-
-    for (uint32_t i=0;i < tracks.size();i++) {
-      tracks[i]->CleanUp();
-      TrackType type = tracks[i]->GetTrackType();
-      if ( (type == TrackType::kVideoYUV)
-          || (type == TrackType::kVideoAVC)
-          || (type == TrackType::kVideoHEVC) ) {
-        session_enabled_ = false;
-      }
-    }
-    /* StopSession - End */
-
-    /* DeleteSession - Begin */
-    // Delete all the tracks associated to session.
-    for (uint32_t i=0;i < tracks.size();i++) {
-        if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
-            tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
-            tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
-            tracks[i]->GetTrackType() == TrackType::kAudioG711) {
-          ret = recorder_.DeleteAudioTrack(session_id, tracks[i]->GetTrackId());
-        } else {
-          ret = recorder_.DeleteVideoTrack(session_id, tracks[i]->GetTrackId());
-        }
-        assert(ret == 0);
-        delete tracks[i];
-        tracks[i] = nullptr;
-    }
-    // Once all tracks are deleted successfully delete session.
-    ret = recorder_.DeleteSession(session_id);
-
-    /* DeleteSession - End */
-
-    /* StopCamera - Begin */
-    ret = recorder_.StopCamera(camera_id_);
-    if(ret != 0) {
-        ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
-        return ret;
-    }
-    static_info_.clear();
-    /* StopCamera - End */
-
-    /* Disconnect - Begin*/
-    ret = recorder_.Disconnect();
-    if(ret != 0) {
-        ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
-        return ret;
-    }
-    /* Disconnect - End */
-
-    ALOGD("%s: Exit ",__func__);
+  TestInitParams params;
+  std::vector<TrackInfo> infos;
+  ret = ParseConfig(argv[2], &params, &infos);
+  if(ret != 0) {
     return ret;
+  }
+
+  // Connect - Start
+  RecorderCb recorder_status_cb;
+  recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
+      event_data_size); };
+
+  ret = recorder_.Connect(recorder_status_cb);
+
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Connect Failed!!", TAG, __func__);
+    return ret;
+  }
+  // Connect - End
+
+  // StartCamera - Begin
+  // TODO: this parameters to be configured from config file
+  // once the proper lower layer support for zsl is added
+  CameraStartParam camera_params;
+  memset(&camera_params, 0x0, sizeof camera_params);
+  camera_params.zsl_mode            = false;
+  camera_params.zsl_queue_depth     = 10;
+  camera_params.zsl_width           = 3840;
+  camera_params.zsl_height          = 2160;
+  camera_params.frame_rate          = 30;
+  camera_params.flags               = 0x0;
+
+  camera_id_ = 0;
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+    ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+           TAG, __func__);
+    return ret;
+  }
+
+  InitSupportedNRModes();
+  InitSupportedVHDRModes();
+  InitSupportedIRModes();
+
+  // StartCamera - End
+
+  // Create session and add track
+  if (params.numStream != infos.size()) {
+    ALOGE("%s:%s Number of streams and params provided not equal!!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  // Session for encoder tracks
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  if(ret != 0) {
+    ALOGE("%s:%s CreateSession Failed!!", TAG, __func__);
+    return ret;
+  }
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  for(uint32_t i=1; i <= params.numStream; i++) {
+    TestTrack *video_track = new TestTrack(&recorder_);
+    TrackInfo track_info = infos[i-1];
+    track_info.track_id = i;
+    track_info.session_id = session_id;
+    ret = video_track->SetUp(track_info);
+    assert(ret == 0);
+    tracks.push_back(video_track);
+  }
+
+  // Test audio AAC track
+  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioAAC;
+  info.session_id = session_id;
+
+  ret = audio_aac_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_aac_track);
+
+  // StartSession - Begin
+  // Prepare tracks: setup files to dump track data, event etc.
+  for (uint32_t i=0;i < tracks.size();i++) {
+    tracks[i]->Prepare();
+    TrackType type = tracks[i]->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+      || (type == TrackType::kVideoAVC)
+      || (type == TrackType::kVideoHEVC) ) {
+      session_enabled_ = true;
+    }
+  }
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+  // StartSession - End
+
+  // TNR & SHDR - Start
+  CameraMetadata meta;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+      if (params.tnr) {
+        const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        ALOGI("%s:%s Selecting TNR mode to %s \n",
+          TAG, __func__,"High quality");
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+      } else {
+        const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+        ALOGI("%s:%s Selecting TNR mode to %s \n",TAG, __func__,"Off");
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+      }
+      status = recorder_.SetCameraParam(camera_id_, meta);
+      if (NO_ERROR != status) {
+        ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
+        return status;
+      }
+      // TODO: This value is still under discussion and verification
+      PARAMETER_SETTLE_INTERVAL(2);
+    }
+  }
+  status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+      if (params.vhdr) {
+        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
+        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+      } else {
+        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"Off");
+        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+      }
+      status = recorder_.SetCameraParam(camera_id_, meta);
+      if (NO_ERROR != status) {
+        ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
+        return status;
+      }
+      // TODO: This value is still under discussion and verification
+      PARAMETER_SETTLE_INTERVAL(2);
+    }
+  }
+  // TNR/SHDR - End
+
+  // Keep recording for the given time
+  sleep(params.recordTime);
+
+  // StopSession - Begin
+  ret = recorder_.StopSession(session_id, true /*flush buffers*/);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i=0;i < tracks.size();i++) {
+    tracks[i]->CleanUp();
+    TrackType type = tracks[i]->GetTrackType();
+    if ( (type == TrackType::kVideoYUV)
+         || (type == TrackType::kVideoAVC)
+         || (type == TrackType::kVideoHEVC) ) {
+      session_enabled_ = false;
+    }
+  }
+  // StopSession - End
+
+  // DeleteSession - Begin
+  // Delete all the tracks associated to session.
+  for (uint32_t i=0;i < tracks.size();i++) {
+    if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
+          tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
+          tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
+          tracks[i]->GetTrackType() == TrackType::kAudioG711) {
+      ret = recorder_.DeleteAudioTrack(session_id, tracks[i]->GetTrackId());
+    } else {
+      ret = recorder_.DeleteVideoTrack(session_id, tracks[i]->GetTrackId());
+    }
+    assert(ret == 0);
+    delete tracks[i];
+    tracks[i] = nullptr;
+  }
+  // Once all tracks are deleted successfully delete session.
+  ret = recorder_.DeleteSession(session_id);
+
+  // DeleteSession - End
+
+  // StopCamera - Begin
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+  static_info_.clear();
+  // StopCamera - End
+
+  // Disconnect - Begin
+  ret = recorder_.Disconnect();
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+  // Disconnect - End
+
+  ALOGD("%s: Exit ",__func__);
+  return ret;
 }
 
 int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams, std::vector<TrackInfo>* infos)
 {
-    FILE *fp;
-    TrackInfo track_info;
-    memset(&track_info, 0x0, sizeof(track_info));
-    bool isStreamReadCompleted = false;
-    const int MAX_LINE = 128;
-    char line[MAX_LINE];
-    char value[50];
-    char key[25];
-    uint32_t id = 0;
+  FILE *fp;
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof(track_info));
+  bool isStreamReadCompleted = false;
+  const int MAX_LINE = 128;
+  char line[MAX_LINE];
+  char value[50];
+  char key[25];
+  uint32_t id = 0;
 
-    if(!(fp = fopen(fileName,"r"))) {
-        ALOGE("failed to open config file: %s", fileName);
-        return -1;
-    }
-
-    while(fgets(line,MAX_LINE-1,fp)) {
-        if((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
-            continue;
-        strtok(line, "\n");
-        memset(value, 0x0, sizeof(value));
-        memset(key, 0x0, sizeof(key));
-        if(isStreamReadCompleted) {
-            memset(&track_info, 0x0, sizeof(track_info));
-            isStreamReadCompleted = false;
-        }
-        int len = strlen(line);
-        int i,j = 0;
-
-        //This assumes new stream params always start with #
-        if(!strcspn(line,"#")) {
-            id++;
-            continue;
-         }
-
-
-        if((id > 0) && (id > initParams->numStream)) {
-            break;
-        }
-
-        int pos = strcspn(line,":");
-        for(i = 0; i< pos; i++){
-            if(line[i] != ' ') {
-                key[j] = line[i];
-                j++;
-            }
-        }
-
-        key[j] = '\0';
-        j = 0;
-        for(i = pos+1; i< len; i++) {
-            if(line[i] != ' ') {
-                value[j] = line[i];
-                j++;
-            }
-        }
-        value[j] = '\0';
-
-        if(!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
-            initParams->recordTime = atoi(value);
-        } else if(!strncmp("NumStream", key, strlen("NumStream"))) {
-            if(atoi(value) <= 0) {
-                ALOGE("%s Number of stream can not be %d",__func__, atoi(value));
-                goto READ_FAILED;
-            }
-            initParams->numStream = atoi(value);
-        } else if(!strncmp("VHDR", key, strlen("VHDR"))) {
-            initParams->vhdr = atoi(value)?true:false;
-        } else if(!strncmp("TNR", key, strlen("TNR"))) {
-            initParams->tnr = atoi(value)?true:false;
-        } else if(!strncmp("Width", key, strlen("Width"))) {
-            track_info.width = atoi(value);
-        } else if(!strncmp("Height", key, strlen("Height"))) {
-            track_info.height = atoi(value);
-        } else if(!strncmp("FPS", key, strlen("FPS"))) {
-            track_info.fps = atoi(value);
-        } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
-            track_info.bitrate = atoi(value);
-        } else if(!strncmp("VideoCodec", key, strlen("VideoCodec"))) {
-            if(!strncmp("AVC", value, strlen("AVC"))) {
-                track_info.track_type = TrackType::kVideoAVC;
-            } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
-                track_info.track_type = TrackType::kVideoHEVC;
-            } else if(!strncmp("YUV", value, strlen("YUV"))) {
-                track_info.track_type = TrackType::kVideoYUV;
-            } else {
-                ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
-                goto READ_FAILED;
-            }
-            isStreamReadCompleted = true;
-        } else {
-            ALOGE("Unknown Key %s found in %s", key, fileName);
-            goto READ_FAILED;
-        }
-        if (isStreamReadCompleted) {
-            infos->push_back(track_info);
-        }
-    }
-
-    if (initParams->numStream > infos->size()) {
-        ALOGE("%s: Insufficient stream parameter for total stream count(%d/%d)",
-                __func__, infos->size(), initParams->numStream);
-        goto READ_FAILED;
-    }
-
-    fclose(fp);
-    return 0;
-READ_FAILED:
-    fclose(fp);
+  if(!(fp = fopen(fileName,"r"))) {
+    ALOGE("failed to open config file: %s", fileName);
     return -1;
+  }
+
+  while(fgets(line,MAX_LINE-1,fp)) {
+    if((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
+      continue;
+    strtok(line, "\n");
+    memset(value, 0x0, sizeof(value));
+    memset(key, 0x0, sizeof(key));
+    if(isStreamReadCompleted) {
+      memset(&track_info, 0x0, sizeof(track_info));
+      isStreamReadCompleted = false;
+    }
+    int len = strlen(line);
+    int i,j = 0;
+
+    //This assumes new stream params always start with #
+    if(!strcspn(line,"#")) {
+      id++;
+      continue;
+     }
+
+
+    if((id > 0) && (id > initParams->numStream)) {
+      break;
+    }
+
+    int pos = strcspn(line,":");
+    for(i = 0; i< pos; i++){
+      if(line[i] != ' ') {
+        key[j] = line[i];
+        j++;
+      }
+    }
+
+    key[j] = '\0';
+    j = 0;
+    for(i = pos+1; i< len; i++) {
+      if(line[i] != ' ') {
+        value[j] = line[i];
+        j++;
+      }
+    }
+    value[j] = '\0';
+
+    if(!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
+      initParams->recordTime = atoi(value);
+    } else if(!strncmp("NumStream", key, strlen("NumStream"))) {
+      if(atoi(value) <= 0) {
+        ALOGE ("%s Number of stream can not be %d", __func__,
+                atoi (value));
+        goto READ_FAILED;
+      }
+      initParams->numStream = atoi(value);
+    } else if(!strncmp("VHDR", key, strlen("VHDR"))) {
+      initParams->vhdr = atoi(value)?true:false;
+    } else if(!strncmp("TNR", key, strlen("TNR"))) {
+      initParams->tnr = atoi(value)?true:false;
+    } else if(!strncmp("Width", key, strlen("Width"))) {
+      track_info.width = atoi(value);
+    } else if(!strncmp("Height", key, strlen("Height"))) {
+      track_info.height = atoi(value);
+    } else if(!strncmp("FPS", key, strlen("FPS"))) {
+      track_info.fps = atoi(value);
+    } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
+      track_info.bitrate = atoi(value);
+    } else if(!strncmp("VideoCodec", key, strlen("VideoCodec"))) {
+      if(!strncmp("AVC", value, strlen("AVC"))) {
+        track_info.track_type = TrackType::kVideoAVC;
+      } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
+        track_info.track_type = TrackType::kVideoHEVC;
+      } else if(!strncmp("YUV", value, strlen("YUV"))) {
+        track_info.track_type = TrackType::kVideoYUV;
+      } else {
+        ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
+        goto READ_FAILED;
+      }
+      isStreamReadCompleted = true;
+    } else {
+      ALOGE("Unknown Key %s found in %s", key, fileName);
+      goto READ_FAILED;
+    }
+    if (isStreamReadCompleted) {
+      infos->push_back(track_info);
+    }
+  }
+
+  if (initParams->numStream > infos->size()) {
+    ALOGE("%s: Insufficient stream parameter for total stream count(%d/%d)",
+           __func__, infos->size(), initParams->numStream);
+    goto READ_FAILED;
+  }
+
+  fclose(fp);
+  return 0;
+READ_FAILED:
+  fclose(fp);
+  return -1;
 }
 
 TestTrack::TestTrack(Recorder* rec_instance)
