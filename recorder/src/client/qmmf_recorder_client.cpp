@@ -469,88 +469,26 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
   }
 
   uint32_t ret = NO_ERROR;
-  if (track_id < 100) {
-    std::vector<BnBuffer> bn_buffers_ret;
-    {
-      Mutex::Autolock lock(list_lock_);
-      if (track_in_buffers_.indexOfKey(track_id) < 0) {
-        QMMF_ERROR("%s:%s: track_id(%d) is not valid!", TAG, __func__,
-            track_id);
-        return BAD_VALUE;
-      }
-      Vector<BnBuffer> bn_buffers;
-      bn_buffers = track_in_buffers_.valueFor(track_id);
-      size_t num_buf_return = buffers.size();
-      for (size_t i = 0; i < num_buf_return; ++i) {
-        int32_t buf_id = buffers[i].buf_id;
-        int32_t idx;
-        for (size_t j = 0; j < bn_buffers.size(); ++j) {
-          idx = -1;
-          if (buf_id == bn_buffers[j].buffer_id) {
-            QMMF_VERBOSE("%s:%s: track_id(%d) buffer_id(%d) matched in "
-                " BnBuffer list!", TAG, __func__, track_id, buf_id);
-            // Add buffer to return list
-            bn_buffers_ret.push_back(bn_buffers[j]);
-            idx = j;
-            break;
-          }
-        }
-        if (idx >= 0) {
-          // Remove buffer from input buffer list.
-          bn_buffers.removeAt(idx);
-        } else {
-            QMMF_INFO("%s:%s: Buffer id(%d) is not correct!", TAG,
-                __func__, buf_id);
-            //TODO: Initial debug purpose keep the assert, once all buffer
-            // communication related issues are flushed out then remove assert
-            // & return error, and let application handle the error if application
-            // pass wrong buffer id.
-            assert(0);
-            //return BAD_VALUE;
-        }
-      }
-      track_in_buffers_.replaceValueFor(track_id, bn_buffers);
-    }
-    if (bn_buffers_ret.size() > 0) {
-      ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
-                                                 bn_buffers_ret);
-      if(ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s ReturnTrackBuffer failed!", TAG, __func__);
-      }
-    } else {
-      ret = BAD_VALUE;
-    }
-    // Debug purpose only.
-    for (size_t i = 0; i < track_in_buffers_.size(); ++i) {
-      Vector<BnBuffer> vec = track_in_buffers_.valueAt(i);
-      QMMF_VERBOSE("%s:%s: track_id(%d): Num pending buffers(%d)", TAG,
-          __func__, track_in_buffers_.keyAt(i), vec.size());
-      for (size_t j = 0; j < vec.size(); ++j) {
-        QMMF_VERBOSE("%s:%s: buf_id(%d)", TAG, __func__, vec[j].buffer_id);
-      }
-    }
-  } else {
-    std::vector<BnBuffer> bn_buffers_ret;
+  std::vector<BnBuffer> bn_buffers_ret;
 
-    for (const BufferDescriptor& buffer : buffers) {
-      BnBuffer bn_buffer = {
-        buffer.buf_id,    // ion_fd
-        buffer.size,      // size
-        buffer.timestamp, // timestamp
-        0,                // width
-        0,                // height
-        buffer.buf_id,    // buffer_id
-        buffer.flag,      // flag
-        buffer.capacity   // capacity
-      };
-      bn_buffers_ret.push_back(bn_buffer);
-    }
+  for (const BufferDescriptor& buffer : buffers) {
+    BnBuffer bn_buffer = {
+      buffer.buf_id,    // ion_fd
+      buffer.size,      // size
+      buffer.timestamp, // timestamp
+      0,                // width
+      0,                // height
+      buffer.buf_id,    // buffer_id
+      buffer.flag,      // flag
+      buffer.capacity   // capacity
+    };
+    bn_buffers_ret.push_back(bn_buffer);
+  }
 
-    ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
-                                               bn_buffers_ret);
-    if(ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s ReturnTrackBuffer failed: %d", TAG, __func__, ret);
-    }
+  ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
+                                             bn_buffers_ret);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s ReturnTrackBuffer failed: %d", TAG, __func__, ret);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -644,32 +582,6 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
-  }
-  // Return pending buffers back to service if any.
-  // TODO: Application should return all the buffers after calling stop track
-  // then only service would give stop track event callback, once this is done
-  // then no need to return buffers from delete.
-  if (track_in_buffers_.indexOfKey(track_id) >= 0) {
-
-    std::vector<BnBuffer> bn_buffers_ret;
-    Vector<BnBuffer> vec = track_in_buffers_.valueFor(track_id);
-    QMMF_INFO("%s:%s: track_id(%d): Num pending buffers(%d)", TAG, __func__,
-      track_id, vec.size());
-
-    for (auto buf : vec) {
-      QMMF_VERBOSE("%s:%s: track_id(%d):buf_id(%d)", TAG, __func__, track_id,
-          buf.buffer_id);
-      bn_buffers_ret.push_back(buf);
-    }
-    if (bn_buffers_ret.size() > 0) {
-      ret = recorder_service_->ReturnTrackBuffer(session_id, track_id,
-                                                 bn_buffers_ret);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: track_id(%d):ReturnTrackBuffer failed!", TAG, __func__,
-            track_id);
-      }
-    }
-    track_in_buffers_.removeItem(track_id);
   }
 
   if (track_buf_map_.indexOfKey(track_id) >= 0) {
@@ -1142,29 +1054,11 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
     buffer.size      = bn_buffers[i].size;
     buffer.timestamp = bn_buffers[i].timestamp;
     buffer.flag      = bn_buffers[i].flag;
-    buffer.capacity  = bn_buffers[i].capacity;
     buffer.buf_id    = bn_buffers[i].buffer_id;
+    buffer.capacity  = bn_buffers[i].capacity;
+    buffer.fd        = bn_buffers[i].ion_fd;
     track_buffers.push_back(buffer);
 
-    {
-      Mutex::Autolock lock(list_lock_);
-
-      Vector<BnBuffer> bn_bufs;
-      if (track_in_buffers_.isEmpty()) {
-        bn_bufs.push_back(bn_buffers[i]);
-      } else {
-        bn_bufs = track_in_buffers_.valueFor(track_id);
-        bn_bufs.push_back(bn_buffers[i]);
-      }
-      track_in_buffers_.replaceValueFor(track_id, bn_bufs);
-
-      QMMF_VERBOSE("%s:%s: track_id(%d): Num received buffer(%d)", TAG, __func__,
-          track_id, bn_bufs.size());
-      for (size_t i = 0; i < bn_bufs.size(); ++i) {
-        QMMF_VERBOSE("%s:%s: \t \t \t buf_id(%d)", TAG, __func__,
-            bn_bufs[i].buffer_id);
-      }
-    }
   }
 
   //Get the handle to client callback.
@@ -1450,9 +1344,9 @@ class BpRecorderService: public BpInterface<IRecorderService> {
 
     remote()->transact(
         uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_RETURN_TRACKBUFFER),
-        data, &reply);
+        data, &reply, IBinder::FLAG_ONEWAY);
 
-    return reply.readInt32();
+    return NO_ERROR;
   }
 
   status_t SetAudioTrackParam(const uint32_t session_id,

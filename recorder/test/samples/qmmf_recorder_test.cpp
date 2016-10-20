@@ -1850,7 +1850,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
       video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
       video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kMaxBitrate;
+          VideoRateControlType::kVariableSkipFrames;
       video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
       video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
       video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
@@ -1878,7 +1878,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
       video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
       video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kMaxBitrateSkipFrames;
+          VideoRateControlType::kVariableSkipFrames;
       video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
       video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 51;
       video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 51;
