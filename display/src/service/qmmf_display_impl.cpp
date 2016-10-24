@@ -327,6 +327,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 
   int32_t ret = NO_ERROR;
   SurfaceParam surface_param;
+  DisplayError error;
 
   surface_param.src_rect = { 0.0, 0.0, (float)surface_config.width,
       (float)surface_config.height };
@@ -357,8 +358,30 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   displayinfo->second->surfaceinfo_.insert({*surface_id, surfaceinfo});
 
   assert(layer != NULL);
-  layer->input_buffer->width = surface_config.width;
-  layer->input_buffer->height = surface_config.height;
+
+  BufferInfo buffer_info;
+  int32_t aligned_width, aligned_height;
+
+  aligned_width = surface_config.width;
+  aligned_height = surface_config.height;
+  buffer_info.buffer_config.width = surface_config.width;
+  buffer_info.buffer_config.height = surface_config.height;
+  buffer_info.buffer_config.format = (LayerBufferFormat)surface_config.format;
+  buffer_info.buffer_config.buffer_count = 1;
+  buffer_info.buffer_config.cache = surface_config.cache;
+  buffer_info.alloc_buffer_info.fd = -1;
+  buffer_info.alloc_buffer_info.stride = 0;
+  buffer_info.alloc_buffer_info.size = 0;
+  error = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width, aligned_height);
+  if (error != kErrorNone) {
+    QMMF_ERROR("%s:%s: GetBufferInfo Failed. Error = %d", TAG,
+        __func__, error);
+  }
+
+  layer->input_buffer->width = aligned_width;
+  layer->input_buffer->height = aligned_height;
+  layer->input_buffer->unaligned_width = surface_config.width;
+  layer->input_buffer->unaligned_height = surface_config.height;
   layer->input_buffer->format = (LayerBufferFormat)surface_config.format;
   SetRect(surface_param.dst_rect, &layer->dst_rect);
   SetRect(surface_param.src_rect, &layer->src_rect);
@@ -369,7 +392,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 
   LayerStack* layer_stack = GetLayerStack(display_handle, 0);
   layer_stack->flags.flags=0;
-  DisplayError error = displayintf->Prepare(layer_stack);
+  error = displayintf->Prepare(layer_stack);
   if (error != kErrorNone) {
     if (error == kErrorShutDown) {
     } else if (error != kErrorPermission) {
@@ -386,9 +409,9 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
     for(int32_t i=0; i<surface_config.buffer_count;i++) {
       BufferInfo *bufferinfo = new BufferInfo();
 
-      bufferinfo->buffer_config.width =layer->input_buffer->width;
-      bufferinfo->buffer_config.height = layer->input_buffer->height;
-      bufferinfo->buffer_config.format = layer->input_buffer->format;
+      bufferinfo->buffer_config.width = surface_config.width;
+      bufferinfo->buffer_config.height = surface_config.height;
+      bufferinfo->buffer_config.format = (LayerBufferFormat)surface_config.format;
       bufferinfo->buffer_config.buffer_count = 1;
       bufferinfo->buffer_config.cache = surface_config.cache;
       bufferinfo->alloc_buffer_info.fd = -1;
@@ -526,9 +549,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   if(layer->input_buffer && layer->input_buffer->release_fence_fd>0) {
     close(layer->input_buffer->release_fence_fd);
   }
-  layer->input_buffer->width = surface_buffer.plane_info[0].width;
-  layer->input_buffer->height = surface_buffer.plane_info[0].height;
-  layer->input_buffer->format = (LayerBufferFormat)surface_buffer.format;
+
   layer->input_buffer->size = surface_buffer.plane_info[0].size;
   layer->input_buffer->planes[0].offset = surface_buffer.plane_info[0].offset;
   layer->input_buffer->planes[0].stride = surface_buffer.plane_info[0].stride;

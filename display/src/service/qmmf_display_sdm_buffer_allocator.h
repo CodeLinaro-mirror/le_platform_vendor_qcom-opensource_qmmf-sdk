@@ -53,6 +53,8 @@ class DisplayBufferAllocator : public BufferAllocator {
   DisplayError AllocateBuffer(BufferInfo *buffer_info) override;
   DisplayError FreeBuffer(BufferInfo *buffer_info) override;
   uint32_t GetBufferSize(BufferInfo *buffer_info) override;
+  DisplayError GetBufferInfo(BufferInfo *buffer_info, int32_t &aligned_width,
+      int32_t &aligned_height);
 
  private:
   struct MetaBufferInfo {
