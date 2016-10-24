@@ -69,6 +69,15 @@ VideoDecoderCore::VideoDecoderCore(): ion_device_(-1)
 VideoDecoderCore::~VideoDecoderCore()
 {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  if (!video_track_decoders_.isEmpty()) {
+    video_track_decoders_.clear();
+  }
+  instance_ = NULL;
+
+  if (ion_device_ > 0) {
+    close(ion_device_);
+    ion_device_ = -1;
+  }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -239,8 +248,8 @@ status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id)
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
-   QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
-   return BAD_VALUE;
+    QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
+    return BAD_VALUE;
   }
 
   sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
@@ -248,9 +257,9 @@ status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id)
 
   auto ret = track_decoder->PauseDecoder();
   if (ret != NO_ERROR) {
-   QMMF_INFO("%s:%s: track_id(%d) PauseDecoder failed!", TAG, __func__,
+    QMMF_INFO("%s:%s: track_id(%d) PauseDecoder failed!", TAG, __func__,
      track_id);
-   return ret;
+    return ret;
   }
 
   QMMF_INFO("%s:%s: track_id(%d) PauseDecoder Successful!", TAG,
@@ -273,7 +282,7 @@ status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id)
 
   auto ret = track_decoder->ResumeDecoder();
   if (ret != NO_ERROR) {
-   QMMF_INFO("%s:%s: track_id(%d) ResumeDecoder failed!", TAG, __func__,
+    QMMF_INFO("%s:%s: track_id(%d) ResumeDecoder failed!", TAG, __func__,
      track_id);
    return ret;
   }
@@ -291,8 +300,8 @@ status_t VideoDecoderCore::SetVideoTrackDecoderParams(uint32_t track_id,
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
-      QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
-      return BAD_VALUE;
+    QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
+    return BAD_VALUE;
   }
 
   sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
@@ -300,9 +309,9 @@ status_t VideoDecoderCore::SetVideoTrackDecoderParams(uint32_t track_id,
 
   auto ret =  track_decoder->SetVideoDecoderParams(param_type, param, param_size);
   if (ret != NO_ERROR) {
-   QMMF_INFO("%s:%s: track_id(%d) SetVideoDecoderParams failed!", TAG, __func__,
+    QMMF_INFO("%s:%s: track_id(%d) SetVideoDecoderParams failed!", TAG, __func__,
      track_id);
-   return ret;
+    return ret;
   }
 
   QMMF_INFO("%s:%s: track_id(%d) SetVideoDecoderParams Successful!", TAG,
@@ -330,6 +339,8 @@ status_t VideoDecoderCore::DeleteTrackDecoder(uint32_t track_id)
    return ret;
   }
 
+  video_track_decoders_.removeItem(track_id);
+
   QMMF_INFO("%s:%s: track_id(%d) DeleteDecoder Successful!", TAG,
      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
@@ -346,13 +357,17 @@ bool VideoDecoderCore::isTrackValid(uint32_t track_id)
 
 /************************* Video Decoding ********************************/
 
-
 VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device):
     ion_device_(ion_device),eos_(false)
 {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
+
+#ifdef DUMP_VIDEO_BITSTREAM
+   file_fd_video_ = open("/data/video_track.bitstream", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+#endif
+
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
@@ -360,25 +375,50 @@ VideoTrackDecoder::~VideoTrackDecoder()
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  for(auto& iter : input_buffer_list_) {
+   uint32_t i = 0;
+   for(auto& iter : input_buffer_list_) {
+      if((iter).data) {
+        munmap((iter).data, (iter).frame_length);
+        (iter).data = nullptr;
+      }
+      if((iter).fd) {
+        QMMF_INFO("%s:%s track_id(%d) (iter).fd =%d Free", TAG, __func__,
+                                   TrackId(), (iter).fd);
+        ioctl(ion_device_, ION_IOC_FREE, &(ion_handle_data[i]));
+        close((iter).fd);
+        (iter).fd = -1;
+      }
+      i++;
+  }
 
-    if((iter).data) {
-        munmap((iter).data, (iter).size);
-        (iter).data = NULL;
+  input_buffer_list_.clear();
+  ion_handle_data.clear();
+
+  for(auto& iter : output_buffer_list_) {
+
+    if((iter).pointer) {
+        munmap((iter).pointer, (iter).frame_length);
+        (iter).pointer = NULL;
     }
     if((iter).fd) {
         QMMF_INFO("%s:%s track_id(%d) (iter).fd =%d Free", TAG, __func__,
                                    TrackId(), (iter).fd);
-        ioctl(ion_device_, ION_IOC_FREE, &((iter).handle));
+        ioctl(ion_device_, ION_IOC_FREE, &((iter).handle_data.handle));
         close((iter).fd);
         (iter).fd = 0;
     }
   }
-  input_buffer_list_.clear();
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+
+  output_buffer_list_.clear();
+
+#ifdef DUMP_VIDEO_BITSTREAM
+    close(file_fd_video_);
+#endif
+
+  QMMF_DEBUG("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
-status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& params)
+status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& track_params)
 {
   avcodec_ = new AVCodec();
 
@@ -386,23 +426,13 @@ status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& params)
 
   CodecCreateParam codec_param;
   memset(&codec_param, 0x0, sizeof(codec_param));
-
-  codec_param.video_param.width        =  params.width;
-  codec_param.video_param.height       =  params.height;
-  codec_param.video_param.frame_rate   =   params.frame_rate;
-  /*
-  if (params.format == AudioFormat::kAAC) {
-  codec_param.audio_param.codec_param.aac.bit_rate     = params.codec_param.aac.bit_rate;
-  codec_param.audio_param.codec_param.aac.format       = params.codec_param.aac.format;
-  codec_param.audio_param.codec_param.aac.frame_length = params.codec_param.aac.frame_length;
-  codec_param.audio_param.codec_param.aac.mode         = params.codec_param.aac.mode;
-  }*/
+  //codec_param. = track_params.params;
 
   ret = avcodec_->ConfigureCodec(CodecType::kVideoDecoder,codec_param);
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
   QMMF_ERROR("%s:%s track_id(%d) Failed to configure AVCodec!", TAG, __func__,
-      params.track_id);
+      track_params.track_id);
   return ret;
   }
 
@@ -412,10 +442,12 @@ status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& params)
 
 status_t VideoTrackDecoder::PreparePipeline(const sp<VideoTrackSink>& video_track_sink)
 {
-  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(avcodec_.get() != nullptr);
 
   status_t ret = NO_ERROR;
+
+  video_track_sink_ = video_track_sink.get();
 
   //This function will get the port buffer requirment and will allocate buffer
   AllocInputPortBufs();
@@ -428,23 +460,26 @@ status_t VideoTrackDecoder::PreparePipeline(const sp<VideoTrackSink>& video_trac
    }
 
    //This function will get the port buffer requirment and will allocate buffer
-   /*AllocOutputPortBufs();
+   AllocOutputPortBufs();
 
-   ret = avcodec_->UseBuffer(kPortIndexOutput, static_cast<void*>(audio_track_sink_));
-   assert(ret == NO_ERROR);
-   if(ret != NO_ERROR) {
-   QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at input port!", TAG,
-         __func__, track_params.track_id);
-   }*/
+  ret = avcodec_->UseBuffer(kPortIndexOutput, static_cast<void*>(video_track_sink_));
+  assert(ret == NO_ERROR);
+  if(ret != NO_ERROR) {
+   QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at Output port!", TAG,
+         __func__, TrackId());
+  }
 
+  //bitstream buffer queue
    for(auto& iter : input_buffer_list_) {
        QMMF_INFO("%s:%s: track_id(%d) Adding buffer fd(%d) to "
-           "unfilled_frame_queue", TAG, __func__,TrackId() ,
+           "unfilled_frame_queue_", TAG, __func__,TrackId() ,
            iter.fd);
        unfilled_frame_queue_.PushBack(iter);
   }
 
-  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  video_track_sink_->AddBufferList(output_buffer_list_);
+
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
@@ -453,20 +488,33 @@ status_t VideoTrackDecoder::DequeueInputBuffer(std::vector<AVCodecBuffer>& buffe
 {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
+  int32_t size = buffers.size();
+
+  for (size_t i = 0; i < size; i++) {
+
   if(unfilled_frame_queue_.Size() <= 0) {
    QMMF_DEBUG("%s:%s track_id(%d) No Empty buffer available", TAG, __func__, TrackId());
-   //Mutex::Autolock autoLock(lock_);
-   //wait_for_frame_.wait(lock_);
+    Mutex::Autolock autoLock(wait_for_empty_frame_lock_);
+    wait_for_empty_frame_.wait(wait_for_empty_frame_lock_);
   }
 
   StreamBuffer iter = *unfilled_frame_queue_.Begin();
-  buffers[0].filled_length = (iter).fd;
-  buffers[0].data = (iter).data;
-  buffers[0].frame_length = (iter).size;
+  buffers[i].fd = (iter).fd;
+  buffers[i].data = (iter).data;
+  buffers[i].frame_length = (iter).frame_length;
+  buffers[i].buf_id = (iter).fd;
+
+  {
+      Mutex::Autolock lock(queue_lock_);
+      filled_frame_queue_.PushBack(iter);
+  }
+
+  unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
 
   QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to client", TAG,
      __func__, TrackId(), (iter).data, (iter).fd);
 
+  }
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
@@ -476,20 +524,46 @@ status_t VideoTrackDecoder::QueueInputBuffer(std::vector<AVCodecBuffer>& buffers
 {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
-  StreamBuffer iter = *unfilled_frame_queue_.Begin();
-  /*(iter).fd = buffers[0].fd;
-  (iter).data = buffers[0].data;
-  (iter).size = buffers[0].size;
-  */
-  {
-   Mutex::Autolock lock(queue_lock_);
-   filled_frame_queue.PushBack(iter);
-   wait_for_frame_.signal();
-  }
-  unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
+  int32_t size = buffers.size();
 
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to client", TAG,
-     __func__, TrackId(), (iter).data, (iter).fd);
+  for (size_t i = 0; i < size; i++) {
+
+    StreamBuffer iter = *filled_frame_queue_.Begin();
+
+    QMMF_DEBUG("%s:%s: fd from client %d" , TAG, __func__,buffers[i].buf_id);
+
+    BufInfo bufinfo;
+    memset(&bufinfo, 0x0, sizeof bufinfo);
+
+    bufinfo = buf_info_map.valueFor(buffers[i].buf_id);
+
+    (iter).fd                 = buffers[i].buf_id;
+    (iter).data               = bufinfo.vaddr;
+    (iter).filled_length      = buffers[i].filled_length;
+    (iter).frame_length       = buffers[i].frame_length;
+    (iter).flags              = buffers[i].flag;
+    (iter).timestamp          = buffers[i].time_stamp;
+
+    QMMF_DEBUG("%s:%s: fd %d", TAG, __func__,buffers[i].buf_id);
+    QMMF_DEBUG("%s:%s: filled_length %d", TAG, __func__,buffers[i].filled_length);
+    QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
+    QMMF_DEBUG("%s:%s: vaddr 0x%x", TAG, __func__,bufinfo.vaddr);
+    QMMF_DEBUG("%s:%s: flag %d", TAG, __func__,buffers[i].flag);
+
+#ifdef DUMP_VIDEO_BITSTREAM
+  //write(file_fd_aac_,(iter).data,(iter).filled_length );
+#endif
+
+    {
+    Mutex::Autolock lock(queue_lock_);
+    frames_to_decode_.PushBack(iter);
+    wait_for_frame_.signal();
+    }
+    filled_frame_queue_.Erase(filled_frame_queue_.Begin());
+
+    QMMF_DEBUG("%s:%s track_id(%d) received buffer(0x%x) fd(%d) from client", TAG,
+      __func__, TrackId(), (iter).data, (iter).fd);
+  }
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
@@ -586,7 +660,6 @@ status_t VideoTrackDecoder::SetVideoDecoderParams(CodecParamType param_type, voi
   return ret;
 }
 
-
 status_t VideoTrackDecoder::DeleteDecoder()
 {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
@@ -596,23 +669,87 @@ status_t VideoTrackDecoder::DeleteDecoder()
   return ret;
 }
 
-
-// this method provides an input buffer to the AVCodec
- status_t VideoTrackDecoder::Read(StreamBuffer& stream_buffer)
+// This method provides an input buffer to the AVCodec
+status_t VideoTrackDecoder::Read(StreamBuffer& stream_buffer)
 {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d) frames_to_decode_.Size(%d) ", TAG,
+    __func__, TrackId(),frames_to_decode_.Size());
 
+  if(frames_to_decode_.Size() <= 0) {
+       QMMF_DEBUG("%s:%s track_id(%d) No Filled buffer available for AVCodec,"
+         " Wait for new buffer", TAG, __func__, TrackId());
+       Mutex::Autolock autoLock(wait_for_frame_lock_);
+       wait_for_frame_.wait(wait_for_frame_lock_);
+  }
 
+  StreamBuffer iter = *frames_to_decode_.Begin();
+
+  stream_buffer.fd              = (iter).fd;
+  stream_buffer.data            = (iter).data;
+  stream_buffer.frame_length    = (iter).frame_length;
+  stream_buffer.filled_length   = (iter).filled_length;
+  stream_buffer.flags           = (iter).flags;
+
+  QMMF_VERBOSE("%s:%s: track_id(%d)", TAG, __func__,TrackId());
+
+  stream_buffer = iter;
+
+  {
+  Mutex::Autolock lock(queue_lock_);
+  frames_being_decoded_.PushBack(iter);
+  }
+  frames_to_decode_.Erase(frames_to_decode_.Begin());
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to avcodec for"
+  " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
+
+  QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
+  " decoding ", TAG, __func__, TrackId(), (iter).frame_length, (iter).filled_length);
+
+  //For EOS and stop case
+  if ((iter).flags == 1)
+  {
+     return -1;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
 }
 
-// this method is used by AVCodec to return buffer after encoding
- status_t VideoTrackDecoder::SignalBufferReturned(StreamBuffer& stream_buffer)
+// This method is used by AVCodec to return buffer after encoding
+status_t VideoTrackDecoder::SignalBufferReturned(StreamBuffer& stream_buffer)
 {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
+  QMMF_VERBOSE("%s:%s: track_id(%d) frames_being_decoded_.size(%d)", TAG,
+      __func__, TrackId(), frames_being_decoded_.Size());
 
+  bool found = false;
+
+  List<StreamBuffer>::iterator it = frames_being_decoded_.Begin();
+  for (; it != frames_being_decoded_.End(); ++it) {
+    if ((*it).data ==  stream_buffer.data) {
+      {
+        Mutex::Autolock lock(queue_lock_);
+        unfilled_frame_queue_.PushBack(*it);
+        wait_for_empty_frame_.signal();
+      }
+      found = true;
+      break;
+    }
+  }
+
+  assert(found == true);
+  frames_being_decoded_.Erase(it);
+
+  QMMF_VERBOSE("%s:%s: frames_being_decoded_.Size(%d)", TAG, __func__,
+      frames_being_decoded_.Size());
+
+  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
 }
 
-// this method is used by AVCodec to notify stop
- status_t VideoTrackDecoder::NotifyStatus(CodecInputPortStatus status)
+// This method is used by AVCodec to notify stop
+status_t VideoTrackDecoder::NotifyStatus(CodecInputPortStatus status)
 {
 
 }
@@ -624,11 +761,14 @@ status_t VideoTrackDecoder::AllocInputPortBufs()
   uint32_t count, size;
 
   assert(avcodec_.get() != nullptr);
-  ret = avcodec_->GetBufferRequirements(kPortIndexInput,  &count, &size);
-  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__, count, size);
+  //ret = avcodec_->GetBufferRequirements(kPortIndexInput,  &count, &size);
+  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
+count, size);
+  count = 4;
+  size = 1920*1080;
   assert(ret == NO_ERROR);
   //TODO: This hardcoding would be fixed by AVCodec layer
-  count = 6;  //TODO
+  count = 6;
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
@@ -673,16 +813,33 @@ status_t VideoTrackDecoder::AllocInputPortBufs()
         goto ION_MAP_FAILED;
     }
 
-    //buffer.handle_data.handle = ion_fddata.handle;
-    buffer.fd                 = ion_fddata.fd;
-    buffer.size               = alloc.len;
-    buffer.data               = vaddr;
+    buffer.fd                 =  ion_fddata.fd;
+    buffer.frame_length       =  alloc.len;
+    buffer.filled_length      =  0;
+    buffer.data               =  vaddr;
+    ion_handle_data.push_back(alloc);
 
-    QMMF_INFO("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd);
-    QMMF_INFO("%s:%s buffer.size(%d)", TAG, __func__, buffer.size);
-    QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.data);
+    QMMF_VERBOSE("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd);
+    QMMF_VERBOSE("%s:%s buffer.frame_length(%d)", TAG, __func__, buffer.
+frame_length);
+    QMMF_VERBOSE("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.data);
+
+    BufInfo bufinfo;
+    memset(&bufinfo,0x0,sizeof bufinfo);
+
+    bufinfo.vaddr   = vaddr;
+    bufinfo.buf_id  = ion_fddata.fd;
+
+    buf_info_map.add(ion_fddata.fd,bufinfo);
 
     input_buffer_list_.push_back(buffer);
+  }
+
+  for(uint32_t j = 0; j < buf_info_map.size(); j++) {
+    QMMF_VERBOSE("%s:%s: buf_info_map:idx(%d) :key(%d) :fd:%d :data:"
+        "0x%x", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].
+buf_id,
+        buf_info_map[j].vaddr);
   }
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -700,74 +857,78 @@ ION_ALLOC_FAILED:
 
 status_t VideoTrackDecoder::AllocOutputPortBufs()
 {
-    QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-    int32_t ret = 0;
-    uint32_t count, size;
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  int32_t ret = 0;
+  uint32_t count, size;
 
-    assert(avcodec_.get() != nullptr);
-    ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
-    QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__, count, size);
-    assert(ret == NO_ERROR);
-    //TODO: This hardcoding would be fixed by AVCodec layer
-    count = 11; //TODO
+  assert(avcodec_.get() != nullptr);
+  //ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
+  count = 11;
+  size = 1920*1080;
+  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
+count, size);
+  assert(ret == NO_ERROR);
+  //TODO: This hardcoding would be fixed by AVCodec layer
+  count = 11;
 
-    assert(ion_device_ >= 0);
-    int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
-    void *vaddr      = NULL;
+  assert(ion_device_ >= 0);
+  int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
+  void *vaddr      = NULL;
 
-    struct ion_allocation_data alloc;
-    struct ion_fd_data         ion_fddata;
+  struct ion_allocation_data alloc;
+  struct ion_fd_data         ion_fddata;
 
-    for(uint32_t i = 0; i < count; i++) {
+  for(uint32_t i = 0; i < count; i++) {
 
-      CodecBuffer buffer;
-      vaddr = NULL;
-      memset(&buffer, 0x0, sizeof(buffer));
-      memset(&alloc, 0x0, sizeof(ion_allocation_data));
-      memset(&ion_fddata, 0x0, sizeof(ion_fddata));
+    CodecBuffer buffer;
+    vaddr = NULL;
+    memset(&buffer, 0x0, sizeof(buffer));
+    memset(&alloc, 0x0, sizeof(ion_allocation_data));
+    memset(&ion_fddata, 0x0, sizeof(ion_fddata));
 
-      alloc.len = size;
-      alloc.len = (alloc.len + 4095) & (~4095);
-      alloc.align = 4096;
-      alloc.flags = ION_FLAG_CACHED;
-      alloc.heap_id_mask = ion_type;
+    alloc.len = size;
+    alloc.len = (alloc.len + 4095) & (~4095);
+    alloc.align = 4096;
+    alloc.flags = ION_FLAG_CACHED;
+    alloc.heap_id_mask = ion_type;
 
-      ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
-      if (ret < 0) {
-        QMMF_ERROR("%s:%s ION allocation failed!", TAG, __func__);
-        goto ION_ALLOC_FAILED;
-      }
-
-      ion_fddata.handle = alloc.handle;
-      ret = ioctl(ion_device_, ION_IOC_SHARE, &ion_fddata);
-      if (ret < 0) {
-          QMMF_ERROR("%s:%s ION map failed %s", TAG, __func__, strerror(errno));
-          goto ION_MAP_FAILED;
-      }
-
-      vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
-                   ion_fddata.fd, 0);
-
-      if (vaddr == MAP_FAILED) {
-          QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
-              strerror(errno), errno);
-          goto ION_MAP_FAILED;
-      }
-
-      buffer.handle_data.handle = ion_fddata.handle;
-      buffer.fd                 = ion_fddata.fd;
-      buffer.frame_length       = alloc.len;
-      buffer.pointer            = vaddr;
-
-      QMMF_INFO("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd);
-      QMMF_INFO("%s:%s buffer.size(%d)", TAG, __func__, buffer.frame_length);
-      QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.pointer);
-
-      output_buffer_list_.push_back(buffer);
+    ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
+    if (ret < 0) {
+      QMMF_ERROR("%s:%s ION allocation failed!", TAG, __func__);
+      goto ION_ALLOC_FAILED;
     }
 
-    QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
-    return ret;
+    ion_fddata.handle = alloc.handle;
+    ret = ioctl(ion_device_, ION_IOC_SHARE, &ion_fddata);
+    if (ret < 0) {
+        QMMF_ERROR("%s:%s ION map failed %s", TAG, __func__, strerror(errno));
+        goto ION_MAP_FAILED;
+    }
+
+    vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
+                 ion_fddata.fd, 0);
+
+    if (vaddr == MAP_FAILED) {
+        QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
+            strerror(errno), errno);
+        goto ION_MAP_FAILED;
+    }
+
+    buffer.handle_data.handle = ion_fddata.handle;
+    buffer.fd                 = ion_fddata.fd;
+    buffer.frame_length       = alloc.len;
+    buffer.filled_length      = 0;
+    buffer.pointer            = vaddr;
+
+    QMMF_INFO("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd);
+    QMMF_INFO("%s:%s buffer.size(%d)", TAG, __func__, buffer.frame_length);
+    QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.pointer);
+
+    output_buffer_list_.push_back(buffer);
+  }
+
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
 
   ION_MAP_FAILED:
     struct ion_handle_data ionHandleData;
@@ -780,5 +941,5 @@ status_t VideoTrackDecoder::AllocOutputPortBufs()
 }
 
 
-};//player
-};//qmmf
+};  // namespace player
+};  // namespace qmmf

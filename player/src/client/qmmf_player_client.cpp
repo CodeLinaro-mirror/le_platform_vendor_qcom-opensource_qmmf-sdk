@@ -75,65 +75,65 @@ PlayerClient::PlayerClient()
 
 PlayerClient::~PlayerClient()
 {
- QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
- if (player_service_ != nullptr) {
-   player_service_.clear();
-   player_service_ = nullptr;
- }
- QMMF_DEBUG("%s:%s Exit 0x%x", TAG, __func__, this);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  if (player_service_ != nullptr) {
+    player_service_.clear();
+    player_service_ = nullptr;
+  }
+  QMMF_DEBUG("%s:%s Exit 0x%x", TAG, __func__, this);
 }
 
 
 status_t PlayerClient::Connect(PlayerCb& cb)
 {
- QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
- Mutex::Autolock lock(lock_);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
- if (CheckServiceStatus()) {
- QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
- return NO_ERROR;
- }
+  if (CheckServiceStatus()) {
+    QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
+    return NO_ERROR;
+  }
 
- //TODO: close in disconnect.
- ion_device_ = open("/dev/ion", O_RDONLY);
- if (ion_device_ < 0) {
-  QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
-  return NO_INIT;
- }
+  //TODO: close in disconnect.
+  ion_device_ = open("/dev/ion", O_RDONLY);
+  if (ion_device_ < 0) {
+    QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
+    return NO_INIT;
+  }
 
- player_cb_= cb;
+  player_cb_= cb;
 
- death_notifier_ = new DeathNotifier(this);
- if (nullptr == death_notifier_.get()) {
-  QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
-  return NO_MEMORY;
- }
+  death_notifier_ = new DeathNotifier(this);
+  if (nullptr == death_notifier_.get()) {
+    QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
+    return NO_MEMORY;
+  }
 
- sp<IBinder> service_handle;
- sp<IServiceManager> service_manager = defaultServiceManager();
+  sp<IBinder> service_handle;
+  sp<IServiceManager> service_manager = defaultServiceManager();
 
- service_handle = service_manager->getService(String16(QMMF_PLAYER_SERVICE_NAME));
- if(service_handle.get() == nullptr) {
-  QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
-     QMMF_PLAYER_SERVICE_NAME);
-  return NO_INIT;
- }
+  service_handle = service_manager->getService(String16(QMMF_PLAYER_SERVICE_NAME));
+  if(service_handle.get() == nullptr) {
+    QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
+        QMMF_PLAYER_SERVICE_NAME);
+   return NO_INIT;
+  }
 
- player_service_ = interface_cast<IPlayerService>(service_handle);
- IInterface::asBinder(player_service_)->linkToDeath(death_notifier_);
+  player_service_ = interface_cast<IPlayerService>(service_handle);
+  IInterface::asBinder(player_service_)->linkToDeath(death_notifier_);
 
- sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
- auto ret = player_service_->Connect(handler);
- if(NO_ERROR != ret) {
-  QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
-     QMMF_PLAYER_SERVICE_NAME);
- }
+  sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
+  auto ret = player_service_->Connect(handler);
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
+        QMMF_PLAYER_SERVICE_NAME);
+  }
 
- if (!track_cb_list_.isEmpty()) {
- track_cb_list_.clear();
- }
- QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
- return ret;
+  if (!track_cb_list_.isEmpty()) {
+    track_cb_list_.clear();
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
 }
 
 status_t PlayerClient::Disconnect()
@@ -147,7 +147,7 @@ status_t PlayerClient::Disconnect()
 
   auto ret = player_service_->Disconnect();
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
+    QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
   }
 
   player_service_->asBinder(player_service_)->unlinkToDeath(death_notifier_);
@@ -182,7 +182,7 @@ status_t PlayerClient::CreateAudioTrack(uint32_t track_id,
 
   auto result = player_service_->CreateAudioTrack(track_id, param);
   if (result != NO_ERROR)
-      QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
+    QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
 
   track_cb_list_.add(track_id, cb);
 
@@ -205,7 +205,7 @@ status_t PlayerClient::CreateVideoTrack(uint32_t track_id,
 
   auto result = player_service_->CreateVideoTrack(track_id, param);
   if (result != NO_ERROR)
-      QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
+    QMMF_ERROR("%s:%s CreateVideoTrack failed: %d", TAG, __func__, result);
 
   track_cb_list_.add(track_id, cb);
 
@@ -223,9 +223,28 @@ status_t PlayerClient::DeleteAudioTrack(uint32_t track_id)
     return NO_INIT;
   }
 
+  if (track_buf_map_.indexOfKey(track_id) >= 0) {
+    buf_info_map info_map = track_buf_map_.valueFor(track_id);
+    for (size_t j = 0; j < info_map.size(); j++) {
+      BufInfo buf_info = info_map.valueAt(j);
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.client_fd(%d) to close", TAG,
+          __func__, track_id, buf_info.client_fd);
+      if (buf_info.client_fd > 0) {
+        close(buf_info.client_fd);
+      }
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%x and frame_len=%d",
+          TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
+      if (buf_info.vaddr != NULL) {
+        munmap(buf_info.vaddr, buf_info.frame_len);
+        buf_info.vaddr = NULL;
+      }
+    }
+    track_buf_map_.removeItem(track_id);
+  }
+
   auto ret = player_service_->DeleteAudioTrack(track_id);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
   }
 
   if (track_cb_list_.indexOfKey(track_id) >= 0) {
@@ -246,13 +265,31 @@ status_t PlayerClient::DeleteVideoTrack(uint32_t track_id)
     return NO_INIT;
   }
 
-  auto ret = player_service_->DeleteAudioTrack(track_id);
+  if (track_buf_map_.indexOfKey(track_id) >= 0) {
+    buf_info_map info_map = track_buf_map_.valueFor(track_id);
+    for (size_t j = 0; j < info_map.size(); j++) {
+      BufInfo buf_info = info_map.valueAt(j);
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.client_fd(%d) to close", TAG,
+          __func__, track_id, buf_info.client_fd);
+      if (buf_info.client_fd > 0) {
+        close(buf_info.client_fd);
+      }
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%x and frame_len=%d",
+          TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
+      if (buf_info.vaddr != NULL) {
+        munmap(buf_info.vaddr, buf_info.frame_len);
+        buf_info.vaddr = NULL;
+      }
+    }
+  }
+
+  auto ret = player_service_->DeleteVideoTrack(track_id);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s DeleteVideoTrack failed: %d", TAG, __func__, ret);
   }
 
   if (track_cb_list_.indexOfKey(track_id) >= 0) {
-     track_cb_list_.removeItem(track_id);
+    track_cb_list_.removeItem(track_id);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -270,7 +307,7 @@ status_t PlayerClient::Prepare()
 
   auto ret = player_service_->Prepare();
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Prepare failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s Prepare failed: %d", TAG, __func__, ret);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -284,21 +321,20 @@ status_t PlayerClient::DequeueInputBuffer(uint32_t track_id,
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   int32_t size = buffers.size();
   void* vaddr;
 
   std::vector<AVCodecBuffer> codecbuffer;
+  AVCodecBuffer cb;
 
   QMMF_DEBUG("%s:%s size is %d", TAG, __func__,size);
 
-  for(size_t i = 0; i < size; i++)
-  {
-     AVCodecBuffer cb;
-     memset(&cb,0x0,sizeof(cb));
-     codecbuffer.push_back(cb);
+  for (size_t i = 0; i < size; i++) {
+    memset(&cb,0x0,sizeof(cb));
+    codecbuffer.push_back(cb);
   }
 
   auto ret = player_service_->DequeueInputBuffer(track_id, codecbuffer);
@@ -318,17 +354,17 @@ status_t PlayerClient::DequeueInputBuffer(uint32_t track_id,
       int32_t buf_idx = buf_map.indexOfKey(codecbuffer[i].buf_id);
 
       if (buf_idx >= 0) {
-           bufinfo = buf_map.valueFor(codecbuffer[i].buf_id);
-           assert(bufinfo.buf_id > 0);
-               buffers[i].data = bufinfo.vaddr;
-               buffers[i].size = codecbuffer[i].frame_length;
-               buffers[i].buf_id = codecbuffer[i].buf_id;
-           is_mapped = true;
-           QMMF_VERBOSE("%s:%s: Buf is already mapped! ion_fd(%d):"
-             "vaddr(0x%x)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
-         }
-       }
-     }
+        bufinfo = buf_map.valueFor(codecbuffer[i].buf_id);
+        assert(bufinfo.buf_id > 0);
+        buffers[i].data   = bufinfo.vaddr;
+        buffers[i].size   = codecbuffer[i].frame_length;
+        buffers[i].buf_id = codecbuffer[i].buf_id;
+        is_mapped = true;
+        QMMF_VERBOSE("%s:%s: Buf is already mapped! ion_fd(%d):"
+          "vaddr(0x%x)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
+      }
+    }
+  }
 
   if (!is_mapped) {
     // Map Ion Fd to client address space.
@@ -352,14 +388,15 @@ status_t PlayerClient::DequeueInputBuffer(uint32_t track_id,
     bufinfo.vaddr     = vaddr;
     bufinfo.buf_id    = codecbuffer[i].buf_id;
     bufinfo.client_fd = codecbuffer[i].fd;
+    bufinfo.frame_len = codecbuffer[i].frame_length;
 
      DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
      if (track_buf_map_.isEmpty()) {
-             buffer_map.add(codecbuffer[i].buf_id, bufinfo);
-      } else {
-             buffer_map = track_buf_map_.valueFor(track_id);
-             buffer_map.add(codecbuffer[i].buf_id, bufinfo);
-       }
+       buffer_map.add(codecbuffer[i].buf_id, bufinfo);
+     } else {
+       buffer_map = track_buf_map_.valueFor(track_id);
+       buffer_map.add(codecbuffer[i].buf_id, bufinfo);
+     }
 
      track_buf_map_.replaceValueFor(track_id, buffer_map);
 
@@ -375,11 +412,11 @@ status_t PlayerClient::DequeueInputBuffer(uint32_t track_id,
              buffer_map[j].vaddr);
        }
 
-      }
-               buffers[i].data = vaddr;
-               buffers[i].size = codecbuffer[i].frame_length;
-               buffers[i].buf_id = codecbuffer[i].buf_id;
-      }
+     }
+       buffers[i].data   = vaddr;
+       buffers[i].size   = codecbuffer[i].frame_length;
+       buffers[i].buf_id = codecbuffer[i].buf_id;
+     }
 
      QMMF_DEBUG("%s:%s vaddr 0x%x", TAG, __func__,buffers[i].data);
      QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].size);
@@ -388,6 +425,10 @@ status_t PlayerClient::DequeueInputBuffer(uint32_t track_id,
 
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s DequeueInputBuffer failed: %d", TAG, __func__, ret);
+  }
+
+  for(size_t i = 0; i < size; i++) {
+    codecbuffer.clear();
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -404,12 +445,13 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   int32_t size = buffers.size();
 
   std::vector<AVCodecBuffer> codecbuffer;
+  AVCodecBuffer cb;
 
   for(auto i =0; i< size; i++) {
 
@@ -422,28 +464,29 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
 
     bufinfo = buf_map.valueFor(buffers[i].buf_id);
 
-    QMMF_INFO("%s:%s buffers[i].data is 0x%x", TAG, __func__, buffers[i].data);
+    QMMF_DEBUG("%s:%s buffers[i].data is 0x%x", TAG, __func__, buffers[i].data);
 
-    AVCodecBuffer cb;
     memset(&cb,0x0,sizeof(cb));
 
-    //cb.data         = buffers[i].data;
-    //cb.size         = buffers[i].size;
     cb.time_stamp     = buffers[i].time_stamp;
     cb.flag           = buffers[i].flag;
-    cb.frame_length     = buffers[i].size;
+    cb.frame_length   = buffers[i].size;
     cb.filled_length  = buffers[i].filled_size;
     cb.buf_id         = bufinfo.buf_id;
 
     codecbuffer.push_back(cb);
   }
 
-  auto ret = player_service_->QueueInputBuffer(track_id, codecbuffer, meta_param,meta_size, meta_type);
+  auto ret = player_service_->QueueInputBuffer(track_id, codecbuffer,
+      meta_param,meta_size, meta_type);
 
-  if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s QueueInputBuffer failed: %d", TAG, __func__, ret);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s QueueInputBuffer failed: %d", TAG, __func__, ret);
   }
 
+  for(size_t i = 0; i < size; i++) {
+    codecbuffer.clear();
+  }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -455,12 +498,12 @@ status_t PlayerClient::Start()
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   auto ret = player_service_->Start();
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Start failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s Start failed: %d", TAG, __func__, ret);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -473,7 +516,7 @@ status_t PlayerClient::Stop(bool do_flush)
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   auto ret = player_service_->Stop(do_flush);
@@ -496,7 +539,7 @@ status_t PlayerClient::Pause()
 
   auto ret = player_service_->Pause();
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Pause failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s Pause failed: %d", TAG, __func__, ret);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -514,7 +557,7 @@ status_t PlayerClient::Resume()
 
   auto ret = player_service_->Resume();
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Resume failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s Resume failed: %d", TAG, __func__, ret);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -527,12 +570,12 @@ status_t PlayerClient::SetPosition(int64_t seek_time)
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   auto ret = player_service_->SetPosition(seek_time);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Start failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s Start failed: %d", TAG, __func__, ret);
   }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -545,13 +588,13 @@ status_t PlayerClient::SetTrickMode(uint32_t speed, uint32_t direction)
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
-  return NO_INIT;
+    return NO_INIT;
   }
 
   auto ret = player_service_->SetTrickMode(speed, direction);
-   if(NO_ERROR != ret) {
-       QMMF_ERROR("%s:%s SetTrickMode failed: %d", TAG, __func__, ret);
-   }
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s SetTrickMode failed: %d", TAG, __func__, ret);
+  }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -569,9 +612,9 @@ status_t PlayerClient::GrabPicture(PictureParam param, PictureCallback& cb)
   picture_cb_ = cb;
 
   auto ret = player_service_->GrabPicture(param);
-   if(NO_ERROR != ret) {
-       QMMF_ERROR("%s:%s GrabPicture failed: %d", TAG, __func__, ret);
-   }
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s GrabPicture failed: %d", TAG, __func__, ret);
+  }
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -582,7 +625,7 @@ status_t PlayerClient::SetAudioTrackParam(uint32_t track_id,
                            void *param,
                            size_t param_size)
 {
-   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
@@ -590,9 +633,9 @@ status_t PlayerClient::SetAudioTrackParam(uint32_t track_id,
   }
 
   auto ret = player_service_->SetAudioTrackParam(track_id,
-      type, param, param_size);
+    type, param, param_size);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -613,7 +656,7 @@ status_t PlayerClient::SetVideoTrackParam(uint32_t track_id,
   auto ret = player_service_->SetVideoTrackParam(track_id,
                             type, param, param_size);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -631,12 +674,13 @@ bool PlayerClient::CheckServiceStatus() {
   return connected;
 }
 
-void PlayerClient::NotifyPlayerEvent(EventType event_type, void *event_data,
+void PlayerClient::NotifyPlayerEvent(EventType event_type,
+                                  void *event_data,
                                   size_t event_data_size)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    player_cb_.event_cb(event_type,event_data,event_data_size);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  player_cb_.event_cb(event_type,event_data,event_data_size);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void PlayerClient::NotifyVideoTrackData(uint32_t track_id,
@@ -645,18 +689,17 @@ void PlayerClient::NotifyVideoTrackData(uint32_t track_id,
                           TrackMetaBufferType meta_type,
                           size_t meta_size)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void PlayerClient::NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
+void PlayerClient::NotifyVideoTrackEvent(uint32_t track_id,
+                           EventType event_type,
                            void *event_data,
                            size_t event_data_size)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void PlayerClient::NotifyAudioTrackData(uint32_t track_id,
@@ -665,32 +708,30 @@ void PlayerClient::NotifyAudioTrackData(uint32_t track_id,
                           TrackMetaBufferType meta_type,
                           size_t meta_size)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-
-
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void PlayerClient::NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
+void PlayerClient::NotifyAudioTrackEvent(uint32_t track_id,
+                           EventType event_type,
                            void *event_data,
                            size_t event_data_size)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void PlayerClient::NotifyDeleteAudioTrack(uint32_t track_id)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void PlayerClient::NotifyDeleteVideoTrack(uint32_t track_id)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
-
 
 //Binder Proxy implementation of IPlayerService.
 class BpPlayerService: public BpInterface<IPlayerService>
@@ -753,7 +794,7 @@ public:
       memset(blob.data(), 0x0, param_size);
       memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
       remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-                                  PLAYER_CREATE_AUDIOTRACK), data, &reply);
+                                  PLAYER_CREATE_VIDEOTRACK), data, &reply);
       blob.release();
       return reply.readInt32();
     }
@@ -765,6 +806,12 @@ public:
       data.writeUint32(track_id);
       remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
                                       PLAYER_DELETE_AUDIOTRACK), data, &reply);
+      ion_fd_map::iterator it_fd;
+      for (it_fd=ion_fd_mapping.begin();
+        it_fd!=ion_fd_mapping.end(); ++it_fd) {
+        ion_fd_mapping.erase(it_fd);
+      }
+      ion_fd_mapping.clear();
       return reply.readInt32();
     }
 
@@ -856,8 +903,6 @@ public:
                  ion_fd_map::iterator it;
                  auto ion_fd_map_ = ion_fd_mapping.find(track_buffer.buf_id);
 
-                 QMMF_DEBUG("%s:%s service fd %d dup fd %d", TAG,__func__,ion_fd_map_->first, ion_fd_map_->second);
-
                  buffers[i].fd           = ion_fd_map_->second;
                  buffers[i].frame_length = track_buffer.frame_length;
                  buffers[i].buf_id       = track_buffer.buf_id;
@@ -919,7 +964,6 @@ public:
       remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
                                       PLAYER_PREPARE), data, &reply,
                                       IBinder::FLAG_ONEWAY);
-
       return reply.readInt32();
     }
 
@@ -1043,7 +1087,6 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
   assert(client_ != NULL);
   client_->NotifyVideoTrackEvent(track_id, event_type, event_data,
   event_data_size);
-
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1079,7 +1122,6 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
-
 
 class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
  public:
@@ -1379,5 +1421,5 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
   return NO_ERROR;
 }
 
-};//player
-};//qmmf
+};  // namespace player
+};  // namespace qmmf

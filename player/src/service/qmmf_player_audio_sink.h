@@ -45,17 +45,15 @@ using ::qmmf::common::audio::AudioEventHandler;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
 
-#define NUMBER_OF_SINK_BUFFERS 8
+#define NUMBER_OF_SINK_BUFFERS 4
 
 namespace qmmf {
 namespace player {
 
 class AudioTrackSink;
 
-class AudioSink
-{
-
-public:
+class AudioSink {
+ public:
   static AudioSink* CreateAudioSink();
 
   ~AudioSink();
@@ -70,7 +68,7 @@ public:
 
   status_t DeleteTrackSink(uint32_t track_id);
 
-private:
+ private:
   AudioSink();
 
   static AudioSink* instance_;
@@ -79,34 +77,32 @@ private:
   DefaultKeyedVector<uint32_t, sp<AudioTrackSink> > audio_track_sinks;
 };
 
-class AudioTrackSink : public IOutputCodecSource
-{
+class AudioTrackSink : public IOutputCodecSource {
+ public:
 
-public:
+  AudioTrackSink();
 
- AudioTrackSink();
+  ~AudioTrackSink();
 
- ~AudioTrackSink();
+  status_t Init(AudioTrackParams& param);
 
- status_t Init(AudioTrackParams& param);
+  status_t StartSink();
 
- status_t StartSink();
+  status_t StopSink();
 
- status_t StopSink();
+  status_t DeleteSink();
 
- status_t DeleteSink();
+  void AddBufferList(Vector<CodecBuffer>& list);
 
- void AddBufferList(Vector<CodecBuffer>& list);
+  status_t GetBuffer(CodecBuffer& codec_buffer);
 
- status_t GetBuffer(CodecBuffer& codec_buffer);
+  status_t ReturnBuffer(CodecBuffer& codec_buffer);
 
- status_t ReturnBuffer(CodecBuffer& codec_buffer);
+ private:
 
-private:
+  int32_t TrackId() { return track_params_.track_id; }
 
-  uint32_t TrackId() { return track_params_.track_id; }
-
-  status_t ConfigureSink(AudioTrackParams& param);
+  status_t ConfigureSink(AudioTrackParams& track_param);
 
   int32_t AllocateSinkBuffer(const int32_t number, const int32_t size);
 
@@ -122,7 +118,7 @@ private:
   AudioEndPoint*         end_point_;
   AudioEndPointType      type_;
 
-  //For decoded frame
+  // For decoded frame
   Vector<CodecBuffer>    output_buffer_list_;
   TSQueue<CodecBuffer>   output_free_buffer_queue_;
   TSQueue<CodecBuffer>   output_occupy_buffer_queue_;
@@ -132,10 +128,9 @@ private:
   int32_t                ion_device_;
   Mutex                  queue_lock_;
 
-  //For Sink
+  // For Sink
   int32_t sink_buffer_size_;
   int32_t number_of_sink_buffer = NUMBER_OF_SINK_BUFFERS;
-
 
   Vector<AudioBuffer>    audio_sink_buffer_list_;
 
@@ -164,8 +159,7 @@ private:
   int32_t               file_fd_;
   void DumpPCMData(CodecBuffer& codec_buffer);
 #endif
-
 };
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespace qmmf

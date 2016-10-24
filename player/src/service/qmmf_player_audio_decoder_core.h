@@ -39,7 +39,6 @@
 
 
 namespace qmmf {
-
 namespace player {
 
 using namespace android;
@@ -47,69 +46,59 @@ using namespace android;
 class AudioTrackSink;
 class AudioTrackDecoder;
 
-class AudioDecoderCore
-{
+class AudioDecoderCore {
+ public:
+  ~AudioDecoderCore();
 
-public:
-~AudioDecoderCore();
+  static AudioDecoderCore* CreateAudioDecoderCore();
 
- static AudioDecoderCore* CreateAudioDecoderCore();
+  status_t CreateAudioTrack(AudioTrackParams& params);
 
- status_t CreateAudioTrack(AudioTrackParams& params);
+  status_t DequeueTrackInputBuffer(uint32_t track_id,
+                         std::vector<AVCodecBuffer>& buffers);
 
- status_t DequeueTrackInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers);
+  status_t QueueTrackInputBuffer(uint32_t track_id,
+                         std::vector<AVCodecBuffer>& buffers);
 
- status_t QueueTrackInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers);
+  status_t PrepareTrackPipeline(uint32_t track_id,
+                         const sp<AudioTrackSink>& audio_track_sink);
 
- status_t PrepareTrackPipeline(uint32_t track_id, const sp<AudioTrackSink>& audio_track_sink);
+  status_t StartTrackDecoder(uint32_t track_id);
 
- status_t StartTrackDecoder(uint32_t track_id);
+  status_t StopTrackDecoder(uint32_t track_id);
 
- status_t StopTrackDecoder(uint32_t track_id);
+  status_t PauseTrackDecoder(uint32_t track_id);
 
- status_t PauseTrackDecoder(uint32_t track_id);
+  status_t ResumeTrackDecoder(uint32_t track_id);
 
- status_t ResumeTrackDecoder(uint32_t track_id);
+  status_t SetAudioTrackDecoderParams(uint32_t track_id,
+                               CodecParamType param_type, void* param,
+                               uint32_t param_size);
 
- status_t SetAudioTrackDecoderParams(uint32_t track_id,
-                                 CodecParamType param_type, void* param,
-                                 uint32_t param_size);
+  status_t DeleteTrackDecoder(uint32_t track_id);
 
- status_t DeleteTrackDecoder(uint32_t track_id);
+ private:
 
-// status_t addSink(uint32_t track_id,sp<AudioTrackDecoder>& audio_sink);
+  bool isTrackValid(uint32_t track_id);
 
-private:
+  AudioDecoderCore();
+  AudioDecoderCore(const AudioDecoderCore&);
+  AudioDecoderCore& operator=(const AudioDecoderCore&);
 
- bool isTrackValid(uint32_t track_id);
+  // Map of track id and audio decoder
+  DefaultKeyedVector<uint32_t, sp<AudioTrackDecoder>> audio_track_decoders_;
 
- AudioDecoderCore();
- AudioDecoderCore(const AudioDecoderCore&);
- AudioDecoderCore& operator=(const AudioDecoderCore&);
-
- //Map of track id and audio decoder
- DefaultKeyedVector<uint32_t, sp<AudioTrackDecoder>> audio_track_decoders_;
-
-// std::vector  audio_tracks;
-
- static AudioDecoderCore* instance_;
- int32_t ion_device_;
-
+  static AudioDecoderCore* instance_;
+  int32_t ion_device_;
 };
 
-// This class is behaves as both producer and consumer. At one end, it takes
+// This class behaves as both producer and consumer. At one end, it takes
 // encoded data from the demuxer; and on the other end, it provides those
 // encoded data to Decoder. It also manages buffer circulation, skip, etc.
-
-//class AudioTrackDecoder : public IInputCodecSource, public IOutputCodecSource
-
-class AudioTrackDecoder : public IInputCodecSource
-{
-
-public:
+class AudioTrackDecoder : public IInputCodecSource {
+ public:
   AudioTrackDecoder(int32_t ion_device);
+
   ~AudioTrackDecoder();
 
   status_t ConfigureTrackDecoder(AudioTrackParams& track_params);
@@ -133,16 +122,16 @@ public:
 
   status_t DeleteDecoder();
 
-  // this method provides an input buffer to the AVCodec
-   status_t Read(StreamBuffer& stream_buffer);
+  // This method provides an input buffer to the AVCodec
+  status_t Read(StreamBuffer& stream_buffer);
 
-  // this method is used by AVCodec to return buffer after encoding
-   status_t SignalBufferReturned(StreamBuffer& stream_buffer);
+  // This method is used by AVCodec to return buffer after encoding
+  status_t SignalBufferReturned(StreamBuffer& stream_buffer);
 
-  // this method is used by AVCodec to notify stop
-   status_t NotifyStatus(CodecInputPortStatus status);
+  // This method is used by AVCodec to notify stop
+  status_t NotifyStatus(CodecInputPortStatus status);
 
-private:
+ private:
 
   status_t AllocInputPortBufs();
 
@@ -150,58 +139,50 @@ private:
 
   void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
-   uint32_t TrackId() { return audio_track_params_.track_id; }
+  uint32_t TrackId() { return audio_track_params_.track_id; }
 
-   typedef struct BufInfo {
-     //fd at service
-     uint32_t buf_id;
+  typedef struct BufInfo {
+    // FD at service
+    uint32_t buf_id;
 
-     // Memory mapped buffer.
-     void*    vaddr;
-   } BufInfo;
+    // Memory mapped buffer.
+    void*    vaddr;
+  } BufInfo;
 
-   //std::map<uint32_t, void*> fd_vaddr_map;
+  // map<fd , buf_info>
+  DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
-    //map<fd , buf_info>
-   DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
+  AudioTrackSink*           audio_track_sink_;
+  AudioTrackParams          audio_track_params_;
+  sp<AVCodec>               avcodec_;
 
-  AudioTrackSink*        audio_track_sink_;
-
-  //sp<AudioTrackSink>     audio_sink;
-
-  AudioTrackParams       audio_track_params_;
-  sp<AVCodec>            avcodec_;
-
-  //For bitstream
-  Vector<StreamBuffer>    input_buffer_list_;
+  // For bitstream
+  Vector<StreamBuffer>      input_buffer_list_;
+  TSQueue<StreamBuffer>     unfilled_frame_queue_;
+  TSQueue<StreamBuffer>     filled_frame_queue_;
+  TSQueue<StreamBuffer>     frames_to_decode_;
+  TSQueue<StreamBuffer>     frames_being_decoded_;
 
   typedef  struct ion_allocation_data IonHandleData;
   Vector<IonHandleData>     ion_handle_data;
 
-  TSQueue<StreamBuffer>   unfilled_frame_queue_;
-  TSQueue<StreamBuffer>   filled_frame_queue_;
-  TSQueue<StreamBuffer>   frames_to_decode_;
-  TSQueue<StreamBuffer>   frames_being_decoded_;
 
-  Vector<CodecBuffer>    output_buffer_list_;
+  Vector<CodecBuffer>       output_buffer_list_;
 
-  Mutex                  wait_for_empty_frame_lock_;
-  Condition              wait_for_empty_frame_;
+  Mutex                     wait_for_empty_frame_lock_;
+  Condition                 wait_for_empty_frame_;
 
-  Mutex                  wait_for_frame_lock_;
-  Condition              wait_for_frame_;
-  int32_t                ion_device_;
-  Mutex                  queue_lock_;
-  bool                   eos_;
+  Mutex                     wait_for_frame_lock_;
+  Condition                 wait_for_frame_;
+  int32_t                   ion_device_;
+  Mutex                     queue_lock_;
+  bool                      eos_;
+
 #ifdef DUMP_PCM_DATA
-  int32_t                file_fd_;
-  int32_t                file_fd_aac_;
-
+  int32_t                   file_fd_;
+  int32_t                   file_fd_audio_;
 #endif
-
 };
 
-
-};
-
-};
+};  // namepsse player
+};  // namespace qmmf

@@ -46,10 +46,8 @@ namespace player {
 
 using namespace android;
 
-class PlayerClient
-{
-
-public:
+class PlayerClient {
+ public:
   PlayerClient();
 
   ~PlayerClient();
@@ -132,7 +130,7 @@ public:
 
   void NotifyDeleteVideoTrack(uint32_t track_id);
 
-private:
+ private:
 
   bool CheckServiceStatus();
 
@@ -158,37 +156,24 @@ private:
   PlayerCb                                  player_cb_;
   PictureCallback                           picture_cb_;
   DefaultKeyedVector<uint32_t, TrackCb >    track_cb_list_;
-  //std::vector<AVCodecBuffer>                codecbuffer_;
-
 
   typedef struct BufInfo {
-    //fd at service
+    // fd at service
     uint32_t buf_id;
 
     uint32_t client_fd;
 
-    // Memory mapped buffer.
+    // memory mapped buffer
     void*    vaddr;
+
+    size_t   frame_len;
   } BufInfo;
 
-  //std::map<uint32_t, void*> fd_vaddr_map;
-
-   //map<fd , buf_info>
+  // map<fd , buf_info>
   typedef DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
-  //map <track id , map<fd , buf info>>
+  // map <track id , map<fd , buf info>>
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
-
-  /*typedef struct FDVaddr {
-    //dup ION Id
-    uint32_t fd;
-
-    // Memory mapped buffer.
-    void*    vaddr;
-  } FDVaddr;
-
-
-  std::map<uint32_t, std::vector<FDVaddr>> track_fd_map;*/
 };
 
 
@@ -200,7 +185,7 @@ class ServiceCallbackHandler : public BnPlayerServiceCallback {
   ~ServiceCallbackHandler();
 
  private:
-  //Methods of BnPlayerServiceCallback.
+  // Methods of BnPlayerServiceCallback.
 
   void NotifyPlayerEvent(EventType event_type, void *event_data,
                                    size_t event_data_size) override;
@@ -229,5 +214,5 @@ class ServiceCallbackHandler : public BnPlayerServiceCallback {
 };
 
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespace qmmf

@@ -231,14 +231,13 @@ class IPlayerServiceCallback : public IInterface {
       __attribute__((__unused__))) {}
 };
 
-//This class is responsible to provide callbacks from player service.
-class BnPlayerServiceCallback : public BnInterface<IPlayerServiceCallback>
-{
-public:
+// This class is responsible to provide callbacks from player service.
+class BnPlayerServiceCallback : public BnInterface<IPlayerServiceCallback> {
+ public:
     virtual status_t onTransact(uint32_t code, const Parcel& data,
                                  Parcel* reply, uint32_t flags = 0) override;
 };
 
 
-};//player
-};//qmmf
+};  // namespace player
+};  // namespace qmmf

@@ -44,83 +44,81 @@ namespace player {
 using namespace android;
 
 class PlayerService: public BnInterface<IPlayerService> {
+ public:
 
-public:
-PlayerService();
+  PlayerService();
 
-~PlayerService();
+  ~PlayerService();
 
-private:
- class DeathNotifier : public IBinder::DeathRecipient {
-  public:
-   DeathNotifier(sp<PlayerService> parent) : parent_(parent) {}
+ private:
+  class DeathNotifier : public IBinder::DeathRecipient {
+   public:
+    DeathNotifier(sp<PlayerService> parent) : parent_(parent) {}
 
-   void binderDied(const wp<IBinder>&) override {
-     QMMF_WARN("PlayerService:%s: Client Exited or Died!", __func__);
-     assert(parent_.get() != nullptr);
-     parent_->Disconnect();
-   }
-   sp<PlayerService> parent_;
- };
+    void binderDied(const wp<IBinder>&) override {
+       QMMF_WARN("PlayerService:%s: Client Exited or Died!", __func__);
+       assert(parent_.get() != nullptr);
+       parent_->Disconnect();
+     }
+     sp<PlayerService> parent_;
+  };
 
- friend class DeathNotifier;
+  friend class DeathNotifier;
 
+  // Method of BnInterface<IPlayerService>.
+  // This method would get call to handle incoming messages from clients.
+  status_t onTransact(uint32_t code, const Parcel& data,
+                               Parcel* reply, uint32_t flags = 0) override;
 
- // Method of BnInterface<IPlayerService>.
- // This method would get call to handle incoming messages from clients.
- status_t onTransact(uint32_t code, const Parcel& data,
-                              Parcel* reply, uint32_t flags = 0) override;
+  status_t Connect(const sp<IPlayerServiceCallback>& service_cb) override;
 
- status_t Connect(const sp<IPlayerServiceCallback>& service_cb) override;
+  status_t Disconnect() override;
 
- status_t Disconnect() override;
+  status_t CreateAudioTrack(uint32_t track_id,
+                          AudioTrackCreateParam& param) override;
 
- status_t CreateAudioTrack(uint32_t track_id,
-                         AudioTrackCreateParam& param) override;
+  status_t CreateVideoTrack(uint32_t track_id,
+                          VideoTrackCreateParam& param) override;
 
- status_t CreateVideoTrack(uint32_t track_id,
-                         VideoTrackCreateParam& param) override;
+  status_t DeleteAudioTrack(uint32_t track_id) override;
+  status_t DeleteVideoTrack(uint32_t track_id) override;
 
- status_t DeleteAudioTrack(uint32_t track_id) override;
- status_t DeleteVideoTrack(uint32_t track_id) override;
+  status_t Prepare() override;
 
- status_t Prepare() override;
+  status_t DequeueInputBuffer(uint32_t track_id,
+                            std::vector<AVCodecBuffer>& buffers) override;
 
- status_t DequeueInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers) override;
+  status_t QueueInputBuffer(uint32_t track_id,
+                          std::vector<AVCodecBuffer>& buffers,
+                          void *meta_param,
+                          size_t meta_size,
+                          TrackMetaBufferType meta_type) override;
 
- status_t QueueInputBuffer(uint32_t track_id,
-                         std::vector<AVCodecBuffer>& buffers,
-                         void *meta_param,
-                         size_t meta_size,
-                         TrackMetaBufferType meta_type) override;
+  status_t Start() override;
 
- status_t Start() override;
+  status_t Stop(bool do_flush) override;
 
- status_t Stop(bool do_flush) override;
+  status_t Pause() override;
 
- status_t Pause() override;
+  status_t Resume() override;
 
- status_t Resume() override;
+  status_t SetPosition(int64_t seek_time) override;
 
- status_t SetPosition(int64_t seek_time) override;
+  status_t SetTrickMode(uint32_t speed, uint32_t direction) override;
 
- status_t SetTrickMode(uint32_t speed, uint32_t direction) override;
+  status_t GrabPicture(PictureParam param) override;
 
- status_t GrabPicture(PictureParam param) override;
+  status_t SetAudioTrackParam(uint32_t track_id,
+                            CodecParamType type,
+                            void *param,
+                            size_t param_size) override;
 
- status_t SetAudioTrackParam(uint32_t track_id,
-                           CodecParamType type,
-                           void *param,
-                           size_t param_size) override;
+  status_t SetVideoTrackParam(uint32_t track_id,
+                            CodecParamType type,
+                            void *param,
+                            size_t param_size) override;
 
- status_t SetVideoTrackParam(uint32_t track_id,
-                           CodecParamType type,
-                           void *param,
-                           size_t param_size) override;
-
-
-private:
+ private:
   bool                  connected_;
   PlayerImpl*           player_;
   sp<DeathNotifier>     death_notifier_;
@@ -129,14 +127,8 @@ private:
 
   ion_fd_map ion_fd_mapping;
 
-  /* //map<fd , buf_info>
-  typedef DefaultKeyedVector<uint32_t, uint32_t> fd_map;
-
-  //map<fd , buf_info>
-  DefaultKeyedVector<uint32_t, uint32_t> track_fd_map_; */
-
   std::map<uint32_t , std::vector<uint32_t>> track_fd_map_;
 };
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespce qmmf

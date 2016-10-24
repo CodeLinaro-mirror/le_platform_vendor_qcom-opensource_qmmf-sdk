@@ -106,6 +106,11 @@ namespace player {
         {
             uint32_t track_id = data.readUint32();
             ret = DeleteAudioTrack(track_id);
+            ion_fd_map::iterator it_fd;
+            for (it_fd=ion_fd_mapping.begin();
+                 it_fd!=ion_fd_mapping.end(); ++it_fd) {
+                ion_fd_mapping.erase(it_fd);
+            }
             reply->writeInt32(ret);
             return NO_ERROR;
         }
@@ -115,6 +120,11 @@ namespace player {
         {
             uint32_t track_id = data.readUint32();
             ret = DeleteVideoTrack(track_id);
+            ion_fd_map::iterator it_fd;
+            /*for (it_fd=ion_fd_mapping.begin();
+                 it_fd!=ion_fd_mapping.end(); ++it_fd) {
+                ion_fd_mapping.erase(it_fd);
+            }*/
             reply->writeInt32(ret);
             return NO_ERROR;
         }
@@ -350,7 +360,8 @@ namespace player {
 }
 
 PlayerService::PlayerService()
-        :connected_(false){
+     :player_(NULL), connected_(false) {
+
   QMMF_INFO("%s:%s: PlayerService Instantiated! ", TAG, __func__);
 }
 
@@ -418,6 +429,9 @@ status_t PlayerService::Disconnect() {
 status_t PlayerService::CreateAudioTrack(uint32_t track_id,
                          AudioTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(player_ != NULL);
 
@@ -433,6 +447,9 @@ status_t PlayerService::CreateAudioTrack(uint32_t track_id,
 status_t PlayerService::CreateVideoTrack(uint32_t track_id,
                          VideoTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(player_ != NULL);
 
@@ -447,6 +464,9 @@ status_t PlayerService::CreateVideoTrack(uint32_t track_id,
 
 status_t PlayerService::DeleteAudioTrack(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   assert(player_ != NULL);
 
@@ -461,6 +481,9 @@ status_t PlayerService::DeleteAudioTrack(uint32_t track_id) {
 
 status_t PlayerService::DeleteVideoTrack(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->DeleteVideoTrack(track_id);
@@ -475,6 +498,9 @@ status_t PlayerService::DeleteVideoTrack(uint32_t track_id) {
 status_t PlayerService::DequeueInputBuffer(uint32_t track_id,
                            std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->DequeueInputBuffer(track_id,buffers);
@@ -492,6 +518,9 @@ status_t PlayerService::QueueInputBuffer(uint32_t track_id,
                          size_t meta_size,
                          TrackMetaBufferType meta_type) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->QueueInputBuffer(track_id, buffers, meta_param,
@@ -506,6 +535,9 @@ status_t PlayerService::QueueInputBuffer(uint32_t track_id,
 
 status_t PlayerService::Prepare() {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->Prepare();
@@ -519,6 +551,9 @@ status_t PlayerService::Prepare() {
 
 status_t PlayerService::Start() {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->Start();
@@ -532,6 +567,9 @@ status_t PlayerService::Start() {
 
 status_t PlayerService::Stop(bool do_flush) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->Stop(do_flush);
@@ -545,6 +583,9 @@ status_t PlayerService::Stop(bool do_flush) {
 
 status_t PlayerService::Pause() {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->Pause();
@@ -558,6 +599,9 @@ status_t PlayerService::Pause() {
 
 status_t PlayerService::Resume() {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->Resume();
@@ -571,6 +615,9 @@ status_t PlayerService::Resume() {
 
 status_t PlayerService::SetPosition(int64_t seek_time) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->SetPosition(seek_time);
@@ -584,6 +631,9 @@ status_t PlayerService::SetPosition(int64_t seek_time) {
 
 status_t PlayerService::SetTrickMode(uint32_t speed, uint32_t direction) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->SetTrickMode(speed, direction);
@@ -597,6 +647,9 @@ status_t PlayerService::SetTrickMode(uint32_t speed, uint32_t direction) {
 
 status_t PlayerService::GrabPicture(PictureParam param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->GrabPicture(param);
@@ -613,6 +666,9 @@ status_t PlayerService::SetAudioTrackParam(uint32_t track_id,
                            void *param,
                            size_t param_size) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->SetAudioTrackParam(track_id, type, param, param_size);
@@ -629,6 +685,9 @@ status_t PlayerService::SetVideoTrackParam(uint32_t track_id,
                            void *param,
                            size_t param_size) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  if (!connected_)
+    return NO_INIT;
+
   assert(player_ != NULL);
 
   auto ret = player_->SetVideoTrackParam(track_id, type, param, param_size);
@@ -641,5 +700,5 @@ status_t PlayerService::SetVideoTrackParam(uint32_t track_id,
 }
 
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespace qmmf

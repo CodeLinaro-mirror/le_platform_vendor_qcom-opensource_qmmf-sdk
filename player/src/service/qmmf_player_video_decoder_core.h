@@ -45,68 +45,63 @@ using namespace android;
 
 
 class VideoTrackDecoder;
-
 class VideoTrackSink;
 
-class VideoDecoderCore
-{
+class VideoDecoderCore {
+ public:
+  ~VideoDecoderCore();
 
-public:
-~VideoDecoderCore();
+  static VideoDecoderCore* CreateVideoDecoderCore();
 
- static VideoDecoderCore* CreateVideoDecoderCore();
+  status_t CreateVideoTrack(VideoTrackParams& params);
 
- status_t CreateVideoTrack(VideoTrackParams& params);
+  status_t DequeueTrackInputBuffer(uint32_t track_id,
+                         std::vector<AVCodecBuffer>& buffers);
 
- status_t DequeueTrackInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers);
+  status_t QueueTrackInputBuffer(uint32_t track_id,
+                         std::vector<AVCodecBuffer>& buffers);
 
- status_t QueueTrackInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers);
+  status_t PrepareTrackPipeline(uint32_t track_id,
+                         const sp<VideoTrackSink>& audio_track_sink);
 
- status_t PrepareTrackPipeline(uint32_t track_id, const sp<VideoTrackSink>& audio_track_sink);
+  status_t StartTrackDecoder(uint32_t track_id);
 
- status_t StartTrackDecoder(uint32_t track_id);
+  status_t StopTrackDecoder(uint32_t track_id);
 
- status_t StopTrackDecoder(uint32_t track_id);
+  status_t PauseTrackDecoder(uint32_t track_id);
 
- status_t PauseTrackDecoder(uint32_t track_id);
+  status_t ResumeTrackDecoder(uint32_t track_id);
 
- status_t ResumeTrackDecoder(uint32_t track_id);
+  status_t SetVideoTrackDecoderParams(uint32_t track_id,
+                               CodecParamType param_type, void* param,
+                               uint32_t param_size);
 
+  status_t DeleteTrackDecoder(uint32_t track_id);
 
- status_t SetVideoTrackDecoderParams(uint32_t track_id,
-                                 CodecParamType param_type, void* param,
-                                 uint32_t param_size);
+ private:
 
+  bool isTrackValid(uint32_t track_id);
 
- status_t DeleteTrackDecoder(uint32_t track_id);
+  VideoDecoderCore();
 
-private:
+  VideoDecoderCore(const VideoDecoderCore&);
 
- bool isTrackValid(uint32_t track_id);
+  VideoDecoderCore& operator=(const VideoDecoderCore&);
 
- VideoDecoderCore();
- VideoDecoderCore(const VideoDecoderCore&);
- VideoDecoderCore& operator=(const VideoDecoderCore&);
+  //Map of track id and video decoder
+  DefaultKeyedVector<uint32_t, sp<VideoTrackDecoder>> video_track_decoders_;
 
- //Map of track id and video decoder
- DefaultKeyedVector<uint32_t, sp<VideoTrackDecoder>> video_track_decoders_;
-// std::vector  video_tracks;
-
- static VideoDecoderCore* instance_;
- int32_t ion_device_;
-
+  static VideoDecoderCore* instance_;
+  int32_t ion_device_;
 };
 
-class VideoTrackDecoder : public IInputCodecSource
-{
-
-public:
+class VideoTrackDecoder : public IInputCodecSource {
+ public:
   VideoTrackDecoder(int32_t ion_device);
+
   ~VideoTrackDecoder();
 
-  status_t ConfigureTrackDecoder(VideoTrackParams& params);
+  status_t ConfigureTrackDecoder(VideoTrackParams& track_params);
 
   status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
@@ -125,18 +120,18 @@ public:
   status_t SetVideoDecoderParams(CodecParamType param_type, void* param,
                               uint32_t param_size);
 
-   status_t DeleteDecoder();
+  status_t DeleteDecoder();
 
-  // this method provides an input buffer to the AVCodec
-   status_t Read(StreamBuffer& stream_buffer);
+  // This method provides an input buffer to the AVCodec
+  status_t Read(StreamBuffer& stream_buffer);
 
-  // this method is used by AVCodec to return buffer after encoding
-   status_t SignalBufferReturned(StreamBuffer& stream_buffer);
+  // This method is used by AVCodec to return buffer after encoding
+  status_t SignalBufferReturned(StreamBuffer& stream_buffer);
 
-  // this method is used by AVCodec to notify stop
-   status_t NotifyStatus(CodecInputPortStatus status);
+  // This method is used by AVCodec to notify stop
+  status_t NotifyStatus(CodecInputPortStatus status);
 
-private:
+ private:
 
   status_t AllocInputPortBufs();
 
@@ -144,39 +139,49 @@ private:
 
   void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
-#ifdef DUMP_YUV_FRAMES
-  void DumpYUVFrames(CodecBuffer& codec_buffer);
-#endif
-
   uint32_t TrackId() { return video_track_params_.track_id; }
 
-  VideoTrackSink*        video_track_sink_;
+  typedef struct BufInfo {
+    // FD at service
+    uint32_t buf_id;
 
-  VideoTrackParams       video_track_params_;
-  sp<AVCodec>            avcodec_;
+    // Memory mapped buffer.
+    void*    vaddr;
+  } BufInfo;
+
+  //map<fd , buf_info>
+  DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
+
+  VideoTrackSink*         video_track_sink_;
+  VideoTrackParams        video_track_params_;
+  sp<AVCodec>             avcodec_;
 
   //For input port
   Vector<StreamBuffer>    input_buffer_list_;
   TSQueue<StreamBuffer>   unfilled_frame_queue_;
-  TSQueue<StreamBuffer>   filled_frame_queue;
+  TSQueue<StreamBuffer>   filled_frame_queue_;
+  TSQueue<StreamBuffer>   frames_to_decode_;
   TSQueue<StreamBuffer>   frames_being_decoded_;
 
-  Vector<CodecBuffer>    output_buffer_list_;
-  TSQueue<CodecBuffer>   output_free_buffer_queue_;
-  TSQueue<CodecBuffer>   output_occupy_buffer_queue_;
+  typedef  struct ion_allocation_data IonHandleData;
+  Vector<IonHandleData>   ion_handle_data;
 
-  Mutex                  lock_;
-  Condition              wait_for_frame_;
-  int32_t                ion_device_;
-  Mutex                  queue_lock_;
-  bool                   eos_;
+
+  Vector<CodecBuffer>     output_buffer_list_;
+
+  Mutex                   wait_for_empty_frame_lock_;
+  Condition               wait_for_empty_frame_;
+  Mutex                   wait_for_frame_lock_;
+  Condition               wait_for_frame_;
+  int32_t                 ion_device_;
+  Mutex                   queue_lock_;
+  bool                    eos_;
+
 #ifdef DUMP_YUV_FRAMES
-  int32_t               file_fd_;
+  int32_t                 file_fd_video_;
+  void DumpYUVFrames(CodecBuffer& codec_buffer);
 #endif
-
 };
 
-
-};
-
-};
+};  // namespace player
+};  // namespace qmmf

@@ -37,46 +37,76 @@ namespace player {
 
 class VideoTrackSink;
 
-class VideoSink
-{
+class VideoSink {
+ public:
 
-public:
+  static VideoSink* CreateVideoSink();
 
-static VideoSink* CreateVideoSink();
+  ~VideoSink();
 
-~VideoSink();
-
- status_t CreateTrackSink(uint32_t track_id, VideotrackParams& param);
+  status_t CreateTrackSink(uint32_t track_id, VideotrackParams& param);
 
   const sp<VideoTrackSink>& GetTrackSink(uint32_t track_id);
 
-private:
-   VideoSink();
+  status_t StartTrackSink(uint32_t track_id);
 
- static VideoSink* instance_;
+  status_t StopTrackSink(uint32_t track_id);
+
+  status_t DeleteTrackSink(uint32_t track_id);
+
+ private:
+  VideoSink();
+
+  static VideoSink* instance_;
 
   // Map of track it and TrackSinks.
   DefaultKeyedVector<uint32_t, sp<VideoTrackSink> > video_track_sinks;
 };
 
 
-class VideoTrackSink : public IOutputCodecSource
-{
+class VideoTrackSink : public IOutputCodecSource {
+ public:
 
-public:
+  VideoTrackSink();
 
-VideoTrackSink();
+  ~VideoTrackSink();
 
-~VideoTrackSink();
+  status_t Init(VideoTrackParams& param);
 
-status_t Init(VideoTrackParams& param);
+  status_t StartSink();
 
-status_t GetBuffer(CodecBuffer& codec_buffer);
+  status_t StopSink();
 
-status_t ReturnBuffer(CodecBuffer& codec_buffer);
+  status_t DeleteSink();
 
+  void AddBufferList(Vector<CodecBuffer>& list);
+
+  status_t GetBuffer(CodecBuffer& codec_buffer);
+
+  status_t ReturnBuffer(CodecBuffer& codec_buffer);
+
+ private:
+
+  int32_t TrackId() { return track_params_.track_id; }
+
+  VideoTrackParams        track_params_;
+
+  Vector<CodecBuffer>     output_buffer_list_;
+  TSQueue<CodecBuffer>    output_free_buffer_queue_;
+  TSQueue<CodecBuffer>    output_occupy_buffer_queue_;
+
+  Mutex                   wait_for_frame_lock_;
+  Condition               wait_for_frame_;
+  int32_t                 ion_device_;
+  Mutex                   queue_lock_;
+  bool                    stopplayback_;
+
+#ifdef DUMP_YUV_FRAMES
+  int32_t               file_fd_;
+  void DumpYUVData(CodecBuffer& codec_buffer);
+#endif
 };
 
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespace qmmf

@@ -34,7 +34,7 @@
 #define TAG3 "AMRfileIO"
 #define TAG4 "G711fileIO"
 #define OFFSET_TABLE_LEN    300
-#define MAX_NUM_FRAMES_PER_BUFF_AMR  64
+#define MAX_NUM_FRAMES_PER_BUFF_AMR  1
 #define FORMAT_ALAW  0x0006
 #define FORMAT_MULAW 0x0007
 
@@ -48,24 +48,6 @@
 #else
 #define TEST_DBG(...) ((void)0)
 #endif
-
-AACfileIO* AACfileIO::aacfileIO_ = nullptr;
-
-AACfileIO* AACfileIO::createAACfileIOobj(const char* file){
-  if(aacfileIO_ == nullptr){
-    if(file == nullptr){
-      TEST_ERROR("%s:%s:%s  file pointer is NULL",TAG,TAG2,__func__);
-      assert(0);
-    }
-    aacfileIO_ = new AACfileIO(file);
-    if(aacfileIO_ == nullptr){
-        TEST_ERROR("%s:%s:%s Could not create AACfileIO object",TAG,TAG2,__func__);
-        assert(0);
-    }
-    return aacfileIO_;
-  }
-  return aacfileIO_;
-}
 
 AACfileIO::AACfileIO(const char*file):infile(file),
                                 confidence(0),
@@ -226,22 +208,15 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
       numFrames++;
   }
 
-  TEST_INFO("%s:%s:%s The aac file read completed",TAG,TAG2,__func__);
+  v_OffsetVector = OffsetVector.begin();
+  v_frameSize = frameSize.begin();
+  v_headerSize = headerSize.begin();
 
+  TEST_INFO("%s:%s:%s The aac file read completed",TAG,TAG2,__func__);
 
   //In DSP this 1024(number of samples per frame) is the default/hardcoded value look at omx_aac_adec.h and omx_aac_dec.cpp for reference
   Framedurationus = (1024 * 1000000ll + (sr - 1)) / sr;
   duration = numFrames * Framedurationus;
-
-#if 0
-  cout << "Profile: "  << (int)profile << endl;
-  cout << "NUmber of Channela:   "   << (int)channel << endl;
-  cout << "Samplimng rate(Hz):    "   << (int)sr << endl;
-  cout << "Size of whole aac file(in bytes):    "   << streamSize << endl;
-  cout << "Duration of whole file in us:    " <<  duration << endl;
-  //cout << "Duration of a single Frame in us:    "   << mFrameDurationUs << endl;
-  cout << "Total number of Frames:    "   << numFrames << endl;
-#endif
 
   params->sample_rate = sr;
   params->channels    = channel;
@@ -270,7 +245,6 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
 }
 
 //return value of -1 signifies the end of file i.e. OMX_BUFFERFLAGEOS
-
 status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frames_read,uint32_t*bytes_read){
 
   TEST_INFO("%s:%s:%s Enter",TAG,TAG2,__func__);
@@ -278,18 +252,11 @@ status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frame
         TEST_ERROR("%s:%s:%s File read has already been completed",TAG,TAG2,__func__);
     return -1;
   }
-  char*aac = (char*)buffer;
-  static vector<uint64_t>::iterator v_OffsetVector = OffsetVector.begin();
-  static vector<size_t>::iterator v_frameSize = frameSize.begin();
-  static vector<size_t>::iterator v_headerSize = headerSize.begin();
+  char* aac = (char*)buffer;
 
   *num_frames_read = 0;
   *bytes_read = 0;
-  //will read as many frames as can be read
-  /*
-  As of now I am sending each frame incuding the ADTS header....because I guess DSP need to know where a frame starts and where it ends and so we need a header for each frame
-  Moreover no partaial frame will be filled in buffer and only integer number of frames will be stored in buffer pointer
-  */
+
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
@@ -328,26 +295,10 @@ AACfileIO::~AACfileIO(){
   if(infile.is_open()){
     infile.close();
   }
+  OffsetVector.clear();
+  frameSize.clear();
+  headerSize.clear();
   TEST_INFO("%s:%s:%s Exit",TAG,TAG2,__func__);
-}
-
-
-G711fileIO* G711fileIO::g711fileIO_ = nullptr;
-
-G711fileIO* G711fileIO::createG711fileIOobj(const char* file){
-  if(g711fileIO_ == nullptr){
-  if(file == nullptr){
-    TEST_ERROR("%s:%s:%s  file pointer is NULL",TAG,TAG4,__func__);
-    assert(0);
-  }
-  g711fileIO_ = new G711fileIO(file);
-  if(g711fileIO_ == nullptr){
-      TEST_ERROR("%s:%s:%s Could not create G711fileIO object",TAG,TAG4,__func__);
-      assert(0);
-  }
-  return g711fileIO_;
-  }
-  return g711fileIO_;
 }
 
 G711fileIO::G711fileIO(const char*file):infile(file),
@@ -396,6 +347,9 @@ status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
   sr = g711hdr.sample_rate;
   channel = g711hdr.num_channels;
   starting_offset =  infile.tellg();
+
+  offset = starting_offset;
+
   infile.seekg(0,infile.end);
   streamSize = infile.tellg();
   infile.seekg(starting_offset);
@@ -429,7 +383,7 @@ status_t G711fileIO::GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_
     return -1;
   }
   size_buffer = 1024;
-  static uint64_t offset = starting_offset;
+
   infile.seekg(offset);
   char*g711 = (char*)buffer;
   uint32_t bytes_to_read = (streamSize - offset) > size_buffer ? size_buffer : (streamSize - offset);
@@ -449,25 +403,6 @@ status_t G711fileIO::GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_
   offset += (uint64_t)(*bytes_read);
    TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
   return 0;
-}
-
-
-AMRfileIO* AMRfileIO::amrfileIO_ = nullptr;
-
-AMRfileIO* AMRfileIO::createAMRfileIOobj(const char* file){
-  if(amrfileIO_ == nullptr){
-    if(file == nullptr){
-      TEST_ERROR("%s:%s:%s  file pointer is NULL",TAG,TAG3,__func__);
-      assert(0);
-    }
-    amrfileIO_ = new AMRfileIO(file);
-    if(amrfileIO_ == nullptr){
-        TEST_ERROR("%s:%s:%s Could not create AMRfileIO object",TAG,TAG3,__func__);
-        assert(0);
-    }
-    return amrfileIO_;
-  }
-  return amrfileIO_;
 }
 
 AMRfileIO::AMRfileIO(const char*file):infile(file),
@@ -491,9 +426,10 @@ AMRfileIO::~AMRfileIO(){
   if(infile.is_open()){
     infile.close();
   }
+  OffsetVector.clear();
+  frameSize.clear();
   TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
 }
-
 
 size_t AMRfileIO::getFrameSize(bool isWide,unsigned int FT){
   static const size_t kFrameSizeNB[16] = {
@@ -579,8 +515,10 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
       numFrames++;
   }
 
-  //sr = mIsWide ? 16000 : 8000;
-  sr = 16000;
+  v_OffsetVector  = OffsetVector.begin();
+  v_frameSize = frameSize.begin();
+
+  sr = mIsWide ? 16000 : 8000;
   channel = 1;
 
   params->sample_rate               = sr;
@@ -608,22 +546,14 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
     return -1;
   }
   char*amr = (char*)buffer;
-  static vector<uint64_t>::iterator v_OffsetVector = OffsetVector.begin();
-  static vector<size_t>::iterator v_frameSize = frameSize.begin();
 
   *num_frames_read = 0;
   *bytes_read = 0;
 
-
-  //will read as many frames as can be read
-  /*
-  As of now I am sending each frame incuding the AMR header....because I guess DSP need to know where a frame starts and where it ends and so we need a header for each frame
-  Moreover no partaial frame will be filled in buffer and only integer number of frames will be stored in buffer pointer
-  */
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
-    TEST_INFO("%s:%s:%s offset = %lld frameSize = %u",TAG,TAG3,__func__,(long long)offset,(uint32_t)framesize);
+    TEST_DBG("%s:%s:%s offset = %lld frameSize = %u",TAG,TAG3,__func__,(long long)offset,(uint32_t)framesize);
     if(size_buffer - *bytes_read < (uint32_t)framesize){
 
         TEST_DBG("%s:%s:%s No space left in Buffer header(%p)",TAG,TAG3,__func__,buffer);
@@ -638,7 +568,7 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
     uint32_t read_bytes = 0;
     infile.seekg(offset);
     if((read_bytes  = infile.read(amr,framesize).gcount()) != framesize){
-        TEST_ERROR("%s:%s:%s Error in reading the %d bytes from aac file, read_bytes = %d",TAG,TAG3,__func__,framesize,read_bytes);
+        TEST_ERROR("%s:%s:%s Error in reading the %d bytes from amr file, read_bytes = %d",TAG,TAG3,__func__,framesize,read_bytes);
         assert(0);
     }
     amr += read_bytes;
@@ -656,5 +586,3 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
   TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
   return 0;
 }
-
-
