@@ -631,7 +631,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -639,9 +639,9 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
 
-  ret = audio_aac_track->SetUp(info);
+  ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
-  tracks.push_back(audio_aac_track);
+  tracks.push_back(yuv_1080p_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -677,7 +677,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -685,9 +685,9 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
 
-  ret = audio_aac_track->SetUp(info);
+  ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
-  tracks.push_back(audio_aac_track);
+  tracks.push_back(yuv_1080p_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -781,6 +781,89 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   ret = enc_1080p_track2->SetUp(info);
   assert(ret == 0);
   tracks.push_back(enc_1080p_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+// This session has one 720P LPM track
+status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *yuv_720p_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1280;
+  info.height     = 720;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
+  info.low_power_mode = true;
+
+  ret = yuv_720p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(yuv_720p_track);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+// This session has one 1080p Encode and one 1080p LPM tracks
+status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type) {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = track_type;
+  info.session_id = session_id;
+  info.low_power_mode = false;
+
+  ret = enc_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(enc_1080p_track);
+
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width          = 1920;
+  info.height         = 1080;
+  info.track_id       = 2;
+  info.track_type     = TrackType::kVideoYUV;
+  info.session_id     = session_id;
+  info.low_power_mode = true;
+
+  ret = yuv_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(yuv_1080p_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -1580,6 +1663,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   }
 
   // Test audio AAC track
+  //TODO: To be removed when support added in config file
   TestTrack *audio_aac_track = new TestTrack(&recorder_);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
@@ -1794,7 +1878,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams, st
       track_info.fps = atoi(value);
     } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
       track_info.bitrate = atoi(value);
-    } else if(!strncmp("VideoCodec", key, strlen("VideoCodec"))) {
+    } else if(!strncmp("TrackType", key, strlen("TrackType"))) {
       if(!strncmp("AVC", value, strlen("AVC"))) {
         track_info.track_type = TrackType::kVideoAVC;
       } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
@@ -1805,6 +1889,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams, st
         ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
+    } else if(!strncmp("CamLowPowerMode", key, strlen("CamLowPowerMode"))) {
+      track_info.low_power_mode = atoi(value) ? true : false;
       isStreamReadCompleted = true;
     } else {
       ALOGE("Unknown Key %s found in %s", key, fileName);
@@ -1848,24 +1934,26 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
   assert(recorder_ != nullptr);
-  uint32_t fps, bitrate;
 
   if ( (track_info.track_type == TrackType::kVideoAVC)
       || (track_info.track_type == TrackType::kVideoHEVC)
       || (track_info.track_type == TrackType::kVideoYUV) ) {
+    uint32_t fps = track_info.fps;
+    uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
-	fps = track_info.fps;
-	bitrate = track_info.bitrate;
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
     video_track_param.camera_id   = 0;
     video_track_param.width       = track_info.width;
     video_track_param.height      = track_info.height;
-    if(fps != 0)
-        video_track_param.frame_rate  = fps;
+
+    if (fps != 0)
+      video_track_param.frame_rate  = fps;
     else
-        video_track_param.frame_rate  = 30;
+      video_track_param.frame_rate  = 30;
+
     video_track_param.out_device  = 0x01;
+    video_track_param.low_power_mode  = track_info.low_power_mode;
 
     switch (track_info.track_type) {
       case TrackType::kVideoAVC:
@@ -2396,6 +2484,10 @@ void CmdMenu::PrintMenu() {
     CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC + 1080 YUV)\n",
     CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD);
+  printf("   %c. Create Session: (720p LPM YUV)\n",
+    CmdMenu::CREATE_720pLPM_SESSION_CMD);
+  printf("   %c. Create Session: (1080p Enc AVC + 1080 LPM YUV)\n",
+      CmdMenu::CREATE_1080pENC_AVC_1080LPM_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
       CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
@@ -2514,6 +2606,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_TWO_1080pENC_SESSION_CMD: {
         test_context.SessionTwo1080pEncTracks(TrackType::kVideoAVC);
+      }
+      break;
+      case CmdMenu::CREATE_720pLPM_SESSION_CMD: {
+        test_context.Session720pLPMTrack(TrackType::kVideoYUV);
+      }
+      break;
+      case CmdMenu::CREATE_1080pENC_AVC_1080LPM_SESSION_CMD: {
+        test_context.Session1080pEnc1080pLPMTracks(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_PCM_AUD_SESSION_CMD: {

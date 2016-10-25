@@ -540,6 +540,7 @@ status_t TrackSource::Init() {
   stream_param.cam_stream_type       = track_params_.camera_stream_type;
   stream_param.frame_rate            = track_params_.params.frame_rate;
   stream_param.id                    = track_params_.track_id;
+  stream_param.low_power_mode        = track_params_.params.low_power_mode;
 
   assert(camera_context_.get() != nullptr);
   auto ret = camera_context_->CreateStream(stream_param);
