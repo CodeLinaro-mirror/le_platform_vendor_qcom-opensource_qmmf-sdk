@@ -29,6 +29,8 @@
 
 #define TAG "RecorderCameraSource"
 
+#include <memory>
+
 #include <sys/time.h>
 #include <math.h>
 #include <fcntl.h>
@@ -42,6 +44,9 @@
 namespace qmmf {
 
 namespace recorder {
+
+using ::std::make_shared;
+using ::std::shared_ptr;
 
 static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
@@ -223,8 +228,8 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
 
   // Create TrackSource and give it to CameraContext, CameraConext in turn would
   // Map it to its one of port.
-  sp<TrackSource> track_source;
-  track_source = new TrackSource(track_params, camera_context);
+  shared_ptr<TrackSource> track_source = make_shared<TrackSource>(track_params,
+                                                                  camera_context);
   if (!track_source.get()) {
     QMMF_ERROR("%s:%s: Can't create TrackSource Instance", TAG, __func__);
     return NO_MEMORY;
@@ -241,7 +246,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 FAIL:
-  track_source.clear();
+  track_source = nullptr;
   return ret;
 }
 
@@ -251,7 +256,7 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->DeInit();
@@ -269,7 +274,7 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->StartTrack();
@@ -286,7 +291,7 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->StopTrack();
@@ -313,7 +318,7 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
     return BAD_VALUE;
   }
 
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
   auto ret = track->ReturnTrackBuffer(buffers);
   assert(ret == NO_ERROR);
@@ -354,7 +359,7 @@ status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   track->UpdateFrameRate(frame_rate);
@@ -370,7 +375,7 @@ status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->CreateOverlayObject(param, overlay_id);
@@ -388,7 +393,7 @@ status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->DeleteOverlayObject(overlay_id);
@@ -407,7 +412,7 @@ status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->GetOverlayObjectParams(overlay_id, param);
@@ -426,7 +431,7 @@ status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->UpdateOverlayObjectParams(overlay_id, param);
@@ -444,7 +449,7 @@ status_t CameraSource::SetOverlayObject(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->SetOverlayObject(overlay_id);
@@ -462,7 +467,7 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
   }
-  sp<TrackSource> track = track_sources_.valueFor(track_id);
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
   auto ret = track->RemoveOverlayObject(overlay_id);
@@ -473,7 +478,7 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
   return ret;
 }
 
-const sp<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
+const shared_ptr<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
 
   int32_t idx = track_sources_.indexOfKey(track_id);
   assert(idx >= 0);
@@ -609,7 +614,7 @@ status_t TrackSource::StopTrack() {
   //    otherwise camera adaptor will never go in idle state and as a side
   //    effect delete camera stream would fail.
   // 4. Once all buffers are returned at input port of encoder it will notify
-  //    the status:kInputPortIdle, and at this point client's stop method can be
+  //    the status:kPortIdle, and at this point client's stop method can be
   //    returned.
 
   bool wait = true;
@@ -646,17 +651,17 @@ status_t TrackSource::StopTrack() {
   return NO_ERROR;
 }
 
-status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
+status_t TrackSource::NotifyPortStatus(CodecPortStatus status) {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
-  if(status == CodecInputPortStatus::kInputPortStop) {
+  if(status == CodecPortStatus::kPortStop) {
     // Encoder Received the EOS with valid last buffer successfully, stop the
     // camera stream and clear the received buffer queue.
     QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
         __func__, TrackId());
     ClearInputQueue();
 
-  } else if(status == CodecInputPortStatus::kInputPortIdle) {
+  } else if (status == CodecPortStatus::kPortIdle) {
     ClearInputQueue();
     assert(camera_context_.get() != nullptr);
     auto ret = camera_context_->StopStream(TrackId());
@@ -675,7 +680,8 @@ status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
   return NO_ERROR;
 }
 
-status_t TrackSource::Read(StreamBuffer& buffer) {
+status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
+                                void* client_data) {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
   bool timeout = false;
@@ -697,7 +703,13 @@ status_t TrackSource::Read(StreamBuffer& buffer) {
         TrackId(), frames_received_.Size());
 
     StreamBuffer stream_buffer = *frames_received_.Begin();
-    buffer = stream_buffer;
+    buffer.data =
+        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer.handle));
+    buffer.fd = stream_buffer.fd;
+    buffer.capacity = stream_buffer.frame_length;
+    buffer.size = stream_buffer.filled_length;
+    buffer.timestamp = stream_buffer.timestamp;
+    buffer.flag = stream_buffer.flags;
     frames_being_encoded_.PushBack(stream_buffer);
     frames_received_.Erase(frames_received_.Begin());
   }
@@ -712,7 +724,8 @@ status_t TrackSource::Read(StreamBuffer& buffer) {
   return NO_ERROR;
 }
 
-status_t TrackSource::SignalBufferReturned(StreamBuffer& buffer) {
+status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
+                                   void* client_data) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
@@ -722,7 +735,7 @@ status_t TrackSource::SignalBufferReturned(StreamBuffer& buffer) {
   bool found = false;
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
-    if ((*iter).handle ==  buffer.handle) {
+    if ((*iter).handle ==  buffer.data) {
       QMMF_VERBOSE("%s:%s: Buffer found in frames_being_encoded_ list!", TAG,
           __func__);
       buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned((*iter));

@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
 #include <utils/Condition.h>
@@ -44,6 +46,7 @@ namespace qmmf {
 using namespace cameraadaptor;
 using namespace android;
 using namespace overlay;
+using namespace avcodec;
 
 namespace recorder {
 
@@ -121,17 +124,17 @@ class CameraSource {
                                const uint32_t overlay_id);
 
 
-  const sp<TrackSource>& GetTrackSource(uint32_t track_id);
+  const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
  private:
 
   bool IsTrackIdValid(const uint32_t track_id);
 
   // Map of camera id and CameraContext.
-  DefaultKeyedVector<uint32_t, sp<CameraContext> > camera_contexts_;
+  DefaultKeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
 
   // Map of track it and TrackSources.
-  DefaultKeyedVector<uint32_t, sp<TrackSource> > track_sources_;
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
 
   // Not allowed
   CameraSource();
@@ -143,7 +146,7 @@ class CameraSource {
 // This class is behaves as producer and consumer both, at one end it takes
 // YUV buffers from camera stream and another end it provides buffers to
 // Encoder, and manages buffer circulation, skip etc.
-class TrackSource : public IInputCodecSource {
+class TrackSource : public ICodecSource {
  public:
   TrackSource(const VideoTrackParams& params, const sp<CameraContext>& context);
 
@@ -159,13 +162,13 @@ class TrackSource : public IInputCodecSource {
 
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.
-  status_t Read(StreamBuffer& buffer) override;
+  status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
 
   // This method is used by Encoder to provide buffer back after encoding.
-  status_t SignalBufferReturned(StreamBuffer& buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
 
   // This method is used by Encoder to notify stop.
-  status_t NotifyStatus(CodecInputPortStatus status) override;
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   // Global track specific params can be query from TrackSource during its life
   // cycle.

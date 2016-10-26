@@ -98,13 +98,13 @@ PlayerTest::PlayerTest():stopped_(false),filename_(NULL),release_parser_(false),
   PlayerTestEvent[0] = "Error";
   PlayerTestEvent[1] = "State Changed";
 
-  statemap.insert(std::pair<uint32_t, char *> (0,"Error"));
-  statemap.insert(std::pair<uint32_t, char *> (1,"Idle"));
-  statemap.insert(std::pair<uint32_t, char *> (2,"Prepared"));
-  statemap.insert(std::pair<uint32_t, char *> (4,"Started"));
-  statemap.insert(std::pair<uint32_t, char *> (8,"Paused"));
-  statemap.insert(std::pair<uint32_t, char *> (16,"Stopped"));
-  statemap.insert(std::pair<uint32_t, char *> (32,"Playback Completed"));
+  statemap.insert(std::pair<uint32_t, const char*> (0,"Error"));
+  statemap.insert(std::pair<uint32_t, const char*> (1,"Idle"));
+  statemap.insert(std::pair<uint32_t, const char*> (2,"Prepared"));
+  statemap.insert(std::pair<uint32_t, const char*> (4,"Started"));
+  statemap.insert(std::pair<uint32_t, const char*> (8,"Paused"));
+  statemap.insert(std::pair<uint32_t, const char*> (16,"Stopped"));
+  statemap.insert(std::pair<uint32_t, const char*> (32,"Playback Completed"));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }

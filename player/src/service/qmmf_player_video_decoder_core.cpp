@@ -30,6 +30,7 @@
 
 #define TAG "VideoDecoderCore"
 
+#include <memory>
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -38,10 +39,18 @@
 
 #include "player/src/service/qmmf_player_video_decoder_core.h"
 
-
 namespace qmmf {
 namespace player {
 
+using ::qmmf::avcodec::AVCodec;
+using ::qmmf::avcodec::CodecBuffer;
+using ::qmmf::avcodec::CodecParam;
+using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::kPortIndexInput;
+using ::qmmf::avcodec::kPortIndexOutput;
+using ::std::make_shared;
+using ::std::shared_ptr;
+using ::std::vector;
 
 VideoDecoderCore* VideoDecoderCore::instance_ = nullptr;
 
@@ -92,43 +101,45 @@ status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params)
     assert(ion_device_ >=0 );
   }
 
-  sp<VideoTrackDecoder> video_track_decoder_ = new VideoTrackDecoder(ion_device_);
-
-  if (!video_track_decoder_.get()) {
+  shared_ptr<VideoTrackDecoder> video_track_decoder =
+      make_shared<VideoTrackDecoder>(ion_device_);
+  if (!video_track_decoder.get()) {
     QMMF_ERROR("%s:%s: track_id(%d) Can't instantiate VideoTrackEncoder", TAG,
         __func__, params.track_id);
     return NO_MEMORY;
   }
 
-  ret = video_track_decoder_->ConfigureTrackDecoder(params);
+  ret = video_track_decoder->ConfigureTrackDecoder(params);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) VideoTrackEncoder Init failed!", TAG, __func__,
         params.track_id);
     return BAD_VALUE;
   }
 
-  video_track_decoders_.add(params.track_id, video_track_decoder_);
+  video_track_decoders_.add(params.track_id, video_track_decoder);
 
   QMMF_INFO("%s:%s: VideoTrackEncoder(0x%x) for track_id(%d) Instantiated!", TAG,
-      __func__, video_track_decoder_.get(), params.track_id);
+      __func__, video_track_decoder.get(), params.track_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t VideoDecoderCore::PrepareTrackPipeline(uint32_t track_id,const sp<VideoTrackSink>& video_track_sink)
+status_t VideoDecoderCore::PrepareTrackPipeline(uint32_t track_id,
+    const shared_ptr<VideoTrackSink>& video_track_sink)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
-   QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
-   return BAD_VALUE;
+    QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
+    return BAD_VALUE;
   }
 
-   sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+   shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
    assert(track_decoder.get() != NULL);
 
-   auto ret = track_decoder->PreparePipeline(video_track_sink);
+   auto ret = track_decoder->PreparePipeline(video_track_sink, track_decoder);
    if (ret != NO_ERROR) {
    QMMF_INFO("%s:%s: track_id(%d) PreparePipeline failed!", TAG, __func__,
      track_id);
@@ -151,7 +162,8 @@ status_t VideoDecoderCore::DequeueTrackInputBuffer(uint32_t track_id,
    return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->DequeueInputBuffer(buffers);
@@ -177,7 +189,8 @@ status_t VideoDecoderCore::QueueTrackInputBuffer(uint32_t track_id,
     return BAD_VALUE;
   }
 
-   sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+   shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
    assert(track_decoder.get() != NULL);
 
    auto ret = track_decoder->QueueInputBuffer(buffers);
@@ -202,7 +215,8 @@ status_t VideoDecoderCore::StartTrackDecoder(uint32_t track_id)
    return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->StartDecoder();
@@ -227,7 +241,8 @@ status_t VideoDecoderCore::StopTrackDecoder(uint32_t track_id)
    return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->StopDecoder();
@@ -252,7 +267,8 @@ status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id)
     return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->PauseDecoder();
@@ -277,7 +293,8 @@ status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id)
     return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->ResumeDecoder();
@@ -304,7 +321,8 @@ status_t VideoDecoderCore::SetVideoTrackDecoderParams(uint32_t track_id,
     return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret =  track_decoder->SetVideoDecoderParams(param_type, param, param_size);
@@ -329,7 +347,8 @@ status_t VideoDecoderCore::DeleteTrackDecoder(uint32_t track_id)
      return BAD_VALUE;
   }
 
-  sp<VideoTrackDecoder>  track_decoder = video_track_decoders_.valueFor(track_id);
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
   auto ret = track_decoder->DeleteDecoder();
@@ -424,11 +443,12 @@ status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& track_params
 
   status_t ret = NO_ERROR;
 
-  CodecCreateParam codec_param;
+  CodecParam codec_param;
   memset(&codec_param, 0x0, sizeof(codec_param));
   //codec_param. = track_params.params;
 
-  ret = avcodec_->ConfigureCodec(CodecType::kVideoDecoder,codec_param);
+  ret = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeVideoDecAVC,
+                                 codec_param);
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
   QMMF_ERROR("%s:%s track_id(%d) Failed to configure AVCodec!", TAG, __func__,
@@ -440,44 +460,48 @@ status_t VideoTrackDecoder::ConfigureTrackDecoder(VideoTrackParams& track_params
   return ret;
 }
 
-status_t VideoTrackDecoder::PreparePipeline(const sp<VideoTrackSink>& video_track_sink)
+status_t VideoTrackDecoder::PreparePipeline(const shared_ptr<VideoTrackSink>& video_track_sink,
+                                            const shared_ptr<VideoTrackDecoder>& video_track_decoder)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
 
   status_t ret = NO_ERROR;
-
-  video_track_sink_ = video_track_sink.get();
 
   //This function will get the port buffer requirment and will allocate buffer
   AllocInputPortBufs();
 
-   ret = avcodec_->UseBuffer(kPortIndexInput, static_cast<void*>(this));
-   assert(ret == NO_ERROR);
-   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at input port!", TAG,
-        __func__, TrackId());
-   }
-
-   //This function will get the port buffer requirment and will allocate buffer
-   AllocOutputPortBufs();
-
-  ret = avcodec_->UseBuffer(kPortIndexOutput, static_cast<void*>(video_track_sink_));
+  vector<BufferDescriptor> dummy_list;
+  ret = avcodec_->AllocateBuffer(kPortIndexInput, 0, 0,
+                                 shared_ptr<ICodecSource>(video_track_decoder),
+                                 dummy_list);
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
-   QMMF_ERROR("%s:%s track_id(%d) UseBuffer Failed at Output port!", TAG,
-         __func__, TrackId());
+    QMMF_ERROR("%s:%s track_id(%d) AllocateBuffer Failed at input port!",
+               TAG, __func__, TrackId());
+  }
+
+  //This function will get the port buffer requirment and will allocate buffer
+  AllocOutputPortBufs();
+
+  ret = avcodec_->AllocateBuffer(kPortIndexOutput, 0, 0,
+                                 shared_ptr<ICodecSource>(video_track_sink),
+                                 dummy_list);
+  assert(ret == NO_ERROR);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s track_id(%d) AllocateBuffer Failed at Output port!",
+               TAG, __func__, TrackId());
   }
 
   //bitstream buffer queue
-   for(auto& iter : input_buffer_list_) {
-       QMMF_INFO("%s:%s: track_id(%d) Adding buffer fd(%d) to "
-           "unfilled_frame_queue_", TAG, __func__,TrackId() ,
-           iter.fd);
-       unfilled_frame_queue_.PushBack(iter);
+  for(auto& iter : input_buffer_list_) {
+     QMMF_INFO("%s:%s: track_id(%d) Adding buffer fd(%d) to "
+         "unfilled_frame_queue_", TAG, __func__,TrackId() ,
+         iter.fd);
+     unfilled_frame_queue_.PushBack(iter);
   }
 
-  video_track_sink_->AddBufferList(output_buffer_list_);
+  video_track_sink->AddBufferList(output_buffer_list_);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
@@ -573,7 +597,7 @@ status_t VideoTrackDecoder::StartDecoder()
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   auto ret = avcodec_->StartCodec();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
@@ -591,7 +615,7 @@ status_t VideoTrackDecoder::StopDecoder()
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   auto ret = avcodec_->StopCodec();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
@@ -609,7 +633,7 @@ status_t VideoTrackDecoder::PauseDecoder()
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   auto ret = avcodec_->PauseCodec();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
@@ -627,7 +651,7 @@ status_t VideoTrackDecoder::ResumeDecoder()
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   auto ret = avcodec_->ResumeCodec();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
@@ -646,7 +670,7 @@ status_t VideoTrackDecoder::SetVideoDecoderParams(CodecParamType param_type, voi
 {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   auto ret = avcodec_->SetParameters(param_type,param,param_size);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
@@ -670,7 +694,8 @@ status_t VideoTrackDecoder::DeleteDecoder()
 }
 
 // This method provides an input buffer to the AVCodec
-status_t VideoTrackDecoder::Read(StreamBuffer& stream_buffer)
+status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
+                                      void* client_data)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d) frames_to_decode_.Size(%d) ", TAG,
     __func__, TrackId(),frames_to_decode_.Size());
@@ -684,15 +709,15 @@ status_t VideoTrackDecoder::Read(StreamBuffer& stream_buffer)
 
   StreamBuffer iter = *frames_to_decode_.Begin();
 
-  stream_buffer.fd              = (iter).fd;
-  stream_buffer.data            = (iter).data;
-  stream_buffer.frame_length    = (iter).frame_length;
-  stream_buffer.filled_length   = (iter).filled_length;
-  stream_buffer.flags           = (iter).flags;
+  stream_buffer.fd       = (iter).fd;
+  stream_buffer.data     = (iter).data;
+  stream_buffer.capacity = (iter).frame_length;
+  stream_buffer.size     = (iter).filled_length;
+  stream_buffer.flag     = (iter).flags;
 
   QMMF_VERBOSE("%s:%s: track_id(%d)", TAG, __func__,TrackId());
 
-  stream_buffer = iter;
+  //stream_buffer = iter;
 
   {
   Mutex::Autolock lock(queue_lock_);
@@ -715,8 +740,9 @@ status_t VideoTrackDecoder::Read(StreamBuffer& stream_buffer)
   return NO_ERROR;
 }
 
-// This method is used by AVCodec to return buffer after encoding
-status_t VideoTrackDecoder::SignalBufferReturned(StreamBuffer& stream_buffer)
+// This method is used by AVCodec to return buffer after decoding
+status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
+                                         void* client_data)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
@@ -749,7 +775,7 @@ status_t VideoTrackDecoder::SignalBufferReturned(StreamBuffer& stream_buffer)
 }
 
 // This method is used by AVCodec to notify stop
-status_t VideoTrackDecoder::NotifyStatus(CodecInputPortStatus status)
+status_t VideoTrackDecoder::NotifyPortStatus(CodecPortStatus status)
 {
 
 }
@@ -760,7 +786,7 @@ status_t VideoTrackDecoder::AllocInputPortBufs()
   int32_t ret = 0;
   uint32_t count, size;
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   //ret = avcodec_->GetBufferRequirements(kPortIndexInput,  &count, &size);
   QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
 count, size);
@@ -861,7 +887,7 @@ status_t VideoTrackDecoder::AllocOutputPortBufs()
   int32_t ret = 0;
   uint32_t count, size;
 
-  assert(avcodec_.get() != nullptr);
+  assert(avcodec_ != nullptr);
   //ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
   count = 11;
   size = 1920*1080;

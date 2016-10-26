@@ -29,12 +29,16 @@
 
 #define TAG "RecorderImpl"
 
+#include <memory>
+
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_impl.h"
 
 namespace qmmf {
 
 namespace recorder {
+
+using ::std::shared_ptr;
 
 RecorderImpl* RecorderImpl::instance_ = nullptr;
 
@@ -634,9 +638,15 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t session_id,
   if (param.format != AudioFormat::kPCM) {
     assert(audio_encoder_core_ != NULL);
 
-    result = audio_encoder_core_->
-        AddSource(*(audio_source_->getTrackSource(track_id)),
-                  audio_track_params);
+    shared_ptr<IAudioTrackSource> track_source;
+    result = audio_source_->getTrackSource(track_id, &track_source);
+    if (result != NO_ERROR || track_source == nullptr) {
+      QMMF_ERROR("%s:%s: audio->getTrackSource failed for session_id(%d)/track_id(%d): %d",
+                 TAG, __func__, session_id, track_id, result);
+      return BAD_VALUE;
+    }
+
+    result = audio_encoder_core_->AddSource(track_source, audio_track_params);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s:%s: audio->AddSource failed for session_id(%d)/track_id(%d): %d",
                  TAG, __func__, session_id, track_id, result);

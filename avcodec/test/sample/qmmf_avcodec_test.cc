@@ -28,7 +28,16 @@
 
 #define TAG "CodecTest"
 
-#include "qmmf_codec_adaptor_test.h"
+#include <memory>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include "avcodec/test/sample/qmmf_avcodec_test.h"
+
+using ::std::shared_ptr;
+using ::std::make_shared;
 
 CodecTest::CodecTest()
     :avcodec_(nullptr),
@@ -57,15 +66,6 @@ CodecTest::~CodecTest() {
   ion_device_ = -1;
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-}
-
-void CodecTest::CodecEventCallback(OMX_EVENTTYPE event, OMX_U32 data1,
-                                   OMX_U32 data2) {
-
-  QMMF_ERROR("%s:%s Event callback: async error nData1(%u), nData2(%u)", TAG,
-        __func__, (unsigned int)data1, (unsigned int)data2);
-  StopCodec();
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
 status_t CodecTest::CreateCodec(int argc, char *argv[]) {
@@ -102,14 +102,11 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
     }
   }
 
-  avcodec_ = new AVCodec();
+  avcodec_ = IAVCodec::CreateAVCodec();
   if(avcodec_ ==  nullptr) {
     QMMF_ERROR("%s:%s avcodec creation failed", TAG, __func__);
     return NO_MEMORY;
   }
-
-  params.create_param.event_cb = [&] (OMX_EVENTTYPE event, OMX_U32 data1,
-      OMX_U32 data2) { CodecEventCallback(event, data1, data2);};
 
   ret = avcodec_->ConfigureCodec(params.codec_type, params.create_param);
   if(ret != OK) {
@@ -119,22 +116,24 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
 
   ret = AllocateBuffer(kPortIndexInput);
   if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to allocate buffer on OMX_PORT_NAME(%d)", TAG,
+    QMMF_ERROR("%s:%s Failed to allocate buffer on PORT_NAME(%d)", TAG,
         __func__, kPortIndexInput);
     return ret;
   }
 
-  input_source_impl_= new InputCodecSourceImpl(params.input_file,
-      params.record_frame);
+  input_source_impl_= make_shared<InputCodecSourceImpl>(params.input_file,
+                                                        params.record_frame);
   if(input_source_impl_.get() == nullptr) {
     QMMF_ERROR("%s:%s failed to create input source", TAG, __func__);
     return NO_MEMORY;
   }
 
-  ret = avcodec_->UseBuffer(kPortIndexInput, input_source_impl_.get());
+  ret = avcodec_->AllocateBuffer(kPortIndexInput, 0, 0,
+                                 shared_ptr<ICodecSource>(input_source_impl_),
+                                 input_buffer_list_);
   if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to Call Use buffer on OMX_PORT_NAME(%d)", TAG,
-        __func__, kPortIndexInput);
+    QMMF_ERROR("%s:%s Failed to Call Allocate buffer on PORT_NAME(%d)",
+               TAG, __func__, kPortIndexInput);
     ReleaseBuffer();
     return ret;
   }
@@ -143,22 +142,31 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
 
   ret = AllocateBuffer(kPortIndexOutput);
   if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to allocate buffer on OMX_PORT_NAME(%d)", TAG,
+    QMMF_ERROR("%s:%s Failed to allocate buffer on PORT_NAME(%d)", TAG,
         __func__, kPortIndexOutput);
     ReleaseBuffer();
     return ret;
   }
 
-  output_source_impl_ = new OutputCodecSourceImpl(params.output_file);
+  ret = avcodec_->RegisterOutputBuffers(output_buffer_list_);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s output buffers failed to register to AVCodec",
+               TAG, __func__);
+    return ret;
+  }
+
+  output_source_impl_ = make_shared<OutputCodecSourceImpl>(params.output_file);
   if(output_source_impl_.get() == nullptr) {
     QMMF_ERROR("%s:%s failed to create output source",TAG, __func__);
     return NO_MEMORY;
   }
 
-  ret = avcodec_->UseBuffer(kPortIndexOutput, output_source_impl_.get());
+  ret = avcodec_->AllocateBuffer(kPortIndexOutput, 0, 0,
+                                 shared_ptr<ICodecSource>(output_source_impl_),
+                                 output_buffer_list_);
   if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to Call Use buffer on OMX_PORT_NAME(%d)", TAG,
-        __func__, kPortIndexOutput);
+    QMMF_ERROR("%s:%s Failed to Call Allocate buffer on PORT_NAME(%d)",
+               TAG, __func__, kPortIndexOutput);
     ReleaseBuffer();
     return ret;
   }
@@ -298,7 +306,7 @@ bool CodecTest::IsStop() {
    return stop_;
 }
 
-status_t CodecTest::AllocateBuffer(OMX_U32 index) {
+status_t CodecTest::AllocateBuffer(uint32_t index) {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
@@ -310,7 +318,7 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
   ret = avcodec_->GetBufferRequirements(index,  &count, &size);
   if(ret != OK) {
     QMMF_INFO("%s:%s Failed to get Buffer Requirements on %s", TAG, __func__,
-        OMX_PORT_NAME(index));
+        PORT_NAME(index));
     return ret;
   }
 
@@ -318,12 +326,12 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
   struct ion_fd_data ionFdData;
 
   if(index == kPortIndexInput) {
-    OMX_S32 nFds = 1;
-    OMX_S32 nInts = 3;
+    int nFds = 1;
+    int nInts = 3;
     count = INPUT_MAX_COUNT;
 
     for(uint32_t i = 0; i < count; i++) {
-      StreamBuffer buffer;
+      BufferDescriptor buffer;
       memset(&buffer, 0x0, sizeof(buffer));
       memset(&alloc, 0x0, sizeof(ion_allocation_data));
       memset(&ionFdData, 0x0, sizeof(ion_fd_data));
@@ -347,7 +355,7 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
         goto ION_MAP_FAILED;
       }
 
-      ion_handle_data.push_back(alloc);
+      input_ion_handle_data.push_back(alloc);
 
       //Allocate buffer for MetaData Handle
       native_handle_t* meta_handle = (native_handle_create(1, 16));
@@ -362,7 +370,7 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
       meta_handle->data[0] = ionFdData.fd;
       meta_handle->data[1] = 0; //offset
       meta_handle->data[4] = alloc.len;
-      buffer.handle = meta_handle;
+      buffer.data = meta_handle;
 
       QMMF_INFO("%s:%s  buffer native handle(%p)", TAG, __func__, meta_handle);
       QMMF_INFO("%s:%s  buffer ionFd(%d)", TAG, __func__, meta_handle->data[0]);
@@ -374,7 +382,7 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
     void *vaddr = nullptr;
 
     for(uint32_t i = 0; i < count; i++) {
-      CodecBuffer buffer;
+      BufferDescriptor buffer;
       vaddr = nullptr;
 
       memset(&buffer, 0x0, sizeof(buffer));
@@ -408,15 +416,16 @@ status_t CodecTest::AllocateBuffer(OMX_U32 index) {
         goto ION_MAP_FAILED;
       }
 
-      buffer.handle_data.handle = ionFdData.handle;
-      buffer.fd                 = ionFdData.fd;
-      buffer.frame_length       = alloc.len;
-      buffer.filled_length      = alloc.len;
-      buffer.pointer            = vaddr;
+      output_ion_handle_data.push_back(alloc);
+
+      buffer.fd       = ionFdData.fd;
+      buffer.capacity = alloc.len;
+      buffer.size     = alloc.len;
+      buffer.data     = vaddr;
 
       QMMF_INFO("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd );
-      QMMF_INFO("%s:%s buffer.frameLen(%d)", TAG,__func__, buffer.frame_length);
-      QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.pointer);
+      QMMF_INFO("%s:%s buffer.capacity(%d)", TAG,__func__, buffer.capacity);
+      QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.data);
       output_buffer_list_.push_back(buffer);
     }
   }
@@ -441,12 +450,12 @@ status_t CodecTest::ReleaseBuffer() {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
-  for(auto& iter : ion_handle_data) {
+  for(auto& iter : input_ion_handle_data) {
       ioctl(ion_device_, ION_IOC_FREE, &iter);
   }
 
   for(auto& iter: input_buffer_list_) {
-    native_handle_t * meta_handle = const_cast<native_handle_t *>((iter).handle);
+    native_handle_t* meta_handle = reinterpret_cast<native_handle_t*>((iter).data);
     if(meta_handle->data[0]) {
       close(meta_handle->data[0]);
       meta_handle->data[0] = -1;
@@ -455,20 +464,24 @@ status_t CodecTest::ReleaseBuffer() {
     }
   }
 
+  int i = 0;
   for(auto& iter : output_buffer_list_) {
-      if((iter).pointer) {
-          munmap((iter).pointer, (iter).frame_length);
-          (iter).pointer = nullptr;
+      if((iter).data) {
+          munmap((iter).data, (iter).capacity);
+          (iter).data = nullptr;
       }
       if((iter).fd) {
-          ioctl(ion_device_, ION_IOC_FREE, &((iter).handle_data));
+          ioctl(ion_device_, ION_IOC_FREE, &(output_ion_handle_data[i]));
           close((iter).fd);
           (iter).fd = -1;
       }
+      ++i;
   }
 
   input_buffer_list_.clear();
   output_buffer_list_.clear();
+  input_ion_handle_data.clear();
+  output_ion_handle_data.clear();
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return 0;
@@ -535,160 +548,160 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
       params->output_file[strlen(value)] = '\0';
     } else if(!strncmp("CodecType", key, strlen("CodecType"))) {
       if(!strncmp("VideoEncode", value, strlen("VideoEncode"))) {
-        params->codec_type = CodecType::kVideoEncoder;
+        params->codec_type = CodecMimeType::kMimeTypeVideoEncAVC;
       } else {
         QMMF_ERROR("%s:%s Unknown CodecType(%s)", TAG, __func__, value);
         goto READ_FAILED;
       }
     } else if(!strncmp("Width", key, strlen("Width"))) {
-      params->create_param.video_param.width = atoi(value);
+      params->create_param.video_enc_param.width = atoi(value);
     } else if(!strncmp("Height", key, strlen("Height"))) {
-      params->create_param.video_param.height = atoi(value);
+      params->create_param.video_enc_param.height = atoi(value);
     } else if(!strncmp("FPS", key, strlen("FPS"))) {
-      params->create_param.video_param.frame_rate = atoi(value);
+      params->create_param.video_enc_param.frame_rate = atoi(value);
     } else if(!strncmp("Codec", key, strlen("Codec"))) {
       if(!strncmp("AVC", value, strlen("AVC"))) {
         avc = true;
-        params->create_param.video_param.format_type = VideoFormat::kAVC;
+        params->create_param.video_enc_param.format_type = VideoFormat::kAVC;
       } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
-        params->create_param.video_param.format_type = VideoFormat::kHEVC;
+        params->create_param.video_enc_param.format_type = VideoFormat::kHEVC;
       } else {
         QMMF_ERROR("%s:%s Unknown Video CodecType(%s)", TAG, __func__, value);
         goto READ_FAILED;
       }
     } else if(!strncmp("IFR", key, strlen("IFR"))) {
       if(avc)
-        params->create_param.video_param.codec_param.avc.idr_interval =
+        params->create_param.video_enc_param.codec_param.avc.idr_interval =
             atoi(value);
       else
-        params->create_param.video_param.codec_param.hevc.idr_interval =
+        params->create_param.video_enc_param.codec_param.hevc.idr_interval =
             atoi(value);
     } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
       if(avc)
-        params->create_param.video_param.codec_param.avc.bitrate = atoi(value);
+        params->create_param.video_enc_param.codec_param.avc.bitrate = atoi(value);
       else
-       params->create_param.video_param.codec_param.hevc.bitrate = atoi(value);
+       params->create_param.video_enc_param.codec_param.hevc.bitrate = atoi(value);
     } else if(!strncmp("Profile", key, strlen("Profile"))) {
       //TODO: remove hard code value
       if(avc)
-        params->create_param.video_param.codec_param.avc.profile =
+        params->create_param.video_enc_param.codec_param.avc.profile =
           AVCProfileType::kBaseline;
       else
-        params->create_param.video_param.codec_param.hevc.profile =
+        params->create_param.video_enc_param.codec_param.hevc.profile =
           HEVCProfileType::kMain;
     } else if(!strncmp("Level", key, strlen("Level"))) {
       //TODO: remove hard code value
       if(avc)
-        params->create_param.video_param.codec_param.avc.level =
+        params->create_param.video_enc_param.codec_param.avc.level =
           AVCLevelType::kLevel3;
       else
-        params->create_param.video_param.codec_param.hevc.level =
+        params->create_param.video_enc_param.codec_param.hevc.level =
           HEVCLevelType::kLevel3;
     } else if(!strncmp("RateControl", key, strlen("RateControl"))) {
       //TODO: remove hard code value
       if(avc)
-        params->create_param.video_param.codec_param.avc.ratecontrol_type =
+        params->create_param.video_enc_param.codec_param.avc.ratecontrol_type =
             VideoRateControlType::kVariable;
       else
-        params->create_param.video_param.codec_param.hevc.ratecontrol_type =
+        params->create_param.video_enc_param.codec_param.hevc.ratecontrol_type =
             VideoRateControlType::kVariable;
     } else if(!strncmp("InitQpI", key, strlen("InitQpI"))) {
       if(avc) {
-        params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_IQP =
+        params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_IQP =
             atoi(value);
-        params->create_param.video_param.codec_param.avc.qp_params.enable_init_qp = true;
+        params->create_param.video_enc_param.codec_param.avc.qp_params.enable_init_qp = true;
       }
       else {
-        params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_IQP =
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_IQP =
             atoi(value);
-        params->create_param.video_param.codec_param.hevc.qp_params.enable_init_qp = true;
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_init_qp = true;
       }
     } else if(!strncmp("InitQpP", key, strlen("InitQpP"))) {
       if(avc)
-        params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_PQP =
+        params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_PQP =
             atoi(value);
       else
-        params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_PQP =
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_PQP =
             atoi(value);
     } else if(!strncmp("InitQpB", key, strlen("InitQpB"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.init_qp.init_BQP =
+          params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_BQP =
               atoi(value);
       else
-        params->create_param.video_param.codec_param.hevc.qp_params.init_qp.init_BQP =
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_BQP =
             atoi(value);
     } else if(!strncmp("MinQp", key, strlen("MinQp"))) {
       if(avc) {
-        params->create_param.video_param.codec_param.avc.qp_params.qp_range.min_QP =
+        params->create_param.video_enc_param.codec_param.avc.qp_params.qp_range.min_QP =
             atoi(value);
-        params->create_param.video_param.codec_param.avc.qp_params.enable_qp_range = true;
+        params->create_param.video_enc_param.codec_param.avc.qp_params.enable_qp_range = true;
       } else {
-        params->create_param.video_param.codec_param.hevc.qp_params.qp_range.min_QP =
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_range.min_QP =
             atoi(value);
-          params->create_param.video_param.codec_param.hevc.qp_params.enable_qp_range = true;
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_range = true;
       }
     } else if(!strncmp("MaxQp", key, strlen("MaxQp"))) {
       if(avc)
-        params->create_param.video_param.codec_param.avc.qp_params.qp_range.max_QP =
+        params->create_param.video_enc_param.codec_param.avc.qp_params.qp_range.max_QP =
             atoi(value);
       else
-        params->create_param.video_param.codec_param.hevc.qp_params.qp_range.max_QP =
+        params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_range.max_QP =
             atoi(value);
     } else if(!strncmp("IPBQPRangeMin_IQP", key, strlen("IPBQPRangeMin_IQP"))) {
       if(avc) {
-        params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP =
+        params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP =
             atoi(value);
-        params->create_param.video_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+        params->create_param.video_enc_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
       } else {
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP =
               atoi(value);
-          params->create_param.video_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
       }
     } else if(!strncmp("IPBQPRangeMax_IQP", key, strlen("IPBQPRangeMax_IQP"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP =
+          params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP =
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP =
               atoi(value);
     } else if(!strncmp("IPBQPRangeMin_PQP", key, strlen("IPBQPRangeMin_PQP"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP =
+          params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP =
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP =
               atoi(value);
     } else if(!strncmp("IPBQPRangeMax_PQP", key, strlen("IPBQPRangeMax_PQP"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP=
+          params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP=
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP =
               atoi(value);
     } else if(!strncmp("IPBQPRangeMin_BQP", key, strlen("IPBQPRangeMin_BQP"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP =
+          params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP =
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP =
               atoi(value);
     } else if(!strncmp("IPBQPRangeMax_BQP", key, strlen("IPBQPRangeMax_BQP"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP =
+          params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP =
               atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
+          params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
               atoi(value);
     } else if(!strncmp("Ltr_Count", key, strlen("Ltr_Count"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.ltr_count = atoi(value);
+          params->create_param.video_enc_param.codec_param.avc.ltr_count = atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.ltr_count = atoi(value);
+          params->create_param.video_enc_param.codec_param.hevc.ltr_count = atoi(value);
     } else if(!strncmp("Hier_Layer", key, strlen("Hier_Layer"))) {
       if(avc)
-          params->create_param.video_param.codec_param.avc.hier_layer = atoi(value);
+          params->create_param.video_enc_param.codec_param.avc.hier_layer = atoi(value);
       else
-          params->create_param.video_param.codec_param.hevc.hier_layer = atoi(value);
+          params->create_param.video_enc_param.codec_param.hevc.hier_layer = atoi(value);
     } else {
         QMMF_ERROR("%s:%s Unknown Key %s found", TAG, __func__, key);
         goto READ_FAILED;
@@ -771,7 +784,7 @@ InputCodecSourceImpl::~InputCodecSourceImpl() {
   QMMF_INFO("%s:%s  Exit", TAG, __func__);
 }
 
-void InputCodecSourceImpl::AddBufferList(Vector<StreamBuffer>& list) {
+void InputCodecSourceImpl::AddBufferList(vector<BufferDescriptor>& list) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
@@ -785,18 +798,19 @@ void InputCodecSourceImpl::AddBufferList(Vector<StreamBuffer>& list) {
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t InputCodecSourceImpl::NotifyStatus(CodecInputPortStatus status) {
+status_t InputCodecSourceImpl::NotifyPortStatus(CodecPortStatus status) {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return 0;
 }
 
-status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
+status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
+                                         void* client_data) {
 
   status_t ret = 0;
 
-  static OMX_TICKS time_stamp = 0;
+  static uint64_t time_stamp = 0;
   static int32_t frame_count = 0;
 
   if(input_free_buffer_queue_.Size() <= 0) {
@@ -805,12 +819,14 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
     wait_for_frame_.wait(wait_for_frame_lock_);
   }
 
-  StreamBuffer buffer = *input_free_buffer_queue_.Begin();
-  assert(buffer.handle != nullptr);
+  BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
+  assert(buffer.data != nullptr);
+
+  native_handle_t* meta = reinterpret_cast<native_handle_t*>(buffer.data);
 
   int32_t byte_read = 0;
   if(input_file_) {
-    ret = ReadFile(buffer.handle->data[0], buffer.handle->data[4], &byte_read);
+    ret = ReadFile(meta->data[0], meta->data[4], &byte_read);
   } else {
     QMMF_ERROR("%s:%s input file is not opened", TAG, __func__);
     return -1;
@@ -822,16 +838,16 @@ status_t InputCodecSourceImpl::Read(StreamBuffer& stream_buffer) {
     if(ret != OK) {
       QMMF_ERROR("%s:%s Failed to seek file", TAG, __func__);
     } else {
-      ret = ReadFile(buffer.handle->data[0],buffer.handle->data[4], &byte_read);
+      ret = ReadFile(meta->data[0], meta->data[4], &byte_read);
     }
   }
 
-  stream_buffer.handle = buffer.handle;
+  stream_buffer.data = buffer.data;
 
   input_occupy_buffer_queue_.PushBack(buffer);
   input_free_buffer_queue_.Erase(input_free_buffer_queue_.Begin());
 
-  time_stamp = time_stamp + (OMX_TICKS)(1000000 / 30);
+  time_stamp = time_stamp + (uint64_t)(1000000 / 30);
   stream_buffer.timestamp = time_stamp;
   frame_count++;
 
@@ -885,14 +901,15 @@ status_t InputCodecSourceImpl::ReadFile(int32_t fd, uint32_t frame_length,
   }
 }
 
-status_t InputCodecSourceImpl::SignalBufferReturned(StreamBuffer& buffer) {
+status_t InputCodecSourceImpl::ReturnBuffer(BufferDescriptor& buffer,
+                                            void* client_data) {
 
   status_t ret = 0;
   bool found = false;
 
-  List<StreamBuffer>::iterator it = input_occupy_buffer_queue_.Begin();
+  List<BufferDescriptor>::iterator it = input_occupy_buffer_queue_.Begin();
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
-    if ((*it).handle ==  buffer.handle) {
+    if ((*it).data ==  buffer.data) {
       input_free_buffer_queue_.PushBack(*it);
       wait_for_frame_.signal();
       found = true;
@@ -931,7 +948,7 @@ OutputCodecSourceImpl::~OutputCodecSourceImpl() {
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-void OutputCodecSourceImpl::AddBufferList(Vector<CodecBuffer>& list) {
+void OutputCodecSourceImpl::AddBufferList(vector<BufferDescriptor>& list) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
@@ -946,7 +963,15 @@ void OutputCodecSourceImpl::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t OutputCodecSourceImpl::GetBuffer(CodecBuffer& codec_buffer) {
+status_t OutputCodecSourceImpl::NotifyPortStatus(CodecPortStatus status) {
+
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
+  QMMF_INFO("%s:%s Exit", TAG, __func__);
+  return 0;
+}
+
+status_t OutputCodecSourceImpl::GetBuffer(BufferDescriptor& codec_buffer,
+                                          void* client_data) {
 
   status_t ret = 0;
 
@@ -957,25 +982,25 @@ status_t OutputCodecSourceImpl::GetBuffer(CodecBuffer& codec_buffer) {
     wait_for_frame_.wait(wait_for_frame_lock_);
   }
 
-  CodecBuffer iter = *output_free_buffer_queue_.Begin();
+  BufferDescriptor iter = *output_free_buffer_queue_.Begin();
   codec_buffer.fd = (iter).fd;
-  codec_buffer.pointer = (iter).pointer;
+  codec_buffer.data = (iter).data;
   output_occupy_buffer_queue_.PushBack(iter);
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
 
   return ret;
 }
 
-status_t OutputCodecSourceImpl::ReturnBuffer(CodecBuffer& codec_buffer) {
+status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
+                                             void* client_data) {
 
   status_t ret = 0;
 
-  assert(codec_buffer.pointer != nullptr);
+  assert(codec_buffer.data != nullptr);
 
   if(file_fd_ > 0) {
-    ssize_t expSize = (ssize_t) codec_buffer.filled_length;
-    if (expSize != write(file_fd_, codec_buffer.pointer,
-        codec_buffer.filled_length)) {
+    ssize_t expSize = (ssize_t) codec_buffer.size;
+    if (expSize != write(file_fd_, codec_buffer.data, codec_buffer.size)) {
         QMMF_ERROR("%s:%s Bad Write error (%d) %s", TAG, __func__,
             errno, strerror(errno));
         close(file_fd_);
@@ -985,16 +1010,16 @@ status_t OutputCodecSourceImpl::ReturnBuffer(CodecBuffer& codec_buffer) {
     QMMF_ERROR("%s:%s File is not open to write", TAG, __func__);
   }
 
-  if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
+  if(codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     QMMF_INFO("%s:%s This is last buffer from encoder.Close file", TAG,__func__);
     close(file_fd_);
     file_fd_ = -1;
   }
 
-  List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
+  List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
-    if (((*it).pointer) ==  (codec_buffer.pointer)) {
+    if (((*it).data) ==  (codec_buffer.data)) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
       wait_for_frame_.signal();

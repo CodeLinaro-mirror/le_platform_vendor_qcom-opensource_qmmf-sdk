@@ -29,9 +29,11 @@
 #define TAG "QMMF_OMX_CLIENT"
 
 #include <dlfcn.h>
+#include "common/qmmf_log.h"
 #include "qmmf_omx_client.h"
 
 namespace qmmf {
+namespace avcodec {
 
 const char OmxClient::kOMXPath[] = "/usr/lib/libOmxCore.so";
 const char OmxClient::kOMXGetHandleName[] = "OMX_GetHandle";
@@ -256,4 +258,5 @@ OMX_ERRORTYPE OmxClient::FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer) {
   return ret;
 }
 
-} // namespace qmmf
+}; // namespace avcodec
+}; // namespace qmmf

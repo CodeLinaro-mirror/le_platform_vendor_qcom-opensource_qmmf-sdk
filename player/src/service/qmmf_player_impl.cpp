@@ -206,7 +206,7 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t result;
 
-  VideotrackParams video_track_param;
+  VideoTrackParams video_track_param;
 
   video_track_param.track_id    = track_id;
   video_track_param.params      = param;

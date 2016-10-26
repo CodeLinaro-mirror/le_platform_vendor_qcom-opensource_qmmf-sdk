@@ -34,6 +34,7 @@
 #include <iostream>
 #include <string>
 
+#include "include/qmmf-sdk/qmmf_buffer.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 
 class RecorderTestAmr
@@ -49,7 +50,7 @@ class RecorderTestAmr
   int32_t Open();
   void Close();
 
-  int32_t Write(const ::qmmf::recorder::BufferDescriptor& buffer);
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
  private:
   ::std::string filename_;

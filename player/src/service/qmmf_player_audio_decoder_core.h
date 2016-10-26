@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <utils/KeyedVector.h>
 
 #include "include/qmmf-sdk/qmmf_player_params.h"
@@ -36,7 +38,6 @@
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_audio_sink.h"
-
 
 namespace qmmf {
 namespace player {
@@ -61,7 +62,7 @@ class AudioDecoderCore {
                          std::vector<AVCodecBuffer>& buffers);
 
   status_t PrepareTrackPipeline(uint32_t track_id,
-                         const sp<AudioTrackSink>& audio_track_sink);
+      const ::std::shared_ptr<AudioTrackSink>& audio_track_sink);
 
   status_t StartTrackDecoder(uint32_t track_id);
 
@@ -86,7 +87,7 @@ class AudioDecoderCore {
   AudioDecoderCore& operator=(const AudioDecoderCore&);
 
   // Map of track id and audio decoder
-  DefaultKeyedVector<uint32_t, sp<AudioTrackDecoder>> audio_track_decoders_;
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<AudioTrackDecoder>> audio_track_decoders_;
 
   static AudioDecoderCore* instance_;
   int32_t ion_device_;
@@ -95,7 +96,7 @@ class AudioDecoderCore {
 // This class behaves as both producer and consumer. At one end, it takes
 // encoded data from the demuxer; and on the other end, it provides those
 // encoded data to Decoder. It also manages buffer circulation, skip, etc.
-class AudioTrackDecoder : public IInputCodecSource {
+class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
  public:
   AudioTrackDecoder(int32_t ion_device);
 
@@ -107,7 +108,8 @@ class AudioTrackDecoder : public IInputCodecSource {
 
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
-  status_t PreparePipeline(const sp<AudioTrackSink>& audio_track_sink);
+  status_t PreparePipeline(const ::std::shared_ptr<AudioTrackSink>& audio_track_sink,
+                           const ::std::shared_ptr<AudioTrackDecoder>& audio_track_decoder);
 
   status_t StartDecoder();
 
@@ -122,22 +124,17 @@ class AudioTrackDecoder : public IInputCodecSource {
 
   status_t DeleteDecoder();
 
-  // This method provides an input buffer to the AVCodec
-  status_t Read(StreamBuffer& stream_buffer);
-
-  // This method is used by AVCodec to return buffer after encoding
-  status_t SignalBufferReturned(StreamBuffer& stream_buffer);
-
-  // This method is used by AVCodec to notify stop
-  status_t NotifyStatus(CodecInputPortStatus status);
+  status_t GetBuffer(BufferDescriptor& stream_buffer,
+                     void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& stream_buffer,
+                        void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
  private:
 
   status_t AllocInputPortBufs();
 
   status_t AllocOutputPortBufs();
-
-  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
   uint32_t TrackId() { return audio_track_params_.track_id; }
 
@@ -152,9 +149,9 @@ class AudioTrackDecoder : public IInputCodecSource {
   // map<fd , buf_info>
   DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
-  AudioTrackSink*           audio_track_sink_;
-  AudioTrackParams          audio_track_params_;
-  sp<AVCodec>               avcodec_;
+  ::std::shared_ptr<AudioTrackSink> audio_track_sink_;
+  AudioTrackParams                  audio_track_params_;
+  ::qmmf::avcodec::AVCodec*         avcodec_;
 
   // For bitstream
   Vector<StreamBuffer>      input_buffer_list_;
@@ -167,7 +164,7 @@ class AudioTrackDecoder : public IInputCodecSource {
   Vector<IonHandleData>     ion_handle_data;
 
 
-  Vector<CodecBuffer>       output_buffer_list_;
+  Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
 
   Mutex                     wait_for_empty_frame_lock_;
   Condition                 wait_for_empty_frame_;

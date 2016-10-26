@@ -29,6 +29,9 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include <utils/KeyedVector.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -48,7 +51,7 @@ class EncoderCore {
 
   ~EncoderCore();
 
-  status_t AddSource(const sp<TrackSource>& track_source,
+  status_t AddSource(const ::std::shared_ptr<TrackSource>& track_source,
                      VideoTrackParams& params);
 
   status_t StartTrackEncoder(uint32_t track_id);
@@ -67,8 +70,8 @@ class EncoderCore {
 
   bool isTrackValid(uint32_t track_id);
 
-  // vector <track_id, sp<TrackEncoder> >
-  DefaultKeyedVector<uint32_t, sp<TrackEncoder> > track_encoders_;
+  // vector <track_id, shared_ptr<TrackEncoder> >
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackEncoder>> track_encoders_;
 
   int32_t ion_device_;
 
@@ -79,14 +82,15 @@ class EncoderCore {
   static EncoderCore* instance_;
 };
 
-class TrackEncoder : public IOutputCodecSource {
+class TrackEncoder : public ICodecSource {
  public:
 
   TrackEncoder(int32_t ion_device);
 
   ~TrackEncoder();
 
-  status_t Init(const sp<TrackSource>& track_source,
+  status_t Init(const ::std::shared_ptr<TrackSource>& track_source,
+                const ::std::shared_ptr<TrackEncoder>& track_encoder,
                 VideoTrackParams& params);
 
   status_t Start();
@@ -100,10 +104,14 @@ class TrackEncoder : public IOutputCodecSource {
 
   // Methods of AVCodec
   // This method provides free output port buffer to AVCodec.
-  status_t GetBuffer(CodecBuffer& codec_buffer) override;
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
 
   // This method provides filled output buffer to TrackEncoder.
-  status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   // Method to handle returned buffers from client.
   status_t OnBufferReturnFromClient(std::vector<BnBuffer> &buffers);
@@ -113,31 +121,29 @@ class TrackEncoder : public IOutputCodecSource {
   status_t AllocOutputPortBufs();
 
   // This methos Notifies bitstream buffer to remote client.
-  void NotifyBufferToClient(CodecBuffer& codec_buffer);
-
-  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
+  void NotifyBufferToClient(BufferDescriptor& codec_buffer);
 
 #ifdef DUMP_BITSTREAM
-  void DumpBitStream(CodecBuffer& codec_buffer);
+  void DumpBitStream(BufferDescriptor& codec_buffer);
 #endif
 
   uint32_t TrackId() { return track_params_.track_id; }
 
-  sp<TrackSource>  track_source_;
   VideoTrackParams track_params_;
-  sp<AVCodec>      avcodec_;
+  AVCodec*         avcodec_;
 
-  Vector<CodecBuffer>   output_buffer_list_;
+  ::std::vector<BufferDescriptor> output_buffer_list_;
+  ::std::vector<struct ion_handle_data> output_ion_list_;
 
-  TSQueue<CodecBuffer>  output_free_buffer_queue_;
-  TSQueue<CodecBuffer>  output_occupy_buffer_queue_;
-  Mutex                 lock_;
-  Condition             wait_for_frame_;
-  int32_t               ion_device_;
-  Mutex                 queue_lock_;
-  bool                  eos_atoutput_;
+  TSQueue<BufferDescriptor>  output_free_buffer_queue_;
+  TSQueue<BufferDescriptor>  output_occupy_buffer_queue_;
+  Mutex                      lock_;
+  Condition                  wait_for_frame_;
+  int32_t                    ion_device_;
+  Mutex                      queue_lock_;
+  bool                       eos_atoutput_;
 #ifdef DUMP_BITSTREAM
-  int32_t               file_fd_;
+  int32_t                    file_fd_;
 #endif
 };
 

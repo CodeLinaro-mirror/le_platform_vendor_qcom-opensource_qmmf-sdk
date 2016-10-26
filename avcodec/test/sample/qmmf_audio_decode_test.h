@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
@@ -36,6 +37,7 @@
 #include <linux/msm_ion.h>
 #include <utils/Condition.h>
 #include <utils/KeyedVector.h>
+#include <utils/String8.h>
 #include <cutils/native_handle.h>
 #include <media/msm_media_info.h>
 
@@ -46,11 +48,13 @@
 #include <bitset>
 #include <iostream>
 
-using namespace std;
+#include "common/qmmf_common_utils.h"
+#include "qmmf-sdk/qmmf_avcodec.h"
 
-#include "common/codecadaptor/src/qmmf_avcodec.h"
-
+using namespace android;
 using namespace qmmf;
+using namespace qmmf::avcodec;
+using namespace std;
 
 #define MAX_FILE_NAME 80
 
@@ -85,11 +89,11 @@ enum class AudioFileType{
 AudioFileType audiofiletype;
 
 struct TestInitParams {
-  uint32_t          record_frame;
-  char              input_file[MAX_FILE_NAME];
-  char              output_file[MAX_FILE_NAME];
-  CodecType         codec_type;
-  CodecCreateParam  create_param;
+  uint32_t      record_frame;
+  char          input_file[MAX_FILE_NAME];
+  char          output_file[MAX_FILE_NAME];
+  CodecMimeType codec_type;
+  CodecParam    create_param;
 };
 
 class InputCodecSourceImpl;
@@ -106,19 +110,24 @@ public:
   uint64_t Framedurationus;
 private:
   AACfileIO(const char* file);
+
   size_t getAdtsFrameLength(uint64_t offset,size_t*headersize);
   uint32_t get_sample_rate(const uint8_t sf_index);
+
   vector<uint64_t> OffsetVector;
-  uint64_t starting_offset;
+  vector<size_t> frameSize;
+  vector<size_t> headerSize;
+
   ifstream infile;
   double confidence;
   uint64_t streamSize;
   uint64_t numFrames;
-  uint8_t sf_index,profile,channel;
+  uint8_t sf_index;
   uint32_t sr;    //sampling rate
-  vector<size_t> frameSize;
-  vector<size_t> headerSize;
+  uint8_t profile;
+  uint8_t channel;
   uint64_t duration;
+  uint64_t starting_offset;
   bool read_completed;
 
   static AACfileIO* aacfileIO_;
@@ -135,18 +144,21 @@ public:
   uint64_t Framedurationus;
 private:
   AMRfileIO(const char* file);
+
   size_t getFrameSize(bool isWide,unsigned int FT);
   status_t getFrameSizeByOffset(uint64_t offset, bool isWide, size_t *frameSize);
+
   vector<uint64_t> OffsetVector;
-  uint64_t starting_offset;
+  vector<size_t> frameSize;
+
   ifstream infile;
   double confidence;
   uint64_t streamSize;
   uint64_t numFrames;
   uint8_t channel;      //number of channels is always 1
   uint32_t sr;    //sampling rate is 16000 if AMR is wide else it is 8000
-  vector<size_t> frameSize;
   uint64_t duration;
+  uint64_t starting_offset;
   bool read_completed;
   bool mIsWide;
 
@@ -164,14 +176,16 @@ public:
   uint64_t Framedurationus;
 private:
   G711fileIO(const char* file);
-  uint64_t starting_offset;
+
   ifstream infile;
   uint64_t streamSize;
-  uint8_t channel;      //number of channels is always 1
   uint32_t sr;    //sampling rate is 16000 if AMR is wide else it is 8000
+  uint8_t channel;      //number of channels is always 1
+  uint64_t starting_offset;
   bool read_completed;
   bool isAlaw;
   bool isMulaw;
+
   static G711fileIO* g711fileIO_;
 };
 
@@ -202,78 +216,83 @@ public:
 private:
   bool IsStop();
 
-  void CodecEventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
-
-  status_t AllocateBuffer(OMX_U32 port);
+  status_t AllocateBuffer(uint32_t port);
 
   status_t ReleaseBuffer();
 
-  AVCodec*                  avcodec_;
-  int32_t                   ion_device_;
-  Mutex                     stop_lock_;
-  bool                      stop_;
-  Vector<StreamBuffer>      input_buffer_list_;
-  Vector<CodecBuffer>       output_buffer_list_;
-  Vector<IonHandleData>     ion_handle_data;
-  sp<InputCodecSourceImpl>  input_source_impl_;
-  sp<OutputCodecSourceImpl> output_source_impl_;
+  IAVCodec*                             avcodec_;
+  int32_t                               ion_device_;
+  Mutex                                 stop_lock_;
+  bool                                  stop_;
+  vector<BufferDescriptor>              input_buffer_list_;
+  vector<BufferDescriptor>              output_buffer_list_;
+  vector<IonHandleData>                 input_ion_handle_data;
+  vector<IonHandleData>                 output_ion_handle_data;
+  shared_ptr<InputCodecSourceImpl>      input_source_impl_;
+  shared_ptr<OutputCodecSourceImpl>     output_source_impl_;
   DefaultKeyedVector<String8, uint32_t> dynamic_params_;
-  AACfileIO*                aacfileIO_;
-  AMRfileIO*                amrfileIO_;
-  G711fileIO*               g711fileIO_;
+  AACfileIO*                            aacfileIO_;
+  AMRfileIO*                            amrfileIO_;
+  G711fileIO*                           g711fileIO_;
 }; //class CodecTest
 
-class InputCodecSourceImpl : public IInputCodecSource {
+class InputCodecSourceImpl : public ICodecSource {
 
 public:
   InputCodecSourceImpl(char* file_name, uint32_t num_frame);
 
   ~InputCodecSourceImpl();
 
-  status_t Read(StreamBuffer& stream_buffer) override;
+  status_t GetBuffer(BufferDescriptor& stream_buffer,
+                     void* client_data) override;
 
-  status_t SignalBufferReturned(StreamBuffer& stream_buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& stream_buffer,
+                        void* client_data) override;
 
-  status_t NotifyStatus(CodecInputPortStatus status) override;
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   void BufferStatus();
 
-  void AddBufferList(Vector<StreamBuffer>& list);
+  void AddBufferList(vector<BufferDescriptor>& list);
 
 private:
-  AACfileIO*            aacfileIO_;
-  AMRfileIO*            amrfileIO_;
-  G711fileIO*           g711fileIO_;
-  Mutex                 wait_for_frame_lock_;
-  Condition             wait_for_frame_;
-  int32_t              num_frame_read;
-  Vector<StreamBuffer>  input_list_;
-  TSQueue<StreamBuffer> input_free_buffer_queue_;
-  TSQueue<StreamBuffer> input_occupy_buffer_queue_;
+  AACfileIO*                aacfileIO_;
+  AMRfileIO*                amrfileIO_;
+  G711fileIO*               g711fileIO_;
+  Mutex                     wait_for_frame_lock_;
+  Condition                 wait_for_frame_;
+  int32_t                   num_frame_read;
+  vector<BufferDescriptor>  input_list_;
+  TSQueue<BufferDescriptor> input_free_buffer_queue_;
+  TSQueue<BufferDescriptor> input_occupy_buffer_queue_;
 }; // Class InputCodecSourceImpl
 
-class OutputCodecSourceImpl : public IOutputCodecSource {
+class OutputCodecSourceImpl : public ICodecSource {
 
 public:
   OutputCodecSourceImpl(char* file_name);
 
   ~OutputCodecSourceImpl();
 
-  status_t GetBuffer(CodecBuffer& codec_buffer) override;
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
 
-  status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   void BufferStatus();
 
-  void AddBufferList(Vector<CodecBuffer>& list);
+  void AddBufferList(vector<BufferDescriptor>& list);
 
 private:
-  int32_t              file_fd_;
-  Mutex                wait_for_frame_lock_;
-  Condition            wait_for_frame_;
-  Vector<CodecBuffer>  output_list_;
-  TSQueue<CodecBuffer> output_free_buffer_queue_;
-  TSQueue<CodecBuffer> output_occupy_buffer_queue_;
+  int32_t                   file_fd_;
+  Mutex                     wait_for_frame_lock_;
+  Condition                 wait_for_frame_;
+  vector<BufferDescriptor>  output_list_;
+  TSQueue<BufferDescriptor> output_free_buffer_queue_;
+  TSQueue<BufferDescriptor> output_occupy_buffer_queue_;
 }; // Class OutputCodecSourceImpl
 
 class CmdMenu {

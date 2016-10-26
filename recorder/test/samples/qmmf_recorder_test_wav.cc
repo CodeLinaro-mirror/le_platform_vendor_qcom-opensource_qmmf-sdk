@@ -43,9 +43,9 @@
 #include "common/qmmf_log.h"
 
 using ::qmmf::AudioFormat;
+using ::qmmf::BufferDescriptor;
 using ::qmmf::G711Mode;
 using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::BufferDescriptor;
 using ::std::ios;
 using ::std::ofstream;
 using ::std::streampos;

@@ -30,6 +30,8 @@
 
 #define TAG "AudioSink"
 
+#include <memory>
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
@@ -40,6 +42,10 @@
 namespace qmmf {
 namespace player {
 
+using ::qmmf::avcodec::CodecBuffer;
+using ::qmmf::avcodec::CodecPortStatus;
+using ::std::make_shared;
+using ::std::shared_ptr;
 
 AudioSink* AudioSink::instance_ = nullptr;
 
@@ -81,17 +87,17 @@ AudioSink::~AudioSink()
 status_t AudioSink::CreateTrackSink(uint32_t track_id, AudioTrackParams& param)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<AudioTrackSink> track_sink;
+  shared_ptr<AudioTrackSink> track_sink;
 
   if (param.params.out_device == AudioOutSubtype::kBuiltIn)
-    track_sink = new AudioTrackSink();
+    track_sink = make_shared<AudioTrackSink>();
 
   audio_track_sinks.add(track_id,track_sink);
   track_sink->Init(param);
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
-const sp<AudioTrackSink>& AudioSink::GetTrackSink(uint32_t track_id)
+const shared_ptr<AudioTrackSink>& AudioSink::GetTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   int32_t idx = audio_track_sinks.indexOfKey(track_id);
@@ -103,7 +109,7 @@ const sp<AudioTrackSink>& AudioSink::GetTrackSink(uint32_t track_id)
 status_t AudioSink::StartTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
+  shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->StartSink();
@@ -123,7 +129,7 @@ status_t AudioSink::StartTrackSink(uint32_t track_id)
 status_t AudioSink::StopTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
+  shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->StopSink();
@@ -143,7 +149,7 @@ status_t AudioSink::StopTrackSink(uint32_t track_id)
 status_t AudioSink::DeleteTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
+  shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->DeleteSink();
@@ -375,7 +381,8 @@ void AudioTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
 
 //********************************************************************//
 
-status_t AudioTrackSink::GetBuffer(CodecBuffer& codec_buffer) {
+status_t AudioTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
+                                   void* client_data) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   // Give available free buffer to decoder to use on output port.
 
@@ -388,33 +395,34 @@ status_t AudioTrackSink::GetBuffer(CodecBuffer& codec_buffer) {
 
   CodecBuffer iter = *output_free_buffer_queue_.Begin();
   codec_buffer.fd = (iter).fd;
-  codec_buffer.pointer = (iter).pointer;
+  codec_buffer.data = (iter).pointer;
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
   QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
-      __func__, TrackId(), codec_buffer.pointer, codec_buffer.fd);
+      __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
-status_t AudioTrackSink::ReturnBuffer(CodecBuffer& codec_buffer) {
+status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
+                                      void* client_data) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   status_t ret = 0;
 
-  assert(codec_buffer.pointer != NULL);
+  assert(codec_buffer.data != NULL);
 
   QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%x) from FBD", TAG,
-      __func__, TrackId(), codec_buffer.pointer);
+      __func__, TrackId(), codec_buffer.data);
 
 #ifdef DUMP_PCM_DATA
   DumpPCMData(codec_buffer);
 #endif
 
-  if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) || !(codec_buffer.filled_length))) {
+  if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) || !(codec_buffer.size))) {
     FillSinkBuffer(codec_buffer);
   }
 
@@ -422,8 +430,8 @@ status_t AudioTrackSink::ReturnBuffer(CodecBuffer& codec_buffer) {
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
-        __func__, TrackId(), (*it).pointer,  codec_buffer.pointer);
-    if (((*it).pointer) == (codec_buffer.pointer)) {
+        __func__, TrackId(), (*it).pointer,  codec_buffer.data);
+    if (((*it).pointer) == (codec_buffer.data)) {
       QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
@@ -438,7 +446,12 @@ status_t AudioTrackSink::ReturnBuffer(CodecBuffer& codec_buffer) {
   return ret;
 }
 
-int32_t AudioTrackSink::FillSinkBuffer(CodecBuffer& codec_buffer) {
+status_t AudioTrackSink::NotifyPortStatus(CodecPortStatus status) {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+}
+
+int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
   uint32_t size;
@@ -453,10 +466,10 @@ int32_t AudioTrackSink::FillSinkBuffer(CodecBuffer& codec_buffer) {
 
   GetSinkBuffer(sinkbuffers);
 
-  memcpy(sinkbuffers[0].data, ((uint8_t*)codec_buffer.pointer + codec_buffer.offset_to_frame), codec_buffer.filled_length);
+  memcpy(sinkbuffers[0].data, ((uint8_t*)codec_buffer.data + codec_buffer.offset), codec_buffer.size);
 
-  sinkbuffers[0].size = codec_buffer.filled_length;
-  sinkbuffers[0].capacity = codec_buffer.filled_length;
+  sinkbuffers[0].size = codec_buffer.size;
+  sinkbuffers[0].capacity = codec_buffer.size;
 
   QMMF_VERBOSE("%s:%s: sink buffer vaddr = 0x%x", TAG, __func__, sinkbuffers[0].data);
   QMMF_VERBOSE("%s:%s: sink buffer size = %d", TAG, __func__, sinkbuffers[0].size);
@@ -591,19 +604,19 @@ ION_ALLOC_FAILED:
 }
 
 #ifdef DUMP_PCM_DATA
-void AudioTrackSink::DumpPCMData(CodecBuffer& codec_buffer) {
+void AudioTrackSink::DumpPCMData(BufferDescriptor& codec_buffer) {
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   /*if(eos_atoutput_) {
     return;
   }*/
 
   if (file_fd_ > 0) {
-    ssize_t exp_size = (ssize_t) codec_buffer.filled_length;
+    ssize_t exp_size = (ssize_t) codec_buffer.size;
     QMMF_INFO("%s:%s Got decoded buffer of size(%d)", TAG, __func__,
-        codec_buffer.filled_length);
+        codec_buffer.size);
 
-    if (exp_size != write(file_fd_, (uint8_t*)codec_buffer.pointer + codec_buffer.offset_to_frame,
-       codec_buffer.filled_length)) {
+    if (exp_size != write(file_fd_, (uint8_t*)codec_buffer.data + codec_buffer.offset,
+       codec_buffer.size)) {
 
       QMMF_INFO("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
           strerror(errno));

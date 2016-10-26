@@ -47,7 +47,6 @@
 namespace qmmf {
 namespace player {
 
-
 enum class TrackType {
   kVideo,
   kAudio
@@ -70,19 +69,19 @@ typedef std::function<void(uint32_t track_id, std::vector<BnBuffer> buffers,
     buffer_callback;
 */
 
-typedef struct AudioTrackParams {
+struct AudioTrackParams {
   AudioTrackCreateParam    params;
   uint32_t                 track_id;
   //buffer_callback        data_cb;
-}AudioTrackParams;
+};
 
-typedef struct VideotrackParams {
+struct VideoTrackParams {
   VideoTrackCreateParam   params;
   uint32_t                track_id;
   //buffer_callback        data_cb;
-}VideoTrackParams;
+};
 
-typedef struct AVCodecBuffer {
+struct AVCodecBuffer {
     void *data;
     size_t frame_length;
     size_t filled_length;
@@ -90,10 +89,10 @@ typedef struct AVCodecBuffer {
     uint32_t flag;
     uint32_t fd;
     uint32_t buf_id;
-} AVCodecBuffer;
+};
 
 
-typedef struct Event{
+struct Event{
    PlayerState state;
 };
 

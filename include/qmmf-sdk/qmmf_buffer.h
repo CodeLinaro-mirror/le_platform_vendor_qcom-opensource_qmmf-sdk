@@ -29,19 +29,41 @@
 
 #pragma once
 
-#include <OMX_Core.h>
-#include <OMX_Types.h>
+#include <cstdint>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 namespace qmmf {
-namespace avcodec {
 
-struct CodecCmdType {
-  OMX_EVENTTYPE   event_type;
-  OMX_COMMANDTYPE event_cmd;
-  OMX_U32         event_data;
-  OMX_ERRORTYPE   event_result;
-  OMX_U32         event_flags;
+enum class BufferFlags {
+  kFlagEOS = (1 << 1),
+  kFlagCodecConfig = (1 << 2)
 };
 
-}; // namespace avcodec
+struct BufferDescriptor {
+  void*    data;
+  int32_t  fd;
+  uint32_t buf_id;
+  uint32_t size;
+  uint32_t capacity;
+  uint32_t offset;
+  uint64_t timestamp;
+  uint32_t flag;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "data[" << data << "] ";
+    stream << "fd[" << fd << "] ";
+    stream << "buf_id[" << buf_id << "] ";
+    stream << "size[" << size << "] ";
+    stream << "capacity[" << capacity << "] ";
+    stream << "offset[" << offset << "] ";
+    stream << "timestamp[" << timestamp << "] ";
+    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
+           << "]";
+    return stream.str();
+  }
+};
+
 }; // namespace qmmf

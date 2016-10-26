@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "player/src/service/qmmf_player_common.h"
 
@@ -44,9 +46,9 @@ class VideoSink {
 
   ~VideoSink();
 
-  status_t CreateTrackSink(uint32_t track_id, VideotrackParams& param);
+  status_t CreateTrackSink(uint32_t track_id, VideoTrackParams& param);
 
-  const sp<VideoTrackSink>& GetTrackSink(uint32_t track_id);
+  const ::std::shared_ptr<VideoTrackSink>& GetTrackSink(uint32_t track_id);
 
   status_t StartTrackSink(uint32_t track_id);
 
@@ -60,11 +62,11 @@ class VideoSink {
   static VideoSink* instance_;
 
   // Map of track it and TrackSinks.
-  DefaultKeyedVector<uint32_t, sp<VideoTrackSink> > video_track_sinks;
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<VideoTrackSink>> video_track_sinks;
 };
 
 
-class VideoTrackSink : public IOutputCodecSource {
+class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
  public:
 
   VideoTrackSink();
@@ -79,11 +81,13 @@ class VideoTrackSink : public IOutputCodecSource {
 
   status_t DeleteSink();
 
-  void AddBufferList(Vector<CodecBuffer>& list);
+  void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
 
-  status_t GetBuffer(CodecBuffer& codec_buffer);
-
-  status_t ReturnBuffer(CodecBuffer& codec_buffer);
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
  private:
 
@@ -91,9 +95,9 @@ class VideoTrackSink : public IOutputCodecSource {
 
   VideoTrackParams        track_params_;
 
-  Vector<CodecBuffer>     output_buffer_list_;
-  TSQueue<CodecBuffer>    output_free_buffer_queue_;
-  TSQueue<CodecBuffer>    output_occupy_buffer_queue_;
+  Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
+  TSQueue<::qmmf::avcodec::CodecBuffer> output_free_buffer_queue_;
+  TSQueue<::qmmf::avcodec::CodecBuffer> output_occupy_buffer_queue_;
 
   Mutex                   wait_for_frame_lock_;
   Condition               wait_for_frame_;
@@ -103,7 +107,7 @@ class VideoTrackSink : public IOutputCodecSource {
 
 #ifdef DUMP_YUV_FRAMES
   int32_t               file_fd_;
-  void DumpYUVData(CodecBuffer& codec_buffer);
+  void DumpYUVData(BufferDescriptor& codec_buffer);
 #endif
 };
 
