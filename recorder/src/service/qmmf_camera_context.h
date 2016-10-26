@@ -95,10 +95,17 @@ class CameraContext : public RefBase {
 
  private:
 
+  struct HFRMode_t {
+    int32_t width;
+    int32_t height;
+    int32_t batch_size;
+    int32_t framerate;
+  };
+
   friend class CameraPort;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              int32_t* stream_id);
+                              uint32_t frame_rate, int32_t* stream_id);
 
   status_t DeleteDeviceStream(int32_t stream_id);
 
@@ -115,6 +122,8 @@ class CameraContext : public RefBase {
 
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
+
+  void InitHFRModes(CameraMetadata &static_meta);
 
   //Camera client callbacks.
   void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
@@ -136,7 +145,6 @@ class CameraContext : public RefBase {
   CameraStartParam         camera_start_params_;
 
   // Global Capture request.
-  Camera3Request           streaming_request_;
   int32_t                  streaming_request_id_;
 
   //Non zsl capture request.
@@ -157,6 +165,10 @@ class CameraContext : public RefBase {
   int32_t sensor_vendor_mode_;
 
   static uint32_t          kConstrainedModeThreshold;
+  static uint32_t          kHFRBatchModeThreshold;
+  bool                     hfr_supported_;
+  Vector<HFRMode_t>        hfr_batch_modes_list_;
+  Vector<Camera3Request>   streaming_active_requests_;
 };
 
 enum class CameraPortType {
@@ -179,8 +191,8 @@ enum class PortState {
 // same.
 class CameraPort : public RefBase {
  public:
-  CameraPort(const CameraStreamParam& param, CameraPortType port_type,
-             CameraContext *context);
+  CameraPort(const CameraStreamParam& param, size_t batch_size,
+             CameraPortType port_type, CameraContext *context);
 
   ~CameraPort();
 
@@ -209,6 +221,8 @@ class CameraPort : public RefBase {
 
   uint32_t GetPortFramerate() { return params_.frame_rate; }
 
+  size_t GetPortBatchSize() { return batch_size; }
+
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
  private:
@@ -226,6 +240,7 @@ class CameraPort : public RefBase {
   Mutex                  consumer_lock_;
   bool                   ready_to_start_;
   PortState              port_state_;
+  size_t                 batch_size;
 
   // map of <consumer id, IBufferConsumer>
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
