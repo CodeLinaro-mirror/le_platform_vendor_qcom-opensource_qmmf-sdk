@@ -190,7 +190,11 @@ class RecorderClient {
 
           Mutex::Autolock l(parent_->lock_);
           parent_->recorder_service_.clear();
-          parent_->recorder_service_ = NULL;
+          parent_->recorder_service_ = nullptr;
+          // If server dies for somereason then crash client process to reset
+          // the state, in this case application can reconnect to the camera
+          // without reboot.
+          assert(0);
     }
     RecorderClient* parent_;
   };
