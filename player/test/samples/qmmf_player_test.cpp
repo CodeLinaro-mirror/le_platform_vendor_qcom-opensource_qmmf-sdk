@@ -41,10 +41,6 @@
 #include "player/test/samples/qmmf_player_test.h"
 #include "player/src/service/qmmf_player_common.h"
 
-using namespace qmmf;
-using namespace player;
-using namespace android;
-
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -55,15 +51,17 @@ using namespace android;
 #define TEST_DBG(...) ((void)0)
 #endif
 
-// Enable this define to dump bitstream from demuxer
-#define DUMP_BITSTREAM
+// Enable this define to dump audio bitstream from demuxer
+//#define DUMP_AUDIO_BITSTREAM
 
-// Enable this define to dump YUV from decoder.
-#define DUMP_YUV_FRAMES
+// Enable this define to dump PCM from decoder
+//#define DUMP_PCM_DATA
 
+// Enable this define to dump video bitstream from demuxer
+//#define DUMP_VIDEO_BITSTREAM
 
-// Enable this define to dump PCM from decoder.
-#define DUMP_PCM_DATA
+// Enable this define to dump YUV from decoder
+//#define DUMP_YUV_FRAMES
 
 void PlayerTest::playercb(EventType event_type,
                     void *event_data,
@@ -73,8 +71,8 @@ void PlayerTest::playercb(EventType event_type,
 
   Event* ev = (Event *)event_data;
 
-  TEST_INFO("%s:%s event_type is:: %d", TAG, __func__,event_type);
-  TEST_INFO("%s:%s state is:: %d", TAG,__func__, ev->state);
+  TEST_INFO("%s:%s Event type is %s", TAG, __func__,PlayerTestEvent[((int)event_type)]);
+  TEST_INFO("%s:%s Player is in %s state", TAG,__func__, statemap[(uint32_t)ev->state]);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -93,15 +91,28 @@ void PlayerTest::videotrackcb(EventType event_type,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-PlayerTest::PlayerTest():stopped_(false),filename_(NULL)
+PlayerTest::PlayerTest():stopped_(false),filename_(NULL),release_parser_(false),start_again(false)
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  PlayerTestEvent[0] = "Error";
+  PlayerTestEvent[1] = "State Changed";
+
+  statemap.insert(std::pair<uint32_t, char *> (0,"Error"));
+  statemap.insert(std::pair<uint32_t, char *> (1,"Idle"));
+  statemap.insert(std::pair<uint32_t, char *> (2,"Prepared"));
+  statemap.insert(std::pair<uint32_t, char *> (4,"Started"));
+  statemap.insert(std::pair<uint32_t, char *> (8,"Paused"));
+  statemap.insert(std::pair<uint32_t, char *> (16,"Stopped"));
+  statemap.insert(std::pair<uint32_t, char *> (32,"Playback Completed"));
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
 PlayerTest::~PlayerTest()
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  statemap.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -136,35 +147,7 @@ int32_t PlayerTest::Prepare()
   AudioTrackCreateParam audio_track_param_;
   memset(&audio_track_param_, 0x0, sizeof audio_track_param_);
 
-  switch(filetype_)
-  {
-    case 1:
-      aacfileIO_ = AACfileIO::createAACfileIOobj(filename_);
-      result = aacfileIO_->Fillparams(&audio_track_param_);
-      if(result != 0){
-        TEST_INFO("%s:%s Could not fill the AAC params",TAG,__func__);
-      }
-      break;
-
-    case 2:
-      g711fileIO_ = G711fileIO::createG711fileIOobj(filename_);
-      result = g711fileIO_->Fillparams(&audio_track_param_);
-      if(result != 0){
-        TEST_INFO("%s:%s Could not fill the G711 params",TAG,__func__);
-      }
-      break;
-
-    case 3:
-       amrfileIO_ = AMRfileIO::createAMRfileIOobj(filename_);
-       result = amrfileIO_->Fillparams(&audio_track_param_);
-       if(result != 0){
-         TEST_INFO("%s:%s Could not fill the AMR params",TAG,__func__);
-       }
-      break;
-
-    default:
-      break;
-  }
+  ParseFile(audio_track_param_);
 
   uint32_t track_id_1 =1;
   TrackCb audio_track_cb_;
@@ -179,6 +162,8 @@ int32_t PlayerTest::Prepare()
 
   result = player_.Prepare();
 
+  start_again = false;
+
   if (result != NO_ERROR)
     return -1;
 
@@ -186,15 +171,62 @@ int32_t PlayerTest::Prepare()
   return result;
 }
 
+int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_)
+{
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  auto result = 0;
+
+  switch(filetype_)
+  {
+    case AudioFileType::kAAC:
+      aacfileIO_ = new AACfileIO(filename_);
+      result = aacfileIO_->Fillparams(&audio_track_param_);
+      if(result != 0){
+        TEST_INFO("%s:%s Could not fill the AAC params",TAG,__func__);
+      }
+      break;
+
+    case AudioFileType::kG711:
+      g711fileIO_ = new G711fileIO(filename_);
+      result = g711fileIO_->Fillparams(&audio_track_param_);
+      if(result != 0){
+        TEST_INFO("%s:%s Could not fill the G711 params",TAG,__func__);
+      }
+      break;
+
+    case AudioFileType::kAMR:
+      amrfileIO_ = new AMRfileIO(filename_);
+      result = amrfileIO_->Fillparams(&audio_track_param_);
+      if(result != 0){
+        TEST_INFO("%s:%s Could not fill the AMR params",TAG,__func__);
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
 int32_t PlayerTest::Start()
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
 
+  if(start_again)
+  {
+    // Create Audio Track
+    AudioTrackCreateParam audio_track_param_;
+    memset(&audio_track_param_, 0x0, sizeof audio_track_param_);
+    ParseFile(audio_track_param_);
+  }
+
   ret = player_.Start();
   stopped_ = false;
 
-  pthread_create(&start_thread_id,NULL,PlayerTest::StartPlaying,(void *)this);
+  pthread_create(&start_thread_id, NULL, PlayerTest::StartPlaying, (void*)this);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -203,79 +235,102 @@ int32_t PlayerTest::Start()
 void * PlayerTest::StartPlaying(void *ptr)
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
   auto ret = 0;
 
   uint32_t track_id_1 = 1;
   uint32_t result;
 
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
+  std::vector<TrackBuffer> buffers;
+  TrackBuffer tb;
 
   while (!playertest->stopped_)
   {
-     std::vector<TrackBuffer> buffers;
 
-     TrackBuffer tb;
-     memset(&tb,0x0,sizeof(tb));
-     buffers.push_back(tb);
-
-     ret = playertest->player_.DequeueInputBuffer(track_id_1,buffers);
-
-     int32_t num_frames_read;
-     uint32_t bytes_read;
-
-     switch(playertest->filetype_)
-     {
-       case 1:
-           //For AAC
-           //this size is the size of buffer to which void*data points to and bytes_read is the filled length
-           result = playertest->aacfileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&num_frames_read,&bytes_read);
-           break;
-
-       case 2:
-           //For G711
-           result = playertest->g711fileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&bytes_read);
-           break;
-
-       case 3:
-           //For AMR
-           result = playertest->amrfileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&num_frames_read,&bytes_read);
-           break;
-
-        default:
-           break;
-     }
-
-     buffers[0].filled_size = bytes_read;
-
-     if(result != 0){
-        //EOS reached
-        //jsut see how will you send EOS
-        TEST_INFO("%s:%s: File read completed result is %d", TAG, __func__,  result);
-        buffers[0].flag = 1;
-        playertest->player_.Stop(true);
-        playertest->stopped_ = true;
-        break;
-     }
-
-    TEST_INFO("%s:%s: filled_size %d", TAG, __func__,  buffers[0].filled_size);
-    TEST_INFO("%s:%s: buffer size %d", TAG, __func__, buffers[0].size);
-    TEST_INFO("%s:%s: vaddr 0x%x", TAG, __func__, buffers[0].data);
-
+    memset(&tb,0x0,sizeof(tb));
+    buffers.push_back(tb);
     uint32_t val = 1;
 
+    ret = playertest->player_.DequeueInputBuffer(track_id_1,buffers);
+
+    int32_t num_frames_read;
+    uint32_t bytes_read;
+
+    switch(playertest->filetype_)
+    {
+      case AudioFileType::kAAC:
+        //For AAC
+        result = playertest->aacfileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&num_frames_read,&bytes_read);
+        break;
+
+      case AudioFileType::kG711:
+        //For G711
+        result = playertest->g711fileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&bytes_read);
+        break;
+
+      case AudioFileType::kAMR:
+        //For AMR
+        result = playertest->amrfileIO_->GetFrames((void*)buffers[0].data,buffers[0].size,&num_frames_read,&bytes_read);
+        break;
+
+       default:
+         break;
+    }
+
+    buffers[0].filled_size = bytes_read;
+
+    if (result != 0 || playertest->stopped_) {
+      //EOF reached or Stopped
+      TEST_INFO("%s:%s:File read completed result is %d", TAG, __func__,  result);
+      buffers[0].flag = 1;
+      playertest->player_.QueueInputBuffer(track_id_1,buffers,(void*)&val,sizeof (uint32_t),TrackMetaBufferType::kNone);
+      buffers.clear();
+      playertest->stopped_ = true;
+      playertest->StopPlaying();
+      break;
+    }
+
+    TEST_DBG("%s:%s: filled_size %d", TAG, __func__,  buffers[0].filled_size);
+    TEST_DBG("%s:%s: buffer size %d", TAG, __func__, buffers[0].size);
+    TEST_DBG("%s:%s: vaddr 0x%x", TAG, __func__, buffers[0].data);
+
     playertest->player_.QueueInputBuffer(track_id_1,buffers,(void*)&val,sizeof (uint32_t),TrackMetaBufferType::kNone);
+    buffers.clear();
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return NULL;
 }
 
-
 int32_t PlayerTest::Stop()
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   stopped_ = true;
-  auto ret = player_.Stop(true);
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+int32_t PlayerTest::StopPlaying()
+{
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  Mutex::Autolock lock(state_lock);
+  auto ret = -1;
+
+  ret = player_.Stop(true);
+
+  switch(filetype_)
+  {
+    case AudioFileType::kAAC:
+      delete aacfileIO_;
+      break;
+    case AudioFileType::kG711:
+      delete g711fileIO_;
+      break;
+    case AudioFileType::kAMR:
+      delete amrfileIO_;
+      break;
+  }
+  start_again = true;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -324,6 +379,16 @@ int32_t PlayerTest::GrabPicture()
   return ret;
 }
 
+int32_t PlayerTest::Delete()
+{
+  auto ret = 0;
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  uint32_t track_id_1 =1;
+  player_.DeleteAudioTrack(track_id_1);
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 void CmdMenu::PrintMenu() {
 
   printf("\n\n=========== PLAYER TEST MENU ===================\n\n");
@@ -337,6 +402,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Stop\n", CmdMenu::STOP_CMD);
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
+  printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -356,20 +422,20 @@ int main(int argc,char *argv[]) {
 
   int32_t exit_test = false;
 
-  if(argc == 2) {
+  if (argc == 2) {
     test_context.filename_ = argv[1];
     char *extn = strrchr(argv[1], '.');
 
     TEST_INFO("%s: exten is: %s", TAG, extn);
 
     if (strcmp(extn, ".aac") == 0)
-       test_context.filetype_ = 1;
+      test_context.filetype_ = AudioFileType::kAAC;
 
     else if (strcmp(extn, ".g711") ==0)
-         test_context.filetype_ = 2;
+      test_context.filetype_ = AudioFileType::kG711;
 
     else if (strcmp(extn, ".amr") == 0)
-       test_context.filetype_ = 3;
+      test_context.filetype_ = AudioFileType::kAMR;
 
     else {
         TEST_ERROR("%s:%s %s extn not supported, supported extn are",
@@ -411,7 +477,11 @@ int main(int argc,char *argv[]) {
       }
       break;
       case CmdMenu::RESUME_CMD: {
-            test_context.Resume();
+        test_context.Resume();
+      }
+      break;
+      case CmdMenu::DELETE_CMD: {
+        test_context.Delete();
       }
       break;
       case CmdMenu::EXIT_CMD: {

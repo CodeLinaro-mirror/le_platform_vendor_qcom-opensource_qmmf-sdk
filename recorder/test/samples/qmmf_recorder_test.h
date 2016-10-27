@@ -46,6 +46,9 @@
 // Enable this define to dump encoded bit stream data.
 #define DUMP_BITSTREAM
 
+// Sleep for specified seconds to allow settling after parameter change
+#define PARAMETER_SETTLE_INTERVAL(x) sleep(x)
+
 using namespace qmmf;
 using namespace recorder;
 using namespace android;

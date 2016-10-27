@@ -191,6 +191,40 @@ uint32_t DisplayBufferAllocator::GetBufferSize(BufferInfo *buffer_info) {
   return buffer_size;
 }
 
+DisplayError DisplayBufferAllocator::GetBufferInfo(BufferInfo *buffer_info,
+    int32_t &aligned_width, int32_t &aligned_height) {
+  uint32_t align = UINT32(getpagesize());
+
+  const BufferConfig &buffer_config = buffer_info->buffer_config;
+
+  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
+
+  int width = INT(buffer_config.width);
+  int height = INT(buffer_config.height);
+  int format;
+
+  if (buffer_config.secure) {
+    alloc_flags = INT(GRALLOC_USAGE_PRIVATE_MM_HEAP);
+    alloc_flags |= INT(GRALLOC_USAGE_PROTECTED);
+    align = SECURE_ALIGN;
+  }
+
+  if (buffer_config.cache == false) {
+    // Allocate uncached buffers
+    alloc_flags |= GRALLOC_USAGE_PRIVATE_UNCACHED;
+  }
+
+  if (SetBufferInfo(buffer_config.format, &format, &alloc_flags) < 0) {
+    QMMF_ERROR("Error Setting buffer info");
+    return kErrorNone;
+  }
+
+  uint32_t buffer_size = getBufferSizeAndDimensions(width, height, format,
+      alloc_flags, aligned_width, aligned_height);
+
+  return kErrorNone;
+}
+
 int DisplayBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
     int *flags) {
   switch (format) {

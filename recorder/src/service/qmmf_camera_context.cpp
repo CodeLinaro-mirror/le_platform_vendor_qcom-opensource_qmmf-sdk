@@ -88,7 +88,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     return NO_MEMORY;
   }
 
-  ret = camera_device_->Initialize(CAMERA_HAL_MODULE_PATH, GRALLOC_MODULE_PATH);
+  ret = camera_device_->Initialize();
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s Unable to Initialize Camera3DeviceClient", TAG, __func__,
                ret);

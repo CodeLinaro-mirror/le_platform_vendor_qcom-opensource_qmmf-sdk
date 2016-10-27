@@ -63,8 +63,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3DeviceClient(CameraClientCallbacks clientCb);
   virtual ~Camera3DeviceClient();
 
-  int32_t Initialize(const char *pathToCameraModule,
-                     const char *pathToGrallocModule);
+  int32_t Initialize();
 
   int32_t OpenCamera(uint32_t idx);
   int32_t BeginConfigure() { return 0; }
@@ -93,7 +92,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t Prepare(int streamId);
   int32_t TearDown(int streamId);
 
-  static int32_t LoadHWModule(const char *path, const char *moduleId,
+  static int32_t LoadHWModule(const char *moduleId,
                               const struct hw_module_t **pHmi);
 
  private:

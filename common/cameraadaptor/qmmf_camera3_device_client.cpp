@@ -123,19 +123,9 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   pthread_cond_destroy(&state_updated_);
 }
 
-int32_t Camera3DeviceClient::Initialize(const char *pathToCameraModule,
-                                        const char *pathToGrallocModule) {
+int32_t Camera3DeviceClient::Initialize() {
   int32_t res = 0;
   hw_module_t const *module = NULL;
-  if (NULL == pathToCameraModule) {
-    QMMF_ERROR("%s: Invalid camera module path!", __func__);
-    return -EINVAL;
-  }
-
-  if (NULL == pathToGrallocModule) {
-    QMMF_ERROR("%s: Invalid gralloc module path!", __func__);
-    return -EINVAL;
-  }
 
   pthread_mutex_lock(&lock_);
 
@@ -145,8 +135,9 @@ int32_t Camera3DeviceClient::Initialize(const char *pathToCameraModule,
     goto exit;
   }
 
-  res = LoadHWModule(pathToCameraModule, CAMERA_HARDWARE_MODULE_ID,
+  res = LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                      (const hw_module_t **)&camera_module_);
+
   if ((0 != res) || (NULL == camera_module_)) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
     goto exit;
@@ -183,7 +174,7 @@ int32_t Camera3DeviceClient::Initialize(const char *pathToCameraModule,
 
   camera_module_->set_callbacks(this);
 
-  res = LoadHWModule(pathToGrallocModule, GRALLOC_HARDWARE_MODULE_ID, &module);
+  res = LoadHWModule(GRALLOC_HARDWARE_MODULE_ID, &module);
   if ((0 != res) || (NULL == module)) {
     QMMF_ERROR("%s: Unable to load GrallocHal module: %d\n", __func__, res);
     goto exit;
@@ -1377,61 +1368,18 @@ void Camera3DeviceClient::RemovePendingRequestLocked(int idx) {
   }
 }
 
-int32_t Camera3DeviceClient::LoadHWModule(const char *path,
-                                          const char *moduleId,
+int32_t Camera3DeviceClient::LoadHWModule(const char *moduleId,
                                           const struct hw_module_t **pHmi) {
-  int32_t status;
-  void *handle;
-  struct hw_module_t *hmi;
 
-  if (NULL == path) {
-    QMMF_ERROR("%s: Invalid module path! \n", __func__);
-    return -EINVAL;
-  }
+  int32_t status;
+  struct hw_module_t *hmi;
 
   if (NULL == moduleId) {
     QMMF_ERROR("%s: Invalid module id! \n", __func__);
     return -EINVAL;
   }
 
-  handle = dlopen(path, RTLD_NOW);
-  if (handle == NULL) {
-    char const *err_str = dlerror();
-    QMMF_ERROR("load: module=%s\n%s \n", path, err_str ? err_str : "unknown");
-    status = -EINVAL;
-    goto done;
-  }
-
-  hmi = (struct hw_module_t *)dlsym(handle, HAL_MODULE_INFO_SYM_AS_STR);
-  if (hmi == NULL) {
-    QMMF_ERROR("load: couldn't find symbol %s\n", HAL_MODULE_INFO_SYM_AS_STR);
-    status = -EINVAL;
-    goto done;
-  }
-
-  if (strcmp(moduleId, hmi->id) != 0) {
-    QMMF_ERROR("load: id=%s != hmi->id=%s\n", moduleId, hmi->id);
-    status = -EINVAL;
-    goto done;
-  }
-
-  hmi->dso = handle;
-
-  status = 0;
-
-done:
-  if (status != 0) {
-    hmi = NULL;
-    if (handle != NULL) {
-      dlclose(handle);
-      handle = NULL;
-    }
-  } else {
-    QMMF_INFO("loaded HAL id=%s path=%s hmi=%p handle=%p\n", moduleId, path,
-              *pHmi, handle);
-  }
-
-  *pHmi = hmi;
+  status = hw_get_module(moduleId, pHmi);
 
   return status;
 }

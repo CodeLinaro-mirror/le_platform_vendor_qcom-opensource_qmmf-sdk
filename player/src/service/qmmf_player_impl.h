@@ -52,13 +52,12 @@ using namespace android;
 
 class AudioTrackSink;
 
-class PlayerImpl
-{
+class PlayerImpl {
  public:
 
- static PlayerImpl* CreatePlayer();
+  static PlayerImpl* CreatePlayer();
 
-   ~PlayerImpl();
+  ~PlayerImpl();
 
   status_t Connect(sp<RemoteCallBack>& remote_cb);
 
@@ -96,7 +95,7 @@ class PlayerImpl
 
   status_t SetTrickMode(uint32_t speed, uint32_t direction);
 
-//TODO
+  // TODO
   status_t GrabPicture(PictureParam param);
 
   status_t SetAudioTrackParam(uint32_t track_id,
@@ -143,9 +142,6 @@ class PlayerImpl
   typedef struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
-    //VideoTrackParams params;
-    //AudioTrackParams audio_params;
-    //TODO: Add union and pack AudioTrack params.
   } TrackInfo;
 
   uint32_t            unique_id_;
@@ -162,9 +158,6 @@ class PlayerImpl
 
   std::vector<TrackInfo> tracks;
 
-  //std::vector<uint32_t> audio_tracks;
-  //std::vector<uint32_t> video_tracks;
-
   AudioTrackSink*       audio_track_sink_;
 
 
@@ -173,8 +166,7 @@ class PlayerImpl
   PlayerImpl(const PlayerImpl&);
   PlayerImpl& operator=(const PlayerImpl&);
   static PlayerImpl* instance_;
-
 };
 
-}; // namespace player
-}; //namespace qmmf
+};  // namespace player
+};  // namespace qmmf

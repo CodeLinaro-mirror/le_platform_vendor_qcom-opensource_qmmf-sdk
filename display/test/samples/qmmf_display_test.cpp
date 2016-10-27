@@ -159,10 +159,15 @@ int32_t DisplayTest::DequeueSurfaceBuffer() {
   if (!file) {
     TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
   }
-  read_len = fread(surface_buffer.plane_info[0].buf +
-      surface_buffer.plane_info[0].offset, sizeof(uint8_t),
-      surface_buffer.plane_info[0].width*
-      surface_buffer.plane_info[0].height*4, file);
+  int32_t offset=0;
+  for(int32_t i=0;i<surface_buffer.plane_info[0].height;i++) {
+  uint32_t read_len = fread(surface_buffer.plane_info[0].buf +
+      surface_buffer.plane_info[0].offset + offset, sizeof(uint8_t),
+      surface_buffer.plane_info[0].width*4, file);
+  offset +=((surface_buffer.plane_info[0].width+(
+      (surface_buffer.plane_info[0].width%64)?(64-
+      (surface_buffer.plane_info[0].width%64)):0))*4);
+  }
   fclose (file);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);

@@ -117,9 +117,6 @@ class Camera3Gtest : public ::testing::Test {
 
   static const int64_t PREPARE_TIMEOUT = 1e9;  // 1 sec.
   static const int64_t PROCESS_TIMEOUT = 10e9;  // 10 sec.
-
-  static const char *HAL_PATH;
-  static const char *GRALLOC_PATH;
 };
 
 }  // namespace cameraadaptor ends here

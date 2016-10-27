@@ -48,8 +48,10 @@
 
 using namespace std;
 using namespace android;
+
 using namespace qmmf;
 using namespace player;
+
 
 struct __attribute__((__packed__)) g711_header {
   uint32_t riff_id;
@@ -74,47 +76,65 @@ struct __attribute__((__packed__)) g711_header {
 typedef  struct ion_allocation_data IonHandleData;
 
 class AACfileIO {
-public:
+ public:
+
   status_t Fillparams(AudioTrackCreateParam *params);
-  status_t GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_frames_read,uint32_t* bytes_read);
+
+  status_t GetFrames(void*buffer,uint32_t size_buffer,
+                         int32_t* num_frames_read,uint32_t* bytes_read);
+
   bool isfileopen(){return infile.is_open();}
+
   status_t writeRaw();
-  static AACfileIO* createAACfileIOobj(const char* file);
+
+  AACfileIO(const char* file);
+
   ~AACfileIO();
+
   int64_t currentTimeus;
   uint64_t Framedurationus;
-private:
-  AACfileIO(const char* file);
+
+ private:
   size_t getAdtsFrameLength(uint64_t offset,size_t*headersize);
+
   uint32_t get_sample_rate(const uint8_t sf_index);
+
   vector<uint64_t> OffsetVector;
-  // char aac_file_name;
+  vector<size_t> frameSize;
+  vector<size_t> headerSize;
+  vector<uint64_t>::iterator v_OffsetVector;
+  vector<size_t>::iterator v_frameSize;
+  vector<size_t>::iterator v_headerSize;
   ifstream infile;
   double confidence;
   uint64_t streamSize;
   uint64_t numFrames;
   uint8_t sf_index,profile,channel;
   uint32_t sr;    //sampling rate
-  vector<size_t> frameSize;
-  vector<size_t> headerSize;
   uint64_t duration;
   bool read_completed;
-
-  static AACfileIO* aacfileIO_;
 };
 
 class G711fileIO {
-public:
+ public:
+
   status_t Fillparams(AudioTrackCreateParam *params);
+
   status_t GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_read);
+
   bool isfileopen(){return infile.is_open();}
+
   status_t writeRaw();
-  static G711fileIO* createG711fileIOobj(const char* file);
+
+  G711fileIO(const char* file);
+
   ~G711fileIO();
+
   int64_t currentTimeus;
   uint64_t Framedurationus;
-private:
-  G711fileIO(const char* file);
+
+ private:
+
   uint64_t starting_offset;
   ifstream infile;
   uint64_t streamSize;
@@ -123,28 +143,40 @@ private:
   bool read_completed;
   bool isAlaw;
   bool isMulaw;
-  static G711fileIO* g711fileIO_;
+  uint64_t offset;
 };
 
 class AMRfileIO {
-public:
+
+ public:
+
   status_t Fillparams(AudioTrackCreateParam *params);
-  status_t GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_frames_read,uint32_t* bytes_read);
+
+  status_t GetFrames(void*buffer,uint32_t size_buffer,
+                         int32_t* num_frames_read,uint32_t* bytes_read);
+
   bool isfileopen(){return infile.is_open();}
+
   status_t writeRaw();
-  static AMRfileIO* createAMRfileIOobj(const char* file);
-  ~AMRfileIO();
-  int64_t currentTimeus;
-  uint64_t Framedurationus;
-private:
+
   AMRfileIO(const char* file);
 
-/*  AACfileIO(AACfileIO* obj);
-  AACfileIO* operator=(AACfileIO* obj);*/
+  ~AMRfileIO();
+
+  int64_t currentTimeus;
+  uint64_t Framedurationus;
+
+ private:
 
   size_t getFrameSize(bool isWide,unsigned int FT);
-  status_t getFrameSizeByOffset(uint64_t offset, bool isWide, size_t *frameSize);
+
+  status_t getFrameSizeByOffset(uint64_t offset, bool isWide,
+                                         size_t *frameSize);
+
   vector<uint64_t> OffsetVector;
+  vector<uint64_t>::iterator v_OffsetVector;
+  vector<size_t> frameSize;
+  vector<size_t>::iterator v_frameSize;
   uint64_t starting_offset;
   ifstream infile;
   double confidence;
@@ -152,10 +184,7 @@ private:
   uint64_t numFrames;
   uint8_t channel;      //number of channels is always 1
   uint32_t sr;    //sampling rate is 16000 if AMR is wide else it is 8000
-  vector<size_t> frameSize;
   uint64_t duration;
   bool read_completed;
   bool mIsWide;
-
-  static AMRfileIO* amrfileIO_;
 };

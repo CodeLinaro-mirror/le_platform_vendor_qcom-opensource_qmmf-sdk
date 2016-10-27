@@ -117,42 +117,37 @@ void DisplayDebugHandler::DebugQdcm(bool enable, int verbose_level) {
 void DisplayDebugHandler::Error(DebugTag tag, const char *format, ...) {
   va_list list;
   va_start(list, format);
-  vprintf(format, list);
-  printf("\n");
+  __android_log_vprint(ANDROID_LOG_ERROR, LOG_TAG, format, list);
 }
 
 void DisplayDebugHandler::Warning(DebugTag tag, const char *format, ...) {
   va_list list;
   va_start(list, format);
-  vprintf(format, list);
-  printf("\n");
+  __android_log_vprint(ANDROID_LOG_WARN, LOG_TAG, format, list);
 }
 
 void DisplayDebugHandler::Info(DebugTag tag, const char *format, ...) {
-//  if (debug_flags_[tag]) {
+  if (debug_flags_[tag]) {
     va_list list;
     va_start(list, format);
-    vprintf(format, list);
-    printf("\n");
-//  }
+    __android_log_vprint(ANDROID_LOG_INFO, LOG_TAG, format, list);
+  }
 }
 
 void DisplayDebugHandler::Debug(DebugTag tag, const char *format, ...) {
-//  if (debug_flags_[tag]) {
+  if (debug_flags_[tag]) {
     va_list list;
     va_start(list, format);
-    vprintf(format, list);
-    printf("\n");
-//  }
+    __android_log_vprint(ANDROID_LOG_DEBUG, LOG_TAG, format, list);
+  }
 }
 
 void DisplayDebugHandler::Verbose(DebugTag tag, const char *format, ...) {
-//  if (debug_flags_[tag] && verbose_level_) {
+  if (debug_flags_[tag] && verbose_level_) {
     va_list list;
     va_start(list, format);
-    vprintf(format, list);
-    printf("\n");
-//  }
+    __android_log_vprint(ANDROID_LOG_VERBOSE, LOG_TAG, format, list);
+  }
 }
 
 void DisplayDebugHandler::BeginTrace(const char *class_name,

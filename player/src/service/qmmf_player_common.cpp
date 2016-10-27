@@ -35,33 +35,31 @@
 namespace qmmf {
 namespace player {
 
-extern "C" void DebugCreateAudioTrackParam (const char* _func_,
-                                            AudioTrackParams& params)
+extern "C" void DebugAudioTrackCreateParam (const char* _func_,
+                                            AudioTrackCreateParam& params)
 {
-  QMMF_VERBOSE("%s:%s track_id = %u", TAG, _func_, params.track_id);
   QMMF_VERBOSE("%s:%s bit_depth = %u", TAG, _func_, params.bit_depth);
   QMMF_VERBOSE("%s:%s channels = %u", TAG, _func_, params.channels);
-  QMMF_VERBOSE("%s:%s codec = %u", TAG, _func_, params.format);
+  QMMF_VERBOSE("%s:%s codec = %u", TAG, _func_, params.codec);
   QMMF_VERBOSE("%s:%s sample_rate = %u", TAG, _func_, params.sample_rate);
   QMMF_VERBOSE("%s:%s out_device = %u", TAG, _func_, params.out_device);
 }
 
-extern "C" void DebugCreateVideoTrackParam (const char* _func_,
-                                            VideoTrackParams& params)
+extern "C" void DebugVideoTrackCreateParam (const char* _func_,
+                                            VideoTrackCreateParam& params)
 {
-  QMMF_VERBOSE("%s:%s track_id = %u", TAG, _func_, params.track_id);
   QMMF_VERBOSE("%s:%s width = %u", TAG, _func_, params.width);
   QMMF_VERBOSE("%s:%s height = %u", TAG, _func_, params.height);
-  QMMF_VERBOSE("%s:%s codec = %u", TAG, _func_, params.format);
+  QMMF_VERBOSE("%s:%s codec = %u", TAG, _func_, params.codec);
   QMMF_VERBOSE("%s:%s out_device = %u", TAG, _func_, params.out_device);
 }
 
 extern "C" void DebugAudioSinkParam (const char* _func_,
                                             AudioTrackParams& params)
 {
-  QMMF_VERBOSE("%s:%s INPARAM: bit_depth[%u]", TAG, __func__, params.bit_depth);
-  QMMF_VERBOSE("%s:%s INPARAM: channels[%u]", TAG, __func__, params.channels);
-  QMMF_VERBOSE("%s:%s INPARAM: sample_rate[%u]", TAG, __func__, params.sample_rate);
+  QMMF_VERBOSE("%s:%s INPARAM: bit_depth[%u]", TAG, __func__, params.params.bit_depth);
+  QMMF_VERBOSE("%s:%s INPARAM: channels[%u]", TAG, __func__, params.params.channels);
+  QMMF_VERBOSE("%s:%s INPARAM: sample_rate[%u]", TAG, __func__, params.params.sample_rate);
 }
 
 extern "C" void DebugQueueInputBuffer(const char* _func_,
@@ -77,5 +75,5 @@ extern "C" void DebugQueueInputBuffer(const char* _func_,
 }
 
 
-}; //namespace player.
-}; //namespace qmmf.
+};  // namespace player
+};  // namespace qmmf

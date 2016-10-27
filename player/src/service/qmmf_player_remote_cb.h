@@ -33,11 +33,10 @@
 #include "common/qmmf_log.h"
 
 namespace qmmf {
-
 namespace player {
 
 class RemoteCallBack : public RefBase {
-public:
+ public:
   RemoteCallBack(const sp<IPlayerServiceCallback>& remote_cb);
 
   ~RemoteCallBack();
@@ -70,10 +69,9 @@ public:
 
   void NotifyDeleteVideoTrack(uint32_t track_id);
 
-private:
+ private:
   sp<IPlayerServiceCallback> client_cb_handle_;
 };
 
-}; // namespace player
-
-}; //namespace qmmf
+};  // namespace player
+};  // namespace qmmf

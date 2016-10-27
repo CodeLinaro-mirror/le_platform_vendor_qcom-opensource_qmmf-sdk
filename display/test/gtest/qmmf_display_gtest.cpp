@@ -51,6 +51,8 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
+#define ALIGNED_WIDTH(x) ((x)+((x%64)?(64-(x%64)):0))
+
 static const int32_t kIterationCount = 5;
 
 void DisplayGtest::SetUp() {
@@ -59,9 +61,9 @@ void DisplayGtest::SetUp() {
 
   test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
-  display_status_cb_.EventCb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { DisplayCallbackHandler(event_type, event_data,
-      event_data_size); };
+  display_status_cb_.EventCb = [&] ( EventType event_type,
+      void *event_data, size_t event_data_size)
+      { DisplayCallbackHandler(event_type, event_data, event_data_size); };
 
   display_status_cb_.VSyncCb = [&] ( int64_t time_stamp)
       { DisplayVSyncHandler(time_stamp); };
@@ -200,11 +202,20 @@ TEST_F(DisplayGtest, Test1YUV) {
     uint8_t *src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
         surface_data->surface_buffer.plane_info[0].offset;
     uint32_t offset_temp = 0;
+    uint32_t read_len = 0;
 
-    for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height*3/2;i++)
-    {
-      int32_t read_len = fread(src+offset_temp, sizeof(uint8_t),
-          surface_data->surface_buffer.plane_info[0].width, surface_data->file);
+    for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height);i++) {
+      read_len = fread(src+offset_temp, sizeof(uint8_t),
+          surface_data->surface_buffer.plane_info[0].width,
+          surface_data->file);
+      offset_temp += surface_data->surface_buffer.plane_info[0].stride;
+    }
+    offset_temp += surface_data->surface_buffer.plane_info[0].stride * 8;
+    for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)/2;
+        i++) {
+      read_len = fread(src+offset_temp, sizeof(uint8_t),
+          surface_data->surface_buffer.plane_info[0].width,
+          surface_data->file);
       offset_temp += surface_data->surface_buffer.plane_info[0].stride;
     }
     surface_data->buffer_ready=1;
@@ -214,7 +225,7 @@ TEST_F(DisplayGtest, Test1YUV) {
     surface_data->surface_param.surface_blending =
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor=0;
-    surface_data->surface_param.frame_rate=30;
+    surface_data->surface_param.frame_rate=20;
     surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color=0;
     surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -310,7 +321,8 @@ TEST_F(DisplayGtest, Test1RGB) {
     ret = display_->DequeueSurfaceBuffer(surface_id,
         surface_data->surface_buffer);
 
-    surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb", "r");
+    surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+        "r");
     if (!surface_data->file) {
       TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
@@ -321,10 +333,15 @@ TEST_F(DisplayGtest, Test1RGB) {
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
+
+    int32_t offset=0;
+    for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
     uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
-        surface_data->surface_buffer.plane_info[0].offset, sizeof(uint8_t),
-        surface_data->surface_buffer.plane_info[0].width*
-        surface_data->surface_buffer.plane_info[0].height*4, surface_data->file);
+        surface_data->surface_buffer.plane_info[0].offset + offset,
+        sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
+        surface_data->file);
+    offset += ALIGNED_WIDTH(surface_data->surface_buffer.plane_info[0].width)*4;
+    }
     fclose (surface_data->file);
     surface_data->buffer_ready=1;
 
@@ -333,7 +350,7 @@ TEST_F(DisplayGtest, Test1RGB) {
     surface_data->surface_param.surface_blending =
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor=0;
-    surface_data->surface_param.frame_rate=30;
+    surface_data->surface_param.frame_rate=20;
     surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color=0;
     surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -443,11 +460,21 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       uint8_t *src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
           surface_data->surface_buffer.plane_info[0].offset;
       uint32_t offset_temp = 0;
+      uint32_t read_len = 0;
 
-      for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height*3/2;i++)
-      {
-        int32_t read_len = fread(src+offset_temp, sizeof(uint8_t),
-            surface_data->surface_buffer.plane_info[0].width, surface_data->file);
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height);
+          i++) {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
+            surface_data->surface_buffer.plane_info[0].width,
+            surface_data->file);
+        offset_temp += surface_data->surface_buffer.plane_info[0].stride;
+      }
+      offset_temp += surface_data->surface_buffer.plane_info[0].stride * 8;
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)/2;
+          i++) {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
+            surface_data->surface_buffer.plane_info[0].width,
+            surface_data->file);
         offset_temp += surface_data->surface_buffer.plane_info[0].stride;
       }
       surface_data->buffer_ready=1;
@@ -457,7 +484,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       surface_data->surface_param.surface_blending =
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor=0;
-      surface_data->surface_param.frame_rate=30;
+      surface_data->surface_param.frame_rate=20;
       surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color=0;
       surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -490,7 +517,8 @@ next:
       ret = display_->DequeueSurfaceBuffer(surface_id,
           surface_data->surface_buffer);
 
-      surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb", "r");
+      surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+          "r");
       if (!surface_data->file) {
         TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
@@ -501,10 +529,16 @@ next:
         ret = DeInit(DisplayType::kPrimary);
         goto sleep;
       }
+
+      int32_t offset=0;
+      for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
       uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
-          surface_data->surface_buffer.plane_info[0].offset, sizeof(uint8_t),
-          surface_data->surface_buffer.plane_info[0].width*
-          surface_data->surface_buffer.plane_info[0].height*4, surface_data->file);
+          surface_data->surface_buffer.plane_info[0].offset + offset,
+          sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
+          surface_data->file);
+      offset += ALIGNED_WIDTH(surface_data->surface_buffer.plane_info[0].width)
+          *4;
+      }
       fclose (surface_data->file);
       surface_data->buffer_ready=1;
 
@@ -513,7 +547,7 @@ next:
       surface_data->surface_param.surface_blending =
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor=0;
-      surface_data->surface_param.frame_rate=30;
+      surface_data->surface_param.frame_rate=20;
       surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color=0;
       surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -627,7 +661,8 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
         if (ret != kErrorNone) {
-          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__, ret);
+          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__,
+              ret);
           ret = display_->DestroySurface(surface_data->surface_id);
           if(ret != 0) {
             TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
@@ -692,14 +727,24 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
           surface_data->surface_buffer.plane_info[0].ion_fd, 0);
       assert(surface_data->surface_buffer.plane_info[0].buf != NULL);
 
-      uint8_t *Src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
+      uint8_t *src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
           surface_data->surface_buffer.plane_info[0].offset;
       uint32_t offset_temp = 0;
+      uint32_t read_len = 0;
 
-      for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height*3/2;i++)
-      {
-        int32_t read_len = fread(Src+offset_temp, sizeof(uint8_t),
-            surface_data->surface_buffer.plane_info[0].width, surface_data->file);
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height);
+          i++) {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
+            surface_data->surface_buffer.plane_info[0].width,
+            surface_data->file);
+        offset_temp += surface_data->surface_buffer.plane_info[0].stride;
+      }
+      offset_temp += surface_data->surface_buffer.plane_info[0].stride * 8;
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)/2;
+          i++) {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
+            surface_data->surface_buffer.plane_info[0].width,
+            surface_data->file);
         offset_temp += surface_data->surface_buffer.plane_info[0].stride;
       }
       surface_data->buffer_ready=1;
@@ -709,7 +754,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
       surface_data->surface_param.surface_blending =
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor=0;
-      surface_data->surface_param.frame_rate=30;
+      surface_data->surface_param.frame_rate=20;
       surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color=0;
       surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -747,7 +792,8 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
             iter != it->second.end(); ++iter) {
 
           if ((*iter)->buf) {
-            ret = munmap( (*iter)->buf, (*iter)->buffer_info.alloc_buffer_info.size);
+            ret = munmap( (*iter)->buf,
+                (*iter)->buffer_info.alloc_buffer_info.size);
             if(ret != 0) {
               TEST_ERROR("%s:%s munmap Failed!!", TAG, __func__);
             }
@@ -846,7 +892,8 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
         if (ret != kErrorNone) {
-          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__, ret);
+          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__,
+              ret);
           ret = display_->DestroySurface(surface_data->surface_id);
           if(ret != 0) {
             TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
@@ -912,13 +959,22 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
           surface_data->surface_buffer.plane_info[0].ion_fd, 0);
       assert(surface_data->surface_buffer.plane_info[0].buf != NULL);
 
-      uint8_t *Src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
+      uint8_t *src = (uint8_t *)surface_data->surface_buffer.plane_info[0].buf +
           surface_data->surface_buffer.plane_info[0].offset;
       uint32_t offset_temp = 0;
+      uint32_t read_len = 0;
 
-      for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height*3/2;i++)
-      {
-        int32_t read_len = fread(Src+offset_temp, sizeof(uint8_t),
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height);i++)
+          {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
+            surface_data->surface_buffer.plane_info[0].width,
+            surface_data->file);
+        offset_temp += surface_data->surface_buffer.plane_info[0].stride;
+      }
+      offset_temp += surface_data->surface_buffer.plane_info[0].stride * 8;
+      for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)/2;
+          i++) {
+        read_len = fread(src+offset_temp, sizeof(uint8_t),
             surface_data->surface_buffer.plane_info[0].width,
             surface_data->file);
         offset_temp += surface_data->surface_buffer.plane_info[0].stride;
@@ -930,7 +986,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
       surface_data->surface_param.surface_blending =
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor=0;
-      surface_data->surface_param.frame_rate=30;
+      surface_data->surface_param.frame_rate=20;
       surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color=0;
       surface_data->surface_param.surface_transform.rotation=0.0f;
@@ -975,12 +1031,17 @@ next:
           goto sleep;
         }
 
+        int32_t offset=0;
+        for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;
+            i++) {
         uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf
-            +surface_data->surface_buffer.plane_info[0].offset, sizeof(uint8_t),
-            surface_data->surface_buffer.plane_info[0].width*
-            surface_data->surface_buffer.plane_info[0].height*4,
+            + surface_data->surface_buffer.plane_info[0].offset + offset,
+            sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
             surface_data->file);
-        fclose(surface_data->file);
+        offset += ALIGNED_WIDTH(
+            surface_data->surface_buffer.plane_info[0].width)*4;
+        }
+        fclose (surface_data->file);
         surface_data->buffer_ready=1;
 
         surface_data->surface_param.src_rect = { 0.0, 0.0, 352.0, 288.0 };
@@ -988,7 +1049,7 @@ next:
         surface_data->surface_param.surface_blending =
             SurfaceBlending::kBlendingCoverage;
         surface_data->surface_param.surface_flags.cursor=0;
-        surface_data->surface_param.frame_rate=30;
+        surface_data->surface_param.frame_rate=20;
         surface_data->surface_param.z_order = 0;
         surface_data->surface_param.solid_fill_color=0;
         surface_data->surface_param.surface_transform.rotation=0;
@@ -1163,12 +1224,19 @@ void* DisplayGtest::DisplayVSync(void *userdata) {
         if(surface_data->surface_buffer.format ==
             (SurfaceFormat)kFormatYCbCr420SemiPlanarVenus) {
           if (surface_data->file) {
-            uint8_t *Src = (uint8_t *)surface_data->
+            uint8_t *src = (uint8_t *)surface_data->
               surface_buffer.plane_info[0].buf +
               surface_data->surface_buffer.plane_info[0].offset;
             uint32_t offset_temp = 0;
-            for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)*3/2;i++) {
-              read_len = fread(Src+offset_temp, sizeof(uint8_t),
+            for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height);i++) {
+              read_len = fread(src+offset_temp, sizeof(uint8_t),
+                  surface_data->surface_buffer.plane_info[0].width,
+                  surface_data->file);
+              offset_temp += surface_data->surface_buffer.plane_info[0].stride;
+            }
+            offset_temp += surface_data->surface_buffer.plane_info[0].stride * 8;
+            for(int32_t i=0;i<(surface_data->surface_buffer.plane_info[0].height)/2;i++) {
+              read_len = fread(src+offset_temp, sizeof(uint8_t),
                   surface_data->surface_buffer.plane_info[0].width,
                   surface_data->file);
               offset_temp += surface_data->surface_buffer.plane_info[0].stride;
@@ -1183,10 +1251,17 @@ void* DisplayGtest::DisplayVSync(void *userdata) {
           if (!surface_data->file) {
             TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
           }
-          read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
-              surface_data->surface_buffer.plane_info[0].offset, sizeof(uint8_t),
-              surface_data->surface_buffer.plane_info[0].width*surface_data->surface_buffer.plane_info[0].height*4, surface_data->file);
-          fclose(surface_data->file);
+          int32_t offset=0;
+          for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;
+              i++) {
+          uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].
+              buf + surface_data->surface_buffer.plane_info[0].offset + offset,
+              sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width
+              *4, surface_data->file);
+          offset += ALIGNED_WIDTH(
+              surface_data->surface_buffer.plane_info[0].width)*4;
+          }
+          fclose (surface_data->file);
           surface_data->file = NULL;
         }
         surface_data->buffer_ready=1;

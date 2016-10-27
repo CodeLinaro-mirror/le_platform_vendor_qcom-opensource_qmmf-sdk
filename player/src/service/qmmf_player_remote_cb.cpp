@@ -112,5 +112,5 @@ void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id)
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-}; //player
-}; //qmmf
+};  // namespace player
+};  // namespace qmmf

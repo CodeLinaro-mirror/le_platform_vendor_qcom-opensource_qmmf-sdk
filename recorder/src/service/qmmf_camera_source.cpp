@@ -623,10 +623,13 @@ status_t TrackSource::StopTrack() {
     auto ret = camera_context_->StopStream(TrackId());
     assert(ret == NO_ERROR);
 
-    QMMF_DEBUG("%s:%s: track_id(%d) buffer_list_.size(%d)", TAG, __func__,
-        TrackId(), buffer_list_.size());
-    if (buffer_list_.size() == 0) {
-      wait = false;
+    Mutex::Autolock autoLock(buffer_list_lock_);
+    {
+      QMMF_DEBUG("%s:%s: track_id(%d) buffer_list_.size(%d)", TAG, __func__,
+          TrackId(), buffer_list_.size());
+      if (buffer_list_.size() == 0) {
+        wait = false;
+      }
     }
   } else {
       QMMF_DEBUG("%s:%s: track_id(%d), Wait for Encoder to return being encoded"
@@ -812,7 +815,10 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     bn_buffer.capacity       = buffer.size;
 
     // Buffers from this list used for YUV callback.
-    buffer_list_.add(buffer.fd, buffer);
+    {
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      buffer_list_.add(buffer.fd, buffer);
+    }
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
     track_params_.data_cb(TrackId(), bn_buffers,
@@ -834,13 +840,16 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
     QMMF_VERBOSE("%s:%s: track_id(%d) bn_buffers[%d].ion_fd=%d", TAG, __func__,
         TrackId(), i, bn_buffers[i].ion_fd);
-    int32_t idx = buffer_list_.indexOfKey(bn_buffers[i].ion_fd);
-    assert(idx >= 0);
-    QMMF_DEBUG("%s:%s: track_id(%d) Buffer fd(%d) found in list", TAG, __func__,
-        TrackId(), bn_buffers[i].ion_fd);
-    StreamBuffer buffer = buffer_list_.valueFor(bn_buffers[i].ion_fd);
-    buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
-    buffer_list_.removeItem(bn_buffers[i].ion_fd);
+    {
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      int32_t idx = buffer_list_.indexOfKey(bn_buffers[i].ion_fd);
+      QMMF_DEBUG("%s:%s: track_id(%d) Buffer fd(%d) found in list", TAG,
+          __func__, TrackId(), bn_buffers[i].ion_fd);
+      assert(idx >= 0);
+      StreamBuffer buffer = buffer_list_.valueFor(bn_buffers[i].ion_fd);
+      buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+      buffer_list_.removeItem(bn_buffers[i].ion_fd);
+    }
   }
   if (IsStop()) {
     if (buffer_list_.size() > 0) {

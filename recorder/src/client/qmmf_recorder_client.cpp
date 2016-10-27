@@ -153,9 +153,9 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   if (NULL == camera_module_) {
     //TODO: Instead of quering vendor tag ops directly from HAL module
     //      devise a mechanism to share them from service side.
-    auto res = Camera3DeviceClient::LoadHWModule(CAMERA_HAL_MODULE_PATH,
-                                                 CAMERA_HARDWARE_MODULE_ID,
+    auto res = Camera3DeviceClient::LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                                                  (const hw_module_t **)&camera_module_);
+
     if ((0 != res) || (NULL == camera_module_)) {
       QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
       return res;

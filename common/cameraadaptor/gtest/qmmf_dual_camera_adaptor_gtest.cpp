@@ -36,9 +36,6 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
-const char *DualCamera3Gtest::HAL_PATH = "/usr/lib/hw/camera.msm8953.so";
-const char *DualCamera3Gtest::GRALLOC_PATH = "/usr/lib/hw/gralloc.msm8953.so";
-
 DualCamera3Gtest::DualCamera3Gtest()
     : number_of_cameras_(0), camera_error_(false) {}
 
@@ -56,7 +53,7 @@ void DualCamera3Gtest::SetUp() {
   sp<Camera3DeviceClient> device = new Camera3DeviceClient(client_cb_);
   ASSERT_TRUE(NULL != device.get());
 
-  auto ret = device->Initialize(HAL_PATH, GRALLOC_PATH);
+  auto ret = device->Initialize();
   ASSERT_EQ(0, ret);
 
   number_of_cameras_ = device->GetNumberOfCameras();
@@ -126,7 +123,7 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
   if (NULL == ctx.device.get()) {
     return -ENOMEM;
   }
-  auto ret = ctx.device->Initialize(HAL_PATH, GRALLOC_PATH);
+  auto ret = ctx.device->Initialize();
   if (0 != ret) {
     printf("%s: Unable to initialize camera client: %d\n", __func__, ret);
     goto exit;
