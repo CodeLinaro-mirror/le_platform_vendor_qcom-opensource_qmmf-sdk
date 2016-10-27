@@ -226,6 +226,8 @@ class TrackSource : public IInputCodecSource {
   // Maps of Unique buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
 
+  Mutex buffer_list_lock_;
+
   // Input buffer list, to feed buffers to encoder.
   TSQueue<StreamBuffer> frames_received_;
 
