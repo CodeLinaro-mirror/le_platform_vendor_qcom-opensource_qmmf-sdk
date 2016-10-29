@@ -504,20 +504,17 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(context.get() != nullptr);
   camera_context_ = context;
 
-  //TODO: Add logic to measure source's fps at runtime and then calculate
-  //input_frame_interval_
-  uint32_t camera_frame_rate = context->GetCameraFrameRate();
-  QMMF_INFO("%s:%s camera_frame_rate =%d", TAG, __func__, camera_frame_rate);
-  input_frame_interval_  = 1000000.0 / camera_frame_rate;
+  input_frame_rate_ = context->GetCameraFrameRate();
+  QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
+  input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
   remaining_frame_skip_time_ = output_frame_interval_;
   QMMF_INFO("%s:%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
       "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
-#ifdef DEBUG_TRACK_FPS
+
   timeval prevtv_ = {0x0, 0x0};
   count_ = 0;
-#endif
   QMMF_INFO("%s:%s: TrackSource (0x%x)", TAG, __func__, this);
 }
 
@@ -755,20 +752,41 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
     return;
   }
-#ifdef DEBUG_TRACK_FPS
+
+  // Dynamic FPS measurement
   struct timeval tv;
-  gettimeofday(&tv,nullptr);
+  gettimeofday(&tv, nullptr);
   uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-                    (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
+                       (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
   count_++;
-  if(time_diff >= FPS_TIME_INTERVAL) {
-    float framerate = (count_ * 1000000)/(float)time_diff;
+  if (time_diff >= FPS_TIME_INTERVAL) {
+    float framerate = (count_ * 1000000) / (float)time_diff;
+    bool is_first_time = (framerate <= 1.0);
+
+    // Re-calculate input and output frame intervals if input framerate
+    // is different from its previous value
+    if (!(is_first_time) &&
+        (fabs(input_frame_rate_ - framerate) >= FPS_CHANGE_THRESHOLD)) {
+      Mutex::Autolock autoLock(frame_skip_lock_);
+      QMMF_INFO("%s:%s: track_id(%d) adjusting fps from (%0.2f) to (%0.2f)",
+                TAG, __func__, TrackId(), input_frame_rate_, framerate);
+      input_frame_rate_ = framerate;
+      input_frame_interval_  = 1000000.0 / input_frame_rate_;
+      // Output fps cannot be more than input fps.
+      if (input_frame_rate_ < track_params_.params.frame_rate)
+        output_frame_interval_ = 1000000.0 / input_frame_rate_;
+      else
+        output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+      remaining_frame_skip_time_ = output_frame_interval_;
+    }
+#ifdef DEBUG_TRACK_FPS
     QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
-        TrackId(), framerate);
+              TrackId(), framerate);
+#endif
     prevtv_ = tv;
     count_ = 0;
   }
-#endif
+
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
       buffer.handle->numInts);
   for (uint32_t i = 0; i < buffer.handle->numInts; i++) {
