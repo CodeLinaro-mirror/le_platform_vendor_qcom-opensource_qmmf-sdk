@@ -58,7 +58,8 @@ class RecorderClient {
   status_t Disconnect();
 
   status_t StartCamera(const uint32_t camera_id,
-                       const CameraStartParam &param);
+                       const CameraStartParam &param,
+                       const CameraResultCb &result_cb = nullptr);
 
   status_t StopCamera(const uint32_t camera_id);
 
@@ -174,6 +175,10 @@ class RecorderClient {
                              EventType event_type,
                              void *event_data,
                              size_t event_data_size);
+
+  void NotifyCameraResult(uint32_t camera_id,
+                          const CameraMetadata &result);
+
  private:
 
   void UpdateSessionTopology(const uint32_t session_id, const uint32_t track_id,
@@ -215,6 +220,8 @@ class RecorderClient {
   DefaultKeyedVector<uint32_t, TrackCb >   track_cb_list_;
   // Capture callback.
   ImageCaptureCb                           image_capture_cb_;
+  // Camera result callback
+  CameraResultCb                           metadata_cb_;
 
   typedef struct BufInfo {
     // Transferred ION Id.
@@ -273,6 +280,9 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data,
                              size_t event_data_size) override;
+
+  void NotifyCameraResult(uint32_t camera_id,
+                          const CameraMetadata &result) override;
 
   RecorderClient *client_;
 };

@@ -60,7 +60,8 @@ class CameraContext : public RefBase {
 
   ~CameraContext();
 
-  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param);
+  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
+                      const ResultCb &cb = nullptr);
 
   status_t CloseCamera(const uint32_t camera_id);
 
@@ -138,6 +139,8 @@ class CameraContext : public RefBase {
   int32_t                  snapshot_request_id_;
   ImageParam               snapshot_param_;
   SnapshotCb               client_snapshot_cb_;
+
+  ResultCb                 result_cb_;
 
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;

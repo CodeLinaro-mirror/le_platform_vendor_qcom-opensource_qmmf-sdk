@@ -67,7 +67,8 @@ RecorderClient::RecorderClient()
                 : recorder_service_(nullptr)
                 , death_notifier_(nullptr)
                 , ion_device_(-1)
-                , camera_module_(NULL) {
+                , camera_module_(NULL)
+                , metadata_cb_(nullptr) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
@@ -217,8 +218,9 @@ status_t RecorderClient::Disconnect() {
 }
 
 status_t RecorderClient::StartCamera(const uint32_t camera_id,
-                                     const CameraStartParam &param) {
-
+                                     const CameraStartParam &param,
+                                     const CameraResultCb &result_cb) {
+  bool enable_result_cb = false;
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
 
@@ -226,8 +228,13 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
     return NO_INIT;
   }
 
+  if (nullptr != result_cb) {
+    metadata_cb_ = result_cb;
+    enable_result_cb = true;
+  }
   auto ret = recorder_service_->StartCamera(camera_id,
-                                        const_cast<CameraStartParam&>(param));
+                                        const_cast<CameraStartParam&>(param),
+                                        enable_result_cb);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s StartCamera failed!", TAG, __func__);
   }
@@ -1118,6 +1125,16 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
+void RecorderClient::NotifyCameraResult(uint32_t camera_id,
+                                        const CameraMetadata &result) {
+  if (nullptr != metadata_cb_) {
+    metadata_cb_(camera_id, result);
+  } else {
+    QMMF_ERROR("%s:%s No client registered result callback!\n",
+               TAG, __func__);
+  }
+}
+
 //Binder Proxy implementation of IRecoderService.
 class BpRecorderService: public BpInterface<IRecorderService> {
  public:
@@ -1145,10 +1162,12 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t StartCamera(const uint32_t camera_id,
-                       const CameraStartParam &param) {
+                       const CameraStartParam &param,
+                       bool enable_result_cb) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(camera_id);
+    data.writeUint32(enable_result_cb ? 1 : 0);
     uint32_t param_size = sizeof param;
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
@@ -1665,6 +1684,12 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
+void ServiceCallbackHandler::NotifyCameraResult(uint32_t camera_id,
+                                                const CameraMetadata &result) {
+  assert(client_ != NULL);
+  client_->NotifyCameraResult(camera_id, result);
+}
+
 class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
  public:
   BpRecorderServiceCallback(const sp<IBinder>& impl)
@@ -1845,6 +1870,16 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
+  void NotifyCameraResult(uint32_t camera_id, const CameraMetadata &result) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderServiceCallback::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
+    result.writeToParcel(&data);
+    remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
+                                RECORDER_NOTIFY_CAMERA_RESULT), data, &reply,
+                                IBinder::FLAG_ONEWAY);
+  }
+
   void NotifyDeleteVideoTrack(uint32_t track_id) {
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
     if (track_buf_map_.isEmpty()) {
@@ -2004,7 +2039,25 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       return NO_ERROR;
     }
     break;
+    case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_CAMERA_RESULT: {
+      camera_metadata *meta = NULL;
+      uint32_t camera_id = data.readUint32();
+      auto ret = CameraMetadata::readFromParcel(data, &meta);
+      if ((NO_ERROR == ret) && (NULL != meta)) {
+        CameraMetadata result(meta);
+        NotifyCameraResult(camera_id, result);
+      } else {
+        QMMF_ERROR("%s:%s Failed to read camera result from parcel: %d\n",
+                     TAG, __func__, ret);
+        if (NULL != meta) {
+          free_camera_metadata(meta);
+          meta = NULL;
+        }
+      }
 
+      return ret;
+    }
+    break;
     default: {
       QMMF_ERROR("%s:%s Method not supported ", TAG, __func__);
     }

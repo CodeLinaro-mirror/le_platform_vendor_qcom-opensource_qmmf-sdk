@@ -90,6 +90,9 @@ typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
     BnBuffer buffer, void *meta_param, MetaParamType meta_type,
     uint32_t meta_size)>  SnapshotCb;
 
+typedef std::function<void(uint32_t camera_id,
+                           const CameraMetadata &result)> ResultCb;
+
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
   uint32_t               track_id;

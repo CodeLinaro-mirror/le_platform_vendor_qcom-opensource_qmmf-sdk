@@ -39,6 +39,8 @@
 #include <type_traits>
 #include <vector>
 
+#include <camera/CameraMetadata.h>
+
 #include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_device.h"
 
@@ -191,6 +193,15 @@ struct VideoTrackCreateParam {
     return stream.str();
   }
 };
+
+
+/// \brief Result callback passed to StartCamera API
+///
+/// Optional result callback which will get triggered
+/// by service once there is at least one started session
+/// which includes a video track.
+typedef std::function<void(uint32_t camera_id,
+                           const android::CameraMetadata &res)> CameraResultCb;
 
 /// \brief Parameters passed to StartCamera API
 ///
