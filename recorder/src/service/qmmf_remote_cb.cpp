@@ -119,6 +119,12 @@ void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id,
                                            event_data_size);
 }
 
+void RemoteCallBack::NotifyCameraResult(uint32_t camera_id,
+                                        const CameraMetadata &result) {
+  assert(client_cb_handle_.get() != nullptr);
+  client_cb_handle_->NotifyCameraResult(camera_id, result);
+}
+
 void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id) {
 
   assert(client_cb_handle_.get() != nullptr);

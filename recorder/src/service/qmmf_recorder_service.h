@@ -73,7 +73,8 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t Disconnect() override;
 
   status_t StartCamera(const uint32_t camera_id,
-                       const CameraStartParam &param) override;
+                       const CameraStartParam &param,
+                       bool enable_result_cb = false) override;
 
   status_t StopCamera(const uint32_t camera_id) override;
 

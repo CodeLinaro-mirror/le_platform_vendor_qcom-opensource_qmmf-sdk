@@ -147,7 +147,8 @@ class IRecorderService : public IInterface {
   virtual status_t Disconnect() = 0;
 
   virtual status_t StartCamera(const uint32_t camera_id,
-                               const CameraStartParam &param) = 0;
+                               const CameraStartParam &param,
+                               bool enable_result_cb = false) = 0;
 
   virtual status_t StopCamera(const uint32_t camera_id) = 0;
 
@@ -245,6 +246,7 @@ enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
   RECORDER_NOTIFY_AUDIO_TRACK_DATA,
   RECORDER_NOTIFY_AUDIO_TRACK_EVENT,
+  RECORDER_NOTIFY_CAMERA_RESULT,
 };
 
 //Binder interface for callbacks from RecorderService to RecorderClient.
@@ -283,6 +285,9 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) = 0;
+
+  virtual void NotifyCameraResult(uint32_t camera_id,
+                                  const CameraMetadata &result) = 0;
 
   // This method is not exposed to client as a callback, it is just to update
   // Internal data structure, ServiceCallbackHandler is not forced to implement

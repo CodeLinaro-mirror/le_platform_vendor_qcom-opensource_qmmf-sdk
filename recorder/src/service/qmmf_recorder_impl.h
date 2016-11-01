@@ -57,7 +57,8 @@ class RecorderImpl {
 
   status_t Disconnect();
 
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param);
+  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+                       bool enable_result_cb = false);
 
   status_t StopCamera(const uint32_t camera_id);
 
@@ -159,6 +160,8 @@ class RecorderImpl {
   void SnapshotCallback(uint32_t camera_id, uint32_t count, BnBuffer& buffer,
                         void *meta_param, MetaParamType meta_type,
                         uint32_t meta_size);
+
+  void CameraResultCallback(uint32_t camera_id, const CameraMetadata &result);
 
  private:
 

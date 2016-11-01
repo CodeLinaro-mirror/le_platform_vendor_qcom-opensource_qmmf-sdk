@@ -44,7 +44,8 @@ CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
       snapshot_request_id_(-1),
-      snapshot_param_{0, 0, 0, ImageFormat::kJPEG} {
+      snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
+      result_cb_(nullptr) {
 
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
 }
@@ -61,7 +62,8 @@ CameraContext::~CameraContext() {
 }
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param) {
+                                   const CameraStartParam &param,
+                                   const ResultCb &cb) {
 
   uint32_t ret = NO_ERROR;
   bool match_camera_id = false;
@@ -125,6 +127,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     // ZSL request is part of global streaming capture request.
   }
   camera_start_params_ = param;
+  result_cb_ = cb;
 
   return ret;
 FAIL:
@@ -798,6 +801,10 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
 
   QMMF_DEBUG("%s:%s: frame number=%lld", TAG, __func__,
       result.resultExtras.frameNumber);
+  if ((streaming_request_id_ == result.resultExtras.requestId) &&
+      (nullptr != result_cb_)) {
+    result_cb_(camera_id_, result.metadata);
+  }
 }
 
 CameraPort::CameraPort(const CameraStreamParam& param, CameraPortType port_type,

@@ -172,11 +172,15 @@ status_t RecorderImpl::Disconnect() {
 }
 
 status_t RecorderImpl::StartCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param) {
+                                   const CameraStartParam &param,
+                                   bool enable_result_cb) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->StartCamera(camera_id, param);
+  ResultCb cb = [&] (uint32_t camera_id, const CameraMetadata &result)
+      { CameraResultCallback(camera_id, result); };
+  auto ret = camera_source_->StartCamera(camera_id, param,
+                                         enable_result_cb ? cb : nullptr);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -1185,6 +1189,12 @@ void RecorderImpl::SnapshotCallback(uint32_t camera_id, uint32_t count,
   assert(remote_cb_.get() != nullptr);
   remote_cb_->NotifySnapshotData(camera_id, count, buffer, meta_param,
                                  meta_type, meta_size);
+}
+
+void RecorderImpl::CameraResultCallback(uint32_t camera_id,
+                                        const CameraMetadata &result) {
+  assert(remote_cb_.get() != nullptr);
+  remote_cb_->NotifyCameraResult(camera_id, result);
 }
 
 bool RecorderImpl::IsSessionIdValid(const uint32_t session_id) {

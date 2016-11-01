@@ -69,6 +69,9 @@ class RecorderGtest : public ::testing::Test {
                               void *event_data,
                               size_t event_data_size);
 
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
+
   void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
                            buffers, void *meta_param, MetaParamType
                            meta_type, size_t meta_size);

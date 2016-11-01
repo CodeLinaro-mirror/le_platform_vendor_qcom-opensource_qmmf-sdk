@@ -78,7 +78,8 @@ CameraSource::~CameraSource() {
 }
 
 status_t CameraSource::StartCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param) {
+                                   const CameraStartParam &param,
+                                   const ResultCb &cb) {
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
   if(camera_contexts_.indexOfKey(camera_id) >= 0) {
@@ -94,7 +95,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
         __func__,camera_id);
     return NO_MEMORY;
   }
-  auto ret = camera_context->OpenCamera(camera_id, param);
+  auto ret = camera_context->OpenCamera(camera_id, param, cb);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);

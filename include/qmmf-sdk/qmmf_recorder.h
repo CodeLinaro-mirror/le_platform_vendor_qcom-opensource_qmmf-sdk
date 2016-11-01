@@ -83,8 +83,11 @@ class Recorder {
   /// video record.
   ///
   /// This API must be called before calling create video track or
-  /// calling CaptureImage API
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param);
+  /// calling CaptureImage API. The result callback is optional. In case
+  /// it is set by client, notifications will get triggered on each
+  /// incoming streaming request along with the camera results.
+  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+                       const CameraResultCb &cb = nullptr);
 
   /// \brief Stops camera. This API should be called to free up all resources
   /// associated with camera.

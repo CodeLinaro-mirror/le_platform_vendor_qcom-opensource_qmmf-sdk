@@ -2528,7 +2528,10 @@ TEST_F(RecorderGtest, CameraParamTest) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+      const CameraMetadata &result) {
+    CameraResultCallbackHandler(camera_id, result); };
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   assert(ret == NO_ERROR);
 
   SessionCb session_status_cb;
@@ -2642,6 +2645,18 @@ void RecorderGtest::SessionCallbackHandler(EventType event_type,
                                           size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+void RecorderGtest::CameraResultCallbackHandler(uint32_t camera_id,
+                                                const CameraMetadata &result) {
+  fprintf(stderr,"%s: camera_id: %d\n", __func__, camera_id);
+  camera_metadata_ro_entry entry;
+  entry = result.find(ANDROID_CONTROL_AWB_MODE);
+  if (0 < entry.count) {
+    fprintf(stderr,"%s: AWB mode: %d\n", __func__, *entry.data.u8);
+  } else {
+    fprintf(stderr,"%s: No AWB mode tag\n", __func__);
+  }
 }
 
 void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,

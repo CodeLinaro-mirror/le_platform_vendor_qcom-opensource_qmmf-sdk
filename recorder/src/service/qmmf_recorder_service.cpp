@@ -70,8 +70,11 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_START_CAMERA: {
-        uint32_t camera_id;
+        uint32_t camera_id, enable_flag;
+        bool enable_result_cb;
         data.readUint32(&camera_id);
+        data.readUint32(&enable_flag);
+        enable_result_cb = (1 == enable_flag) ? true : false;
         uint32_t blob_size;
         data.readUint32(&blob_size);
         android::Parcel::ReadableBlob blob;
@@ -80,7 +83,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         CameraStartParam camera_start_params;
         memset(&camera_start_params, 0x0, sizeof camera_start_params);
         memcpy(&camera_start_params, params, blob_size);
-        ret = StartCamera(camera_id, camera_start_params);
+        ret = StartCamera(camera_id, camera_start_params, enable_result_cb);
         blob.release();
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -508,7 +511,8 @@ status_t RecorderService::Disconnect() {
 }
 
 status_t RecorderService::StartCamera(const uint32_t camera_id,
-                                      const CameraStartParam &params) {
+                                      const CameraStartParam &params,
+                                      bool enable_result_cb) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
 
@@ -518,7 +522,7 @@ status_t RecorderService::StartCamera(const uint32_t camera_id,
     return NO_INIT;
   }
   assert(recorder_ != NULL);
-  auto ret = recorder_->StartCamera(camera_id, params);
+  auto ret = recorder_->StartCamera(camera_id, params, enable_result_cb);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Can't start Camera!!", TAG, __func__);
     return ret;

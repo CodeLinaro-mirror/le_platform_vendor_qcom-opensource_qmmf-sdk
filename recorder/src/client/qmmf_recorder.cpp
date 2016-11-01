@@ -78,11 +78,12 @@ status_t Recorder::Disconnect() {
 }
 
 status_t Recorder::StartCamera(const uint32_t camera_id,
-                               const CameraStartParam &params) {
+                               const CameraStartParam &params,
+                               const CameraResultCb &cb) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->StartCamera(camera_id, params);
+  auto ret = recorder_client_->StartCamera(camera_id, params, cb);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: StartCamera failed!", __func__);
   }
