@@ -39,6 +39,8 @@
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_codec.h>
 #include <camera/CameraMetadata.h>
+#include <qmmf-sdk/qmmf_display.h>
+#include <qmmf-sdk/qmmf_display_params.h>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
@@ -53,6 +55,16 @@ using namespace qmmf;
 using namespace recorder;
 using namespace android;
 
+using ::qmmf::display::DisplayEventType;
+using ::qmmf::display::DisplayType;
+using ::qmmf::display::Display;
+using ::qmmf::display::DisplayCb;
+using ::qmmf::display::SurfaceBuffer;
+using ::qmmf::display::SurfaceParam;
+using ::qmmf::display::SurfaceConfig;
+using ::qmmf::display::SurfaceBlending;
+using ::qmmf::display::SurfaceFormat;
+
 enum class TrackType {
   kNone,
   kAudioPCM,
@@ -62,7 +74,8 @@ enum class TrackType {
   kVideoYUV,
   kVideoRDI,
   kVideoAVC,
-  kVideoHEVC
+  kVideoHEVC,
+  kVideoPreview
 };
 
 struct TrackInfo {
@@ -128,6 +141,10 @@ class RecorderTest {
   status_t Session720pLPMTrack(const TrackType& type);
 
   status_t Session1080pEnc1080pLPMTracks(const TrackType& track_type);
+
+  status_t Session1080pYUVTrackWithDisplay();
+
+  status_t Session1080pYUVTrackWithPreview();
 
   status_t CreateAudioPCMTrack();
 
@@ -216,6 +233,7 @@ class RecorderTest {
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
+  bool use_display;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -244,6 +262,15 @@ class TestTrack {
 
   status_t DisableOverlay();
 
+  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
+      size_t event_data_size);
+
+  void DisplayVSyncHandler(int64_t time_stamp);
+
+  status_t StartDisplay(DisplayType display_type);
+
+  status_t StopDisplay(DisplayType display_type);
+
  private:
 
   void TrackEventCB(uint32_t track_id, EventType event_type, void *event_data,
@@ -256,6 +283,9 @@ class TestTrack {
                         CameraBufferMetaData& meta_data);
 
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
+
+  status_t PushFrameToDisplay(BufferDescriptor& buffer,
+    CameraBufferMetaData& meta_data);
 
   int32_t file_fd_;
 
@@ -271,6 +301,12 @@ class TestTrack {
   RecorderTestAmr amr_output_;
 
   uint32_t num_yuv_frames_;
+
+  Display*   display_;
+  uint32_t   surface_id_;
+  SurfaceParam surface_param_;
+  SurfaceBuffer surface_buffer_;
+  bool display_started_;
 };
 
 class CmdMenu
@@ -304,6 +340,8 @@ public:
         CREATE_2G7ll_AUD_SESSION_CMD      = 'j',
         CREATE_PCM_G7ll_AUD_SESSION_CMD   = 'k',
         CREATE_RDI_SESSION_CMD            = 'r',
+        CREATE_YUV_SESSION_DISPLAY_CMD    = 'Z',
+        CREATE_YUV_SESSION_PREVIEW_CMD    = 'Y',
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',

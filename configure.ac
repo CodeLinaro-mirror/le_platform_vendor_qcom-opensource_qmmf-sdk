@@ -73,10 +73,10 @@ AC_CONFIG_FILES([ \
     common/audio/test/samples/Makefile \
     common/codecadaptor/Makefile \
     avcodec/Makefile \
-    recorder/src/client/Makefile \
-    recorder/src/service/Makefile \
     display/src/client/Makefile \
     display/src/service/Makefile \
+    recorder/src/client/Makefile \
+    recorder/src/service/Makefile \
     player/src/client/Makefile \
     player/src/service/Makefile \
     qmmf-server/Makefile \

@@ -73,14 +73,14 @@ enum class DisplayState {
   kStateStandby,
 };
 
-enum class EventType {
+enum class DisplayEventType {
     kError,
     kVsync
 };
 
 // Display cb will be used to return Vsync and error
 typedef struct DisplayCb {
-    std::function<void( EventType event_type,
+    std::function<void( DisplayEventType event_type,
                         void *event_data,
                         size_t event_data_size)> EventCb;
     std::function<void(int64_t time_stamp)> VSyncCb;
@@ -90,9 +90,9 @@ typedef struct DisplayCb {
 
 // Session cb will be mostly used to return state changes - to indicate
 // start, stop, pause state transition completions
-typedef struct SessionCb {
+typedef struct DisplaySessionCb {
   DisplayCb event_cb;
-} SessionCb;
+} DisplaySessionCb;
 
 /*
  * This enum represents different buffer formats supported by display manager.

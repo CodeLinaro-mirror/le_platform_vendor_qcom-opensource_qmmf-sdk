@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: qmmf-sdk
 Description: qmmf-sdk client libraries
 Version: @VERSION@
-Libs: -L${libdir} -lqmmf_recorder_client -lqmmf_display_client
-Cflags: -I${includedir}/recorder -I${includedir}/display
+Libs: -L${libdir} -lqmmf_display_client -lqmmf_recorder_client
+Cflags: -I${includedir}/display -I${includedir}/recorder

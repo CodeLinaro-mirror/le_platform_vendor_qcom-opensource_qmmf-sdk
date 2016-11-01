@@ -69,11 +69,11 @@ class DisplayTest
 
   int32_t QueueWBSurfaceBuffer();
 
-  void DisplayCallbackHandler(EventType event_type, void *event_data,
+  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
-  void SessionCallbackHandler(EventType event_type,
-      void *event_data, size_t event_data_size);
+  void SessionCallbackHandler(DisplayEventType event_type, void *event_data,
+      size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
 

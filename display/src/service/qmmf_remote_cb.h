@@ -43,10 +43,10 @@ class RemoteCallBack : public RefBase {
        return client_cb_handle_;
     }
 
-    void notifyDisplayEvent(EventType event_type, void *event_data,
+    void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
                              size_t event_data_size);
 
-    void notifySessionEvent(EventType event_type, void *event_data,
+    void notifySessionEvent(DisplayEventType event_type, void *event_data,
                             size_t event_data_size);
 
     void notifyVSyncEvent(int64_t time_stamp);

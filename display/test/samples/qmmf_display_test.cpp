@@ -86,9 +86,9 @@ int32_t DisplayTest::CreateDisplay(DisplayType display_type) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   DisplayCb display_status_cb;
-  display_status_cb.EventCb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { DisplayCallbackHandler(event_type, event_data,
-      event_data_size); };
+  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
+      void *event_data, size_t event_data_size) { DisplayCallbackHandler
+      (event_type, event_data, event_data_size); };
 
   display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
       { DisplayVSyncHandler(time_stamp); };
@@ -249,17 +249,15 @@ int32_t DisplayTest::QueueWBSurfaceBuffer() {
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void DisplayTest::DisplayCallbackHandler(EventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size)
+void DisplayTest::DisplayCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size)
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void DisplayTest::SessionCallbackHandler(EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size)
+void DisplayTest::SessionCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size)
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);

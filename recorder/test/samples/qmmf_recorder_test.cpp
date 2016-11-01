@@ -60,6 +60,7 @@ RecorderTest::RecorderTest() :
             session_enabled_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
+  use_display = 0;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -1376,6 +1377,78 @@ status_t RecorderTest::SessionRDITrack() {
   return ret;
 }
 
+// This session has 1080P YUV video track with Display Enabled.
+status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+  TrackInfo info;
+
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+  info.fps = 30;
+
+  ret = yuv_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(yuv_1080p_track);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  use_display = 1;
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+// 1080P YUV video track with Display Enabled in recorder service.
+status_t RecorderTest::Session1080pYUVTrackWithPreview() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+  TrackInfo info;
+
+  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoPreview;
+  info.session_id = session_id;
+
+  ret = yuv_1080p_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(yuv_1080p_track);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 status_t RecorderTest::StartSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -1388,8 +1461,15 @@ status_t RecorderTest::StartSession() {
     if ( (type == TrackType::kVideoYUV)
         || (type == TrackType::kVideoRDI)
         || (type == TrackType::kVideoAVC)
-        || (type == TrackType::kVideoHEVC) ) {
+        || (type == TrackType::kVideoHEVC)
+        || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
+      if (use_display == 1) {
+        auto ret = track->StartDisplay(DisplayType::kPrimary);
+        if(ret != 0) {
+          ALOGE("%s:%s StartDisplay Failed!!", TAG, __func__);
+        }
+      }
     }
   }
   uint32_t session_id = it->first;
@@ -1410,12 +1490,19 @@ status_t RecorderTest::StopSession() {
   assert(result == NO_ERROR);
 
   for (auto track : it->second) {
+    if (use_display == 1) {
+      auto ret = track->StopDisplay(DisplayType::kPrimary);
+      if(ret != 0) {
+        ALOGE("%s:%s StopDisplay Failed!!", TAG, __func__);
+      }
+    }
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
         || (type == TrackType::kVideoRDI)
         || (type == TrackType::kVideoAVC)
-        || (type == TrackType::kVideoHEVC) ) {
+        || (type == TrackType::kVideoHEVC)
+        || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = false;
     }
   }
@@ -1540,7 +1627,8 @@ status_t RecorderTest::EnableOverlay() {
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
         || (type == TrackType::kVideoAVC)
-        || (type == TrackType::kVideoHEVC) ) {
+        || (type == TrackType::kVideoHEVC)
+        || (type == TrackType::kVideoPreview) ) {
       track->EnableOverlay();
       assert(ret == 0);
     }
@@ -1557,7 +1645,8 @@ status_t RecorderTest::DisableOverlay() {
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
         || (type == TrackType::kVideoAVC)
-        || (type == TrackType::kVideoHEVC) ) {
+        || (type == TrackType::kVideoHEVC)
+        || (type == TrackType::kVideoPreview) ) {
       track->DisableOverlay();
     }
   }
@@ -1589,6 +1678,7 @@ status_t RecorderTest::DeleteSession() {
   // Once all tracks are deleted successfully delete session.
   ret = recorder_.DeleteSession(session_id);
   sessions_.erase(it);
+  use_display = 0;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -1803,7 +1893,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     if ( (type == TrackType::kVideoYUV)
       || (type == TrackType::kVideoRDI)
       || (type == TrackType::kVideoAVC)
-      || (type == TrackType::kVideoHEVC) ) {
+      || (type == TrackType::kVideoHEVC)
+      || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
     }
   }
@@ -1873,7 +1964,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     if ( (type == TrackType::kVideoYUV)
          || (type == TrackType::kVideoRDI)
          || (type == TrackType::kVideoAVC)
-         || (type == TrackType::kVideoHEVC) ) {
+         || (type == TrackType::kVideoHEVC)
+         || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = false;
     }
   }
@@ -2007,6 +2099,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
         track_info.track_type = TrackType::kVideoHEVC;
       } else if(!strncmp("YUV", value, strlen("YUV"))) {
         track_info.track_type = TrackType::kVideoYUV;
+      } else if(!strncmp("Preview", value, strlen("Preview"))) {
+        track_info.track_type = TrackType::kVideoPreview;
       } else {
         ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
@@ -2038,7 +2132,8 @@ READ_FAILED:
 }
 
 TestTrack::TestTrack(Recorder* rec_instance)
-    : file_fd_(-1), recorder_(rec_instance), num_yuv_frames_(0) {
+    : file_fd_(-1), recorder_(rec_instance), num_yuv_frames_(0),
+    display_started_(0) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   memset(&track_info_, 0x0, sizeof track_info_);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -2061,7 +2156,8 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
   if ( (track_info.track_type == TrackType::kVideoAVC)
       || (track_info.track_type == TrackType::kVideoHEVC)
       || (track_info.track_type == TrackType::kVideoRDI)
-      || (track_info.track_type == TrackType::kVideoYUV) ) {
+      || (track_info.track_type == TrackType::kVideoYUV)
+      || (track_info.track_type == TrackType::kVideoPreview) ) {
     uint32_t fps = track_info.fps;
     uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
@@ -2075,8 +2171,10 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.frame_rate  = fps;
     else
       video_track_param.frame_rate  = 30;
-
-    video_track_param.out_device  = 0x01;
+    if(track_info.track_type == TrackType::kVideoPreview)
+      video_track_param.out_device  = 0x02;
+    else
+      video_track_param.out_device  = 0x01;
     video_track_param.low_power_mode  = track_info.low_power_mode;
 
     switch (track_info.track_type) {
@@ -2138,6 +2236,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.ltr_count = 4;
       break;
       case TrackType::kVideoYUV:
+      case TrackType::kVideoPreview:
       video_track_param.format_type = VideoFormat::kYUV;
       break;
       case TrackType::kVideoRDI:
@@ -2161,7 +2260,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
                                            track_info.track_id,
                                            video_track_param, video_track_cb);
     assert(ret == 0);
-
   } else {
     // Create AudioTrack
     AudioTrackCreateParam audio_track_params;
@@ -2497,6 +2595,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
           #ifdef DUMP_YUV_FRAMES
           DumpYUVFrame(buffers[i], cam_buf_meta);
           #endif
+          PushFrameToDisplay(buffers[i], cam_buf_meta);
         }
       }
     break;
@@ -2530,7 +2629,7 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   for (auto& iter : buffers) {
-    if(file_fd_ > 0) {
+    if (file_fd_ > 0) {
       uint32_t exp_size = iter.size;
       TEST_DBG("%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
         ":buf_id(%d):capacity(%d)", __func__, iter.data, iter.size,
@@ -2546,7 +2645,7 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
       TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
       return -1;
     }
-    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+    if (iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
       close(file_fd_);
       file_fd_ = -1;
@@ -2594,6 +2693,124 @@ FAIL:
   }
 }
 #endif
+
+void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
+  TEST_DBG("%s:%s Enter ", TAG, __func__);
+  TEST_DBG("%s:%s Exit ", TAG, __func__);
+}
+
+void TestTrack::DisplayVSyncHandler(int64_t time_stamp) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+status_t TestTrack::StartDisplay(DisplayType display_type) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t res = 0;
+  SurfaceConfig surface_config;
+  DisplayCb  display_status_cb;
+
+  display_= new Display();
+  assert(display_ != nullptr);
+
+  res = display_->Connect();
+  assert(res == 0);
+
+  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
+      void *event_data, size_t event_data_size) { DisplayCallbackHandler
+      (event_type, event_data, event_data_size); };
+
+  display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
+      { DisplayVSyncHandler(time_stamp); };
+
+  res = display_->CreateDisplay(display_type, display_status_cb);
+  assert(res == 0);
+
+  memset(&surface_config, 0x0, sizeof surface_config);
+
+  surface_config.width = track_info_.width;
+  surface_config.height = track_info_.height;
+  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+  surface_config.buffer_count = 1;
+  surface_config.cache = 0;
+  surface_config.use_buffer = 1;
+  res = display_->CreateSurface(surface_config, &surface_id_);
+  assert(res == 0);
+
+  display_started_ = 1;
+
+  surface_param_.src_rect = { 0.0, 0.0, (float)track_info_.width,
+      (float)track_info_.height };
+  surface_param_.dst_rect = { 0.0, 0.0, (float)track_info_.width,
+      (float)track_info_.height };
+  surface_param_.surface_blending =
+      SurfaceBlending::kBlendingCoverage;
+  surface_param_.surface_flags.cursor = 0;
+  surface_param_.frame_rate = track_info_.fps;
+  surface_param_.z_order = 0;
+  surface_param_.solid_fill_color = 0;
+  surface_param_.surface_transform.rotation = 0.0f;
+  surface_param_.surface_transform.flip_horizontal = 0;
+  surface_param_.surface_transform.flip_vertical = 0;
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+status_t TestTrack::StopDisplay(DisplayType display_type) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t res = 0;
+
+  if (display_started_ == 1) {
+    display_started_ = 0;
+    res = display_->DestroySurface(surface_id_);
+    if (res != 0) {
+      TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+    }
+
+    res = display_->DestroyDisplay(display_type);
+    if (res != 0) {
+      TEST_ERROR("%s:%s DestroyDisplay Failed!!", TAG, __func__);
+    }
+    res = display_->Disconnect();
+
+    if (display_ != nullptr) {
+      TEST_INFO("%s:%s: DELETE display_:%p", TAG, __func__, display_);
+      delete display_;
+      display_ = nullptr;
+    }
+  }
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return res;
+}
+
+status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
+    CameraBufferMetaData& meta_data) {
+  if (display_started_ == 1) {
+    int32_t ret;
+    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
+    surface_buffer_.buf_id = 0;
+    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
+    surface_buffer_.plane_info[0].size = buffer.size;
+    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
+    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
+    surface_buffer_.plane_info[0].offset = 0;
+    surface_buffer_.plane_info[0].buf = buffer.data;
+
+    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
+        surface_param_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
+      return ret;
+    }
+
+    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
+    }
+  }
+}
 
 void CmdMenu::PrintMenu() {
   printf("\n\n=========== QMMF RECORDER TEST MENU ===================\n\n");
@@ -2651,6 +2868,10 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,8KHz + G711 mono)\n",
       CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (1080p YUV with Display)\n",
+      CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
+  printf("   %c. Create Session: (1080p YUV with Preview)\n",
+      CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -2802,6 +3023,14 @@ int main(int argc,char *argv[]) {
       }
       case CmdMenu::CREATE_RDI_SESSION_CMD: {
           test_context.SessionRDITrack();
+      }
+      break;
+      case CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD: {
+        test_context.Session1080pYUVTrackWithDisplay();
+      }
+      break;
+      case CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD: {
+        test_context.Session1080pYUVTrackWithPreview();
       }
       break;
       case CmdMenu::START_SESSION_CMD: {
