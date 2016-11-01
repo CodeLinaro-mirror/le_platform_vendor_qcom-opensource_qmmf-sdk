@@ -102,7 +102,27 @@ class CameraContext : public RefBase {
     int32_t framerate;
   };
 
+  struct ZSLEntry {
+    StreamBuffer           buffer;
+    CameraMetadata         result;
+    int64_t                timestamp;
+  };
+
   friend class CameraPort;
+
+  void InitSupportedFPS(const CameraMetadata &static_meta);
+
+  bool IsInputSupported(const CameraMetadata &static_meta);
+
+  status_t CreateZSLStream(const CameraStartParam &param);
+
+  status_t FlushZSLQueueLocked();
+
+  status_t RemoveZSLStreamLocked();
+
+  status_t PickZSLBuffer();
+
+  status_t CreateSnapshotStream(const ImageParam &param);
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
                               uint32_t frame_rate, int32_t* stream_id);
@@ -126,7 +146,13 @@ class CameraContext : public RefBase {
   void InitHFRModes(CameraMetadata &static_meta);
 
   //Camera client callbacks.
-  void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void GetZSLInputBuffer(StreamBuffer &buffer);
+
+  void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
   void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
 
@@ -154,6 +180,16 @@ class CameraContext : public RefBase {
   SnapshotCb               client_snapshot_cb_;
 
   ResultCb                 result_cb_;
+
+  //ZSL
+  int32_t                  zsl_stream_id_;
+  int32_t                  zsl_input_stream_id_;
+  Vector<int32_t>          supported_fps_;
+
+  Mutex                    zsl_queue_lock_;
+  List<ZSLEntry>           zsl_queue_;
+  ZSLEntry                 zsl_input_buffer_;
+  bool                     zsl_running_;
 
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
