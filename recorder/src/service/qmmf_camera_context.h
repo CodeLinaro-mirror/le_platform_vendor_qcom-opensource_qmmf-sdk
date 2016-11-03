@@ -43,6 +43,7 @@ using namespace cameraadaptor;
 
 #define VIDEO_STREAM_BUFFER_COUNT   11
 #define PREVIEW_STREAM_BUFFER_COUNT 10
+#define EXTRA_DCVS_BUFFERS          2
 
 namespace recorder {
 

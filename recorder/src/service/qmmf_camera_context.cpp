@@ -844,7 +844,11 @@ status_t CameraPort::Init() {
   if (stream_type == CameraStreamType::kVideo) {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
-    cam_stream_params_.bufferCount   = VIDEO_STREAM_BUFFER_COUNT;
+    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT;
+    if (params_.cam_stream_dim.width == 3840
+        && params_.cam_stream_dim.height == 2160) {
+      cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
+    }
   } else {
     cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
   }
