@@ -33,6 +33,9 @@
 #include <iomanip>
 #include <string>
 #include <sstream>
+#include <mutex>
+#include <chrono>
+#include <condition_variable>
 
 #include <utils/String8.h>
 #include <OMX_QCOMExtns.h>
@@ -251,6 +254,8 @@ private:
                                         OMX_IN OMX_PTR app_data,
                                         OMX_IN OMX_BUFFERHEADERTYPE *puffer);
 
+  void UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* header);
+
   sp<OmxClient>           omx_client_;
   AVCodecEventCb          event_cb_;
   OMX_STATETYPE           state_;
@@ -266,8 +271,15 @@ private:
   IOutputCodecSource*     output_source_;
   OMX_BUFFERHEADERTYPE**  in_buff_hdr_;
   OMX_BUFFERHEADERTYPE**  out_buff_hdr_;
-  uint32_t                 in_buff_hdr_size_;
-  uint32_t                 out_buff_hdr_size_;
+
+  TSQueue<OMX_BUFFERHEADERTYPE*> free_input_buffhdr_list_;
+  TSQueue<OMX_BUFFERHEADERTYPE*> used_input_buffhdr_list_;
+  std::mutex                     lock_;
+  std::condition_variable        wait_for_header_;
+  std::mutex                     queue_lock_;
+
+  uint32_t                in_buff_hdr_size_;
+  uint32_t                out_buff_hdr_size_;
   CodecCmdType            cmd_buffer_[CMD_BUF_MAX_COUNT];
   uint32_t                cmd_buffer_index_;
   SignalQueue<void *>     signal_queue_;

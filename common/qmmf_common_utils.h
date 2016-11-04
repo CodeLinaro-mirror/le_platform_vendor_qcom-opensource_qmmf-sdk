@@ -48,6 +48,8 @@ namespace qmmf {
 
 using namespace android;
 
+const nsecs_t kWaitDelay = 500000000; // 0.5s
+
 typedef struct {
   MetaInfo info;
   int64_t timestamp;
@@ -118,8 +120,6 @@ class TSQueue {
   List<T> queue_;
   Mutex lock_;
 };
-
-const nsecs_t kWaitDelay = 500000000; // 0.5s
 
 template <class T>
 class SignalQueue {
