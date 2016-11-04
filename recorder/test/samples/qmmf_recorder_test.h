@@ -60,6 +60,7 @@ enum class TrackType {
   kAudioAMR,
   kAudioG711,
   kVideoYUV,
+  kVideoRDI,
   kVideoAVC,
   kVideoHEVC
 };
@@ -72,6 +73,7 @@ struct TrackInfo {
   uint32_t  bitrate;
   uint32_t  session_id;
   uint32_t  track_id;
+  uint32_t  camera_id;
   uint32_t  low_power_mode;
 };
 
@@ -149,6 +151,8 @@ class RecorderTest {
 
   status_t CreateAudioPCMG711Track();
 
+  status_t SessionRDITrack();
+
   status_t StartSession();
 
   status_t StopSession();
@@ -168,6 +172,7 @@ class RecorderTest {
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
+  int32_t ChooseCamera();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
@@ -297,6 +302,7 @@ public:
         CREATE_G7ll_AUD_SESSION_CMD       = 'i',
         CREATE_2G7ll_AUD_SESSION_CMD      = 'j',
         CREATE_PCM_G7ll_AUD_SESSION_CMD   = 'k',
+        CREATE_RDI_SESSION_CMD            = 'r',
         START_SESSION_CMD                 = 'A',
         STOP_SESSION_CMD                  = 'B',
         TAKE_SNAPSHOT_CMD                 = 'S',
@@ -310,6 +316,7 @@ public:
         VIDEO_HDR_CMD                     = 'H',
         IR_MODE_CMD                       = 'I',
         EXIT_CMD                          = 'X',
+        CHOOSE_CAMERA_CMD                 = 'C',
         INVALID_CMD                       = '0'
     };
 

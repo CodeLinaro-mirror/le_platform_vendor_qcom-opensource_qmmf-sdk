@@ -1552,7 +1552,11 @@ status_t CameraPort::Init() {
 
   memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
 
-  cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  if (params_.cam_stream_format != CameraStreamFormat::kRAW10) {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  } else {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
+  }
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;
   cam_stream_params_.grallocFlags = GRALLOC_USAGE_HW_FB;

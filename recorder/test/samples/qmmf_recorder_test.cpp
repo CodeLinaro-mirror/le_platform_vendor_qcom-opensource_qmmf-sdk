@@ -56,6 +56,7 @@ static const char* kDefaultAudioFilenamePrefix =
     "/data/qmmf_recorder_test_audio";
 
 RecorderTest::RecorderTest() :
+            camera_id_(0),
             session_enabled_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
@@ -289,6 +290,24 @@ int32_t RecorderTest::ToggleIR() {
   return status;
 }
 
+int32_t RecorderTest::ChooseCamera() {
+
+  // TODO - propagate num cameras
+  int num_cameras = 2;
+  int input;
+
+  do {
+    printf("\n");
+    printf("****** Current Camera is 0 - %d *******\n", camera_id_);
+    printf("    Choose Camera: 0 - %d\n", num_cameras-1);
+    printf("\n");
+    scanf("%d", &input);
+  } while ((input > num_cameras - 1) || (input < 0));
+  camera_id_ = input;
+
+  return 0;
+}
+
 std::string RecorderTest::GetCurrentIRMode() {
   CameraMetadata meta;
   camera_metadata_entry_t entry;
@@ -343,7 +362,6 @@ status_t RecorderTest::StartCamera() {
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
 
-  camera_id_ = 0;
   auto ret = recorder_.StartCamera(camera_id_, camera_params);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
@@ -503,6 +521,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   info.track_id   = 1;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = yuv_4k_track->SetUp(info);
   assert(ret == 0);
@@ -515,6 +534,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   info.track_id   = 2;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -548,6 +568,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = video_track->SetUp(info);
   assert(ret == 0);
@@ -583,6 +604,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -593,6 +615,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
@@ -626,6 +649,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -638,6 +662,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   info.track_id   = 2;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -672,6 +697,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -684,6 +710,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   info.track_id   = 2;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -719,6 +746,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   info.track_id   = 1;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = yuv_4k_track->SetUp(info);
   assert(ret == 0);
@@ -731,6 +759,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   info.track_id   = 2;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -765,6 +794,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track1->SetUp(info);
   assert(ret == 0);
@@ -777,6 +807,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   info.track_id   = 2;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = enc_1080p_track2->SetUp(info);
   assert(ret == 0);
@@ -811,6 +842,7 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   info.track_id   = 1;
   info.track_type = track_type;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
   info.low_power_mode = true;
 
   ret = yuv_720p_track->SetUp(info);
@@ -860,6 +892,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   info.track_type     = TrackType::kVideoYUV;
   info.session_id     = session_id;
   info.low_power_mode = true;
+  info.camera_id = camera_id_;
 
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -891,6 +924,7 @@ status_t RecorderTest::CreateAudioPCMTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -922,6 +956,7 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_pcm_track1->SetUp(info);
   assert(ret == 0);
@@ -960,6 +995,7 @@ status_t RecorderTest::CreateAudioAACTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
@@ -991,6 +1027,7 @@ status_t RecorderTest::CreateAudio2AACTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_aac_track1->SetUp(info);
   assert(ret == 0);
@@ -1028,6 +1065,7 @@ status_t RecorderTest::CreateAudioPCMAACTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1067,6 +1105,7 @@ status_t RecorderTest::CreateAudioAMRTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_amr_track->SetUp(info);
   assert(ret == 0);
@@ -1098,6 +1137,7 @@ status_t RecorderTest::CreateAudio2AMRTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_amr_track1->SetUp(info);
   assert(ret == 0);
@@ -1135,6 +1175,7 @@ status_t RecorderTest::CreateAudioPCMAMRTrack() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1174,6 +1215,7 @@ status_t RecorderTest::CreateAudioG711Track() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_g711_track->SetUp(info);
   assert(ret == 0);
@@ -1205,6 +1247,7 @@ status_t RecorderTest::CreateAudio2G711Track() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_g711_track1->SetUp(info);
   assert(ret == 0);
@@ -1242,6 +1285,7 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1260,6 +1304,58 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   return ret;
 }
 
+// This session has one RDI track with sensor resolution.
+status_t RecorderTest::SessionRDITrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id, raw_width = 0, raw_height = 0;
+
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  auto status = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      raw_width = entry.data.i32[i+0];
+      raw_height = entry.data.i32[i+1];
+      break;
+    }
+  }
+  assert(raw_width != 0 && raw_height != 0);
+
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *rdi_track = new TestTrack(&recorder_);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = raw_width;
+  info.height     = raw_height;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoRDI;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.low_power_mode = false;
+
+  ret = rdi_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(rdi_track);
+
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 status_t RecorderTest::StartSession() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -1270,6 +1366,7 @@ status_t RecorderTest::StartSession() {
     track->Prepare();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoRDI)
         || (type == TrackType::kVideoAVC)
         || (type == TrackType::kVideoHEVC) ) {
       session_enabled_ = true;
@@ -1296,6 +1393,7 @@ status_t RecorderTest::StopSession() {
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoRDI)
         || (type == TrackType::kVideoAVC)
         || (type == TrackType::kVideoHEVC) ) {
       session_enabled_ = false;
@@ -1610,7 +1708,6 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
 
-  camera_id_ = 0;
   ret = recorder_.StartCamera(camera_id_, camera_params);
   if(ret != 0) {
     ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
@@ -1657,6 +1754,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     TrackInfo track_info = infos[i-1];
     track_info.track_id = i;
     track_info.session_id = session_id;
+    track_info.camera_id = camera_id_;
     ret = video_track->SetUp(track_info);
     assert(ret == 0);
     tracks.push_back(video_track);
@@ -1670,6 +1768,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
+  info.camera_id = camera_id_;
 
   ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
@@ -1681,6 +1780,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     tracks[i]->Prepare();
     TrackType type = tracks[i]->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
+      || (type == TrackType::kVideoRDI)
       || (type == TrackType::kVideoAVC)
       || (type == TrackType::kVideoHEVC) ) {
       session_enabled_ = true;
@@ -1750,6 +1850,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     tracks[i]->CleanUp();
     TrackType type = tracks[i]->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
+         || (type == TrackType::kVideoRDI)
          || (type == TrackType::kVideoAVC)
          || (type == TrackType::kVideoHEVC) ) {
       session_enabled_ = false;
@@ -1897,6 +1998,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams, st
       goto READ_FAILED;
     }
     if (isStreamReadCompleted) {
+      track_info.camera_id = camera_id_;
       infos->push_back(track_info);
     }
   }
@@ -1937,13 +2039,14 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
 
   if ( (track_info.track_type == TrackType::kVideoAVC)
       || (track_info.track_type == TrackType::kVideoHEVC)
+      || (track_info.track_type == TrackType::kVideoRDI)
       || (track_info.track_type == TrackType::kVideoYUV) ) {
     uint32_t fps = track_info.fps;
     uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
-    video_track_param.camera_id   = 0;
+    video_track_param.camera_id   = track_info.camera_id;
     video_track_param.width       = track_info.width;
     video_track_param.height      = track_info.height;
 
@@ -2014,6 +2117,9 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       break;
       case TrackType::kVideoYUV:
       video_track_param.format_type = VideoFormat::kYUV;
+      break;
+      case TrackType::kVideoRDI:
+      video_track_param.format_type = VideoFormat::kBayerRDI;
       break;
       default:
       break;
@@ -2349,6 +2455,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
       }
     break;
     case TrackType::kVideoYUV:
+    case TrackType::kVideoRDI:
       MetaInfo* meta_data;
       if (meta_type == MetaParamType::kCamBufMetaData) {
         meta_data = static_cast<MetaInfo*>(meta_param);
@@ -2428,9 +2535,10 @@ status_t TestTrack::DumpYUVFrame(MetaInfo* meta_data, BufferDescriptor buffer) {
   if (num_yuv_frames_ == 200) {
     String8 file_path;
     size_t written_len;
-    file_path.appendFormat("/data/track_%d_%dx%d_%lld.yuv",
+    const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ? "raw" : "yuv";
+    file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
         track_info_.track_id, meta_data->plane_info[0].width,
-        meta_data->plane_info[0].height, buffer.timestamp);
+        meta_data->plane_info[0].height, buffer.timestamp, ext);
 
     FILE *file = fopen(file_path.string(), "w+");
     if (!file) {
@@ -2464,6 +2572,7 @@ void CmdMenu::PrintMenu() {
   printf(" -----------------------------\n");
   printf("   %c. Connect\n", CmdMenu::CONNECT_CMD);
   printf("   %c. Disconnect\n", CmdMenu::DISCONNECT_CMD);
+  printf("   %c. Choose camera\n", CmdMenu::CHOOSE_CAMERA_CMD);
   printf("   %c. Start Camera\n", CmdMenu::START_CAMERA_CMD);
   printf("   %c. Stop Camera\n", CmdMenu::STOP_CAMERA_CMD);
   printf("   %c. Create Session: (4K YUV + 1080 YUV)\n",
@@ -2488,6 +2597,8 @@ void CmdMenu::PrintMenu() {
     CmdMenu::CREATE_720pLPM_SESSION_CMD);
   printf("   %c. Create Session: (1080p Enc AVC + 1080 LPM YUV)\n",
       CmdMenu::CREATE_1080pENC_AVC_1080LPM_SESSION_CMD);
+  printf("   %c. Create Session: (RDI)\n",
+      CmdMenu::CREATE_RDI_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
       CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
@@ -2659,6 +2770,9 @@ int main(int argc,char *argv[]) {
       case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMG711Track();
       }
+      case CmdMenu::CREATE_RDI_SESSION_CMD: {
+          test_context.SessionRDITrack();
+      }
       break;
       case CmdMenu::START_SESSION_CMD: {
         test_context.StartSession();
@@ -2706,6 +2820,9 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::IR_MODE_CMD: {
         test_context.ToggleIR();
+      }
+      case CmdMenu::CHOOSE_CAMERA_CMD: {
+        test_context.ChooseCamera();
       }
       break;
       case CmdMenu::EXIT_CMD: {

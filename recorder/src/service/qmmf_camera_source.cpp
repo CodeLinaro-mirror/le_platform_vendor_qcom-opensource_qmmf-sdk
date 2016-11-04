@@ -538,7 +538,11 @@ status_t TrackSource::Init() {
   memset(&stream_param, 0x0, sizeof stream_param);
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
-  stream_param.cam_stream_format     = CameraStreamFormat::kNV21; //don't care
+  if (track_params_.params.format_type == VideoFormat::kBayerRDI) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
+  } else {
+    stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
+  }
   stream_param.cam_stream_type       = track_params_.camera_stream_type;
   stream_param.frame_rate            = track_params_.params.frame_rate;
   stream_param.id                    = track_params_.track_id;
