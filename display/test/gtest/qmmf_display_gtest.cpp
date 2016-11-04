@@ -336,7 +336,7 @@ TEST_F(DisplayGtest, Test1RGB) {
 
     int32_t offset=0;
     for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
-    uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
+    uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf +
         surface_data->surface_buffer.plane_info[0].offset + offset,
         sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
         surface_data->file);
@@ -532,7 +532,7 @@ next:
 
       int32_t offset=0;
       for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
-      uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
+      uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf +
           surface_data->surface_buffer.plane_info[0].offset + offset,
           sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
           surface_data->file);
@@ -1034,7 +1034,7 @@ next:
         int32_t offset=0;
         for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;
             i++) {
-        uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf
+        uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf
             + surface_data->surface_buffer.plane_info[0].offset + offset,
             sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
             surface_data->file);

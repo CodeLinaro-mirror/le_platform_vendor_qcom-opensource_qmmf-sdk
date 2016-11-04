@@ -41,8 +41,8 @@ namespace display {
 /*
 * Define LOG_LEVEL1 & 2 enable more debug logs.
 */
-#define LOG_LEVEL1
-#define LOG_LEVEL2
+//#define LOG_LEVEL1
+//#define LOG_LEVEL2
 
 // QMMF_INFO, ERROR and WARN logs are enabled by default.
 #define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)

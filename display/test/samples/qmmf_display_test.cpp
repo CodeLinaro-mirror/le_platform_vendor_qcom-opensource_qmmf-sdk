@@ -161,7 +161,7 @@ int32_t DisplayTest::DequeueSurfaceBuffer() {
   }
   int32_t offset=0;
   for(int32_t i=0;i<surface_buffer.plane_info[0].height;i++) {
-  uint32_t read_len = fread(surface_buffer.plane_info[0].buf +
+  uint32_t read_len = fread((uint8_t*)surface_buffer.plane_info[0].buf +
       surface_buffer.plane_info[0].offset + offset, sizeof(uint8_t),
       surface_buffer.plane_info[0].width*4, file);
   offset +=((surface_buffer.plane_info[0].width+(
@@ -271,28 +271,28 @@ void DisplayTest::DisplayVSyncHandler(int64_t time_stamp)
 
 void CmdMenu::PrintMenu()
 {
-  TEST_INFO("\n\n=========== QMMF SDK MENU ===================\n\n");
+  printf("\n\n=========== QMMF SDK MENU ===================\n\n");
 
-  TEST_INFO(" \n\nIPCam Display Test Application commands \n");
-  TEST_INFO(" -----------------------------\n");
-  TEST_INFO("   %c. Connect\n", CmdMenu::CONNECT_CMD);
-  TEST_INFO("   %c. Disconnect\n", CmdMenu::DISCONNECT_CMD);
-  TEST_INFO("   %c. Create Display\n", CmdMenu::CREATE_DISPLAY_CMD);
-  TEST_INFO("   %c. Destroy Display\n", CmdMenu::DESTROY_DISPLAY_CMD);
-  TEST_INFO("   %c. Create Surface\n", CmdMenu::CREATE_SURFACE_CMD);
-  TEST_INFO("   %c. Destroy Surface\n", CmdMenu::DESTROY_SURFACE_CMD);
-  TEST_INFO("   %c. Dequeue Surface Buffer\n",
+  printf(" \n\nIPCam Display Test Application commands \n");
+  printf(" -----------------------------\n");
+  printf("   %c. Connect\n", CmdMenu::CONNECT_CMD);
+  printf("   %c. Disconnect\n", CmdMenu::DISCONNECT_CMD);
+  printf("   %c. Create Display\n", CmdMenu::CREATE_DISPLAY_CMD);
+  printf("   %c. Destroy Display\n", CmdMenu::DESTROY_DISPLAY_CMD);
+  printf("   %c. Create Surface\n", CmdMenu::CREATE_SURFACE_CMD);
+  printf("   %c. Destroy Surface\n", CmdMenu::DESTROY_SURFACE_CMD);
+  printf("   %c. Dequeue Surface Buffer\n",
       CmdMenu::DEQUEUE_SURFACE_BUFFER_CMD);
-  TEST_INFO("   %c. Queue Surface Buffer\n",
+  printf("   %c. Queue Surface Buffer\n",
       CmdMenu::QUEUE_SURFACE_BUFFER_CMD);
-  TEST_INFO("   %c. Get Display Params\n", CmdMenu::GET_DISPLAY_PARAM_CMD);
-  TEST_INFO("   %c. Set Display Params\n", CmdMenu::SET_DISPLAY_PARAM_CMD);
-  TEST_INFO("   %c. Dequeue WriteBack Surface Buffer\n",
+  printf("   %c. Get Display Params\n", CmdMenu::GET_DISPLAY_PARAM_CMD);
+  printf("   %c. Set Display Params\n", CmdMenu::SET_DISPLAY_PARAM_CMD);
+  printf("   %c. Dequeue WriteBack Surface Buffer\n",
       CmdMenu::DEQUEUE_WBSURFACE_BUFFER_CMD);
-  TEST_INFO("   %c. Queue WriteBack Surface Buffer\n",
+  printf("   %c. Queue WriteBack Surface Buffer\n",
       CmdMenu::QUEUE_WBSURFACE_BUFFER_CMD);
-  TEST_INFO("   %c. Exit\n", CmdMenu::EXIT_CMD);
-  TEST_INFO("\n   Choice: ");
+  printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
+  printf("\n   Choice: ");
 }
 
 CmdMenu::Command CmdMenu::GetCommand()

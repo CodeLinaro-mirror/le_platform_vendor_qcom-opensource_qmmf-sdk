@@ -33,3 +33,5 @@ libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_
 libqmmf_recorder_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/overlay/liboverlay.la
+libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
+

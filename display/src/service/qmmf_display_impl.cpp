@@ -120,11 +120,10 @@ DisplayImpl::DisplayImpl()
 DisplayImpl::~DisplayImpl() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  DisplayHandle handle=1;
-  for(handle=1;handle<=NUM_DISPLAY_ALLOWED;handle++) {
-    if (displayinfo_.find(handle) != displayinfo_.end())
-      return ;
-  }
+
+  if (displayinfo_.size() != 0)
+    return ;
+
   DisplayError error = CoreInterface::DestroyCore();
   if (error != kErrorNone) {
     QMMF_ERROR("%s: %s() Display core de-initialization failed. Error = %d",
@@ -185,9 +184,9 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
       it != displayinfo_.end(); ++it) {
     if (it->second->display_type == display_type)
       {
+        *display_handle = ++current_handle_;
         QMMF_INFO("%s:%s: Display handle already created:%d",
             TAG, __func__, *display_handle);
-        *display_handle = ++current_handle_;
         it->second->num_of_clients++;
         displayinfo_.insert({*display_handle, it->second});
         pthread_mutex_unlock(&thread_lock_);
@@ -264,9 +263,6 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   pthread_mutex_lock(&thread_lock_);
 
-  if (0 != pid_) {
-    running_ = 0;
-  }
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
     QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
@@ -279,6 +275,12 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
         TAG, __func__, display_handle);
     displayinfo->second->num_of_clients--;
     displayinfo_.erase(displayinfo);
+    pthread_mutex_unlock(&thread_lock_);
+    return ret;
+  }
+
+  if (0 != pid_) {
+    running_ = 0;
   }
 
   for (SurfaceinfoMap::iterator it=displayinfo->second->surfaceinfo_.begin();
@@ -562,7 +564,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->input_buffer->planes[0].stride = surface_buffer.plane_info[0].stride;
   SetRect(surface_param.dst_rect, &layer->dst_rect);
   SetRect(surface_param.src_rect, &layer->src_rect);
-  layer->blending = (sdm::LayerBlending)surface_param.surface_blending;
+  layer->blending = (LayerBlending)surface_param.surface_blending;
   layer->transform.flip_horizontal =
       surface_param.surface_transform.flip_horizontal;
   layer->transform.flip_vertical =
@@ -750,20 +752,16 @@ void* DisplayImpl::HandleVSync(void *userdata) {
         continue;
       }
       LayerStack* layer_stack = displayimpl->GetLayerStack(it->first, 1);
-      layer_stack->flags.flags=0;
-      DisplayError error = displayintf->Prepare(layer_stack);
-      if (error != kErrorNone) {
-        if (error == kErrorShutDown) {
-        } else if (error != kErrorPermission) {
-          QMMF_WARN("%s:%s: Prepare failed. Error = %d", TAG, __func__, error);
-        }
-      } else {
-        error = displayintf->Commit(layer_stack);
+      if(layer_stack->layers.size()) {
+        layer_stack->flags.flags=0;
+        DisplayError error = displayintf->Prepare(layer_stack);
         if (error != kErrorNone) {
-          if (error == kErrorShutDown) {
-          } else if (error != kErrorPermission) {
+          QMMF_WARN("%s:%s: Prepare failed. Error = %d", TAG, __func__, error);
+        } else {
+          error = displayintf->Commit(layer_stack);
+          if (error != kErrorNone) {
             QMMF_WARN("%s:%s: Commit failed. Error = %d", TAG, __func__,
-                error);
+                  error);
           }
         }
       }
@@ -855,15 +853,15 @@ Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
     return NULL;
   }
   assert(surfaceinfo->second->layer);
-  return surfaceinfo->second->layer;
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return surfaceinfo->second->layer;
 }
 
 LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
     bool queued_buffers_only) {
 
-    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
     QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
