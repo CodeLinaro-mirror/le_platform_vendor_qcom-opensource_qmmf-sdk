@@ -52,6 +52,7 @@ using namespace cameraadaptor;
 namespace recorder {
 
 class CameraPort;
+class CameraReprocess;
 class IBufferConsumer;
 class IBufferProducer;
 
@@ -109,6 +110,7 @@ class CameraContext : public RefBase {
   };
 
   friend class CameraPort;
+  friend class CameraReprocess;
 
   void InitSupportedFPS(const CameraMetadata &static_meta);
 
@@ -132,6 +134,13 @@ class CameraContext : public RefBase {
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
 
+  status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
+                                   int32_t* stream_id);
+
+  int32_t SubmitRequest(Camera3Request request,
+                        bool is_streaming,
+                        int64_t *lastFrameNumber);
+
   status_t UpdateRequest(bool is_streaming);
 
   status_t CancelRequest();
@@ -154,6 +163,8 @@ class CameraContext : public RefBase {
 
   void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
+  void ReprocessCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
   void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
 
   void CameraIdleCb();
@@ -163,6 +174,12 @@ class CameraContext : public RefBase {
   void CameraPreparedCb(int32_t);
 
   void CameraResultCb(const CaptureResult &result);
+
+  int32_t ImageToHalFormat(ImageFormat image);
+
+  std::function<void(int32_t, StreamBuffer)> GetStreamCb(const ImageParam &param);
+
+  bool IsReprocessNeed(const ImageParam &param);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -178,6 +195,11 @@ class CameraContext : public RefBase {
   int32_t                  snapshot_request_id_;
   ImageParam               snapshot_param_;
   SnapshotCb               client_snapshot_cb_;
+  uint32_t                 sequence_cnt_;
+  uint32_t                 burst_cnt_;
+  bool                     reprocess_enable_;
+
+  Camera3Request           reprocess_request_;
 
   ResultCb                 result_cb_;
 
@@ -205,6 +227,10 @@ class CameraContext : public RefBase {
   bool                     hfr_supported_;
   Vector<HFRMode_t>        hfr_batch_modes_list_;
   Vector<Camera3Request>   streaming_active_requests_;
+
+  DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
+  int32_t                  input_stream_id_;
+  sp<CameraReprocess>      camera_reprocess_;
 };
 
 enum class CameraPortType {
@@ -282,6 +308,79 @@ class CameraPort : public RefBase {
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
 
 
+};
+
+struct ReprocParam {
+  uint32_t width;
+  uint32_t height;
+  int32_t format;
+};
+
+typedef std::function
+    <void(int32_t stream_id, StreamBuffer buffer)>  ReprocessCb;
+
+class CameraReprocess : public RefBase {
+ public:
+  CameraReprocess(CameraContext *context);
+
+  ~CameraReprocess();
+
+  status_t Create(const int32_t stream_id,
+                  const ReprocParam& input,
+                  const ReprocParam& output,
+                  const uint32_t frame_rate,
+                  const uint32_t num_images,
+                  const CameraMetadata& static_meta,
+                  const ReprocessCb& cb);
+  status_t Delete();
+
+  void AddBuff(int32_t stream_id, StreamBuffer buffer);
+
+  void AddResult(const CaptureResult &result);
+
+ private:
+
+  struct BurstData {
+    StreamBuffer   buffer;
+    CameraMetadata result;
+    int64_t        timestamp;
+  };
+
+  status_t Start();
+
+  void ReturnAllInputBuffers();
+
+  void ReturnInputBuffer(StreamBuffer &buffer);
+
+  void GetInputBuffer(StreamBuffer &buffer);
+
+  void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
+
+  void ReprocessCallback(int32_t stream_id, StreamBuffer buffer);
+
+  status_t ValidateInput(const CameraMetadata& meta,
+                         const ReprocParam& input,
+                         const ReprocParam& output);
+
+  CameraContext*         context_;
+
+  List<StreamBuffer>     input_buffer_;
+  List<StreamBuffer>     input_buffer_done_;
+
+  int32_t                input_stream_id_;
+  Camera3Request         reprocess_request_;
+
+  Mutex                  reprocess_lock_;
+  bool                   reprocess_flag_;
+  bool                   ready_to_start_;
+
+  uint32_t               num_images_;
+  ReprocessCb            capture_client_cb_;
+
+  List<BurstData>        burst_queue_;
+  List<BurstData>        input_burst_queue_;
+  Mutex                  burst_queue_lock_;
+  uint32_t               burst_cnt_;
 };
 
 }; //namespace recorder
