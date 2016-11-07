@@ -406,6 +406,7 @@ status_t RecorderTest::TakeSnapshot() {
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   assert(ret == 0);
+  uint32_t num_images = 1;
 
   do {
     printf("\n");
@@ -413,6 +414,7 @@ status_t RecorderTest::TakeSnapshot() {
     printf("  1. JPEG - 4K\n" );
     printf("  2. RAW:YUV - 1080p \n" );
     printf("  3. RAW:BAYER \n" );
+    printf("  4. JPEG Burst (3 frames) - 1080p \n" );
     printf("  0. exit \n");
     printf("\n");
     printf("Enter option:\n");
@@ -466,6 +468,25 @@ status_t RecorderTest::TakeSnapshot() {
          printf("Wrong value entered(%d)\n", input);
          input = 0;
          break;
+      case 4:
+        // Check available raw YUV resolutions.
+        if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+          entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+          for (uint32_t i = 0 ; i < entry.count; i += 4) {
+            if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+                  entry.data.i32[i+3]) {
+                TEST_INFO("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)", TAG,
+                    __func__, i, entry.data.i32[i+1], entry.data.i32[i+2]);
+              }
+            }
+          }
+        }
+        image_param.width        = 1920;
+        image_param.height       = 1080;
+        image_param.image_format = ImageFormat::kJPEG;
+        num_images = 30;
+        break;
     }
 
     if (input != 0) {
@@ -482,9 +503,10 @@ status_t RecorderTest::TakeSnapshot() {
       assert(ret == NO_ERROR);
 
       std::vector<CameraMetadata> meta_array;
-      meta_array.push_back(meta);
-
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      for (int32_t i = 0; i < num_images; i++) {
+        meta_array.push_back(meta);
+      }
+      ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array, cb);
       if(ret != 0) {
         ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
       }

@@ -448,6 +448,94 @@ TEST_F(RecorderGtest, 4KSnapshot) {
 }
 
 /*
+* BurstSnapshot: This test will test 4K Burst jpg snapshot.
+* Api test sequence:
+*  - StartCamera
+*  - CaptureImage - Burst Jpg
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, BurstSnapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  camera_start_params_.frame_rate = 30;
+  //camera_start_params_.setSensorVendorMode(6);
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == entry.data.i32[i+1]
+              && image_param.height == entry.data.i32[i+2]) {
+            res_supported = true; // 1920x1080 YUV res supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  TEST_INFO("%s:%s: Running Test(%s)", TAG, __func__,
+    test_info_->name());
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer, void *meta_param,
+                              MetaParamType meta_type, uint32_t
+                              meta_size) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
+      meta_size); };
+
+  uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+  ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+  assert(ret == NO_ERROR);
+
+  uint8_t jpeg_quality = 85;
+  ret = meta.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+  assert(ret == NO_ERROR);
+
+  uint32_t num_images = 30;
+  for (int32_t i = 0; i < num_images; i++) {
+    meta_array.push_back(meta);
+  }
+  ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+
+  sleep(5);
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * 1080pRawYUVSnapshot: This test will test 1080p YUV snapshot.
 * Api test sequence:
 *  - StartCamera
