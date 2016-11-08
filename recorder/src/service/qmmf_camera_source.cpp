@@ -657,12 +657,13 @@ status_t TrackSource::NotifyStatus(CodecInputPortStatus status) {
     // camera stream and clear the received buffer queue.
     QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
         __func__, TrackId());
-    assert(camera_context_.get() != nullptr);
-    auto ret = camera_context_->StopStream(TrackId());
-    assert(ret == NO_ERROR);
     ClearInputQueue();
 
   } else if(status == CodecInputPortStatus::kInputPortIdle) {
+    ClearInputQueue();
+    assert(camera_context_.get() != nullptr);
+    auto ret = camera_context_->StopStream(TrackId());
+    assert(ret == NO_ERROR);
     // All input port buffers from encoder are returned, Being encoded queue
     // should be zero at this point.
     assert(frames_being_encoded_.Size() == 0);
@@ -681,26 +682,28 @@ status_t TrackSource::Read(StreamBuffer& buffer) {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
   bool timeout = false;
-
-  if (frames_received_.Size() == 0) {
-    QMMF_DEBUG("%s:%s: track_id(%d) Wait for bufferr!!", TAG, __func__,
-        TrackId());
-    auto ret = wait_for_frame_.waitRelative(lock_, kWaitDuration);
-    if (ret == TIMED_OUT) {
-        QMMF_ERROR("%s:%s: track_id(%d) Buffer Timed out happend! No buffers"
-            "from Camera", TAG, __func__, TrackId());
-        timeout = true;
+  {
+    Mutex::Autolock lock(lock_);
+    if (frames_received_.Size() == 0) {
+      QMMF_DEBUG("%s:%s: track_id(%d) Wait for bufferr!!", TAG, __func__,
+          TrackId());
+      auto ret = wait_for_frame_.waitRelative(lock_, kWaitDuration);
+      if (ret == TIMED_OUT) {
+          QMMF_ERROR("%s:%s: track_id(%d) Buffer Timed out happend! No buffers"
+              "from Camera", TAG, __func__, TrackId());
+          timeout = true;
+      }
     }
+    assert(timeout == false);
+
+    QMMF_VERBOSE("%s:%s: track_id(%d) frames_received_.size(%d)", TAG, __func__,
+        TrackId(), frames_received_.Size());
+
+    StreamBuffer stream_buffer = *frames_received_.Begin();
+    buffer = stream_buffer;
+    frames_being_encoded_.PushBack(stream_buffer);
+    frames_received_.Erase(frames_received_.Begin());
   }
-  assert(timeout == false);
-
-  QMMF_VERBOSE("%s:%s: track_id(%d) frames_received_.size(%d)", TAG, __func__,
-      TrackId(), frames_received_.Size());
-
-  StreamBuffer stream_buffer = *frames_received_.Begin();
-  buffer = stream_buffer;
-  frames_being_encoded_.PushBack(stream_buffer);
-  frames_received_.Erase(frames_received_.Begin());
 
   if (IsStop()) {
     QMMF_DEBUG("%s:%s: track_id(%d) Send EOS to Encoder!", TAG, __func__,
