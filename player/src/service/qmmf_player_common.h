@@ -98,16 +98,16 @@ struct Event{
 
 
 extern "C" void DebugAudioTrackCreateParam (const char* _func_,
-                                            AudioTrackCreateParam& params);
+                                            AudioTrackCreateParam& track_params);
 
 extern "C" void DebugVideoTrackCreateParam (const char* _func_,
-                                            VideoTrackCreateParam& params);
+                                            VideoTrackCreateParam& track_params);
 
 extern "C" void DebugAudioSinkParam (const char* _func_,
-                                            AudioTrackParams& params);
+                                     AudioTrackParams& track_params);
 
 extern "C" void DebugQueueInputBuffer(const char* _func_,
-                                         std::vector<AVCodecBuffer>& buffers);
+                                      std::vector<AVCodecBuffer>& buffers);
 
 
 };  // namespace player

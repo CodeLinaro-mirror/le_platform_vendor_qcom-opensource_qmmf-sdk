@@ -48,6 +48,7 @@ using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::kPortIndexInput;
 using ::qmmf::avcodec::kPortIndexOutput;
+using ::qmmf::avcodec::kPortALL;
 using ::std::make_shared;
 using ::std::shared_ptr;
 using ::std::vector;
@@ -57,8 +58,7 @@ static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
 AudioDecoderCore* AudioDecoderCore::instance_ = nullptr;
 
-AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore()
-{
+AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore() {
   if(!instance_) {
      instance_ = new AudioDecoderCore();
   if(!instance_) {
@@ -72,14 +72,12 @@ AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore()
   return instance_;
 }
 
-AudioDecoderCore::AudioDecoderCore() : ion_device_(-1)
-{
+AudioDecoderCore::AudioDecoderCore() : ion_device_(-1) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-AudioDecoderCore::~AudioDecoderCore()
-{
+AudioDecoderCore::~AudioDecoderCore() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   if (!audio_track_decoders_.isEmpty()) {
     audio_track_decoders_.clear();
@@ -93,8 +91,7 @@ AudioDecoderCore::~AudioDecoderCore()
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params)
-{
+status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   if (ion_device_ < 0) {
@@ -127,14 +124,14 @@ status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params)
   return ret;
 }
 
-status_t AudioDecoderCore::PrepareTrackPipeline(uint32_t track_id,
-    const shared_ptr<AudioTrackSink>& audio_track_sink)
-{
+status_t AudioDecoderCore::PrepareTrackPipeline(
+    uint32_t track_id,
+    const shared_ptr<AudioTrackSink>& audio_track_sink) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
-  QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
-  return BAD_VALUE;
+    QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
+    return BAD_VALUE;
   }
 
   shared_ptr<AudioTrackDecoder> track_decoder =
@@ -143,20 +140,20 @@ status_t AudioDecoderCore::PrepareTrackPipeline(uint32_t track_id,
 
   auto ret = track_decoder->PreparePipeline(audio_track_sink, track_decoder);
   if (ret != NO_ERROR) {
-  QMMF_INFO("%s:%s: track_id(%d) PreparePipeline failed!", TAG, __func__,
-    track_id);
-  return ret;
+    QMMF_INFO("%s:%s: track_id(%d) PreparePipeline failed!", TAG, __func__,
+        track_id);
+    return ret;
   }
 
   QMMF_INFO("%s:%s: track_id(%d) PreparePipeline Successful!", TAG,
-    __func__, track_id);
+      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t AudioDecoderCore::DequeueTrackInputBuffer(uint32_t track_id,
-    std::vector<AVCodecBuffer>& buffers)
-{
+status_t AudioDecoderCore::DequeueTrackInputBuffer(
+    uint32_t track_id,
+    std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -171,19 +168,19 @@ status_t AudioDecoderCore::DequeueTrackInputBuffer(uint32_t track_id,
   auto ret = track_decoder->DequeueInputBuffer(buffers);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) DequeueInputBuffer failed!", TAG, __func__,
-    track_id);
+        track_id);
     return ret;
   }
 
   QMMF_INFO("%s:%s: track_id(%d) DequeueInputBuffer Successful!", TAG,
-    __func__, track_id);
+      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t AudioDecoderCore::QueueTrackInputBuffer(uint32_t track_id,
-    std::vector<AVCodecBuffer>& buffers)
-{
+status_t AudioDecoderCore::QueueTrackInputBuffer(
+    uint32_t track_id,
+    std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -208,8 +205,7 @@ status_t AudioDecoderCore::QueueTrackInputBuffer(uint32_t track_id,
   return ret;
 }
 
-status_t AudioDecoderCore::StartTrackDecoder(uint32_t track_id)
-{
+status_t AudioDecoderCore::StartTrackDecoder(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -234,8 +230,8 @@ status_t AudioDecoderCore::StartTrackDecoder(uint32_t track_id)
   return ret;
 }
 
-status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id)
-{
+status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id,
+                                            bool do_flush) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -247,7 +243,7 @@ status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id)
       audio_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret = track_decoder->StopDecoder();
+  auto ret = track_decoder->StopDecoder(do_flush);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) StopDecoder failed!", TAG, __func__,
      track_id);
@@ -260,8 +256,7 @@ status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id)
   return ret;
 }
 
-status_t AudioDecoderCore::PauseTrackDecoder(uint32_t track_id)
-{
+status_t AudioDecoderCore::PauseTrackDecoder(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -286,8 +281,7 @@ status_t AudioDecoderCore::PauseTrackDecoder(uint32_t track_id)
   return ret;
 }
 
-status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id)
-{
+status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -312,10 +306,11 @@ status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id)
   return ret;
 }
 
-status_t AudioDecoderCore::SetAudioTrackDecoderParams(uint32_t track_id,
-                                CodecParamType param_type, void* param,
-                                uint32_t param_size)
-{
+status_t AudioDecoderCore::SetAudioTrackDecoderParams(
+    uint32_t track_id,
+    CodecParamType param_type,
+    void* param,
+    uint32_t param_size) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -340,8 +335,7 @@ status_t AudioDecoderCore::SetAudioTrackDecoderParams(uint32_t track_id,
   return ret;
 }
 
-status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id)
-{
+status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -368,31 +362,30 @@ status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id)
   return ret;
 }
 
-bool AudioDecoderCore::isTrackValid(uint32_t track_id)
-{
-  QMMF_INFO("%s: Number of Tracks exist = %d",__func__, audio_track_decoders_.size());
+bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
+  QMMF_INFO("%s: Number of Tracks exist = %d",__func__, 
+      audio_track_decoders_.size());
   assert(audio_track_decoders_.size() > 0);
   return audio_track_decoders_.indexOfKey(track_id) >= 0 ? true : false;
 }
 
 /************************* Audio Decoding ********************************/
 
-AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device):
-    ion_device_(ion_device),eos_(false)
-{
+AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
+    : ion_device_(ion_device), eos_(false) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   memset(&audio_track_params_, 0x0, sizeof audio_track_params_);
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  file_fd_audio_ = open("/data/audio_track.bitstream", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  file_fd_audio_ = open("/data/audio_track.bitstream", 
+      O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
-AudioTrackDecoder::~AudioTrackDecoder()
-{
+AudioTrackDecoder::~AudioTrackDecoder() {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
    uint32_t i = 0;
@@ -438,8 +431,8 @@ AudioTrackDecoder::~AudioTrackDecoder()
   QMMF_DEBUG("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
-status_t AudioTrackDecoder::ConfigureTrackDecoder(AudioTrackParams& track_params)
-{
+status_t AudioTrackDecoder::ConfigureTrackDecoder(
+    AudioTrackParams& track_params) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_params.track_id);
   audio_track_params_ = track_params;
 
@@ -466,8 +459,7 @@ status_t AudioTrackDecoder::ConfigureTrackDecoder(AudioTrackParams& track_params
 
 status_t AudioTrackDecoder::PreparePipeline(
     const shared_ptr<AudioTrackSink>& audio_track_sink,
-    const shared_ptr<AudioTrackDecoder>& audio_track_decoder)
-{
+    const shared_ptr<AudioTrackDecoder>& audio_track_decoder) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(avcodec_ != nullptr);
 
@@ -485,7 +477,7 @@ status_t AudioTrackDecoder::PreparePipeline(
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) AllocateBuffer Failed at input port!",
-               TAG, __func__, TrackId());
+        TAG, __func__, TrackId());
   }
 
   // This function will get the port buffer requirment and will allocate buffer
@@ -497,7 +489,7 @@ status_t AudioTrackDecoder::PreparePipeline(
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%d) AllocateBuffer Failed at Output port!",
-               TAG, __func__, TrackId());
+        TAG, __func__, TrackId());
   }
 
   // Bitstream buffer queue
@@ -515,8 +507,8 @@ status_t AudioTrackDecoder::PreparePipeline(
 }
 
 //service will send unfilled buffer fd/pointer to the application to fill it
-status_t AudioTrackDecoder::DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers)
-{
+status_t AudioTrackDecoder::DequeueInputBuffer(
+    std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   int32_t size = buffers.size();
@@ -551,8 +543,8 @@ status_t AudioTrackDecoder::DequeueInputBuffer(std::vector<AVCodecBuffer>& buffe
 }
 
 //application will fill the data in the buffer and will send to service
-status_t AudioTrackDecoder::QueueInputBuffer(std::vector<AVCodecBuffer>& buffers)
-{
+status_t AudioTrackDecoder::QueueInputBuffer(
+    std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   int32_t size = buffers.size();
@@ -606,11 +598,19 @@ status_t AudioTrackDecoder::StartDecoder() {
 
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->StartCodec();
+  // Initial debug purpose.
+  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+   QMMF_ERROR("%s:%s: track_id(%d) StopCodec failed!", TAG, __func__,
+       TrackId());
+   return ret;
+  }
+
   audio_track_sink_->StartSink();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
-   QMMF_ERROR("%s:%s: track_id(%d) StartCodec failed!", TAG, __func__,
+   QMMF_ERROR("%s:%s: track_id(%d) StartSink failed!", TAG, __func__,
        TrackId());
    return ret;
   }
@@ -619,18 +619,36 @@ status_t AudioTrackDecoder::StartDecoder() {
   return ret;
 }
 
-status_t AudioTrackDecoder::StopDecoder() {
+status_t AudioTrackDecoder::StopDecoder(bool do_flush) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  auto ret = 0;
 
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->StopCodec();
-  ret = audio_track_sink_->StopSink();
+  if (do_flush) {
+    ret = avcodec_->Flush(kPortALL);
+    assert(ret == NO_ERROR);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d) Flush failed!", TAG, __func__,
+          TrackId());
+      return ret;
+    }
+  }
 
+  ret = avcodec_->StopCodec();
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) StopCodec failed!", TAG, __func__,
         TrackId());
+    return ret;
+  }
+
+  ret = audio_track_sink_->StopSink();
+  // Initial debug purpose.
+  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
+          TrackId());
     return ret;
   }
 
@@ -673,10 +691,9 @@ status_t AudioTrackDecoder::ResumeDecoder() {
 }
 
 status_t AudioTrackDecoder::SetAudioDecoderParams(CodecParamType
-                                                           param_type,
-                                                           void* param,
-                                                           uint32_t param_size)
-{
+                                                  param_type,
+                                                  void* param,
+                                                  uint32_t param_size) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
   assert(avcodec_ != nullptr);
@@ -711,10 +728,10 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
     __func__, TrackId(),frames_to_decode_.Size());
 
   if(frames_to_decode_.Size() <= 0) {
-       QMMF_DEBUG("%s:%s track_id(%d) No Filled buffer available for AVCodec,"
-         " Wait for new buffer", TAG, __func__, TrackId());
-       Mutex::Autolock autoLock(wait_for_frame_lock_);
-       wait_for_frame_.wait(wait_for_frame_lock_);
+    QMMF_DEBUG("%s:%s track_id(%d) No Filled buffer available for AVCodec,"
+        " Wait for new buffer", TAG, __func__, TrackId());
+    Mutex::Autolock autoLock(wait_for_frame_lock_);
+    wait_for_frame_.wait(wait_for_frame_lock_);
   }
 
   StreamBuffer iter = *frames_to_decode_.Begin();
@@ -730,15 +747,15 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   //stream_buffer = iter;
 
   {
-  Mutex::Autolock lock(queue_lock_);
-  frames_being_decoded_.PushBack(iter);
+    Mutex::Autolock lock(queue_lock_);
+    frames_being_decoded_.PushBack(iter);
   }
   frames_to_decode_.Erase(frames_to_decode_.Begin());
   QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to avcodec for"
-  " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
+      " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
 
   QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
-  " decoding ", TAG, __func__, TrackId(), (iter).frame_length, (iter).filled_length);
+      " decoding ", TAG, __func__, TrackId(), (iter).frame_length, (iter).filled_length);
 
   //For EOS and stop case
   if ((iter).flags == 1)
@@ -752,8 +769,7 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
 
 // This method is used by AVCodec to return buffer after decoding
 status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
-                                         void* client_data)
-{
+                                         void* client_data) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
   QMMF_VERBOSE("%s:%s: track_id(%d) frames_being_decoded_.size(%d)", TAG,
@@ -785,8 +801,7 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 }
 
 // This method is used by AVCodec to notify stop
-status_t AudioTrackDecoder::NotifyPortStatus(CodecPortStatus status)
-{
+status_t AudioTrackDecoder::NotifyPortStatus(CodecPortStatus status) {
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
 
 
@@ -805,7 +820,8 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
 
   assert(avcodec_ != nullptr);
   ret = avcodec_->GetBufferRequirements(kPortIndexInput,  &count, &size);
-  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__, count, size);
+  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
+      count, size);
   assert(ret == NO_ERROR);
 
   assert(ion_device_ >= 0);
@@ -899,7 +915,8 @@ status_t AudioTrackDecoder::AllocOutputPortBufs()
 
   assert(avcodec_ != nullptr);
   ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
-  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__, count, size);
+  QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
+      count, size);
   assert(ret == NO_ERROR);
 
   assert(ion_device_ >= 0);

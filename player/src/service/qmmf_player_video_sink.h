@@ -33,6 +33,12 @@
 
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "player/src/service/qmmf_player_common.h"
+#include <utils/KeyedVector.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/msm_ion.h>
+#include <unistd.h>
 
 namespace qmmf {
 namespace player {
@@ -85,8 +91,10 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
+
   status_t ReturnBuffer(BufferDescriptor& codec_buffer,
                         void* client_data) override;
+
   status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
  private:
@@ -104,6 +112,19 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t                 ion_device_;
   Mutex                   queue_lock_;
   bool                    stopplayback_;
+
+
+typedef struct BufInfo {
+  // FD at service
+  uint32_t buf_id;
+
+  // Memory mapped buffer.
+  void*    vaddr;
+} BufInfo;
+
+//map<fd , buf_info>
+DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
+
 
 #ifdef DUMP_YUV_FRAMES
   int32_t               file_fd_;
