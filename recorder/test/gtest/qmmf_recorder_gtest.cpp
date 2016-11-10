@@ -1085,6 +1085,269 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
 }
 
 /*
+* SessionWithLPM1080pEncYUVSnapshot: This is a multi-session usecase that will
+*                                    test LPM, Encode, Snapshot in parallel.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - 1080p Raw YUV
+*   - StartSession - LPM (1080p YUV)
+*   - CaptureImage - 1080p Raw YUV
+*   - StartSession - 1080p Enc (AVC)
+*   - CaptureImage - 1080p Raw YUV
+*   - StopSession  - 1080p Enc
+*   - CaptureImage - 1080p Raw YUV
+*   - StopSession  - LPM
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  // Init and Start
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Take Snapshot
+    fprintf(stderr, "Taking Snapshot\n");
+    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
+
+    ImageParam image_param;
+    memset(&image_param, 0x0, sizeof image_param);
+    image_param.width         = 1920;
+    image_param.height        = 1080;
+    image_param.image_format  = ImageFormat::kNV12;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    assert(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported Raw YUV snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == entry.data.i32[i+1]
+                && image_param.height == entry.data.i32[i+2]) {
+              res_supported = true; // 1080p-YUV res supported.
+            }
+          }
+        }
+      }
+    }
+    assert (res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer, void *meta_param,
+                                MetaParamType meta_type, uint32_t
+                                meta_size) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_param, meta_type,
+          meta_size); };
+
+    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Start 1080p YUV LPM Stream
+    fprintf(stderr, "Starting LPM Stream\n");
+    TEST_INFO("%s:%s: Starting LPM Stream", TAG, __func__);
+
+    SessionCb s1_status_cb;
+    s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t s1_id;
+    ret = recorder_.CreateSession(s1_status_cb, &s1_id);
+    assert(s1_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam s1_video_t1_param;
+    memset(&s1_video_t1_param, 0x0, sizeof s1_video_t1_param);
+
+    s1_video_t1_param.camera_id     = 0;
+    s1_video_t1_param.width         = 1920;
+    s1_video_t1_param.height        = 1080;
+    s1_video_t1_param.frame_rate    = 30;
+    s1_video_t1_param.format_type   = VideoFormat::kYUV;
+    s1_video_t1_param.out_device    = 0x01;
+    s1_video_t1_param.low_power_mode = true;  // LPM Stream
+
+    uint32_t s1_video_t1_id = 1;
+
+    TrackCb s1_video_t1_cb;
+    s1_video_t1_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
+        buffers, void *meta_param, MetaParamType meta_type,
+        size_t meta_size) { VideoTrackYUVDataCb(track_id,
+        buffers, meta_param, meta_type, meta_size); };
+
+    s1_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(s1_id, s1_video_t1_id,
+                                      s1_video_t1_param, s1_video_t1_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> s1_track_ids;
+    s1_track_ids.push_back(s1_video_t1_id);
+    sessions_.insert(std::make_pair(s1_id, s1_track_ids));
+
+    ret = recorder_.StartSession(s1_id);
+    assert(ret == NO_ERROR);
+    sleep(5);
+
+    // Take Snapshot
+    fprintf(stderr, "Taking Snapshot\n");
+    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                   cb);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Start 1080p AVC Stream
+    fprintf(stderr, "Starting Enc Stream\n");
+    TEST_INFO("%s:%s: Starting Enc Stream", TAG, __func__);
+
+    SessionCb s2_status_cb;
+    s2_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t s2_id;
+    ret = recorder_.CreateSession(s2_status_cb, &s2_id);
+    assert(s2_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam s2_video_t1_param;
+    memset(&s2_video_t1_param, 0x0, sizeof s2_video_t1_param);
+
+    s2_video_t1_param.camera_id      = 0;
+    s2_video_t1_param.width          = 1920;
+    s2_video_t1_param.height         = 1080;
+    s2_video_t1_param.frame_rate     = 30;
+    s2_video_t1_param.format_type    = VideoFormat::kAVC;
+    s2_video_t1_param.out_device     = 0x01;
+    s2_video_t1_param.low_power_mode = false;
+
+    uint32_t s2_video_t1_id = 1;
+
+    TrackCb s2_video_t1_cb;
+    s2_video_t1_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
+        buffers, void *meta_param, MetaParamType meta_type,
+        size_t meta_size) { VideoTrackYUVDataCb(track_id,
+        buffers, meta_param, meta_type, meta_size); };
+
+    s2_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(s2_id, s2_video_t1_id,
+                                      s2_video_t1_param, s2_video_t1_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> s2_track_ids;
+    s2_track_ids.push_back(s2_video_t1_id);
+    sessions_.insert(std::make_pair(s2_id, s2_track_ids));
+
+    ret = recorder_.StartSession(s2_id);
+    assert(ret == NO_ERROR);
+    sleep(5);
+
+    // Take Snapshot
+    fprintf(stderr, "Taking Snapshot\n");
+    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                   cb);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Delete 1080p AVC Stream
+    fprintf(stderr, "Stopping Enc Stream\n");
+    TEST_INFO("%s:%s: Stopping Enc Stream", TAG, __func__);
+
+    ret = recorder_.StopSession(s2_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(s2_id, s2_video_t1_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(s2_id);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Take Snapshot
+    fprintf(stderr, "Taking Snapshot\n");
+    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                   cb);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Delete 1080p YUV LPM Stream
+    fprintf(stderr, "Stopping LPM Stream\n");
+    TEST_INFO("%s:%s: Starting LPM Stream", TAG, __func__);
+
+    ret = recorder_.StopSession(s1_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(s1_id, s1_video_t1_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(s1_id);
+    assert(ret == NO_ERROR);
+    sleep(1);
+
+    // Take Snapshot
+    fprintf(stderr, "Taking Snapshot\n");
+    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                   cb);
+    assert(ret == NO_ERROR);
+    sleep(1);
+  }  // End-for (iteration_count_)
+
+  // Deinit and Stop
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * 1080pEncWithStaticImageOverlay: This test will apply static image overlay
 *                                 ontop of 1080 video.
 * Api test sequence:

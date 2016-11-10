@@ -276,7 +276,11 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
   assert(param.id != 0);
 
   sp<CameraPort> port;
-  port = new CameraPort(param, CameraPortType::kVideo, this);
+  if (param.low_power_mode) {
+    port = new CameraPort(param, CameraPortType::kPreview, this);
+  } else {
+    port = new CameraPort(param, CameraPortType::kVideo, this);
+  }
   assert(port.get() != nullptr);
 
   auto ret = port->Init();
@@ -289,8 +293,8 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
   // Common to all video/preview and zsl snapshot stream. non zsl snapshot
   // will have separate capture request.
   if (streaming_request_.metadata.isEmpty()) {
-    ret = CreateCaptureRequest(streaming_request_,
-                               CAMERA3_TEMPLATE_VIDEO_RECORD);
+        ret = CreateCaptureRequest(streaming_request_,
+                                   CAMERA3_TEMPLATE_VIDEO_RECORD);
     assert(ret == NO_ERROR);
     QMMF_INFO("%s:%s: Global Streaming Capture request created successfully!",
         TAG, __func__);
@@ -834,14 +838,15 @@ CameraPort::~CameraPort() {
 status_t CameraPort::Init() {
 
   memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
-  CameraStreamType stream_type = params_.cam_stream_type;
 
   cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;
   cam_stream_params_.grallocFlags = GRALLOC_USAGE_HW_FB;
 
-  if (stream_type == CameraStreamType::kVideo) {
+  if (params_.low_power_mode) {
+      cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
+  } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
     cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT;
@@ -849,8 +854,6 @@ status_t CameraPort::Init() {
         && params_.cam_stream_dim.height == 2160) {
       cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
     }
-  } else {
-    cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
   }
 
   cam_stream_params_.cb = [&] (int32_t stream_id, StreamBuffer buffer)

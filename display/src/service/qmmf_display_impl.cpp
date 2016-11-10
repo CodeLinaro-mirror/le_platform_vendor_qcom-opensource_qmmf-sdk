@@ -231,6 +231,13 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
 
   running_ = 1;
 
+  error = displayintf->SetCompositionState((sdm::LayerComposition)
+      kCompositionGPU, false);
+  if (error != kErrorNone) {
+    QMMF_ERROR("%s:%s: SetCompositionState Failed. Error = %d", TAG, __func__,
+        error);
+  }
+
   error = displayintf->SetDisplayState(kStateOn);
   if (error != kErrorNone) {
     QMMF_ERROR("%s:%s: SetDisplayState Failed. Error = %d", TAG, __func__,

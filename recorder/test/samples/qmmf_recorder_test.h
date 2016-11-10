@@ -72,6 +72,7 @@ struct TrackInfo {
   uint32_t  bitrate;
   uint32_t  session_id;
   uint32_t  track_id;
+  uint32_t  low_power_mode;
 };
 
 class TestTrack;
@@ -121,6 +122,10 @@ class RecorderTest {
   status_t Session4KYUVAnd1080pEncTracks(const TrackType& type);
 
   status_t SessionTwo1080pEncTracks(const TrackType& type);
+
+  status_t Session720pLPMTrack(const TrackType& type);
+
+  status_t Session1080pEnc1080pLPMTracks(const TrackType& track_type);
 
   status_t CreateAudioPCMTrack();
 
@@ -279,6 +284,8 @@ public:
         CREATE_TWO_1080pENC_SESSION_CMD         = 'M',
         CREATE_1080pENC_AVC_1080YUV_SESSION_CMD = 'E',
         CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD   = 'F',
+        CREATE_720pLPM_SESSION_CMD              = 'G',
+        CREATE_1080pENC_AVC_1080LPM_SESSION_CMD = 'J',
         CREATE_PCM_AUD_SESSION_CMD              = 'a',
         CREATE_2PCM_AUD_SESSION_CMD             = 'b',
         CREATE_AAC_AUD_SESSION_CMD        = 'c',

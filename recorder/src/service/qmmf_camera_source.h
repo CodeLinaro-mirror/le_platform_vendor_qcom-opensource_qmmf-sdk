@@ -47,6 +47,8 @@ using namespace overlay;
 
 namespace recorder {
 
+#define FPS_CHANGE_THRESHOLD  (0.5)
+
 class TrackSource;
 
 class CameraSource {
@@ -240,15 +242,14 @@ class TrackSource : public IInputCodecSource {
   Overlay  overlay_;
   bool     enable_overlay_;
 
+  float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;
   double  remaining_frame_skip_time_;
   Mutex   frame_skip_lock_;
 
-#ifdef DEBUG_TRACK_FPS
   struct timeval prevtv_;
   uint32_t count_;
-#endif
 };
 
 }; //namespace recorder

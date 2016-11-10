@@ -168,6 +168,9 @@ struct AudioTrackCreateParam {
 /// \brief create time parameters for a video track
 /// For 360 degree capture, camera_id vector should contain the id of
 /// multiple cameras involved in 360 capture
+/// \param low_power_mode: true indicates that track to be output by VFE
+///        (Video Front End) camera block without any post-processing.
+///        Currently atmost one track can be a low_power_mode track.
 /// \TODO: define VideoOutDevice
 struct VideoTrackCreateParam {
   uint32_t         camera_id;
@@ -176,7 +179,8 @@ struct VideoTrackCreateParam {
   uint32_t         frame_rate;
   VideoFormat      format_type;
   VideoCodecParams codec_param;
-  uint32_t out_device;
+  uint32_t         out_device;
+  bool             low_power_mode;
 
   ::std::string ToString() const {
     ::std::stringstream stream;

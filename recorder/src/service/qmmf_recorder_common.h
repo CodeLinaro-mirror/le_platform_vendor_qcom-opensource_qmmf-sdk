@@ -119,6 +119,7 @@ struct CameraStreamParam {
   CameraStreamType   cam_stream_type;
   uint32_t           frame_rate;
   uint32_t           id;
+  bool               low_power_mode;
 };
 
 struct Buffer {
