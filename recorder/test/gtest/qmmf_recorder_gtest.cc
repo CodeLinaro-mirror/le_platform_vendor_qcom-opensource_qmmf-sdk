@@ -547,6 +547,107 @@ TEST_F(RecorderGtest, BurstSnapshot) {
 }
 
 /*
+* MaxSnapshotThumb: This test will test Max resolution JPEG snapshot
+*                  with a max sixe thumbnail.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG with thumbnail
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, MaxSnapshotThumb) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  int32_t thumb_size[2] = {0,0};
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width < static_cast<uint32_t>(entry.data.i32[i+1])) {
+            image_param.width = entry.data.i32[i+1];
+            image_param.height = entry.data.i32[i+2];
+          }
+
+          fprintf(stderr,"Supported Size %dx%d\n",
+              entry.data.i32[i+1], entry.data.i32[i+2]);
+        }
+      }
+    }
+  }
+  assert (image_param.width > 0 && image_param.height > 0);
+
+  if (meta.exists(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES)) {
+    entry = meta.find(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      if (thumb_size[0] < entry.data.i32[i]) {
+        thumb_size[0] = entry.data.i32[i];
+        thumb_size[1] = entry.data.i32[i+1];
+      }
+    }
+  }
+  assert(thumb_size[0] > 0 && thumb_size[1] > 0);
+  ret = meta.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumb_size, 2);
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"Capturing %dx%d JPEG with %dx%d thumbnail\n",
+      image_param.width, image_param.height, thumb_size[0], thumb_size[1]);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+
+    meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+
+/*
 * 1080pRawYUVSnapshot: This test will test 1080p YUV snapshot.
 * Api test sequence:
 *  - StartCamera
