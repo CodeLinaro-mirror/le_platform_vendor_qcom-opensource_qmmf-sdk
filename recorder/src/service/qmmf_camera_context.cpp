@@ -568,6 +568,7 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
       Mutex::Autolock lock(device_access_lock_);
       int64_t last_frame_mumber;
       uint8_t jpeg_quality = snapshot_param_.image_quality;
+      snapshot_request_.metadata.append(meta[0]);
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality,
                                         1);
 
