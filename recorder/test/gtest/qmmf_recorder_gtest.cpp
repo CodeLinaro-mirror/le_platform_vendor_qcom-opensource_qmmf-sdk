@@ -40,6 +40,7 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 
+#include "common/avqueue/qmmf_queue.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
 
 #define DUMP_META_PATH "/data/param.dump"
@@ -5051,6 +5052,299 @@ TEST_F(RecorderGtest, CameraParamTest) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
+}
+
+/*
+* EcodingPreBuffer1080p: This test will start caching 5 seconds
+* of 1080p video ES. After an event(image capture) is triggered it will
+* store the accumulated history along with 5 seconds of video after
+* the event.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartVideoTrack
+*  - CaptureImage
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  uint32_t fps = 30;
+  AVQueue *av_queue = NULL;
+  size_t history_length_ms = 5000;
+  size_t frame_duration_ms = 1000 / fps;
+  size_t queue_size = (history_length_ms / frame_duration_ms) * 2;
+
+  assert(0 < AVQueueInit(&av_queue, REALTIME, queue_size + 1, queue_size));
+
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/gtest_prebuffer_track_%dx%d.h264",
+                                  width, height);
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+                                  O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+
+  camera_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = width;
+  image_param.height        = height;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer, MetaData meta_data) ->
+                              void { SnapshotCb(camera_id, image_count,
+                                                buffer, meta_data); };
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb =
+      [&] (uint32_t track_id, std::vector<BufferDescriptor>
+             buffers, std::vector<MetaData> meta_buffers) ->
+             void { VideoCachedDataCb(track_id, buffers, meta_buffers,
+                                      format_type, av_queue); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Start filling in video cache
+  sleep((history_length_ms / 1000) * 2);
+
+  //Event trigger
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+
+  //Cache history length of video after event trigger
+  sleep(history_length_ms / 1000);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DumpQueue(av_queue, track1_bitstream_filefd_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
+  if (NULL != av_queue) {
+    AVQueueFree(&av_queue, AVFreePacket);
+    av_queue = NULL;
+  }
+}
+
+status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
+                                        const uint8_t *buffer, size_t size,
+                                        int64_t timestamp, AVQueue *que) {
+  int buffer_size = 0;
+  uint8_t *tmp_buffer = NULL;
+  AVPacket *packet = NULL;
+
+  if ((size <= 5) || (NULL == que)) {
+    return BAD_VALUE;
+  }
+
+  switch(format_type) {
+    case VideoFormat::kAVC:
+      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
+          buffer[3] == 0x01 && buffer[4] == 0x67) {/* SPS,PPS*/
+        if (que->pps != NULL) {
+          free(que->pps);
+          que->pps = NULL;
+        }
+        que->pps = (char *)malloc(sizeof(char) * (size));
+        memcpy(que->pps, buffer, size);
+        que->pps_size = size;
+        que->is_pps = true;
+        return NO_ERROR;
+      }
+      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
+          buffer[3] == 0x01 && buffer[4] == 0x65) {
+        if (que->is_pps != true) {
+          buffer_size = que->pps_size;
+        }
+        que->is_pps = false;
+      }
+      break;
+    case VideoFormat::kHEVC:
+      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
+          buffer[3] == 0x01 && buffer[4] == 0x40) {/* VPS,SPS,PPS*/
+        if (que->pps != NULL) {
+          free(que->pps);
+          que->pps = NULL;
+        }
+        que->pps = (char *)malloc(sizeof(char) * (size));
+        memcpy(que->pps, buffer, size);
+        que->pps_size = size;
+        que->is_pps = true;
+        return NO_ERROR;
+      }
+
+      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
+          buffer[3] == 0x01 && buffer[4] == 0x26) {
+        if (que->is_pps != true) {
+          buffer_size = que->pps_size;
+        }
+        que->is_pps = false;
+      }
+      break;
+    default:
+      TEST_ERROR("%s: Unsupported format type: %d", __func__, format_type);
+      return BAD_VALUE;
+  }
+
+  /* Set pointer to start address */
+  packet = (AVPacket *)malloc(sizeof(AVPacket));
+  if ((NULL == packet)) {
+    return NO_MEMORY;
+  }
+
+  /* Allocate a new frame object. */
+  packet->data = tmp_buffer = (uint8_t *)malloc((size + buffer_size));
+  if ((NULL == packet->data)) {
+    free(packet);
+    return NO_MEMORY;
+  }
+
+  if ((0 != buffer_size)) {
+    memcpy(tmp_buffer, que->pps, que->pps_size);
+    tmp_buffer += que->pps_size;
+  }
+  memcpy(tmp_buffer, buffer, size);
+  packet->size = size + buffer_size;
+  packet->timestamp = timestamp;
+  AVQueuePushHead(que, packet);
+
+  return NO_ERROR;
+}
+
+void RecorderGtest::VideoCachedDataCb(uint32_t track_id,
+                                      std::vector<BufferDescriptor> buffers,
+                                      std::vector<MetaData> meta_buffers,
+                                      VideoFormat format_type,
+                                      AVQueue *que) {
+
+  for ( auto &iter : buffers) {
+    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      break;
+    }
+
+    auto ret = QueueVideoFrame(format_type, (uint8_t *) iter.data, iter.size,
+                               iter.timestamp, que);
+    if (NO_ERROR != ret) {
+      TEST_ERROR("%s: Failed to cache video frame: %d\n", __func__, ret);
+    }
+  }
+
+  // Return buffers back to service.
+  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
+  uint32_t session_id = it->first;
+  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  assert(ret == NO_ERROR);
+}
+
+status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
+  if ((NULL == queue) || (0 > file_fd)) {
+    return BAD_VALUE;
+  }
+
+  ssize_t q_size = AVQueueSize(queue);
+  if (0 >= q_size) {
+    TEST_ERROR("%s: Queue invalid or empty!", __func__);
+    return BAD_VALUE;
+  }
+
+  AVPacket *pkt;
+  for (size_t i = 0; i < q_size; i++) {
+    pkt = (AVPacket *)AVQueuePopTail(queue);
+    if (NULL != pkt) {
+      if ((NULL != pkt->data)) {
+        uint32_t written_length = write(file_fd, pkt->data, pkt->size);
+        if (written_length != pkt->size) {
+          TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+                     strerror(errno));
+          free(pkt->data);
+          free(pkt);
+
+          return -errno;
+        }
+        free(pkt->data);
+      } else {
+        TEST_ERROR("%s: AV packet empty!", __func__);
+      }
+      free(pkt);
+    } else {
+      TEST_ERROR("%s: Invalid AV packet popped!", __func__);
+    }
+  }
+
+  return NO_ERROR;
 }
 
 void RecorderGtest::ClearSessions() {

@@ -93,6 +93,18 @@ class RecorderGtest : public ::testing::Test {
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
                      int32_t file_fd);
 
+  status_t QueueVideoFrame(VideoFormat format_type,
+                           const uint8_t *buffer, size_t size,
+                           int64_t timestamp, AVQueue *que);
+
+  void VideoCachedDataCb(uint32_t track_id,
+                         std::vector<BufferDescriptor> buffers,
+                         std::vector<MetaData> meta_buffers,
+                         VideoFormat format_type,
+                         AVQueue *que);
+
+  status_t DumpQueue(AVQueue *queue, int32_t file_fd);
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
