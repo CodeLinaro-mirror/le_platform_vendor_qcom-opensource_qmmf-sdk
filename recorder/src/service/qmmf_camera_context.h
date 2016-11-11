@@ -155,6 +155,8 @@ class CameraContext : public RefBase {
 
   // User define value for sensor mode
   int32_t sensor_vendor_mode_;
+
+  static uint32_t          kConstrainedModeThreshold;
 };
 
 enum class CameraPortType {
@@ -204,6 +206,8 @@ class CameraPort : public RefBase {
   bool IsReadyToStart();
 
   PortState& getPortState();
+
+  uint32_t GetPortFramerate() { return params_.frame_rate; }
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 

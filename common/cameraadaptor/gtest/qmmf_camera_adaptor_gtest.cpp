@@ -32,6 +32,7 @@
 #include <math.h>
 #include <log/log.h>
 #include <libgralloc/gralloc_priv.h>
+#include <QCamera3VendorTags.h>
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera_adaptor_gtest.h"
 
@@ -43,9 +44,15 @@
 #define FPS_ALLOWED_DEV 0.01f  // 1% avg. allowed deviation from FPS
 #define ITERATION_COUNT 50
 
+//FIXME: This is temporary change until necessary vendor mode changes are merged
+// in HAL3.
+#define QCAMERA3_VENDOR_SENSOR_MODE 1
+
 namespace qmmf {
 
 namespace cameraadaptor {
+
+using namespace qcamera;
 
 Camera3Gtest::Camera3Gtest()
     : camera_idx_(0),
@@ -1499,6 +1506,77 @@ TEST_F(Camera3Gtest, PrepareTeardownPreview) {
   ASSERT_EQ(0, ret);
 
   ASSERT_FALSE(camera_error_);
+}
+
+TEST_F(Camera3Gtest, HFRVideo1080p60FPS) {
+  CameraStreamParameters stream_params;
+  Camera3Request video_request;
+  int64_t last_frame_number;
+  int32_t video_stream_id, video_request_id;
+  int32_t stream_width = 1920;
+  int32_t stream_height = 1080;
+  int32_t stream_fps = 60;
+
+  auto ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&stream_params, 0, sizeof(stream_params));
+  stream_params.bufferCount = HFR_BUFFER_COUNT;
+  stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  stream_params.width = stream_width;
+  stream_params.height = stream_height;
+  stream_params.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  stream_params.cb = [&](int32_t streamId, StreamBuffer buffer) {
+    StreamCbAvgFPS(streamId, buffer);
+  };
+
+  video_stream_id = device_client_->CreateStream(stream_params);
+  ASSERT_GE(video_stream_id, 0);
+  video_request.streamIds.add(video_stream_id);
+
+  ret = device_client_->EndConfigure(true);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                                            &video_request.metadata);
+  ASSERT_EQ(0, ret);
+
+  int32_t fps_range[2];
+  fps_range[0] = stream_fps;
+  fps_range[1] = stream_fps;
+
+  video_request.metadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range,
+                              2);
+
+  int32_t sensor_vendor_mode = 6;
+  video_request.metadata.update(QCAMERA3_VENDOR_SENSOR_MODE,
+                                &sensor_vendor_mode, 1);
+
+  List<Camera3Request> requests;
+  requests.push_back(video_request);
+
+  ret = device_client_->SubmitRequestList(requests, true, &last_frame_number);
+  ASSERT_GE(ret, 0);
+  video_request_id = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  ret = device_client_->CancelRequest(video_request_id, &last_frame_number);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+         __func__, last_frame_number);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+  float allowedDeviation = stream_fps * FPS_ALLOWED_DEV;
+  float measuredDeviation = fabs(stream_fps - avg_fps_);
+  ASSERT_GE(allowedDeviation, measuredDeviation);
+  printf("%s: Measured deviation: %5.2f, allowed deviation: %5.2f\n", __func__,
+         measuredDeviation, allowedDeviation);
 }
 
 TEST_F(Camera3Gtest, HFRVideo720p120FPS) {

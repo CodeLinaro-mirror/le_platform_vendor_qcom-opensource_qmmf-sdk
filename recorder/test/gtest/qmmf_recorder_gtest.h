@@ -84,6 +84,10 @@ class RecorderGtest : public ::testing::Test {
                               buffers, void *meta_param, MetaParamType
                               meta_type, size_t meta_size);
 
+  void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
+                                buffers, void *meta_param, MetaParamType
+                                meta_type, size_t meta_size);
+
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
@@ -102,6 +106,7 @@ class RecorderGtest : public ::testing::Test {
   RecorderCb            recorder_status_cb_;
   int32_t               track1_bitstream_filefd_;
   int32_t               track2_bitstream_filefd_;
+  int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 };
 

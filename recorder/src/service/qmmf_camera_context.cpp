@@ -43,6 +43,9 @@ namespace qmmf {
 
 namespace recorder {
 
+//Framerate after which we need to run in constrained mode.
+uint32_t CameraContext::kConstrainedModeThreshold = 30;
+
 CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
@@ -486,7 +489,16 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
   if (streaming_request_id_ < 0) {
-    ret = camera_device_->EndConfigure();
+    bool is_constrained_mode = false;
+    for (size_t i = 0; i < active_ports_.size(); i++) {
+      sp<CameraPort> port = active_ports_.valueAt(i);
+      assert(port != nullptr);
+      if (kConstrainedModeThreshold < port->GetPortFramerate()) {
+        is_constrained_mode = true;
+        break;
+      }
+    }
+    ret = camera_device_->EndConfigure(is_constrained_mode);
     assert(ret == NO_ERROR);
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
@@ -523,6 +535,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
 status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   int32_t ret = NO_ERROR;
+  uint32_t max_fps = 0;
 
   // Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -538,6 +551,9 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       QMMF_INFO("%s:%s: CameraPort(0x%x):camera_stream_id(%d) is ready to"
           " start!", TAG, __func__, port.get(), cam_stream_id);
       streaming_request_.streamIds.add(cam_stream_id);
+      if (max_fps < port->GetPortFramerate()) {
+        max_fps = port->GetPortFramerate();
+      }
     } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
 
       QMMF_INFO("%s:%s: CameraPort(0x%x):camera_stream_id(%d) is stopped ",
@@ -559,6 +575,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
               __func__, cam_stream_id);
           streaming_request_.streamIds.removeAt(idx);
       }
+    } else if (port->getPortState() == PortState::PORT_STARTED) {
+      if (max_fps < port->GetPortFramerate()) {
+        max_fps = port->GetPortFramerate();
+      }
     }
   }
   size = streaming_request_.streamIds.size();
@@ -573,6 +593,14 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   {
     Mutex::Autolock lock(device_access_lock_);
+    if (0 < max_fps) {
+      int32_t fpsRange[2];
+      fpsRange[0] = max_fps;
+      fpsRange[1] = max_fps;
+
+      streaming_request_.metadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                                         fpsRange, 2);
+    }
     int64_t last_frame_mumber;
     auto ret = camera_device_->SubmitRequest(streaming_request_, is_streaming,
         &last_frame_mumber);
