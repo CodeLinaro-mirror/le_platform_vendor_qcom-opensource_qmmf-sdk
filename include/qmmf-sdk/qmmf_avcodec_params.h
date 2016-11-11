@@ -52,6 +52,7 @@ typedef int32_t status_t;
 
 static const uint32_t kPortIndexInput = 0;
 static const uint32_t kPortIndexOutput = 1;
+static const uint32_t kPortALL = 0xFFFF;
 #define PORT_NAME(port) (port == kPortIndexInput ? "IN_PORT" : "OUT_PORT")
 
 // AVCodec will notify input port status to Codec source
@@ -67,6 +68,7 @@ union CodecParam {
   ::qmmf::recorder::VideoTrackCreateParam video_enc_param;
   ::qmmf::recorder::AudioTrackCreateParam audio_enc_param;
   ::qmmf::player::AudioTrackCreateParam   audio_dec_param;
+  ::qmmf::player::VideoTrackCreateParam   video_dec_param;
 
   // needed for unions with non-trivial members
   CodecParam() : video_enc_param() {}
@@ -76,6 +78,8 @@ union CodecParam {
       : audio_enc_param(_param) {}
   CodecParam(const ::qmmf::player::AudioTrackCreateParam& _param)
       : audio_dec_param(_param) {}
+  CodecParam(const ::qmmf::player::VideoTrackCreateParam& _param)
+      : video_dec_param(_param) {}
   ~CodecParam() {}
 };
 
