@@ -582,6 +582,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(track_params_.data_cb != nullptr);
 
+  VideoTypeInfo type_info = VideoTypeInfo::kNone;
   bool found = false;
   BnBuffer bn_buffer;
   memset(&bn_buffer, 0x0, sizeof bn_buffer);
@@ -619,8 +620,21 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   assert(found == true);
   std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
-  track_params_.data_cb(TrackId(), bn_buffers, nullptr,
-      MetaParamType::kNone, 0);
+
+  if (codec_buffer.flag & OMX_BUFFERFLAG_SYNCFRAME) {
+    type_info = VideoTypeInfo::kIFrame;
+  } else if (codec_buffer.flag & QOMX_VIDEO_PictureTypeIDR) {
+    type_info = VideoTypeInfo::kIDRFrame;
+  } else if (codec_buffer.flag & OMX_VIDEO_PictureTypeP) {
+    type_info = VideoTypeInfo::kPFrame;
+  } else if (codec_buffer.flag & OMX_VIDEO_PictureTypeB) {
+    type_info = VideoTypeInfo::kBFrame;
+  } else {
+    QMMF_VERBOSE("%s: nFlags: 0x%x\n", __func__, codec_buffer.flag);
+  }
+
+  track_params_.data_cb(TrackId(), bn_buffers, &type_info,
+      MetaParamType::kVideoTypeInfo, sizeof(type_info));
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 

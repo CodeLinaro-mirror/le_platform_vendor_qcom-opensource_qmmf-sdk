@@ -79,7 +79,16 @@ enum class MetaParamType {
   kNone,
   kCamBufMetaData,
   kVideoCrop,
-  kMultipleFrame
+  kMultipleFrame,
+  kVideoTypeInfo,
+};
+
+enum class VideoTypeInfo {
+  kNone,
+  kIDRFrame,
+  kIFrame,
+  kBFrame,
+  kPFrame,
 };
 
 /// \brief Both data and event callbacks should be set by the client.
