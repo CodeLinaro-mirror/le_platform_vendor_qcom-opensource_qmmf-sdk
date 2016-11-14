@@ -458,6 +458,21 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   memset(&param, 0, sizeof(PrependSPSPPSToIDRFramesParams));
   param.nSize = sizeof(PrependSPSPPSToIDRFramesParams);
   param.bEnable = OMX_FALSE;
+  switch(codec_param.video_param.format_type) {
+    case VideoFormat::kAVC:
+      if (codec_param.video_param.codec_param.avc.prepend_sps_pps_to_idr) {
+        param.bEnable = OMX_TRUE;
+      }
+      break;
+    case VideoFormat::kHEVC:
+      if (codec_param.video_param.codec_param.hevc.prepend_sps_pps_to_idr) {
+        param.bEnable = OMX_TRUE;
+      }
+      break;
+    default:
+      QMMF_ERROR("%s:%s Codec Type does not support", TAG, __func__);
+      return BAD_VALUE;
+  }
   ret = omx_client_->SetParameter(
             (OMX_INDEXTYPE)OMX_QcomIndexParamSequenceHeaderWithIDR,
             (OMX_PTR)&param);

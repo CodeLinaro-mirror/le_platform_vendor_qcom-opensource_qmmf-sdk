@@ -209,6 +209,7 @@ struct AVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
+  bool                 prepend_sps_pps_to_idr;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -240,6 +241,7 @@ struct HEVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
+  bool                 prepend_sps_pps_to_idr;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
