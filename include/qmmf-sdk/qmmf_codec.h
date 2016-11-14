@@ -50,6 +50,19 @@ enum class CodecType {
   kImageDecoder,
 };
 
+enum class CodecMimeType {
+  kMimeTypeVideoEncAVC,
+  kMimeTypeVideoEncHEVC,
+  kMimeTypeVideoEncMPEG,
+  kMimeTypeVideoDecAVC,
+  kMimeTypeVideoDecHEVC,
+  kMimeTypeVideoDecMPEG,
+  kMimeTypeAudioEncAAC,
+  kMimeTypeAudioEncAMR,
+  kMimeTypeAudioEncG711,
+  kMimeTypeAudioDecAAC
+};
+
 enum class VideoFormat {
   kHEVC,
   kAVC,

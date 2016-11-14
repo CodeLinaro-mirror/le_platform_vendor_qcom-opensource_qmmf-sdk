@@ -49,6 +49,7 @@ typedef OMX_ERRORTYPE (*OMXGetComponentsOfRole) (
 }
 
 namespace qmmf {
+namespace avcodec {
 
 using namespace android;
 
@@ -108,4 +109,5 @@ private:
   static const char kOMXGetComponentsOfRoleName[];
 }; // class OmxClient
 
-} // namespace qmmf
+}; // namespace avcodec
+}; // namespace qmmf

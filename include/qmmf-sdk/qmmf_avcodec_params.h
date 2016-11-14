@@ -29,18 +29,54 @@
 
 #pragma once
 
-#include <OMX_Core.h>
-#include <OMX_Types.h>
+#include <cstdint>
+#include <iomanip>
+#include <functional>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "qmmf-sdk/qmmf_buffer.h"
+#include "qmmf-sdk/qmmf_codec.h"
+#include "qmmf-sdk/qmmf_player_params.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
+
+#define INPUT_MAX_COUNT         (11)
+#define OUTPUT_MAX_COUNT        (6)
+#define CMD_BUF_MAX_COUNT       (10)
 
 namespace qmmf {
 namespace avcodec {
 
-struct CodecCmdType {
-  OMX_EVENTTYPE   event_type;
-  OMX_COMMANDTYPE event_cmd;
-  OMX_U32         event_data;
-  OMX_ERRORTYPE   event_result;
-  OMX_U32         event_flags;
+typedef int32_t status_t;
+
+static const uint32_t kPortIndexInput = 0;
+static const uint32_t kPortIndexOutput = 1;
+#define PORT_NAME(port) (port == kPortIndexInput ? "IN_PORT" : "OUT_PORT")
+
+// AVCodec will notify input port status to Codec source
+enum class CodecPortStatus {
+  kPortStart,
+  // notify when codec receives EOS from track source
+  kPortStop,
+  // notify when codec returns all buffers to track source
+  kPortIdle,
+};
+
+union CodecParam {
+  ::qmmf::recorder::VideoTrackCreateParam video_enc_param;
+  ::qmmf::recorder::AudioTrackCreateParam audio_enc_param;
+  ::qmmf::player::AudioTrackCreateParam   audio_dec_param;
+
+  // needed for unions with non-trivial members
+  CodecParam() : video_enc_param() {}
+  CodecParam(const ::qmmf::recorder::VideoTrackCreateParam& _param)
+      : video_enc_param(_param) {}
+  CodecParam(const ::qmmf::recorder::AudioTrackCreateParam& _param)
+      : audio_enc_param(_param) {}
+  CodecParam(const ::qmmf::player::AudioTrackCreateParam& _param)
+      : audio_dec_param(_param) {}
+  ~CodecParam() {}
 };
 
 }; // namespace avcodec

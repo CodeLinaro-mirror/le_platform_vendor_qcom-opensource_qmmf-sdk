@@ -45,6 +45,10 @@ using namespace cameraadaptor;
 #define PREVIEW_STREAM_BUFFER_COUNT 10
 #define EXTRA_DCVS_BUFFERS          2
 
+//FIXME: This is temporary change until necessary vendor mode changes are merged
+// in HAL3.
+#define QCAMERA3_VENDOR_SENSOR_MODE 1
+
 namespace recorder {
 
 class CameraPort;
@@ -91,10 +95,37 @@ class CameraContext : public RefBase {
 
  private:
 
+  struct HFRMode_t {
+    int32_t width;
+    int32_t height;
+    int32_t batch_size;
+    int32_t framerate;
+  };
+
+  struct ZSLEntry {
+    StreamBuffer           buffer;
+    CameraMetadata         result;
+    int64_t                timestamp;
+  };
+
   friend class CameraPort;
 
+  void InitSupportedFPS(const CameraMetadata &static_meta);
+
+  bool IsInputSupported(const CameraMetadata &static_meta);
+
+  status_t CreateZSLStream(const CameraStartParam &param);
+
+  status_t FlushZSLQueueLocked();
+
+  status_t RemoveZSLStreamLocked();
+
+  status_t PickZSLBuffer();
+
+  status_t CreateSnapshotStream(const ImageParam &param);
+
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              int32_t* stream_id);
+                              uint32_t frame_rate, int32_t* stream_id);
 
   status_t DeleteDeviceStream(int32_t stream_id);
 
@@ -112,8 +143,16 @@ class CameraContext : public RefBase {
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
+  void InitHFRModes(CameraMetadata &static_meta);
+
   //Camera client callbacks.
-  void NonZslCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void GetZSLInputBuffer(StreamBuffer &buffer);
+
+  void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
   void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
 
@@ -132,7 +171,6 @@ class CameraContext : public RefBase {
   CameraStartParam         camera_start_params_;
 
   // Global Capture request.
-  Camera3Request           streaming_request_;
   int32_t                  streaming_request_id_;
 
   //Non zsl capture request.
@@ -143,11 +181,30 @@ class CameraContext : public RefBase {
 
   ResultCb                 result_cb_;
 
+  //ZSL
+  int32_t                  zsl_stream_id_;
+  int32_t                  zsl_input_stream_id_;
+  Vector<int32_t>          supported_fps_;
+
+  Mutex                    zsl_queue_lock_;
+  List<ZSLEntry>           zsl_queue_;
+  ZSLEntry                 zsl_input_buffer_;
+  bool                     zsl_running_;
+
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
 
   // Maps of buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
+
+  // User define value for sensor mode
+  int32_t sensor_vendor_mode_;
+
+  static uint32_t          kConstrainedModeThreshold;
+  static uint32_t          kHFRBatchModeThreshold;
+  bool                     hfr_supported_;
+  Vector<HFRMode_t>        hfr_batch_modes_list_;
+  Vector<Camera3Request>   streaming_active_requests_;
 };
 
 enum class CameraPortType {
@@ -170,8 +227,8 @@ enum class PortState {
 // same.
 class CameraPort : public RefBase {
  public:
-  CameraPort(const CameraStreamParam& param, CameraPortType port_type,
-             CameraContext *context);
+  CameraPort(const CameraStreamParam& param, size_t batch_size,
+             CameraPortType port_type, CameraContext *context);
 
   ~CameraPort();
 
@@ -198,6 +255,10 @@ class CameraPort : public RefBase {
 
   PortState& getPortState();
 
+  uint32_t GetPortFramerate() { return params_.frame_rate; }
+
+  size_t GetPortBatchSize() { return batch_size; }
+
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
  private:
@@ -215,6 +276,7 @@ class CameraPort : public RefBase {
   Mutex                  consumer_lock_;
   bool                   ready_to_start_;
   PortState              port_state_;
+  size_t                 batch_size;
 
   // map of <consumer id, IBufferConsumer>
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;

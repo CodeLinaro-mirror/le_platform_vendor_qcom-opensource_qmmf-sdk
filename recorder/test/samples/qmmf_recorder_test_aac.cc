@@ -46,8 +46,8 @@
 using ::qmmf::AACMode;
 using ::qmmf::AACFormat;
 using ::qmmf::AudioFormat;
+using ::qmmf::BufferDescriptor;
 using ::qmmf::recorder::AudioTrackCreateParam;
-using ::qmmf::recorder::BufferDescriptor;
 using ::std::ios;
 using ::std::ofstream;
 using ::std::streampos;

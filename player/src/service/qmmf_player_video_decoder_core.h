@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <utils/KeyedVector.h>
 
 #include "include/qmmf-sdk/qmmf_player_params.h"
@@ -37,12 +39,10 @@
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_video_sink.h"
 
-
 namespace qmmf {
 namespace player {
 
 using namespace android;
-
 
 class VideoTrackDecoder;
 class VideoTrackSink;
@@ -62,7 +62,7 @@ class VideoDecoderCore {
                          std::vector<AVCodecBuffer>& buffers);
 
   status_t PrepareTrackPipeline(uint32_t track_id,
-                         const sp<VideoTrackSink>& audio_track_sink);
+      const ::std::shared_ptr<VideoTrackSink>& audio_track_sink);
 
   status_t StartTrackDecoder(uint32_t track_id);
 
@@ -89,13 +89,13 @@ class VideoDecoderCore {
   VideoDecoderCore& operator=(const VideoDecoderCore&);
 
   //Map of track id and video decoder
-  DefaultKeyedVector<uint32_t, sp<VideoTrackDecoder>> video_track_decoders_;
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<VideoTrackDecoder>>video_track_decoders_;
 
   static VideoDecoderCore* instance_;
   int32_t ion_device_;
 };
 
-class VideoTrackDecoder : public IInputCodecSource {
+class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
  public:
   VideoTrackDecoder(int32_t ion_device);
 
@@ -107,7 +107,8 @@ class VideoTrackDecoder : public IInputCodecSource {
 
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
-  status_t PreparePipeline(const sp<VideoTrackSink>& audio_track_sink);
+  status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& audio_track_sink,
+                           const ::std::shared_ptr<VideoTrackDecoder>& audio_track_decoder);
 
   status_t StartDecoder();
 
@@ -122,22 +123,17 @@ class VideoTrackDecoder : public IInputCodecSource {
 
   status_t DeleteDecoder();
 
-  // This method provides an input buffer to the AVCodec
-  status_t Read(StreamBuffer& stream_buffer);
-
-  // This method is used by AVCodec to return buffer after encoding
-  status_t SignalBufferReturned(StreamBuffer& stream_buffer);
-
-  // This method is used by AVCodec to notify stop
-  status_t NotifyStatus(CodecInputPortStatus status);
+  status_t GetBuffer(BufferDescriptor& stream_buffer,
+                     void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& stream_buffer,
+                        void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
  private:
 
   status_t AllocInputPortBufs();
 
   status_t AllocOutputPortBufs();
-
-  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
   uint32_t TrackId() { return video_track_params_.track_id; }
 
@@ -152,9 +148,8 @@ class VideoTrackDecoder : public IInputCodecSource {
   //map<fd , buf_info>
   DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
-  VideoTrackSink*         video_track_sink_;
-  VideoTrackParams        video_track_params_;
-  sp<AVCodec>             avcodec_;
+  VideoTrackParams          video_track_params_;
+  ::qmmf::avcodec::AVCodec* avcodec_;
 
   //For input port
   Vector<StreamBuffer>    input_buffer_list_;
@@ -167,7 +162,7 @@ class VideoTrackDecoder : public IInputCodecSource {
   Vector<IonHandleData>   ion_handle_data;
 
 
-  Vector<CodecBuffer>     output_buffer_list_;
+  Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
 
   Mutex                   wait_for_empty_frame_lock_;
   Condition               wait_for_empty_frame_;

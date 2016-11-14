@@ -50,7 +50,7 @@ using namespace android;
 
 const nsecs_t kWaitDelay = 500000000; // 0.5s
 
-typedef struct {
+struct StreamBuffer {
   MetaInfo info;
   int64_t timestamp;
   int64_t frame_number;
@@ -73,7 +73,7 @@ typedef struct {
            << "]";
     return stream.str();
   }
-} StreamBuffer;
+};
 
 // Thread safe Queue
 template <class T>

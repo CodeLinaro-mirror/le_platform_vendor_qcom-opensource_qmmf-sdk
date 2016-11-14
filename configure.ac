@@ -72,6 +72,7 @@ AC_CONFIG_FILES([ \
     common/audio/src/service/Makefile \
     common/audio/test/samples/Makefile \
     common/codecadaptor/Makefile \
+    avcodec/Makefile \
     recorder/src/client/Makefile \
     recorder/src/service/Makefile \
     display/src/client/Makefile \

@@ -114,7 +114,7 @@ class AudioRawTrackSource : public IAudioTrackSource {
 // This class is behaves as both producer and consumer. At one end, it takes
 // PCM buffers from the audio endpoint; and on the other end, it provides those
 // PCM buffers to Encoder. It also manages buffer circulation, skip, etc.
-class AudioEncodedTrackSource : public IInputCodecSource,
+class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
                                 public IAudioTrackSource {
  public:
   AudioEncodedTrackSource(const AudioTrackParams& params);
@@ -130,9 +130,9 @@ class AudioEncodedTrackSource : public IInputCodecSource,
   status_t ReturnTrackBuffer(const std::vector<BnBuffer>& buffers) override;
 
   // methods of IInputCodecSource
-  status_t Read(StreamBuffer& buffer) override;
-  status_t SignalBufferReturned(StreamBuffer& buffer) override;
-  status_t NotifyStatus(CodecInputPortStatus status) override;
+  status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
   status_t GetBufferSize(int32_t* buffer_size);
   status_t SetBufferSize(const int32_t buffer_size);
@@ -144,7 +144,7 @@ class AudioEncodedTrackSource : public IInputCodecSource,
   AudioTrackParams track_params_;
   ::qmmf::common::audio::AudioEndPoint* end_point_;
   RecorderIon ion_;
-  ::std::queue<StreamBuffer> buffers_;
+  ::std::queue<BufferDescriptor> buffers_;
   int32_t buffer_size_;
   bool stop_called_;
   bool stop_notify_received_;

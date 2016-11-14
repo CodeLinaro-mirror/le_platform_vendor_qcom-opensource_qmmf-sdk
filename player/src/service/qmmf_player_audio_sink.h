@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <unistd.h>
 
@@ -60,7 +61,7 @@ class AudioSink {
 
   status_t CreateTrackSink(uint32_t track_id, AudioTrackParams& param);
 
-  const sp<AudioTrackSink>& GetTrackSink(uint32_t track_id);
+  const ::std::shared_ptr<AudioTrackSink>& GetTrackSink(uint32_t track_id);
 
   status_t StartTrackSink(uint32_t track_id);
 
@@ -74,10 +75,10 @@ class AudioSink {
   static AudioSink* instance_;
 
   // Map of track id and TrackSink.
-  DefaultKeyedVector<uint32_t, sp<AudioTrackSink> > audio_track_sinks;
+  DefaultKeyedVector<uint32_t, ::std::shared_ptr<AudioTrackSink>> audio_track_sinks;
 };
 
-class AudioTrackSink : public IOutputCodecSource {
+class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
  public:
 
   AudioTrackSink();
@@ -92,11 +93,13 @@ class AudioTrackSink : public IOutputCodecSource {
 
   status_t DeleteSink();
 
-  void AddBufferList(Vector<CodecBuffer>& list);
+  void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
 
-  status_t GetBuffer(CodecBuffer& codec_buffer);
-
-  status_t ReturnBuffer(CodecBuffer& codec_buffer);
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
  private:
 
@@ -108,7 +111,7 @@ class AudioTrackSink : public IOutputCodecSource {
 
   int32_t GetSinkBuffer(std::vector<AudioBuffer>& buffers);
 
-  int32_t FillSinkBuffer(CodecBuffer& codec_buffer);
+  int32_t FillSinkBuffer(BufferDescriptor& codec_buffer);
 
   void ErrorHandler(const int32_t error);
 
@@ -119,9 +122,9 @@ class AudioTrackSink : public IOutputCodecSource {
   AudioEndPointType      type_;
 
   // For decoded frame
-  Vector<CodecBuffer>    output_buffer_list_;
-  TSQueue<CodecBuffer>   output_free_buffer_queue_;
-  TSQueue<CodecBuffer>   output_occupy_buffer_queue_;
+  Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
+  TSQueue<::qmmf::avcodec::CodecBuffer> output_free_buffer_queue_;
+  TSQueue<::qmmf::avcodec::CodecBuffer> output_occupy_buffer_queue_;
 
   Mutex                  wait_for_frame_lock_;
   Condition              wait_for_frame_;
@@ -157,7 +160,7 @@ class AudioTrackSink : public IOutputCodecSource {
 
 #ifdef DUMP_PCM_DATA
   int32_t               file_fd_;
-  void DumpPCMData(CodecBuffer& codec_buffer);
+  void DumpPCMData(BufferDescriptor& codec_buffer);
 #endif
 };
 

@@ -41,6 +41,7 @@
 
 #include <camera/CameraMetadata.h>
 
+#include "qmmf-sdk/qmmf_buffer.h"
 #include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_device.h"
 
@@ -49,6 +50,9 @@ namespace qmmf {
 namespace recorder {
 
 #define MAX_IN_DEVICES 4
+
+#define SENSOR_VENDOR_MODE_OFFSET (24)
+#define SENSOR_VENDOR_MODE_MASK (0xff)
 
 typedef int32_t status_t;
 
@@ -71,37 +75,12 @@ struct SessionCb {
   EventCb event_cb;
 };
 
-struct BufferDescriptor {
-  void     *data;
-  size_t   size;
-  int64_t  timestamp;
-  uint32_t flag;
-  uint32_t buf_id;
-  size_t   capacity;
-  int32_t  fd;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "data[" << data << "] ";
-    stream << "size[" << size << "] ";
-    stream << "timestamp[" << timestamp << "] ";
-    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
-           << "] ";
-    stream << "buf_id[" << buf_id << "] ";
-    stream << "capacity[" << capacity << "] ";
-    stream << "fd[" << fd << "]";
-    return stream.str();
-  }
-};
-
 enum class MetaParamType {
   kNone,
   kCamBufMetaData,
   kVideoCrop,
   kMultipleFrame
 };
-
-enum class BufferFlags { kFlagEOS = (1 << 1), kFlagCodecConfig = (1 << 2) };
 
 /// \brief Both data and event callbacks should be set by the client.
 /// event_cb is called to notify track specific errors and data_cb
@@ -234,6 +213,15 @@ struct CameraStartParam {
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "flags[" << flags << "]";
     return stream.str();
+  };
+
+  void setSensorVendorMode(int32_t sensor_vendor_mode) {
+    flags &= ~(SENSOR_VENDOR_MODE_MASK);
+    flags |= sensor_vendor_mode << SENSOR_VENDOR_MODE_OFFSET;
+  };
+
+  int32_t getSensorVendorMode() const {
+    return flags >> SENSOR_VENDOR_MODE_OFFSET;
   }
 };
 

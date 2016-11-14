@@ -5,6 +5,7 @@ BUILD_COMPONENTS += common/audio/src/client
 BUILD_COMPONENTS += common/audio/src/service
 BUILD_COMPONENTS += common/audio/test/samples
 BUILD_COMPONENTS += common/codecadaptor
+BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += recorder/src/client
 BUILD_COMPONENTS += recorder/src/service
 BUILD_COMPONENTS += recorder/test/samples

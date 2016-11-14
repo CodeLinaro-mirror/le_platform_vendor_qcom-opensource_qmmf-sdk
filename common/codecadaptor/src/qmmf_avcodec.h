@@ -28,37 +28,26 @@
 
 #pragma once
 
-#include <fcntl.h>
-
-#include <iomanip>
-#include <string>
-#include <sstream>
-#include <mutex>
 #include <chrono>
 #include <condition_variable>
+#include <mutex>
+#include <string>
 
-#include <utils/String8.h>
-#include <OMX_QCOMExtns.h>
-#include <utils/RefBase.h>
 #include <linux/msm_ion.h>
-#include <OMX_VideoExt.h>
-#include <OMX_IndexExt.h>
-#include <libstagefrighthw/QComOMXMetadata.h>
-#include <media/hardware/HardwareAPI.h>
+#include <OMX_QCOMExtns.h>
+#include <utils/Mutex.h>
+#include <utils/RefBase.h>
+#include <utils/Vector.h>
 
-#include "qmmf_omx_client.h"
+#include "common/qmmf_common_utils.h"
+#include "qmmf-sdk/qmmf_avcodec_params.h"
+#include "qmmf-sdk/qmmf_avcodec.h"
 #include "qmmf_avcodec_common.h"
 
-
 namespace qmmf {
+namespace avcodec {
 
-using namespace android;
-
-#define INPUT_MAX_COUNT   11
-#define OUTPUT_MAX_COUNT   6
-#define CMD_BUF_MAX_COUNT 10
-
-typedef struct CodecBuffer {
+struct CodecBuffer {
   void*     pointer;
   int32_t   fd;
   size_t    frame_length;
@@ -79,164 +68,85 @@ typedef struct CodecBuffer {
            << "] ";
     return stream.str();
   }
-}CodecBuffer;
-
-typedef struct CodecCmdType {
-  OMX_EVENTTYPE   event_type;
-  OMX_COMMANDTYPE event_cmd;
-  OMX_U32         event_data;
-  OMX_ERRORTYPE   event_result;
-  OMX_U32         event_flags;
-}CodecCmdType;
-
-#define OMX_SPEC_VERSION 0x00000101
-
-template<class T>
-static void InitOMXParams(T *params) {
-  memset(params, 0x0, sizeof(T));
-  params->nSize = sizeof(T);
-  params->nVersion.nVersion = OMX_SPEC_VERSION;
-}
-
-class IInputCodecSource : public RefBase {
- public:
-  virtual ~IInputCodecSource() {}
-
-  // this method provides an input buffer to the AVCodec
-  virtual status_t Read(StreamBuffer& stream_buffer) = 0;
-
-  // this method is used by AVCodec to return buffer after encoding
-  virtual status_t SignalBufferReturned(StreamBuffer& stream_buffer) = 0;
-
-  // this method is used by AVCodec to notify stop
-  virtual status_t NotifyStatus(CodecInputPortStatus status) = 0;
 };
-
-class IOutputCodecSource : public RefBase {
- public:
-  virtual ~IOutputCodecSource() {};
-
-  // this method provides free output port buffer to AVCodec
-  virtual status_t GetBuffer(CodecBuffer& codec_buffer) = 0;
-
-  // this method provides filled output buffer to track
-  virtual status_t ReturnBuffer(CodecBuffer& codec_buffer) = 0;
-};
-
-#define Log2(number, power)                   \
-  { OMX_U32 temp = number; power = 0;         \
-  while( (0 == (temp & 0x1)) &&  power < 16)  \
-  { temp >>=0x1; power++; } }
-
-#define FractionToQ16(q,num,den)     \
-  { OMX_U32 power; Log2(den,power);  \
-  q = num << (16 - power); }
-
-#define OMX_PORT_NAME(port) (port == kPortIndexInput ? "IN_PORT" : "OUT_PORT")
-
-#define OMX_STATE_NAME(state)                            \
-  (state == OMX_StateInvalid ? "OMX_StateInvalid" :      \
-  (state == OMX_StateLoaded ? "OMX_StateLoaded" :        \
-  (state == OMX_StateIdle ? "OMX_StateIdle" :            \
-  (state == OMX_StateExecuting ? "OMX_StateExecuting" :  \
-  (state == OMX_StatePause ? "OMX_StatePause" :          \
-  "Unknown")))))
 
 class OmxClient;
-class AVCodec : public RefBase {
 
-public:
+class AVCodec : public IAVCodec {
+ public:
   AVCodec();
-
   ~AVCodec();
 
-  status_t GetComponentRole(char *role, uint32_t *num_comps, OMX_U8 **comp_names);
-
-  status_t ConfigureCodec(CodecType codec_type, CodecCreateParam& codec_param);
-
+  // methods of IAVCodec
+  status_t GetComponentName(CodecMimeType mime_type, uint32_t *num_comps,
+      ::std::vector<::std::string>& comp_names) override;
+  status_t ConfigureCodec(CodecMimeType codec_type, CodecParam& codec_param,
+                          ::std::string comp_name = "") override;
+  status_t GetBufferRequirements(uint32_t port_type, uint32_t* buf_count,
+                                 uint32_t* buf_size) override;
+  status_t AllocateBuffer(uint32_t port_type, uint32_t buf_count,
+      uint32_t buf_size, const ::std::shared_ptr<ICodecSource>& source,
+      ::std::vector<BufferDescriptor>& buffer_list) override;
+  status_t ReleaseBuffer() override;
   status_t SetParameters(CodecParamType param_type, void *codec_param,
-                         size_t param_size);
+                         size_t param_size) override;
+  status_t StartCodec() override;
+  status_t StopCodec() override;
+  status_t PauseCodec() override;
+  status_t ResumeCodec() override;
+  status_t RegisterOutputBuffers(::std::vector<BufferDescriptor>& list) override;
+  status_t Flush(uint32_t port_type) override;
 
-  status_t GetBufferRequirements(OMX_U32 port_index, uint32_t *buf_count,
-                                 uint32_t *buf_size);
-
-  status_t UseBuffer(OMX_U32 port, void *imp);
-
-  status_t ReleaseBuffer();
-
-  status_t StartCodec();
-
-  status_t StopCodec();
-
-  status_t PauseCodec();
-
-  status_t ResumeCodec();
-
-  status_t Flush(OMX_U32 nPortIndex);
-
-private:
-  // Create OMX Handle
+ private:
+  // create OMX handle
   status_t CreateHandle(char *component_Name);
-
   status_t DeleteHandle();
 
-  status_t ConfigureVideoEncoder(CodecCreateParam& codec_param);
-
-  status_t ConfigureAudioEncoder(CodecCreateParam& codec_param);
-
-  status_t ConfigureAudioDecoder(CodecCreateParam& codec_param);
+  status_t ConfigureVideoEncoder(CodecParam& codec_param);
+  status_t ConfigureAudioEncoder(CodecParam& codec_param);
+  status_t ConfigureAudioDecoder(CodecParam& codec_param);
 
   status_t ConfigureAudioCodec(uint32_t sample_rate, uint32_t channels,
                                uint32_t bit_depth, AudioFormat format_type,
                                AudioCodecParams codec_param);
 
-  status_t SetupAVCEncoderParameters(CodecCreateParam& codec_param);
-
-  status_t SetupHEVCEncoderParameters(CodecCreateParam& codec_param);
-
-  status_t ConfigureBitrate(CodecCreateParam& codec_param);
-
+  status_t SetupAVCEncoderParameters(CodecParam& codec_param);
+  status_t SetupHEVCEncoderParameters(CodecParam& codec_param);
+  status_t ConfigureBitrate(CodecParam& codec_param);
   status_t SetPortParams(OMX_U32 ePortIndex,OMX_U32 nWidth, OMX_U32 nHeight,
                          OMX_U32 nFrameRate);
-
-  status_t GetVideoProfile(CodecCreateParam& codec_param);
-
-  status_t GetVideoLevel(CodecCreateParam& codec_param);
+  status_t GetVideoProfile(CodecParam& codec_param);
+  status_t GetVideoLevel(CodecParam& codec_param);
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
-
   status_t WaitState(OMX_STATETYPE state);
 
   status_t PushEventCommand(OMX_EVENTTYPE event, OMX_COMMANDTYPE command,
                             OMX_U32, OMX_U32 flag);
 
   status_t EmptyThisBuffer(OMX_BUFFERHEADERTYPE *buffer);
-
   status_t FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer);
 
-  OMX_BUFFERHEADERTYPE* GetBufferHdr(StreamBuffer &stream_buffer);
-
-  OMX_BUFFERHEADERTYPE* GetBufferHdr(CodecBuffer &codec_buffer);
+  OMX_BUFFERHEADERTYPE* GetInputBufferHdr(BufferDescriptor& buffer);
+  OMX_BUFFERHEADERTYPE* GetOutputBufferHdr(BufferDescriptor& buffer);
 
   bool IsInputPortStop();
-
   bool IsOutputPortStop();
 
   void StopOutput();
 
   status_t FreeBufferPool();
 
-  IInputCodecSource* getInputBufferSource() {return input_source_;}
+  ::std::shared_ptr<ICodecSource>& getInputBufferSource() {return input_source_;}
+  ::std::shared_ptr<ICodecSource>& getOutputBufferSource() {return output_source_;}
 
-  IOutputCodecSource* getOutputBufferSource() {return output_source_;}
-
-  //DeliverInput thread will pull data to be encoded.
+  // DeliverInput thread will pull data to be encoded
   static void* DeliverInput(void *ptr);
 
-  //DeliverOutput thread will pull bitstream encoded data from Encoder.
+  // DeliverOutput thread will pull bitstream encoded data from Encoder
   static void* DeliverOutput(void *ptr);
 
-  //DeliverEvent will notify event from OMX component.
+  // DeliverEvent will notify event from OMX component
   void DeliverEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
 
   static OMX_ERRORTYPE OnEvent(OMX_IN OMX_HANDLETYPE component,
@@ -256,36 +166,38 @@ private:
 
   void UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* header);
 
-  sp<OmxClient>           omx_client_;
-  AVCodecEventCb          event_cb_;
-  OMX_STATETYPE           state_;
-  OMX_STATETYPE           state_pending_;
-  bool                    input_stop_;
-  bool                    output_stop_;
-  //port_status_ will give whether both port is enable or disable.
-  bool                    port_status_;
-  Mutex                   input_stop_lock_;
-  Mutex                   output_stop_lock_;
-  pthread_t               read_thread_;
-  IInputCodecSource*      input_source_;
-  IOutputCodecSource*     output_source_;
-  OMX_BUFFERHEADERTYPE**  in_buff_hdr_;
-  OMX_BUFFERHEADERTYPE**  out_buff_hdr_;
+  ::android::sp<OmxClient>        omx_client_;
+  OMX_STATETYPE                   state_;
+  OMX_STATETYPE                   state_pending_;
+  bool                            input_stop_;
+  bool                            output_stop_;
+  bool                            port_status_; // for both ports
+  ::android::Mutex                input_stop_lock_;
+  ::android::Mutex                output_stop_lock_;
+  pthread_t                       read_thread_;
+  ::std::shared_ptr<ICodecSource> input_source_;
+  ::std::shared_ptr<ICodecSource> output_source_;
+  OMX_BUFFERHEADERTYPE**          in_buff_hdr_;
+  OMX_BUFFERHEADERTYPE**          out_buff_hdr_;
 
-  TSQueue<OMX_BUFFERHEADERTYPE*> free_input_buffhdr_list_;
-  TSQueue<OMX_BUFFERHEADERTYPE*> used_input_buffhdr_list_;
-  std::mutex                     lock_;
-  std::condition_variable        wait_for_header_;
-  std::mutex                     queue_lock_;
+  TSQueue<OMX_BUFFERHEADERTYPE*>  free_input_buffhdr_list_;
+  TSQueue<OMX_BUFFERHEADERTYPE*>  used_input_buffhdr_list_;
+  ::std::mutex                    lock_;
+  ::std::condition_variable       wait_for_header_;
+  ::std::mutex                    queue_lock_;
 
-  uint32_t                in_buff_hdr_size_;
-  uint32_t                out_buff_hdr_size_;
-  CodecCmdType            cmd_buffer_[CMD_BUF_MAX_COUNT];
-  uint32_t                cmd_buffer_index_;
-  SignalQueue<void *>     signal_queue_;
-  static OMX_CALLBACKTYPE callbacks_;
-  CodecType               format_type_;
-  //to handle the two EOS callbacks from Audio OMX component
-  bool                    isEOSonOutput;
-}; // class AVCodec
-} // namespace qmmf
+  uint32_t                 in_buff_hdr_size_;
+  uint32_t                 out_buff_hdr_size_;
+  CodecCmdType             cmd_buffer_[CMD_BUF_MAX_COUNT];
+  uint32_t                 cmd_buffer_index_;
+  SignalQueue<void *>      signal_queue_;
+  static OMX_CALLBACKTYPE  callbacks_;
+  CodecType                format_type_;
+  // to handle the two EOS callbacks from Audio OMX component
+  bool                     isEOSonOutput;
+  ::std::vector<BufferDescriptor> output_buffer_list_;
+  ::std::vector<OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO> outputpParam_;
+};
+
+}; // namespace avcodec
+}; // namespace qmmf

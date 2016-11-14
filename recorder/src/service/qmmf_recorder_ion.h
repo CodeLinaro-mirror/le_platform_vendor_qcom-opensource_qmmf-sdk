@@ -39,7 +39,6 @@
 #include <linux/msm_ion.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
@@ -55,20 +54,20 @@ class RecorderIon
   int32_t Deallocate();
 
   int32_t GetList(::std::vector<::qmmf::common::audio::AudioBuffer>* buffers);
-  int32_t GetList(::std::queue<CodecBuffer>* buffers);
+  int32_t GetList(::std::queue<BufferDescriptor>* buffers);
 
   int32_t Import(const BnBuffer& bn_buffer,
                  ::qmmf::common::audio::AudioBuffer* audio_buffer);
   int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
                  BnBuffer* bn_buffer);
 
-  int32_t Import(const StreamBuffer& stream_buffer,
+  int32_t Import(const BufferDescriptor& stream_buffer,
                  ::qmmf::common::audio::AudioBuffer* audio_buffer);
   int32_t Export(const ::qmmf::common::audio::AudioBuffer& audio_buffer,
-                 StreamBuffer* stream_buffer);
+                 BufferDescriptor* stream_buffer);
 
-  int32_t Import(const BnBuffer& bn_buffer, CodecBuffer* codec_buffer);
-  int32_t Export(const CodecBuffer& codec_buffer, BnBuffer* bn_buffer);
+  int32_t Import(const BnBuffer& bn_buffer, BufferDescriptor* codec_buffer);
+  int32_t Export(const BufferDescriptor& codec_buffer, BnBuffer* bn_buffer);
 
  private:
   struct RecorderIonBuffer {

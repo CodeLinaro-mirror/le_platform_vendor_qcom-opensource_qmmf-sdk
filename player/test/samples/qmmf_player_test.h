@@ -109,7 +109,7 @@ class PlayerTest {
   G711fileIO*       g711fileIO_;
   AMRfileIO*        amrfileIO_;
 
- std::map<uint32_t, char *>  statemap;
+ std::map<uint32_t, const char*>  statemap;
  const char* PlayerTestEvent[2];
 };
 

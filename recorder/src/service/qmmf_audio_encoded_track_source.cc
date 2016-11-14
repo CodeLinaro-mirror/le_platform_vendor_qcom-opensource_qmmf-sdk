@@ -57,6 +57,7 @@ using ::qmmf::common::audio::AudioEventHandler;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::avcodec::CodecPortStatus;
 using ::std::chrono::seconds;
 using ::std::condition_variable;
 using ::std::cv_status;
@@ -284,7 +285,8 @@ status_t AudioEncodedTrackSource::ReturnTrackBuffer(
   return ::android::INVALID_OPERATION;
 }
 
-status_t AudioEncodedTrackSource::Read(StreamBuffer& buffer) {
+status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
+                                            void* client_data) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
@@ -306,13 +308,14 @@ status_t AudioEncodedTrackSource::Read(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
-  if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+  if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
     return -1;
   else
     return ::android::NO_ERROR;
 }
 
-status_t AudioEncodedTrackSource::SignalBufferReturned(StreamBuffer& buffer) {
+status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
+                                               void* client_data) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
@@ -347,16 +350,16 @@ status_t AudioEncodedTrackSource::SignalBufferReturned(StreamBuffer& buffer) {
   return ::android::NO_ERROR;
 }
 
-status_t AudioEncodedTrackSource::NotifyStatus(CodecInputPortStatus status) {
+status_t AudioEncodedTrackSource::NotifyPortStatus(CodecPortStatus status) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
   switch (status) {
-    case CodecInputPortStatus::kInputPortStop:
+    case CodecPortStatus::kPortStop:
       if (stop_called_)
         stop_notify_received_ = true;
       break;
-    case CodecInputPortStatus::kInputPortIdle:
+    case CodecPortStatus::kPortIdle:
       if (stop_notify_received_) {
         mutex_.lock();
         while (!buffers_.empty())
@@ -409,7 +412,7 @@ void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
 
-  StreamBuffer stream_buffer;
+  BufferDescriptor stream_buffer;
   memset(&stream_buffer, 0x00, sizeof stream_buffer);
   int32_t result = ion_.Export(buffer, &stream_buffer);
   if (result < 0)

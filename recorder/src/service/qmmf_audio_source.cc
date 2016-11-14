@@ -31,6 +31,7 @@
 
 #include "recorder/src/service/qmmf_audio_source.h"
 
+#include <memory>
 #include <map>
 
 #include "common/qmmf_log.h"
@@ -41,7 +42,9 @@
 namespace qmmf {
 namespace recorder {
 
+using ::std::make_shared;
 using ::std::map;
+using ::std::shared_ptr;
 
 AudioSource* AudioSource::instance_ = nullptr;
 
@@ -84,25 +87,43 @@ status_t AudioSource::CreateTrackSource(const uint32_t track_id,
     return ::android::BAD_VALUE;
   }
 
-  IAudioTrackSource* track_source;
-  if (params.params.format == AudioFormat::kPCM)
-    track_source = new AudioRawTrackSource(params);
-  else
-    track_source = new AudioEncodedTrackSource(params);
-  if (track_source == nullptr) {
-    QMMF_ERROR("%s: %s() could not instantiate track_source[%u]", TAG,
-               __func__, track_id);
-    return ::android::NO_MEMORY;
-  }
+  if (params.params.format == AudioFormat::kPCM) {
+    shared_ptr<AudioRawTrackSource> track_source =
+        make_shared<AudioRawTrackSource>(params);
+    if (track_source == nullptr) {
+      QMMF_ERROR("%s: %s() could not instantiate track_source[%u]", TAG,
+                 __func__, track_id);
+      return ::android::NO_MEMORY;
+    }
 
-  status_t result = track_source->Init();
-  if (result != ::android::NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_source[%u]->Init failed: %d", TAG, __func__,
-               track_id, result);
-    return result;
-  }
+    status_t result = track_source->Init();
+    if (result != ::android::NO_ERROR) {
+      QMMF_ERROR("%s: %s() track_source[%u]->Init failed: %d", TAG, __func__,
+                 track_id, result);
+      return result;
+    }
 
-  track_source_map_.insert({track_id, track_source});
+    track_source_map_.insert({track_id,
+                             shared_ptr<IAudioTrackSource>(track_source)});
+  } else {
+    shared_ptr<AudioEncodedTrackSource> track_source =
+        make_shared<AudioEncodedTrackSource>(params);
+    if (track_source == nullptr) {
+      QMMF_ERROR("%s: %s() could not instantiate track_source[%u]", TAG,
+                 __func__, track_id);
+      return ::android::NO_MEMORY;
+    }
+
+    status_t result = track_source->Init();
+    if (result != ::android::NO_ERROR) {
+      QMMF_ERROR("%s: %s() track_source[%u]->Init failed: %d", TAG, __func__,
+                 track_id, result);
+      return result;
+    }
+
+    track_source_map_.insert({track_id,
+                             shared_ptr<IAudioTrackSource>(track_source)});
+  }
 
   return ::android::NO_ERROR;
 }
@@ -126,7 +147,6 @@ status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
     return result;
   }
 
-  delete track_source_iterator->second;
   track_source_iterator->second = nullptr;
   track_source_map_.erase(track_source_iterator->first);
 
@@ -247,22 +267,22 @@ status_t AudioSource::ReturnTrackBuffer(const uint32_t track_id,
   return ::android::NO_ERROR;
 }
 
-AudioEncodedTrackSource* AudioSource::getTrackSource(uint32_t track_id) {
+status_t AudioSource::getTrackSource(const uint32_t track_id,
+    shared_ptr<IAudioTrackSource>* track_source) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
-  AudioEncodedTrackSource* track_source;
 
   AudioTrackSourceMap::iterator track_source_iterator =
       track_source_map_.find(track_id);
   if (track_source_iterator == track_source_map_.end()) {
     QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
                track_id);
-    track_source = nullptr;
+    track_source = NULL;
+    return ::android::BAD_VALUE;
   }
 
-  track_source = dynamic_cast<AudioEncodedTrackSource*>
-                             (track_source_iterator->second);
-  return track_source;
+  *track_source = track_source_iterator->second;
+  return ::android::NO_ERROR;
 }
 
 }; // namespace recorder

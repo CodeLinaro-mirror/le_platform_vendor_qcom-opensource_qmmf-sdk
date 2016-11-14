@@ -30,6 +30,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -54,10 +55,12 @@ class AudioSource {
   status_t ReturnTrackBuffer(const uint32_t track_id,
                              const std::vector<BnBuffer>& buffers);
 
-  AudioEncodedTrackSource* getTrackSource(uint32_t track_id);
+  status_t getTrackSource(const uint32_t track_id,
+                          ::std::shared_ptr<IAudioTrackSource>* track_source);
 
  private:
-  typedef ::std::map<uint32_t, IAudioTrackSource*> AudioTrackSourceMap;
+  typedef ::std::map<uint32_t, ::std::shared_ptr<IAudioTrackSource>>
+          AudioTrackSourceMap;
 
   AudioSource();
   static AudioSource* instance_;

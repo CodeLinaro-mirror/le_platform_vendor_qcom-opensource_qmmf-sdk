@@ -21,6 +21,7 @@ libqmmf_recorder_service_la_CPPFLAGS := -I$(top_srcdir)/include
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_recorder_service_la_CPPFLAGS += -I$(LIBGRALLOC)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -DHAVE_PTHREADS
 libqmmf_recorder_service_la_CPPFLAGS += -DLINUX_ENABLED=1
 libqmmf_recorder_service_la_CPPFLAGS += -std=c++11

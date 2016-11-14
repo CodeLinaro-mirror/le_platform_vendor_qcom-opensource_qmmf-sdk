@@ -88,7 +88,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
 struct BnBuffer {
   uint32_t  ion_fd;
   uint32_t  size;
-  int64_t   timestamp;
+  uint64_t  timestamp;
   uint32_t  width;
   uint32_t  height;
   uint32_t  buffer_id;

@@ -31,10 +31,17 @@
 
 #include "player/src/service/qmmf_player_video_sink.h"
 
+#include <memory>
 
 namespace qmmf {
 namespace player {
 
+using ::qmmf::avcodec::AVCodec;
+using ::qmmf::avcodec::CodecBuffer;
+using ::qmmf::avcodec::CodecParam;
+using ::qmmf::avcodec::CodecPortStatus;
+using ::std::make_shared;
+using ::std::shared_ptr;
 
 VideoSink* VideoSink::instance_ = nullptr;
 
@@ -73,19 +80,19 @@ VideoSink::~VideoSink()
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
-status_t VideoSink::CreateTrackSink(uint32_t track_id, VideotrackParams& param)
+status_t VideoSink::CreateTrackSink(uint32_t track_id, VideoTrackParams& param)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<VideoTrackSink> track_sink;
+  shared_ptr<VideoTrackSink> track_sink;
 
   if (param.params.out_device == VideoOutSubtype::kLCD)
-    track_sink = new VideoTrackSink();
+    track_sink = make_shared<VideoTrackSink>();
 
   video_track_sinks.add(track_id,track_sink);
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
-const sp<VideoTrackSink>& VideoSink::GetTrackSink(uint32_t track_id)
+const shared_ptr<VideoTrackSink>& VideoSink::GetTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   int32_t idx = video_track_sinks.indexOfKey(track_id);
@@ -97,7 +104,7 @@ const sp<VideoTrackSink>& VideoSink::GetTrackSink(uint32_t track_id)
 status_t VideoSink::StartTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->StartSink();
@@ -117,7 +124,7 @@ status_t VideoSink::StartTrackSink(uint32_t track_id)
 status_t VideoSink::StopTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->StopSink();
@@ -137,7 +144,7 @@ status_t VideoSink::StopTrackSink(uint32_t track_id)
 status_t VideoSink::DeleteTrackSink(uint32_t track_id)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  sp<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
   auto ret = track_sink->DeleteSink();
@@ -229,7 +236,8 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 
-status_t VideoTrackSink::GetBuffer(CodecBuffer& codec_buffer)
+status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
+                                   void* client_data)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   // Give available free buffer to decoder to use on output port.
@@ -243,28 +251,29 @@ status_t VideoTrackSink::GetBuffer(CodecBuffer& codec_buffer)
 
   CodecBuffer iter = *output_free_buffer_queue_.Begin();
   codec_buffer.fd = (iter).fd;
-  codec_buffer.pointer = (iter).pointer;
+  codec_buffer.data = (iter).pointer;
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
   QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
-      __func__, TrackId(), codec_buffer.pointer, codec_buffer.fd);
+      __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
-status_t VideoTrackSink::ReturnBuffer(CodecBuffer& codec_buffer)
+status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
+                                      void* client_data)
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   status_t ret = 0;
 
-  assert(codec_buffer.pointer != NULL);
+  assert(codec_buffer.data != NULL);
 
   QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%x) from FBD", TAG,
-     __func__, TrackId(), codec_buffer.pointer);
+     __func__, TrackId(), codec_buffer.data);
 
 #ifdef DUMP_YUV_FRAMES
   DumpYUVData(codec_buffer);
@@ -274,8 +283,8 @@ status_t VideoTrackSink::ReturnBuffer(CodecBuffer& codec_buffer)
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
-       __func__, TrackId(), (*it).pointer,  codec_buffer.pointer);
-   if (((*it).pointer) == (codec_buffer.pointer)) {
+       __func__, TrackId(), (*it).pointer,  codec_buffer.data);
+   if (((*it).pointer) == (codec_buffer.data)) {
      QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
      output_free_buffer_queue_.PushBack(*it);
      output_occupy_buffer_queue_.Erase(it);
@@ -290,20 +299,28 @@ status_t VideoTrackSink::ReturnBuffer(CodecBuffer& codec_buffer)
   return ret;
 }
 
+status_t VideoTrackSink::NotifyPortStatus(CodecPortStatus status)
+{
+  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+
+  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
 #ifdef DUMP_YUV_FRAMES
-void VideoTrackSink::DumpYUVData(CodecBuffer& codec_buffer) {
+void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   /*if(eos_atoutput_) {
     return;
   }*/
 
   if (file_fd_ > 0) {
-    ssize_t exp_size = (ssize_t) codec_buffer.filled_length;
+    ssize_t exp_size = (ssize_t) codec_buffer.size;
     QMMF_INFO("%s:%s Got decoded buffer of size(%d)", TAG, __func__,
-        codec_buffer.filled_length);
+        codec_buffer.size);
 
-    if (exp_size != write(file_fd_, (uint8_t*)codec_buffer.pointer + codec_buffer.offset_to_frame,
-       codec_buffer.filled_length)) {
+    if (exp_size != write(file_fd_, (uint8_t*)codec_buffer.data + codec_buffer.offset,
+       codec_buffer.size)) {
 
       QMMF_INFO("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
           strerror(errno));

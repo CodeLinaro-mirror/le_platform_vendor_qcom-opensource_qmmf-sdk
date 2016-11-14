@@ -31,6 +31,7 @@
 
 #include <condition_variable>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 
@@ -42,12 +43,13 @@
 namespace qmmf {
 namespace recorder {
 
-class AudioTrackEncoder : public IOutputCodecSource {
+class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
  public:
   AudioTrackEncoder();
   virtual ~AudioTrackEncoder();
 
-  status_t Init(AudioEncodedTrackSource& track_source,
+  status_t Init(const ::std::shared_ptr<IAudioTrackSource>& track_source,
+                const ::std::shared_ptr<AudioTrackEncoder>& track_encoder,
                 const AudioTrackParams& params);
 
   status_t Start();
@@ -59,19 +61,21 @@ class AudioTrackEncoder : public IOutputCodecSource {
                     uint32_t param_size);
 
   // methods of IOutputCodecSource
-  status_t GetBuffer(CodecBuffer& codec_buffer) override;
-  status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
 
   // handle returned buffers from client
   status_t OnBufferReturnFromClient(const std::vector<BnBuffer> &buffers);
 
  private:
-  void EventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
-
-  AudioEncodedTrackSource* track_source_;
+  ::std::shared_ptr<AudioEncodedTrackSource> track_source_;
+  ::std::shared_ptr<AudioTrackEncoder> track_encoder_;
   AudioTrackParams track_params_;
-  AVCodec* avcodec_;
-  ::std::queue<CodecBuffer> buffers_;
+  ::qmmf::avcodec::AVCodec* avcodec_;
+  ::std::queue<BufferDescriptor> buffers_;
   RecorderIon ion_;
 
   ::std::mutex mutex_;
@@ -84,7 +88,7 @@ class AudioEncoderCore {
 
   virtual ~AudioEncoderCore();
 
-  status_t AddSource(AudioEncodedTrackSource& track_source,
+  status_t AddSource(const ::std::shared_ptr<IAudioTrackSource>& track_source,
                      const AudioTrackParams& params);
   status_t DeleteTrackEncoder(const uint32_t track_id);
 
@@ -101,7 +105,8 @@ class AudioEncoderCore {
                              const std::vector<BnBuffer>& buffers);
 
  private:
-  typedef ::std::map<uint32_t, AudioTrackEncoder*> AudioTrackEncoderMap;
+  typedef ::std::map<uint32_t, ::std::shared_ptr<AudioTrackEncoder>>
+          AudioTrackEncoderMap;
 
   AudioEncoderCore();
   static AudioEncoderCore* instance_;

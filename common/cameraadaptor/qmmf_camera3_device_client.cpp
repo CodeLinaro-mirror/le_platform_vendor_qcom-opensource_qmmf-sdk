@@ -378,11 +378,8 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   } else {
     config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
   }
-  config.num_streams = streams_.size();
 
   Vector<camera3_stream_t *> streams;
-  streams.setCapacity(config.num_streams);
-
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
     outputStream = streams_.editValueAt(i)->BeginConfigure();
@@ -394,10 +391,12 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   }
 
   if (0 <= input_stream_.stream_id) {
+    input_stream_.usage = 0; //Reset any previously set usage flags from Hal
     streams.add(&input_stream_);
   }
 
   config.streams = streams.editArray();
+  config.num_streams = streams.size();
 
   res = device_->ops->configure_streams(device_, &config);
 
@@ -566,6 +565,15 @@ int32_t Camera3DeviceClient::CreateInputStream(
 
   reconfig_ = true;
 
+  memset(&input_stream_, 0, sizeof(input_stream_));
+  input_stream_.width = inputConfiguration.width;
+  input_stream_.height = inputConfiguration.height;
+  input_stream_.format = inputConfiguration.format;
+  input_stream_.get_input_buffer = inputConfiguration.get_input_buffer;
+  input_stream_.return_input_buffer = inputConfiguration.return_input_buffer;
+  input_stream_.stream_id = next_stream_id_++;
+  input_stream_.stream_type = CAMERA3_STREAM_INPUT;
+
   // Continue captures if active at start
   if (wasActive) {
     res = ConfigureStreamsLocked();
@@ -577,13 +585,6 @@ int32_t Camera3DeviceClient::CreateInputStream(
     InternalResumeLocked();
   }
 
-  memset(&input_stream_, 0, sizeof(input_stream_));
-  input_stream_.width = inputConfiguration.width;
-  input_stream_.height = inputConfiguration.height;
-  input_stream_.format = inputConfiguration.format;
-  input_stream_.get_input_buffer = inputConfiguration.get_input_buffer;
-  input_stream_.return_input_buffer = inputConfiguration.return_input_buffer;
-  input_stream_.stream_id = next_stream_id_++;
   res = input_stream_.stream_id;
 
 exit:

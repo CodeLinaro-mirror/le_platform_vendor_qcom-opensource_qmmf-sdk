@@ -29,22 +29,24 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <fcntl.h>
 #include <dirent.h>
 #include <functional>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <utils/Log.h>
 #include <gtest/gtest.h>
 #include <linux/msm_ion.h>
 #include <media/msm_media_info.h>
 
+#include "common/qmmf_common_utils.h"
+#include "qmmf-sdk/qmmf_avcodec.h"
 
-#include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/qmmf_log.h"
-
+using namespace android;
 using namespace qmmf;
+using namespace qmmf::avcodec;
+using namespace std;
 
 #define MAX_FILE_NAME 80
 typedef  struct ion_allocation_data IonHandleData;
@@ -70,70 +72,74 @@ class CodecGtest : public ::testing::Test {
 
   status_t DeleteCodec();
 
-  status_t AllocateBuffer(OMX_U32 port);
+  status_t AllocateBuffer(uint32_t port);
 
   status_t ReleaseBuffer();
 
-  void CodecEventCallback(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
-
-  AVCodec*                  avcodec_;
-  int32_t                   ion_device_;
-  Mutex                     stop_lock_;
-  bool                      stop_;
-  Vector<StreamBuffer>      input_buffer_list_;
-  Vector<CodecBuffer>       output_buffer_list_;
-  Vector<IonHandleData>     ion_handle_data;
-  sp<InputCodecSourceImpl>  input_source_impl_;
-  sp<OutputCodecSourceImpl> output_source_impl_;
+  IAVCodec*                         avcodec_;
+  int32_t                           ion_device_;
+  Mutex                             stop_lock_;
+  bool                              stop_;
+  vector<BufferDescriptor>          input_buffer_list_;
+  vector<BufferDescriptor>          output_buffer_list_;
+  vector<IonHandleData>             input_ion_handle_data;
+  vector<IonHandleData>             output_ion_handle_data;
+  shared_ptr<InputCodecSourceImpl>  input_source_impl_;
+  shared_ptr<OutputCodecSourceImpl> output_source_impl_;
 };
 
-class InputCodecSourceImpl : public IInputCodecSource {
+class InputCodecSourceImpl : public ICodecSource {
 
 public:
   InputCodecSourceImpl();
 
   ~InputCodecSourceImpl();
 
-  status_t Read(StreamBuffer& stream_buffer) override;
+  status_t GetBuffer(BufferDescriptor& stream_buffer,
+                     void* client_data) override;
 
-  status_t SignalBufferReturned(StreamBuffer& stream_buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& stream_buffer,
+                        void* client_data) override;
 
-  status_t NotifyStatus(CodecInputPortStatus status) override;
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   void BufferStatus();
 
-  void AddBufferList(Vector<StreamBuffer>& list);
+  void AddBufferList(vector<BufferDescriptor>& list);
 
 private:
   status_t   ReadFile(int32_t fd, uint32_t size, int32_t *byte_read);
 
-  Mutex                 wait_for_frame_lock_;
-  Condition             wait_for_frame_;
-  Vector<StreamBuffer>  input_list_;
-  TSQueue<StreamBuffer> input_free_buffer_queue_;
-  TSQueue<StreamBuffer> input_occupy_buffer_queue_;
+  Mutex                     wait_for_frame_lock_;
+  Condition                 wait_for_frame_;
+  vector<BufferDescriptor>  input_list_;
+  TSQueue<BufferDescriptor> input_free_buffer_queue_;
+  TSQueue<BufferDescriptor> input_occupy_buffer_queue_;
 };
 
-class OutputCodecSourceImpl : public IOutputCodecSource {
+class OutputCodecSourceImpl : public ICodecSource {
 
 public:
   OutputCodecSourceImpl();
 
   ~OutputCodecSourceImpl();
 
-  status_t GetBuffer(CodecBuffer& codec_buffer) override;
+  status_t GetBuffer(BufferDescriptor& codec_buffer,
+                     void* client_data) override;
 
-  status_t ReturnBuffer(CodecBuffer& codec_buffer) override;
+  status_t ReturnBuffer(BufferDescriptor& codec_buffer,
+                        void* client_data) override;
+
+  status_t NotifyPortStatus(CodecPortStatus status) override;
 
   void BufferStatus();
 
-  void AddBufferList(Vector<CodecBuffer>& list);
+  void AddBufferList(vector<BufferDescriptor>& list);
 
 private:
-  Mutex                wait_for_frame_lock_;
-  Condition            wait_for_frame_;
-  Vector<CodecBuffer>  output_list_;
-  TSQueue<CodecBuffer> output_free_buffer_queue_;
-  TSQueue<CodecBuffer> output_occupy_buffer_queue_;
+  Mutex                     wait_for_frame_lock_;
+  Condition                 wait_for_frame_;
+  vector<BufferDescriptor>  output_list_;
+  TSQueue<BufferDescriptor> output_free_buffer_queue_;
+  TSQueue<BufferDescriptor> output_occupy_buffer_queue_;
 };
-

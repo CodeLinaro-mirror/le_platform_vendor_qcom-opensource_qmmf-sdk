@@ -24,6 +24,7 @@ bin_PROGRAMS := camera_adaptor_gtest
 
 camera_adaptor_gtest_SOURCES  := gtest/qmmf_camera_adaptor_gtest.cpp
 camera_adaptor_gtest_CPPFLAGS := $(libcamera_adaptor_la_CPPFLAGS) -I$(top_srcdir) -I$(LIBGRALLOC)
+camera_adaptor_gtest_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 camera_adaptor_gtest_LDADD    := libcamera_adaptor.la -lgtest -lgtest_main
 camera_adaptor_gtest_LDFLAGS  := $(libcamera_adaptor_la_LDFLAGS)
 
