@@ -2086,6 +2086,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
       video_track_param.codec_param.avc.ltr_count = 4;
+      video_track_param.codec_param.avc.insert_aud_delimiter = true;
       break;
       case TrackType::kVideoHEVC:
       video_track_param.format_type = VideoFormat::kHEVC;

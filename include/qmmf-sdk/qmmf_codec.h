@@ -210,6 +210,7 @@ struct AVCParams {
   uint32_t             ltr_count;
   uint32_t             hier_layer;
   bool                 prepend_sps_pps_to_idr;
+  bool                 insert_aud_delimiter;
 
   ::std::string ToString() const {
     ::std::stringstream stream;

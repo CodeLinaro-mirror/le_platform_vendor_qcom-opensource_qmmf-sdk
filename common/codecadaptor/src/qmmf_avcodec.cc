@@ -453,19 +453,35 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   uint32_t ltr_count, hier_num_layer;
   VideoRateControlType rate_control;
 
-  //Prepend SPS/PPS to IDR frames
   PrependSPSPPSToIDRFramesParams param;
   memset(&param, 0, sizeof(PrependSPSPPSToIDRFramesParams));
   param.nSize = sizeof(PrependSPSPPSToIDRFramesParams);
   param.bEnable = OMX_FALSE;
-  switch(codec_param.video_param.format_type) {
+  switch(codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
-      if (codec_param.video_param.codec_param.avc.prepend_sps_pps_to_idr) {
+      if (codec_param.video_enc_param.codec_param.avc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
       }
+
+      OMX_QCOM_VIDEO_CONFIG_H264_AUD param_aud;
+      memset(&param_aud, 0, sizeof(OMX_QCOM_VIDEO_CONFIG_H264_AUD));
+      param_aud.nSize = sizeof(OMX_QCOM_VIDEO_CONFIG_H264_AUD);
+      param_aud.bEnable = OMX_FALSE;
+      if (codec_param.video_enc_param.codec_param.avc.insert_aud_delimiter) {
+        param_aud.bEnable = OMX_TRUE;
+      }
+      ret = omx_client_->SetParameter(
+                (OMX_INDEXTYPE)OMX_QcomIndexParamH264AUDelimiter,
+                (OMX_PTR)&param_aud);
+      if (ret != OK) {
+          QMMF_ERROR("%s:%s Failed to configure AUD delimiter",
+                     TAG, __func__);
+          return ret;
+      }
+
       break;
     case VideoFormat::kHEVC:
-      if (codec_param.video_param.codec_param.hevc.prepend_sps_pps_to_idr) {
+      if (codec_param.video_enc_param.codec_param.hevc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
       }
       break;
