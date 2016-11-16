@@ -168,29 +168,9 @@ CameraService functionality dealing with CameraHal 3.x reworked for Linux embedd
 #Commonly used structures and types
  These structures and types can be found within "qmmf_camera3_types.h"
  ```c++
-typedef struct {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-} PlaneInfo;
-
-enum class BufferFormat {
-  kNV12,
-  kNV21,
-  kBLOB,
-  kRAW10,
-  kRAW16
-};
 
 typedef struct {
-  BufferFormat format;
-  uint32_t num_planes;
-  PlaneInfo plane_info[MAX_PLANE];
-} MetaInfo;
-
-typedef struct {
-  MetaInfo info;
+  CameraBufferMetaData info;
   int64_t timestamp;
   int64_t frame_number;
   android_dataspace data_space;

@@ -491,10 +491,8 @@ status_t RecorderTest::TakeSnapshot() {
 
     if (input != 0) {
       ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
-                               BufferDescriptor buffer, void *meta_param,
-                               MetaParamType meta_type, uint32_t meta_size)
-          { SnapshotCb(camera_id_, image_count, buffer,  meta_param, meta_type,
-                       meta_size); };
+                               BufferDescriptor buffer, MetaData meta_data)
+          { SnapshotCb(camera_id_, image_count, buffer, meta_data); };
 
       assert(ret == NO_ERROR);
 
@@ -1598,50 +1596,51 @@ status_t RecorderTest::DeleteSession() {
 
 void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
-                              BufferDescriptor buffer, void *meta_param,
-                              MetaParamType meta_type,uint32_t meta_size) {
+                              BufferDescriptor buffer, MetaData meta_data) {
 
   TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
   static uint32_t snapshot_count = 0;
+  const char* ext_str;
 
-  MetaInfo* meta_data;
-  if (meta_type == MetaParamType::kCamBufMetaData) {
-    meta_data = static_cast<MetaInfo*>(meta_param);
-    TEST_DBG("%s:%s: format(0x%x)", TAG, __func__, meta_data->format);
-    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
-    for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
+  if (meta_data.meta_flag  &
+      static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+    CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
+    TEST_DBG("%s:%s: format(0x%x)", TAG, __func__, cam_buf_meta.format);
+    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, cam_buf_meta.num_planes);
+    for (uint8_t i = 0; i < cam_buf_meta.num_planes; ++i) {
       TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].stride);
+          cam_buf_meta.plane_info[i].stride);
       TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].scanline);
+          cam_buf_meta.plane_info[i].scanline);
       TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].width);
+          cam_buf_meta.plane_info[i].width);
       TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
-          meta_data->plane_info[i].height);
+          cam_buf_meta.plane_info[i].height);
+    }
+
+    switch (cam_buf_meta.format) {
+      case BufferFormat::kNV12:
+      ext_str = "nv12";
+      break;
+      case BufferFormat::kNV21:
+      ext_str = "nv21";
+      break;
+      case BufferFormat::kBLOB:
+      ext_str = "jpg";
+      break;
+      case BufferFormat::kRAW10:
+      ext_str = "raw10";
+      break;
+      case BufferFormat::kRAW16:
+      ext_str = "raw16";
+      break;
+      default:
+      break;
     }
   }
-  const char* ext_str;
-  switch (meta_data->format) {
-    case BufferFormat::kNV12:
-    ext_str = "nv12";
-    break;
-    case BufferFormat::kNV21:
-    ext_str = "nv21";
-    break;
-    case BufferFormat::kBLOB:
-    ext_str = "jpg";
-    break;
-    case BufferFormat::kRAW10:
-    ext_str = "raw10";
-    break;
-    case BufferFormat::kRAW16:
-    ext_str = "raw16";
-    break;
-    default:
-    break;
-  }
+
   file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
   FILE *file = fopen(file_path.string(), "w+");
   if (!file) {
@@ -1921,8 +1920,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   return ret;
 }
 
-int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams, std::vector<TrackInfo>* infos)
-{
+int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
+                                  std::vector<TrackInfo>* infos) {
   FILE *fp;
   TrackInfo track_info;
   memset(&track_info, 0x0, sizeof(track_info));
@@ -2150,9 +2149,8 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers, void *meta_param,
-        MetaParamType meta_type, size_t meta_size) { TrackDataCB(track_id,
-        buffers, meta_param, meta_type, meta_size); };
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData>
+        meta_buffers) { TrackDataCB(track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t data_size) { TrackEventCB(track_id,
@@ -2202,9 +2200,9 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     TrackCb audio_track_cb;
     audio_track_cb.data_cb =
         [this] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
-                void* meta_param, MetaParamType meta_type, size_t meta_size)
+                std::vector<MetaData> meta_buffers)
                 -> void {
-          TrackDataCB(track_id, buffers, meta_param, meta_type, meta_size);
+          TrackDataCB(track_id, buffers, meta_buffers);
         };
 
     audio_track_cb.event_cb =
@@ -2446,8 +2444,7 @@ void TestTrack::TrackEventCB(uint32_t track_id, EventType event_type,
 }
 
 void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
-                            buffers, void *meta_param, MetaParamType meta_type,
-                            size_t meta_size) {
+                            buffers, std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter track_id(%dd)", TAG, __func__, track_id);
   assert (recorder_ != nullptr);
@@ -2479,31 +2476,40 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
     break;
     case TrackType::kVideoYUV:
     case TrackType::kVideoRDI:
-      MetaInfo* meta_data;
-      if (meta_type == MetaParamType::kCamBufMetaData) {
-        meta_data = static_cast<MetaInfo*>(meta_param);
-        TEST_DBG("%s:%s: format=%d", TAG, __func__, meta_data->format);
-        TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, meta_data->num_planes);
-        for (uint8_t i = 0; i < meta_data->num_planes; ++i) {
-          TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
-              meta_data->plane_info[i].stride);
-          TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
-              meta_data->plane_info[i].scanline);
-          TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
-              meta_data->plane_info[i].width);
-          TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
-              meta_data->plane_info[i].height);
+      for (uint32_t i = 0; i < meta_buffers.size(); ++i) {
+        MetaData meta_data = meta_buffers[i];
+        if (meta_data.meta_flag &
+            static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+          CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
+          TEST_DBG("%s:%s: format=%d", TAG, __func__, cam_buf_meta.format);
+          TEST_DBG("%s:%s: num_planes=%d", TAG, __func__,
+              cam_buf_meta.num_planes);
+          for (uint8_t i = 0; i < cam_buf_meta.num_planes; ++i) {
+            TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
+                cam_buf_meta.plane_info[i].stride);
+            TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
+                cam_buf_meta.plane_info[i].scanline);
+            TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
+                cam_buf_meta.plane_info[i].width);
+            TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
+                cam_buf_meta.plane_info[i].height);
+          }
+          #ifdef DUMP_YUV_FRAMES
+          DumpYUVFrame(buffers[i], cam_buf_meta);
+          #endif
         }
       }
-      #ifdef DUMP_YUV_FRAMES
-      // Dump YUV frames.
-      for (const BufferDescriptor& buffer : buffers) {
-        DumpYUVFrame(meta_data, buffer);
-      }
-      #endif
     break;
     case TrackType::kVideoAVC:
     case TrackType::kVideoHEVC:
+      for (uint32_t i = 0; i < meta_buffers.size(); ++i) {
+        MetaData meta_data = meta_buffers[i];
+        if (meta_data.meta_flag &
+            static_cast<uint32_t>(MetaParamType::kVideoFrameType)) {
+          VideoFrameTypeInfo frame_type = meta_data.video_frame_type_info;
+          TEST_DBG("%s:%s: frame_type=%d", TAG, __func__, frame_type);
+        }
+      }
       #ifdef DUMP_BITSTREAM
       // Dump AVC/HEVC bitstream data
       DumpBitStream(buffers);
@@ -2551,7 +2557,8 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
 #endif
 
 #ifdef DUMP_YUV_FRAMES
-status_t TestTrack::DumpYUVFrame(MetaInfo* meta_data, BufferDescriptor buffer) {
+status_t TestTrack::DumpYUVFrame(BufferDescriptor& buffer,
+                                 CameraBufferMetaData& meta_data) {
 
   // Dump every 200th Frame.
   ++num_yuv_frames_;
@@ -2560,8 +2567,8 @@ status_t TestTrack::DumpYUVFrame(MetaInfo* meta_data, BufferDescriptor buffer) {
     size_t written_len;
     const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ? "raw" : "yuv";
     file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
-        track_info_.track_id, meta_data->plane_info[0].width,
-        meta_data->plane_info[0].height, buffer.timestamp, ext);
+        track_info_.track_id, meta_data.plane_info[0].width,
+        meta_data.plane_info[0].height, buffer.timestamp, ext);
 
     FILE *file = fopen(file_path.string(), "w+");
     if (!file) {

@@ -177,14 +177,14 @@ class RecorderTest {
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
 
-  /* Config file related */
+  // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
-  int32_t ParseConfig(char *fileName, TestInitParams* initParams, std::vector<TrackInfo>* infos);
+  int32_t ParseConfig(char *fileName, TestInitParams* initParams,
+                      std::vector<TrackInfo>* infos);
 
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
-                  BufferDescriptor buffer, void *meta_param,
-                  MetaParamType meta_type, uint32_t meta_size);
+                  BufferDescriptor buffer, MetaData meta_data);
 
   void RecorderCallbackHandler(EventType event_type, void *event_data,
                                size_t event_data_size);
@@ -250,9 +250,10 @@ class TestTrack {
                     size_t event_data_size);
 
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
-                   void *meta_param, MetaParamType meta_type, size_t meta_size);
+                   std::vector<MetaData> meta_buffers);
 
-  status_t DumpYUVFrame(MetaInfo* meta_data, BufferDescriptor buffer);
+  status_t DumpYUVFrame(BufferDescriptor& buffer,
+                        CameraBufferMetaData& meta_data);
 
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
 

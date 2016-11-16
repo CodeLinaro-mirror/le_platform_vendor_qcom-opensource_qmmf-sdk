@@ -416,8 +416,15 @@ void AudioRawTrackSource::Thread() {
 
       BnBuffer bn_buffer;
       ion_.Export(buffer, &bn_buffer);
-      track_params_.data_cb(track_params_.track_id, {bn_buffer}, nullptr,
-                            MetaParamType::kNone, 0);
+      std::vector<BnBuffer> bn_buffers;
+      bn_buffers.push_back(bn_buffer);
+
+      MetaData meta_data;
+      memset(&meta_data, 0x0, sizeof meta_data);
+      meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kNone);
+      std::vector<MetaData> meta_buffers;
+      meta_buffers.push_back(meta_data);
+      track_params_.data_cb(track_params_.track_id, bn_buffers, meta_buffers);
 
       if (stop_received &&
           buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))

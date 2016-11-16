@@ -383,7 +383,7 @@ enum class BufferFormat {
   kRAW16
 };
 
-struct MetaInfo {
+struct CameraBufferMetaData {
   BufferFormat format;
   uint32_t  num_planes;
   PlaneInfo plane_info[MAX_PLANE];

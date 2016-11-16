@@ -84,7 +84,7 @@ class Camera3Stream : public camera3_stream {
 
   int32_t EndPrepareLocked();
 
-  int32_t PopulateMetaInfo(MetaInfo &info,
+  int32_t PopulateMetaInfo(CameraBufferMetaData &info,
                            struct private_handle_t *priv_handle,
                            alloc_device_t *gralloc_device);
 

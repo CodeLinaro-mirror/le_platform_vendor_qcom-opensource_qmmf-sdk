@@ -540,9 +540,16 @@ status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
                strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
+  std::vector<BnBuffer> bn_buffers;
+  bn_buffers.push_back(bn_buffer);
 
-  track_params_.data_cb(track_params_.track_id, {bn_buffer}, nullptr,
-                        MetaParamType::kNone, 0);
+  MetaData meta_data;
+  memset(&meta_data, 0x0, sizeof meta_data);
+  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kNone);
+  std::vector<MetaData> meta_buffers;
+  meta_buffers.push_back(meta_data);
+
+  track_params_.data_cb(track_params_.track_id, bn_buffers, meta_buffers);
 
   return ::android::NO_ERROR;
 }

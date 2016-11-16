@@ -1484,10 +1484,14 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
   snapshot_buffer_stream_list_.add(buffer.fd, stream_id);
 
   assert(client_snapshot_cb_ != nullptr);
-  client_snapshot_cb_(camera_id_, sequence_cnt_, bn_buffer,
-                      static_cast<void*>(&buffer.info)
-                      , MetaParamType::kCamBufMetaData, sizeof (MetaInfo));
+
+  MetaData meta_data;
+  memset(&meta_data, 0x0, sizeof meta_data);
+  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
+  meta_data.cam_buffer_meta_data = buffer.info;
+  client_snapshot_cb_(camera_id_, 1, bn_buffer, meta_data);
   burst_cnt_++;
+
   QMMF_VERBOSE("%s:%s Exit ", TAG, __func__);
 }
 

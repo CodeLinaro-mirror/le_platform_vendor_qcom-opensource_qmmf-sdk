@@ -151,14 +151,11 @@ class RecorderClient {
                           size_t event_data_size);
 
   void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
-                          BnBuffer& buffer, void *meta_param,
-                          MetaParamType meta_type, uint32_t meta_size);
+                          BnBuffer& buffer, MetaData& meta_data);
 
   void NotifyVideoTrackData(uint32_t track_id,
-                            std::vector<BnBuffer> &bn_buffers,
-                            void *meta_param,
-                            MetaParamType meta_type,
-                            size_t meta_size);
+                            std::vector<BnBuffer>& bn_buffers,
+                            std::vector<MetaData>& meta_buffers);
 
   void NotifyVideoTrackEvent(uint32_t track_id,
                              EventType event_type,
@@ -166,10 +163,8 @@ class RecorderClient {
                              size_t event_data_size);
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnBuffer> &buffers,
-                            void *meta_param,
-                            MetaParamType meta_type,
-                            size_t meta_size);
+                            const std::vector<BnBuffer>& buffers,
+                            const std::vector<MetaData>& meta_buffers);
 
   void NotifyAudioTrackEvent(uint32_t track_id,
                              EventType event_type,
@@ -257,25 +252,19 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
                           size_t event_data_size) override;
 
   void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
-                          BnBuffer& buffer, void *meta_param,
-                          MetaParamType meta_type,
-                          uint32_t meta_size) override;
+                          BnBuffer& buffer, MetaData& meta_data) override;
 
   void NotifyVideoTrackData(uint32_t track_id,
-                            std::vector<BnBuffer> &buffers,
-                            void *meta_param,
-                            MetaParamType meta_type,
-                            size_t meta_size) override;
+                            std::vector<BnBuffer>& buffers,
+                            std::vector<MetaData>& meta_buffers) override;
 
   void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data,
                              size_t event_data_size) override;
 
   void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnBuffer> &buffers,
-                            void *meta_param,
-                            MetaParamType meta_type,
-                            size_t meta_size) override;
+                            const std::vector<BnBuffer>& buffers,
+                            const std::vector<MetaData>& meta_buffers) override;
 
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data,

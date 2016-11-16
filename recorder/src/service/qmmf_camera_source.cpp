@@ -861,10 +861,16 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     }
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
-    track_params_.data_cb(TrackId(), bn_buffers,
-                          static_cast<void*>(&buffer.info),
-                          MetaParamType::kCamBufMetaData,
-                          sizeof (MetaInfo));
+
+    MetaData meta_data;
+    memset(&meta_data, 0x0, sizeof meta_data);
+    meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
+    meta_data.cam_buffer_meta_data = buffer.info;
+
+    std::vector<MetaData> meta_buffers;
+    meta_buffers.push_back(meta_data);
+
+    track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
   } else {
     // Push buffers into encoder queue.
     PushFrameToQueue(buffer);

@@ -262,25 +262,20 @@ class IRecorderServiceCallback : public IInterface {
 
   virtual void NotifySnapshotData(uint32_t camera_id,
                                   uint32_t image_sequence_count,
-                                  BnBuffer& buffer, void *meta_param,
-                                  MetaParamType meta_type,
-                                  uint32_t meta_size) = 0;
+                                  BnBuffer& buffer, MetaData& meta_data) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t track_id,
-                                    std::vector<BnBuffer> &buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) = 0;
+                                    std::vector<BnBuffer>& buffers,
+                                    std::vector<MetaData>& meta_buffers) = 0;
 
   virtual void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) = 0;
 
   virtual void NotifyAudioTrackData(uint32_t track_id,
-                                    const std::vector<BnBuffer> &buffers,
-                                    void *meta_param,
-                                    MetaParamType meta_type,
-                                    size_t meta_size) = 0;
+                                    const std::vector<BnBuffer>& buffers,
+                                    const std::vector<MetaData>&
+                                    meta_buffers) = 0;
 
   virtual void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                                      void *event_data,
