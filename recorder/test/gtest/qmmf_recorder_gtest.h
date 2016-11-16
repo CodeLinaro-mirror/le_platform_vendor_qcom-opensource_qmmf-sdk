@@ -73,30 +73,37 @@ class RecorderGtest : public ::testing::Test {
                                    const CameraMetadata &result);
 
   void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, void *meta_param, MetaParamType
-                           meta_type, size_t meta_size);
+                           buffers, std::vector<MetaData> meta_buffers);
 
   void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, void *meta_param, MetaParamType
-                              meta_type, size_t meta_size);
+                              buffers, std::vector<MetaData> meta_buffers);
 
   void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, void *meta_param, MetaParamType
-                              meta_type, size_t meta_size);
+                              buffers, std::vector<MetaData> meta_buffers);
 
   void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                                buffers, void *meta_param, MetaParamType
-                                meta_type, size_t meta_size);
+                                buffers, std::vector<MetaData> meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
-                  BufferDescriptor buffer, void *meta_param, MetaParamType
-                  meta_type, uint32_t meta_size);
+                  BufferDescriptor buffer, MetaData meta_data);
 
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
                      int32_t file_fd);
+
+  status_t QueueVideoFrame(VideoFormat format_type,
+                           const uint8_t *buffer, size_t size,
+                           int64_t timestamp, AVQueue *que);
+
+  void VideoCachedDataCb(uint32_t track_id,
+                         std::vector<BufferDescriptor> buffers,
+                         std::vector<MetaData> meta_buffers,
+                         VideoFormat format_type,
+                         AVQueue *que);
+
+  status_t DumpQueue(AVQueue *queue, int32_t file_fd);
 
   Recorder              recorder_;
   uint32_t              camera_id_;

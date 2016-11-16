@@ -33,6 +33,24 @@
 
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "player/src/service/qmmf_player_common.h"
+#include <utils/KeyedVector.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/msm_ion.h>
+#include <unistd.h>
+#include "qmmf-sdk/qmmf_display.h"
+#include "qmmf-sdk/qmmf_display_params.h"
+
+using ::qmmf::display::DisplayEventType;
+using ::qmmf::display::DisplayType;
+using ::qmmf::display::Display;
+using ::qmmf::display::DisplayCb;
+using ::qmmf::display::SurfaceBuffer;
+using ::qmmf::display::SurfaceParam;
+using ::qmmf::display::SurfaceConfig;
+using ::qmmf::display::SurfaceBlending;
+using ::qmmf::display::SurfaceFormat;
 
 namespace qmmf {
 namespace player {
@@ -46,7 +64,8 @@ class VideoSink {
 
   ~VideoSink();
 
-  status_t CreateTrackSink(uint32_t track_id, VideoTrackParams& param);
+  status_t CreateTrackSink(uint32_t track_id,
+                                  VideoTrackParams& track_param);
 
   const ::std::shared_ptr<VideoTrackSink>& GetTrackSink(uint32_t track_id);
 
@@ -85,9 +104,21 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
+
   status_t ReturnBuffer(BufferDescriptor& codec_buffer,
                         void* client_data) override;
+
   status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
+
+  status_t CreateDisplay(display::DisplayType display_type,
+      VideoTrackParams& track_param);
+
+  status_t DeleteDisplay(display::DisplayType display_type);
+
+  void DisplayCallbackHandler(display::DisplayEventType event_type,
+      void *event_data, size_t event_data_size);
+
+  void DisplayVSyncHandler(int64_t time_stamp);
 
  private:
 
@@ -105,12 +136,33 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   Mutex                   queue_lock_;
   bool                    stopplayback_;
 
+  Display*   display_;
+  uint32_t   surface_id_;
+  SurfaceParam surface_param_;
+  SurfaceBuffer surface_buffer_;
+  SurfaceConfig surface_config;
+  bool display_started_;
+
+typedef struct BufInfo {
+  // FD at service
+  uint32_t buf_id;
+
+  // Memory mapped buffer.
+  void*    vaddr;
+} BufInfo;
+
+//map<fd , buf_info>
+DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
+
+
 #ifdef DUMP_YUV_FRAMES
   int32_t               file_fd_;
   void DumpYUVData(BufferDescriptor& codec_buffer);
 #endif
-};
 
+status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
+
+};
 
 };  // namespace player
 };  // namespace qmmf

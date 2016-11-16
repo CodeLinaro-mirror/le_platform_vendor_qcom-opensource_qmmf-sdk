@@ -75,11 +75,30 @@ struct SessionCb {
   EventCb event_cb;
 };
 
+/// \brief MetaParamType flag is used to determine type of meta data set in
+/// MetaData structure.
 enum class MetaParamType {
+  kNone           = (1 << 0),
+  kCamBufMetaData = (1 << 1),
+  kVideoFrameType = (1 << 2),
+};
+
+/// \brief VideoFrameTypeInfo is used to determine the type of encoded video
+/// frame.
+enum class VideoFrameTypeInfo {
   kNone,
-  kCamBufMetaData,
-  kVideoCrop,
-  kMultipleFrame
+  kIDRFrame,
+  kIFrame,
+  kBFrame,
+  kPFrame,
+};
+
+/// \brief This struct is used to report different types of meta data associated
+/// with BufferDescriptor.
+struct MetaData {
+  uint32_t meta_flag;
+  CameraBufferMetaData cam_buffer_meta_data;
+  VideoFrameTypeInfo video_frame_type_info;
 };
 
 /// \brief Both data and event callbacks should be set by the client.
@@ -102,12 +121,9 @@ enum class MetaParamType {
 /// data
 struct TrackCb {
   std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
-                     void *meta_param, MetaParamType meta_type,
-                     size_t meta_size)>
-      data_cb;
+                     ::std::vector<MetaData> meta_data)> data_cb;
   std::function<void(uint32_t track_id, EventType event_type, void *event_data,
-                     size_t event_data_size)>
-      event_cb;
+                     size_t event_data_size)> event_cb;
 };
 
 /// @brief Createtime parameters for audio track
@@ -295,8 +311,7 @@ struct ImageCaptureConfig {
 };
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-                           BufferDescriptor buffer, void *meta_param,
-                           MetaParamType meta_type, size_t meta_size)>
+                           BufferDescriptor buffer, MetaData meta_data)>
     ImageCaptureCb;
 
 };

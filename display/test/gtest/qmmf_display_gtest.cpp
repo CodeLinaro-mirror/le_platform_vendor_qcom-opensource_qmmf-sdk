@@ -61,7 +61,7 @@ void DisplayGtest::SetUp() {
 
   test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
-  display_status_cb_.EventCb = [&] ( EventType event_type,
+  display_status_cb_.EventCb = [&] ( DisplayEventType event_type,
       void *event_data, size_t event_data_size)
       { DisplayCallbackHandler(event_type, event_data, event_data_size); };
 
@@ -336,7 +336,7 @@ TEST_F(DisplayGtest, Test1RGB) {
 
     int32_t offset=0;
     for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
-    uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
+    uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf +
         surface_data->surface_buffer.plane_info[0].offset + offset,
         sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
         surface_data->file);
@@ -532,7 +532,7 @@ next:
 
       int32_t offset=0;
       for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;i++) {
-      uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf +
+      uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf +
           surface_data->surface_buffer.plane_info[0].offset + offset,
           sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
           surface_data->file);
@@ -1034,7 +1034,7 @@ next:
         int32_t offset=0;
         for(int32_t i=0;i<surface_data->surface_buffer.plane_info[0].height;
             i++) {
-        uint32_t read_len = fread(surface_data->surface_buffer.plane_info[0].buf
+        uint32_t read_len = fread((uint8_t*)surface_data->surface_buffer.plane_info[0].buf
             + surface_data->surface_buffer.plane_info[0].offset + offset,
             sizeof(uint8_t), surface_data->surface_buffer.plane_info[0].width*4,
             surface_data->file);
@@ -1113,22 +1113,19 @@ exit:
       test_info_->test_case_name(), test_info_->name());
 }
 
-void DisplayGtest::DisplayCallbackHandler(EventType event_type,
-                                            void *event_data,
-                                            size_t event_data_size) {
+void DisplayGtest::DisplayCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
   TEST_INFO("%s:%s Enter ", TAG, __func__);
   TEST_INFO("%s:%s Exit ", TAG, __func__);
 }
 
-void DisplayGtest::SessionCallbackHandler(EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size) {
+void DisplayGtest::SessionCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void DisplayGtest::DisplayVSyncHandler(int64_t time_stamp)
-{
+void DisplayGtest::DisplayVSyncHandler(int64_t time_stamp) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }

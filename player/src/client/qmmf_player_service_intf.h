@@ -139,25 +139,29 @@ class IPlayerService : public IInterface {
 
   virtual status_t Disconnect() = 0;
 
-  virtual status_t CreateAudioTrack(uint32_t track_id,
-                           AudioTrackCreateParam& param) = 0;
+  virtual status_t CreateAudioTrack(
+      uint32_t track_id,
+      AudioTrackCreateParam& param) = 0;
 
-  virtual status_t CreateVideoTrack(uint32_t track_id,
-                           VideoTrackCreateParam& param) = 0;
+  virtual status_t CreateVideoTrack(
+      uint32_t track_id,
+      VideoTrackCreateParam& param) = 0;
 
   virtual status_t DeleteAudioTrack(uint32_t track_id) = 0;
   virtual status_t DeleteVideoTrack(uint32_t track_id) = 0;
 
   virtual status_t Prepare() = 0;
 
-  virtual status_t DequeueInputBuffer(uint32_t track_id,
-                             std::vector<AVCodecBuffer>& buffers) = 0;
+  virtual status_t DequeueInputBuffer(
+      uint32_t track_id,
+      std::vector<AVCodecBuffer>& buffers) = 0;
 
-  virtual status_t QueueInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers,
-                           void *meta_param,
-                           size_t meta_size,
-                           TrackMetaBufferType meta_type) = 0;
+  virtual status_t QueueInputBuffer(
+      uint32_t track_id,
+      std::vector<AVCodecBuffer>& buffers,
+      void *meta_param,
+      size_t meta_size,
+      TrackMetaBufferType meta_type) = 0;
 
   virtual status_t Start() = 0;
 
@@ -174,14 +178,14 @@ class IPlayerService : public IInterface {
   virtual status_t GrabPicture(PictureParam param) = 0;
 
   virtual status_t SetAudioTrackParam(uint32_t track_id,
-                             CodecParamType type,
-                             void *param,
-                             size_t param_size) = 0;
+                                      CodecParamType type,
+                                      void *param,
+                                      size_t param_size) = 0;
 
   virtual status_t SetVideoTrackParam(uint32_t track_id,
-                             CodecParamType type,
-                             void *param,
-                             size_t param_size) = 0;
+                                      CodecParamType type,
+                                      void *param,
+                                      size_t param_size) = 0;
 };
 
 
@@ -199,7 +203,7 @@ class IPlayerServiceCallback : public IInterface {
   DECLARE_META_INTERFACE(PlayerServiceCallback);
 
   virtual void NotifyPlayerEvent(EventType event_type, void *event_data,
-                                   size_t event_data_size) = 0;
+                                 size_t event_data_size) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t track_id,
                                     std::vector<BnTrackBuffer> &buffers,
@@ -234,8 +238,8 @@ class IPlayerServiceCallback : public IInterface {
 // This class is responsible to provide callbacks from player service.
 class BnPlayerServiceCallback : public BnInterface<IPlayerServiceCallback> {
  public:
-    virtual status_t onTransact(uint32_t code, const Parcel& data,
-                                 Parcel* reply, uint32_t flags = 0) override;
+  virtual status_t onTransact(uint32_t code, const Parcel& data,
+                              Parcel* reply, uint32_t flags = 0) override;
 };
 
 

@@ -51,7 +51,7 @@ using namespace android;
 const nsecs_t kWaitDelay = 500000000; // 0.5s
 
 struct StreamBuffer {
-  MetaInfo info;
+  CameraBufferMetaData info;
   int64_t timestamp;
   int64_t frame_number;
   android_dataspace data_space;

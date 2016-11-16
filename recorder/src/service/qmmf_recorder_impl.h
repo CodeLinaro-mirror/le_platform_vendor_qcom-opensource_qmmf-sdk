@@ -146,20 +146,15 @@ class RecorderImpl {
 
   // Data callback handlers.
   void VideoTrackBufferCallback(uint32_t track_id,
-                                std::vector<BnBuffer> buffers,
-                                void *meta_param,
-                                MetaParamType meta_type,
-                                size_t meta_size);
+                                std::vector<BnBuffer>& buffers,
+                                std::vector<MetaData>& meta_buffers);
 
   void AudioTrackBufferCallback(uint32_t track_id,
-                                std::vector<BnBuffer> buffers,
-                                void *meta_param,
-                                MetaParamType meta_type,
-                                size_t meta_size);
+                                std::vector<BnBuffer>& buffers,
+                                std::vector<MetaData>& meta_buffers);
 
   void SnapshotCallback(uint32_t camera_id, uint32_t count, BnBuffer& buffer,
-                        void *meta_param, MetaParamType meta_type,
-                        uint32_t meta_size);
+                        MetaData& meta_data);
 
   void CameraResultCallback(uint32_t camera_id, const CameraMetadata &result);
 

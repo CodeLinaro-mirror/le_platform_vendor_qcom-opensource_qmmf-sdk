@@ -926,9 +926,7 @@ void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
 
 void RecorderClient::NotifySnapshotData(uint32_t camera_id,
                                         uint32_t image_sequence_count,
-                                        BnBuffer& buffer, void *meta_param,
-                                        MetaParamType meta_type,
-                                        uint32_t meta_size) {
+                                        BnBuffer& buffer, MetaData& meta_data) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   assert(image_capture_cb_ != nullptr);
@@ -961,17 +959,14 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   snapshot_buf.buf_id    = buffer.buffer_id;
   snapshot_buf.fd        = buffer.ion_fd;
 
-  image_capture_cb_(camera_id, image_sequence_count, snapshot_buf, meta_param,
-                    meta_type, meta_size);
+  image_capture_cb_(camera_id, image_sequence_count, snapshot_buf, meta_data);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &bn_buffers,
-                                          void *meta_param,
-                                          MetaParamType meta_type,
-                                          size_t meta_size) {
+                                          std::vector<MetaData> &meta_buffers) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s track_id = %d ", TAG, __func__, track_id);
@@ -1070,7 +1065,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
   //Get the handle to client callback.
   TrackCb callback = track_cb_list_.valueFor(track_id);
-  callback.data_cb(track_id, track_buffers, meta_param, meta_type, meta_size);
+  callback.data_cb(track_id, track_buffers, meta_buffers);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1085,9 +1080,9 @@ void RecorderClient::NotifyVideoTrackEvent(uint32_t track_id,
 
 void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
                                           const std::vector<BnBuffer>&
-                                          bn_buffers, void* meta_param,
-                                          MetaParamType meta_type,
-                                          size_t meta_size) {
+                                          bn_buffers,
+                                          const std::vector<MetaData>&
+                                          meta_buffers) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
@@ -1104,7 +1099,7 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
 
   // Get the handle to client callback.
   TrackCb callback = track_cb_list_.valueFor(track_id);
-  callback.data_cb(track_id, track_buffers, meta_param, meta_type, meta_size);
+  callback.data_cb(track_id, track_buffers, meta_buffers);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1619,26 +1614,22 @@ void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
 void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
                                                 uint32_t image_sequence_count,
                                                 BnBuffer& buffer,
-                                                void *meta_param,
-                                                MetaParamType meta_type,
-                                                uint32_t meta_size) {
+                                                MetaData& meta_data) {
   assert(client_ != NULL);
   client_->NotifySnapshotData(camera_id, image_sequence_count, buffer,
-                              meta_param, meta_type, meta_size);
+                              meta_data);
 }
 
 
 void ServiceCallbackHandler::NotifyVideoTrackData(uint32_t track_id,
-                                                  std::vector<BnBuffer>
-                                                  &bn_buffers,
-                                                  void *meta_param,
-                                                  MetaParamType meta_type,
-                                                  size_t meta_size) {
+                                                  std::vector<BnBuffer>&
+                                                  bn_buffers,
+                                                  std::vector<MetaData>&
+                                                  meta_buffers) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
   assert(client_ != NULL);
-  client_->NotifyVideoTrackData(track_id, bn_buffers, meta_param, meta_type,
-      meta_size);
+  client_->NotifyVideoTrackData(track_id, bn_buffers, meta_buffers);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1652,9 +1643,9 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
 
 void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
                                                   const std::vector<BnBuffer>&
-                                                  bn_buffers, void* meta_param,
-                                                  MetaParamType meta_type,
-                                                  size_t meta_size) {
+                                                  bn_buffers,
+                                                  const std::vector<MetaData>&
+                                                  meta_buffers) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   for (const BnBuffer& bn_buffer : bn_buffers)
@@ -1662,8 +1653,7 @@ void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
                  bn_buffer.ToString().c_str());
   assert(client_ != NULL);
 
-  client_->NotifyAudioTrackData(track_id, bn_buffers, meta_param, meta_type,
-                                meta_size);
+  client_->NotifyAudioTrackData(track_id, bn_buffers, meta_buffers);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1713,8 +1703,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   }
 
   void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
-                          BnBuffer& buffer, void *meta_param,
-                          MetaParamType meta_type, uint32_t meta_size) {
+                          BnBuffer& buffer, MetaData& meta_data) {
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::
@@ -1729,25 +1718,22 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     memset(blob.data(), 0x0, size);
     memcpy(blob.data(), reinterpret_cast<void*>(&buffer), size);
     // Pack meta
-    data.writeUint32(meta_size);
+    size = sizeof meta_data;
+    data.writeUint32(size);
     android::Parcel::WritableBlob meta_blob;
-    if(meta_size > 0) {
-      data.writeBlob(meta_size, false, &meta_blob);
-      memset(meta_blob.data(), 0x0, meta_size);
-      memcpy(meta_blob.data(), meta_param, meta_size);
-      data.writeUint32(static_cast<uint32_t>(meta_type));
-    }
+    data.writeBlob(size, false, &meta_blob);
+    memset(meta_blob.data(), 0x0, size);
+    memcpy(meta_blob.data(), reinterpret_cast<void*>(&meta_data), size);
+
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
         RECORDER_NOTIFY_SNAPSHOT_DATA), data, &reply, IBinder::FLAG_ONEWAY);
+
     blob.release();
-    if(meta_size > 0) {
-      meta_blob.release();
-    }
+    meta_blob.release();
   }
 
-  void NotifyVideoTrackData(uint32_t track_id, std::vector<BnBuffer>
-                            &buffers, void *meta_param, MetaParamType
-                            meta_type, size_t meta_size) {
+  void NotifyVideoTrackData(uint32_t track_id, std::vector<BnBuffer>& buffers,
+                            std::vector<MetaData>& meta_buffers) {
 
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
 
@@ -1802,21 +1788,19 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
       memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), size);
     }
     // Pack meta
-    data.writeUint32(meta_size);
-    android::Parcel::WritableBlob meta_blob;
-    if(meta_size > 0) {
-      data.writeBlob(meta_size, false, &meta_blob);
-      memset(meta_blob.data(), 0x0, meta_size);
-      memcpy(meta_blob.data(), meta_param, meta_size);
-      data.writeUint32(static_cast<uint32_t>(meta_type));
+    data.writeUint32(meta_buffers.size());
+    for(uint32_t i = 0; i < meta_buffers.size(); ++i) {
+      uint32_t size = sizeof (MetaData);
+      data.writeUint32(size);
+      android::Parcel::WritableBlob meta_blob;
+      data.writeBlob(size, false, &meta_blob);
+      memset(meta_blob.data(), 0x0, size);
+      memcpy(meta_blob.data(), reinterpret_cast<void*>(&meta_buffers[i]), size);
     }
 
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
         RECORDER_NOTIFY_VIDEO_TRACK_DATA), data, &reply);
 
-    if(meta_size > 0) {
-        meta_blob.release();
-    }
     QMMF_VERBOSE("%s:%s: Exit - Sent Message One Way!!", TAG, __func__);
   }
 
@@ -1827,8 +1811,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
   void NotifyAudioTrackData(uint32_t track_id,
                             const std::vector<BnBuffer>& buffers,
-                            void* meta_param, MetaParamType meta_type,
-                            size_t meta_size) {
+                            const std::vector<MetaData>& meta_buffers) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
     for (const BnBuffer& buffer : buffers)
@@ -1933,17 +1916,17 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       memset(&bn_buffer, 0x0, sizeof bn_buffer);
       memcpy(&bn_buffer, buf, size);
       bn_buffer.ion_fd = ion_fd;
-      uint32_t meta_size, meta_type;
-      void* meta_param = nullptr;
+      uint32_t meta_size;
+      MetaData meta_data;
+      memset(&meta_data, 0x0, sizeof meta_data);
       android::Parcel::ReadableBlob meta_blob;
       data.readUint32(&meta_size);
       if (meta_size > 0) {
         data.readBlob(meta_size, &meta_blob);
-        meta_param = const_cast<void*>(meta_blob.data());
-        data.readUint32(&meta_type);
+        void* meta = const_cast<void*>(meta_blob.data());
+        memcpy(&meta_data, meta, meta_size);
       }
-      NotifySnapshotData(camera_id, count, bn_buffer, meta_param,
-                         static_cast<MetaParamType>(meta_type), meta_size);
+      NotifySnapshotData(camera_id, count, bn_buffer, meta_data);
       blob.release();
       if(meta_size > 0) {
         meta_blob.release();
@@ -1958,7 +1941,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       data.readUint32(&track_id);
       data.readUint32(&vector_size);
       QMMF_VERBOSE("%s:Bn%s: vector_size=%d", TAG, __func__, vector_size);
-
+      uint32_t size = 0;
       for (uint32_t i = 0; i < vector_size; i++)  {
         int32_t is_fd = 0;
         int32_t ion_fd = -1;
@@ -1966,36 +1949,32 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         if (is_fd == 1) {
           ion_fd = dup(data.readFileDescriptor());
         }
-        uint32_t size;
         data.readUint32(&size);
         android::Parcel::ReadableBlob blob;
         data.readBlob(size, &blob);
         void* buffer = const_cast<void*>(blob.data());
         BnBuffer track_buffer;
-        memset(&track_buffer, 0x0, sizeof track_buffer);
         memcpy(&track_buffer, buffer, size);
         track_buffer.ion_fd = ion_fd;
         buffers.push_back(track_buffer);
         blob.release();
       }
-
-      QMMF_VERBOSE("%s:Bn%s: buffers.size()=%d", TAG, __func__, buffers.size());
-      uint32_t meta_size, meta_type;
-      void* meta_param = NULL;
+      uint32_t meta_vector_size = 0;
+      std::vector<MetaData> meta_buffers;
+      data.readUint32(&meta_vector_size);
+      QMMF_VERBOSE("%s:Bn%s: meta_vector_size=%d", TAG, __func__,
+          meta_vector_size);
       android::Parcel::ReadableBlob meta_blob;
-      data.readUint32(&meta_size);
-      if (meta_size > 0) {
-        data.readBlob(meta_size, &meta_blob);
-        meta_param = const_cast<void*>(meta_blob.data());
-        data.readUint32(&meta_type);
-      }
-      NotifyVideoTrackData(track_id, buffers, meta_param,
-                           static_cast<MetaParamType>(meta_type),
-                           meta_size);
-      if(meta_size > 0) {
+      for (uint32_t i = 0; i < meta_vector_size; i++)  {
+        data.readUint32(&size);
+        data.readBlob(size, &meta_blob);
+        void* buffer = const_cast<void*>(meta_blob.data());
+        MetaData meta_data;
+        memcpy(&meta_data, buffer, size);
+        meta_buffers.push_back(meta_data);
         meta_blob.release();
       }
-
+      NotifyVideoTrackData(track_id, buffers, meta_buffers);
       return NO_ERROR;
     }
     break;
@@ -2019,8 +1998,10 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       for (const BnBuffer& buffer : buffers)
         QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
                    TAG, __func__, buffer.ToString().c_str());
-      NotifyAudioTrackData(track_id, buffers, nullptr,
-                           MetaParamType::kNone, 0);
+      //TODO: Current implementation of audio is not using meta_data, add
+      // support to pack meta data at proxy side, and unpack at Bn side.
+      std::vector<MetaData> meta_buffers;
+      NotifyAudioTrackData(track_id, buffers, meta_buffers);
       return NO_ERROR;
     }
     break;

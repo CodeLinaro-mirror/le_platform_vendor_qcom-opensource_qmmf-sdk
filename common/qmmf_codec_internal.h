@@ -290,11 +290,12 @@ struct PlaneInfoInternal : public PlaneInfo {
   }
 };
 
-struct MetaInfoInternal : public MetaInfo {
-  MetaInfoInternal() {}
-  MetaInfoInternal(MetaInfo& base) : MetaInfo(base) {}
-  MetaInfoInternal(const MetaInfo& base)
-      : MetaInfo(const_cast<MetaInfo&>(base)) {}
+struct CameraBufferMetaDataInternal : public CameraBufferMetaData {
+  CameraBufferMetaDataInternal() {}
+  CameraBufferMetaDataInternal(CameraBufferMetaData& base)
+      : CameraBufferMetaData(base) {}
+  CameraBufferMetaDataInternal(const CameraBufferMetaData& base)
+      : CameraBufferMetaData(const_cast<CameraBufferMetaData&>(base)) {}
 
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(format));
@@ -303,7 +304,7 @@ struct MetaInfoInternal : public MetaInfo {
       PlaneInfoInternal(plane_info[idx]).ToParcel(parcel);
   }
 
-  MetaInfoInternal& FromParcel(const ::android::Parcel& parcel) {
+  CameraBufferMetaDataInternal& FromParcel(const ::android::Parcel& parcel) {
     format = static_cast<BufferFormat>(parcel.readInt32());
     num_planes = parcel.readUint32();
     for (int idx = 0; idx < num_planes; ++idx)

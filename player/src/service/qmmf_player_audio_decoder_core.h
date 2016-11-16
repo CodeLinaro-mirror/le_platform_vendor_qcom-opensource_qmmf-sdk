@@ -35,9 +35,12 @@
 
 #include "include/qmmf-sdk/qmmf_player_params.h"
 #include "include/qmmf-sdk/qmmf_codec.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_audio_sink.h"
+#include "include/qmmf-sdk/qmmf_avcodec_params.h"
+#include "include/qmmf-sdk/qmmf_avcodec.h"
+#include "include/qmmf-sdk/qmmf_buffer.h"
+
 
 namespace qmmf {
 namespace player {
@@ -66,7 +69,7 @@ class AudioDecoderCore {
 
   status_t StartTrackDecoder(uint32_t track_id);
 
-  status_t StopTrackDecoder(uint32_t track_id);
+  status_t StopTrackDecoder(uint32_t track_id, bool do_flush);
 
   status_t PauseTrackDecoder(uint32_t track_id);
 
@@ -113,7 +116,7 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartDecoder();
 
-  status_t StopDecoder();
+  status_t StopDecoder(bool do_flush);
 
   status_t PauseDecoder();
 
@@ -176,7 +179,6 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   bool                      eos_;
 
 #ifdef DUMP_PCM_DATA
-  int32_t                   file_fd_;
   int32_t                   file_fd_audio_;
 #endif
 };

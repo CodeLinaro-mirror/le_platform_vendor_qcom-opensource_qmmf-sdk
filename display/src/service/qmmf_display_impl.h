@@ -47,7 +47,20 @@ namespace qmmf {
 
 namespace display {
 
-using namespace sdm;
+using ::sdm::DisplayEventHandler;
+using ::sdm::DisplayError;
+using ::sdm::LayerRect;
+using ::sdm::CoreInterface;
+using ::sdm::Layer;
+using ::sdm::LayerBuffer;
+using ::sdm::DisplayInterface;
+using ::sdm::LayerStack;
+using ::sdm::DisplayEventVSync;
+using ::sdm::Locker;
+using ::sdm::BufferInfo;
+using ::sdm::LayerBlending;
+using ::sdm::LayerBufferFormat;
+
 
 #define NUM_DISPLAY_ALLOWED 3
 #define FLOAT(exp) static_cast<float>(exp)

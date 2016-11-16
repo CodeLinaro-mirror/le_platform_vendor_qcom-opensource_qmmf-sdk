@@ -116,11 +116,11 @@ class IDisplayServiceCallback : public IInterface {
 public:
   DECLARE_META_INTERFACE(DisplayServiceCallback);
 
-  virtual void notifyDisplayEvent(EventType event_type, void *event_data,
-     size_t event_data_size) = 0;
+  virtual void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size) = 0;
 
-  virtual void notifySessionEvent(EventType event_type, void *event_data,
-     size_t event_data_size) = 0;
+  virtual void notifySessionEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size) = 0;
 
   virtual void notifyVSyncEvent(int64_t time_stamp) = 0;
 

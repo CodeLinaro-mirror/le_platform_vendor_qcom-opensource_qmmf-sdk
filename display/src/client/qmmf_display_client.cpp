@@ -452,14 +452,14 @@ bool DisplayClient::checkServiceStatus() {
   }
   return connected;
 }
-void DisplayClient::notifyDisplayEvent(EventType event_type, void *event_data,
-    size_t event_data_size) {
+void DisplayClient::notifyDisplayEvent(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
 }
 
-void DisplayClient::notifySessionEvent(EventType event_type, void *event_data,
-    size_t event_data_size) {
+void DisplayClient::notifySessionEvent(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
 }
@@ -787,13 +787,13 @@ ServiceCallbackHandler::~ServiceCallbackHandler() {
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
 }
 
-void ServiceCallbackHandler::notifyDisplayEvent(EventType event_type,
+void ServiceCallbackHandler::notifyDisplayEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
 }
 
-void ServiceCallbackHandler::notifySessionEvent(EventType event_type,
+void ServiceCallbackHandler::notifySessionEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
@@ -812,12 +812,12 @@ class BpDisplayServiceCallback: public BpInterface<IDisplayServiceCallback> {
   BpDisplayServiceCallback(const sp<IBinder>& impl)
       : BpInterface<IDisplayServiceCallback>(impl) {}
 
-  void notifyDisplayEvent(EventType event_type, void *event_data,
+  void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size) {
 
   }
 
-  void notifySessionEvent(EventType event_type, void *event_data,
+  void notifySessionEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size) {
 
   }

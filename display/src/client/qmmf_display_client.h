@@ -81,15 +81,15 @@ public:
       const SurfaceBuffer &surface_buffer);
 
   //Callbacks from service.
-  void notifyDisplayEvent(EventType event_type, void *event_data,
-                           size_t event_data_size);
+  void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size);
 
-  void notifySessionEvent(EventType event_type, void *event_data,
-                          size_t event_data_size);
+  void notifySessionEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size);
 
   //VSync Callback from service.
   void notifyVSyncEvent(int64_t time_stamp);
-  //
+
  private:
 
   bool checkServiceStatus();
@@ -100,7 +100,7 @@ public:
     DeathNotifier(DisplayClient* parent) : parent_(parent) {}
 
     void binderDied(const wp<IBinder>&) override {
-          ALOGD("DisplayClient:%s: Display service died", __func__);
+        ALOGD("DisplayClient:%s: Display service died", __func__);
 
           Mutex::Autolock l(parent_->lock_);
           parent_->display_service_.clear();
@@ -118,7 +118,7 @@ public:
   DisplayHandle        display_handle_;
   DisplayType          display_type_;
   // List of session callbacks.
-  DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;
+  DefaultKeyedVector<uint32_t, DisplaySessionCb > session_cb_list_;
 
   typedef struct BufInfo {
     // Transferred ION Id.
@@ -147,11 +147,11 @@ class ServiceCallbackHandler : public BnDisplayServiceCallback {
 
  private:
   //Methods of BnDisplayServiceCallback.
-  void notifyDisplayEvent(EventType event_type, void *event_data,
-                           size_t event_data_size) override;
+  void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size) override;
 
-  void notifySessionEvent(EventType event_type, void *event_data,
-                          size_t event_data_size) override;
+  void notifySessionEvent(DisplayEventType event_type, void *event_data,
+      size_t event_data_size) override;
 
   void notifyVSyncEvent(int64_t time_stamp) override;
 

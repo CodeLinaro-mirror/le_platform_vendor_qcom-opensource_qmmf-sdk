@@ -26,46 +26,66 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef QUEUE_H
+#define QUEUE_H
 
-#pragma once
+#include <stdint.h>
+#include <pthread.h>
 
-#include <utils/List.h>
-#include <utils/Mutex.h>
-
-#include "qmmf-sdk/qmmf_display_params.h"
+#define POP_WAIT_DELAY 10000 /* us */
 
 namespace qmmf {
 
-namespace display {
+enum QueueType {
+  REALTIME = 0,
+  COMPLETE,
+  UNKNOWN_TYPE
+};
 
-/*
-* Define LOG_LEVEL1 & 2 enable more debug logs.
-*/
-//#define LOG_LEVEL1
-//#define LOG_LEVEL2
+struct AVPacket {
+  uint8_t* data;
+  size_t size;
+  int64_t timestamp;
+};
 
-// QMMF_INFO, ERROR and WARN logs are enabled by default.
-#define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
+struct AVNode {
+  struct AVNode* prev;
+  struct AVNode* next;
+  void* data;
+};
 
-#ifdef LOG_LEVEL1
-#define QMMF_LEVEL1(fmt, args...)  ALOGD(fmt, ##args)
-#else
-#define QMMF_LEVEL1(...) ((void)0)
+struct AVQueue {
+  pthread_mutex_t mutex;
+  pthread_cond_t condv;
+  AVNode* head_node;
+  QueueType type;
+  int max_size;
+  int queue_size;
+  bool overflow;
+  int delay;
+  char* pps;
+  int pps_size;
+  bool is_pps;
+};
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#ifdef LOG_LEVEL2
-#define QMMF_LEVEL2(fmt, args...)  ALOGD(fmt, ##args)
-#else
-#define QMMF_LEVEL2(...) ((void)0)
+extern int AVQueueInit(AVQueue** p, QueueType queue_type, int queue_size,
+                       int delay_count);
+extern int AVQueuePushHead(AVQueue* p, void* data);
+extern void* AVQueuePopTail(AVQueue* p);
+extern int AVQueueSize(AVQueue* p);
+extern void AVQueueAbort(AVQueue* p, void (*func)(void*));
+extern void AVQueueWake(AVQueue* p);
+extern void AVQueueFree(AVQueue** p, void (*func)(void*));
+extern void AVFreePacket(void* databuf);
+
+#ifdef __cplusplus
+}
+
+} //namespace qmmf ends
+
 #endif
-
-/* handle to a specific display client/service connection */
-typedef int32_t DisplayHandle;
-
-#define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.msm8953.so"
-
-}; //namespace display.
-
-}; //namespace qmmf.
+#endif /* QUEUE_H */

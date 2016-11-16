@@ -57,12 +57,12 @@ class PlayerClient {
   status_t Disconnect();
 
   status_t CreateAudioTrack(uint32_t track_id,
-                           AudioTrackCreateParam& param,
-                           TrackCb& cb);
+                            AudioTrackCreateParam& param,
+                            TrackCb& cb);
 
   status_t CreateVideoTrack(uint32_t track_id,
-                           VideoTrackCreateParam& param,
-                           TrackCb& cb);
+                            VideoTrackCreateParam& param,
+                            TrackCb& cb);
 
   status_t DeleteAudioTrack(uint32_t track_id);
   status_t DeleteVideoTrack(uint32_t track_id);
@@ -70,13 +70,13 @@ class PlayerClient {
   status_t Prepare();
 
   status_t DequeueInputBuffer(uint32_t track_id,
-                             std::vector<TrackBuffer>& buffers);
+                              std::vector<TrackBuffer>& buffers);
 
   status_t QueueInputBuffer(uint32_t track_id,
-                           std::vector<TrackBuffer>& buffers,
-                           void *meta_param,
-                           size_t meta_size,
-                           TrackMetaBufferType meta_type);
+                            std::vector<TrackBuffer>& buffers,
+                            void *meta_param,
+                            size_t meta_size,
+                            TrackMetaBufferType meta_type);
 
   status_t Start();
 
@@ -93,18 +93,18 @@ class PlayerClient {
   status_t GrabPicture(PictureParam param, PictureCallback& cb);
 
   status_t SetAudioTrackParam(uint32_t track_id,
-                             CodecParamType type,
-                             void *param,
-                             size_t param_size);
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size);
 
   status_t SetVideoTrackParam(uint32_t track_id,
-                             CodecParamType type,
-                             void *param,
-                             size_t param_size);
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size);
 
   // callback from service.
   void NotifyPlayerEvent(EventType event_type, void *event_data,
-                                    size_t event_data_size);
+                         size_t event_data_size);
 
   void NotifyVideoTrackData(uint32_t track_id,
                             std::vector<BnTrackBuffer> &buffers,
@@ -188,7 +188,7 @@ class ServiceCallbackHandler : public BnPlayerServiceCallback {
   // Methods of BnPlayerServiceCallback.
 
   void NotifyPlayerEvent(EventType event_type, void *event_data,
-                                   size_t event_data_size) override;
+                         size_t event_data_size) override;
 
   void NotifyVideoTrackData(uint32_t track_id,
                             std::vector<BnTrackBuffer> &buffers,

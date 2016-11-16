@@ -60,7 +60,9 @@ enum class CodecMimeType {
   kMimeTypeAudioEncAAC,
   kMimeTypeAudioEncAMR,
   kMimeTypeAudioEncG711,
-  kMimeTypeAudioDecAAC
+  kMimeTypeAudioDecAAC,
+  kMimeTypeAudioDecAMR,
+  kMimeTypeAudioDecG711
 };
 
 enum class VideoFormat {
@@ -209,6 +211,8 @@ struct AVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
+  bool                 prepend_sps_pps_to_idr;
+  bool                 insert_aud_delimiter;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -240,6 +244,7 @@ struct HEVCParams {
   VideoQPParams        qp_params;
   uint32_t             ltr_count;
   uint32_t             hier_layer;
+  bool                 prepend_sps_pps_to_idr;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -380,7 +385,7 @@ enum class BufferFormat {
   kRAW16
 };
 
-struct MetaInfo {
+struct CameraBufferMetaData {
   BufferFormat format;
   uint32_t  num_planes;
   PlaneInfo plane_info[MAX_PLANE];

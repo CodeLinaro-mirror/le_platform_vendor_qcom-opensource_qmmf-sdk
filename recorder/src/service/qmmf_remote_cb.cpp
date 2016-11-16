@@ -68,24 +68,19 @@ void RemoteCallBack::NotifySessionEvent(EventType event_type, void *event_data,
 
 void RemoteCallBack::NotifySnapshotData(uint32_t camera_id,
                                         uint32_t sequence_count,
-                                        BnBuffer& buffer, void *meta_param,
-                                        MetaParamType meta_type,
-                                        uint32_t meta_size) {
+                                        BnBuffer& buffer, MetaData& meta_data) {
 
   assert(client_cb_handle_.get() != NULL);
   client_cb_handle_->NotifySnapshotData(camera_id, sequence_count, buffer,
-                                        meta_param, meta_type, meta_size);
+                                        meta_data);
 }
 
 void RemoteCallBack::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
-                                          void *meta_param,
-                                          MetaParamType meta_type,
-                                          size_t meta_size) {
+                                          std::vector<MetaData>& meta_buffers) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackData(track_id, buffers, meta_param,
-                                          meta_type, meta_size);
+  client_cb_handle_->NotifyVideoTrackData(track_id, buffers, meta_buffers);
 }
 
 void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
@@ -100,13 +95,10 @@ void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
 
 void RemoteCallBack::NotifyAudioTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
-                                          void *meta_param,
-                                          MetaParamType meta_type,
-                                          size_t meta_size) {
+                                          std::vector<MetaData>& meta_buffers) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackData(track_id, buffers, meta_param,
-                                          meta_type, meta_size);
+  client_cb_handle_->NotifyAudioTrackData(track_id, buffers, meta_buffers);
 }
 
 void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id,

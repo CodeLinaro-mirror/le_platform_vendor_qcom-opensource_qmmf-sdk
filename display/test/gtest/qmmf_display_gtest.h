@@ -72,12 +72,11 @@ class DisplayGtest : public ::testing::Test {
 
   void Test1YUV_1RGB_ExternalBuffer();
 
-  void DisplayCallbackHandler(EventType event_type, void *event_data,
+  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
                                size_t event_data_size);
 
-  void SessionCallbackHandler(EventType event_type,
-                              void *event_data,
-                              size_t event_data_size);
+  void SessionCallbackHandler(DisplayEventType event_type, void *event_data,
+                               size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
 

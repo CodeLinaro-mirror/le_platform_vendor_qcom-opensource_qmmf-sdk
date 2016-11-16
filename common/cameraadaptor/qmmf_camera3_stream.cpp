@@ -432,7 +432,7 @@ exit:
   return res;
 }
 
-int32_t Camera3Stream::PopulateMetaInfo(MetaInfo &info,
+int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
                                         struct private_handle_t *priv_handle,
                                         alloc_device_t *gralloc_device) {
   int alignedW, alignedH;

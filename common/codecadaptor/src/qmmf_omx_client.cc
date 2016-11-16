@@ -147,6 +147,14 @@ OMX_ERRORTYPE OmxClient::GetComponentsOfRole(OMX_STRING role,
   return ret;
 }
 
+OMX_ERRORTYPE OmxClient::GetExtensionIndex(OMX_STRING param_name, OMX_INDEXTYPE* index) {
+
+  OMX_ERRORTYPE ret = OMX_ErrorNone;
+  ret = OMX_GetExtensionIndex(codec_handle_, param_name, index);
+
+  return ret;
+}
+
 OMX_ERRORTYPE OmxClient::GetParameter(OMX_INDEXTYPE param_index,
                                       OMX_PTR param_data) {
 
