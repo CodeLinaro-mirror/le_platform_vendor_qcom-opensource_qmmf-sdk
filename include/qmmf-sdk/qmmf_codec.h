@@ -60,7 +60,9 @@ enum class CodecMimeType {
   kMimeTypeAudioEncAAC,
   kMimeTypeAudioEncAMR,
   kMimeTypeAudioEncG711,
-  kMimeTypeAudioDecAAC
+  kMimeTypeAudioDecAAC,
+  kMimeTypeAudioDecAMR,
+  kMimeTypeAudioDecG711
 };
 
 enum class VideoFormat {

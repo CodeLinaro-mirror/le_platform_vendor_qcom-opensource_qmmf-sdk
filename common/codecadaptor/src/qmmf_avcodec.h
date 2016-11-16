@@ -39,6 +39,9 @@
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
 
+#include <libstagefrighthw/QComOMXMetadata.h>
+#include <media/hardware/HardwareAPI.h>
+
 #include "common/qmmf_common_utils.h"
 #include "qmmf-sdk/qmmf_avcodec_params.h"
 #include "qmmf-sdk/qmmf_avcodec.h"
@@ -95,6 +98,7 @@ class AVCodec : public IAVCodec {
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
   status_t RegisterOutputBuffers(::std::vector<BufferDescriptor>& list) override;
+  status_t RegisterInputBuffers(::std::vector<BufferDescriptor>& list) override;
   status_t Flush(uint32_t port_type) override;
 
  private:
@@ -103,6 +107,7 @@ class AVCodec : public IAVCodec {
   status_t DeleteHandle();
 
   status_t ConfigureVideoEncoder(CodecParam& codec_param);
+  status_t ConfigureVideoDecoder(CodecParam& codec_param);
   status_t ConfigureAudioEncoder(CodecParam& codec_param);
   status_t ConfigureAudioDecoder(CodecParam& codec_param);
 
@@ -117,6 +122,9 @@ class AVCodec : public IAVCodec {
                          OMX_U32 nFrameRate);
   status_t GetVideoProfile(CodecParam& codec_param);
   status_t GetVideoLevel(CodecParam& codec_param);
+  OMX_ERRORTYPE prepareForAdaptivePlayback(OMX_U32 portIndex, OMX_BOOL enable,
+                                           OMX_U32 maxFrameWidth,
+                                           OMX_U32 maxFrameHeight);
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
   status_t WaitState(OMX_STATETYPE state);
@@ -194,9 +202,12 @@ class AVCodec : public IAVCodec {
   static OMX_CALLBACKTYPE  callbacks_;
   CodecType                format_type_;
   // to handle the two EOS callbacks from Audio OMX component
-  bool                     isEOSonOutput;
+  bool                     isEOSonOutput_;
+  //For registration of Buffers
   ::std::vector<BufferDescriptor> output_buffer_list_;
-  ::std::vector<OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO> outputpParam_;
+  ::std::vector<BufferDescriptor> input_buffer_list_;
+  ::std::vector<OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO> outputpParam_enc_;
+  ::std::vector<struct VideoDecoderOutputMetaData> outputpParam_dec_;
 };
 
 }; // namespace avcodec
