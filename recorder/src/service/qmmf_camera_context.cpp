@@ -106,7 +106,6 @@ bool CameraContext::IsInputSupported(const CameraMetadata &static_meta) {
 status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   int32_t stream_id = -1;
   int32_t ret = NO_ERROR;
-  burst_cnt_ = 0;
 
   if (!snapshot_request_.streamIds.isEmpty()) {
     if (1 < snapshot_request_.streamIds.size()) {
@@ -611,13 +610,16 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
-  sequence_cnt_ = num_images;
+  burst_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
     bool reconfigure_needed_ = (snapshot_param_.width !=
         param.width) ||
         (snapshot_param_.height != param.height) ||
         snapshot_request_.streamIds.isEmpty() ||
-        (reprocess_enable_ != IsReprocessNeed(param));
+        (reprocess_enable_ != IsReprocessNeed(param)) ||
+        (sequence_cnt_ != num_images);
+
+    sequence_cnt_ = num_images;
 
     if (reconfigure_needed_) {
       ret = CreateSnapshotStream(param);
@@ -1657,7 +1659,8 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     }
   }
 
-  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_) {
+  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ &&
+      snapshot_request_id_ == result.resultExtras.requestId) {
     if(camera_reprocess_.get() != nullptr) {
       camera_reprocess_->AddResult(result);
     }
