@@ -1,5 +1,5 @@
-source_files := qmmf_display.cpp
-source_files += qmmf_display_client.cpp
+source_files := qmmf_display.cc
+source_files += qmmf_display_client.cc
 
 # Build qmmf display client library
 # libqmmf_display_client.so

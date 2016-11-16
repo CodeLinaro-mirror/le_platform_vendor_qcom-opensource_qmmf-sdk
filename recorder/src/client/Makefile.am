@@ -1,5 +1,5 @@
-source_files := qmmf_recorder.cpp
-source_files += qmmf_recorder_client.cpp
+source_files := qmmf_recorder.cc
+source_files += qmmf_recorder_client.cc
 source_files += qmmf_recorder_client_ion.cc
 
 # Build qmmf recorder client library

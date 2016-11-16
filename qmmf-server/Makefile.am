@@ -1,7 +1,7 @@
 # Build qmmf-server binary
 bin_PROGRAMS := qmmf-server
 
-qmmf_server_SOURCES  := qmmf_server_main.cpp
+qmmf_server_SOURCES  := qmmf_server_main.cc
 
 qmmf_server_CPPFLAGS := -I$(top_srcdir)/include
 qmmf_server_CPPFLAGS += -I$(top_srcdir)/

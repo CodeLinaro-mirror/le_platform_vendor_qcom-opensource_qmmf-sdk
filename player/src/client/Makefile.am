@@ -1,5 +1,5 @@
-source_files := qmmf_player.cpp
-source_files += qmmf_player_client.cpp
+source_files := qmmf_player.cc
+source_files += qmmf_player_client.cc
 
 # Build qmmf player client library
 # libqmmf_player_client.so
