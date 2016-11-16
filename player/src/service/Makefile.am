@@ -1,12 +1,12 @@
-source_files := qmmf_player_service.cpp
-source_files += ../client/qmmf_player_client.cpp
-source_files += qmmf_player_impl.cpp
-source_files += qmmf_player_common.cpp
-source_files += qmmf_player_remote_cb.cpp
-source_files += qmmf_player_audio_decoder_core.cpp
-source_files += qmmf_player_video_decoder_core.cpp
-source_files += qmmf_player_audio_sink.cpp
-source_files += qmmf_player_video_sink.cpp
+source_files := qmmf_player_service.cc
+source_files += ../client/qmmf_player_client.cc
+source_files += qmmf_player_impl.cc
+source_files += qmmf_player_common.cc
+source_files += qmmf_player_remote_cb.cc
+source_files += qmmf_player_audio_decoder_core.cc
+source_files += qmmf_player_video_decoder_core.cc
+source_files += qmmf_player_audio_sink.cc
+source_files += qmmf_player_video_sink.cc
 
 # Build qmmf player service library
 # libqmmf_player_service.so
