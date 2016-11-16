@@ -119,7 +119,6 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   AudioTrackParams       track_params_;
   AudioEndPoint*         end_point_;
-  AudioEndPointType      type_;
 
   // For decoded frame
   Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;

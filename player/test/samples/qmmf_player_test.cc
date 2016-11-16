@@ -102,10 +102,8 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
 
 
 PlayerTest::PlayerTest()
-    : stopped_(false), filename_(nullptr),
-      release_parser_(false), start_again_(false),
-      audioFirstFrame_(true), videoFirstFrame_(true),
-      stop_playing_(false) {
+    : filename_(nullptr), stopped_(false), stop_playing_(false),
+      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -128,9 +126,8 @@ PlayerTest::PlayerTest()
 
 
 PlayerTest::PlayerTest(char* filename_)
-    : stopped_(false), filename_(nullptr),
-      release_parser_(false), start_again_(false), audioFirstFrame_(true),
-      videoFirstFrame_(true), stop_playing_(false) {
+    : filename_(nullptr), stopped_(false), stop_playing_(false),
+      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -245,8 +242,6 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
                               VideoTrackCreateParam& video_track_param_) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  auto result = 0;
-
   CreateDataSource();
 
 #ifdef AUDIO
@@ -283,6 +278,8 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
 #endif
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+
+  return 0;
 }
 
 int32_t PlayerTest::Start() {
@@ -323,8 +320,6 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
   auto ret = 0;
 
-  uint32_t result;
-
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
@@ -337,9 +332,6 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
     ret = playertest->player_.DequeueInputBuffer(playertest->audio_track_id_,
         buffers);
-
-    int32_t num_frames_read;
-    uint32_t bytes_read;
 
     FileSourceSampleInfo sSampleInfo;
     FileSourceMediaStatus eMediaStatus = FILE_SOURCE_DATA_ERROR;
@@ -368,7 +360,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );
-      delete buffer;
+      delete[] buffer;
       playertest->audioFirstFrame_ = false;
     }
 
@@ -388,14 +380,14 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
     if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
       //EOF reached or Stopped
-      TEST_INFO("%s:%s:File read completed result is %d", TAG, __func__, result);
+      TEST_INFO("%s:%s:File read completed", TAG, __func__);
       buffers[0].flag = 1;
       buffers[0].filled_size = 0;
 
       TEST_DBG("%s:%s: audio_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
       TEST_DBG("%s:%s: audio_buffer size %d", TAG, __func__, buffers[0].size);
-      TEST_DBG("%s:%s: audio_vaddr 0x%x", TAG, __func__, buffers[0].data);
+      TEST_DBG("%s:%s: audio_vaddr 0x%p", TAG, __func__, buffers[0].data);
 
       playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
@@ -409,7 +401,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
     TEST_DBG("%s:%s: audio_filled_size %d", TAG, __func__,
         buffers[0].filled_size);
     TEST_DBG("%s:%s: audio_buffer size %d", TAG, __func__, buffers[0].size);
-    TEST_DBG("%s:%s: audio_vaddr 0x%x", TAG, __func__, buffers[0].data);
+    TEST_DBG("%s:%s: audio_vaddr 0x%p", TAG, __func__, buffers[0].data);
 
     playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
@@ -425,8 +417,6 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
   auto ret = 0;
 
-  uint32_t result;
-
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
@@ -441,9 +431,6 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         buffers);
 
     //Video
-    int32_t num_frames_read;
-    uint32_t bytes_read;
-
     FileSourceSampleInfo sSampleInfo;
     FileSourceMediaStatus eMediaStatus = FILE_SOURCE_DATA_ERROR;
     memset(&sSampleInfo, 0, sizeof(FileSourceSampleInfo));
@@ -471,7 +458,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );
-      delete buffer;
+      delete[] buffer;
       playertest->videoFirstFrame_ = false;
     }
 
@@ -491,14 +478,14 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
     if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
       //EOF reached or Stopped
-      TEST_INFO("%s:%s:File read completed result is %d", TAG, __func__, result);
+      TEST_INFO("%s:%s:File read completed", TAG, __func__);
       buffers[0].flag = 1;
       buffers[0].filled_size = 0;
 
       TEST_DBG("%s:%s: video_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
       TEST_DBG("%s:%s: video_buffer size %d", TAG, __func__, buffers[0].size);
-      TEST_DBG("%s:%s: video_vaddr 0x%x", TAG, __func__, buffers[0].data);
+      TEST_DBG("%s:%s: video_vaddr 0x%p", TAG, __func__, buffers[0].data);
 
       playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
@@ -512,7 +499,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
     TEST_DBG("%s:%s: video_filled_size %d", TAG, __func__,
         buffers[0].filled_size);
     TEST_DBG("%s:%s: video_buffer size %d", TAG, __func__, buffers[0].size);
-    TEST_DBG("%s:%s: video_vaddr 0x%x", TAG, __func__, buffers[0].data);
+    TEST_DBG("%s:%s: video_vaddr 0x%p", TAG, __func__, buffers[0].data);
 
     playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
@@ -527,6 +514,7 @@ int32_t PlayerTest::Stop() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   stopped_ = true;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return 0;
 }
 
 int32_t PlayerTest::StopPlaying() {

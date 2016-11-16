@@ -1,5 +1,4 @@
 source_files := qmmf_player_service.cc
-source_files += ../client/qmmf_player_client.cc
 source_files += qmmf_player_impl.cc
 source_files += qmmf_player_common.cc
 source_files += qmmf_player_remote_cb.cc

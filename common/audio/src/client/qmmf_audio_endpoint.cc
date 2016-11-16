@@ -60,8 +60,6 @@ AudioEndPoint::~AudioEndPoint() {
 
 int32_t AudioEndPoint::Connect(const AudioEventHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
-               handler.target_type().name());
 
   audio_endpoint_client_ = new AudioEndPointClient();
   if (audio_endpoint_client_ == nullptr)

@@ -77,10 +77,10 @@ using ::std::mutex;
 using ::std::vector;
 
 AudioEndPointClient::AudioEndPointClient()
-    : audio_service_(nullptr),
+    : state_(AudioState::kNew),
+      audio_service_(nullptr),
       death_notifier_(nullptr),
-      audio_handle_(-1),
-      state_(AudioState::kNew) {
+      audio_handle_(-1) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
@@ -105,8 +105,6 @@ AudioEndPointClient::~AudioEndPointClient() {
 
 int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
-               handler.target_type().name());
   lock_guard<mutex> lock(lock_);
 
   switch (state_) {
@@ -154,8 +152,8 @@ int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
   audio_service_ = interface_cast<IAudioService>(service_handle);
   IInterface::asBinder(audio_service_)->linkToDeath(death_notifier_);
 
-  sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
-  int32_t result = audio_service_->Connect(handler, &audio_handle_);
+  sp<ServiceCallbackHandler> cb_handler = new ServiceCallbackHandler(this);
+  int32_t result = audio_service_->Connect(cb_handler, &audio_handle_);
   if (result < 0) {
     QMMF_ERROR("%s: %s() can't connect to service %s: %d", TAG, __func__,
                kAudioServiceName, result);

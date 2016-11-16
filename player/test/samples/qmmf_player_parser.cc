@@ -49,16 +49,16 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
-AACfileIO::AACfileIO(const char*file):infile(file),
-                                confidence(0),
-                                currentTimeus(0),
+AACfileIO::AACfileIO(const char*file): currentTimeus(0),
                                 Framedurationus(0),
+                                infile(file),
+                                confidence(0),
                                 streamSize(0),
                                 numFrames(0),
                                 sf_index(0),
-                                sr(0),
                                 profile(0),
                                 channel(0),
+                                sr(0),
                                 duration(0),
                                 read_completed(false){
   TEST_INFO("%s:%s:%s Enter",TAG,TAG2,__func__);
@@ -260,7 +260,6 @@ status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frame
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
-    size_t headersize  = *v_headerSize;
     TEST_DBG("%s:%s:%s offset = %lld frameSize = %u headerSize = %u",TAG,TAG2,__func__,(long long)offset,(uint32_t)framesize,(uint32_t)headersize);
     if(size_buffer - *bytes_read < (uint32_t)framesize){
 
@@ -301,12 +300,12 @@ AACfileIO::~AACfileIO(){
   TEST_INFO("%s:%s:%s Exit",TAG,TAG2,__func__);
 }
 
-G711fileIO::G711fileIO(const char*file):infile(file),
-                                currentTimeus(0),
+G711fileIO::G711fileIO(const char*file):currentTimeus(0),
                                 Framedurationus(0),
+                                infile(file),
                                 streamSize(0),
-                                sr(0),
                                 channel(0),
+                                sr(0),
                                 read_completed(false),
                                 isAlaw(false),
                                 isMulaw(false){
@@ -353,7 +352,6 @@ status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
   infile.seekg(0,infile.end);
   streamSize = infile.tellg();
   infile.seekg(starting_offset);
-  size_t framesize;
 
   params->sample_rate = sr;
   params->channels    = channel;
@@ -405,16 +403,16 @@ status_t G711fileIO::GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_
   return 0;
 }
 
-AMRfileIO::AMRfileIO(const char*file):infile(file),
-                                confidence(0),
-                                currentTimeus(0),
+AMRfileIO::AMRfileIO(const char*file):currentTimeus(0),
                                 Framedurationus(20000),
+                                starting_offset(0),
+                                infile(file),
+                                confidence(0),
                                 streamSize(0),
                                 numFrames(0),
                                 channel(0),
                                 sr(0),
                                 duration(0),
-                                starting_offset(0),
                                 read_completed(false),
                                 mIsWide(false){
   TEST_INFO("%s:%s:%s Enter",TAG,TAG3,__func__);

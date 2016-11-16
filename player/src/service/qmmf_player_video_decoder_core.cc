@@ -63,7 +63,7 @@ VideoDecoderCore* VideoDecoderCore::CreateVideoDecoderCore() {
     return nullptr;
   }
   }
-  QMMF_INFO("%s:%s: VideoDecoderCore Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: VideoDecoderCore Instance Created Successfully(0x%p)", TAG,
        __func__, instance_);
 
   return instance_;
@@ -109,14 +109,14 @@ status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params) {
 
   ret = video_track_decoder->ConfigureTrackDecoder(params);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) VideoTrackDecoder Init failed!", TAG, 
+    QMMF_ERROR("%s:%s: track_id(%d) VideoTrackDecoder Init failed!", TAG,
         __func__, params.track_id);
     return BAD_VALUE;
   }
 
   video_track_decoders_.add(params.track_id, video_track_decoder);
 
-  QMMF_INFO("%s:%s: VideoTrackDecoder(0x%x) for track_id(%d) Instantiated!", TAG,
+  QMMF_INFO("%s:%s: VideoTrackDecoder(0x%p) for track_id(%d) Instantiated!", TAG,
       __func__, video_track_decoder.get(), params.track_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
@@ -372,7 +372,7 @@ bool VideoDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Video Decoding ********************************/
 
 VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
-    : ion_device_(ion_device), eos_(false) {
+    : ion_device_(ion_device) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
@@ -382,7 +382,7 @@ VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
        O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 VideoTrackDecoder::~VideoTrackDecoder() {
@@ -428,7 +428,7 @@ VideoTrackDecoder::~VideoTrackDecoder() {
     close(file_fd_video_);
 #endif
 
-  QMMF_DEBUG("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_DEBUG("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t VideoTrackDecoder::ConfigureTrackDecoder(
@@ -530,30 +530,30 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
 
   int32_t size = buffers.size();
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
 
-  if(unfilled_frame_queue_.Size() <= 0) {
-   QMMF_DEBUG("%s:%s track_id(%d) No Empty buffer available", TAG, __func__, 
-       TrackId());
-    Mutex::Autolock autoLock(wait_for_empty_frame_lock_);
-    wait_for_empty_frame_.wait(wait_for_empty_frame_lock_);
-  }
+    if(unfilled_frame_queue_.Size() <= 0) {
+     QMMF_DEBUG("%s:%s track_id(%d) No Empty buffer available", TAG, __func__,
+         TrackId());
+      Mutex::Autolock autoLock(wait_for_empty_frame_lock_);
+      wait_for_empty_frame_.wait(wait_for_empty_frame_lock_);
+    }
 
-  StreamBuffer iter = *unfilled_frame_queue_.Begin();
-  buffers[i].fd = (iter).fd;
-  buffers[i].data = (iter).data;
-  buffers[i].frame_length = (iter).frame_length;
-  buffers[i].buf_id = (iter).fd;
+    StreamBuffer iter = *unfilled_frame_queue_.Begin();
+    buffers[i].fd = (iter).fd;
+    buffers[i].data = (iter).data;
+    buffers[i].frame_length = (iter).frame_length;
+    buffers[i].buf_id = (iter).fd;
 
-  {
-    Mutex::Autolock lock(queue_lock_);
-    filled_frame_queue_.PushBack(iter);
-  }
+    {
+      Mutex::Autolock lock(queue_lock_);
+      filled_frame_queue_.PushBack(iter);
+    }
 
-  unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
+    unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
 
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to client", TAG,
-     __func__, TrackId(), (iter).data, (iter).fd);
+    QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to client", TAG,
+       __func__, TrackId(), (iter).data, (iter).fd);
 
   }
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -567,7 +567,7 @@ status_t VideoTrackDecoder::QueueInputBuffer(
 
   int32_t size = buffers.size();
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
 
     StreamBuffer iter = *filled_frame_queue_.Begin();
 
@@ -588,7 +588,7 @@ status_t VideoTrackDecoder::QueueInputBuffer(
     QMMF_DEBUG("%s:%s: fd %d", TAG, __func__,buffers[i].buf_id);
     QMMF_DEBUG("%s:%s: filled_length %d", TAG, __func__,buffers[i].filled_length);
     QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
-    QMMF_DEBUG("%s:%s: vaddr 0x%x", TAG, __func__,bufinfo.vaddr);
+    QMMF_DEBUG("%s:%s: vaddr 0x%p", TAG, __func__,bufinfo.vaddr);
     QMMF_DEBUG("%s:%s: flag %d", TAG, __func__,buffers[i].flag);
 
 #ifdef DUMP_VIDEO_BITSTREAM
@@ -602,7 +602,7 @@ status_t VideoTrackDecoder::QueueInputBuffer(
     }
     filled_frame_queue_.Erase(filled_frame_queue_.Begin());
 
-    QMMF_DEBUG("%s:%s track_id(%d) received buffer(0x%x) fd(%d) from client", TAG,
+    QMMF_DEBUG("%s:%s track_id(%d) received buffer(0x%p) fd(%d) from client", TAG,
       __func__, TrackId(), (iter).data, (iter).fd);
   }
 
@@ -770,7 +770,7 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
     frames_being_decoded_.PushBack(iter);
   }
   frames_to_decode_.Erase(frames_to_decode_.Begin());
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to avcodec for"
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for"
       " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
 
   QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
@@ -820,7 +820,7 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
 // This method is used by AVCodec to notify stop
 status_t VideoTrackDecoder::NotifyPortStatus(CodecPortStatus status) {
-
+  return 0;
 }
 
 status_t VideoTrackDecoder::AllocInputPortBufs() {
@@ -884,7 +884,7 @@ status_t VideoTrackDecoder::AllocInputPortBufs() {
     ion_handle_data.push_back(alloc);
 
     QMMF_VERBOSE("%s:%s buffer.Fd(%d)", TAG, __func__, buffer.fd);
-    QMMF_VERBOSE("%s:%s buffer.frame_length(%d)", TAG, __func__, 
+    QMMF_VERBOSE("%s:%s buffer.frame_length(%d)", TAG, __func__,
         buffer.frame_length);
     QMMF_VERBOSE("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.data);
 
@@ -901,7 +901,7 @@ status_t VideoTrackDecoder::AllocInputPortBufs() {
 
   for(uint32_t j = 0; j < buf_info_map.size(); j++) {
     QMMF_VERBOSE("%s:%s: buf_info_map:idx(%d) :key(%d) :fd:%d :data:"
-        "0x%x", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
+        "0x%p", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
         buf_info_map[j].vaddr);
   }
 

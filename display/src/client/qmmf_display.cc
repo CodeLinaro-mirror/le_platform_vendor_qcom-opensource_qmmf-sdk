@@ -79,7 +79,6 @@ status_t Display::Disconnect() {
 status_t Display::CreateDisplay(DisplayType type, DisplayCb& cb) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  assert(&cb != nullptr);
   assert(cb.VSyncCb != nullptr);
 
   auto ret = display_client_->CreateDisplay(type, cb);

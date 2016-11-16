@@ -68,12 +68,12 @@ extern "C" void DebugAudioSinkParam (const char* _func_,
 extern "C" void DebugQueueInputBuffer(const char* _func_,
                                       std::vector<AVCodecBuffer>& buffers)
 {
-  for (int32_t i =0 ; i<buffers.size(); i++)
+  for (uint32_t i =0 ; i<buffers.size(); i++)
   {
     QMMF_DEBUG("%s:%s: fd %d", TAG, __func__,buffers[i].buf_id);
     QMMF_DEBUG("%s:%s: filled_length %d", TAG, __func__,buffers[i].filled_length);
     QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
-    QMMF_DEBUG("%s:%s: vaddr 0x%x", TAG, __func__,buffers[i].data);
+    QMMF_DEBUG("%s:%s: vaddr 0x%p", TAG, __func__,buffers[i].data);
   }
 }
 

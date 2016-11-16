@@ -94,7 +94,6 @@ status_t RecorderTest::Disconnect() {
 
 int32_t RecorderTest::ToggleNR() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
@@ -128,7 +127,6 @@ int32_t RecorderTest::ToggleNR() {
 
 std::string RecorderTest::GetCurrentNRMode() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   std::string ret("Not available");
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
@@ -182,7 +180,6 @@ void RecorderTest::InitSupportedNRModes() {
 
 int32_t RecorderTest::ToggleVHDR() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
@@ -216,7 +213,6 @@ int32_t RecorderTest::ToggleVHDR() {
 
 std::string RecorderTest::GetCurrentVHDRMode() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   std::string ret("Not available");
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
@@ -259,7 +255,6 @@ void RecorderTest::InitSupportedVHDRModes() {
 
 int32_t RecorderTest::ToggleIR() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_IR_MODE)) {
@@ -311,7 +306,6 @@ int32_t RecorderTest::ChooseCamera() {
 
 std::string RecorderTest::GetCurrentIRMode() {
   CameraMetadata meta;
-  camera_metadata_entry_t entry;
   std::string ret("Not available");
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
@@ -400,8 +394,6 @@ status_t RecorderTest::TakeSnapshot() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
-  session_iter_ it = sessions_.begin();
-  uint32_t session_id = it->first;
   int32_t input;
   camera_metadata_entry_t entry;
   CameraMetadata meta;
@@ -460,6 +452,10 @@ status_t RecorderTest::TakeSnapshot() {
             TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG,
                 __func__, i, w, h);
           }
+        } else {
+          printf("ANDROID_SCALER_AVAILABLE_RAW_SIZES not found\n");
+          input = 0;
+          break;
         }
         image_param.width        = w; // 5344
         image_param.height       = h; // 4016
@@ -502,7 +498,7 @@ status_t RecorderTest::TakeSnapshot() {
       assert(ret == NO_ERROR);
 
       std::vector<CameraMetadata> meta_array;
-      for (int32_t i = 0; i < num_images; i++) {
+      for (uint32_t i = 0; i < num_images; i++) {
         meta_array.push_back(meta);
       }
       ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array, cb);
@@ -1339,7 +1335,7 @@ status_t RecorderTest::SessionRDITrack() {
 
   CameraMetadata meta;
   camera_metadata_entry_t entry;
-  auto status = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  recorder_.GetDefaultCaptureParam(camera_id_, meta);
 
   if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
     entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
@@ -1518,6 +1514,8 @@ status_t RecorderTest::PauseSession() {
   auto ret = recorder_.PauseSession(session_id);
   assert(ret == 0);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+
+  return NO_ERROR;
 }
 
 status_t RecorderTest::ResumeSession() {
@@ -1528,6 +1526,8 @@ status_t RecorderTest::ResumeSession() {
   auto ret = recorder_.ResumeSession(session_id);
   assert(ret == 0);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+
+  return NO_ERROR;
 }
 
 status_t RecorderTest::SetParams() {
@@ -1615,6 +1615,7 @@ status_t RecorderTest::SetParams() {
   } while(input);
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderTest::EnableOverlay() {
@@ -1690,7 +1691,6 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
 
   TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
-  size_t written_len;
   static uint32_t snapshot_count = 0;
   const char* ext_str;
 
@@ -1769,7 +1769,7 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   } else {
     // YUV & RAW
     uint32_t offset = 0;
-    for (int32_t i = 0; i < meta_data.num_planes; ++i) {
+    for (uint32_t i = 0; i < meta_data.num_planes; ++i) {
       void* data = static_cast<void*>((static_cast<uint8_t*>(buffer.data)
                       + offset));
       written_len += fwrite(data, sizeof(uint8_t),
@@ -1781,7 +1781,7 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
     }
   }
   TEST_DBG("%s:%s: total written_len = %d", TAG, __func__, written_len);
-  TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+  TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
       buffer.data, written_len, file_path.string());
 
   return NO_ERROR;
@@ -1791,7 +1791,6 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 {
   ALOGD("%s: Enter ",__func__);
 
-  struct timespec t;
   int32_t ret;
 
   if(strcmp(argv[1], "-c")) {
@@ -1921,7 +1920,6 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-      uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
       if (params.tnr) {
         const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         ALOGI("%s:%s Selecting TNR mode to %s \n",
@@ -2633,8 +2631,8 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
         MetaData meta_data = meta_buffers[i];
         if (meta_data.meta_flag &
             static_cast<uint32_t>(MetaParamType::kVideoFrameType)) {
-          VideoFrameTypeInfo frame_type = meta_data.video_frame_type_info;
-          TEST_DBG("%s:%s: frame_type=%d", TAG, __func__, frame_type);
+          TEST_DBG("%s:%s: frame_type=%d", TAG, __func__,
+                   meta_data.video_frame_type_info);
         }
       }
       #ifdef DUMP_BITSTREAM
@@ -2659,7 +2657,7 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
   for (auto& iter : buffers) {
     if (file_fd_ > 0) {
       uint32_t exp_size = iter.size;
-      TEST_DBG("%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
+      TEST_DBG("%s BitStream buffer data(0x%p):size(%d):ts(%lld):flag(0x%x)"
         ":buf_id(%d):capacity(%d)", __func__, iter.data, iter.size,
          iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
@@ -2680,6 +2678,7 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
     }
   }
   TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
 }
 #endif
 
@@ -2744,6 +2743,7 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
   surface_param_.surface_transform.flip_vertical = 0;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return res;
 }
 
 status_t TestTrack::StopDisplay(DisplayType display_type) {
@@ -2799,6 +2799,7 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
       TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
     }
   }
+  return NO_ERROR;
 }
 
 void CmdMenu::PrintMenu() {

@@ -71,8 +71,8 @@ using ::std::vector;
 AudioBackendPrimary::AudioBackendPrimary(const AudioHandle audio_handle,
     const AudioErrorHandler& error_handler,
     const AudioBufferHandler& buffer_handler)
-    : audio_handle_(audio_handle), error_handler_(error_handler),
-      buffer_handler_(buffer_handler), state_(AudioState::kNew) {
+    : audio_handle_(audio_handle), state_(AudioState::kNew),
+      error_handler_(error_handler), buffer_handler_(buffer_handler) {
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
              static_cast<int>(state_));
 }

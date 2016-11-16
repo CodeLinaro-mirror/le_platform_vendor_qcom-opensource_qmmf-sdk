@@ -57,7 +57,7 @@ EncoderCore* EncoderCore::CreateEncoderCore() {
       return nullptr;
     }
   }
-  QMMF_INFO("%s:%s: EncoderCore Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: EncoderCore Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
   return instance_;
 }
@@ -110,7 +110,7 @@ status_t EncoderCore::AddSource(const shared_ptr<TrackSource>& track_source,
   }
 
   track_encoders_.add(params.track_id, track_encoder);
-  QMMF_INFO("%s:%s: TrackEncoder(0x%x) for track_id(%d) Instantiated!", TAG,
+  QMMF_INFO("%s:%s: TrackEncoder(0x%p) for track_id(%d) Instantiated!", TAG,
       __func__, track_encoder.get(), params.track_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
@@ -164,7 +164,7 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id) {
   }
 
   QMMF_INFO("%s:%s: track_id(%d) TrackEncoder Stopped Successfully!", TAG,
-      __func__);
+      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -212,7 +212,7 @@ status_t EncoderCore::DeleteTrackEncoder(uint32_t track_id) {
   track_encoders_.removeItem(track_id);
 
   QMMF_INFO("%s:%s: track_id(%d) TrackEncoder Deleted Successfully!", TAG,
-      __func__);
+      __func__, track_id);
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 
@@ -250,7 +250,7 @@ TrackEncoder::TrackEncoder(int32_t ion_device)
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   memset(&track_params_, 0x0, sizeof track_params_);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 TrackEncoder::~TrackEncoder() {
@@ -275,7 +275,7 @@ TrackEncoder::~TrackEncoder() {
   }
   output_buffer_list_.clear();
   output_ion_list_.clear();
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
@@ -333,7 +333,7 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
 
   ret = avcodec_->RegisterOutputBuffers(output_buffer_list_);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s track_id(%s) output buffers failed to register to AVCodec",
+    QMMF_ERROR("%s:%s track_id(%d) output buffers failed to register to AVCodec",
                TAG, __func__, track_params.track_id);
     return ret;
   }
@@ -349,7 +349,7 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
     return ret;
   }
 
-  QMMF_INFO("%s:%s: track_id(%d) AVCodec(0x%x) Instantiated!" , TAG, __func__,
+  QMMF_INFO("%s:%s: track_id(%d) AVCodec(0x%p) Instantiated!" , TAG, __func__,
       track_params.track_id, avcodec_);
 
   for(auto& iter : output_buffer_list_) {
@@ -460,7 +460,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB", TAG,
       __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -473,7 +473,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(codec_buffer.data != NULL);
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%x) from FBD", TAG,
+  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
       __func__, TrackId(), codec_buffer.data);
 
 #ifdef DUMP_BITSTREAM
@@ -486,7 +486,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
-    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
+    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%p)vs(0x%p) ", TAG,
         __func__, TrackId(), (*it).data,  codec_buffer.data);
     if (((*it).data) == (codec_buffer.data)) {
       QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
@@ -523,6 +523,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
 #endif
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t TrackEncoder::NotifyPortStatus(CodecPortStatus status) {
@@ -552,7 +553,7 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
       Mutex::Autolock lock(queue_lock_);
       List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
-        if ((*it).fd == iter.buffer_id) {
+        if ((*it).fd == static_cast<int32_t>(iter.buffer_id)) {
           QMMF_DEBUG("%s:%s: track_id(%d) buffer_id(%d) found in list", TAG,
               __func__, TrackId(), iter.buffer_id);
           // Move buffer to free queue, and signal AVCodec's output thread if it
@@ -582,7 +583,6 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   assert(track_params_.data_cb != nullptr);
 
-  VideoFrameTypeInfo type_info = VideoFrameTypeInfo::kNone;
   bool found = false;
   BnBuffer bn_buffer;
   memset(&bn_buffer, 0x0, sizeof bn_buffer);
@@ -598,7 +598,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
     Mutex::Autolock lock(queue_lock_);
     List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
-      QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x) vs (0x%x) ", TAG,
+      QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%p) vs (0x%p) ", TAG,
           __func__, TrackId(), (*it).data,  codec_buffer.data);
       if (((*it).data) ==  (codec_buffer.data)) {
         QMMF_VERBOSE("%s:%s track_id(%d) fd(%d):size(%d):timestamp(%lld):"

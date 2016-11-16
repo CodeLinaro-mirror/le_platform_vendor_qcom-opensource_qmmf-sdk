@@ -129,10 +129,8 @@ struct VideoCapsInternal : public VideoCaps {
     for (size_t index = 0; index < number_of_elements; ++index)
       frame_rates.push_back(parcel.readInt32());
     number_of_elements = static_cast<size_t>(parcel.readUint32());
-    for (size_t index = 0; index < number_of_elements; ++index) {
-      ImageFormat format;
+    for (size_t index = 0; index < number_of_elements; ++index)
       formats.push_back(static_cast<ImageFormat>(parcel.readInt32()));
-    }
     return *this;
   }
 };

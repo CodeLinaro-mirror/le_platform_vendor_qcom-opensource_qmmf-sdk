@@ -163,7 +163,7 @@ int32_t RecorderTestAmr::Write(const BufferDescriptor& buffer) {
   output_.write(reinterpret_cast<const char*>(buffer.data), buffer.size);
   streampos after = output_.tellp();
   if (after - before != buffer.size)
-    QMMF_WARN("%s: %s() failed to write AAC data: size[%u] written[%u]",
+    QMMF_WARN("%s: %s() failed to write AAC data: size[%u] written[%llu]",
               TAG, __func__, buffer.size, after - before);
 
   return 0;

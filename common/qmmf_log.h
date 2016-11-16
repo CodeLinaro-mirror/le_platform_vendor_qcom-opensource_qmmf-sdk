@@ -42,14 +42,16 @@
 #define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
 #define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
 
+static inline void unused(...) {};
+
 #ifdef LOG_LEVEL_DEBUG
 #define QMMF_DEBUG(fmt, args...)  ALOGD(fmt, ##args)
 #else
-#define QMMF_DEBUG(...) ((void)0)
+#define QMMF_DEBUG(...) unused(__VA_ARGS__)
 #endif
 
 #ifdef LOG_LEVEL_VERBOSE
 #define QMMF_VERBOSE(fmt, args...)  ALOGD(fmt, ##args)
 #else
-#define QMMF_VERBOSE(...) ((void)0)
+#define QMMF_VERBOSE(...) unused(__VA_ARGS__)
 #endif

@@ -56,16 +56,12 @@ AudioFrontend::~AudioFrontend() {}
 
 void AudioFrontend::RegisterErrorHandler(const AudioErrorHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
-               handler.target_type().name());
 
   error_handler_ = handler;
 }
 
 void AudioFrontend::RegisterBufferHandler(const AudioBufferHandler& handler) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: handler[%s]", TAG, __func__,
-               handler.target_type().name());
 
   buffer_handler_ = handler;
 }
@@ -100,7 +96,7 @@ int32_t AudioFrontend::Disconnect(const AudioHandle audio_handle) {
     return -EINVAL;
   }
 
-  int32_t result;
+  int32_t result = 0;
   if (backend_iterator->second != nullptr) {
     result = backend_iterator->second->Close();
     if (result < 0)

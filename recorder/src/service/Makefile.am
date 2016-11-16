@@ -1,5 +1,4 @@
 source_files := qmmf_recorder_service.cc
-source_files += ../client/qmmf_recorder_client.cc
 source_files += qmmf_recorder_impl.cc
 source_files += qmmf_recorder_ion.cc
 source_files += qmmf_remote_cb.cc

@@ -53,8 +53,6 @@ using ::std::make_shared;
 using ::std::shared_ptr;
 using ::std::vector;
 
-static const nsecs_t kWaitDuration = 1000000000; // 1 s.
-
 
 AudioDecoderCore* AudioDecoderCore::instance_ = nullptr;
 
@@ -66,7 +64,7 @@ AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore() {
     return nullptr;
   }
   }
-  QMMF_INFO("%s:%s: AudioDecoderCore Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: AudioDecoderCore Instance Created Successfully(0x%p)", TAG,
        __func__, instance_);
 
   return instance_;
@@ -117,7 +115,7 @@ status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params) {
   }
 
   audio_track_decoders_.add(params.track_id, audio_track_decoder);
-  QMMF_INFO("%s:%s: AudioTrackEncoder(0x%x) for track_id(%d) Instantiated!", TAG,
+  QMMF_INFO("%s:%s: AudioTrackEncoder(0x%p) for track_id(%d) Instantiated!", TAG,
       __func__, audio_track_decoder.get(), params.track_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
@@ -363,7 +361,7 @@ status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
 }
 
 bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
-  QMMF_INFO("%s: Number of Tracks exist = %d",__func__, 
+  QMMF_INFO("%s: Number of Tracks exist = %d",__func__,
       audio_track_decoders_.size());
   assert(audio_track_decoders_.size() > 0);
   return audio_track_decoders_.indexOfKey(track_id) >= 0 ? true : false;
@@ -372,17 +370,17 @@ bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Audio Decoding ********************************/
 
 AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
-    : ion_device_(ion_device), eos_(false) {
+    : ion_device_(ion_device) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   memset(&audio_track_params_, 0x0, sizeof audio_track_params_);
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  file_fd_audio_ = open("/data/audio_track.bitstream", 
+  file_fd_audio_ = open("/data/audio_track.bitstream",
       O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 AudioTrackDecoder::~AudioTrackDecoder() {
@@ -428,7 +426,7 @@ AudioTrackDecoder::~AudioTrackDecoder() {
     close(file_fd_audio_);
 #endif
 
-  QMMF_DEBUG("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_DEBUG("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t AudioTrackDecoder::ConfigureTrackDecoder(
@@ -513,7 +511,7 @@ status_t AudioTrackDecoder::DequeueInputBuffer(
 
   int32_t size = buffers.size();
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
 
   if(unfilled_frame_queue_.Size() <= 0) {
     QMMF_DEBUG("%s:%s track_id(%d) No Empty buffer available", TAG, __func__, TrackId());
@@ -534,7 +532,7 @@ status_t AudioTrackDecoder::DequeueInputBuffer(
 
   unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
 
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to client", TAG,
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to client", TAG,
      __func__, TrackId(), (iter).data, (iter).fd);
 
   }
@@ -549,7 +547,7 @@ status_t AudioTrackDecoder::QueueInputBuffer(
 
   int32_t size = buffers.size();
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
 
     StreamBuffer iter = *filled_frame_queue_.Begin();
 
@@ -570,7 +568,7 @@ status_t AudioTrackDecoder::QueueInputBuffer(
     QMMF_DEBUG("%s:%s: fd %d", TAG, __func__,buffers[i].buf_id);
     QMMF_DEBUG("%s:%s: filled_length %d", TAG, __func__,buffers[i].filled_length);
     QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
-    QMMF_DEBUG("%s:%s: vaddr 0x%x", TAG, __func__,bufinfo.vaddr);
+    QMMF_DEBUG("%s:%s: vaddr 0x%p", TAG, __func__,bufinfo.vaddr);
     QMMF_DEBUG("%s:%s: flag %d", TAG, __func__,buffers[i].flag);
 
   #ifdef DUMP_AUDIO_BITSTREAM
@@ -585,7 +583,7 @@ status_t AudioTrackDecoder::QueueInputBuffer(
 
     filled_frame_queue_.Erase(filled_frame_queue_.Begin());
 
-    QMMF_DEBUG("%s:%s track_id(%d) received buffer(0x%x) fd(%d) from client", TAG,
+    QMMF_DEBUG("%s:%s track_id(%d) received buffer(0x%p) fd(%d) from client", TAG,
        __func__, TrackId(), (iter).data, (iter).fd);
   }
 
@@ -751,7 +749,7 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
     frames_being_decoded_.PushBack(iter);
   }
   frames_to_decode_.Erase(frames_to_decode_.Begin());
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) to avcodec for"
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for"
       " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
 
   QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
@@ -890,7 +888,7 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
 
   for(uint32_t j = 0; j < buf_info_map.size(); j++) {
     QMMF_VERBOSE("%s:%s: buf_info_map:idx(%d) :key(%d) :fd:%d :data:"
-        "0x%x", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
+        "0x%p", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
         buf_info_map[j].vaddr);
   }
 

@@ -229,7 +229,10 @@ status_t AACfileIO::Fillparams(TestInitParams *params) {
           QMMF_ERROR("%s:%s:%s Error from AACfileIO::getAdtsFrameLength function",TAG,TAG2,__func__);
           return -1;
       }
-      QMMF_INFO("%s:%s:%s Current Offset for the ADTS header %d is %lld with framesize = %u and headersize = %u" ,TAG,TAG2,__func__,numFrames + 1, (long long)offset, (uint32_t)framesize,(uint32_t)headersize);
+      QMMF_INFO("%s:%s:%s Current Offset for the ADTS header %llu is %lld with"
+                " framesize = %u and headersize = %u" , TAG, TAG2, __func__,
+                numFrames + 1, (long long)offset, (uint32_t)framesize,
+                (uint32_t)headersize);
       OffsetVector.push_back(offset);
       frameSize.push_back(framesize);
       headerSize.push_back(headersize);
@@ -1358,7 +1361,7 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   if (file_fd_ > 0) {
     ssize_t expSize = (ssize_t) codec_buffer.size;
-  QMMF_INFO("FillBufferDone size writen to file  %u",expSize);
+    QMMF_INFO("FillBufferDone size writen to file  %lu", expSize);
     if (expSize != write(file_fd_,
           reinterpret_cast<uint8_t*>(codec_buffer.data) + codec_buffer.offset,
           codec_buffer.size)) {

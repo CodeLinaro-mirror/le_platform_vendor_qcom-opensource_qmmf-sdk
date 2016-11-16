@@ -219,8 +219,8 @@ DisplayError DisplayBufferAllocator::GetBufferInfo(BufferInfo *buffer_info,
       return kErrorNone;
   }
 
-  uint32_t buffer_size = getBufferSizeAndDimensions(width, height, format,
-      alloc_flags, aligned_width, aligned_height);
+  getBufferSizeAndDimensions(width, height, format, alloc_flags, aligned_width,
+    aligned_height);
 
   return kErrorNone;
 

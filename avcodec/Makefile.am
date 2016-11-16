@@ -25,7 +25,7 @@ av_codec_gtest_CPPFLAGS := $(libav_codec_la_CPPFLAGS)
 av_codec_gtest_LDFLAGS  := -lgtest -lgtest_main
 av_codec_gtest_LDADD    := libav_codec.la
 
-# Codec Adaptor sample audio secode test app
+# Codec Adaptor sample audio decode test app
 bin_PROGRAMS += av_codec_audio_decode_test
 
 av_codec_audio_decode_test_SOURCES  := test/sample/qmmf_audio_decode_test.cc

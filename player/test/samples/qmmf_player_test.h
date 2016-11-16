@@ -121,17 +121,11 @@ class PlayerTest {
   Mutex                           state_lock;
   Condition                       wait_for_state_change_;
 
-  int32_t                         file_fd_;
   bool                            stopped_;
   bool                            stop_playing_;
   bool                            start_again_;
-  bool                            release_parser_;
   pthread_t                       audio_thread_id_;
   pthread_t                       video_thread_id_;
-
-  AACfileIO*                      aacfileIO_;
-  G711fileIO*                     g711fileIO_;
-  AMRfileIO*                      amrfileIO_;
 
   MM_TRACK_INFOTYPE               m_sTrackInfo_;
   CMM_MediaSourcePort*            m_pIStreamPort_;

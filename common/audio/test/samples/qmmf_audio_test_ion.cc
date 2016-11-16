@@ -70,7 +70,8 @@ AudioTestIon::~AudioTestIon() {
   if (!ion_buffer_map_.empty()) {
     int32_t result = Deallocate();
     assert(result == 0);
-    QMMF_INFO("%s: %s() deallocated all ion buffers", TAG, __func__);
+    QMMF_INFO("%s: %s() deallocated all ion buffers rc %d", TAG, __func__,
+              result);
   }
 }
 

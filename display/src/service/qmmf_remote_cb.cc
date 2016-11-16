@@ -40,13 +40,13 @@ RemoteCallBack::RemoteCallBack(const sp<IDisplayServiceCallback>&
     remote_client): client_cb_handle_(remote_client) {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 RemoteCallBack::~RemoteCallBack() {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 void RemoteCallBack::notifyDisplayEvent(DisplayEventType event_type,

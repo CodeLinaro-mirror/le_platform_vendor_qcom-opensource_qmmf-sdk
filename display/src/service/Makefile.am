@@ -1,6 +1,4 @@
 source_files := qmmf_display_service.cc
-source_files += ../client/qmmf_display_client.cc
-#source_files += qmmf_display_common.cc
 source_files += qmmf_display_impl.cc
 source_files += qmmf_remote_cb.cc
 source_files += qmmf_display_sdm_buffer_allocator.cc

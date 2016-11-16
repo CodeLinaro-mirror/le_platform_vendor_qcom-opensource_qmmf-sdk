@@ -58,7 +58,7 @@ VideoSink* VideoSink::CreateVideoSink()
         }
       }
 
-  QMMF_INFO("%s:%s: VideoSink Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: VideoSink Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
 
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
@@ -256,7 +256,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
 
   for (uint32_t j = 0; j < buf_info_map.size(); j++) {
     QMMF_VERBOSE("%s:%s: buf_info_map:idx(%d) :key(%d) :fd:%d :data:"
-        "0x%x", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
+        "0x%p", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
         buf_info_map[j].vaddr);
   }
 
@@ -284,7 +284,7 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB", TAG,
       __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -299,7 +299,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   assert(codec_buffer.data != NULL);
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%x) from FBD", TAG,
+  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
      __func__, TrackId(), codec_buffer.data);
 
 #ifdef DUMP_YUV_FRAMES
@@ -408,7 +408,7 @@ status_t VideoTrackSink::CreateDisplay(display::DisplayType display_type,
 
 status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  int32_t res;
+  int32_t res = 0;
 
   if (display_started_ == 1) {
     display_started_ =0;

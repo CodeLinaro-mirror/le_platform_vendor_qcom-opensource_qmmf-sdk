@@ -161,11 +161,8 @@ class Overlay {
 
   std::map <uint32_t, OverlayItem* > overlay_items_;
 
-  uint32_t     frame_width_;
-  uint32_t     frame_height_;
   uint32_t     target_c2dsurface_id_;
   int32_t      ion_device_;
-  uint8_t      num_active_overlays_;
   uint32_t     id_;
   std::mutex   lock_;
 };

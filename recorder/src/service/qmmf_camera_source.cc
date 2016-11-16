@@ -61,7 +61,7 @@ CameraSource* CameraSource::CreateCameraSource() {
       //return nullptr;
     }
   }
-  QMMF_INFO("%s:%s: CameraSource Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: CameraSource Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
   return instance_;
 }
@@ -79,7 +79,7 @@ CameraSource::~CameraSource() {
     camera_contexts_.clear();
   }
   instance_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t CameraSource::StartCamera(const uint32_t camera_id,
@@ -180,10 +180,11 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 
 status_t CameraSource::CancelCaptureImage() {
   //Not Implemented
+  return NO_ERROR;
 }
 
 status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                                const uint32_t buffer_id) {
+                                                const int32_t buffer_id) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
@@ -264,7 +265,8 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
 
   track_sources_.removeItem(track_id);
 
-  QMMF_INFO("%s:%s: track_id(%d) Deleted Successfully!", TAG, __func__);
+  QMMF_INFO("%s:%s: track_id(%d) Deleted Successfully!", TAG, __func__,
+      track_id);
   return ret;
 }
 
@@ -304,10 +306,12 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
 
 status_t CameraSource::PauseTrackSource(const uint32_t track_id) {
   // Not Implemented
+  return NO_ERROR;
 }
 
 status_t CameraSource::ResumeTrackSource(const uint32_t track_id) {
   // Not Implemented
+  return NO_ERROR;
 }
 
 status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
@@ -519,16 +523,15 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
 
-  timeval prevtv_ = {0x0, 0x0};
   count_ = 0;
-  QMMF_INFO("%s:%s: TrackSource (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: TrackSource (0x%p)", TAG, __func__, this);
 }
 
 TrackSource::~TrackSource() {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
-  QMMF_INFO("%s:%s: Exit(0x%x) ", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit(0x%p) ", TAG, __func__, this);
 }
 
 status_t TrackSource::Init() {
@@ -556,7 +559,7 @@ status_t TrackSource::Init() {
     return BAD_VALUE;
   }
 
-  QMMF_INFO("%s:%s: TrackSource(0x%x)(%dx%d) and Camera Device Stream "
+  QMMF_INFO("%s:%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%d)", TAG, __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
   //TODO: Add mechanism to query the stream format from adaptor.
@@ -820,7 +823,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
       buffer.handle->numInts);
-  for (uint32_t i = 0; i < buffer.handle->numInts; i++) {
+  for (int32_t i = 0; i < buffer.handle->numInts; i++) {
     QMMF_VERBOSE("%s:%s: track_id(%d) data[%d] =%d", TAG, __func__, TrackId(),
         i , buffer.handle->data[i]);
   }
@@ -990,7 +993,6 @@ status_t TrackSource::CreateOverlayObject(OverlayParam *param,
 status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  uint32_t id;
   auto ret = overlay_.DeleteOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: deleteOverlayItem failed!", TAG, __func__);
@@ -1004,7 +1006,6 @@ status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
                                              OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  uint32_t id;
   auto ret = overlay_.GetOverlayParams(overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: getOverlayItemParams failed!", TAG, __func__);
@@ -1224,6 +1225,7 @@ status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
       return ret;
     }
   }
+  return ret;
 }
 
 
@@ -1259,7 +1261,7 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
           strerror(errno));
         goto FAIL;
     }
-    QMMF_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored(%s)\n",__func__,
+    QMMF_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored(%s)\n",__func__,
         buf_vaaddr, written_len, file_path.string());
 
 FAIL:

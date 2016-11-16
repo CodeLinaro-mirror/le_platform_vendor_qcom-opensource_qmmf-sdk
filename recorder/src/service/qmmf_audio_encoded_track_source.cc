@@ -369,6 +369,8 @@ status_t AudioEncodedTrackSource::NotifyPortStatus(CodecPortStatus status) {
         QMMF_VERBOSE("%s: %s() emptied the buffer queue", TAG, __func__);
       }
       break;
+    case CodecPortStatus::kPortStart:
+      break;
   }
 
   return ::android::NO_ERROR;
@@ -380,7 +382,7 @@ status_t AudioEncodedTrackSource::GetBufferSize(int32_t* buffer_size) {
 
   *buffer_size = buffer_size_;
   QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%d]", TAG, __func__,
-               buffer_size);
+               *buffer_size);
 
   return ::android::NO_ERROR;
 }

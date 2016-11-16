@@ -144,7 +144,6 @@ int32_t DisplayTest::DestroySurface() {
 int32_t DisplayTest::DequeueSurfaceBuffer() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  uint32_t read_len;
   memset(&surface_buffer, 0x0, sizeof surface_buffer);
 
   surface_buffer.format = SurfaceFormat::kFormatBGRA8888;
@@ -160,8 +159,8 @@ int32_t DisplayTest::DequeueSurfaceBuffer() {
     TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
   }
   int32_t offset=0;
-  for(int32_t i=0;i<surface_buffer.plane_info[0].height;i++) {
-  uint32_t read_len = fread((uint8_t*)surface_buffer.plane_info[0].buf +
+  for(uint32_t i=0;i<surface_buffer.plane_info[0].height;i++) {
+  fread((uint8_t*)surface_buffer.plane_info[0].buf +
       surface_buffer.plane_info[0].offset + offset, sizeof(uint8_t),
       surface_buffer.plane_info[0].width*4, file);
   offset +=((surface_buffer.plane_info[0].width+(
@@ -204,7 +203,7 @@ int32_t DisplayTest::GetDisplayParam() {
 
   DisplayParamType param_type;
   void *param;
-  size_t param_size;
+  size_t param_size = 0;
 
   param=operator new(param_size);
   param_type = DisplayParamType::kContrast;
@@ -222,7 +221,7 @@ int32_t DisplayTest::SetDisplayParam() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   DisplayParamType param_type;
   void *param;
-  size_t param_size;
+  size_t param_size = 0;
   param=operator new(param_size);
   param_type = DisplayParamType::kSaturation;
   auto ret = display_->SetDisplayParam(param_type, param, param_size);
@@ -240,6 +239,7 @@ int32_t DisplayTest::DequeueWBSurfaceBuffer() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   //TBD
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return 0;
 }
 
 int32_t DisplayTest::QueueWBSurfaceBuffer() {
@@ -247,6 +247,7 @@ int32_t DisplayTest::QueueWBSurfaceBuffer() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   //TBD
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return 0;
 }
 
 void DisplayTest::DisplayCallbackHandler(DisplayEventType event_type,

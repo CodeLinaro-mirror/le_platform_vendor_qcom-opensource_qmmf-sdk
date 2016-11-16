@@ -132,7 +132,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   Mutex                   wait_for_frame_lock_;
   Condition               wait_for_frame_;
-  int32_t                 ion_device_;
   Mutex                   queue_lock_;
   bool                    stopplayback_;
 

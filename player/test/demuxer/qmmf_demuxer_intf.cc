@@ -87,7 +87,6 @@ CMM_MediaDemuxInt* CMM_MediaDemuxInt::New(
 ============================================================================= */
 FileSourceStatus CMM_MediaDemuxInt::Init(iStreamPort& aStreamPort,
   FileSourceFileFormat eFileFormat) {
-  uint32 ulCount = 0;
   FileSourceStatus eStatus = FILE_SOURCE_FAIL;
   //! Create synchronous FileSource
   m_pFileSource = new FileSource(CMM_MediaDemuxInt::cbFileSourceStatus,

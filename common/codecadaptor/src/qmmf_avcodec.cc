@@ -933,7 +933,7 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
     return ret;
   }
 
-  QMMF_INFO("%s:%S Decoder: Video format: W x H (%u x %u)", TAG, __func__,
+  QMMF_INFO("%s:%s Decoder: Video format: W x H (%u x %u)", TAG, __func__,
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
@@ -2945,7 +2945,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   memset(&codec_buffer, 0x0, sizeof codec_buffer);
 
   codec_buffer.data = buf_header->pBuffer;
-  
+
   // Earlier in RegisterOutputBuffers size was being used as a
   // size(an input variable given by client) of buffer being allocated
   // by ion driver, while in rest of the code

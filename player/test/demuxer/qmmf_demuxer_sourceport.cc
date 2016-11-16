@@ -253,7 +253,8 @@ iSourcePort::DataSourceReturnCode CMM_MediaSourcePort::GetAvailableOffset(
     *pbEOS = true;
 
     uint32_t eRet = GetContentLength(pAvailableOffset);
-    ALOGE(" SourcePort::GetAvailableOffset pAvailableOffset = %ld \n", *pAvailableOffset);
+    ALOGE(" SourcePort::GetAvailableOffset pAvailableOffset = %lld \n",
+      *pAvailableOffset);
     if((DS_SUCCESS != eRet) || (0 == *pAvailableOffset))
     {
         eRet = 0;
@@ -314,7 +315,7 @@ void CMM_MediaSourcePort::MediaStreamPortThread()
 {
   MM_MSG_PRIO(MM_FILE_OPS, MM_PRIO_LOW, "::QCIStreamPortThread");
   MM_MSG_PRIO1(MM_FILE_OPS, MM_PRIO_LOW,
-    "Simulating %d bits per second....", m_llBps);
+    "Simulating %lld bits per second....", m_llBps);
   m_bRun = true;
   int64 nBytesAvailable = 0;
   int64 nSecSinceRunning = 0;
@@ -331,7 +332,7 @@ void CMM_MediaSourcePort::MediaStreamPortThread()
       if (nBytesAvailable > m_llContentLength)
       {
         MM_MSG_PRIO1(MM_FILE_OPS, MM_PRIO_LOW,
-          "::QCIStreamPortThread nSecSinceRunning %d", nSecSinceRunning);
+          "::QCIStreamPortThread nSecSinceRunning %lld", nSecSinceRunning);
         m_llBytesAvailable = m_llContentLength;
         bSkipBpsCalc = true;
         MM_MSG_PRIO(MM_FILE_OPS, MM_PRIO_LOW,

@@ -60,7 +60,7 @@ AudioSink* AudioSink::CreateAudioSink() {
     }
   }
 
-  QMMF_INFO("%s:%s: Audio Sink Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: Audio Sink Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
 
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
@@ -81,7 +81,7 @@ AudioSink::~AudioSink() {
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
-status_t AudioSink::CreateTrackSink(uint32_t track_id, 
+status_t AudioSink::CreateTrackSink(uint32_t track_id,
                                     AudioTrackParams& param) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   shared_ptr<AudioTrackSink> track_sink;
@@ -92,6 +92,8 @@ status_t AudioSink::CreateTrackSink(uint32_t track_id,
   audio_track_sinks.add(track_id,track_sink);
   track_sink->Init(param);
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
+
+  return 0;
 }
 
 const shared_ptr<AudioTrackSink>& AudioSink::GetTrackSink(
@@ -237,7 +239,7 @@ status_t AudioTrackSink::Init(AudioTrackParams& track_param) {
 status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  uint32_t result;
+  int32_t result;
   int32_t latency;
 
   if (end_point_ != nullptr) {
@@ -265,7 +267,7 @@ status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
     };
 
   result = end_point_->Connect(audio_handler);
-    if (result < 0) {
+  if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Connect failed: %d[%s]", TAG, __func__,
                result, strerror(result));
     //goto error_free;
@@ -398,7 +400,7 @@ status_t AudioTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
     Mutex::Autolock lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%x) fd(%d) for FTB", TAG,
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB", TAG,
       __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -412,7 +414,7 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   assert(codec_buffer.data != NULL);
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%x) from FBD", TAG,
+  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
       __func__, TrackId(), codec_buffer.data);
 
 #ifdef DUMP_PCM_DATA
@@ -427,7 +429,7 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
-    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
+    QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%p)vs(0x%p) ", TAG,
         __func__, TrackId(), (*it).pointer,  codec_buffer.data);
     if (((*it).pointer) == (codec_buffer.data)) {
       QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
@@ -447,12 +449,12 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 status_t AudioTrackSink::NotifyPortStatus(CodecPortStatus status) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return 0;
 }
 
 int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  uint32_t size;
   int32_t result;
 
   std::vector<AudioBuffer> sinkbuffers;
@@ -470,7 +472,7 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   sinkbuffers[0].size = codec_buffer.size;
   sinkbuffers[0].capacity = codec_buffer.size;
 
-  QMMF_VERBOSE("%s:%s: sink buffer vaddr = 0x%x", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: sink buffer vaddr = 0x%p", TAG, __func__,
       sinkbuffers[0].data);
   QMMF_VERBOSE("%s:%s: sink buffer size = %d", TAG, __func__,
       sinkbuffers[0].size);
@@ -482,6 +484,8 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   sinkbuffers.clear();
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+
+  return 0;
 }
 
 int32_t AudioTrackSink::GetSinkBuffer(std::vector<AudioBuffer>& buffers) {
@@ -497,7 +501,7 @@ int32_t AudioTrackSink::GetSinkBuffer(std::vector<AudioBuffer>& buffers) {
 
   int32_t size = buffers.size();
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
 
     AudioBuffer iter = *sink_buffer_queue_.Begin();
 
@@ -522,7 +526,6 @@ int32_t AudioTrackSink::AllocateSinkBuffer(const int32_t number,
   if (number <= 0) return -EINVAL;
   if (size <= 0) return -EINVAL;
   int32_t ret = 0;
-  uint32_t request_size_ = size;
 
   // open ion device
   ion_device_ = open("/dev/ion", O_RDONLY);
@@ -538,7 +541,7 @@ int32_t AudioTrackSink::AllocateSinkBuffer(const int32_t number,
   struct ion_allocation_data alloc;
   struct ion_fd_data         ion_fddata;
 
-  for (uint32_t index = 0; index < number; ++index) {
+  for (int32_t index = 0; index < number; ++index) {
     vaddr = NULL;
     AudioBuffer buffer;
     memset(&buffer, 0x0, sizeof (AudioBuffer));

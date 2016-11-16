@@ -55,7 +55,7 @@ using ::qmmf::avcodec::kPortIndexOutput;
 using ::std::chrono::seconds;
 using ::std::condition_variable;
 using ::std::cv_status;
-using ::std::dynamic_pointer_cast;
+using ::std::static_pointer_cast;
 using ::std::map;
 using ::std::make_shared;
 using ::std::mutex;
@@ -107,7 +107,7 @@ status_t AudioEncoderCore::AddSource(const shared_ptr<IAudioTrackSource>& track_
   status_t result = track_encoder->Init(track_source, track_encoder, params);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() track_encoder[%u]->Init failed: %d", TAG, __func__,
-               params.track_id);
+               params.track_id, result);
     return result;
   }
 
@@ -303,7 +303,7 @@ status_t AudioTrackEncoder::Init(const shared_ptr<IAudioTrackSource>& track_sour
   memset(&track_params_, 0x0, sizeof track_params_);
   track_params_ = track_params;
 
-  track_source_ = dynamic_pointer_cast<AudioEncodedTrackSource>(track_source);
+  track_source_ = static_pointer_cast<AudioEncodedTrackSource>(track_source);
   track_encoder_ = track_encoder;
 
   return ::android::NO_ERROR;
@@ -420,7 +420,6 @@ status_t AudioTrackEncoder::Stop() {
              track_params_.track_id);
   status_t return_value = ::android::NO_ERROR;
   status_t result;
-  int32_t iresult;
 
   if (avcodec_ == nullptr) {
     QMMF_ERROR("%s: %s() track encoder has not been initialized", TAG,

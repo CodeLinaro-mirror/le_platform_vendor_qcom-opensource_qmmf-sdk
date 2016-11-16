@@ -45,7 +45,7 @@ PlayerImpl* PlayerImpl::CreatePlayer() {
       return nullptr;
     }
   }
-  QMMF_INFO("%s:%s: Player Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: Player Instance Created Successfully(0x%p)", TAG,
     __func__, instance_);
   return instance_;
 }
@@ -83,7 +83,7 @@ PlayerImpl::~PlayerImpl() {
   }
 
   instance_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t PlayerImpl::Connect(sp<RemoteCallBack>& remote_cb) {
@@ -243,7 +243,7 @@ status_t PlayerImpl::DeleteAudioTrack(uint32_t track_id) {
   result = audio_sink_->DeleteTrackSink(track_id);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSink failed: %d", TAG,
-               __func__, result);
+               __func__, track_id, result);
     return result;
   }
 
@@ -263,7 +263,7 @@ status_t PlayerImpl::DeleteVideoTrack(uint32_t track_id) {
   result = video_sink_->DeleteTrackSink(track_id);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed: %d", TAG,
-               __func__, result);
+               __func__, track_id, result);
     return result;
   }
 

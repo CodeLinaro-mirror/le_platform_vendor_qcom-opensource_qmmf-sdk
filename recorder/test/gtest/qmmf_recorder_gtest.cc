@@ -65,7 +65,6 @@ static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
-static const uint32_t kYUVDumpFreq   = 3600; // dump 1 frame in 2 min
 
 #define COLOR_DARK_GRAY 0x202020FF;
 #define COLOR_YELLOW    0xFFFF00FF;
@@ -401,8 +400,9 @@ TEST_F(RecorderGtest, 4KSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 3840x2160 JPEG supported.
           }
         }
@@ -484,8 +484,9 @@ TEST_F(RecorderGtest, BurstSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 1920x1080 YUV res supported.
           }
         }
@@ -511,7 +512,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   assert(ret == NO_ERROR);
 
   uint32_t num_images = 30;
-  for (int32_t i = 0; i < num_images; i++) {
+  for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
   ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array,
@@ -572,8 +573,9 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 1920x1080 YUV res supported.
           }
         }
@@ -1160,8 +1162,9 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -1390,8 +1393,9 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -2723,8 +2727,9 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -3326,8 +3331,9 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
         if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
               entry.data.i32[i+3]) {
-            if (image_param.width == entry.data.i32[i+1]
-                && image_param.height == entry.data.i32[i+2]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
               res_supported = true; // 1080p-YUV res supported.
             }
           }
@@ -3637,7 +3643,6 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   // Apply overlay object on video track.
   ret = recorder_.SetOverlay(video_track_id, static_img_id);
   assert(ret == 0);
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -3810,7 +3815,6 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   // One track can have multiple types of overlay.
   ret = recorder_.SetOverlay(video_track_id, date_time_id);
   assert(ret == 0);
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -4179,7 +4183,6 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   ret = recorder_.SetOverlay(video_track_id, user_text_id);
   assert(ret == 0);
 
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -5321,7 +5324,7 @@ status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
   }
 
   AVPacket *pkt;
-  for (size_t i = 0; i < q_size; i++) {
+  for (ssize_t i = 0; i < q_size; i++) {
     pkt = (AVPacket *)AVQueuePopTail(queue);
     if (NULL != pkt) {
       if ((NULL != pkt->data)) {
@@ -5351,7 +5354,7 @@ void RecorderGtest::ClearSessions() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  for (it; it != sessions_.end(); ++it) {
+  for (; it != sessions_.end(); ++it) {
     it->second.clear();
   }
   sessions_.clear();
@@ -5413,7 +5416,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
           strerror(errno));
       goto FAIL;
     }
-    TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+    TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
       buffers[0].data, written_len, file_path.string());
 
 FAIL:
@@ -5596,7 +5599,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
               strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
                 buffer.data, written_len, file_path.string());
 
       snapshot_count++;
