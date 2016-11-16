@@ -80,13 +80,14 @@ VideoSink::~VideoSink()
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
-status_t VideoSink::CreateTrackSink(uint32_t track_id, VideoTrackParams& param)
+status_t VideoSink::CreateTrackSink(uint32_t track_id,
+                                          VideoTrackParams& track_param)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   shared_ptr<VideoTrackSink> track_sink;
 
-  if (param.params.out_device == VideoOutSubtype::kLCD)
-    track_sink = make_shared<VideoTrackSink>();
+  if (track_param.params.out_device == VideoOutSubtype::kHDMI)
+    track_sink =  make_shared<VideoTrackSink>();
 
   video_track_sinks.add(track_id,track_sink);
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
@@ -166,6 +167,12 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id)
 VideoTrackSink::VideoTrackSink():stopplayback_(false)
 {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+#ifdef DUMP_YUV_FRAMES
+  file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if(file_fd_ < 0) {
+    QMMF_ERROR("%s:%s Failed to open o/p yuv dump file ", TAG, __func__);
+  }
+#endif
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
@@ -182,9 +189,6 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param)
 
   track_params_.track_id = track_param.track_id;
 
-#ifdef DUMP_YUV_FRAMES
-  file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
-#endif
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 
@@ -195,7 +199,7 @@ status_t VideoTrackSink::StartSink()
 {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
-
+  stopplayback_ = false;
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -231,7 +235,16 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
               "output_free_buffer_queue_", TAG, __func__,TrackId() ,
               iter.fd);
           output_free_buffer_queue_.PushBack(iter);
+          BufInfo bufinfo_temp;
+          bufinfo_temp.vaddr = iter.pointer;
+          buf_info_map.add(iter.fd,bufinfo_temp);
   }
+
+    for(uint32_t j = 0; j < buf_info_map.size(); j++) {
+      QMMF_VERBOSE("%s:%s: buf_info_map:idx(%d) :key(%d) :fd:%d :data:"
+          "0x%x", TAG, __func__, j, buf_info_map.keyAt(j), buf_info_map[j].buf_id,
+          buf_info_map[j].vaddr);
+    }
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
@@ -279,12 +292,13 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   DumpYUVData(codec_buffer);
 #endif
 
+
   List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
-   QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%x)vs(0x%x) ", TAG,
-       __func__, TrackId(), (*it).pointer,  codec_buffer.data);
-   if (((*it).pointer) == (codec_buffer.data)) {
+    QMMF_VERBOSE("%s:%s track_id(%d) Checking match %d vs %d ", TAG,
+       __func__, TrackId(), (*it).fd,  codec_buffer.fd);
+   if (((*it).fd) == (codec_buffer.fd)) {
      QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
      output_free_buffer_queue_.PushBack(*it);
      output_occupy_buffer_queue_.Erase(it);
@@ -319,16 +333,22 @@ void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
     QMMF_INFO("%s:%s Got decoded buffer of size(%d)", TAG, __func__,
         codec_buffer.size);
 
-    if (exp_size != write(file_fd_, (uint8_t*)codec_buffer.data + codec_buffer.offset,
-       codec_buffer.size)) {
+    BufInfo bufinfo;
+    memset(&bufinfo, 0x0, sizeof bufinfo);
 
-      QMMF_INFO("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
-          strerror(errno));
-      close(file_fd_);
-      file_fd_ = -1;
+    bufinfo = buf_info_map.valueFor(codec_buffer.fd);
+
+    uint8_t*vaddr = static_cast<uint8_t*>(bufinfo.vaddr);
+
+    uint32_t bytes_written;
+
+    uint8_t  *pSrc = vaddr;
+    bytes_written  = write(file_fd_, pSrc,
+        (track_params_.params.height*track_params_.params.width*3)/2);
+    if(bytes_written != codec_buffer.size) {
+      QMMF_ERROR("Bytes written != %d and written = %u",codec_buffer.size,
+          bytes_written);
     }
-  } else {
-    QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
   }
 
   if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {

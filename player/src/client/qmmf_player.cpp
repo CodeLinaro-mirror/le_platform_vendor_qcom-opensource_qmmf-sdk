@@ -45,16 +45,14 @@ Player::Player()
   assert( player_client_ != NULL);
 }
 
-Player::~Player()
-{
+Player::~Player() {
   if (player_client_) {
     delete player_client_;
     player_client_ = nullptr;
   }
 }
 
-status_t Player::Connect(PlayerCb& cb)
-{
+status_t Player::Connect(PlayerCb& cb) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -65,8 +63,7 @@ status_t Player::Connect(PlayerCb& cb)
   return ret;
 }
 
-status_t Player::Disconnect()
-{
+status_t Player::Disconnect() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -78,10 +75,10 @@ status_t Player::Disconnect()
   return ret;
 }
 
-status_t Player::CreateAudioTrack(uint32_t track_id,
-                          AudioTrackCreateParam& param,
-                          TrackCb& cb)
-{
+status_t Player::CreateAudioTrack(
+    uint32_t track_id,
+    AudioTrackCreateParam& param,
+    TrackCb& cb) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -93,10 +90,10 @@ status_t Player::CreateAudioTrack(uint32_t track_id,
   return ret;
 }
 
-status_t Player::CreateVideoTrack(uint32_t track_id,
-                          VideoTrackCreateParam& param,
-                          TrackCb& cb)
-{
+status_t Player::CreateVideoTrack(
+    uint32_t track_id,
+    VideoTrackCreateParam& param,
+    TrackCb& cb) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -108,8 +105,7 @@ status_t Player::CreateVideoTrack(uint32_t track_id,
   return ret;
 }
 
-status_t Player::DeleteAudioTrack(uint32_t track_id)
-{
+status_t Player::DeleteAudioTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -121,8 +117,7 @@ status_t Player::DeleteAudioTrack(uint32_t track_id)
   return ret;
 }
 
-status_t Player::DeleteVideoTrack(uint32_t track_id)
-{
+status_t Player::DeleteVideoTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -134,9 +129,9 @@ status_t Player::DeleteVideoTrack(uint32_t track_id)
   return ret;
 }
 
-status_t Player::DequeueInputBuffer(uint32_t track_id,
-                            std::vector<TrackBuffer>& buffers)
-{
+status_t Player::DequeueInputBuffer(
+    uint32_t track_id,
+    std::vector<TrackBuffer>& buffers) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -148,12 +143,12 @@ status_t Player::DequeueInputBuffer(uint32_t track_id,
   return ret;
 }
 
-status_t Player::QueueInputBuffer(uint32_t track_id,
-                          std::vector<TrackBuffer>& buffers,
-                          void *meta_param,
-                          size_t meta_size,
-                          TrackMetaBufferType meta_type)
-{
+status_t Player::QueueInputBuffer(
+    uint32_t track_id,
+    std::vector<TrackBuffer>& buffers,
+    void *meta_param,
+    size_t meta_size,
+    TrackMetaBufferType meta_type) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -166,8 +161,7 @@ status_t Player::QueueInputBuffer(uint32_t track_id,
   return ret;
 }
 
-status_t Player::Prepare()
-{
+status_t Player::Prepare() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -179,8 +173,7 @@ status_t Player::Prepare()
   return ret;
 }
 
-status_t Player::Start()
-{
+status_t Player::Start() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -192,8 +185,7 @@ status_t Player::Start()
   return ret;
 }
 
-status_t Player::Stop(bool do_flush)
-{
+status_t Player::Stop(bool do_flush) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -204,8 +196,7 @@ status_t Player::Stop(bool do_flush)
   return ret;
 }
 
-status_t Player::Pause()
-{
+status_t Player::Pause() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -217,8 +208,7 @@ status_t Player::Pause()
   return ret;
 }
 
-status_t Player::Resume()
-{
+status_t Player::Resume() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -230,8 +220,7 @@ status_t Player::Resume()
   return ret;
 }
 
-status_t Player::SetPosition(int64_t seek_time)
-{
+status_t Player::SetPosition(int64_t seek_time) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -243,8 +232,7 @@ status_t Player::SetPosition(int64_t seek_time)
   return ret;
 }
 
-status_t Player::SetTrickMode(uint32_t speed, uint32_t direction)
-{
+status_t Player::SetTrickMode(uint32_t speed, uint32_t direction) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -256,8 +244,7 @@ status_t Player::SetTrickMode(uint32_t speed, uint32_t direction)
   return ret;
 }
 
-status_t Player::GrabPicture(PictureParam param, PictureCallback& cb)
-{
+status_t Player::GrabPicture(PictureParam param, PictureCallback& cb) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -270,10 +257,9 @@ status_t Player::GrabPicture(PictureParam param, PictureCallback& cb)
 }
 
 status_t Player::SetAudioTrackParam(uint32_t track_id,
-                            CodecParamType type,
-                            void *param,
-                            size_t param_size)
-{
+                                    CodecParamType type,
+                                    void *param,
+                                    size_t param_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -287,10 +273,9 @@ status_t Player::SetAudioTrackParam(uint32_t track_id,
 }
 
 status_t Player::SetVideoTrackParam(uint32_t track_id,
-                            CodecParamType type,
-                            void *param,
-                            size_t param_size)
-{
+                                    CodecParamType type,
+                                    void *param,
+                                    size_t param_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 

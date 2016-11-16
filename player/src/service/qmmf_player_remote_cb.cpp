@@ -35,77 +35,83 @@ namespace qmmf {
 namespace player {
 
 RemoteCallBack::RemoteCallBack(const sp<IPlayerServiceCallback>& remote_cb)
- :client_cb_handle_(remote_cb)
-{
+    : client_cb_handle_(remote_cb) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
-RemoteCallBack::~RemoteCallBack()
-{
+RemoteCallBack::~RemoteCallBack() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
 }
 
-void RemoteCallBack::NotifyPlayerEvent(EventType event_type, void *event_data,
-                     size_t event_data_size)
-{
+void RemoteCallBack::NotifyPlayerEvent(EventType event_type,
+                                       void *event_data,
+                                       size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyPlayerEvent(event_type,event_data,event_data_size);
+  client_cb_handle_->NotifyPlayerEvent(event_type, event_data, event_data_size);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyVideoTrackData(uint32_t track_id,
-                      std::vector<BnTrackBuffer> &buffers,
-                      void *meta_param, TrackMetaBufferType meta_type,
-                      size_t meta_size)
-{
+void RemoteCallBack::NotifyVideoTrackData(
+    uint32_t track_id,
+    std::vector<BnTrackBuffer> &buffers,
+    void *meta_param,
+    TrackMetaBufferType meta_type,
+    size_t meta_size) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackData(track_id,buffers,meta_param,meta_type,meta_size);
+  client_cb_handle_->NotifyVideoTrackData(track_id, buffers, meta_param,
+      meta_type, meta_size);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
-                       void *event_data, size_t event_data_size)
-{
+void RemoteCallBack::NotifyVideoTrackEvent(
+    uint32_t track_id,
+    EventType event_type,
+    void *event_data,
+    size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackEvent(track_id,event_type,event_data,event_data_size);
+  client_cb_handle_->NotifyVideoTrackEvent(track_id, event_type,
+      event_data, event_data_size);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyAudioTrackData(uint32_t track_id,
-                      std::vector<BnTrackBuffer> &buffers,
-                      void *meta_param, TrackMetaBufferType meta_type,
-                      size_t meta_size)
-{
+void RemoteCallBack::NotifyAudioTrackData(
+    uint32_t track_id,
+    std::vector<BnTrackBuffer> &buffers,
+    void *meta_param,
+    TrackMetaBufferType meta_type,
+    size_t meta_size) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackData(track_id,buffers,meta_param,meta_type,meta_size);
+  client_cb_handle_->NotifyAudioTrackData(track_id, buffers,
+      meta_param, meta_type, meta_size);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
-                       void *event_data, size_t event_data_size)
-{
+void RemoteCallBack::NotifyAudioTrackEvent(
+    uint32_t track_id,
+    EventType event_type,
+    void *event_data,
+    size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackEvent(track_id,event_type,event_data,event_data_size);
+  client_cb_handle_->NotifyAudioTrackEvent(track_id,event_type,
+      event_data,event_data_size);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyDeleteAudioTrack(uint32_t track_id)
-{
+void RemoteCallBack::NotifyDeleteAudioTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyDeleteAudioTrack(track_id);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id)
-{
+void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyDeleteVideoTrack(track_id);

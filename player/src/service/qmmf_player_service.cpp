@@ -38,7 +38,7 @@ namespace player {
  // Method of BnInterface<IPlayerService>.
  // This method would get call to handle incoming messages from clients.
  status_t PlayerService::onTransact(uint32_t code, const Parcel& data,
-                              Parcel* reply, uint32_t flags) {
+                                    Parcel* reply, uint32_t flags) {
   QMMF_DEBUG("%s:%s: Enter:(BnPlayerService::onTransact)", TAG, __func__);
   CHECK_INTERFACE(IPlayerService, data, reply);
   int32_t ret = 0;
@@ -121,10 +121,10 @@ namespace player {
             uint32_t track_id = data.readUint32();
             ret = DeleteVideoTrack(track_id);
             ion_fd_map::iterator it_fd;
-            /*for (it_fd=ion_fd_mapping.begin();
+            for (it_fd=ion_fd_mapping.begin();
                  it_fd!=ion_fd_mapping.end(); ++it_fd) {
                 ion_fd_mapping.erase(it_fd);
-            }*/
+            }
             reply->writeInt32(ret);
             return NO_ERROR;
         }
@@ -360,8 +360,7 @@ namespace player {
 }
 
 PlayerService::PlayerService()
-     :player_(NULL), connected_(false) {
-
+    : player_(nullptr), connected_(false) {
   QMMF_INFO("%s:%s: PlayerService Instantiated! ", TAG, __func__);
 }
 
@@ -426,8 +425,9 @@ status_t PlayerService::Disconnect() {
   return ret;
 }
 
-status_t PlayerService::CreateAudioTrack(uint32_t track_id,
-                         AudioTrackCreateParam& param) {
+status_t PlayerService::CreateAudioTrack(
+    uint32_t track_id,
+    AudioTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
@@ -444,8 +444,9 @@ status_t PlayerService::CreateAudioTrack(uint32_t track_id,
   return NO_ERROR;
 }
 
-status_t PlayerService::CreateVideoTrack(uint32_t track_id,
-                         VideoTrackCreateParam& param) {
+status_t PlayerService::CreateVideoTrack(
+    uint32_t track_id,
+    VideoTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
@@ -495,8 +496,9 @@ status_t PlayerService::DeleteVideoTrack(uint32_t track_id) {
   return ret;
 }
 
-status_t PlayerService::DequeueInputBuffer(uint32_t track_id,
-                           std::vector<AVCodecBuffer>& buffers) {
+status_t PlayerService::DequeueInputBuffer(
+    uint32_t track_id,
+    std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
@@ -512,11 +514,12 @@ status_t PlayerService::DequeueInputBuffer(uint32_t track_id,
   return ret;
 }
 
-status_t PlayerService::QueueInputBuffer(uint32_t track_id,
-                         std::vector<AVCodecBuffer>& buffers,
-                         void *meta_param,
-                         size_t meta_size,
-                         TrackMetaBufferType meta_type) {
+status_t PlayerService::QueueInputBuffer(
+    uint32_t track_id,
+    std::vector<AVCodecBuffer>& buffers,
+    void *meta_param,
+    size_t meta_size,
+    TrackMetaBufferType meta_type) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
@@ -662,9 +665,9 @@ status_t PlayerService::GrabPicture(PictureParam param) {
 }
 
 status_t PlayerService::SetAudioTrackParam(uint32_t track_id,
-                           CodecParamType type,
-                           void *param,
-                           size_t param_size) {
+                                           CodecParamType type,
+                                           void *param,
+                                           size_t param_size) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
@@ -681,9 +684,9 @@ status_t PlayerService::SetAudioTrackParam(uint32_t track_id,
 }
 
 status_t PlayerService::SetVideoTrackParam(uint32_t track_id,
-                           CodecParamType type,
-                           void *param,
-                           size_t param_size) {
+                                           CodecParamType type,
+                                           void *param,
+                                           size_t param_size) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;

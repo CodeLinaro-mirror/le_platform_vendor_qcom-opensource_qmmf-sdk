@@ -56,25 +56,26 @@ class VideoDecoderCore {
   status_t CreateVideoTrack(VideoTrackParams& params);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
-                         std::vector<AVCodecBuffer>& buffers);
+      std::vector<AVCodecBuffer>& buffers);
 
   status_t QueueTrackInputBuffer(uint32_t track_id,
-                         std::vector<AVCodecBuffer>& buffers);
+      std::vector<AVCodecBuffer>& buffers);
 
   status_t PrepareTrackPipeline(uint32_t track_id,
       const ::std::shared_ptr<VideoTrackSink>& audio_track_sink);
 
   status_t StartTrackDecoder(uint32_t track_id);
 
-  status_t StopTrackDecoder(uint32_t track_id);
+  status_t StopTrackDecoder(uint32_t track_id, bool do_flush);
 
   status_t PauseTrackDecoder(uint32_t track_id);
 
   status_t ResumeTrackDecoder(uint32_t track_id);
 
   status_t SetVideoTrackDecoderParams(uint32_t track_id,
-                               CodecParamType param_type, void* param,
-                               uint32_t param_size);
+                                      CodecParamType param_type,
+                                      void* param,
+                                      uint32_t param_size);
 
   status_t DeleteTrackDecoder(uint32_t track_id);
 
@@ -112,14 +113,14 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartDecoder();
 
-  status_t StopDecoder();
+  status_t StopDecoder(bool do_flush);
 
   status_t PauseDecoder();
 
   status_t ResumeDecoder();
 
   status_t SetVideoDecoderParams(CodecParamType param_type, void* param,
-                              uint32_t param_size);
+                                 uint32_t param_size);
 
   status_t DeleteDecoder();
 
@@ -148,8 +149,9 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   //map<fd , buf_info>
   DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
-  VideoTrackParams          video_track_params_;
-  ::qmmf::avcodec::AVCodec* avcodec_;
+  ::std::shared_ptr<VideoTrackSink> video_track_sink_;
+  VideoTrackParams                  video_track_params_;
+  ::qmmf::avcodec::AVCodec*         avcodec_;
 
   //For input port
   Vector<StreamBuffer>    input_buffer_list_;
@@ -172,9 +174,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   Mutex                   queue_lock_;
   bool                    eos_;
 
-#ifdef DUMP_YUV_FRAMES
+#ifdef DUMP_VIDEO_BITSTREAM
   int32_t                 file_fd_video_;
-  void DumpYUVFrames(CodecBuffer& codec_buffer);
 #endif
 };
 
