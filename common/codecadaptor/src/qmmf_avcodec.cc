@@ -517,7 +517,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       }
 
       OMX_QCOM_VIDEO_CONFIG_H264_AUD param_aud;
-      memset(&param_aud, 0, sizeof(OMX_QCOM_VIDEO_CONFIG_H264_AUD));
+      memset(&param_aud, 0, sizeof(param_aud));
       param_aud.nSize = sizeof(OMX_QCOM_VIDEO_CONFIG_H264_AUD);
       param_aud.bEnable = OMX_FALSE;
       if (codec_param.video_enc_param.codec_param.avc.insert_aud_delimiter) {
@@ -526,10 +526,21 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       ret = omx_client_->SetParameter(
                 (OMX_INDEXTYPE)OMX_QcomIndexParamH264AUDelimiter,
                 (OMX_PTR)&param_aud);
-      if (ret != OK) {
+      if (ret != OMX_ErrorNone) {
           QMMF_ERROR("%s:%s Failed to configure AUD delimiter",
                      TAG, __func__);
           return ret;
+      }
+
+      if (codec_param.video_enc_param.codec_param.avc.sar_enabled) {
+        ret = ConfigureSAR(
+            codec_param.video_enc_param.codec_param.avc.sar_width,
+            codec_param.video_enc_param.codec_param.avc.sar_height);
+        if (ret != OMX_ErrorNone) {
+            QMMF_ERROR("%s:%s Failed to configure SAR",
+                       TAG, __func__);
+            return ret;
+        }
       }
 
       break;
@@ -537,6 +548,18 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       if (codec_param.video_enc_param.codec_param.hevc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
       }
+
+      if (codec_param.video_enc_param.codec_param.hevc.sar_enabled) {
+        ret = ConfigureSAR(
+            codec_param.video_enc_param.codec_param.hevc.sar_width,
+            codec_param.video_enc_param.codec_param.hevc.sar_height);
+        if (ret != OMX_ErrorNone) {
+            QMMF_ERROR("%s:%s Failed to configure SAR",
+                       TAG, __func__);
+            return ret;
+        }
+      }
+
       break;
     default:
       QMMF_ERROR("%s:%s Codec Type does not support", TAG, __func__);
@@ -1663,11 +1686,38 @@ status_t AVCodec::GetVideoLevel(CodecParam& param) {
   switch(codec_format) {
     case VideoFormat::kAVC:
       switch(param.video_enc_param.codec_param.avc.level) {
+        case AVCLevelType::kLevel1:
+          level = OMX_VIDEO_AVCLevel1;
+          break;
+        case AVCLevelType::kLevel1_3:
+          level = OMX_VIDEO_AVCLevel13;
+          break;
+        case AVCLevelType::kLevel2:
+          level = OMX_VIDEO_AVCLevel2;
+          break;
+        case AVCLevelType::kLevel2_1:
+          level = OMX_VIDEO_AVCLevel21;
+          break;
+        case AVCLevelType::kLevel2_2:
+          level = OMX_VIDEO_AVCLevel22;
+          break;
         case AVCLevelType::kLevel3:
           level = OMX_VIDEO_AVCLevel3;
           break;
+        case AVCLevelType::kLevel3_1:
+          level = OMX_VIDEO_AVCLevel31;
+          break;
+        case AVCLevelType::kLevel3_2:
+          level = OMX_VIDEO_AVCLevel32;
+          break;
         case AVCLevelType::kLevel4:
           level = OMX_VIDEO_AVCLevel4;
+          break;
+        case AVCLevelType::kLevel4_1:
+          level = OMX_VIDEO_AVCLevel41;
+          break;
+        case AVCLevelType::kLevel4_2:
+          level = OMX_VIDEO_AVCLevel42;
           break;
         case AVCLevelType::kLevel5:
           level = OMX_VIDEO_AVCLevel5;
@@ -1704,6 +1754,24 @@ status_t AVCodec::GetVideoLevel(CodecParam& param) {
       break;
   }
   return level;
+}
+
+OMX_ERRORTYPE AVCodec::ConfigureSAR(uint32_t width, uint32_t height) {
+  QOMX_EXTNINDEX_VIDEO_VENC_SAR sar;
+  memset(&sar, 0, sizeof(sar));
+  sar.nSize = sizeof(QOMX_EXTNINDEX_VIDEO_VENC_SAR);
+  sar.nSARWidth = width;
+  sar.nSARHeight = height;
+  OMX_ERRORTYPE ret = omx_client_->SetParameter(
+            (OMX_INDEXTYPE)OMX_QcomIndexParamVencAspectRatio,
+            (OMX_PTR)&sar);
+  if (ret != OMX_ErrorNone) {
+      QMMF_ERROR("%s:%s Failed to configure SAR",
+                 TAG, __func__);
+      return ret;
+  }
+
+  return ret;
 }
 
 status_t AVCodec::ConfigureBitrate(CodecParam& param) {

@@ -86,6 +86,7 @@ AC_CONFIG_FILES([ \
     recorder/test/gtest/Makefile \
     display/test/samples/Makefile \
     display/test/gtest/Makefile \
+    player/test/demuxer/Makefile \
     player/test/samples/Makefile \
 ])
 AC_OUTPUT

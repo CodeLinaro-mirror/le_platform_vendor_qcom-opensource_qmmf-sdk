@@ -118,6 +118,7 @@ class AVCodec : public IAVCodec {
   status_t SetupAVCEncoderParameters(CodecParam& codec_param);
   status_t SetupHEVCEncoderParameters(CodecParam& codec_param);
   status_t ConfigureBitrate(CodecParam& codec_param);
+  OMX_ERRORTYPE ConfigureSAR(uint32_t width, uint32_t height);
   status_t SetPortParams(OMX_U32 ePortIndex,OMX_U32 nWidth, OMX_U32 nHeight,
                          OMX_U32 nFrameRate);
   status_t GetVideoProfile(CodecParam& codec_param);

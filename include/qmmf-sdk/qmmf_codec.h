@@ -92,8 +92,17 @@ enum class AVCProfileType {
 };
 
 enum class AVCLevelType {
+  kLevel1,
+  kLevel1_3,
+  kLevel2,
+  kLevel2_1,
+  kLevel2_2,
   kLevel3,
+  kLevel3_1,
+  kLevel3_2,
   kLevel4,
+  kLevel4_1,
+  kLevel4_2,
   kLevel5,
   kLevel5_1,
   kLevel5_2,
@@ -213,6 +222,9 @@ struct AVCParams {
   uint32_t             hier_layer;
   bool                 prepend_sps_pps_to_idr;
   bool                 insert_aud_delimiter;
+  bool                 sar_enabled;
+  uint32_t             sar_width;
+  uint32_t             sar_height;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -231,6 +243,11 @@ struct AVCParams {
     stream << "qp_params[" << qp_params.ToString() << "] ";
     stream << "ltr_count[" << ltr_count << "] ";
     stream << "hier_layer[" << hier_layer << "]";
+    stream << "prepend_sps_pps_to_idr[" << prepend_sps_pps_to_idr << "]";
+    stream << "insert_aud_delimiter[" << insert_aud_delimiter << "]";
+    stream << "sar_enabled[" << sar_enabled << "]";
+    stream << "sar_width[" << sar_width << "]";
+    stream << "sar_height[" << sar_height << "]";
     return stream.str();
   }
 };
@@ -245,6 +262,9 @@ struct HEVCParams {
   uint32_t             ltr_count;
   uint32_t             hier_layer;
   bool                 prepend_sps_pps_to_idr;
+  bool                 sar_enabled;
+  uint32_t             sar_width;
+  uint32_t             sar_height;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -264,6 +284,10 @@ struct HEVCParams {
     stream << "qp_params[" << qp_params.ToString() << "] ";
     stream << "ltr_count[" << ltr_count << "] ";
     stream << "hier_layer[" << hier_layer << "]";
+    stream << "prepend_sps_pps_to_idr[" << prepend_sps_pps_to_idr << "]";
+    stream << "sar_enabled[" << sar_enabled << "]";
+    stream << "sar_width[" << sar_width << "]";
+    stream << "sar_height[" << sar_height << "]";
     return stream.str();
   }
 };

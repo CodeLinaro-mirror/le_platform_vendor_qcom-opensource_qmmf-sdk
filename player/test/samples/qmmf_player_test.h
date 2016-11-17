@@ -35,6 +35,11 @@
 #include <qmmf-sdk/qmmf_player_params.h>
 #include "player/test/samples/qmmf_player_parser.h"
 #include <pthread.h>
+#include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
+#include "player/test/demuxer/qmmf_demuxer_intf.h"
+#include "player/test/demuxer/qmmf_demuxer_sourceport.h"
+#include <fstream>
+
 
 using namespace qmmf;
 using namespace player;
@@ -49,6 +54,8 @@ enum class AudioFileType{
 class PlayerTest {
  public:
   PlayerTest();
+
+  PlayerTest(char* filename_);
 
   ~PlayerTest();
 
@@ -74,43 +81,73 @@ class PlayerTest {
 
   int32_t Delete();
 
-  void playercb(EventType event_type, void *event_data, size_t event_data_size);
+  void playercb(EventType event_type, void *event_data,
+                size_t event_data_size);
 
-  void audiotrackcb(EventType event_type, void *event_data, size_t
-  event_data_size);
+  void audiotrackcb(EventType event_type, void *event_data,
+                    size_t event_data_size);
 
-  void videotrackcb(EventType event_type, void *event_data, size_t
-  event_data_size);
+  void videotrackcb(EventType event_type, void *event_data,
+                    size_t event_data_size);
 
-  static void* StartPlaying(void* ptr);
+  static void* StartPlayingAudio(void* ptr);
+
+  static void* StartPlayingVideo(void* ptr);
 
   int32_t StopPlaying();
+
+  uint32_t CreateDataSource();
+
+  uint32_t ReadMediaInfo();
+
+  uint32_t  ReadAudioTrackMediaInfo(uint32 ulTkId,
+                                    FileSourceMnMediaType eMnType);
+
+  uint32_t ReadVideoTrackMediaInfo(uint32 ulTkId,
+                                  FileSourceMnMediaType eMnType);
 
   char *            filename_;
   AudioFileType     filetype_;
 
  private:
 
-  int32_t ParseFile(AudioTrackCreateParam& audio_track_param_);
+  int32_t ParseFile(AudioTrackCreateParam& audio_track_param_,
+                    VideoTrackCreateParam& video_track_param_);
 
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
-  bool start_again;
 
-  Mutex             state_lock;
-  Condition         wait_for_state_change_;
 
-  int32_t           file_fd_;
-  bool              stopped_;
-  bool              release_parser_;
-  pthread_t         start_thread_id;
+  Mutex                           state_lock;
+  Condition                       wait_for_state_change_;
 
-  AACfileIO*        aacfileIO_;
-  G711fileIO*       g711fileIO_;
-  AMRfileIO*        amrfileIO_;
+  int32_t                         file_fd_;
+  bool                            stopped_;
+  bool                            stop_playing_;
+  bool                            start_again_;
+  bool                            release_parser_;
+  pthread_t                       audio_thread_id_;
+  pthread_t                       video_thread_id_;
 
- std::map<uint32_t, const char*>  statemap;
- const char* PlayerTestEvent[2];
+  AACfileIO*                      aacfileIO_;
+  G711fileIO*                     g711fileIO_;
+  AMRfileIO*                      amrfileIO_;
+
+  MM_TRACK_INFOTYPE               m_sTrackInfo_;
+  CMM_MediaSourcePort*            m_pIStreamPort_;
+  CMM_MediaDemuxInt*              m_pDemux_;
+  int                             fileCount_audio_;
+  int                             fileCount_video_;
+  ofstream                        srcFile_audio_;
+  ofstream                        srcFile_video_;
+
+  uint32_t                        audio_track_id_;
+  uint32_t                        video_track_id_;
+  bool                            audioFirstFrame_;
+  bool                            videoFirstFrame_;
+
+ std::map<uint32_t, const char*>  statemap_;
+ const char*                      PlayerTestEvent[2];
 };
 
 class CmdMenu {
