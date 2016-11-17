@@ -534,7 +534,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *yuv_4k_track = new TestTrack(&recorder_);
+  TestTrack *yuv_4k_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 3840;
@@ -548,7 +548,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   assert(ret == 0);
   tracks.push_back(yuv_4k_track);
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -581,7 +581,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
   auto ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
-  TestTrack *video_track = new TestTrack(&recorder_);
+  TestTrack *video_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 3840;
@@ -617,7 +617,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
@@ -631,7 +631,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
@@ -662,7 +662,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
@@ -676,7 +676,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -710,7 +710,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 3840;
@@ -724,7 +724,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -759,7 +759,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *yuv_4k_track = new TestTrack(&recorder_);
+  TestTrack *yuv_4k_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 3840;
@@ -773,7 +773,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   assert(ret == 0);
   tracks.push_back(yuv_4k_track);
 
-  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -807,7 +807,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *enc_1080p_track1 = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track1 = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
@@ -821,7 +821,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   assert(ret == 0);
   tracks.push_back(enc_1080p_track1);
 
-  TestTrack *enc_1080p_track2 = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track2 = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -855,7 +855,7 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *yuv_720p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_720p_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 1280;
@@ -891,7 +891,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *enc_1080p_track = new TestTrack(&recorder_);
+  TestTrack *enc_1080p_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
@@ -905,7 +905,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   assert(ret == 0);
   tracks.push_back(enc_1080p_track);
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width          = 1920;
   info.height         = 1080;
@@ -939,7 +939,7 @@ status_t RecorderTest::CreateAudioPCMTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -971,7 +971,7 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_pcm_track1 = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track1 = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -983,7 +983,7 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
   assert(ret == 0);
   tracks.push_back(audio_pcm_track1);
 
-  TestTrack *audio_pcm_track2 = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track2 = new TestTrack(this);
   info.track_id   = 102;
 
   ret = audio_pcm_track2->SetUp(info);
@@ -1010,7 +1010,7 @@ status_t RecorderTest::CreateAudioAACTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1042,7 +1042,7 @@ status_t RecorderTest::CreateAudio2AACTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_aac_track1 = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track1 = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1054,7 +1054,7 @@ status_t RecorderTest::CreateAudio2AACTrack() {
   assert(ret == 0);
   tracks.push_back(audio_aac_track1);
 
-  TestTrack *audio_aac_track2 = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track2 = new TestTrack(this);
   info.track_id   = 102;
 
   ret = audio_aac_track2->SetUp(info);
@@ -1080,7 +1080,7 @@ status_t RecorderTest::CreateAudioPCMAACTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1092,7 +1092,7 @@ status_t RecorderTest::CreateAudioPCMAACTrack() {
   assert(ret == 0);
   tracks.push_back(audio_pcm_track);
 
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track = new TestTrack(this);
   info.track_id   = 102;
   info.track_type = TrackType::kAudioAAC;
 
@@ -1120,7 +1120,7 @@ status_t RecorderTest::CreateAudioAMRTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_amr_track = new TestTrack(&recorder_);
+  TestTrack *audio_amr_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1152,7 +1152,7 @@ status_t RecorderTest::CreateAudio2AMRTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_amr_track1 = new TestTrack(&recorder_);
+  TestTrack *audio_amr_track1 = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1164,7 +1164,7 @@ status_t RecorderTest::CreateAudio2AMRTrack() {
   assert(ret == 0);
   tracks.push_back(audio_amr_track1);
 
-  TestTrack *audio_amr_track2 = new TestTrack(&recorder_);
+  TestTrack *audio_amr_track2 = new TestTrack(this);
   info.track_id   = 102;
 
   ret = audio_amr_track2->SetUp(info);
@@ -1190,7 +1190,7 @@ status_t RecorderTest::CreateAudioPCMAMRTrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1202,7 +1202,7 @@ status_t RecorderTest::CreateAudioPCMAMRTrack() {
   assert(ret == 0);
   tracks.push_back(audio_pcm_track);
 
-  TestTrack *audio_amr_track = new TestTrack(&recorder_);
+  TestTrack *audio_amr_track = new TestTrack(this);
   info.track_id   = 102;
   info.track_type = TrackType::kAudioAMR;
 
@@ -1230,7 +1230,7 @@ status_t RecorderTest::CreateAudioG711Track() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_g711_track = new TestTrack(&recorder_);
+  TestTrack *audio_g711_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1262,7 +1262,7 @@ status_t RecorderTest::CreateAudio2G711Track() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_g711_track1 = new TestTrack(&recorder_);
+  TestTrack *audio_g711_track1 = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1274,7 +1274,7 @@ status_t RecorderTest::CreateAudio2G711Track() {
   assert(ret == 0);
   tracks.push_back(audio_g711_track1);
 
-  TestTrack *audio_g711_track2 = new TestTrack(&recorder_);
+  TestTrack *audio_g711_track2 = new TestTrack(this);
   info.track_id   = 102;
 
   ret = audio_g711_track2->SetUp(info);
@@ -1300,7 +1300,7 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *audio_pcm_track = new TestTrack(&recorder_);
+  TestTrack *audio_pcm_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -1312,7 +1312,7 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   assert(ret == 0);
   tracks.push_back(audio_pcm_track);
 
-  TestTrack *audio_g711_track = new TestTrack(&recorder_);
+  TestTrack *audio_g711_track = new TestTrack(this);
   info.track_id   = 102;
   info.track_type = TrackType::kAudioG711;
 
@@ -1356,7 +1356,7 @@ status_t RecorderTest::SessionRDITrack() {
 
   std::vector<TestTrack*> tracks;
 
-  TestTrack *rdi_track = new TestTrack(&recorder_);
+  TestTrack *rdi_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.width      = raw_width;
@@ -1394,7 +1394,7 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   std::vector<TestTrack*> tracks;
   TrackInfo info;
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -1431,7 +1431,7 @@ status_t RecorderTest::Session1080pYUVTrackWithPreview() {
   std::vector<TestTrack*> tracks;
   TrackInfo info;
 
-  TestTrack *yuv_1080p_track = new TestTrack(&recorder_);
+  TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
@@ -1729,31 +1729,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       default:
       break;
     }
-  }
-
-  file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
-  FILE *file = fopen(file_path.string(), "w+");
-  if (!file) {
-    ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-        file_path.string());
-    goto FAIL;
-  }
-
-  written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
-  TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
-  if (buffer.size != written_len) {
-    ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-          strerror(errno));
-    goto FAIL;
-  }
-  TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
-            buffer.data, written_len, file_path.string());
-
-  snapshot_count++;
-
-FAIL:
-  if (file != NULL) {
-    fclose(file);
+    file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+    DumpFrameToFile(buffer, cam_buf_meta, file_path);
+    snapshot_count++;
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
@@ -1772,6 +1750,41 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
                                           size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+// This function dumps YUV, JPEG and RAW frames to file.
+status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
+                                       CameraBufferMetaData& meta_data,
+                                       String8& file_path) {
+  size_t written_len = 0;
+  FILE *file = fopen(file_path.string(), "w+");
+  if (!file) {
+    ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
+        file_path.string());
+    return -1;
+  }
+  // JPEG
+  if (meta_data.format == BufferFormat::kBLOB) {
+    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
+  } else {
+    // YUV & RAW
+    uint32_t offset = 0;
+    for (int32_t i = 0; i < meta_data.num_planes; ++i) {
+      void* data = static_cast<void*>((static_cast<uint8_t*>(buffer.data)
+                      + offset));
+      written_len += fwrite(data, sizeof(uint8_t),
+          meta_data.plane_info[i].width *
+          meta_data.plane_info[i].height, file);
+      TEST_DBG("%s:%s: plane(%d) written_len = %d", TAG, __func__, i,
+          written_len);
+      offset += meta_data.plane_info[i].stride * meta_data.plane_info[i].scanline;
+    }
+  }
+  TEST_DBG("%s:%s: total written_len = %d", TAG, __func__, written_len);
+  TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+      buffer.data, written_len, file_path.string());
+
+  return NO_ERROR;
 }
 
 int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
@@ -1861,7 +1874,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   std::vector<TestTrack*> tracks;
 
   for(uint32_t i=1; i <= params.numStream; i++) {
-    TestTrack *video_track = new TestTrack(&recorder_);
+    TestTrack *video_track = new TestTrack(this);
     TrackInfo track_info = infos[i-1];
     track_info.track_id = i;
     track_info.session_id = session_id;
@@ -1873,7 +1886,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   // Test audio AAC track
   //TODO: To be removed when support added in config file
-  TestTrack *audio_aac_track = new TestTrack(&recorder_);
+  TestTrack *audio_aac_track = new TestTrack(this);
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
@@ -2131,9 +2144,9 @@ READ_FAILED:
   return -1;
 }
 
-TestTrack::TestTrack(Recorder* rec_instance)
-    : file_fd_(-1), recorder_(rec_instance), num_yuv_frames_(0),
-    display_started_(0) {
+TestTrack::TestTrack(RecorderTest* recorder_test)
+    : file_fd_(-1), recorder_test_(recorder_test), num_yuv_frames_(0),
+      display_started_(0) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   memset(&track_info_, 0x0, sizeof track_info_);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -2151,7 +2164,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
-  assert(recorder_ != nullptr);
+  assert(recorder_test_ != nullptr);
 
   if ( (track_info.track_type == TrackType::kVideoAVC)
       || (track_info.track_type == TrackType::kVideoHEVC)
@@ -2255,10 +2268,8 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         void *event_data, size_t data_size) { TrackEventCB(track_id,
         event_type, event_data, data_size); };
 
-    assert(recorder_ != nullptr);
-    ret = recorder_->CreateVideoTrack(track_info.session_id,
-                                           track_info.track_id,
-                                           video_track_param, video_track_cb);
+    ret = recorder_test_->GetRecorder().CreateVideoTrack(track_info.session_id,
+              track_info.track_id, video_track_param, video_track_cb);
     assert(ret == 0);
   } else {
     // Create AudioTrack
@@ -2309,9 +2320,8 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
           TrackEventCB(track_id, event_type, event_data, event_data_size);
         };
 
-    ret = recorder_->CreateAudioTrack(track_info.session_id,
-                                      track_info.track_id,
-                                      audio_track_params, audio_track_cb);
+    ret = recorder_test_->GetRecorder().CreateAudioTrack(track_info.session_id,
+              track_info.track_id, audio_track_params, audio_track_cb);
     assert(ret == NO_ERROR);
 
     switch (track_info.track_type) {
@@ -2429,12 +2439,14 @@ status_t TestTrack::EnableOverlay() {
   object_params.image_info.height = 109;
 
   uint32_t object_id;
-  assert(recorder_ != nullptr);
-  ret = recorder_->CreateOverlayObject(track_info_.track_id,
-                                           object_params, &object_id);
+  assert(recorder_test_ != nullptr);
+  ret = recorder_test_->GetRecorder().CreateOverlayObject(track_info_.track_id,
+                                                          object_params,
+                                                          &object_id);
   assert(ret == 0);
 
-  ret = recorder_->SetOverlay(track_info_.track_id, object_id);
+  ret = recorder_test_->GetRecorder().SetOverlay(track_info_.track_id,
+                                                 object_id);
   assert(ret == 0);
   // One track can have multiple types of overlay.
   overlay_ids_.push_back(object_id);
@@ -2448,12 +2460,13 @@ status_t TestTrack::EnableOverlay() {
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
   uint32_t date_time_id;
-  assert(recorder_ != nullptr);
-  ret = recorder_->CreateOverlayObject(track_info_.track_id,
-                                       object_params, &date_time_id);
+  ret = recorder_test_->GetRecorder().CreateOverlayObject(track_info_.track_id,
+                                                          object_params,
+                                                          &date_time_id);
   assert(ret == 0);
 
-  ret = recorder_->SetOverlay(track_info_.track_id, date_time_id);
+  ret = recorder_test_->GetRecorder().SetOverlay(track_info_.track_id,
+                                                 date_time_id);
   assert(ret == 0);
   // One track can have multiple types of overlay.
   overlay_ids_.push_back(date_time_id);
@@ -2471,11 +2484,11 @@ status_t TestTrack::EnableOverlay() {
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
   uint32_t bbox_id;
-  assert(recorder_ != nullptr);
-  ret = recorder_->CreateOverlayObject(track_info_.track_id,
-                                       object_params, &bbox_id);
+  ret = recorder_test_->GetRecorder().CreateOverlayObject(track_info_.track_id,
+                                                          object_params,
+                                                          &bbox_id);
   assert(ret == 0);
-  ret = recorder_->SetOverlay(track_info_.track_id, bbox_id);
+  ret = recorder_test_->GetRecorder().SetOverlay(track_info_.track_id, bbox_id);
   assert(ret == 0);
   overlay_ids_.push_back(bbox_id);
 
@@ -2488,11 +2501,12 @@ status_t TestTrack::EnableOverlay() {
   user_text.copy(object_params.user_text, user_text.length());
 
   uint32_t user_text_id;
-  assert(recorder_ != nullptr);
-  ret = recorder_->CreateOverlayObject(track_info_.track_id,
-                                       object_params, &user_text_id);
+  ret = recorder_test_->GetRecorder().CreateOverlayObject(track_info_.track_id,
+                                                          object_params,
+                                                          &user_text_id);
   assert(ret == 0);
-  ret = recorder_->SetOverlay(track_info_.track_id, user_text_id);
+  ret = recorder_test_->GetRecorder().SetOverlay(track_info_.track_id,
+                                                 user_text_id);
   assert(ret == 0);
   overlay_ids_.push_back(user_text_id);
 
@@ -2507,11 +2521,12 @@ status_t TestTrack::EnableOverlay() {
   object_params.bounding_box.height  = 1080/3;
 
   uint32_t privacy_mask_id;
-  assert(recorder_ != nullptr);
-  ret = recorder_->CreateOverlayObject(track_info_.track_id,
-                                       object_params, &privacy_mask_id);
+  ret = recorder_test_->GetRecorder().CreateOverlayObject(track_info_.track_id,
+                                                          object_params,
+                                                          &privacy_mask_id);
   assert(ret == 0);
-  ret = recorder_->SetOverlay(track_info_.track_id, privacy_mask_id);
+  ret = recorder_test_->GetRecorder().SetOverlay(track_info_.track_id,
+                                                 privacy_mask_id);
   assert(ret == 0);
   overlay_ids_.push_back(privacy_mask_id);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
@@ -2522,11 +2537,12 @@ status_t TestTrack::DisableOverlay() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
-  assert(recorder_ != nullptr);
+  assert(recorder_test_ != nullptr);
   for (auto overlay_id : overlay_ids_) {
-    ret = recorder_->RemoveOverlay(GetTrackId(), overlay_id);
+    ret = recorder_test_->GetRecorder().RemoveOverlay(GetTrackId(), overlay_id);
     assert(ret == 0);
-    ret = recorder_->DeleteOverlayObject(GetTrackId(), overlay_id);
+    ret = recorder_test_->GetRecorder().DeleteOverlayObject(GetTrackId(),
+                                                            overlay_id);
     assert(ret == 0);
   }
   overlay_ids_.clear();
@@ -2545,7 +2561,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
                             buffers, std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter track_id(%dd)", TAG, __func__, track_id);
-  assert (recorder_ != nullptr);
+  assert (recorder_test_ != nullptr);
   int32_t ret = 0;
 
   switch (track_info_.track_type) {
@@ -2593,7 +2609,19 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
                 cam_buf_meta.plane_info[i].height);
           }
           #ifdef DUMP_YUV_FRAMES
-          DumpYUVFrame(buffers[i], cam_buf_meta);
+          // Dump every 200th Frame.
+          ++num_yuv_frames_;
+          if (num_yuv_frames_ == 200) {
+            const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
+                "raw" : "yuv";
+            String8 file_path;
+            file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
+                track_info_.track_id, cam_buf_meta.plane_info[0].width,
+                cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
+            recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
+                                            file_path);
+            num_yuv_frames_ = 0;
+          }
           #endif
           PushFrameToDisplay(buffers[i], cam_buf_meta);
         }
@@ -2618,8 +2646,8 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
     break;
   }
   // Return buffers back to service.
-  ret = recorder_->ReturnTrackBuffer(track_info_.session_id, track_id,
-                                     buffers);
+  ret = recorder_test_->GetRecorder().ReturnTrackBuffer(track_info_.session_id,
+                                                        track_id, buffers);
   assert(ret == 0);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
@@ -2652,45 +2680,6 @@ status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
     }
   }
   TEST_DBG("%s:%s: Exit", TAG, __func__);
-}
-#endif
-
-#ifdef DUMP_YUV_FRAMES
-status_t TestTrack::DumpYUVFrame(BufferDescriptor& buffer,
-                                 CameraBufferMetaData& meta_data) {
-
-  // Dump every 200th Frame.
-  ++num_yuv_frames_;
-  if (num_yuv_frames_ == 200) {
-    String8 file_path;
-    size_t written_len;
-    const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ? "raw" : "yuv";
-    file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
-        track_info_.track_id, meta_data.plane_info[0].width,
-        meta_data.plane_info[0].height, buffer.timestamp, ext);
-
-    FILE *file = fopen(file_path.string(), "w+");
-    if (!file) {
-      ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-          file_path.string());
-      goto FAIL;
-    }
-
-    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
-    TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
-    if (buffer.size != written_len) {
-      ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-          strerror(errno));
-      goto FAIL;
-    }
-    TEST_DBG("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
-        buffer.data, written_len, file_path.string());
-FAIL:
-    if (file != nullptr) {
-      fclose(file);
-    }
-    num_yuv_frames_ = 0;
-  }
 }
 #endif
 
