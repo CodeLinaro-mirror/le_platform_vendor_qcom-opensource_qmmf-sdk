@@ -189,6 +189,7 @@ class CameraContext : public RefBase {
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
+  int32_t                  previous_streaming_request_id_;
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
