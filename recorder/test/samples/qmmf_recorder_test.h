@@ -209,10 +209,16 @@ class RecorderTest {
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
 
+  status_t DumpFrameToFile(BufferDescriptor& buffer,
+                           CameraBufferMetaData& meta_data, String8& file_name);
+
+  Recorder& GetRecorder() { return recorder_; }
+
  private:
   Recorder recorder_;
 
   friend class CmdMenu;
+
   typedef std::map <uint8_t, std::string> nr_modes_map;
   typedef std::map <uint8_t, std::string>::iterator nr_modes_iter;
   typedef std::map <int32_t, std::string> vhdr_modes_map;
@@ -242,7 +248,7 @@ class RecorderTest {
 class TestTrack {
 
  public:
-  TestTrack(Recorder* rec_instance);
+  TestTrack(RecorderTest* recorder_test);
 
   ~TestTrack();
 
@@ -279,9 +285,6 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-  status_t DumpYUVFrame(BufferDescriptor& buffer,
-                        CameraBufferMetaData& meta_data);
-
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
 
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
@@ -294,7 +297,7 @@ class TestTrack {
   // One track can have multiple overlay objects.
   std::vector<uint32_t> overlay_ids_;
 
-  Recorder* recorder_;
+  RecorderTest* recorder_test_;
 
   RecorderTestWav wav_output_;
   RecorderTestAac aac_output_;
