@@ -69,7 +69,9 @@ Camera3Gtest::Camera3Gtest()
       input_stream_id_(-1),
       input_last_frame_number_(-1),
       cache_last_meta_(false),
-      reprocess_flag_(false) {
+      reprocess_flag_(false),
+      aec_lock_(false),
+      awb_lock_(false) {
   memset(&fps_old_ts_, 0, sizeof(fps_old_ts_));
   memset(&client_cb_, 0, sizeof(client_cb_));
   client_cb_.errorCb = [&](
@@ -110,6 +112,8 @@ void Camera3Gtest::SetUp() {
   input_last_frame_number_ = -1;
   cache_last_meta_ = false;
   reprocess_flag_ = false;
+  aec_lock_ = false;
+  awb_lock_ = false;
   memset(&fps_old_ts_, 0, sizeof(fps_old_ts_));
   avg_fps_ = 0.0f;
   device_client_ = new Camera3DeviceClient(client_cb_);
@@ -216,8 +220,9 @@ void Camera3Gtest::SnapshotCb(int32_t streamId, StreamBuffer buffer) {
       uint8_t *mappedBuffer, uint32_t width, uint32_t height,
       uint32_t stride) { return GetJpegSize(mappedBuffer, width); };
 
-  String8 extension("jpg");
-  StoreBuffer(extension, jpeg_idx_, buffer, streamId, sizeFunc);
+  String8 path;
+  path.appendFormat("/usr/stream_%d_%" PRIo64 ".jpg", streamId, jpeg_idx_);
+  StoreBuffer(path, jpeg_idx_, buffer, streamId, sizeFunc);
 
   device_client_->ReturnStreamBuffer(streamId, buffer);
 }
@@ -411,11 +416,13 @@ void Camera3Gtest::StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer) {
          buffer.handle, buffer.timestamp);
 
   if (dump_yuv_) {
-    String8 extension("yuv");
+    String8 path;
     dump_yuv_ = false;
     CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
         uint32_t height, uint32_t stride) { return 0; };
-    StoreBuffer(extension, yuv_idx_, buffer, streamId, sizeFunc);
+
+    path.appendFormat("/usr/stream_%d_%" PRIo64 ".yuv", streamId, yuv_idx_);
+    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
   }
 
   device_client_->ReturnStreamBuffer(streamId, buffer);
@@ -428,6 +435,40 @@ void Camera3Gtest::StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer) {
   pthread_mutex_unlock(&reprocess_lock_);
 }
 
+void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
+         buffer.handle, buffer.timestamp);
+
+  CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
+        uint32_t height, uint32_t stride) { return 0; };
+
+  if(buffer.frame_number % 5 == 0) {
+    String8 path;
+    path.appendFormat("/data/aec_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+                      streamId, buffer.frame_number, aec_lock_);
+    mkdir("/data/aec_lock", S_IRWXU);
+    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
+  }
+  device_client_->ReturnStreamBuffer(streamId, buffer);
+}
+
+void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
+         buffer.handle, buffer.timestamp);
+
+  CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
+        uint32_t height, uint32_t stride) { return 0; };
+
+  if(buffer.frame_number % 5 == 0) {
+    String8 path;
+    path.appendFormat("/data/awb_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+                      streamId, buffer.frame_number, awb_lock_);
+    mkdir("/data/awb_lock", S_IRWXU);
+    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
+  }
+  device_client_->ReturnStreamBuffer(streamId, buffer);
+}
+
 void Camera3Gtest::Raw16Cb(int32_t streamId, StreamBuffer buffer) {
   printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
          buffer.handle, buffer.timestamp);
@@ -436,8 +477,9 @@ void Camera3Gtest::Raw16Cb(int32_t streamId, StreamBuffer buffer) {
       uint8_t *mappedBuffer, uint32_t width, uint32_t height,
       uint32_t stride) { return stride*height*2; };
 
-  String8 extension("raw");
-  StoreBuffer(extension, raw_idx_, buffer, streamId, sizeFunc);
+  String8 path;
+  path.appendFormat("/usr/stream_%d_%" PRIo64 ".raw", streamId, raw_idx_);
+  StoreBuffer(path, raw_idx_, buffer, streamId, sizeFunc);
 
   device_client_->ReturnStreamBuffer(streamId, buffer);
 }
@@ -478,7 +520,7 @@ void Camera3Gtest::ReturnInputBuffer(StreamBuffer &buffer) {
   }
 }
 
-int32_t Camera3Gtest::StoreBuffer(String8 extension, uint64_t &idx,
+int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
                                   StreamBuffer &buffer, int32_t streamId,
                                   CalcSize &calcSize) {
   int32_t ret = 0;
@@ -486,9 +528,6 @@ int32_t Camera3Gtest::StoreBuffer(String8 extension, uint64_t &idx,
   alloc_device_t *grallocDevice = device_client_->GetGrallocDevice();
 
   if (NULL != grallocDevice) {
-    String8 path;
-    path.appendFormat("/usr/stream_%d_%" PRIo64 ".", streamId, idx);
-    path.append(extension);
     FILE *f = fopen(path.string(), "w+");
     if (NULL == f) {
       printf("%s:Unable to open file(%s) \n", __func__, strerror(errno));
@@ -536,7 +575,7 @@ int32_t Camera3Gtest::StoreBuffer(String8 extension, uint64_t &idx,
       }
       idx++;
 
-      printf("%s: %s Size=%" PRIo64 " Stored\n", __func__, extension.string(),
+      printf("%s: %s Size=%" PRIo64 " Stored\n", __func__, path.string(),
              sizeY + sizeCbCr);
     } else {
       if (0 == buffer.info.num_planes) {
@@ -572,7 +611,7 @@ int32_t Camera3Gtest::StoreBuffer(String8 extension, uint64_t &idx,
       idx++;
 
       printf("%s: %s Buffer=%p, Size=%" PRIo64 " Stored\n", __func__,
-             extension.string(), mappedBuffer, size);
+             path.string(), mappedBuffer, size);
     }
 
   exit:
@@ -2295,6 +2334,143 @@ TEST_F(Camera3Gtest, SnapshotAndRAW16Bit) {
   printf("%s: Preview request cancelled last frame number: %" PRId64 "\n",
          __func__, lastFrameNumber);
 
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
+TEST_F(Camera3Gtest, ExposureLockVGA) {
+  CameraStreamParameters streamParams;
+  Camera3Request previewRequest;
+  CameraMetadata staticInfo;
+  int64_t lastFrameNumber;
+  int32_t previewStreamId, previewRequestId;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 640;
+  streamParams.height = 480;
+  streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
+  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
+    StreamCbAecLock(streamId, buffer);
+  };
+
+  previewStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(previewStreamId, 0);
+  previewRequest.streamIds.add(previewStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  aec_lock_ = false;
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
+                                             &previewRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  previewRequestId = ret;
+
+  sleep(5);
+
+  uint8_t aeLock = ANDROID_CONTROL_AE_LOCK_ON;
+  ret = previewRequest.metadata.update(ANDROID_CONTROL_AE_LOCK,
+                                       &aeLock, 1);
+  ASSERT_EQ(0, ret);
+  aec_lock_ = true;
+  printf("%s: AE Lock: %d\n", __func__, aeLock);
+
+  ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  previewRequestId = ret;
+
+  // Run preview for some time
+  sleep(5);
+
+  ret = device_client_->CancelRequest(previewRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Preview request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  aec_lock_ = false;
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
+TEST_F(Camera3Gtest, AwbLockVGA) {
+  CameraStreamParameters streamParams;
+  Camera3Request previewRequest;
+  CameraMetadata staticInfo;
+  int64_t lastFrameNumber;
+  int32_t previewStreamId, previewRequestId;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 640;
+  streamParams.height = 480;
+  streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
+  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
+    StreamCbAwbLock(streamId, buffer);
+  };
+
+  previewStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(previewStreamId, 0);
+  previewRequest.streamIds.add(previewStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  awb_lock_ = false;
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
+                                             &previewRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  previewRequestId = ret;
+
+  sleep(5);
+
+  uint8_t awbLock = ANDROID_CONTROL_AWB_LOCK_ON;
+  ret = previewRequest.metadata.update(ANDROID_CONTROL_AWB_LOCK,
+                                       &awbLock, 1);
+  ASSERT_EQ(0, ret);
+  awb_lock_ = true;
+  printf("%s: Awb Lock: %d\n", __func__, awbLock);
+
+
+  ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  previewRequestId = ret;
+
+  // Run preview for some time
+  sleep(5);
+
+  ret = device_client_->CancelRequest(previewRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Preview request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  awb_lock_ = false;
   ret = device_client_->WaitUntilIdle();
   ASSERT_EQ(0, ret);
   ASSERT_FALSE(camera_error_);
