@@ -214,7 +214,7 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
 {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
-  int32_t ret;
+  int32_t ret = 0;
 
   if (!checkServiceStatus()) {
     return NO_INIT;

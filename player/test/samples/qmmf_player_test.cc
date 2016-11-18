@@ -332,6 +332,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
     ret = playertest->player_.DequeueInputBuffer(playertest->audio_track_id_,
         buffers);
+    assert(NO_ERROR != ret);
 
     FileSourceSampleInfo sSampleInfo;
     FileSourceMediaStatus eMediaStatus = FILE_SOURCE_DATA_ERROR;
@@ -352,11 +353,13 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
           playertest->m_sTrackInfo_.sAudio.ulTkId, nullptr, &nFormatBlockSize);
       TEST_DBG("%s:%s: Audio getFormatBlock size = %lu", TAG, __func__,
           nFormatBlockSize);
+      assert(FILE_SOURCE_SUCCESS != status);
 
       uint8_t *buffer = new uint8_t[nFormatBlockSize];
       if (buffer != nullptr) {
         status = playertest->m_pDemux_->m_pFileSource->GetFormatBlock(
             playertest->m_sTrackInfo_.sAudio.ulTkId, buffer, &nFormatBlockSize);
+        assert(FILE_SOURCE_SUCCESS != status);
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );
@@ -429,6 +432,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
     ret = playertest->player_.DequeueInputBuffer(playertest->video_track_id_,
         buffers);
+    assert(NO_ERROR != ret);
 
     //Video
     FileSourceSampleInfo sSampleInfo;
@@ -450,11 +454,13 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
           playertest->m_sTrackInfo_.sVideo.ulTkId, nullptr, &nFormatBlockSize);
       TEST_DBG("%s:%s: Video getFormatBlock size = %lu", TAG, __func__,
           nFormatBlockSize);
+      assert(FILE_SOURCE_SUCCESS != status);
 
       uint8_t *buffer = new uint8_t[nFormatBlockSize];
       if (buffer != nullptr) {
         status = playertest->m_pDemux_->m_pFileSource->GetFormatBlock(
             playertest->m_sTrackInfo_.sVideo.ulTkId, buffer, &nFormatBlockSize);
+        assert(FILE_SOURCE_SUCCESS != status);
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );

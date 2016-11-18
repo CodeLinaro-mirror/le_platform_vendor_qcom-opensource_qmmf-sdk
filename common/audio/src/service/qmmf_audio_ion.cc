@@ -152,7 +152,7 @@ int32_t AudioIon::Release(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  int result;
+  int result = 0;
 
   if (ion_device_ == -1) {
     QMMF_ERROR("%s: %s() ion device is not opened", TAG, __func__);

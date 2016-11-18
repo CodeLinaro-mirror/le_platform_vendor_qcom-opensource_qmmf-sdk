@@ -278,7 +278,7 @@ status_t PlayerImpl::DeleteVideoTrack(uint32_t track_id) {
 status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
                                         std::vector<AVCodecBuffer>& buffers) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret;
+  status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks.size();
 
@@ -297,7 +297,7 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
@@ -306,7 +306,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
                                       size_t meta_size,
                                       TrackMetaBufferType meta_type) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret;
+  status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks.size();
 
@@ -326,7 +326,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::Prepare() {
@@ -636,7 +636,7 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 //Video Post processing
@@ -657,7 +657,7 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 bool PlayerImpl::IsTrackValid(const uint32_t track_id) {

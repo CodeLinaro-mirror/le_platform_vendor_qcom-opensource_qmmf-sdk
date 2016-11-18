@@ -126,7 +126,6 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   TEST_INFO("%s:%s:%s   Enter",TAG,TAG2,__func__);
   size_t pos = 0;
   uint64_t offset = 0;
-  bool ADTSheader = 0;
 
     while(1){
     char id3header[10];
@@ -161,7 +160,6 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   if(((uint8_t)header[0] == 0xff) && (((uint8_t)header[1] & 0xf6) == 0xf0)){
     TEST_DBG("%s:%s:%s ADTS header found",TAG,TAG2,__func__);
     confidence = 0.2;
-    ADTSheader = 1;
     offset = pos;
   }
   else{

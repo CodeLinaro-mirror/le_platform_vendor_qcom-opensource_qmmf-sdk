@@ -1,9 +1,11 @@
 AC_PREREQ(2.61)
 AC_INIT([qmmf-recorder], 1.0.0)
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects -Wall -Wextra -Werror])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
+
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 
 # Check for programs
 LT_INIT
@@ -59,6 +61,14 @@ AC_ARG_WITH([camerahal],
 if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
+
+[CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
+# TODO functions have unused input parameters
+[CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
+# TODO this warning suppress issue in lib gralloc private
+[CPPFLAGS="$CPPFLAGS -Wno-multichar"]
+# TODO define ANDROID macro to resolve redefinition of LOGE by MMDebugMsg.h
+[CPPFLAGS="$CPPFLAGS -DANDROID"]
 
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])

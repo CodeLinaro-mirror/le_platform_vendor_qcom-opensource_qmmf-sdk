@@ -193,8 +193,6 @@ uint32_t DisplayBufferAllocator::GetBufferSize(BufferInfo *buffer_info) {
 
 DisplayError DisplayBufferAllocator::GetBufferInfo(BufferInfo *buffer_info,
     int32_t &aligned_width, int32_t &aligned_height) {
-  uint32_t align = UINT32(getpagesize());
-
   const BufferConfig &buffer_config = buffer_info->buffer_config;
 
   int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
@@ -206,7 +204,6 @@ DisplayError DisplayBufferAllocator::GetBufferInfo(BufferInfo *buffer_info,
   if (buffer_config.secure) {
     alloc_flags = INT(GRALLOC_USAGE_PRIVATE_MM_HEAP);
     alloc_flags |= INT(GRALLOC_USAGE_PROTECTED);
-    align = SECURE_ALIGN;
   }
 
   if (buffer_config.cache == false) {

@@ -970,7 +970,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   int32_t ret = NO_ERROR;
   assert(camera_device_.get() != nullptr);
 
-  bool zsl_cached;
+  bool zsl_cached = false;
   if (camera_start_params_.zsl_mode && (0 <= zsl_stream_id_)) {
     Mutex::Autolock l(zsl_queue_lock_);
     zsl_cached = zsl_running_;
@@ -1065,7 +1065,7 @@ status_t CameraContext::CreateDeviceInputStream(
 
 status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
   int32_t ret = NO_ERROR;
-  bool zsl_cached;
+  bool zsl_cached = false;
   int64_t last_frame_mumber;
   bool resume_streaming;
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
@@ -1225,7 +1225,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       ((1 == size) &&
           (streaming_active_requests_[0].streamIds[0] == zsl_stream_id_) &&
           (0 <= streaming_request_id_))) {
-    bool zsl_cached;
+    bool zsl_cached = false;
 
     if (camera_start_params_.zsl_mode && (0 <= zsl_stream_id_)) {
       Mutex::Autolock l(zsl_queue_lock_);
@@ -1466,6 +1466,9 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
       height = -1;
     break;
     default:
+      QMMF_ERROR("%s:%s format(%d) not supported", TAG, __func__,
+          buffer.info.format);
+      assert(0);
     break;
   }
 

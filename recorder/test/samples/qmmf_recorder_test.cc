@@ -446,6 +446,11 @@ status_t RecorderTest::TakeSnapshot() {
       case 3:
         if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
           entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+          if (entry.count < 2) {
+            printf("ANDROID_SCALER_AVAILABLE_RAW_SIZES count is wrong\n");
+            input = 0;
+            break;
+          }
           for (uint32_t i = 0 ; i < entry.count; i += 2) {
             w = entry.data.i32[i+0];
             h = entry.data.i32[i+1];
@@ -1727,6 +1732,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       ext_str = "raw16";
       break;
       default:
+      assert(0);
       break;
     }
     file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);

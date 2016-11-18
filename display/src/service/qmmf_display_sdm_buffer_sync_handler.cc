@@ -58,8 +58,6 @@ DisplayError DisplayBufferSyncHandler::SyncWait(int fd) {
 
 DisplayError DisplayBufferSyncHandler::SyncMerge(int fd1, int fd2,
     int *merged_fd) {
-  DisplayError error = kErrorNone;
-
   // Merge the two fences.  In the case where one of the fences is not a
   // valid fence (e.g. NO_FENCE) merge the one valid fence with itself so
   // that a new fence with the given name is created.
@@ -78,10 +76,8 @@ DisplayError DisplayBufferSyncHandler::SyncMerge(int fd1, int fd2,
 
   if (*merged_fd == -1) {
     QMMF_ERROR("Sync merge error! fd1 %d fd2 %d", fd1, fd2);
-    error = kErrorFileDescriptor;
   }
 
-  //return error;
   return kErrorNone;
 }
 

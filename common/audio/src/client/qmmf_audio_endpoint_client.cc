@@ -142,10 +142,10 @@ int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
   sp<IBinder> service_handle;
   sp<IServiceManager> service_manager = defaultServiceManager();
 
-  service_handle = service_manager->getService(String16(kAudioServiceName));
+  service_handle = service_manager->getService(String16(QMMF_AUDIO_SERVICE_NAME));
   if (service_handle.get() == nullptr) {
     QMMF_ERROR("%s: %s() can't get service %s", TAG, __func__,
-               kAudioServiceName);
+               QMMF_AUDIO_SERVICE_NAME);
     return -ENODEV;
   }
 
@@ -156,7 +156,7 @@ int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
   int32_t result = audio_service_->Connect(cb_handler, &audio_handle_);
   if (result < 0) {
     QMMF_ERROR("%s: %s() can't connect to service %s: %d", TAG, __func__,
-               kAudioServiceName, result);
+               QMMF_AUDIO_SERVICE_NAME, result);
   } else {
     state_ = AudioState::kConnect;
     QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
@@ -819,7 +819,7 @@ class BpAudioService: public BpInterface<IAudioService> {
   }
 };
 
-IMPLEMENT_META_INTERFACE(AudioService, kAudioServiceName);
+IMPLEMENT_META_INTERFACE(AudioService, QMMF_AUDIO_SERVICE_NAME);
 
 ServiceCallbackHandler::ServiceCallbackHandler(AudioEndPointClient* client)
     : client_(client) {

@@ -309,7 +309,7 @@ int main(int argc,char *argv[])
 
   DisplayTest test_context;
   CmdMenu cmd_menu(test_context);
-  int32_t testRunning = true, ret;
+  int32_t testRunning = true, ret = NO_ERROR;
 
   while (testRunning) {
     CmdMenu::Command command = cmd_menu.GetCommand();
