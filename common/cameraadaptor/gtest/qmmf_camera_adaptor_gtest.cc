@@ -1061,7 +1061,6 @@ TEST_F(Camera3Gtest, Video4KPlus180pLiveSnapshot4KYUVPreview1080p) {
          measuredDeviation, allowedDeviation);
 }
 
-
 TEST_F(Camera3Gtest, Video1080pAFR) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
@@ -1133,6 +1132,132 @@ TEST_F(Camera3Gtest, Video1080pAFR) {
   ASSERT_FALSE(camera_error_);
 }
 
+TEST_F(Camera3Gtest, Video1080pSharpness) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest;
+  int64_t lastFrameNumber;
+  int32_t repeatingStreamId, videoRequestId;
+  CameraMetadata staticInfo;
+  unsigned char edge_mode = ANDROID_EDGE_MODE_OFF;
+  unsigned char strength = 100;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+
+  if (staticInfo.exists(ANDROID_EDGE_AVAILABLE_EDGE_MODES)) {
+    camera_metadata_entry metaEntry =
+        staticInfo.find(ANDROID_EDGE_AVAILABLE_EDGE_MODES);
+    for (uint32_t i = 0; i < metaEntry.count; i++) {
+      // Prefer high quality mode
+      if(metaEntry.data.u8[i] == ANDROID_EDGE_MODE_HIGH_QUALITY) {
+        edge_mode = ANDROID_EDGE_MODE_HIGH_QUALITY;
+        break;
+      }
+      if(metaEntry.data.u8[i] == ANDROID_EDGE_MODE_FAST) {
+        edge_mode = ANDROID_EDGE_MODE_FAST;
+      }
+    }
+  }
+  printf("Chosen mode %d\n", edge_mode);
+
+
+  ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 1920;
+  streamParams.height = 1080;
+  streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  streamParams.cb = [&](int32_t streamId,
+                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+  // 1080p Stream1
+  repeatingStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(repeatingStreamId, 0);
+  videoRequest.streamIds.add(repeatingStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                                            &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+  videoRequest.metadata.update(ANDROID_EDGE_MODE,     &edge_mode, 1);
+  videoRequest.metadata.update(ANDROID_EDGE_STRENGTH, &strength, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+
+
+  ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 1920;
+  streamParams.height = 1080;
+  streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  streamParams.cb = [&](int32_t streamId,
+                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+  // 1080p Stream1
+  repeatingStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(repeatingStreamId, 0);
+  videoRequest.streamIds.add(repeatingStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                                            &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+  edge_mode = ANDROID_EDGE_MODE_OFF;
+  strength = 00;
+  videoRequest.metadata.update(ANDROID_EDGE_MODE,     &edge_mode, 1);
+  videoRequest.metadata.update(ANDROID_EDGE_STRENGTH, &strength, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+
+}
 
 TEST_F(Camera3Gtest, Video1080pThreeStreams) {
   CameraStreamParameters streamParams;
