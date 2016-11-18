@@ -43,6 +43,7 @@
 #define FPS_TIME_INTERVAL 3000000  // Measure avg. FPS once per 3 sec.
 #define FPS_ALLOWED_DEV 0.01f  // 1% avg. allowed deviation from FPS
 #define ITERATION_COUNT 50
+#define ZOOM_STEPS 5
 
 //FIXME: This is temporary change until necessary vendor mode changes are merged
 // in HAL3.
@@ -1257,6 +1258,80 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
   ASSERT_EQ(0, ret);
   ASSERT_FALSE(camera_error_);
 
+}
+
+TEST_F(Camera3Gtest, Video1080pZoom) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest;
+  int64_t lastFrameNumber;
+  int32_t repeatingStreamId, videoRequestId = -1;
+  CameraMetadata staticInfo;
+  int32_t width, height;
+  int32_t crop_rgn[4];
+  int i;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 1920;
+  streamParams.height = 1080;
+  streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  streamParams.cb = [&](int32_t streamId,
+                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+  // 1080p Stream1
+  repeatingStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(repeatingStreamId, 0);
+  videoRequest.streamIds.add(repeatingStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                                            &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  GetMaxRAWSize(width, height);
+
+  for (i = width; i >= width/4;
+        i -= width*3/(4*(ZOOM_STEPS-1))) {
+    crop_rgn[2] = i & ~(0xFu);
+    crop_rgn[3] = (crop_rgn[2]*height/width) & ~(0xFu);
+    crop_rgn[0] = (width - crop_rgn[2])/2;
+    crop_rgn[1] = (height - crop_rgn[3])/2;
+
+    videoRequest.metadata.update(ANDROID_SCALER_CROP_REGION, crop_rgn, 4);
+
+    ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+    ASSERT_GE(ret, 0);
+    videoRequestId = ret;
+
+    // Run video for some time
+    sleep(5);
+
+    dump_yuv_ = true;
+    sleep(5);
+  }
+
+
+  if (videoRequestId >= 0) {
+    ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+    ASSERT_EQ(0, ret);
+  }
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
 }
 
 TEST_F(Camera3Gtest, Video1080pThreeStreams) {
