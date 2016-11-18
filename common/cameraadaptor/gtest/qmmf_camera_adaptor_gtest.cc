@@ -44,10 +44,6 @@
 #define FPS_ALLOWED_DEV 0.01f  // 1% avg. allowed deviation from FPS
 #define ITERATION_COUNT 50
 
-//FIXME: This is temporary change until necessary vendor mode changes are merged
-// in HAL3.
-#define QCAMERA3_VENDOR_SENSOR_MODE 1
-
 namespace qmmf {
 
 namespace cameraadaptor {

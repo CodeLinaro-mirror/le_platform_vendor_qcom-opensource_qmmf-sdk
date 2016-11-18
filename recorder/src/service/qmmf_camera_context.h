@@ -45,10 +45,6 @@ using namespace cameraadaptor;
 #define PREVIEW_STREAM_BUFFER_COUNT 10
 #define EXTRA_DCVS_BUFFERS          2
 
-//FIXME: This is temporary change until necessary vendor mode changes are merged
-// in HAL3.
-#define QCAMERA3_VENDOR_SENSOR_MODE 1
-
 namespace recorder {
 
 class CameraPort;
