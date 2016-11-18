@@ -248,6 +248,8 @@ class RecorderTest {
   std::string GetCurrentIRMode();
   status_t GetCurrentAFMode(int32_t& mode);
 
+  // Auto Mode
+  int32_t RunAutoMode();
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
