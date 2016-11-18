@@ -2816,6 +2816,64 @@ READ_FAILED:
   return -1;
 }
 
+int32_t RecorderTest::RunAutoMode() {
+  ALOGD("%s: Enter ",__func__);
+
+  auto ret = Connect();
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Connect Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = StartCamera();
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = Session4KEncTrack(TrackType::kVideoAVC);
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = StartSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  // Record video for 5 sec
+  sleep(5);
+
+  ret = StopSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s StopSession Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = DeleteSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s DeleteSession Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = StopCamera();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = Disconnect();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s Disconnect Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ALOGD("%s: Exit ",__func__);
+  return ret;
+}
+
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : file_fd_(-1), recorder_test_(recorder_test), num_yuv_frames_(0),
       display_started_(0) {
@@ -3587,7 +3645,10 @@ int main(int argc,char *argv[]) {
   RecorderTest test_context;
 
   if(argc > 1) {
-	  return test_context.RunFromConfig(argc, argv);
+    if(strcmp(argv[1], "--auto") == 0) {
+      return test_context.RunAutoMode();
+    }
+    return test_context.RunFromConfig(argc, argv);
   }
 
   CmdMenu cmd_menu(test_context);
