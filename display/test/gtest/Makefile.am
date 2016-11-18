@@ -1,8 +1,8 @@
 # Build display test application binary
 bin_PROGRAMS := display_gtest
 
-display_gtest_SOURCES  := qmmf_display_gtest.cpp
-display_gtest_SOURCES  += qmmf_display_buffer_allocator.cpp
+display_gtest_SOURCES  := qmmf_display_gtest.cc
+display_gtest_SOURCES  += qmmf_display_buffer_allocator.cc
 display_gtest_CPPFLAGS := -I$(top_srcdir)/include
 display_gtest_CPPFLAGS += -I$(top_srcdir)/
 display_gtest_CPPFLAGS += -I$(LIBGRALLOC)

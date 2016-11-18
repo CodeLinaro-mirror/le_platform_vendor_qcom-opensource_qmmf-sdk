@@ -2,7 +2,7 @@
 CameraService functionality dealing with CameraHal 3.x reworked for Linux embedded.
 
 #Client API Summary
- The device client and method definitions can be found within "qmmf_camera3_device_client.cpp/h".
+ The device client and method definitions can be found within "qmmf_camera3_device_client.cc/h".
 - Methods
 	- __Camera3DeviceClient(CameraClientCallbacks clientCb)__
 		- Description - Instantiates the device client object.

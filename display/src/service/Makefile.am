@@ -1,11 +1,11 @@
-source_files := qmmf_display_service.cpp
-source_files += ../client/qmmf_display_client.cpp
-#source_files += qmmf_display_common.cpp
-source_files += qmmf_display_impl.cpp
-source_files += qmmf_remote_cb.cpp
-source_files += qmmf_display_sdm_buffer_allocator.cpp
-source_files += qmmf_display_sdm_debugger.cpp
-source_files += qmmf_display_sdm_buffer_sync_handler.cpp
+source_files := qmmf_display_service.cc
+source_files += ../client/qmmf_display_client.cc
+#source_files += qmmf_display_common.cc
+source_files += qmmf_display_impl.cc
+source_files += qmmf_remote_cb.cc
+source_files += qmmf_display_sdm_buffer_allocator.cc
+source_files += qmmf_display_sdm_debugger.cc
+source_files += qmmf_display_sdm_buffer_sync_handler.cc
 
 
 # Build qmmf display service library

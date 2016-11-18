@@ -1,13 +1,13 @@
 # Build libcamera_adaptor.so
 lib_LTLIBRARIES = libcamera_adaptor.la
 
-libcamera_adaptor_la_SOURCES := qmmf_camera3_device_client.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_monitor.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_request_handler.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_prepare_handler.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_stream.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_thread.cpp
-libcamera_adaptor_la_SOURCES += qmmf_camera3_utils.cpp
+libcamera_adaptor_la_SOURCES := qmmf_camera3_device_client.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_monitor.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_request_handler.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_prepare_handler.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_stream.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_thread.cc
+libcamera_adaptor_la_SOURCES += qmmf_camera3_utils.cc
 
 libcamera_adaptor_la_CPPFLAGS := -std=c++11 -Wall
 libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/include
@@ -22,7 +22,7 @@ camera_adaptor_HEADERS := qmmf_camera3_types.h
 # Adaptor gtest app
 bin_PROGRAMS := camera_adaptor_gtest
 
-camera_adaptor_gtest_SOURCES  := gtest/qmmf_camera_adaptor_gtest.cpp
+camera_adaptor_gtest_SOURCES  := gtest/qmmf_camera_adaptor_gtest.cc
 camera_adaptor_gtest_CPPFLAGS := $(libcamera_adaptor_la_CPPFLAGS) -I$(top_srcdir) -I$(LIBGRALLOC)
 camera_adaptor_gtest_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 camera_adaptor_gtest_LDADD    := libcamera_adaptor.la -lgtest -lgtest_main
@@ -31,7 +31,7 @@ camera_adaptor_gtest_LDFLAGS  := $(libcamera_adaptor_la_LDFLAGS)
 # Dual adaptor gtest app
 bin_PROGRAMS += camera_dual_adaptor_gtest
 
-camera_dual_adaptor_gtest_SOURCES  := gtest/qmmf_dual_camera_adaptor_gtest.cpp
+camera_dual_adaptor_gtest_SOURCES  := gtest/qmmf_dual_camera_adaptor_gtest.cc
 camera_dual_adaptor_gtest_CPPFLAGS := $(libcamera_adaptor_la_CPPFLAGS) -I$(top_srcdir) -I$(LIBGRALLOC)
 camera_dual_adaptor_gtest_LDADD    := libcamera_adaptor.la -lgtest -lgtest_main
 camera_dual_adaptor_gtest_LDFLAGS  := $(libcamera_adaptor_la_LDFLAGS)

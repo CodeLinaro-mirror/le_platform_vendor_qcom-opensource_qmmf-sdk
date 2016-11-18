@@ -1,7 +1,7 @@
 # Build libav_queue.so
 lib_LTLIBRARIES = libav_queue.la
 
-libav_queue_la_SOURCES := qmmf_queue.cpp
+libav_queue_la_SOURCES := qmmf_queue.cc
 
 libav_queue_la_CPPFLAGS := -std=c++11 -Wall
 
