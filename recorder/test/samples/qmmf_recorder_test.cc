@@ -683,6 +683,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
@@ -992,6 +993,7 @@ status_t RecorderTest::CreateAudioPCMTrack() {
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1024,6 +1026,7 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_pcm_track1->SetUp(info);
   assert(ret == 0);
@@ -1035,6 +1038,152 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
   ret = audio_pcm_track2->SetUp(info);
   assert(ret == 0);
   tracks.push_back(audio_pcm_track2);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioSCOTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_sco_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBlueToothSCO);
+
+  ret = audio_sco_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_sco_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMSCOTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_sco_track = new TestTrack(this);
+  info.track_id   = 102;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBlueToothSCO);
+
+  ret = audio_sco_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_sco_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioA2DPTrack() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_a2dp_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBlueToothA2DP);
+
+  ret = audio_a2dp_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_a2dp_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::CreateAudioPCMA2DPTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+
+  TestTrack *audio_a2dp_track = new TestTrack(this);
+  info.track_id   = 102;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBlueToothA2DP);
+
+  ret = audio_a2dp_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_a2dp_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -1063,6 +1212,7 @@ status_t RecorderTest::CreateAudioAACTrack() {
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_aac_track->SetUp(info);
   assert(ret == 0);
@@ -1095,6 +1245,7 @@ status_t RecorderTest::CreateAudio2AACTrack() {
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_aac_track1->SetUp(info);
   assert(ret == 0);
@@ -1133,6 +1284,7 @@ status_t RecorderTest::CreateAudioPCMAACTrack() {
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1173,6 +1325,7 @@ status_t RecorderTest::CreateAudioAMRTrack() {
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_amr_track->SetUp(info);
   assert(ret == 0);
@@ -1205,6 +1358,7 @@ status_t RecorderTest::CreateAudio2AMRTrack() {
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_amr_track1->SetUp(info);
   assert(ret == 0);
@@ -1243,6 +1397,7 @@ status_t RecorderTest::CreateAudioPCMAMRTrack() {
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -1283,6 +1438,7 @@ status_t RecorderTest::CreateAudioG711Track() {
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_g711_track->SetUp(info);
   assert(ret == 0);
@@ -1315,6 +1471,7 @@ status_t RecorderTest::CreateAudio2G711Track() {
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_g711_track1->SetUp(info);
   assert(ret == 0);
@@ -1353,6 +1510,7 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
   info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
 
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
@@ -2327,8 +2485,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     // Create AudioTrack
     AudioTrackCreateParam audio_track_params;
     memset(&audio_track_params, 0x0, sizeof audio_track_params);
-    audio_track_params.in_devices.push_back(static_cast<DeviceId>
-                                            (AudioDeviceId::kBuiltIn));
+    audio_track_params.in_devices.push_back(track_info.device_id);
     audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
@@ -2896,6 +3053,16 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_PCM_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz + PCM mono,16,48KHz)\n",
       CmdMenu::CREATE_2PCM_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (SCO mono,16,48KHz)\n",
+      CmdMenu::CREATE_SCO_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + SCO mono,16,48KHz)\n",
+      CmdMenu::CREATE_PCM_SCO_AUD_SESSION_CMD);
+#ifdef ENABLE_A2DP_USECASE
+  printf("   %c. Create Session: (A2DP mono,16,48KHz)\n",
+      CmdMenu::CREATE_A2DP_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,48KHz + A2DP mono,16,48KHz)\n",
+      CmdMenu::CREATE_PCM_A2DP_AUD_SESSION_CMD);
+#endif
   printf("   %c. Create Session: (AAC mono)\n",
       CmdMenu::CREATE_AAC_AUD_SESSION_CMD);
   printf("   %c. Create Session: (AAC mono + AAC mono)\n",
@@ -3036,6 +3203,24 @@ int main(int argc,char *argv[]) {
           test_context.CreateAudio2PCMTrack();
       }
       break;
+      case CmdMenu::CREATE_SCO_AUD_SESSION_CMD: {
+          test_context.CreateAudioSCOTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_SCO_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMSCOTrack();
+      }
+      break;
+#ifdef ENABLE_A2DP_USECASE
+      case CmdMenu::CREATE_A2DP_AUD_SESSION_CMD: {
+          test_context.CreateAudioA2DPTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCM_A2DP_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMA2DPTrack();
+      }
+      break;
+#endif
       case CmdMenu::CREATE_AAC_AUD_SESSION_CMD: {
           test_context.CreateAudioAACTrack();
       }

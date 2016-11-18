@@ -51,6 +51,7 @@ namespace common {
 namespace audio {
 
 using ::qmmf::AudioFormat;
+using ::qmmf::AudioDeviceId;
 using ::qmmf::DeviceId;
 using ::qmmf::common::audio::AudioBuffer;
 using ::qmmf::common::audio::AudioEndPoint;
@@ -124,7 +125,7 @@ void AudioTest::ConfigureSource() {
   type_ = AudioEndPointType::kSource;
 
   vector<DeviceId> devices;
-  devices.push_back(0);
+  devices.push_back(static_cast<int32_t>(AudioDeviceId::kBuiltIn));
 
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);

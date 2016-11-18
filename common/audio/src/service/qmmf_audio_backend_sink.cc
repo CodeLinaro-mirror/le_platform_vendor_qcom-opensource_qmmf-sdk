@@ -27,24 +27,22 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "AudioBackendPrimary"
+#define TAG "AudioBackendSink"
 
-#include "common/audio/src/service/qmmf_audio_backend_primary.h"
+#include "common/audio/src/service/qmmf_audio_backend_sink.h"
 
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
-#include <cstdlib>
 #include <functional>
 #include <map>
 #include <mutex>
 #include <queue>
-#include <time.h>
 #include <thread>
 #include <vector>
 
-#include <cutils/properties.h>
-#include <hardware/audio.h>
+#include <mm-audio/qahw_api/inc/qahw_api.h>
+#include <mm-audio/qahw_api/inc/qahw_defs.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
@@ -53,13 +51,10 @@
 // remove comment marker to mimic the AHAL instead of using it
 //#define AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
 
-#define AUDIO_TIMESTAMP_ADJUST_PROPERTY   "persist.qmmf.timestamp.adjust"
-
 namespace qmmf {
 namespace common {
 namespace audio {
 
-using ::std::chrono::duration_cast;
 using ::std::chrono::seconds;
 using ::std::condition_variable;
 using ::std::cv_status;
@@ -71,30 +66,31 @@ using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
 
-AudioBackendPrimary::AudioBackendPrimary(const AudioHandle audio_handle,
-    const AudioErrorHandler& error_handler,
-    const AudioBufferHandler& buffer_handler)
-    : audio_handle_(audio_handle), state_(AudioState::kNew),
-      error_handler_(error_handler), buffer_handler_(buffer_handler) {
+const audio_io_handle_t AudioBackendSink::kIOHandleMin = 800;
+const audio_io_handle_t AudioBackendSink::kIOHandleMax = 899;
+
+AudioBackendSink::AudioBackendSink(const AudioHandle audio_handle,
+                                   const AudioErrorHandler& error_handler,
+                                   const AudioBufferHandler& buffer_handler)
+    : audio_handle_(audio_handle),
+      state_(AudioState::kNew),
+      error_handler_(error_handler),
+      buffer_handler_(buffer_handler),
+      current_io_handle_(kIOHandleMin) {
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
              static_cast<int>(state_));
 }
 
-AudioBackendPrimary::~AudioBackendPrimary() {}
+AudioBackendSink::~AudioBackendSink() {}
 
-int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
-                                  const vector<DeviceId>& devices,
-                                  const AudioMetadata& metadata) {
+int32_t AudioBackendSink::Open(const vector<DeviceId>& devices,
+                               const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
-               static_cast<int>(type));
   for (const DeviceId device : devices)
     QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
   QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
                metadata.ToString().c_str());
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  int result;
-#endif
+  int32_t result = 0;
 
   switch (state_) {
     case AudioState::kNew:
@@ -115,163 +111,63 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
       break;
   }
 
-  type_ = type;
-
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  result = hw_get_module_by_class(AUDIO_HARDWARE_MODULE_ID,
-                                  AUDIO_HARDWARE_MODULE_ID_PRIMARY,
-                                  &hal_module_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to get HAL module: %d[%s]", TAG, __func__,
-               result, strerror(-result));
-    return -result;
-  }
-
-  result = audio_hw_device_open(hal_module_, &hal_device_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to get HAL device: %d[%s]", TAG, __func__,
-               result, strerror(-result));
-    return -result;
-  }
-
-  if (hal_device_->common.version < AUDIO_DEVICE_API_VERSION_MIN) {
-    QMMF_ERROR("%s: %s() incorrect HAL device version[%d]", TAG, __func__,
-               hal_device_->common.version);
+  int qahw_version = qahw_get_version();
+  if (qahw_version < QAHW_MODULE_API_VERSION_MIN) {
+    QMMF_ERROR("%s: %s() incorrect QAHW module version[%d]", TAG, __func__,
+               qahw_version);
     return -EPERM;
   }
-  QMMF_INFO("%s: %s() HAL device version[%d]", TAG, __func__,
-            hal_device_->common.version);
+  QMMF_INFO("%s: %s() QAHW module version[%d]", TAG, __func__, qahw_version);
 
-  if (type_ == AudioEndPointType::kSource) {
-    unsigned int channel_bits;
-    switch (metadata.num_channels) {
-      case 1:
-        channel_bits = AUDIO_CHANNEL_IN_MONO;
-        break;
-      case 2:
-        channel_bits = AUDIO_CHANNEL_IN_STEREO;
-        break;
-      default:
-        QMMF_ERROR("%s: %s() invalid number of channels: %d", TAG, __func__,
-                   metadata.num_channels);
-        return -EINVAL;
-    }
+  qahw_module_ = qahw_load_module(QAHW_MODULE_ID_PRIMARY);
+  if (qahw_module_ == nullptr) {
+    QMMF_ERROR("%s: %s() failed to load QAHW module[%s]", TAG, __func__,
+               QAHW_MODULE_ID_PRIMARY);
+    return -ENOMEM;
+  }
 
-    audio_config_t config = AUDIO_CONFIG_INITIALIZER;
-    switch (metadata.sample_size) {
-      case 16:
-        config.format = AUDIO_FORMAT_PCM_16_BIT;
-        break;
-      case 32:
-        config.format = AUDIO_FORMAT_PCM_32_BIT;
-        break;
-      default:
-        QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
-                   metadata.sample_size);
-        return -EINVAL;
-    }
+  result = qahw_init_check(qahw_module_);
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() QAHW module initialization failed: %d[%s]",
+               TAG, __func__, result, strerror(result));
+    return result;
+  }
 
-    config.sample_rate = metadata.sample_rate;
-    config.channel_mask = audio_channel_mask_from_representation_and_bits(
-                          AUDIO_CHANNEL_REPRESENTATION_POSITION, channel_bits);
-    config.frame_count = 0;
-
-    audio_devices_t audio_devices = 0;
-    for (const DeviceId device : devices) {
-      switch (device) {
-        case static_cast<int32_t>(AudioDeviceId::kDefault):
-          audio_devices |= AUDIO_DEVICE_IN_DEFAULT;
-          break;
-        case static_cast<int32_t>(AudioDeviceId::kCommunication):
-          audio_devices |= AUDIO_DEVICE_IN_COMMUNICATION;
-          break;
-        case static_cast<int32_t>(AudioDeviceId::kAmbient):
-          audio_devices |= AUDIO_DEVICE_IN_AMBIENT;
-          break;
-        case static_cast<int32_t>(AudioDeviceId::kBuiltIn):
-          audio_devices |= AUDIO_DEVICE_IN_BUILTIN_MIC;
-          break;
-        case static_cast<int32_t>(AudioDeviceId::kHeadSet):
-          audio_devices |= AUDIO_DEVICE_IN_WIRED_HEADSET;
-          break;
-      }
-    }
-    if (audio_devices == 0) {
-      QMMF_ERROR("%s: %s() no valid device IDs specified", TAG, __func__);
+  audio_config_t config = AUDIO_CONFIG_INITIALIZER;
+  switch (metadata.sample_size) {
+    case 16:
+      config.offload_info.format = AUDIO_FORMAT_PCM_16_BIT;
+      break;
+    case 32:
+      config.offload_info.format = AUDIO_FORMAT_PCM_32_BIT;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
+                 metadata.sample_size);
       return -EINVAL;
-    }
+  }
 
-    result = hal_device_->open_input_stream(hal_device_, 0x999, audio_devices,
-                                            &config, &hal_input_stream_,
-                                            AUDIO_INPUT_FLAG_NONE,
-                                            "input_stream",
-                                            AUDIO_SOURCE_DEFAULT);
-    if (result != 0) {
-      QMMF_ERROR("%s: %s() failed to open input stream: %d", TAG, __func__,
-                 result);
-      return -result;
-    }
+  config.channel_mask = audio_channel_out_mask_from_count(metadata.num_channels);
+  config.offload_info.version = AUDIO_OFFLOAD_INFO_VERSION_CURRENT;
+  config.offload_info.size = sizeof(audio_offload_info_t);
+  config.offload_info.channel_mask = config.channel_mask;
+  config.offload_info.sample_rate = metadata.sample_rate;
+  config.frame_count = 0;
 
-    result = hal_input_stream_->set_gain(hal_input_stream_, 1.0);
-    if (result != 0) {
-      QMMF_ERROR("%s: %s() failed to set stream gain: %d[%s]", TAG, __func__,
-                 result, strerror(-result));
-      return -result;
-    }
+  // use the next available io_handle
+  if (current_io_handle_ + 1 > kIOHandleMax)
+    current_io_handle_ = kIOHandleMin;
+  ++current_io_handle_;
 
-    // set the input source to AUDIO_SOURCE_MIC
-    hal_input_stream_->common.set_parameters(&hal_input_stream_->common,
-                                             "input_source=1");
-  } else if (type_ == AudioEndPointType::kSink) {
-    unsigned int channel_bits;
-    switch (metadata.num_channels) {
-      case 1:
-        channel_bits = AUDIO_CHANNEL_OUT_MONO;
-        break;
-      case 2:
-        channel_bits = AUDIO_CHANNEL_OUT_STEREO;
-        break;
-      default:
-        QMMF_ERROR("%s: %s() invalid number of channels: %d", TAG, __func__,
-                   metadata.num_channels);
-        return -EINVAL;
-    }
-
-    audio_config_t config = AUDIO_CONFIG_INITIALIZER;
-    switch (metadata.sample_size) {
-      case 16:
-        config.offload_info.format = AUDIO_FORMAT_PCM_16_BIT;
-        break;
-      case 32:
-        config.offload_info.format = AUDIO_FORMAT_PCM_32_BIT;
-        break;
-      default:
-        QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
-                   metadata.sample_size);
-        return -EINVAL;
-    }
-
-    config.channel_mask = audio_channel_mask_from_representation_and_bits(
-                          AUDIO_CHANNEL_REPRESENTATION_POSITION, channel_bits);
-    config.offload_info.version = AUDIO_OFFLOAD_INFO_VERSION_CURRENT;
-    config.offload_info.size = sizeof(audio_offload_info_t);
-    config.offload_info.sample_rate = metadata.sample_rate;
-    config.frame_count = 0;
-
-    result = hal_device_->open_output_stream(hal_device_, 0x999,
-                                             AUDIO_DEVICE_OUT_SPEAKER,
-                                             AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD,
-                                             &config, &hal_output_stream_,
-                                             "output_stream");
-    if (result != 0) {
-      QMMF_ERROR("%s: %s() failed to open input stream: %d", TAG, __func__,
-                 result);
-      return -result;
-    }
-  } else {
-    QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
-    return -ENOSYS;
+  result = qahw_open_output_stream(qahw_module_, current_io_handle_,
+                                   AUDIO_DEVICE_OUT_SPEAKER,
+                                   AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD,
+                                   &config, &qahw_stream_, "output_stream");
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() failed to open output stream: %d[%s]", TAG, __func__,
+               result, strerror(result));
+    return result;
   }
 #endif
 
@@ -279,11 +175,12 @@ int32_t AudioBackendPrimary::Open(const AudioEndPointType type,
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
              static_cast<int>(state_));
 
-  return 0;
+  return result;
 }
 
-int32_t AudioBackendPrimary::Close() {
+int32_t AudioBackendSink::Close() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  int32_t result = 0;
 
   switch (state_) {
     case AudioState::kNew:
@@ -309,34 +206,36 @@ int32_t AudioBackendPrimary::Close() {
   }
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  if (type_ == AudioEndPointType::kSource) {
-    hal_device_->close_input_stream(hal_device_, hal_input_stream_);
-  } else if (type_ == AudioEndPointType::kSink) {
-    hal_device_->close_output_stream(hal_device_, hal_output_stream_);
-  } else {
-    QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
-    return -ENOSYS;
+  result = qahw_out_standby(qahw_stream_);
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() failed to put output stream in standby: %d[%s]",
+               TAG, __func__, result, strerror(result));
+    return result;
   }
 
-  int result = audio_hw_device_close(hal_device_);
-  if (result != 0)
-    QMMF_ERROR("%s: %s() failed to close HAL device: %d", TAG, __func__,
-               result);
+  result = qahw_close_output_stream(qahw_stream_);
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() failed to close output stream: %d[%s]",
+               TAG, __func__, result, strerror(result));
+    return result;
+  }
+
+  result = qahw_unload_module(qahw_module_);
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() failed to unload QAHW module: %d[%s]",
+               TAG, __func__, result, strerror(result));
+    return result;
+  }
 #endif
 
   state_ = AudioState::kNew;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
              static_cast<int>(state_));
 
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
   return result;
-#else
-  return 0;
-#endif
 }
 
-int32_t AudioBackendPrimary::Start() {
+int32_t AudioBackendSink::Start() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -361,7 +260,7 @@ int32_t AudioBackendPrimary::Start() {
   while (!messages_.empty())
     messages_.pop();
 
-  thread_ = new thread(AudioBackendPrimary::StaticThreadEntry, this);
+  thread_ = new thread(AudioBackendSink::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s: %s() unable to allocate thread", TAG, __func__);
     return -ENOMEM;
@@ -374,7 +273,7 @@ int32_t AudioBackendPrimary::Start() {
   return 0;
 }
 
-int32_t AudioBackendPrimary::Stop(const bool flush) {
+int32_t AudioBackendSink::Stop(const bool flush) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
                flush ? "true" : "false");
@@ -420,7 +319,7 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
   return 0;
 }
 
-int32_t AudioBackendPrimary::Pause() {
+int32_t AudioBackendSink::Pause() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -457,7 +356,7 @@ int32_t AudioBackendPrimary::Pause() {
   return 0;
 }
 
-int32_t AudioBackendPrimary::Resume() {
+int32_t AudioBackendSink::Resume() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -494,7 +393,7 @@ int32_t AudioBackendPrimary::Resume() {
   return 0;
 }
 
-int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
+int32_t AudioBackendSink::SendBuffers(const vector<AudioBuffer>& buffers) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
@@ -532,35 +431,7 @@ int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
   return 0;
 }
 
-int32_t AudioBackendPrimary::GetLatency(int32_t* latency) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-
-  switch (state_) {
-    case AudioState::kIdle:
-      // proceed
-      break;
-    case AudioState::kNew:
-    case AudioState::kConnect:
-    case AudioState::kRunning:
-    case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
-                 __func__, static_cast<int>(state_));
-      return -ENOSYS;
-      break;
-    default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
-                 static_cast<int>(state_));
-      return -ENOSYS;
-      break;
-  }
-
-  *latency = 11;
-  QMMF_VERBOSE("%s: %s() OUTPARAM: latency[%d]", TAG, __func__, *latency);
-
-  return 0;
-}
-
-int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
+int32_t AudioBackendSink::GetLatency(int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   switch (state_) {
@@ -583,17 +454,39 @@ int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
   }
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  if (type_ == AudioEndPointType::kSource) {
-    *buffer_size = hal_input_stream_->common.get_buffer_size(
-        &hal_input_stream_->common);
-  } else if (type_ == AudioEndPointType::kSink) {
-    *buffer_size = hal_output_stream_->common.get_buffer_size(
-        &hal_output_stream_->common);
-  } else {
-    QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-               static_cast<int>(type_));
-    return -ENOSYS;
+  *latency = qahw_out_get_latency(qahw_stream_);
+#else
+  *latency = 11;
+#endif
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: latency[%d]", TAG, __func__, *latency);
+  return 0;
+}
+
+int32_t AudioBackendSink::GetBufferSize(int32_t* buffer_size) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  switch (state_) {
+    case AudioState::kIdle:
+      // proceed
+      break;
+    case AudioState::kNew:
+    case AudioState::kConnect:
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+                 __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+                 static_cast<int>(state_));
+      return -ENOSYS;
+      break;
   }
+
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+  *buffer_size = qahw_out_get_buffer_size(qahw_stream_);
 #else
   *buffer_size = 16;
 #endif
@@ -603,8 +496,8 @@ int32_t AudioBackendPrimary::GetBufferSize(int32_t* buffer_size) {
   return 0;
 }
 
-int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
-                                      const AudioParamData& data) {
+int32_t AudioBackendSink::SetParam(const AudioParamType type,
+                                   const AudioParamData& data) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
                static_cast<int>(type));
@@ -633,133 +526,13 @@ int32_t AudioBackendPrimary::SetParam(const AudioParamType type,
   return 0;
 }
 
-void AudioBackendPrimary::StaticThreadEntry(AudioBackendPrimary* backend) {
+void AudioBackendSink::ThreadEntry(AudioBackendSink* backend) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  backend->ThreadEntry();
+  backend->Thread();
 }
 
-void AudioBackendPrimary::ThreadEntry() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-
-  switch (type_) {
-    case AudioEndPointType::kSource: SourceThread(); break;
-    case AudioEndPointType::kSink: SinkThread(); break;
-    default:
-      QMMF_ERROR("%s: %s() backend has invalid type: %d", TAG, __func__,
-                 static_cast<int>(type_));
-  }
-}
-
-void AudioBackendPrimary::SourceThread() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  queue<AudioBuffer> buffers;
-  bool paused = false;
-
-  bool keep_running = true;
-  bool stop_received = false;
-  while (keep_running) {
-    // wait until there is something to do
-    if (buffers.empty() && messages_.empty()) {
-      unique_lock<mutex> lk(message_lock_);
-      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
-        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
-    }
-
-    // process the next pending message
-    message_lock_.lock();
-    if (!messages_.empty()) {
-      AudioMessage message = messages_.front();
-
-      switch (message.type) {
-        case AudioMessageType::kMessagePause:
-          QMMF_DEBUG("%s: %s-MessagePause() TRACE", TAG, __func__);
-          paused = true;
-          break;
-
-        case AudioMessageType::kMessageResume:
-          QMMF_DEBUG("%s: %s-MessageResume() TRACE", TAG, __func__);
-          paused = false;
-          break;
-
-        case AudioMessageType::kMessageStop:
-          QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
-          paused = false;
-          stop_received = true;
-          break;
-
-        case AudioMessageType::kMessageBuffer:
-          QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          for (const AudioBuffer& buffer : message.buffers) {
-            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
-                         TAG, __func__, buffer.ToString().c_str(),
-                         buffers.size());
-            buffers.push(buffer);
-            QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                         TAG, __func__, buffers.size());
-          }
-          break;
-      }
-
-      messages_.pop();
-    }
-    message_lock_.unlock();
-
-    // process the next pending buffer
-    if (!buffers.empty() && !paused && keep_running) {
-      AudioBuffer& buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
-                   TAG, __func__, buffer.ToString().c_str(), buffers.size());
-
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-      int result = hal_input_stream_->read(hal_input_stream_, buffer.data,
-                                           buffer.capacity);
-      if (result < 0) {
-        QMMF_ERROR("%s: %s() failed to read input stream: %d", TAG,
-                   __func__, result);
-        error_handler_(audio_handle_, result);
-        buffer.size = 0;
-      } else {
-        buffer.size = result;
-      }
-#else
-      memset(buffer.data, 0xFF, buffer.capacity);
-      memset(buffer.data, 0x11, 1);
-      buffer.size = buffer.capacity;
-      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
-#endif
-
-      // if filled, return timestamped buffer to client
-      if (buffer.size > 0) {
-        struct timespec tv;
-        clock_gettime(CLOCK_MONOTONIC, &tv);
-        buffer.timestamp = (int64_t)(tv.tv_sec) * 1000000 +
-                           (int64_t)(tv.tv_nsec) / 1000;
-
-        char adjust_string[PROPERTY_VALUE_MAX];
-        property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
-        buffer.timestamp += atoi(adjust_string);
-        QMMF_VERBOSE("%s: %s() generated timestamp[%lld] with adjust[%d]",
-                     TAG, __func__, buffer.timestamp, atoi(adjust_string));
-
-        if (stop_received) {
-          QMMF_DEBUG("%s: %s() setting EOS flag", TAG, __func__);
-          buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
-          keep_running = false;
-        } else {
-          buffer.flags = 0;
-        }
-
-        buffer_handler_(audio_handle_, buffer);
-        buffers.pop();
-        QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                     TAG, __func__, buffers.size());
-      }
-    }
-  }
-}
-
-void AudioBackendPrimary::SinkThread() {
+void AudioBackendSink::Thread() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   queue<AudioBuffer> buffers;
   bool paused = false;
@@ -800,9 +573,12 @@ void AudioBackendPrimary::SinkThread() {
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
           for (const AudioBuffer& buffer : message.buffers) {
-            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
-                         buffer.ToString().c_str());
+            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
+                         TAG, __func__, buffer.ToString().c_str(),
+                         buffers.size());
             buffers.push(buffer);
+            QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                         TAG, __func__, buffers.size());
           }
           break;
       }
@@ -815,15 +591,19 @@ void AudioBackendPrimary::SinkThread() {
     do {
       if (!buffers.empty() && !paused) {
         AudioBuffer& buffer = buffers.front();
-        QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
-                     buffer.ToString().c_str());
+        QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
+                     TAG, __func__, buffer.ToString().c_str(), buffers.size());
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-        int result = hal_output_stream_->write(hal_output_stream_,
-                                               buffer.data, buffer.size);
+        qahw_out_buffer_t qahw_buffer;
+        memset(&qahw_buffer, 0, sizeof(qahw_out_buffer_t));
+        qahw_buffer.buffer = buffer.data;
+        qahw_buffer.bytes = buffer.size;
+
+        int result = qahw_out_write(qahw_stream_, &qahw_buffer);
         if (result < 0) {
-          QMMF_ERROR("%s: %s() failed to write output stream: %d", TAG,
-                     __func__, result);
+          QMMF_ERROR("%s: %s() failed to write output stream: %d[%s]", TAG,
+                     __func__, result, strerror(result));
           error_handler_(audio_handle_, result);
         } else {
           buffer.size = 0;
@@ -844,6 +624,8 @@ void AudioBackendPrimary::SinkThread() {
           // return empty buffer to client
           buffer_handler_(audio_handle_, buffer);
           buffers.pop();
+          QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                       TAG, __func__, buffers.size());
         }
       }
 

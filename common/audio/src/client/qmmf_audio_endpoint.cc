@@ -176,6 +176,7 @@ int32_t AudioEndPoint::SendBuffers(const ::std::vector<AudioBuffer>& buffers) {
 int32_t AudioEndPoint::GetLatency(int32_t* latency) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
+  assert(latency != nullptr);
 
   int32_t result = audio_endpoint_client_->GetLatency(latency);
   if (result < 0)
@@ -188,6 +189,7 @@ int32_t AudioEndPoint::GetLatency(int32_t* latency) {
 int32_t AudioEndPoint::GetBufferSize(int32_t* buffer_size) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   assert(audio_endpoint_client_ != nullptr);
+  assert(buffer_size != nullptr);
 
   int32_t result = audio_endpoint_client_->GetBufferSize(buffer_size);
   if (result < 0)
