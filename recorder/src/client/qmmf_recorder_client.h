@@ -225,6 +225,8 @@ class RecorderClient {
     void    *pointer;
     // Size
     size_t  frame_len;
+    // ION handle
+    ion_user_handle_t ion_handle;
   } BufInfo;
 
   // map <session id, vector<track id> >
