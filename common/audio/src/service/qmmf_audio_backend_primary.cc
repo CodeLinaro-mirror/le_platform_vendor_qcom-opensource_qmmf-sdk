@@ -34,13 +34,16 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <cstdlib>
 #include <functional>
 #include <map>
 #include <mutex>
 #include <queue>
+#include <time.h>
 #include <thread>
 #include <vector>
 
+#include <cutils/properties.h>
 #include <hardware/audio.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
@@ -50,14 +53,14 @@
 // remove comment marker to mimic the AHAL instead of using it
 //#define AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
 
+#define AUDIO_TIMESTAMP_ADJUST_PROPERTY   "persist.qmmf.timestamp.adjust"
+
 namespace qmmf {
 namespace common {
 namespace audio {
 
 using ::std::chrono::duration_cast;
-using ::std::chrono::microseconds;
 using ::std::chrono::seconds;
-using ::std::chrono::system_clock;
 using ::std::condition_variable;
 using ::std::cv_status;
 using ::std::function;
@@ -722,9 +725,16 @@ void AudioBackendPrimary::SourceThread() {
 
       // if filled, return timestamped buffer to client
       if (buffer.size > 0) {
-        microseconds timestamp = duration_cast<microseconds>(
-              system_clock::now().time_since_epoch());
-        buffer.timestamp = timestamp.count();
+        struct timespec tv;
+        clock_gettime(CLOCK_MONOTONIC, &tv);
+        buffer.timestamp = (int64_t)(tv.tv_sec) * 1000000 +
+                           (int64_t)(tv.tv_nsec) / 1000;
+
+        char adjust_string[PROPERTY_VALUE_MAX];
+        property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
+        buffer.timestamp += atoi(adjust_string);
+        QMMF_VERBOSE("%s: %s() generated timestamp[%lld] with adjust[%d]",
+                     TAG, __func__, buffer.timestamp, atoi(adjust_string));
 
         if (keep_running == false) {
           QMMF_DEBUG("%s: %s() setting EOS flag", TAG, __func__);
