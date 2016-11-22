@@ -1276,8 +1276,12 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
-    auto ret = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                 &last_frame_mumber);
+
+    auto ret = camera_device_->Flush(&last_frame_mumber);
+    assert(ret >= 0);
+
+    ret = camera_device_->SubmitRequestList(request_list, is_streaming,
+                                            &last_frame_mumber);
     assert(ret >= 0);
     if (streaming_request_id_ > -1) {
       previous_streaming_request_id_ = streaming_request_id_;
