@@ -35,7 +35,7 @@
 namespace qmmf {
 namespace avcodec {
 
-const char OmxClient::kOMXPath[] = "/usr/lib/libOmxCore.so";
+const char OmxClient::kOMXPath[] = "libOmxCore.so";
 const char OmxClient::kOMXGetHandleName[] = "OMX_GetHandle";
 const char OmxClient::kOMXFreeHandleName[] = "OMX_FreeHandle";
 const char OmxClient::kOMXGetComponentsOfRoleName[] =
