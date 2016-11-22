@@ -48,7 +48,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
-static const nsecs_t kWaitDuration = 1000000000; // 1 s.
+static const nsecs_t kWaitDuration = 2000000000; // 2 s.
 
 CameraSource* CameraSource::instance_ = nullptr;
 
