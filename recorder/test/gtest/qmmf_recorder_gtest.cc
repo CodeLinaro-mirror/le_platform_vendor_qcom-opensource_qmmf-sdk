@@ -200,6 +200,16 @@ TEST_F(RecorderGtest, ZSL1080p) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.h64",
+                                  camera_start_params_.zsl_height,
+                                  camera_start_params_.zsl_width);
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, std::vector<MetaData> meta_buffers) {
@@ -268,6 +278,11 @@ TEST_F(RecorderGtest, ZSL1080p) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
