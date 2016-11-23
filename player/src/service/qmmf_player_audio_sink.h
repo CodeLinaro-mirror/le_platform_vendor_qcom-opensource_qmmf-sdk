@@ -144,6 +144,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   Mutex                  wait_for_sink_queue_lock_;
   Condition              wait_for_sink_frame_;
   bool                   stopplayback_;
+  uint32_t               decoded_frame_number_;
 
   enum class AudioMessageType {
     kMessageStop,

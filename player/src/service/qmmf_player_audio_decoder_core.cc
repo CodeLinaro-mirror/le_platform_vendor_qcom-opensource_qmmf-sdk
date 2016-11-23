@@ -423,8 +423,10 @@ AudioTrackDecoder::~AudioTrackDecoder() {
   output_buffer_list_.clear();
 
 #ifdef DUMP_AUDIO_BITSTREAM
-    close(file_fd_audio_);
+  close(file_fd_audio_);
 #endif
+
+  delete avcodec_;
 
   QMMF_DEBUG("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -570,6 +572,7 @@ status_t AudioTrackDecoder::QueueInputBuffer(
     QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
     QMMF_DEBUG("%s:%s: vaddr 0x%p", TAG, __func__,bufinfo.vaddr);
     QMMF_DEBUG("%s:%s: flag %d", TAG, __func__,buffers[i].flag);
+    QMMF_DEBUG("%s:%s: time stamp %llu", TAG, __func__,buffers[i].time_stamp);
 
   #ifdef DUMP_AUDIO_BITSTREAM
     write(file_fd_audio_,(iter).data,(iter).filled_length);
@@ -739,10 +742,9 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   stream_buffer.capacity = (iter).frame_length;
   stream_buffer.size     = (iter).filled_length;
   stream_buffer.flag     = (iter).flags;
+  stream_buffer.timestamp = (iter).timestamp;
 
   QMMF_VERBOSE("%s:%s: track_id(%d)", TAG, __func__,TrackId());
-
-  //stream_buffer = iter;
 
   {
     Mutex::Autolock lock(queue_lock_);

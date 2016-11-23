@@ -82,18 +82,29 @@ struct VideoTrackParams {
 };
 
 struct AVCodecBuffer {
-    void *data;
-    size_t frame_length;
-    size_t filled_length;
-    int64_t time_stamp;
-    uint32_t flag;
-    uint32_t fd;
-    uint32_t buf_id;
+  void *data;
+  size_t frame_length;
+  size_t filled_length;
+  uint64_t time_stamp;
+  uint32_t flag;
+  uint32_t fd;
+  uint32_t buf_id;
 };
 
+enum class TrickModeSpeed {
+  kSpeed_1x = 1 << 0,
+  kSpeed_2x = 1 << 1,
+  kSpeed_4x = 1 << 2,
+  kSpeed_8x = 1 << 3,
+};
+
+enum class TrickModeDirection {
+  kReverse = -1,
+  kForward = 1,
+};
 
 struct Event{
-   PlayerState state;
+  PlayerState state;
 };
 
 

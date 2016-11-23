@@ -165,7 +165,7 @@ status_t AudioSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 AudioTrackSink::AudioTrackSink()
-    : end_point_(nullptr), stopplayback_(false) {
+    : end_point_(nullptr), stopplayback_(false), decoded_frame_number_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
 #ifdef DUMP_PCM_DATA
@@ -334,6 +334,10 @@ status_t AudioTrackSink::StartSink() {
 status_t AudioTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   stopplayback_ = true;
+  QMMF_DEBUG("%s:%s: Total number of audio frames decoded %d", TAG, __func__,
+      decoded_frame_number_);
+  decoded_frame_number_ = 0;
+
   auto ret = end_point_->Stop(true);
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -423,6 +427,9 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
       !(codec_buffer.size))) {
+    QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d"
+        " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
+        codec_buffer.timestamp);
     FillSinkBuffer(codec_buffer);
   }
 

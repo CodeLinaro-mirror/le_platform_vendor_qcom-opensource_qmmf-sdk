@@ -335,7 +335,7 @@ status_t PlayerClient::DequeueInputBuffer(
   memset(&bufinfo, 0x0, sizeof bufinfo);
   bool is_mapped = false;
 
-  if(!track_buf_map_.isEmpty()) {
+  if (!track_buf_map_.isEmpty()) {
     DefaultKeyedVector<uint32_t, BufInfo> buf_map;
     int32_t map_idx = track_buf_map_.indexOfKey(track_id);
 
@@ -365,7 +365,7 @@ status_t PlayerClient::DequeueInputBuffer(
     assert(codecbuffer[i].fd > 0);
 
     ion_info_fd.fd = codecbuffer[i].fd;
-    auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+    ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
           ion_info_fd.fd);
@@ -415,11 +415,11 @@ status_t PlayerClient::DequeueInputBuffer(
      QMMF_DEBUG("%s:%s buf_id %d", TAG, __func__,buffers[i].buf_id);
   }
 
-  if(NO_ERROR != ret) {
+  if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s DequeueInputBuffer failed: %d", TAG, __func__, ret);
   }
 
-  for(int32_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
     codecbuffer.clear();
   }
 

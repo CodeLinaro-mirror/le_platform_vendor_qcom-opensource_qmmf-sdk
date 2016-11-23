@@ -142,16 +142,18 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   SurfaceConfig surface_config;
   bool display_started_;
 
-typedef struct BufInfo {
-  // FD at service
-  uint32_t buf_id;
+  typedef struct BufInfo {
+    // FD at service
+    uint32_t buf_id;
 
-  // Memory mapped buffer.
-  void*    vaddr;
-} BufInfo;
+    // Memory mapped buffer.
+    void*    vaddr;
+  } BufInfo;
 
-//map<fd , buf_info>
-DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
+  //map<fd , buf_info>
+  DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
+
+  uint32_t                decoded_frame_number_;
 
 
 #ifdef DUMP_YUV_FRAMES

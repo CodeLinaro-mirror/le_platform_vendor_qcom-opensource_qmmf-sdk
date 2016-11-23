@@ -428,6 +428,8 @@ VideoTrackDecoder::~VideoTrackDecoder() {
     close(file_fd_video_);
 #endif
 
+  delete avcodec_;
+
   QMMF_DEBUG("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -553,7 +555,7 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
     unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
 
     QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to client", TAG,
-       __func__, TrackId(), (iter).data, (iter).fd);
+        __func__, TrackId(), (iter).data, (iter).fd);
 
   }
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -590,6 +592,7 @@ status_t VideoTrackDecoder::QueueInputBuffer(
     QMMF_DEBUG("%s:%s: frame_length %d", TAG, __func__,buffers[i].frame_length);
     QMMF_DEBUG("%s:%s: vaddr 0x%p", TAG, __func__,bufinfo.vaddr);
     QMMF_DEBUG("%s:%s: flag %d", TAG, __func__,buffers[i].flag);
+    QMMF_DEBUG("%s:%s: time stamp %llu", TAG, __func__,buffers[i].time_stamp);
 
 #ifdef DUMP_VIDEO_BITSTREAM
   write(file_fd_video_,(iter).data,(iter).filled_length );
@@ -760,10 +763,9 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   stream_buffer.capacity = (iter).frame_length;
   stream_buffer.size     = (iter).filled_length;
   stream_buffer.flag     = (iter).flags;
+  stream_buffer.timestamp = (iter).timestamp;
 
   QMMF_VERBOSE("%s:%s: track_id(%d)", TAG, __func__,TrackId());
-
-  //stream_buffer = iter;
 
   {
     Mutex::Autolock lock(queue_lock_);

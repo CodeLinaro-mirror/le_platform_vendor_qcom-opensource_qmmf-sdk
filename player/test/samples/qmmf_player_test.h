@@ -104,7 +104,7 @@ class PlayerTest {
                                     FileSourceMnMediaType eMnType);
 
   uint32_t ReadVideoTrackMediaInfo(uint32 ulTkId,
-                                  FileSourceMnMediaType eMnType);
+                                    FileSourceMnMediaType eMnType);
 
   char *            filename_;
   AudioFileType     filetype_;
@@ -139,6 +139,8 @@ class PlayerTest {
   uint32_t                        video_track_id_;
   bool                            audioFirstFrame_;
   bool                            videoFirstFrame_;
+  bool                            audioLastFrame_;
+  bool                            videoLastFrame_;
 
  std::map<uint32_t, const char*>  statemap_;
  const char*                      PlayerTestEvent[2];

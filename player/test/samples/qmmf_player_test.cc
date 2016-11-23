@@ -100,10 +100,10 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
-      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true) {
+      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
+      audioLastFrame_(false), videoLastFrame_(false) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -124,15 +124,14 @@ PlayerTest::PlayerTest()
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-
 PlayerTest::PlayerTest(char* filename_)
     : filename_(nullptr), stopped_(false), stop_playing_(false),
-      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true) {
+      start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
+      audioLastFrame_(false), videoLastFrame_(false) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
-
 
   PlayerTestEvent[0] = "Error";
   PlayerTestEvent[1] = "State Changed";
@@ -203,7 +202,6 @@ int32_t PlayerTest::Prepare() {
 
   ParseFile(audio_track_param_,video_track_param_);
 
-
 #ifdef AUDIO
   TrackCb audio_track_cb_;
 
@@ -214,7 +212,6 @@ int32_t PlayerTest::Prepare() {
   result = player_.CreateAudioTrack(audio_track_id_,audio_track_param_,
       audio_track_cb_);
 #endif
-
 
 #ifdef VIDEO
  TrackCb video_track_cb_;
@@ -248,12 +245,20 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
   audio_track_param_.sample_rate = m_sTrackInfo_.sAudio.ulSampleRate;
   audio_track_param_.channels    = m_sTrackInfo_.sAudio.ulChCount;
   audio_track_param_.bit_depth   = 16; //TODO m_sTrackInfo_.sAudio.ulBitDepth;
-  audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
-  audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
-  audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
-  audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
-  audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
 
+  if (m_sTrackInfo_.sAudio.ulCodecType == 3) {
+    audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
+    audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
+    audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
+    audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
+  } else if (m_sTrackInfo_.sAudio.ulCodecType == 55) {  //need verification
+    audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    audio_track_param_.codec_params.amr.isWAMR   = 0;
+  } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {  //need verification
+    audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    audio_track_param_.codec_params.amr.isWAMR   = 1;
+  }
+  audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
   TEST_INFO("%s:%s audio_track_id_ : %d ", TAG, __func__, audio_track_id_);
 
   TEST_INFO("%s:%s sample rate : %d channel %d bitdepth %d, bitrate %d ", TAG
@@ -262,7 +267,12 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
 #endif
 
 #ifdef VIDEO
-  video_track_param_.codec       = VideoCodecType::kAVC;
+  if (m_sTrackInfo_.sVideo.ulCodecType == 11) {
+    video_track_param_.codec       = VideoCodecType::kAVC;
+  } else if (m_sTrackInfo_.sVideo.ulCodecType == 12) {
+    video_track_param_.codec       = VideoCodecType::kHEVC;
+  }
+
   video_track_param_.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
   video_track_param_.height      = 1088; //TODO m_sTrackInfo_.sVideo.ulHeight;
   video_track_param_.width       = 1920; //TODO m_sTrackInfo_.sVideo.ulWidth;
@@ -295,6 +305,9 @@ int32_t PlayerTest::Start() {
     memset(&video_track_param_, 0x0, sizeof video_track_param_);
 
     ParseFile(audio_track_param_,video_track_param_);
+
+    videoLastFrame_ = false;
+    audioLastFrame_ = false;
   }
 
   ret = player_.Start();
@@ -311,6 +324,7 @@ int32_t PlayerTest::Start() {
       (void*)this);
 #endif
 
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -324,7 +338,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
 
-  while (!playertest->stopped_)
+  while (!(playertest->stopped_ && playertest->audioLastFrame_))
   {
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -332,7 +346,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
     ret = playertest->player_.DequeueInputBuffer(playertest->audio_track_id_,
         buffers);
-    assert(NO_ERROR != ret);
+    assert(NO_ERROR == ret);
 
     FileSourceSampleInfo sSampleInfo;
     FileSourceMediaStatus eMediaStatus = FILE_SOURCE_DATA_ERROR;
@@ -353,13 +367,13 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
           playertest->m_sTrackInfo_.sAudio.ulTkId, nullptr, &nFormatBlockSize);
       TEST_DBG("%s:%s: Audio getFormatBlock size = %lu", TAG, __func__,
           nFormatBlockSize);
-      assert(FILE_SOURCE_SUCCESS != status);
+      assert(FILE_SOURCE_SUCCESS == status);
 
       uint8_t *buffer = new uint8_t[nFormatBlockSize];
       if (buffer != nullptr) {
         status = playertest->m_pDemux_->m_pFileSource->GetFormatBlock(
             playertest->m_sTrackInfo_.sAudio.ulTkId, buffer, &nFormatBlockSize);
-        assert(FILE_SOURCE_SUCCESS != status);
+       assert(FILE_SOURCE_SUCCESS == status);
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );
@@ -380,6 +394,8 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
     buffers[0].filled_size = playertest->m_sTrackInfo_.sAudio.sSampleBuf.ulLen +
         nFormatBlockSize ;
+    buffers[0].time_stamp = sSampleInfo.startTime;
+
 
     if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
       //EOF reached or Stopped
@@ -391,11 +407,14 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
           buffers[0].filled_size);
       TEST_DBG("%s:%s: audio_buffer size %d", TAG, __func__, buffers[0].size);
       TEST_DBG("%s:%s: audio_vaddr 0x%p", TAG, __func__, buffers[0].data);
+      TEST_DBG("%s:%s: audio_frame timestamp %llu", TAG, __func__,
+          buffers[0].time_stamp);
 
       playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
       playertest->stopped_ = true;
+      playertest->audioLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
       break;
@@ -405,9 +424,12 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
         buffers[0].filled_size);
     TEST_DBG("%s:%s: audio_buffer size %d", TAG, __func__, buffers[0].size);
     TEST_DBG("%s:%s: audio_vaddr 0x%p", TAG, __func__, buffers[0].data);
+    TEST_DBG("%s:%s: audio_frame timestamp %llu", TAG, __func__,
+         buffers[0].time_stamp);
 
     playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
+    assert(NO_ERROR == ret);
     buffers.clear();
   }
 
@@ -424,15 +446,15 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
 
-  while (!playertest->stopped_)
+  while (!(playertest->stopped_ && playertest->videoLastFrame_))
   {
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
     uint32_t val = 1;
 
-    ret = playertest->player_.DequeueInputBuffer(playertest->video_track_id_,
+    ret =playertest->player_.DequeueInputBuffer(playertest->video_track_id_,
         buffers);
-    assert(NO_ERROR != ret);
+    assert(NO_ERROR == ret);
 
     //Video
     FileSourceSampleInfo sSampleInfo;
@@ -454,13 +476,13 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
           playertest->m_sTrackInfo_.sVideo.ulTkId, nullptr, &nFormatBlockSize);
       TEST_DBG("%s:%s: Video getFormatBlock size = %lu", TAG, __func__,
           nFormatBlockSize);
-      assert(FILE_SOURCE_SUCCESS != status);
+      assert(FILE_SOURCE_SUCCESS == status);
 
       uint8_t *buffer = new uint8_t[nFormatBlockSize];
       if (buffer != nullptr) {
         status = playertest->m_pDemux_->m_pFileSource->GetFormatBlock(
             playertest->m_sTrackInfo_.sVideo.ulTkId, buffer, &nFormatBlockSize);
-        assert(FILE_SOURCE_SUCCESS != status);
+        assert(FILE_SOURCE_SUCCESS == status);
       }
 
       memcpy(buffers[0].data , buffer, nFormatBlockSize );
@@ -480,7 +502,8 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 #endif
 
     buffers[0].filled_size = playertest->m_sTrackInfo_.sVideo.sSampleBuf.ulLen +
-        nFormatBlockSize ;
+        nFormatBlockSize;
+    buffers[0].time_stamp = sSampleInfo.startTime;
 
     if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
       //EOF reached or Stopped
@@ -492,11 +515,14 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
           buffers[0].filled_size);
       TEST_DBG("%s:%s: video_buffer size %d", TAG, __func__, buffers[0].size);
       TEST_DBG("%s:%s: video_vaddr 0x%p", TAG, __func__, buffers[0].data);
+      TEST_DBG("%s:%s: video_frame timestamp %llu", TAG, __func__,
+          buffers[0].time_stamp);
 
       playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
       playertest->stopped_ = true;
+      playertest->videoLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
       break;
@@ -506,9 +532,12 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         buffers[0].filled_size);
     TEST_DBG("%s:%s: video_buffer size %d", TAG, __func__, buffers[0].size);
     TEST_DBG("%s:%s: video_vaddr 0x%p", TAG, __func__, buffers[0].data);
+    TEST_DBG("%s:%s: video_frame timestamp %llu", TAG, __func__,
+        buffers[0].time_stamp);
 
-    playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
+    ret = playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
+    assert(NO_ERROR == ret);
     buffers.clear();
   }
 
@@ -529,11 +558,12 @@ int32_t PlayerTest::StopPlaying() {
 
   stop_playing_ = true;
 
-#if (defined (AUDIO) && defined (VIDEO))
-   {
-    pthread_join(audio_thread_id_, NULL);
-    pthread_join(video_thread_id_, NULL);
-   }
+#ifdef AUDIO
+  pthread_join(audio_thread_id_, NULL);
+#endif
+
+#ifdef VIDEO
+  pthread_join(video_thread_id_, NULL);
 #endif
 
   ret = player_.Stop(false);
@@ -552,6 +582,7 @@ int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
+
 
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -735,6 +766,9 @@ uint32_t PlayerTest::ReadAudioTrackMediaInfo(
     m_sTrackInfo_.sAudio.ulTimeScale = \
                                 sMediaInfo.audioTrackInfo.timeScale;
 
+    TEST_INFO("%s:%s:Audio CodecType is = %u ", TAG, __func__,
+        m_sTrackInfo_.sAudio.ulCodecType);
+
     TEST_INFO("%s:%s: TkId = %u CH= %u  SR= %u BD=%u", TAG, __func__, ulTkId,
         m_sTrackInfo_.sAudio.ulChCount, m_sTrackInfo_.sAudio.ulSampleRate,
         m_sTrackInfo_.sAudio.ulBitDepth);
@@ -798,6 +832,9 @@ uint32_t PlayerTest::ReadVideoTrackMediaInfo(
     m_sTrackInfo_.sVideo.ulBitRate = sMediaInfo.videoTrackInfo.bitRate;
     m_sTrackInfo_.sVideo.ullDuration = sMediaInfo.videoTrackInfo.duration;
     m_sTrackInfo_.sVideo.ulTimeScale = sMediaInfo.videoTrackInfo.timeScale;
+
+    TEST_INFO("%s:%s:Video CodecType is = %u ", TAG, __func__,
+        m_sTrackInfo_.sVideo.ulCodecType);
 
     TEST_INFO("%s:%s: TkId = %u Width= %u  Height= %u FR=%f", TAG, __func__,
         ulTkId, m_sTrackInfo_.sVideo.ulWidth, m_sTrackInfo_.sVideo.ulHeight,
@@ -875,10 +912,13 @@ int main(int argc,char *argv[]) {
   if (argc == 2) {
     char *extn = strrchr(argv[1], '.');
     TEST_INFO("%s: exten is: %s", TAG, extn);
-
-  } else {
-      TEST_INFO("%s:%s Give some file to play", TAG,__func__);
+    if(!((strcmp(extn, ".mp4") == 0) || (strcmp(extn, ".MP4") == 0))) {
+      TEST_ERROR("%s:%s Player support .mp4/.MP4 extn only", TAG,__func__);
       exit_test = true;
+    }
+  } else {
+    TEST_ERROR("%s:%s Give mp4 file to play", TAG,__func__);
+    exit_test = true;
   }
 
   while (!exit_test) {
