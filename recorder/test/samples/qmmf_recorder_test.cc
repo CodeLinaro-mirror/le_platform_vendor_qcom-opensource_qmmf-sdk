@@ -31,6 +31,7 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <assert.h>
@@ -2371,9 +2372,11 @@ status_t TestTrack::Prepare() {
     const char* type_string = (track_info_.track_type == TrackType::kVideoAVC)
          ? "h264":"h265";
     String8 extn(type_string);
-    bitstream_filepath.appendFormat("/data/track_%d_%dx%d.%s",
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    bitstream_filepath.appendFormat("/data/track_%d_%dx%d_%lu.%s",
         track_info_.track_id, track_info_.width, track_info_.height,
-        extn.string());
+        tv.tv_sec, extn.string());
     file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
         0655);
     assert(file_fd_ >= 0);
