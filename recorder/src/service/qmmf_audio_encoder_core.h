@@ -48,11 +48,10 @@ class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
   AudioTrackEncoder();
   virtual ~AudioTrackEncoder();
 
-  status_t Init(const ::std::shared_ptr<IAudioTrackSource>& track_source,
-                const ::std::shared_ptr<AudioTrackEncoder>& track_encoder,
-                const AudioTrackParams& params);
+  status_t Init(const AudioTrackParams& params);
 
-  status_t Start();
+  status_t Start(const ::std::shared_ptr<ICodecSource> &track_source,
+                 const ::std::shared_ptr<ICodecSource> &track_encoder);
   status_t Stop();
   status_t Pause();
   status_t Resume();
@@ -71,8 +70,6 @@ class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
   status_t OnBufferReturnFromClient(const std::vector<BnBuffer> &buffers);
 
  private:
-  ::std::shared_ptr<AudioEncodedTrackSource> track_source_;
-  ::std::shared_ptr<AudioTrackEncoder> track_encoder_;
   AudioTrackParams track_params_;
   ::qmmf::avcodec::AVCodec* avcodec_;
   ::std::queue<BufferDescriptor> buffers_;
@@ -88,11 +85,12 @@ class AudioEncoderCore {
 
   virtual ~AudioEncoderCore();
 
-  status_t AddSource(const ::std::shared_ptr<IAudioTrackSource>& track_source,
-                     const AudioTrackParams& params);
+  status_t AddSource(const AudioTrackParams& params);
   status_t DeleteTrackEncoder(const uint32_t track_id);
 
-  status_t StartTrackEncoder(const uint32_t track_id);
+  status_t StartTrackEncoder(const uint32_t track_id,
+                             const ::std::shared_ptr<IAudioTrackSource>&
+                             track_source);
   status_t StopTrackEncoder(const uint32_t track_id);
   status_t PauseTrackEncoder(const uint32_t track_id);
   status_t ResumeTrackEncoder(const uint32_t track_id);
