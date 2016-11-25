@@ -2510,6 +2510,163 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
     close(track1_bitstream_filefd_);
   }
 }
+
+/*
+ * SessionWith1080p120fps480p30fpsEncTrack: This test will test session with one 1080p
+ * 120fps h264 track and preview 480p30fps.
+ * Api test sequence:
+ *  - StartCamera
+ *  - CreateSession
+ *  - CreateVideoTrack
+ *  - StartVideoTrack
+ *  - StopSession
+ *  - DeleteVideoTrack
+ *  - DeleteSession
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  uint32_t fps = 120;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  camera_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  width  = 720;
+  height = 480;
+  fps = 30;
+  uint32_t video_track480p_id = 2;
+
+#ifdef DUMP_BITSTREAM
+  if (track2_bitstream_filefd_ > 0) {
+    close(track2_bitstream_filefd_);
+  }
+  bitstream_filepath.clear();
+  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+                                  video_track480p_id, width, height,
+                                  extn.string());
+  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+                                  O_WRONLY | O_TRUNC, 0655);
+  assert(track2_bitstream_filefd_ > 0);
+#endif
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  video_track_param.low_power_mode = true;
+
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track480p_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  track_ids.push_back(video_track480p_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  sleep(30);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track480p_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+}
+
 /*
 * SessionWith1080p120fpsEncTrack: This test will test session with one 1080p
 * 120fps h264 track.
