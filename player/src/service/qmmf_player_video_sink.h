@@ -98,6 +98,10 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t StopSink();
 
+  status_t PauseSink();
+
+  status_t ResumeSink();
+
   status_t DeleteSink();
 
   void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
@@ -134,6 +138,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   Condition               wait_for_frame_;
   Mutex                   queue_lock_;
   bool                    stopplayback_;
+  bool                    paused_;
+  uint32_t                decoded_frame_number_;
 
   Display*   display_;
   uint32_t   surface_id_;
@@ -152,9 +158,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   //map<fd , buf_info>
   DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
-
-  uint32_t                decoded_frame_number_;
-
 
 #ifdef DUMP_YUV_FRAMES
   int32_t               file_fd_;

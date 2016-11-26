@@ -141,9 +141,11 @@ class PlayerTest {
   bool                            videoFirstFrame_;
   bool                            audioLastFrame_;
   bool                            videoLastFrame_;
+  bool                            paused_;
 
- std::map<uint32_t, const char*>  statemap_;
- const char*                      PlayerTestEvent[2];
+  std::map<uint32_t, const char*> statemap_;
+  const char*                     PlayerTestEvent[2];
+  const char *                    current_state_;
 };
 
 class CmdMenu {

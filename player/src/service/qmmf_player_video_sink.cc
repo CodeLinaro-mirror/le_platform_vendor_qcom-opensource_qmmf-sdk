@@ -162,7 +162,8 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 VideoTrackSink::VideoTrackSink()
-    :stopplayback_(false), display_started_(0), decoded_frame_number_(0) {
+    : stopplayback_(false), paused_(false),
+      decoded_frame_number_(0), display_started_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -210,6 +211,26 @@ status_t VideoTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Total number of video frames decoded %d", TAG, __func__,
       decoded_frame_number_);
   decoded_frame_number_ = 0;
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t VideoTrackSink::PauseSink() {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  auto ret = 0;
+
+  paused_ = true;
+
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t VideoTrackSink::ResumeSink() {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  auto ret = 0;
+
+  paused_ = false;
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -297,7 +318,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 #endif
 
   if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
-      !(codec_buffer.size))) {
+      !(codec_buffer.size) || paused_)) {
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered video frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
         codec_buffer.timestamp);
