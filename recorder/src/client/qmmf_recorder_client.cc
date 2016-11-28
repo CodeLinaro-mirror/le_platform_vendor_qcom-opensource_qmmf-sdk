@@ -598,14 +598,30 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
       BufInfo buf_info = info_map.valueAt(j);
       QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
           __func__, track_id, buf_info.ion_fd);
-      if (buf_info.ion_fd > 0) {
-        close(buf_info.ion_fd);
-      }
       QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
           TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
       if (buf_info.pointer != NULL) {
-        munmap(buf_info.pointer, buf_info.frame_len);
+        struct ion_handle_data ion_handle;
+        memset(&ion_handle, 0, sizeof(ion_handle));
+        ion_handle.handle = buf_info.ion_handle;
+        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        }
+
+        auto stat = munmap(buf_info.pointer, buf_info.frame_len);
+        if (0 != stat) {
+          QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
+                     buf_info.pointer, -errno);
+        }
         buf_info.pointer = NULL;
+      }
+
+      if (buf_info.ion_fd > 0) {
+        auto stat = close(buf_info.ion_fd);
+        if (0 != stat) {
+          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+                     buf_info.ion_fd, -errno);
+        }
       }
       //TODO: check owner ship of buffers, make sure application returned all
       // the buffers after calling stop on track.
@@ -1022,6 +1038,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       buf_info.pointer   = vaddr;
       buf_info.ion_fd    = ion_info_fd.fd;
       buf_info.frame_len = bn_buffers[i].size;
+      buf_info.ion_handle = ion_info_fd.handle;
 
       DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
       if (track_buf_map_.isEmpty()) {
