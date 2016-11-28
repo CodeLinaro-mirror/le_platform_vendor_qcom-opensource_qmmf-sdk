@@ -2316,6 +2316,13 @@ status_t AVCodec::PauseCodec() {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
+  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StatePause, 0);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to Pause the Codec/Component", TAG, __func__);
+    return ret;
+  }
+  ret = WaitState(OMX_StatePause);
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -2324,6 +2331,13 @@ status_t AVCodec::ResumeCodec() {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
+
+  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StateExecuting, 0);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to Resume Codec/Component", TAG, __func__);
+    return ret;
+  }
+  ret = WaitState(OMX_StateExecuting);
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
