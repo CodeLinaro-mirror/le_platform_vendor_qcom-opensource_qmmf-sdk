@@ -879,6 +879,112 @@ TEST_F(Camera3Gtest, UpdateExposureDuringPreviewVGA) {
   ASSERT_FALSE(camera_error_);
 }
 
+TEST_F(Camera3Gtest, Video1080pSnapshot4kISO) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest, snapshotRequest;
+  int64_t lastFrameNumber;
+  int32_t videoStreamId, videoRequestId;
+  int32_t snapshotStreamId;
+  int32_t mode;
+  int64_t value;
+
+  auto ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 1920;
+  streamParams.height = 1080;
+  streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  streamParams.cb = [&](int32_t streamId,
+                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+
+  videoStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(videoStreamId, 0);
+  videoRequest.streamIds.add(videoStreamId);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = 1;
+  streamParams.format = HAL_PIXEL_FORMAT_BLOB;
+  streamParams.width = 3840;
+  streamParams.height = 2160;
+  streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  streamParams.cb = [&](int32_t streamId,
+                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+
+  snapshotStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(snapshotStreamId, 0);
+  snapshotRequest.streamIds.add(snapshotStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                                            &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_SNAPSHOT,
+                                            &snapshotRequest.metadata);
+  ASSERT_EQ(0, ret);
+  mode = 0;
+  value = 2;
+  ret = videoRequest.metadata.update(QCAMERA3_SELECT_PRIORITY, &mode, 1);
+  ASSERT_EQ(ret, 0);
+  ret = videoRequest.metadata.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &value, 1);
+  ASSERT_EQ(ret, 0);
+  ret = snapshotRequest.metadata.update(QCAMERA3_SELECT_PRIORITY, &mode, 1);
+  ASSERT_EQ(ret, 0);
+  ret = snapshotRequest.metadata.update(QCAMERA3_USE_ISO_EXP_PRIORITY,
+          &value, 1);
+  ASSERT_EQ(ret, 0);
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(10);
+
+  // Take a live snapshot
+  ret = device_client_->SubmitRequest(snapshotRequest, false, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+
+  mode = 0;
+  value = 5;
+  ret = videoRequest.metadata.update(QCAMERA3_SELECT_PRIORITY, &mode, 1);
+  ASSERT_EQ(ret, 0);
+  ret = videoRequest.metadata.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &value, 1);
+  ASSERT_EQ(ret, 0);
+  ret = snapshotRequest.metadata.update(QCAMERA3_SELECT_PRIORITY, &mode, 1);
+  ASSERT_EQ(ret, 0);
+  ret = snapshotRequest.metadata.update(QCAMERA3_USE_ISO_EXP_PRIORITY,
+         &value, 1);
+  ASSERT_EQ(ret, 0);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(10);
+
+  // Take a live snapshot
+  ret = device_client_->SubmitRequest(snapshotRequest, false, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+
+  ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+         __func__, lastFrameNumber);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
 TEST_F(Camera3Gtest, Video4KLiveSnapshot4K) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest, snapshotRequest;
