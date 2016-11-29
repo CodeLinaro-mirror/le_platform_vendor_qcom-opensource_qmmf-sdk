@@ -2814,8 +2814,8 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
 void CmdMenu::PrintMenu() {
   printf("\n\n=========== QMMF RECORDER TEST MENU ===================\n\n");
 
-  printf(" \n\nIPCam Test Application commands \n");
-  printf(" -----------------------------\n");
+  printf(" Recorder Test Application commands \n");
+  printf(" ---------------------------------\n");
   printf("   %c. Connect\n", CmdMenu::CONNECT_CMD);
   printf("   %c. Disconnect\n", CmdMenu::DISCONNECT_CMD);
   printf("   %c. Choose camera\n", CmdMenu::CHOOSE_CAMERA_CMD);
@@ -2893,8 +2893,11 @@ void CmdMenu::PrintMenu() {
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand() {
-  PrintMenu();
+CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
+  if (is_print_menu) {
+    PrintMenu();
+    is_print_menu = false;
+  }
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
@@ -2909,12 +2912,12 @@ int main(int argc,char *argv[]) {
   }
 
   CmdMenu cmd_menu(test_context);
-
+  bool is_print_menu = true;
   int32_t exit_test = false;
 
   while (!exit_test) {
 
-    CmdMenu::Command command = cmd_menu.GetCommand();
+    CmdMenu::Command command = cmd_menu.GetCommand(is_print_menu);
     switch (command.cmd) {
 
       case CmdMenu::CONNECT_CMD: {
@@ -3085,6 +3088,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::EXIT_CMD: {
         exit_test = true;
+      }
+      break;
+      case CmdMenu::NEXT_CMD: {
+        is_print_menu = true;
       }
       break;
       default:
