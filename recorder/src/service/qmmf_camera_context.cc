@@ -51,16 +51,17 @@ uint32_t CameraContext::kHFRBatchModeThreshold = 120;
 CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
+      previous_streaming_request_id_(-1),
       snapshot_request_id_(-1),
-      burst_cnt_(0),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
+      sequence_cnt_(1),
+      burst_cnt_(0),
+      reprocess_enable_(false),
       result_cb_(nullptr),
-      hfr_supported_(false),
       zsl_stream_id_(-1),
       zsl_input_stream_id_(-1),
       zsl_running_(false),
-      reprocess_enable_(false),
-      sequence_cnt_(1) {
+      hfr_supported_(false) {
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
   zsl_input_buffer_.timestamp = -1;
 }
@@ -197,7 +198,7 @@ status_t CameraContext::CreateZSLStream(const CameraStartParam &param) {
   }
 
   for (auto &iter : supported_fps_) {
-    if (iter == param.frame_rate) {
+    if (iter == static_cast<int32_t>(param.frame_rate)) {
       is_fps_supported = true;
       break;
     }
@@ -408,8 +409,8 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
   ret = camera_device_->Initialize();
   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s Unable to Initialize Camera3DeviceClient", TAG, __func__,
-               ret);
+    QMMF_ERROR("%s:%s Unable to Initialize Camera3DeviceClient %d", TAG,
+               __func__, ret);
     goto FAIL;
   }
 
@@ -509,11 +510,11 @@ void CameraContext::InitHFRModes(CameraMetadata &static_meta) {
   meta_entry = static_meta.find(
       ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS);
   for (uint32_t i = 0; i < meta_entry.count; i += hfr_size) {
-    int32_t width = meta_entry.data.i32[i + width_offset];
-    int32_t height = meta_entry.data.i32[i + height_offset];
-    int32_t min_fps = meta_entry.data.i32[i + min_fps_offset];
-    int32_t max_fps = meta_entry.data.i32[i + max_fps_offset];
-    int32_t batch = meta_entry.data.i32[i + batch_size_offset];
+    uint32_t width = meta_entry.data.i32[i + width_offset];
+    uint32_t height = meta_entry.data.i32[i + height_offset];
+    uint32_t min_fps = meta_entry.data.i32[i + min_fps_offset];
+    uint32_t max_fps = meta_entry.data.i32[i + max_fps_offset];
+    uint32_t batch = meta_entry.data.i32[i + batch_size_offset];
     if (min_fps == max_fps) { //Only constant framerates are supported
       HFRMode_t mode = {width, height, batch, min_fps};
       hfr_batch_modes_list_.add(mode);
@@ -524,7 +525,6 @@ void CameraContext::InitHFRModes(CameraMetadata &static_meta) {
 status_t CameraContext::CloseCamera(const uint32_t camera_id) {
 
   int32_t ret = NO_ERROR;
-  int64_t last_frame_number;
 
   assert(camera_id_ == camera_id);
   assert(camera_device_.get() != nullptr);
@@ -636,7 +636,7 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
       uint8_t jpeg_quality = snapshot_param_.image_quality;
       List<Camera3Request> requests;
       std::vector<CameraMetadata>::const_iterator it = meta.begin();
-      for (int32_t i = 0; i < sequence_cnt_; i++) {
+      for (uint32_t i = 0; i < sequence_cnt_; i++) {
         if (it != meta.end()) {
           snapshot_request_.metadata.clear();
           snapshot_request_.metadata.append(*it++);
@@ -843,7 +843,7 @@ status_t CameraContext::StartStream(const uint32_t track_id,
 
   auto ret = port->Start(track_id, consumer);
   assert(ret == NO_ERROR);
-  QMMF_INFO("%s:%s: track_id(%d) started on port(0x%x)", TAG, __func__,
+  QMMF_INFO("%s:%s: track_id(%d) started on port(0x%p)", TAG, __func__,
       track_id, port.get());
   return ret;
 }
@@ -880,6 +880,9 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     auto ret = camera_device_->SubmitRequestList(request_list, true,
                                                  &last_frame_mumber);
     assert(ret >= 0);
+    if (streaming_request_id_ > -1) {
+      previous_streaming_request_id_ = streaming_request_id_;
+    }
     streaming_request_id_ = ret;
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
@@ -909,7 +912,6 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   CameraMetadata static_meta;
-  camera_metadata_entry_t entry;
   auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
   assert(ret == NO_ERROR);
   if (!snapshot_request_.metadata.isEmpty()) {
@@ -928,7 +930,7 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 }
 
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                                 const uint32_t buffer_id) {
+                                                 const int32_t buffer_id) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   if (snapshot_buffer_list_.indexOfKey(buffer_id) < 0) {
@@ -946,12 +948,12 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   }
   int32_t stream_id = snapshot_buffer_stream_list_.valueFor(buffer_id);
 
-  QMMF_DEBUG("%s:%s: stream_id(%d):stream_buffer(0x%x):ion_fd(%d)"
+  QMMF_DEBUG("%s:%s: stream_id(%d):stream_buffer(0x%p):ion_fd(%d)"
       " returned back!", TAG, __func__, stream_id, buffer.handle, buffer_id);
 
   auto ret = ReturnStreamBuffer(stream_id, buffer);
 
-  QMMF_DEBUG("%s:%s: ret", TAG, __func__, ret);
+  QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
   assert(ret == NO_ERROR);
 
   snapshot_buffer_list_.removeItem(buffer_id);
@@ -972,7 +974,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   int32_t ret = NO_ERROR;
   assert(camera_device_.get() != nullptr);
 
-  bool zsl_cached;
+  bool zsl_cached = false;
   if (camera_start_params_.zsl_mode && (0 <= zsl_stream_id_)) {
     Mutex::Autolock l(zsl_queue_lock_);
     zsl_cached = zsl_running_;
@@ -1067,7 +1069,7 @@ status_t CameraContext::CreateDeviceInputStream(
 
 status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
   int32_t ret = NO_ERROR;
-  bool zsl_cached;
+  bool zsl_cached = false;
   int64_t last_frame_mumber;
   bool resume_streaming;
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
@@ -1119,6 +1121,9 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
       ret = camera_device_->SubmitRequest(streaming_active_requests_[0], true,
                                           &last_frame_mumber);
       assert(ret >= 0);
+      if (streaming_request_id_ > -1) {
+        previous_streaming_request_id_ = streaming_request_id_;
+      }
       streaming_request_id_ = ret;
       ret = NO_ERROR;
     }
@@ -1155,7 +1160,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     size_t batch_size = port->GetPortBatchSize();
     if (port->getPortState() == PortState::PORT_READYTOSTART) {
 
-      QMMF_INFO("%s:%s: CameraPort(0x%x):camera_stream_id(%d) is ready to"
+      QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
           " start!", TAG, __func__, port.get(), cam_stream_id);
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
@@ -1173,7 +1178,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       }
     } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
 
-      QMMF_INFO("%s:%s: CameraPort(0x%x):camera_stream_id(%d) is stopped ",
+      QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
           TAG, __func__, port.get(), cam_stream_id);
       // Check if camera stream is already part of request, if yes then remove
       // it from request list. if not then it means stream is created but its
@@ -1227,7 +1232,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       ((1 == size) &&
           (streaming_active_requests_[0].streamIds[0] == zsl_stream_id_) &&
           (0 <= streaming_request_id_))) {
-    bool zsl_cached;
+    bool zsl_cached = false;
 
     if (camera_start_params_.zsl_mode && (0 <= zsl_stream_id_)) {
       Mutex::Autolock l(zsl_queue_lock_);
@@ -1274,6 +1279,9 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     auto ret = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                  &last_frame_mumber);
     assert(ret >= 0);
+    if (streaming_request_id_ > -1) {
+      previous_streaming_request_id_ = streaming_request_id_;
+    }
     streaming_request_id_ = ret;
   }
   QMMF_INFO("%s:%s: SubmitRequest for Num streams(%d)  is successfull"
@@ -1313,6 +1321,7 @@ status_t CameraContext::CancelRequest() {
   assert(ret == NO_ERROR);
 
   streaming_request_id_ = -1;
+  previous_streaming_request_id_ = -1;
   QMMF_INFO("%s:%s: Request cancelled last frame number: %lld\n", TAG,
       __func__, last_frame_mumber);
   return ret;
@@ -1320,7 +1329,7 @@ status_t CameraContext::CancelRequest() {
 
 status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
                                            StreamBuffer buffer) {
-  QMMF_VERBOSE("%s:%s: camera_stream_id: %d, buffer: 0x%x ts: %lld\n", TAG,
+  QMMF_VERBOSE("%s:%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
       __func__, stream_id, buffer.handle, buffer.timestamp);
 
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
@@ -1380,7 +1389,6 @@ void CameraContext::ZSLCaptureCallback(int32_t stream_id,
     if (zsl_running_) {
       bool append = true;
       if (!zsl_queue_.empty()) {
-        size_t count = zsl_queue_.size();
         List<ZSLEntry>::iterator it = zsl_queue_.begin();
         List<ZSLEntry>::iterator end = zsl_queue_.end();
         while (it != end) {
@@ -1428,7 +1436,7 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
 
   QMMF_DEBUG("%s:%s format(0x%x):num_planes(%d) ", TAG, __func__,
       buffer.info.format, buffer.info.num_planes);
-  for (int32_t i = 0; i < buffer.info.num_planes; ++i) {
+  for (uint32_t i = 0; i < buffer.info.num_planes; ++i) {
     QMMF_DEBUG("%s:%s plane_info[%d].stride=%d", TAG, __func__, i,
         buffer.info.plane_info[i].stride);
     QMMF_DEBUG("%s:%s plane_info[%d].scanline=%d", TAG, __func__, i,
@@ -1469,6 +1477,9 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
       height = -1;
     break;
     default:
+      QMMF_ERROR("%s:%s format(%d) not supported", TAG, __func__,
+          buffer.info.format);
+      assert(0);
     break;
   }
 
@@ -1509,7 +1520,7 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
   assert(ret == NO_ERROR);
 
   bool supported = false;
-  int32_t w, h;
+  uint32_t w, h;
   switch (format) {
     case ImageFormat::kJPEG:
     //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available in static
@@ -1597,7 +1608,9 @@ void CameraContext::CameraPreparedCb(int32_t) {
 }
 
 void CameraContext::CameraResultCb(const CaptureResult &result) {
-  if ((streaming_request_id_ == result.resultExtras.requestId) &&
+
+  if (((streaming_request_id_ == result.resultExtras.requestId) ||
+      (previous_streaming_request_id_ == result.resultExtras.requestId)) &&
       (nullptr != result_cb_)) {
     result_cb_(camera_id_, result.metadata);
   }
@@ -1620,7 +1633,6 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
       if (zsl_running_) {
         bool append = true;
         if (!zsl_queue_.empty()) {
-          size_t count = zsl_queue_.size();
           List<ZSLEntry>::iterator it = zsl_queue_.begin();
           List<ZSLEntry>::iterator end = zsl_queue_.end();
           while (it != end) {
@@ -1670,7 +1682,6 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
 CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
                        CameraPortType port_type, CameraContext* context)
     : params_(param),
-      port_type_(port_type),
       context_(context),
       camera_stream_id_(-1),
       ready_to_start_(false),
@@ -1681,7 +1692,7 @@ CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
   BufferProducerImpl<CameraPort> *producer_impl;
   producer_impl = new BufferProducerImpl<CameraPort>(this);
   buffer_producer_impl_ = producer_impl;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 CameraPort::~CameraPort() {
@@ -1689,7 +1700,7 @@ CameraPort::~CameraPort() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   buffer_producer_impl_.clear();
   buffer_producer_impl_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t CameraPort::Init() {
@@ -1751,7 +1762,7 @@ status_t CameraPort::DeInit() {
     return BAD_VALUE;
   }
   consumer_map_.clear();
-  QMMF_DEBUG("%s:%s: CameraPort(0x%x) deinitialized successfully! ", TAG,
+  QMMF_DEBUG("%s:%s: CameraPort(0x%p) deinitialized successfully! ", TAG,
       __func__, this);
   return ret;
 }
@@ -1815,7 +1826,7 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
     QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
         , TAG, __func__, consumer_id);
   }
-  QMMF_INFO("%s:%s: track_id(%d):Port(0x%x) Stopped Succussfully!", TAG,
+  QMMF_INFO("%s:%s: track_id(%d):Port(0x%p) Stopped Succussfully!", TAG,
       __func__, consumer_id, this);
 
   port_state_ = PortState::PORT_STOPPED;
@@ -1833,9 +1844,10 @@ status_t CameraPort::AddConsumer(const uint32_t consumer_id,
   assert(buffer_producer_impl_.get() != nullptr);
   buffer_producer_impl_->AddConsumer(consumer);
   consumer->SetProducerHandle(buffer_producer_impl_);
-  QMMF_DEBUG("%s:%s: ConsumerId(%d):(0x%x) has been added to CameraPort(0x%x)."
+  QMMF_DEBUG("%s:%s: ConsumerId(%d):(0x%p) has been added to CameraPort(0x%p)."
       "Total number of consumer =%d", TAG, __func__, consumer_id, consumer.get()
       , this, consumer_map_.size());
+  return NO_ERROR;
 }
 
 status_t CameraPort::RemoveConsumer(const uint32_t consumer_id) {
@@ -1849,14 +1861,15 @@ status_t CameraPort::RemoveConsumer(const uint32_t consumer_id) {
   buffer_producer_impl_->RemoveConsumer(consumer);
 
   consumer_map_.removeItem(consumer_id);
-  QMMF_DEBUG("%s:%s: ConsumerId(%d):(0x%x) has been Remved CameraPort(0x%x)."
+  QMMF_DEBUG("%s:%s: ConsumerId(%d):(0x%p) has been Remved CameraPort(0x%p)."
       "Total number of consumer =%d", TAG, __func__,consumer_id, consumer.get(),
       this, consumer_map_.size());
+  return NO_ERROR;
 }
 
 void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
 
-  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%x) Cameback to CameraPort", TAG,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) Cameback to CameraPort", TAG,
        __func__, buffer.handle);
   //TODO: protect this with lock, would be required once multiple camera ports
   // are enabled.
@@ -1896,7 +1909,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
   assert(stream_id == camera_stream_id_);
   assert(buffer_producer_impl_.get() != nullptr);
 
-  QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%x ts: %lld\n", TAG,
+  QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
       __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
 
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
@@ -1913,15 +1926,15 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
 CameraReprocess::CameraReprocess(CameraContext* context)
     : context_(context),
       reprocess_flag_(false),
-      burst_cnt_(0),
-      ready_to_start_(false) {
+      ready_to_start_(false),
+      burst_cnt_(0) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 CameraReprocess::~CameraReprocess() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 
@@ -2113,7 +2126,6 @@ void CameraReprocess::AddBuff(int32_t streamId, StreamBuffer buffer) {
     Mutex::Autolock lock(burst_queue_lock_);
     bool append = true;
     if (!burst_queue_.empty()) {
-      size_t count = burst_queue_.size();
       List<BurstData>::iterator it = burst_queue_.begin();
       List<BurstData>::iterator end = burst_queue_.end();
       while (it != end) {
@@ -2160,7 +2172,6 @@ void CameraReprocess::AddResult(const CaptureResult &result) {
     Mutex::Autolock lock(burst_queue_lock_);
     bool append = true;
     if (!burst_queue_.empty()) {
-      size_t count = burst_queue_.size();
       List<BurstData>::iterator it = burst_queue_.begin();
       List<BurstData>::iterator end = burst_queue_.end();
       while (it != end) {
@@ -2197,7 +2208,7 @@ status_t CameraReprocess::ValidateInput(const CameraMetadata& static_meta,
                                         const ReprocParam& input,
                                         const ReprocParam& output) {
   camera_metadata_ro_entry_t entry;
-  int32_t in_format, out_format, num_output_formats;
+  int32_t in_format, num_output_formats;
 
   if (static_meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
     entry = static_meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
@@ -2208,7 +2219,7 @@ status_t CameraReprocess::ValidateInput(const CameraMetadata& static_meta,
         i +=  (num_output_formats - 1);
         continue;
       }
-      for (uint32_t f = 0; f < num_output_formats; f++) {
+      for (int32_t f = 0; f < num_output_formats; f++) {
         i += f;
         if (output.format == entry.data.i32[i])
           return NO_ERROR;

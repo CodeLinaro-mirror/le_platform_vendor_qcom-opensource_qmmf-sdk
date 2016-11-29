@@ -90,17 +90,17 @@ class CameraContext : public RefBase {
   status_t GetDefaultCaptureParam(CameraMetadata &meta);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                    const uint32_t buffer_id);
+                                    const int32_t buffer_id);
 
   uint32_t GetCameraFrameRate() { return camera_start_params_.frame_rate; }
 
  private:
 
   struct HFRMode_t {
-    int32_t width;
-    int32_t height;
-    int32_t batch_size;
-    int32_t framerate;
+    uint32_t width;
+    uint32_t height;
+    uint32_t batch_size;
+    uint32_t framerate;
   };
 
   struct ZSLEntry {
@@ -183,12 +183,13 @@ class CameraContext : public RefBase {
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
-  int32_t                  camera_id_;
+  uint32_t                 camera_id_;
   Mutex                    device_access_lock_;
   CameraStartParam         camera_start_params_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
+  int32_t                  previous_streaming_request_id_;
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
@@ -294,7 +295,6 @@ class CameraPort : public RefBase {
   void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
 
   sp<IBufferProducer>    buffer_producer_impl_;
-  CameraPortType         port_type_;
   CameraStreamParam      params_;
   CameraContext*         context_;
   int32_t                camera_stream_id_;

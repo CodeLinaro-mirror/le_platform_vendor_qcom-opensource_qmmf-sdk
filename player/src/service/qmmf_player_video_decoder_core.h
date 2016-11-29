@@ -172,7 +172,6 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   Condition               wait_for_frame_;
   int32_t                 ion_device_;
   Mutex                   queue_lock_;
-  bool                    eos_;
 
 #ifdef DUMP_VIDEO_BITSTREAM
   int32_t                 file_fd_video_;

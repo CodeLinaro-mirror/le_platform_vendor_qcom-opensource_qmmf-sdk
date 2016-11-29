@@ -369,7 +369,7 @@ int32_t Camera3Stream::TearDown() {
   if (0 < GetPendingBufferCountLocked()) {
     QMMF_ERROR(
         "%s: Stream %d: Cannot be torn down while buffers are still pending\n",
-        __func__, id_, status_);
+        __func__, id_);
     res = -ENOSYS;
     goto exit;
   }

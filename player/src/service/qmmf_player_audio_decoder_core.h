@@ -176,7 +176,6 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   Condition                 wait_for_frame_;
   int32_t                   ion_device_;
   Mutex                     queue_lock_;
-  bool                      eos_;
 
 #ifdef DUMP_PCM_DATA
   int32_t                   file_fd_audio_;

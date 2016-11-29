@@ -786,7 +786,7 @@ status_t RecorderService::CancelCaptureImage() {
 
 
 status_t RecorderService::ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                                   const uint32_t buffer_id) {
+                                                   const int32_t buffer_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   assert(recorder_ != NULL);

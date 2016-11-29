@@ -67,7 +67,7 @@ PlayerClient::PlayerClient()
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s:%s Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s Exit (0x%p)", TAG, __func__, this);
 }
 
 PlayerClient::~PlayerClient() {
@@ -76,7 +76,7 @@ PlayerClient::~PlayerClient() {
     player_service_.clear();
     player_service_ = nullptr;
   }
-  QMMF_DEBUG("%s:%s Exit 0x%x", TAG, __func__, this);
+  QMMF_DEBUG("%s:%s Exit 0x%p", TAG, __func__, this);
 }
 
 
@@ -223,7 +223,7 @@ status_t PlayerClient::DeleteAudioTrack(uint32_t track_id) {
       if (buf_info.client_fd > 0) {
         close(buf_info.client_fd);
       }
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%x and frame_len=%d",
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
           TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
       if (buf_info.vaddr != NULL) {
         munmap(buf_info.vaddr, buf_info.frame_len);
@@ -264,7 +264,7 @@ status_t PlayerClient::DeleteVideoTrack(uint32_t track_id) {
       if (buf_info.client_fd > 0) {
         close(buf_info.client_fd);
       }
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%x and frame_len=%d",
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
           TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
       if (buf_info.vaddr != NULL) {
         munmap(buf_info.vaddr, buf_info.frame_len);
@@ -322,7 +322,7 @@ status_t PlayerClient::DequeueInputBuffer(
 
   QMMF_DEBUG("%s:%s size is %d", TAG, __func__,size);
 
-  for (size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
     memset(&cb,0x0,sizeof(cb));
     codecbuffer.push_back(cb);
   }
@@ -335,7 +335,7 @@ status_t PlayerClient::DequeueInputBuffer(
   memset(&bufinfo, 0x0, sizeof bufinfo);
   bool is_mapped = false;
 
-  if(!track_buf_map_.isEmpty()) {
+  if (!track_buf_map_.isEmpty()) {
     DefaultKeyedVector<uint32_t, BufInfo> buf_map;
     int32_t map_idx = track_buf_map_.indexOfKey(track_id);
 
@@ -351,7 +351,7 @@ status_t PlayerClient::DequeueInputBuffer(
         buffers[i].buf_id = codecbuffer[i].buf_id;
         is_mapped = true;
         QMMF_VERBOSE("%s:%s: Buf is already mapped! ion_fd(%d):"
-          "vaddr(0x%x)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
+          "vaddr(0x%p)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
       }
     }
   }
@@ -365,7 +365,7 @@ status_t PlayerClient::DequeueInputBuffer(
     assert(codecbuffer[i].fd > 0);
 
     ion_info_fd.fd = codecbuffer[i].fd;
-    auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+    ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
           ion_info_fd.fd);
@@ -400,7 +400,7 @@ status_t PlayerClient::DequeueInputBuffer(
 
        for(uint32_t j = 0; j < buffer_map.size(); j++) {
          QMMF_VERBOSE("%s:%s: buffer_map:idx(%d) :key(%d) :fd:%d :data:"
-             "0x%x", TAG, __func__, j, buffer_map.keyAt(j), buffer_map[j].buf_id,
+             "0x%p", TAG, __func__, j, buffer_map.keyAt(j), buffer_map[j].buf_id,
              buffer_map[j].vaddr);
        }
 
@@ -410,16 +410,16 @@ status_t PlayerClient::DequeueInputBuffer(
        buffers[i].buf_id = codecbuffer[i].buf_id;
      }
 
-     QMMF_DEBUG("%s:%s vaddr 0x%x", TAG, __func__,buffers[i].data);
+     QMMF_DEBUG("%s:%s vaddr 0x%p", TAG, __func__,buffers[i].data);
      QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].size);
      QMMF_DEBUG("%s:%s buf_id %d", TAG, __func__,buffers[i].buf_id);
   }
 
-  if(NO_ERROR != ret) {
+  if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s DequeueInputBuffer failed: %d", TAG, __func__, ret);
   }
 
-  for(size_t i = 0; i < size; i++) {
+  for (int32_t i = 0; i < size; i++) {
     codecbuffer.clear();
   }
 
@@ -460,8 +460,8 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
 
     bufinfo = buf_map.valueFor(buffers[i].buf_id);
 
-    QMMF_DEBUG("%s:%s bufinfo.vaddr is 0x%x", TAG, __func__,bufinfo.vaddr);
-    QMMF_DEBUG("%s:%s buffers[i].data is 0x%x", TAG, __func__, buffers[i].data);
+    QMMF_DEBUG("%s:%s bufinfo.vaddr is 0x%p", TAG, __func__,bufinfo.vaddr);
+    QMMF_DEBUG("%s:%s buffers[i].data is 0x%p", TAG, __func__, buffers[i].data);
 
     if (bufinfo.vaddr == buffers[i].data) {
 
@@ -626,7 +626,7 @@ status_t PlayerClient::SetAudioTrackParam(uint32_t track_id,
                                                  type, param, param_size);
 
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", TAG, __func__);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -646,7 +646,7 @@ status_t PlayerClient::SetVideoTrackParam(uint32_t track_id,
   auto ret = player_service_->SetVideoTrackParam(track_id,
                                                  type, param, param_size);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s:%s SetAudioTrackParam failed!", TAG, __func__);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -894,7 +894,7 @@ public:
 
             QMMF_DEBUG("%s:%s dup fd %d", TAG, __func__,buffers[i].fd);
             QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].frame_length);
-            QMMF_DEBUG("%s:%s data 0x%x", TAG, __func__,buffers[i].data);
+            QMMF_DEBUG("%s:%s data 0x%p", TAG, __func__,buffers[i].data);
 
             int32_t fd;
             reply.readInt32(&fd);
@@ -1126,7 +1126,7 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
-  void NotifyVideoTrackData(uint32_t track_id, 
+  void NotifyVideoTrackData(uint32_t track_id,
                             std::vector<BnTrackBuffer> &buffers,
                             void *meta_param,
                             TrackMetaBufferType meta_type,
@@ -1327,7 +1327,8 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
         blob.release();
       }
       QMMF_VERBOSE("%s:Bn%s: buffers.size()=%d", TAG, __func__, buffers.size());
-      uint32_t meta_size, meta_type;
+      uint32_t meta_size, meta_type =
+          static_cast<uint32_t>(TrackMetaBufferType::kNone);
       void* meta_param = NULL;
       android::Parcel::ReadableBlob meta_blob;
       data.readUint32(&meta_size);

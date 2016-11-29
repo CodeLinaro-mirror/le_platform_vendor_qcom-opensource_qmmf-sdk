@@ -45,7 +45,7 @@ PlayerImpl* PlayerImpl::CreatePlayer() {
       return nullptr;
     }
   }
-  QMMF_INFO("%s:%s: Player Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: Player Instance Created Successfully(0x%p)", TAG,
     __func__, instance_);
   return instance_;
 }
@@ -83,7 +83,7 @@ PlayerImpl::~PlayerImpl() {
   }
 
   instance_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t PlayerImpl::Connect(sp<RemoteCallBack>& remote_cb) {
@@ -190,6 +190,7 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kAudio;
   tracks.push_back(track_info);
+  track_map_.add(track_id, track_info);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -229,6 +230,7 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kVideo;
   tracks.push_back(track_info);
+  track_map_.add(track_id, track_info);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
@@ -243,12 +245,17 @@ status_t PlayerImpl::DeleteAudioTrack(uint32_t track_id) {
   result = audio_sink_->DeleteTrackSink(track_id);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSink failed: %d", TAG,
-               __func__, result);
+               __func__, track_id, result);
     return result;
   }
 
   audio_decoder_core_->DeleteTrackDecoder(track_id);
-  tracks.clear(); //TODO
+  track_map_.removeItem(track_id);
+
+  auto it = std::find_if(tracks.begin(), tracks.end(),
+     [track_id](TrackInfo& track){ return track.track_id == track_id; });
+
+  tracks.erase(it);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -263,12 +270,17 @@ status_t PlayerImpl::DeleteVideoTrack(uint32_t track_id) {
   result = video_sink_->DeleteTrackSink(track_id);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed: %d", TAG,
-               __func__, result);
+               __func__, track_id, result);
     return result;
   }
 
   video_decoder_core_->DeleteTrackDecoder(track_id);
-  tracks.clear(); //TODO
+  track_map_.removeItem(track_id);
+
+  auto it = std::find_if(tracks.begin(), tracks.end(),
+     [track_id](TrackInfo& track){ return track.track_id == track_id; });
+
+  tracks.erase(it);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -278,7 +290,7 @@ status_t PlayerImpl::DeleteVideoTrack(uint32_t track_id) {
 status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
                                         std::vector<AVCodecBuffer>& buffers) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret;
+  status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks.size();
 
@@ -297,7 +309,7 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
@@ -306,7 +318,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
                                       size_t meta_size,
                                       TrackMetaBufferType meta_type) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret;
+  status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks.size();
 
@@ -326,7 +338,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::Prepare() {
@@ -496,7 +508,8 @@ status_t PlayerImpl::Pause() {
   memset(&event,0x0,sizeof(Event));
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_PAUSED |
-      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED ))
+      PlayerState::QPLAYER_STATE_STOPPED |
+      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED))
    return NO_ERROR;
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED)) {
@@ -521,13 +534,12 @@ status_t PlayerImpl::Pause() {
       return BAD_VALUE;
     } else {
       QMMF_INFO("%s:%s: Pause successs!", TAG, __func__);
-      setCurrentState( PlayerState::QPLAYER_STATE_PAUSED);
+      setCurrentState(PlayerState::QPLAYER_STATE_PAUSED);
       event.state = PlayerState::QPLAYER_STATE_PAUSED;
       QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
           EventType::kStateChanged, event.state);
       NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
     }
-    return ret;
   }
 
   QMMF_DEBUG("%s:%s: Pause Called in %d", TAG, __func__, current_state_);
@@ -544,7 +556,9 @@ status_t PlayerImpl::Resume() {
   Event event;
   memset(&event,0x0,sizeof(Event));
 
-  if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED))
+  if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
+      PlayerState::QPLAYER_STATE_STOPPED |
+      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED))
     return NO_ERROR;
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_PAUSED)) {
@@ -569,13 +583,12 @@ status_t PlayerImpl::Resume() {
       return BAD_VALUE;
     } else {
       QMMF_INFO("%s:%s: Resume successs!", TAG, __func__);
-      setCurrentState( PlayerState::QPLAYER_STATE_PAUSED);
-      event.state = PlayerState::QPLAYER_STATE_PAUSED;
+      setCurrentState(PlayerState::QPLAYER_STATE_STARTED);
+      event.state = PlayerState::QPLAYER_STATE_STARTED;
       QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
           EventType::kStateChanged, event.state);
       NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
     }
-    return ret;
   }
 
   QMMF_DEBUG("%s:%s: Resume Called in %d", TAG, __func__, current_state_);
@@ -636,7 +649,7 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 //Video Post processing
@@ -657,7 +670,7 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 bool PlayerImpl::IsTrackValid(const uint32_t track_id) {

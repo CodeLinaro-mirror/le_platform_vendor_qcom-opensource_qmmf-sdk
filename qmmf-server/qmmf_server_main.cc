@@ -58,9 +58,9 @@ using namespace player;
 int32_t main(int32_t argc, char **argv) {
 
   // Add audio service.
-  defaultServiceManager()->addService(String16(kAudioServiceName),
+  defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
           new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", kAudioServiceName);
+  INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
 
   //Add Recorder service.
   defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
@@ -71,7 +71,7 @@ int32_t main(int32_t argc, char **argv) {
   defaultServiceManager()->addService(String16(QMMF_PLAYER_SERVICE_NAME),
                   new qmmf::player::PlayerService(), false);
   INFO("Service(%s) Added successfully!", QMMF_PLAYER_SERVICE_NAME);
-  
+
   //Add Display service.
   defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
                   new qmmf::display::DisplayService(), false);

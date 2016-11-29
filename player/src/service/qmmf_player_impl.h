@@ -157,8 +157,7 @@ class PlayerImpl {
   Mutex               state_lock_;
 
   std::vector<TrackInfo> tracks;
-
-  AudioTrackSink*       audio_track_sink_;
+  DefaultKeyedVector<uint32_t, TrackInfo> track_map_;
 
 
   /**Not allowed */

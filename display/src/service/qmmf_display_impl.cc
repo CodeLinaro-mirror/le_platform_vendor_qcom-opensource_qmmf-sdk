@@ -97,7 +97,7 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
 
   }
 
-  QMMF_INFO("%s:%s: Display Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: Display Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
   return instance_;
 }
@@ -132,7 +132,7 @@ DisplayImpl::~DisplayImpl() {
   instance_->displayinfo_.clear();
   instance_ = nullptr;
   core_intf_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t DisplayImpl::Connect() {
@@ -265,13 +265,13 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
 
   if(displayinfo->second->num_of_clients>1) {
-    QMMF_ERROR("%s: %s() Cant destroy.There are more users of this display.",
+    QMMF_ERROR("%s: %s() Cant destroy.There are more users of this display. %u",
         TAG, __func__, display_handle);
     displayinfo->second->num_of_clients--;
     displayinfo_.erase(displayinfo);
@@ -287,7 +287,7 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
       it != displayinfo->second->surfaceinfo_.end(); ++it) {
     status_t error = DestroySurface(display_handle,it->first);
     if (error != kErrorNone){
-      QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+      QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
       pthread_mutex_unlock(&thread_lock_);
       return -EINVAL;
     }
@@ -350,7 +350,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -415,7 +415,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   delete layer_stack;
   layer_stack = nullptr;
   if(!surface_config.use_buffer) {
-    for(int32_t i=0; i<surface_config.buffer_count;i++) {
+    for(uint32_t i=0; i<surface_config.buffer_count;i++) {
       BufferInfo *bufferinfo = new BufferInfo();
 
       bufferinfo->buffer_config.width = surface_config.width;
@@ -454,7 +454,7 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
   int32_t ret = NO_ERROR;
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -466,7 +466,7 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
       surfaceinfo->second->buffer_info.begin() ;
       it != surfaceinfo->second->buffer_info.end(); ++it) {
     if (surfaceinfo->second->buffer_internal) {
-      DisplayError error = buffer_allocator_.FreeBuffer(it->second);
+      buffer_allocator_.FreeBuffer(it->second);
     }
     delete it->second;
     it->second = nullptr;
@@ -497,7 +497,7 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -546,7 +546,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   int32_t ret = NO_ERROR;
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -639,7 +639,7 @@ status_t DisplayImpl::GetDisplayParam(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %d", TAG, __func__, display_handle);
     return -EINVAL;
   }
 
@@ -666,7 +666,7 @@ status_t DisplayImpl::SetDisplayParam(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return -EINVAL;
   }
 
@@ -737,11 +737,10 @@ void* DisplayImpl::HandleVSync(void *userdata) {
   while (run) {
     pthread_mutex_lock(&displayimpl->thread_lock_);
     run = displayimpl->running_;
-    DisplayError error;
     for (std::map<DisplayHandle, DisplayInfo*>::iterator it =
         displayimpl->displayinfo_.begin();
         it != displayimpl->displayinfo_.end(); ++it) {
-      int64_t timestamp;
+      int64_t timestamp = 0;
       displayintf = it->second->display_intf;
       if(displayintf == NULL) {
         pthread_mutex_unlock(&displayimpl->thread_lock_);
@@ -794,7 +793,7 @@ Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return NULL;
   }
   Layer* layer = new Layer();
@@ -817,13 +816,13 @@ void DisplayImpl::FreeLayer(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return;
   }
 
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
   if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return;
   }
 
@@ -843,13 +842,13 @@ Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return NULL;
   }
 
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
   if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return NULL;
   }
   assert(surfaceinfo->second->layer);
@@ -864,12 +863,12 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo ", TAG, __func__, display_handle);
+    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
     return NULL;
   }
   LayerStack* layer_stack = new LayerStack();
 
-  for(int32_t i=1;i<=displayinfo->second->layer_count;i++) {
+  for(uint32_t i=1;i<=displayinfo->second->layer_count;i++) {
     auto surfaceinfo = displayinfo->second->surfaceinfo_.find(i);
     if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
       QMMF_ERROR("%s: %s() no displayinfo:%d i: %d", TAG, __func__,

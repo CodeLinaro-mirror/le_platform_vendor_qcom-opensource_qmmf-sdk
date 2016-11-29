@@ -307,7 +307,7 @@ struct CameraBufferMetaDataInternal : public CameraBufferMetaData {
   CameraBufferMetaDataInternal& FromParcel(const ::android::Parcel& parcel) {
     format = static_cast<BufferFormat>(parcel.readInt32());
     num_planes = parcel.readUint32();
-    for (int idx = 0; idx < num_planes; ++idx)
+    for (uint32_t idx = 0; idx < num_planes; ++idx)
       plane_info[idx] = PlaneInfoInternal().FromParcel(parcel);
     return *this;
   }

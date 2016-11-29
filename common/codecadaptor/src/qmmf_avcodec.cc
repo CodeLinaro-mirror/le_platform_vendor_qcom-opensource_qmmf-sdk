@@ -933,7 +933,7 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
     return ret;
   }
 
-  QMMF_INFO("%s:%S Decoder: Video format: W x H (%u x %u)", TAG, __func__,
+  QMMF_INFO("%s:%s Decoder: Video format: W x H (%u x %u)", TAG, __func__,
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
@@ -2316,6 +2316,13 @@ status_t AVCodec::PauseCodec() {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
+  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StatePause, 0);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to Pause the Codec/Component", TAG, __func__);
+    return ret;
+  }
+  ret = WaitState(OMX_StatePause);
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -2324,6 +2331,13 @@ status_t AVCodec::ResumeCodec() {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
+
+  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StateExecuting, 0);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to Resume Codec/Component", TAG, __func__);
+    return ret;
+  }
+  ret = WaitState(OMX_StateExecuting);
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
@@ -2945,7 +2959,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   memset(&codec_buffer, 0x0, sizeof codec_buffer);
 
   codec_buffer.data = buf_header->pBuffer;
-  
+
   // Earlier in RegisterOutputBuffers size was being used as a
   // size(an input variable given by client) of buffer being allocated
   // by ion driver, while in rest of the code

@@ -184,7 +184,6 @@ namespace player {
 
             for (size_t i = 0; i < vector_size; i++)
             {
-               int32_t fd;
                uint32_t param_size = sizeof (AVCodecBuffer);
                reply->writeUint32(param_size);
                android::Parcel::WritableBlob blob;
@@ -194,16 +193,14 @@ namespace player {
 
                QMMF_DEBUG("%s:%s fd %d", TAG, __func__,buffers[i].fd);
                QMMF_DEBUG("%s:%s size %d", TAG,__func__,buffers[i].frame_length);
-               QMMF_DEBUG("%s:%s data 0x%x", TAG, __func__,buffers[i].data);
-
-               bool is_mapped = false;
+               QMMF_DEBUG("%s:%s data 0x%p", TAG, __func__,buffers[i].data);
 
                ion_fd_map::iterator it_fd;
                if(ion_fd_mapping.size())
                {
-                   for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end(); ++it_fd)
+                    for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end(); ++it_fd)
                     {
-                      if(it_fd->first == buffers[i].fd) {
+                      if(static_cast<uint32_t>(it_fd->first) == buffers[i].fd) {
                            reply->writeInt32(1);
                            reply->writeInt32(buffers[i].fd);
                            break;
@@ -360,7 +357,7 @@ namespace player {
 }
 
 PlayerService::PlayerService()
-    : player_(nullptr), connected_(false) {
+    : connected_(false), player_(nullptr) {
   QMMF_INFO("%s:%s: PlayerService Instantiated! ", TAG, __func__);
 }
 

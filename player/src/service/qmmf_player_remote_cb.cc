@@ -37,12 +37,12 @@ namespace player {
 RemoteCallBack::RemoteCallBack(const sp<IPlayerServiceCallback>& remote_cb)
     : client_cb_handle_(remote_cb) {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 RemoteCallBack::~RemoteCallBack() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 void RemoteCallBack::NotifyPlayerEvent(EventType event_type,

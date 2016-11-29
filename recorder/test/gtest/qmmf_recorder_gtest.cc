@@ -65,7 +65,6 @@ static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
-static const uint32_t kYUVDumpFreq   = 3600; // dump 1 frame in 2 min
 
 #define COLOR_DARK_GRAY 0x202020FF;
 #define COLOR_YELLOW    0xFFFF00FF;
@@ -201,6 +200,16 @@ TEST_F(RecorderGtest, ZSL1080p) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.h64",
+                                  camera_start_params_.zsl_height,
+                                  camera_start_params_.zsl_width);
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, std::vector<MetaData> meta_buffers) {
@@ -269,6 +278,11 @@ TEST_F(RecorderGtest, ZSL1080p) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -401,8 +415,9 @@ TEST_F(RecorderGtest, 4KSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 3840x2160 JPEG supported.
           }
         }
@@ -484,8 +499,9 @@ TEST_F(RecorderGtest, BurstSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 1920x1080 YUV res supported.
           }
         }
@@ -511,7 +527,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   assert(ret == NO_ERROR);
 
   uint32_t num_images = 30;
-  for (int32_t i = 0; i < num_images; i++) {
+  for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
   ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array,
@@ -529,6 +545,107 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
+
+/*
+* MaxSnapshotThumb: This test will test Max resolution JPEG snapshot
+*                  with a max sixe thumbnail.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG with thumbnail
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, MaxSnapshotThumb) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  int32_t thumb_size[2] = {0,0};
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width < static_cast<uint32_t>(entry.data.i32[i+1])) {
+            image_param.width = entry.data.i32[i+1];
+            image_param.height = entry.data.i32[i+2];
+          }
+
+          fprintf(stderr,"Supported Size %dx%d\n",
+              entry.data.i32[i+1], entry.data.i32[i+2]);
+        }
+      }
+    }
+  }
+  assert (image_param.width > 0 && image_param.height > 0);
+
+  if (meta.exists(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES)) {
+    entry = meta.find(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      if (thumb_size[0] < entry.data.i32[i]) {
+        thumb_size[0] = entry.data.i32[i];
+        thumb_size[1] = entry.data.i32[i+1];
+      }
+    }
+  }
+  assert(thumb_size[0] > 0 && thumb_size[1] > 0);
+  ret = meta.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumb_size, 2);
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"Capturing %dx%d JPEG with %dx%d thumbnail\n",
+      image_param.width, image_param.height, thumb_size[0], thumb_size[1]);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+
+    meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
 
 /*
 * 1080pRawYUVSnapshot: This test will test 1080p YUV snapshot.
@@ -572,8 +689,9 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true; // 1920x1080 YUV res supported.
           }
         }
@@ -1077,6 +1195,31 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+
+  video_track_param.codec_param.avc.idr_interval = 1;
+  video_track_param.codec_param.avc.bitrate      = 10000000;
+  video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariableSkipFrames;
+  video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+  video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+  video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+  video_track_param.codec_param.avc.ltr_count = 4;
+  video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
@@ -1106,13 +1249,12 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   bitstream_filepath.clear();
   bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
                                   video_track4K1fps_id, width, height,
-                                  "yuv");
+                                  extn.string());
   track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
                                   O_WRONLY | O_TRUNC, 0655);
   assert(track2_bitstream_filefd_ > 0);
 #endif
 
-  video_track_param.format_type = VideoFormat::kYUV;
   video_track_param.frame_rate  = 1;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -1160,8 +1302,9 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -1269,6 +1412,31 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+
+  video_track_param.codec_param.avc.idr_interval = 1;
+  video_track_param.codec_param.avc.bitrate      = 10000000;
+  video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariableSkipFrames;
+  video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+  video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+  video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+  video_track_param.codec_param.avc.ltr_count = 4;
+  video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
@@ -1298,13 +1466,12 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   bitstream_filepath.clear();
   bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
                                   video_track4K1fps_id, width, height,
-                                  "yuv");
+                                  extn.string());
   track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
                                   O_WRONLY | O_TRUNC, 0655);
   assert(track2_bitstream_filefd_ > 0);
 #endif
 
-  video_track_param.format_type = VideoFormat::kYUV;
   video_track_param.frame_rate  = 1;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -1341,7 +1508,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
 
   video_track_param.width = width;
   video_track_param.height = height;
-  video_track_param.format_type = VideoFormat::kAVC;
   video_track_param.frame_rate  = fps;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -1390,8 +1556,9 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -1550,7 +1717,374 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
     close(track1_bitstream_filefd_);
   }
 }
+/*
+ * SessionWith1080p120fpsSnapshotVSTABEncTrack: This test will test session with one 1080p
+ * 120fps h264 track.
+ * Api test sequence:
+ *  - StartCamera
+ *  - CreateSession
+ *  - CreateVideoTrack
+ *  - StartVideoTrack
+ *  - Snapshot
+ *  - StopSession
+ *  - DeleteVideoTrack
+ *  - DeleteSession
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
 
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  uint32_t fps = 120;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  camera_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  sleep(10);
+  //Enable VSTAB
+  CameraMetadata meta;
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+  meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  //Continue recording
+  sleep(20);
+
+  //Take snapshot
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true;
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+
+  sleep(5);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+}
+
+/*
+ * SessionWith1080p120fps480p30fpsSnapshotEncTrack: This test will test session with one 1080p
+ * 120fps h264 track.
+ * Api test sequence:
+ *  - StartCamera
+ *  - CreateSession
+ *  - CreateVideoTrack
+ *  - StartVideoTrack
+ *  - Snapshot
+ *  - StopSession
+ *  - DeleteVideoTrack
+ *  - DeleteSession
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  uint32_t fps = 120;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  camera_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  width  = 720;
+  height = 480;
+  fps = 30;
+  uint32_t video_track480p_id = 2;
+
+#ifdef DUMP_BITSTREAM
+  if (track2_bitstream_filefd_ > 0) {
+    close(track2_bitstream_filefd_);
+  }
+  bitstream_filepath.clear();
+  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+                                  video_track480p_id, width, height,
+                                  extn.string());
+  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+                                  O_WRONLY | O_TRUNC, 0655);
+  assert(track2_bitstream_filefd_ > 0);
+#endif
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = fps;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track480p_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  track_ids.push_back(video_track480p_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  sleep(30);
+
+  //Take snapshot
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true;
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+
+  sleep(5);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track480p_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+}
 /*
 * SessionWith1080p120fpsEncTrack: This test will test session with one 1080p
 * 120fps h264 track.
@@ -2723,8 +3257,9 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
-          if (image_param.width == entry.data.i32[i+1]
-              && image_param.height == entry.data.i32[i+2]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
             res_supported = true;
           }
         }
@@ -3326,8 +3861,9 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
         if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
               entry.data.i32[i+3]) {
-            if (image_param.width == entry.data.i32[i+1]
-                && image_param.height == entry.data.i32[i+2]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
               res_supported = true; // 1080p-YUV res supported.
             }
           }
@@ -3637,7 +4173,6 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   // Apply overlay object on video track.
   ret = recorder_.SetOverlay(video_track_id, static_img_id);
   assert(ret == 0);
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -3810,7 +4345,6 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   // One track can have multiple types of overlay.
   ret = recorder_.SetOverlay(video_track_id, date_time_id);
   assert(ret == 0);
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -4179,7 +4713,6 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   ret = recorder_.SetOverlay(video_track_id, user_text_id);
   assert(ret == 0);
 
-  uint32_t location;
   for(uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
@@ -5321,7 +5854,7 @@ status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
   }
 
   AVPacket *pkt;
-  for (size_t i = 0; i < q_size; i++) {
+  for (ssize_t i = 0; i < q_size; i++) {
     pkt = (AVPacket *)AVQueuePopTail(queue);
     if (NULL != pkt) {
       if ((NULL != pkt->data)) {
@@ -5351,7 +5884,7 @@ void RecorderGtest::ClearSessions() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  for (it; it != sessions_.end(); ++it) {
+  for (; it != sessions_.end(); ++it) {
     it->second.clear();
   }
   sessions_.clear();
@@ -5413,7 +5946,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
           strerror(errno));
       goto FAIL;
     }
-    TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+    TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
       buffers[0].data, written_len, file_path.string());
 
 FAIL:
@@ -5596,7 +6129,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
               strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s:%s: Buffer(0x%x) Size(%u) Stored@(%s)\n", TAG, __func__,
+      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
                 buffer.data, written_len, file_path.string());
 
       snapshot_count++;

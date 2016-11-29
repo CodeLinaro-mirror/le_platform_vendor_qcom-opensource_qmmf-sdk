@@ -30,6 +30,7 @@
 
 #define LOG_TAG "OverlayTestApp"
 
+#include <stdlib.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mman.h>

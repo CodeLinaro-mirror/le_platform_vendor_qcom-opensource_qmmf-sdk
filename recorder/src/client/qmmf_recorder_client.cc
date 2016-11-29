@@ -64,16 +64,16 @@ using namespace android;
 using ::std::underlying_type;
 
 RecorderClient::RecorderClient()
-                : recorder_service_(nullptr)
+                : camera_module_(NULL)
+                , recorder_service_(nullptr)
                 , death_notifier_(nullptr)
                 , ion_device_(-1)
-                , camera_module_(NULL)
                 , metadata_cb_(nullptr) {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s:%s Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s Exit (0x%p)", TAG, __func__, this);
 }
 
 RecorderClient::~RecorderClient() {
@@ -90,7 +90,7 @@ RecorderClient::~RecorderClient() {
   }
   camera_module_ = NULL;
 
-  QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
+  QMMF_INFO("%s:%s Exit 0x%p", TAG, __func__, this);
 }
 
 extern "C" {
@@ -517,7 +517,7 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
   auto ret = recorder_service_->SetAudioTrackParam(session_id, track_id,
       type, const_cast<void*>(param), param_size);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", __func__);
+      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", TAG, __func__);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -598,14 +598,30 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
       BufInfo buf_info = info_map.valueAt(j);
       QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
           __func__, track_id, buf_info.ion_fd);
-      if (buf_info.ion_fd > 0) {
-        close(buf_info.ion_fd);
-      }
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%x and frame_len=%d",
+      QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
           TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
       if (buf_info.pointer != NULL) {
-        munmap(buf_info.pointer, buf_info.frame_len);
+        struct ion_handle_data ion_handle;
+        memset(&ion_handle, 0, sizeof(ion_handle));
+        ion_handle.handle = buf_info.ion_handle;
+        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        }
+
+        auto stat = munmap(buf_info.pointer, buf_info.frame_len);
+        if (0 != stat) {
+          QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
+                     buf_info.pointer, -errno);
+        }
         buf_info.pointer = NULL;
+      }
+
+      if (buf_info.ion_fd > 0) {
+        auto stat = close(buf_info.ion_fd);
+        if (0 != stat) {
+          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+                     buf_info.ion_fd, -errno);
+        }
       }
       //TODO: check owner ship of buffers, make sure application returned all
       // the buffers after calling stop on track.
@@ -994,7 +1010,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
           assert(buf_info.ion_fd > 0);
           is_mapped = true;
           QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
-            "vaddr(0x%x)", TAG, __func__, bn_buffers[i].buffer_id,
+            "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
             buf_info.ion_fd, buf_info.pointer);
         }
       }
@@ -1022,6 +1038,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       buf_info.pointer   = vaddr;
       buf_info.ion_fd    = ion_info_fd.fd;
       buf_info.frame_len = bn_buffers[i].size;
+      buf_info.ion_handle = ion_info_fd.handle;
 
       DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
       if (track_buf_map_.isEmpty()) {
@@ -1044,7 +1061,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
         for(uint32_t j = 0; j < buffer_map.size(); j++) {
           QMMF_VERBOSE("%s:%s: buffer_map:idx(%d) :key(%d) :ion_fd:%d :pointer:"
-              "0x%x", TAG, __func__, j, buffer_map.keyAt(j),
+              "0x%p", TAG, __func__, j, buffer_map.keyAt(j),
               buffer_map[j].ion_fd, buffer_map[j].pointer);
         }
       }
@@ -1429,7 +1446,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
 
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageCaptureConfig &config) {
-
+    return 0;
   }
 
   status_t CancelCaptureImage() {
@@ -1441,7 +1458,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                    const uint32_t buffer_id) {
+                                    const int32_t buffer_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(camera_id);

@@ -499,7 +499,6 @@ status_t DisplayService::DequeueSurfaceBuffer(DisplayHandle display_handle,
     return NO_INIT;
 
   assert(display_ != NULL);
-  uint32_t id;
   auto ret = display_->DequeueSurfaceBuffer(display_handle, surface_id,
       surface_buffer);
   assert(ret == NO_ERROR);

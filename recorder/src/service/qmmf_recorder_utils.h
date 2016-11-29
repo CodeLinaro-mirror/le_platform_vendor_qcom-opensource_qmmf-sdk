@@ -154,7 +154,7 @@ void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
       buffer_map_.Add(buffer);
       buffer_map_.ReplaceValueFor(buffer, buffer_consumers_.size());
 
-      QMMF_VERBOSE("%s:%s: (%p) buffer(0x%x) map size(%d) and it's ref count(%d)"
+      QMMF_VERBOSE("%s:%s: (%p) buffer(0x%p) map size(%d) and it's ref count(%d)"
           , TAG, __func__ , this, buffer.handle, buffer_map_.Size(),
           buffer_map_.ValueFor(buffer));
 
@@ -176,7 +176,7 @@ void BufferProducerImpl<_type>::NotifyBufferReturned(StreamBuffer& buffer) {
 
   Mutex::Autolock autoLock(buffer_return_lock_);
 
-  QMMF_VERBOSE("%s:%s: Buffer is back to Producer Intf,buffer(0x%x) RefCount=%d",
+  QMMF_VERBOSE("%s:%s: Buffer is back to Producer Intf,buffer(0x%p) RefCount=%d",
       TAG, __func__, buffer.handle, buffer_map_.ValueFor(buffer));
 
   assert(buffer_map_.ValueFor(buffer) > 0);

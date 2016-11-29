@@ -51,7 +51,7 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
       return NULL;
     }
   }
-  QMMF_INFO("%s:%s: Recorder Instance Created Successfully(0x%x)", TAG,
+  QMMF_INFO("%s:%s: Recorder Instance Created Successfully(0x%p)", TAG,
       __func__, instance_);
   return instance_;
 }
@@ -88,7 +88,7 @@ RecorderImpl::~RecorderImpl() {
     audio_encoder_core_ = nullptr;
   }
   instance_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t RecorderImpl::Connect(const sp<RemoteCallBack>& remote_cb) {
@@ -146,7 +146,7 @@ status_t RecorderImpl::Disconnect() {
     // a internal disconnect), in both cases clean up is required, died client
     // can come up again anytime.
     for (auto& iter : session_ids_) {
-      QMMF_INFO("%s:%s: session_id(%d) to Stop & Delete", TAG, __func__);
+      QMMF_INFO("%s:%s: session_id(%d) to Stop & Delete", TAG, __func__, (iter));
       auto ret = StopSession((iter), false);
       assert(ret == NO_ERROR);
       ret = DeleteSession((iter));
@@ -232,7 +232,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t session_id) {
   Vector<TrackInfo> tracks = sessions_.valueFor(session_id);
   if (tracks.size() > 0) {
     QMMF_ERROR("%s:%s: Session(%d) Can't be deleted until all tracks(%d) within"
-        "this session are stopped & deleted(%d)!", TAG, __func__, session_id,
+        "this session are stopped & deleted!", TAG, __func__, session_id,
         tracks.size());
     return INVALID_OPERATION;
   }
@@ -269,7 +269,7 @@ status_t RecorderImpl::StartSession(const uint32_t session_id) {
   }
 
   if (IsSessionStarted(session_id)) {
-    QMMF_INFO("%s:%s: Session Id is already started!", TAG, __func__,
+    QMMF_INFO("%s:%s: Session Id %d is already started!", TAG, __func__,
               session_id);
     return NO_ERROR;
   }
@@ -705,7 +705,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t session_id,
   result = audio_source_->DeleteTrackSource(track_id);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed: %d", TAG,
-               __func__, result);
+               __func__, track_id, result);
     return result;
   }
 
@@ -849,7 +849,8 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t session_id,
   assert(camera_source_ != NULL);
   auto ret = camera_source_->DeleteTrackSource(track_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed!", TAG, __func__);
+    QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSource failed!", TAG, __func__,
+               track_id);
     return ret;
   }
 
@@ -952,7 +953,7 @@ status_t RecorderImpl::SetAudioTrackParam(const uint32_t session_id,
                                           CodecParamType type,
                                           void *param,
                                           size_t param_size) {
-
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
@@ -999,7 +1000,8 @@ status_t RecorderImpl::CaptureImage(const uint32_t camera_id,
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) CaptureImage failed!", TAG, __func__);
+    QMMF_ERROR("%s:%s: camera_id(%d) CaptureImage failed!", TAG, __func__,
+      camera_id);
     return ret;
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
@@ -1021,7 +1023,7 @@ status_t RecorderImpl::CancelCaptureImage() {
 }
 
 status_t RecorderImpl::ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                                const uint32_t buffer_id) {
+                                                const int32_t buffer_id) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);

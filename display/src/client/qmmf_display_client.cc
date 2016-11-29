@@ -69,7 +69,7 @@ DisplayClient::DisplayClient()
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s:%s Exit (0x%x)", TAG, __func__, this);
+  QMMF_INFO("%s:%s Exit (0x%p)", TAG, __func__, this);
 }
 
 DisplayClient::~DisplayClient()
@@ -106,7 +106,7 @@ DisplayClient::~DisplayClient()
     display_service_ = nullptr;
   }
 
-  QMMF_INFO("%s:%s Exit 0x%x", TAG, __func__, this);
+  QMMF_INFO("%s:%s Exit 0x%p", TAG, __func__, this);
 }
 
 status_t DisplayClient::Connect()
@@ -214,7 +214,7 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
 {
   QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
-  int32_t ret;
+  int32_t ret = 0;
 
   if (!checkServiceStatus()) {
     return NO_INIT;

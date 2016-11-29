@@ -86,7 +86,7 @@ class CameraSource {
   status_t CancelCaptureImage();
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
-                           const uint32_t buffer_id);
+                           const int32_t buffer_id);
 
   status_t CreateTrackSource(const uint32_t track_id,
                              const VideoTrackParams& param);

@@ -1373,7 +1373,6 @@ int32_t Camera3DeviceClient::LoadHWModule(const char *moduleId,
                                           const struct hw_module_t **pHmi) {
 
   int32_t status;
-  struct hw_module_t *hmi;
 
   if (NULL == moduleId) {
     QMMF_ERROR("%s: Invalid module id! \n", __func__);

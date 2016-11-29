@@ -38,6 +38,7 @@
 #include <media/msm_media_info.h>
 #include <string.h>
 #include <cstring>
+#include <string>
 #include <assert.h>
 #include <sys/time.h>
 #include <chrono>
@@ -58,9 +59,8 @@ namespace overlay {
 using namespace android;
 
 Overlay::Overlay()
-    :frame_width_(0), frame_height_(0),
-     target_c2dsurface_id_(-1), ion_device_(-1),
-     num_active_overlays_(0), id_(0) {
+    : target_c2dsurface_id_(-1), ion_device_(-1),
+     id_(0) {
 }
 
 Overlay::~Overlay() {
@@ -168,7 +168,7 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
   // StaticImage type overlayItem never be dirty as its contents are static,
   // all other items are dirty at Init time and will be marked as dirty whenever
   // their configuration changes at run time after first draw.
-  if((param.type == OverlayType::kStaticImage)) {
+  if(param.type == OverlayType::kStaticImage) {
     overlayItem->MarkDirty(false);
   } else {
     overlayItem->MarkDirty(true);
@@ -197,7 +197,7 @@ int32_t Overlay::DeleteOverlayItem(uint32_t overlay_id) {
   assert(overlayItem != nullptr);
   delete overlayItem;
   overlay_items_.erase(overlay_id);
-  OVDBG_INFO("%s: overlay_id(%d) & overlayItem(0x%x) Removed from map",
+  OVDBG_INFO("%s: overlay_id(%d) & overlayItem(0x%p) Removed from map",
       __func__, overlay_id, overlayItem);
 
   OVDBG_VERBOSE("%s:Exit ", __func__);
@@ -543,12 +543,14 @@ OverlayItem::~OverlayItem() {
     ion_fd_ = -1;
     OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
   }
+#if USE_CAIRO
   if (cr_surface_) {
     cairo_surface_destroy(cr_surface_);
   }
   if (cr_context_) {
     cairo_destroy(cr_context_);
   }
+#endif
 }
 
 void OverlayItem::MarkDirty(bool dirty) {
@@ -1133,11 +1135,7 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkImageInfo imageInfo;
-  memset(&imageInfo, 0x0, sizeof(imageInfo));
-  imageInfo.fWidth     = width_;
-  imageInfo.fHeight    = height_;
-  imageInfo.fColorType = kRGBA_8888_SkColorType;
-  imageInfo.fAlphaType = kPremul_SkAlphaType;
+  imageInfo.Make(width_, height_, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       width_ *4);
@@ -1334,7 +1332,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
       yText  = BOUNDING_BOX_BUF_HEIGHT * BOUNDING_BOX_TEXT_PERCENT/100;
       // Margin between text and bouding box rect.
       yText  = yText - BOUNDING_BOX_TEXT_MARGIN;
-      canvas_->drawText(text.c_str(), text.size(), 0, yText, paintText);
+      canvas_->drawText(text.c_str(), text.size(), xText, yText, paintText);
     }
     yBBox = yText > 0 ? BOUNDING_BOX_TEXT_SIZE : 0;
     int32_t boxWidth  = BOUNDING_BOX_BUF_WIDTH;
@@ -1438,11 +1436,8 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkImageInfo imageInfo;
-  memset(&imageInfo, 0x0, sizeof(imageInfo));
-  imageInfo.fWidth     = BOUNDING_BOX_BUF_WIDTH;
-  imageInfo.fHeight    = BOUNDING_BOX_BUF_HEIGHT;
-  imageInfo.fColorType = kRGBA_8888_SkColorType;
-  imageInfo.fAlphaType = kPremul_SkAlphaType;
+  imageInfo.Make(BOUNDING_BOX_BUF_WIDTH, BOUNDING_BOX_BUF_HEIGHT,
+                 kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       BOUNDING_BOX_BUF_WIDTH *4);
@@ -1598,7 +1593,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
   int32_t x = 0;
   int32_t y = TEXT_BUF_HEIGHT - TEXT_SIZE/2;
   SkString skText(text_.string(), text_.length());
-  canvas_->drawText(skText.c_str(), skText.size(), 0, y, paint);
+  canvas_->drawText(skText.c_str(), skText.size(), x, y, paint);
   canvas_->flush();
   usleep(1000);
 #endif
@@ -1704,11 +1699,7 @@ int32_t OverlayItemText::CreateSurface() {
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkImageInfo imageInfo;
-  memset(&imageInfo, 0x0, sizeof(imageInfo));
-  imageInfo.fWidth     = width_;
-  imageInfo.fHeight    = height_;
-  imageInfo.fColorType = kRGBA_8888_SkColorType;
-  imageInfo.fAlphaType = kPremul_SkAlphaType;
+  imageInfo.Make(width_, height_, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       width_ * 4);
@@ -1826,18 +1817,6 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkPaint paintBox;
-  SkImageInfo imageInfo;
-  memset(&imageInfo, 0x0, sizeof(imageInfo));
-  imageInfo.fWidth     = width_;
-  imageInfo.fHeight    = height_;
-  imageInfo.fColorType = kRGBA_8888_SkColorType;
-  imageInfo.fAlphaType = kPremul_SkAlphaType;
-
-  canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr, width_ *4);
-  if(!canvas_) {
-    OVDBG_ERROR("%s: Skia Creation failed!!", __func__);
-    goto ERROR;
-  }
 
 #ifndef DEBUG_BACKGROUND_SURFACE
   canvas_->clear(SK_AlphaOPAQUE);
@@ -1845,7 +1824,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   canvas_->clear(SK_ColorDKGRAY);
 #endif
 
-  paintBox.setColor(color);
+  paintBox.setColor(mask_color_);
   paintBox.setStyle(SkPaint::kFill_Style);
   //For blurring effect
   paintBox.setMaskFilter(SkBlurMaskFilter::Create(kNormal_SkBlurStyle,5.0f, 0));
@@ -1935,11 +1914,8 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkImageInfo imageInfo;
-  memset(&imageInfo, 0x0, sizeof(imageInfo));
-  imageInfo.fWidth     = PMASK_BOX_BUF_WIDTH;
-  imageInfo.fHeight    = PMASK_BOX_BUF_HEIGHT;
-  imageInfo.fColorType = kRGBA_8888_SkColorType;
-  imageInfo.fAlphaType = kPremul_SkAlphaType;
+  imageInfo.Make(PMASK_BOX_BUF_WIDTH, PMASK_BOX_BUF_HEIGHT,
+                 kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       PMASK_BOX_BUF_WIDTH *4);

@@ -45,7 +45,7 @@ typedef struct TrackBuffer {
     void *data;
     size_t size;
     size_t filled_size;
-    int64_t time_stamp;
+    uint64_t time_stamp;
     uint32_t flag;
     uint32_t buf_id;
 } TrackBuffer;

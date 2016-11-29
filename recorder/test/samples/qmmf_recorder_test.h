@@ -359,6 +359,7 @@ public:
         IR_MODE_CMD                       = 'I',
         EXIT_CMD                          = 'X',
         CHOOSE_CAMERA_CMD                 = 'C',
+        NEXT_CMD                          = '\n',
         INVALID_CMD                       = '0'
     };
 
@@ -374,7 +375,7 @@ public:
 
     ~CmdMenu() {};
 
-    Command GetCommand();
+    Command GetCommand(bool& is_print_menu);
 
     void PrintMenu();
 
