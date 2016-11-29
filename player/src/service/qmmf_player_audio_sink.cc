@@ -165,7 +165,8 @@ status_t AudioSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 AudioTrackSink::AudioTrackSink()
-    : end_point_(nullptr), stopplayback_(false), decoded_frame_number_(0) {
+    : end_point_(nullptr), stopplayback_(false),
+      paused_(false), decoded_frame_number_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
 #ifdef DUMP_PCM_DATA
@@ -349,6 +350,34 @@ status_t AudioTrackSink::StopSink() {
   return ret;
 }
 
+status_t AudioTrackSink::PauseSink() {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  paused_ = true;
+  auto ret = end_point_->Pause();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) PauseSink failed!", TAG, __func__,
+       TrackId());
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t AudioTrackSink::ResumeSink() {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  paused_ = false;
+  auto ret = end_point_->Resume();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) ResumeSink failed!", TAG, __func__,
+       TrackId());
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
 status_t AudioTrackSink::DeleteSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
@@ -426,7 +455,7 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 #endif
 
   if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
-      !(codec_buffer.size))) {
+      !(codec_buffer.size) || paused_)) {
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
         codec_buffer.timestamp);
@@ -462,7 +491,7 @@ status_t AudioTrackSink::NotifyPortStatus(CodecPortStatus status) {
 int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  int32_t result;
+  int32_t result = 0;
 
   std::vector<AudioBuffer> sinkbuffers;
 
@@ -484,7 +513,8 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   QMMF_VERBOSE("%s:%s: sink buffer size = %d", TAG, __func__,
       sinkbuffers[0].size);
 
-  result = end_point_->SendBuffers(sinkbuffers);
+  if(!paused_)
+    result = end_point_->SendBuffers(sinkbuffers);
 
   assert(result == 0);
 

@@ -83,6 +83,16 @@ void PlayerTest::playercb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s Player is in %s state", TAG,__func__,
       statemap_[(uint32_t)ev->state]);
 
+  std::map<uint32_t, const char*>::iterator it;
+
+  it = statemap_.find((uint32_t)ev->state);
+  if (it != statemap_.end()) {
+    current_state_ = statemap_[(uint32_t)ev->state];
+    TEST_INFO("%s:%s current_state_ is %s", TAG, __func__, current_state_);
+  } else {
+    TEST_ERROR("%s:%s key %u not found", TAG,__func__, (uint32_t)ev->state);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -103,7 +113,8 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
-      audioLastFrame_(false), videoLastFrame_(false) {
+      audioLastFrame_(false), videoLastFrame_(false),
+      paused_(false), current_state_("Idle") {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -127,7 +138,8 @@ PlayerTest::PlayerTest()
 PlayerTest::PlayerTest(char* filename_)
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
-      audioLastFrame_(false), videoLastFrame_(false) {
+      audioLastFrame_(false), videoLastFrame_(false),
+      paused_(false), current_state_("Idle") {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -312,6 +324,7 @@ int32_t PlayerTest::Start() {
 
   ret = player_.Start();
   stopped_ = false;
+  paused_ = false;
   stop_playing_ = false;
 
 #ifdef AUDIO
@@ -340,6 +353,10 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
 
   while (!(playertest->stopped_ && playertest->audioLastFrame_))
   {
+    if (playertest->paused_ ||
+        (strcmp(playertest->current_state_,"Paused") == 0))
+      continue;
+
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
     uint32_t val = 1;
@@ -448,6 +465,10 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
   while (!(playertest->stopped_ && playertest->videoLastFrame_))
   {
+    if (playertest->paused_ ||
+        (strcmp(playertest->current_state_,"Paused") == 0))
+      continue;
+
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
     uint32_t val = 1;
@@ -583,9 +604,9 @@ int32_t PlayerTest::StopPlaying() {
   return ret;
 }
 
-
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  paused_ = true;
   auto ret = player_.Pause();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -593,6 +614,7 @@ int32_t PlayerTest::Pause() {
 
 int32_t PlayerTest::Resume() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  paused_ = false;
   auto ret = player_.Resume();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;

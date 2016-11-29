@@ -91,6 +91,10 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t StopSink();
 
+  status_t PauseSink();
+
+  status_t ResumeSink();
+
   status_t DeleteSink();
 
   void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
@@ -144,6 +148,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   Mutex                  wait_for_sink_queue_lock_;
   Condition              wait_for_sink_frame_;
   bool                   stopplayback_;
+  bool                   paused_;
   uint32_t               decoded_frame_number_;
 
   enum class AudioMessageType {

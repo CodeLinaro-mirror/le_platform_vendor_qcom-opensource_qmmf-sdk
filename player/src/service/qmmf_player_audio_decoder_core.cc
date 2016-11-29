@@ -660,10 +660,15 @@ status_t AudioTrackDecoder::StopDecoder(bool do_flush) {
 status_t AudioTrackDecoder::PauseDecoder() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
+  auto ret = audio_track_sink_->PauseSink();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) PauseSink failed!", TAG, __func__,
+        TrackId());
+    return ret;
+  }
+
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->PauseCodec();
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
+  ret = avcodec_->PauseCodec();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) PauseCodec failed!", TAG, __func__,
         TrackId());
@@ -677,10 +682,15 @@ status_t AudioTrackDecoder::PauseDecoder() {
 status_t AudioTrackDecoder::ResumeDecoder() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
+  auto ret = audio_track_sink_->ResumeSink();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) ResumeSink failed!", TAG, __func__,
+        TrackId());
+    return ret;
+  }
+
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->ResumeCodec();
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
+  ret = avcodec_->ResumeCodec();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) ResumeCodec failed!", TAG, __func__,
         TrackId());
