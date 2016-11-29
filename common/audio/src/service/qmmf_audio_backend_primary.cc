@@ -358,6 +358,9 @@ int32_t AudioBackendPrimary::Start() {
       break;
   }
 
+  while (!messages_.empty())
+    messages_.pop();
+
   thread_ = new thread(AudioBackendPrimary::StaticThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s: %s() unable to allocate thread", TAG, __func__);
@@ -407,7 +410,6 @@ int32_t AudioBackendPrimary::Stop(const bool flush) {
   thread_->join();
   delete thread_;
 
-  // clear the message queue of remaining messages
   while (!messages_.empty())
     messages_.pop();
 
@@ -499,12 +501,12 @@ int32_t AudioBackendPrimary::SendBuffers(const vector<AudioBuffer>& buffers) {
                  buffer.ToString().c_str());
 
   switch (state_) {
+    case AudioState::kIdle:
     case AudioState::kRunning:
       // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
-    case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
                  __func__, static_cast<int>(state_));
@@ -655,6 +657,7 @@ void AudioBackendPrimary::SourceThread() {
   bool paused = false;
 
   bool keep_running = true;
+  bool stop_received = false;
   while (keep_running) {
     // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
@@ -682,15 +685,18 @@ void AudioBackendPrimary::SourceThread() {
         case AudioMessageType::kMessageStop:
           QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
           paused = false;
-          keep_running = false;
+          stop_received = true;
           break;
 
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
           for (const AudioBuffer& buffer : message.buffers) {
-            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
-                         buffer.ToString().c_str());
+            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
+                         TAG, __func__, buffer.ToString().c_str(),
+                         buffers.size());
             buffers.push(buffer);
+            QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                         TAG, __func__, buffers.size());
           }
           break;
       }
@@ -700,10 +706,10 @@ void AudioBackendPrimary::SourceThread() {
     message_lock_.unlock();
 
     // process the next pending buffer
-    if (!buffers.empty() && !paused) {
+    if (!buffers.empty() && !paused && keep_running) {
       AudioBuffer& buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
-                   buffer.ToString().c_str());
+      QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
+                   TAG, __func__, buffer.ToString().c_str(), buffers.size());
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
       int result = hal_input_stream_->read(hal_input_stream_, buffer.data,
@@ -736,15 +742,18 @@ void AudioBackendPrimary::SourceThread() {
         QMMF_VERBOSE("%s: %s() generated timestamp[%lld] with adjust[%d]",
                      TAG, __func__, buffer.timestamp, atoi(adjust_string));
 
-        if (keep_running == false) {
+        if (stop_received) {
           QMMF_DEBUG("%s: %s() setting EOS flag", TAG, __func__);
           buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
+          keep_running = false;
         } else {
           buffer.flags = 0;
         }
 
         buffer_handler_(audio_handle_, buffer);
         buffers.pop();
+        QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                     TAG, __func__, buffers.size());
       }
     }
   }

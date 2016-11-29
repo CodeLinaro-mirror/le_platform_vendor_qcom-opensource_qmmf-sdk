@@ -198,6 +198,9 @@ status_t AudioRawTrackSource::StartTrack() {
     return ::android::FAILED_TRANSACTION;
   }
 
+  while (!messages_.empty())
+    messages_.pop();
+
   thread_ = new thread(AudioRawTrackSource::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s: %s() could not instantiate thread", TAG, __func__);
@@ -232,6 +235,9 @@ status_t AudioRawTrackSource::StopTrack() {
     delete thread_;
     thread_ = nullptr;
   }
+
+  while (!messages_.empty())
+    messages_.pop();
 
   return ::android::NO_ERROR;
 }
@@ -342,10 +348,6 @@ void AudioRawTrackSource::Thread() {
   queue<BnBuffer> bn_buffers;
   int32_t result;
 
-  // clear the message queue of expired messages
-  while (!messages_.empty())
-    messages_.pop();
-
   // send the initial list of buffers
   vector<AudioBuffer> initial_buffers;
   ion_.GetList(&initial_buffers);
@@ -392,16 +394,22 @@ void AudioRawTrackSource::Thread() {
 
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
-                       message.buffer.ToString().c_str());
+          QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
+                       TAG, __func__, message.buffer.ToString().c_str(),
+                       buffers.size());
           buffers.push(message.buffer);
+          QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                       TAG, __func__, buffers.size());
           break;
 
         case AudioMessageType::kMessageBnBuffer:
           QMMF_DEBUG("%s: %s-MessageBnBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s]", TAG, __func__,
-                       message.bn_buffer.ToString().c_str());
+          QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s] to queue[%u]",
+                       TAG, __func__, message.bn_buffer.ToString().c_str(),
+                       bn_buffers.size());
           bn_buffers.push(message.bn_buffer);
+          QMMF_VERBOSE("%s: %s() bn_buffers queue is now %u deep",
+                       TAG, __func__, bn_buffers.size());
           break;
       }
       messages_.pop();
@@ -411,8 +419,8 @@ void AudioRawTrackSource::Thread() {
     // process buffers from endpoint
     if (!buffers.empty() && !paused && keep_running) {
       AudioBuffer buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
-                   buffer.ToString().c_str());
+      QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
+                   TAG, __func__, buffer.ToString().c_str(), buffers.size());
 
       BnBuffer bn_buffer;
       ion_.Export(buffer, &bn_buffer);
@@ -431,13 +439,16 @@ void AudioRawTrackSource::Thread() {
         keep_running = false;
 
       buffers.pop();
+      QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                   TAG, __func__, buffers.size());
     }
 
     // process buffers from client
-    if (!bn_buffers.empty() && !paused && !stop_received) {
+    if (!bn_buffers.empty() && !paused && keep_running) {
       BnBuffer bn_buffer = bn_buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s]", TAG, __func__,
-                   bn_buffer.ToString().c_str());
+      QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s] from queue[%u]",
+                   TAG, __func__, bn_buffer.ToString().c_str(),
+                   bn_buffers.size());
 
       AudioBuffer buffer;
       ion_.Import(bn_buffer, &buffer);
@@ -455,6 +466,8 @@ void AudioRawTrackSource::Thread() {
       }
 
       bn_buffers.pop();
+      QMMF_VERBOSE("%s: %s() bn_buffers queue is now %u deep",
+                   TAG, __func__, bn_buffers.size());
     }
   }
 }
