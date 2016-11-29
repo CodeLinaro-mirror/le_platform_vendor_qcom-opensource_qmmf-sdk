@@ -190,6 +190,7 @@ class RecorderTest {
   int32_t ToggleVHDR();
   int32_t ToggleIR();
   int32_t ChooseCamera();
+  int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
@@ -359,6 +360,7 @@ public:
         IR_MODE_CMD                       = 'I',
         EXIT_CMD                          = 'X',
         CHOOSE_CAMERA_CMD                 = 'C',
+        SET_ANTIBANDING_MODE_CMD          = 'W',
         NEXT_CMD                          = '\n',
         INVALID_CMD                       = '0'
     };
