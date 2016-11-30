@@ -245,9 +245,16 @@ bool EncoderCore::isTrackValid(uint32_t track_id) {
 }
 
 TrackEncoder::TrackEncoder(int32_t ion_device)
-    : ion_device_(ion_device), eos_atoutput_(false) {
+    : ion_device_(ion_device),
+      eos_atoutput_(false) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+#ifdef DEBUG_TRACK_FPS
+  num_bytes_ = 0;
+  prevtv_ = {0, 0};
+  count_ = 0;
+#endif
 
   memset(&track_params_, 0x0, sizeof track_params_);
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -479,6 +486,27 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
       __func__, TrackId(), codec_buffer.data);
+
+#ifdef DEBUG_TRACK_FPS
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
+      (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
+
+  size_t size = codec_buffer.size;
+  num_bytes_ += size;
+
+  count_++;
+  if (time_diff >= FPS_TIME_INTERVAL) {
+      float framerate = (count_ * 1000000) / (float)time_diff;
+      uint32_t bitrate = (num_bytes_ * 8/count_) * framerate;
+      QMMF_INFO(" %s:%s: track_id(%d):fps: = %0.2f bitrate=%d", TAG, __func__,
+      TrackId(), framerate, bitrate);
+      prevtv_ = tv;
+      count_ = 0;
+      num_bytes_ = 0;
+  }
+#endif
 
 #ifdef DUMP_BITSTREAM
   DumpBitStream(codec_buffer);
