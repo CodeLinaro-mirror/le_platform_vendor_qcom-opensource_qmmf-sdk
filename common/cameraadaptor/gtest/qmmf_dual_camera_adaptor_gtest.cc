@@ -252,6 +252,24 @@ TEST_F(DualCamera3Gtest, DualPreview1080p) {
   ASSERT_FALSE(camera_error_);
 }
 
+TEST_F(DualCamera3Gtest, DualPreviewVGA) {
+  auto ret = StartStreaming(ctx2_, 640, 480);
+  ASSERT_EQ(0, ret);
+
+  ret = StartStreaming(ctx1_, 640, 480);
+  ASSERT_EQ(0, ret);
+
+  // Let streaming run for a while
+  sleep(5);
+
+  ret = StopStreamingAndClose(ctx2_);
+  ASSERT_EQ(0, ret);
+
+  ret = StopStreamingAndClose(ctx1_);
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here
