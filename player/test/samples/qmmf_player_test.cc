@@ -916,8 +916,11 @@ void CmdMenu::PrintMenu() {
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand() {
-  PrintMenu();
+CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
+  if (is_print_menu) {
+    PrintMenu();
+    is_print_menu = false;
+  }
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
@@ -929,6 +932,7 @@ int main(int argc,char *argv[]) {
 
   CmdMenu cmd_menu(test_context);
 
+  bool is_print_menu = true;
   int32_t exit_test = false;
 
   if (argc == 2) {
@@ -945,7 +949,7 @@ int main(int argc,char *argv[]) {
 
   while (!exit_test) {
 
-    CmdMenu::Command command = cmd_menu.GetCommand();
+    CmdMenu::Command command = cmd_menu.GetCommand(is_print_menu);
     switch (command.cmd) {
 
       case CmdMenu::CONNECT_CMD: {
@@ -978,6 +982,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_CMD: {
         test_context.Delete();
+      }
+      break;
+      case CmdMenu::NEXT_CMD: {
+        is_print_menu = true;
       }
       break;
       case CmdMenu::EXIT_CMD: {

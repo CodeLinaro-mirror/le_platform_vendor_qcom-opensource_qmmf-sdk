@@ -31,14 +31,15 @@
 
 #include <map>
 #include <string>
-#include <qmmf-sdk/qmmf_player.h>
-#include <qmmf-sdk/qmmf_player_params.h>
-#include "player/test/samples/qmmf_player_parser.h"
 #include <pthread.h>
+#include <fstream>
+#include <iostream>
+
+#include <qmmf-sdk/qmmf_player.h>
 #include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
-#include <fstream>
+
 
 
 using namespace qmmf;
@@ -132,8 +133,8 @@ class PlayerTest {
   CMM_MediaDemuxInt*              m_pDemux_;
   int                             fileCount_audio_;
   int                             fileCount_video_;
-  ofstream                        srcFile_audio_;
-  ofstream                        srcFile_video_;
+  std::ofstream                   srcFile_audio_;
+  std::ofstream                   srcFile_video_;
 
   uint32_t                        audio_track_id_;
   uint32_t                        video_track_id_;
@@ -160,6 +161,7 @@ class CmdMenu {
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
       EXIT_CMD                          = 'X',
+      NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'
   };
 
@@ -175,7 +177,7 @@ class CmdMenu {
 
   ~CmdMenu() {};
 
-  Command GetCommand();
+  Command GetCommand(bool& is_print_menu);
 
   void PrintMenu();
 
