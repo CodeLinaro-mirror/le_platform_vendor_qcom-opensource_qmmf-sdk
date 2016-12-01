@@ -435,15 +435,14 @@ int32_t AudioEndPointClient::SendBuffers(const vector<AudioBuffer>& buffers) {
   for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
-  lock_guard<mutex> lock(lock_);
 
   switch (state_) {
+    case AudioState::kIdle:
     case AudioState::kRunning:
       // proceed
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
-    case AudioState::kIdle:
     case AudioState::kPaused:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
                  __func__, static_cast<int>(state_));
