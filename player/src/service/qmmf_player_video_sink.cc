@@ -41,6 +41,8 @@ using ::qmmf::avcodec::AVCodec;
 using ::qmmf::avcodec::CodecBuffer;
 using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::PortreconfigData;
+using ::qmmf::avcodec::PortEventType;
 using ::std::make_shared;
 using ::std::shared_ptr;
 
@@ -162,7 +164,8 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 VideoTrackSink::VideoTrackSink()
-    : stopplayback_(false), paused_(false),
+    : current_width(0), current_height(0),
+      stopplayback_(false), paused_(false),
       decoded_frame_number_(0), display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kForward),
@@ -188,6 +191,12 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param) {
 
   track_params_.track_id = track_param.track_id;
   track_params_.params = track_param.params;
+  crop_data_.top = 0;
+  crop_data_.left = 0;
+  crop_data_.width = track_param.params.width;
+  crop_data_.height = track_param.params.height;
+  current_width = track_param.params.width;
+  current_height = track_param.params.height;
 
   auto ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
   if (ret != 0) {
@@ -256,6 +265,8 @@ status_t VideoTrackSink::DeleteSink() {
     return ret;
   }
 
+  video_track_decoder_.reset();
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -279,6 +290,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   output_buffer_list_ = list;
   output_free_buffer_queue_.Clear();
   output_occupy_buffer_queue_.Clear();
+  buf_info_map.clear();
 
   //decoded buffer queue
   for (auto& iter : output_buffer_list_) {
@@ -300,6 +312,10 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 
+void VideoTrackSink::PassTrackDecoder(const shared_ptr<VideoTrackDecoder>& video_track_decoder) {
+  video_track_decoder_ = video_track_decoder;
+}
+
 status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
                                    void* client_data) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
@@ -315,6 +331,7 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   CodecBuffer iter = *output_free_buffer_queue_.Begin();
   codec_buffer.fd = (iter).fd;
   codec_buffer.data = (iter).pointer;
+  codec_buffer.capacity = (iter).frame_length;
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
     Mutex::Autolock lock(queue_lock_);
@@ -358,16 +375,14 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       return NO_ERROR;
     } else {
 
-      if (prev_time_ != 0) {
-        QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
-            (float)((current_time_ - prev_time_)/(float)1000));
-        usleep(current_time_ - prev_time_);
-      }
-
       ret = PushFrameToDisplay(codec_buffer);
       if (ret != 0) {
         QMMF_ERROR("%s:%s PushFrameToDisplay Failed!!", TAG, __func__);
       }
+
+      QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
+          (float)((current_time_ - prev_time_)/(float)1000));
+      usleep(current_time_ - prev_time_);
 
       ++displayed_frames_;
       QMMF_DEBUG("%s:%s: track_id(%d) displayed video frame number %d",
@@ -426,10 +441,41 @@ status_t VideoTrackSink::SkipFrame() {
   return NO_ERROR;
 }
 
-status_t VideoTrackSink::NotifyPortStatus(CodecPortStatus status) {
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
+                                         void* event_data) {
+  QMMF_INFO("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  if (event_type == PortEventType::kPortSettingsChanged) {
+    status_t ret = 0;
+    ret = video_track_decoder_->ReconfigOutputPort(event_data);
+    assert(ret == 0);
+    return ret;
+  }
+  QMMF_INFO("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return 0;
+}
 
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+status_t VideoTrackSink::UpdateCropParameters(void* arg) {
+  QMMF_INFO("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  ::qmmf::avcodec::PortreconfigData *reconfig_data =
+      static_cast<::qmmf::avcodec::PortreconfigData*>(arg);
+  surface_config.width = current_width =
+      (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).width;
+  surface_config.height = current_height =
+      (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).height;
+  crop_data_ =
+      static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect);
+
+  switch (reconfig_data->reconfig_type) {
+    case ::qmmf::avcodec::PortreconfigData::PortReconfigType::kBufferRequirementsChanged:
+      wait_for_frame_.signal();
+      break;
+    case ::qmmf::avcodec::PortreconfigData::PortReconfigType::kCropParametersChanged:
+      break;
+    default:
+      QMMF_ERROR("%s:%s Unknown PortReconfigType", TAG, __func__);
+      return -1;
+  }
+  QMMF_INFO("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -467,10 +513,15 @@ status_t VideoTrackSink::CreateDisplay(
   }
 
   memset(&surface_config, 0x0, sizeof surface_config);
+  if (track_param.params.width > 3000 && track_param.params.height > 2000) {
+    surface_config.width = 2560;
+    surface_config.height = 1440;
+  } else {
+    surface_config.width = track_param.params.width;
+    surface_config.height = track_param.params.height;
+  }
 
-  surface_config.width = track_param.params.width;
-  surface_config.height = track_param.params.height;
-  surface_config.format = SurfaceFormat::kFormatYCbCr420SPVenusUbwc;
+  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
   surface_config.buffer_count = track_param.params.num_buffers;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
@@ -481,11 +532,16 @@ status_t VideoTrackSink::CreateDisplay(
     return res;
   }
   display_started_ = 1;
+   if (track_param.params.width > 3000 && track_param.params.height > 2000) {
+    surface_param_.src_rect = { 0.0, 0.0, (float)2560,
+        (float)1440 };
+  } else {
+    surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
+        (float)track_param.params.height };
+  }
 
-  surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
-  surface_param_.dst_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
+  surface_param_.dst_rect = { 0.0, 0.0, 1920,
+      1080 };
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
@@ -550,26 +606,35 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
    if (display_started_) {
      surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
      surface_buffer_.buf_id =0;
-     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SPVenusUbwc;
+     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
      surface_buffer_.plane_info[0].stride = ALIGNED_WIDTH(surface_config.width);
      surface_buffer_.plane_info[0].size = codec_buffer.size;
      surface_buffer_.plane_info[0].width = surface_config.width;
      surface_buffer_.plane_info[0].height = surface_config.height;
      surface_buffer_.plane_info[0].offset = codec_buffer.offset;
      surface_buffer_.plane_info[0].buf = (void*)vaddr;
+     surface_param_.src_rect = { (float)crop_data_.left,
+                                 (float)crop_data_.top,
+                                 (float)crop_data_.width + (float)crop_data_.left,
+                                 (float)crop_data_.height + (float)crop_data_.top};
 
-     auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
+    QMMF_DEBUG("%s:%s CropData Used for Display L(%u) T(%u) R(%u) B(%u)"
+        " surface_config.width(%u) surface_config.height(%d)", TAG, __func__,
+        crop_data_.left, crop_data_.top, crop_data_.width, crop_data_.height,
+        surface_config.width, surface_config.height);
+    auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
          surface_param_);
-     if(ret != 0) {
-       QMMF_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
-       return ret;
-     }
 
-     ret = display_->DequeueSurfaceBuffer( surface_id_, surface_buffer_);
-     if(ret != 0) {
-       QMMF_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
+    if(ret != 0) {
+      QMMF_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
+      return ret;
+    }
+
+    ret = display_->DequeueSurfaceBuffer( surface_id_, surface_buffer_);
+    if(ret != 0) {
+      QMMF_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
        return ret;
-     }
+    }
    }
 
    return NO_ERROR;
@@ -578,14 +643,10 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 #ifdef DUMP_YUV_FRAMES
 void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  /*if(eos_atoutput_) {
-    return;
-  }*/
 
   if (file_fd_ > 0) {
-    ssize_t exp_size = (ssize_t) codec_buffer.size;
-    QMMF_INFO("%s:%s Got decoded buffer of size(%d)", TAG, __func__,
-        codec_buffer.size);
+    QMMF_DEBUG("%s:%s Got decoded buffer of capacity(%d)", TAG, __func__,
+        codec_buffer.capacity);
 
     BufInfo bufinfo;
     memset(&bufinfo, 0x0, sizeof bufinfo);
@@ -596,11 +657,11 @@ void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
     uint32_t bytes_written;
 
     uint8_t  *pSrc = vaddr;
-    uint32_t size = (track_params_.params.height*track_params_.params.width*3)/2;
-
-    bytes_written  = write(file_fd_, pSrc, size);
-    if(bytes_written != size) {
-      QMMF_ERROR("Bytes written != %u and written = %u", size, bytes_written);
+    bytes_written  = write(file_fd_, pSrc,
+        codec_buffer.capacity);
+    if(bytes_written != codec_buffer.capacity) {
+      QMMF_ERROR("Bytes written != %d and written = %u",codec_buffer.capacity,
+          bytes_written);
     }
   }
 

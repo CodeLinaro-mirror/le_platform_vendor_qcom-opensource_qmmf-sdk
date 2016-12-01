@@ -64,7 +64,8 @@ class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
                      void* client_data) override;
   status_t ReturnBuffer(BufferDescriptor& codec_buffer,
                         void* client_data) override;
-  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
+  status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                           void* event_data) override;
 
   // handle returned buffers from client
   status_t OnBufferReturnFromClient(const std::vector<BnBuffer> &buffers);

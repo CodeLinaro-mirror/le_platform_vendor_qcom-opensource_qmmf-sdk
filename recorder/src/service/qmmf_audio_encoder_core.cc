@@ -50,6 +50,8 @@ namespace recorder {
 using ::qmmf::avcodec::AVCodec;
 using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::PortEventType;
+using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::kPortIndexInput;
 using ::qmmf::avcodec::kPortIndexOutput;
 using ::std::chrono::seconds;
@@ -547,7 +549,8 @@ status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   return ::android::NO_ERROR;
 }
 
-status_t AudioTrackEncoder::NotifyPortStatus(CodecPortStatus status)
+status_t AudioTrackEncoder::NotifyPortEvent(PortEventType event_type,
+                                            void* event_data)
 {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);

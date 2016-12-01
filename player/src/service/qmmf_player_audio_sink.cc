@@ -44,6 +44,8 @@ namespace player {
 
 using ::qmmf::avcodec::CodecBuffer;
 using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::PortreconfigData;
+using ::qmmf::avcodec::PortEventType;
 using ::std::make_shared;
 using ::std::shared_ptr;
 
@@ -482,7 +484,8 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   return ret;
 }
 
-status_t AudioTrackSink::NotifyPortStatus(CodecPortStatus status) {
+status_t AudioTrackSink::NotifyPortEvent(PortEventType event_type,
+                                         void* event_data) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return 0;

@@ -307,8 +307,8 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
     }
 
     video_track_param_.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
-    video_track_param_.height      = 1088; //TODO m_sTrackInfo_.sVideo.ulHeight;
-    video_track_param_.width       = 1920; //TODO m_sTrackInfo_.sVideo.ulWidth;
+    video_track_param_.height      = m_sTrackInfo_.sVideo.ulHeight;
+    video_track_param_.width       = m_sTrackInfo_.sVideo.ulWidth;
     video_track_param_.bitrate     = m_sTrackInfo_.sVideo.ulBitRate;
     video_track_param_.num_buffers = 1;
     video_track_param_.out_device  = VideoOutSubtype::kHDMI;

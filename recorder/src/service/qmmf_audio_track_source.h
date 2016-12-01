@@ -132,7 +132,8 @@ class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
   // methods of IInputCodecSource
   status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
   status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
-  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
+  status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                           void* event_data) override;
 
   status_t GetBufferSize(int32_t* buffer_size);
   status_t SetBufferSize(const int32_t buffer_size);

@@ -49,6 +49,8 @@ using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::kPortIndexInput;
 using ::qmmf::avcodec::kPortIndexOutput;
 using ::qmmf::avcodec::kPortALL;
+using ::qmmf::avcodec::PortreconfigData;
+using ::qmmf::avcodec::PortEventType;
 using ::std::make_shared;
 using ::std::shared_ptr;
 using ::std::vector;
@@ -399,7 +401,7 @@ bool VideoDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Video Decoding ********************************/
 
 VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
-    : ion_device_(ion_device) {
+    : output_buffer_count_(0), output_buffer_size_(0), ion_device_(ion_device) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
@@ -472,7 +474,6 @@ status_t VideoTrackDecoder::ConfigureTrackDecoder(
   CodecParam codec_param;
   memset(&codec_param, 0x0, sizeof(codec_param));
   codec_param.video_dec_param = track_params.params;
-
   ret = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeVideoDecAVC,
                                  codec_param);
   assert(ret == NO_ERROR);
@@ -528,7 +529,7 @@ status_t VideoTrackDecoder::PreparePipeline(
   for (auto& iter: output_buffer_list_) {
     BufferDescriptor temp_buffer;
     temp_buffer.fd = iter.fd;
-    temp_buffer.size = iter.frame_length;
+    temp_buffer.capacity = iter.frame_length;
     temp_out.push_back(temp_buffer);
   }
   avcodec_->RegisterOutputBuffers(temp_out);
@@ -547,6 +548,8 @@ status_t VideoTrackDecoder::PreparePipeline(
   }
 
   video_track_sink->AddBufferList(output_buffer_list_);
+
+  video_track_sink->PassTrackDecoder(video_track_decoder);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
@@ -875,8 +878,80 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 }
 
 // This method is used by AVCodec to notify stop
-status_t VideoTrackDecoder::NotifyPortStatus(CodecPortStatus status) {
+status_t VideoTrackDecoder::NotifyPortEvent(PortEventType event_type,
+                                            void* event_data) {
   return 0;
+}
+
+status_t VideoTrackDecoder::ReconfigOutputPort(void* arg) {
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  status_t ret = 0;
+  PortreconfigData* reconfig_data = static_cast<PortreconfigData*>(arg);
+  ::std::vector<BufferDescriptor> temp_out;
+  switch (reconfig_data->reconfig_type) {
+    case PortreconfigData::PortReconfigType::kCropParametersChanged:
+      ret = video_track_sink_->UpdateCropParameters(
+                static_cast<void*>(reconfig_data));
+      if (ret != 0) {
+        QMMF_ERROR("%s:%s Failed to Update CropParameters", TAG, __func__);
+        return ret;
+      }
+    break;
+    case PortreconfigData::PortReconfigType::kBufferRequirementsChanged:
+      QMMF_INFO("%s:%s Releasing output_buffer_list_", TAG, __func__);
+      ret = ReleaseOutputBuffers();
+      if (ret != 0) {
+        QMMF_ERROR("%s:%s Buffer Release Failed", TAG, __func__);
+        return ret;
+      }
+      QMMF_INFO("%s:%s Allocating New set of Buffers", TAG, __func__);
+      AllocOutputPortBufs();
+      for (auto& iter: output_buffer_list_) {
+        BufferDescriptor temp_buffer;
+        temp_buffer.fd = iter.fd;
+        temp_buffer.capacity = iter.frame_length;
+        temp_out.push_back(temp_buffer);
+      }
+      ret = avcodec_->RegisterOutputBuffers(temp_out);
+      if (ret != 0) {
+        QMMF_ERROR("%s:%s Buffer Registration Failed", TAG, __func__);
+        return ret;
+      }
+      video_track_sink_->AddBufferList(output_buffer_list_);
+      ret = video_track_sink_->UpdateCropParameters(static_cast<void*>(reconfig_data));
+      if (ret != 0) {
+        QMMF_ERROR("%s:%s Failed to Update CropParameters", TAG, __func__);
+        return ret;
+      }
+    break;
+    default:
+      QMMF_ERROR("%s:%s Unknown PortReconfigType", TAG, __func__);
+      assert(0);
+  }
+  return ret;
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+}
+
+status_t VideoTrackDecoder::ReleaseOutputBuffers() {
+
+  status_t ret = 0;
+
+  for(auto& iter : output_buffer_list_) {
+    if((iter).pointer) {
+      munmap((iter).pointer, (iter).frame_length);
+      (iter).pointer = NULL;
+    }
+    if((iter).fd) {
+      QMMF_INFO("%s:%s track_id(%d) (iter).fd =%d Free", TAG, __func__,
+          TrackId(), (iter).fd);
+      ioctl(ion_device_, ION_IOC_FREE, &((iter).handle_data.handle));
+      close((iter).fd);
+      (iter).fd = 0;
+    }
+  }
+
+  output_buffer_list_.clear();
+  return ret;
 }
 
 status_t VideoTrackDecoder::AllocInputPortBufs() {
@@ -985,6 +1060,9 @@ status_t VideoTrackDecoder::AllocOutputPortBufs()
   QMMF_DEBUG("%s:%s: BufferRequirements count(%d) size(%d)", TAG, __func__,
       count, size);
   assert(ret == NO_ERROR);
+
+  output_buffer_count_ = count;
+  output_buffer_size_ = size;
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;

@@ -52,8 +52,34 @@ typedef int32_t status_t;
 
 static const uint32_t kPortIndexInput = 0;
 static const uint32_t kPortIndexOutput = 1;
-static const uint32_t kPortALL = 0xFFFF;
-#define PORT_NAME(port) (port == kPortIndexInput ? "IN_PORT" : "OUT_PORT")
+static const uint32_t kPortALL = 0xFFFFFFFF;
+#define PORT_NAME(port)                       \
+  (port == kPortIndexInput ? "IN_PORT" :      \
+  (port == kPortIndexOutput ? "OUT_PORT" :    \
+  "ALL_PORT"))
+
+typedef struct PortreconfigData {
+
+  enum class PortReconfigType {
+    kCropParametersChanged,
+    kBufferRequirementsChanged,
+  }reconfig_type;
+
+  typedef struct CropData{
+    uint32_t left;
+    uint32_t top;
+    uint32_t width;
+    uint32_t height;
+  }CropData;
+  CropData rect;
+
+  typedef struct BufferRequirements {
+    uint32_t buf_count;
+    uint32_t buf_size;
+  }BufferRequirements;
+  BufferRequirements buf_reqs;
+
+}PortreconfigData;
 
 // AVCodec will notify input port status to Codec source
 enum class CodecPortStatus {
@@ -62,6 +88,13 @@ enum class CodecPortStatus {
   kPortStop,
   // notify when codec returns all buffers to track source
   kPortIdle,
+};
+
+enum class PortEventType {
+  // AVcodec will notify port status
+  kPortStatus,
+  // notify when there is a Port Reconfig Event
+  kPortSettingsChanged,
 };
 
 union CodecParam {
