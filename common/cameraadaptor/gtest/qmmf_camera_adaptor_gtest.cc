@@ -555,10 +555,14 @@ int32_t Camera3Gtest::StoreBuffer(String8 extension, uint64_t &idx,
         return ret;
       }
 
-      uint64_t size =
-          calcSize(mappedBuffer, buffer.info.plane_info[0].width,
+      uint64_t size;
+      if (BufferFormat::kNV12UBWC == buffer.info.format) {
+        size = buffer.size;
+      } else {
+        size = calcSize(mappedBuffer, buffer.info.plane_info[0].width,
                    buffer.info.plane_info[0].height,
                    buffer.info.plane_info[0].stride);
+      }
 
       if (size != fwrite(mappedBuffer, sizeof(uint8_t), size, f)) {
         ret = ferror(f);

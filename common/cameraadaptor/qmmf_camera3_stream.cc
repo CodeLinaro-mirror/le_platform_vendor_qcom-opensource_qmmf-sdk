@@ -468,8 +468,19 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
-    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12;
+      info.num_planes = 2;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[1].width = width;
+      info.plane_info[1].height = height/2;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH/2;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
+      info.format = BufferFormat::kNV12UBWC;
       info.num_planes = 2;
       info.plane_info[0].width = width;
       info.plane_info[0].height = height;

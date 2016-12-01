@@ -403,6 +403,7 @@ struct PlaneInfo {
 
 enum class BufferFormat {
   kNV12,
+  kNV12UBWC,
   kNV21,
   kBLOB,
   kRAW10,
