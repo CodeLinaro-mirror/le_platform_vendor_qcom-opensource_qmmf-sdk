@@ -62,7 +62,7 @@ class VideoDecoderCore {
       std::vector<AVCodecBuffer>& buffers);
 
   status_t PrepareTrackPipeline(uint32_t track_id,
-      const ::std::shared_ptr<VideoTrackSink>& audio_track_sink);
+      const ::std::shared_ptr<VideoTrackSink>& video_track_sink);
 
   status_t StartTrackDecoder(uint32_t track_id);
 
@@ -78,6 +78,9 @@ class VideoDecoderCore {
                                       uint32_t param_size);
 
   status_t DeleteTrackDecoder(uint32_t track_id);
+
+  status_t SetTrackTrickMode(uint32_t track_id, TrickModeSpeed speed,
+                             TrickModeDirection direction);
 
  private:
 
@@ -108,8 +111,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
-  status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& audio_track_sink,
-                           const ::std::shared_ptr<VideoTrackDecoder>& audio_track_decoder);
+  status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& video_track_sink,
+                           const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
 
   status_t StartDecoder();
 
@@ -123,6 +126,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
                                  uint32_t param_size);
 
   status_t DeleteDecoder();
+
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;

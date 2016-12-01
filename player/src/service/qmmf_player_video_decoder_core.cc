@@ -361,6 +361,33 @@ status_t VideoDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
+status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
+                                             TrickModeSpeed speed,
+                                             TrickModeDirection direction) {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%d)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
+  assert(track_decoder.get() != NULL);
+
+  auto ret =  track_decoder->SetTrickMode(speed, direction);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s:%s: track_id(%d) SetTrackTrickMode failed!", TAG, __func__,
+     track_id);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: track_id(%d) SetTrackTrickMode Successful!", TAG,
+     __func__, track_id);
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 bool VideoDecoderCore::isTrackValid(uint32_t track_id) {
   QMMF_INFO("%s: Number of Tracks exist = %d",__func__,
       video_track_decoders_.size());
@@ -750,6 +777,23 @@ status_t VideoTrackDecoder::DeleteDecoder()
   }
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t VideoTrackDecoder::SetTrickMode(TrickModeSpeed speed,
+                                         TrickModeDirection direction) {
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+
+  auto ret = video_track_sink_->SetTrickMode(speed, direction);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) SetTrickMode failed!", TAG, __func__,
+        TrackId());
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
