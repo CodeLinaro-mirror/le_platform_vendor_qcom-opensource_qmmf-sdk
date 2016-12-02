@@ -305,6 +305,50 @@ int32_t RecorderTest::ChooseCamera() {
   return 0;
 }
 
+int32_t RecorderTest::SetAntibandingMode() {
+
+  int input;
+  uint8_t mode;
+  CameraMetadata meta;
+
+  printf("\n");
+  printf("****** Antibanding mode *******\n" );
+  printf("  1. Off\n" );
+  printf("  2. 50Hz\n" );
+  printf("  3. 60Hz\n" );
+  printf("  4. Auto\n" );
+  printf("  0. exit\n");
+  scanf("%d", &input);
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+
+  switch(input) {
+    case 1:
+      mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+      break;
+    case 2:
+      mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ;
+      break;
+    case 3:
+      mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ;
+      break;
+    case 4:
+      mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+      break;
+    default:
+      return 0;
+      break;
+  }
+
+  meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &mode, 1);
+  status = recorder_.SetCameraParam(camera_id_, meta);
+  if (NO_ERROR != status) {
+    ALOGE("%s:%s Failed to apply: ANDROID_CONTROL_AE_ANTIBANDING_MODE\n",TAG, __func__);
+    return status;
+  }
+
+  return 0;
+}
+
 std::string RecorderTest::GetCurrentIRMode() {
   CameraMetadata meta;
   std::string ret("Not available");
@@ -2892,6 +2936,7 @@ void CmdMenu::PrintMenu() {
     printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
            ctx_.GetCurrentIRMode().c_str());
   }
+  printf("   %c. Set Antibanding mode\n", CmdMenu::SET_ANTIBANDING_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -3087,6 +3132,10 @@ int main(int argc,char *argv[]) {
       }
       case CmdMenu::CHOOSE_CAMERA_CMD: {
         test_context.ChooseCamera();
+      }
+      break;
+      case CmdMenu::SET_ANTIBANDING_MODE_CMD: {
+        test_context.SetAntibandingMode();
       }
       break;
       case CmdMenu::EXIT_CMD: {
