@@ -60,6 +60,8 @@ class Camera3Gtest : public ::testing::Test {
   void SnapshotCb(int32_t streamId, StreamBuffer buffer);
   void Raw16Cb(int32_t streamId, StreamBuffer buffer);
   void StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer);
+  void StreamCbAecLock(int32_t streamId, StreamBuffer buffer);
+  void StreamCbAwbLock(int32_t streamId, StreamBuffer buffer);
   int32_t StoreBuffer(String8 extension, uint64_t &idx, StreamBuffer &buffer,
                       int32_t streamId, CalcSize &calcSize);
 
@@ -114,6 +116,9 @@ class Camera3Gtest : public ::testing::Test {
   pthread_mutex_t reprocess_lock_;
   pthread_cond_t reprocess_cond_;
   bool reprocess_flag_;
+
+  bool aec_lock_;
+  bool awb_lock_;
 
   static const int64_t PREPARE_TIMEOUT = 1e9;  // 1 sec.
   static const int64_t PROCESS_TIMEOUT = 10e9;  // 10 sec.

@@ -275,6 +275,10 @@ TrackEncoder::~TrackEncoder() {
   }
   output_buffer_list_.clear();
   output_ion_list_.clear();
+
+  if(avcodec_ != nullptr)
+    delete avcodec_;
+
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 

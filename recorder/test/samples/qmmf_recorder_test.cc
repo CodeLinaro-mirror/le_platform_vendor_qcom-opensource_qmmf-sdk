@@ -1770,11 +1770,13 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
         file_path.string());
     return -1;
   }
-  // JPEG
-  if (meta_data.format == BufferFormat::kBLOB) {
+  // JPEG, RAW & NV12UBWC
+  if ( (meta_data.format == BufferFormat::kBLOB)
+      || (meta_data.format == BufferFormat::kRAW10)
+      || (meta_data.format == BufferFormat::kNV12UBWC) ){
     written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
   } else {
-    // YUV & RAW
+    // YUV
     uint32_t offset = 0;
     for (uint32_t i = 0; i < meta_data.num_planes; ++i) {
       void* data = static_cast<void*>((static_cast<uint8_t*>(buffer.data)
@@ -1784,7 +1786,8 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
           meta_data.plane_info[i].height, file);
       TEST_DBG("%s:%s: plane(%d) written_len = %d", TAG, __func__, i,
           written_len);
-      offset += meta_data.plane_info[i].stride * meta_data.plane_info[i].scanline;
+      offset += meta_data.plane_info[i].stride
+                    * meta_data.plane_info[i].scanline;
     }
   }
   TEST_DBG("%s:%s: total written_len = %d", TAG, __func__, written_len);

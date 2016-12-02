@@ -877,13 +877,16 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       req.metadata.append(meta);
       request_list.push_back(req);
     }
-    auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                 &last_frame_mumber);
-    assert(ret >= 0);
-    if (streaming_request_id_ > -1) {
+    // Submit request with updated camera meta data only if streaming is
+    // started, if not then just update default meta data and leave it to
+    // startSession -> startStream to submit request.
+    if (streaming_request_id_ >= 0) {
+      auto ret = camera_device_->SubmitRequestList(request_list, true,
+                                                   &last_frame_mumber);
+      assert(ret >= 0);
       previous_streaming_request_id_ = streaming_request_id_;
+      streaming_request_id_ = ret;
     }
-    streaming_request_id_ = ret;
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
     return NO_INIT;

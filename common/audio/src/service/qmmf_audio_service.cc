@@ -256,7 +256,6 @@ int32_t AudioService::SendBuffers(const AudioHandle audio_handle,
   for (const AudioBuffer& buffer : buffers)
     QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                  buffer.ToString().c_str());
-  lock_guard<mutex> lock(lock_);
 
   int32_t result = audio_frontend_.SendBuffers(audio_handle, buffers);
   if (result < 0)

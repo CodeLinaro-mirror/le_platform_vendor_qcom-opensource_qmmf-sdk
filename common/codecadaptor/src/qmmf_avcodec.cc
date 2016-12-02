@@ -2363,6 +2363,8 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
       bitrate_params.nEncodeBitrate = *value;
       index = OMX_IndexConfigVideoBitrate;
       ret = omx_client_->SetConfig(index, &bitrate_params);
+      QMMF_INFO("%s: Setting Bitrate: %u ret: %d\n",
+                __func__, bitrate_params.nEncodeBitrate, ret);
       break;
     case CodecParamType::kFrameRateType:
       value = static_cast<uint32_t*>(codec_param);
