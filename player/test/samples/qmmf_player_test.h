@@ -52,8 +52,14 @@ enum class AudioFileType{
   kG711
 };
 
-enum class PlayerState
-{
+enum class TrackTypes{
+  kAudioVideo,
+  kAudioOnly,
+  kVideoOnly,
+  kInvalid,
+};
+
+enum class PlayerState {
   kError = 0,
   lIdle = 1 << 0,
   kPrepared = 1 << 1,
@@ -134,7 +140,7 @@ class PlayerTest {
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
 
-  Mutex                           state_lock;
+  Mutex                           state_lock_;
   Condition                       wait_for_state_change_;
 
   bool                            stopped_;
@@ -160,8 +166,9 @@ class PlayerTest {
   bool                            paused_;
 
   std::map<uint32_t, const char*> statemap_;
-  const char*                     PlayerTestEvent[2];
+  const char*                     player_test_event_[2];
   const char *                    current_state_;
+  TrackTypes                      track_type_;
 };
 
 class CmdMenu {

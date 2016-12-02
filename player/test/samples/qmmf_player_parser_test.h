@@ -112,7 +112,7 @@ class PlayerTest {
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
-  Mutex             state_lock;
+  Mutex             state_lock_;
   Condition         wait_for_state_change_;
 
   bool              stopped_;
