@@ -33,6 +33,8 @@
 #include <sstream>
 #include <string>
 
+#include <unistd.h>
+
 #include <binder/IBinder.h>
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
@@ -124,7 +126,7 @@ struct BnBuffer {
 
   void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
     if (readFileDescriptor)
-      ion_fd = parcel.readFileDescriptor();
+      ion_fd = dup(parcel.readFileDescriptor());
     else
       ion_fd = parcel.readUint32();
     size = parcel.readUint32();

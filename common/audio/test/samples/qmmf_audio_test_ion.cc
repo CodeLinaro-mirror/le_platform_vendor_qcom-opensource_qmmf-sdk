@@ -173,7 +173,7 @@ int32_t AudioTestIon::Deallocate() {
                  buffer_value.second.share_data.fd, errno, strerror(errno));
     buffer_value.second.data = nullptr;
 
-    // close fd for sharing
+    // close fd
     result = close(buffer_value.second.share_data.fd);
     if (result < 0) {
       QMMF_ERROR("%s: %s() error closing shared fd[%d]: %d[%s]", TAG, __func__,
@@ -189,9 +189,9 @@ int32_t AudioTestIon::Deallocate() {
                   __func__, errno, strerror(errno));
       QMMF_ERROR("%s: %s() [CRITICAL] ion memory has leaked", TAG, __func__);
     }
-
-    ion_buffer_map_.erase(buffer_value.first);
   }
+
+  ion_buffer_map_.clear();
   QMMF_INFO("%s: %s() deallocated all ion buffers", TAG, __func__);
 
   // close ion device

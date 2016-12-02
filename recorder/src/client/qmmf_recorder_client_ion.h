@@ -54,9 +54,10 @@ class RecorderClientIon
 
  private:
   struct RecorderClientIonBuffer {
-    void*   data;
+    void* data;
     int32_t capacity;
-    struct  ion_fd_data share_data;
+    struct ion_fd_data share_data;
+    struct ion_handle_data free_data;
 
     ::std::string ToString() const {
       ::std::stringstream stream;
@@ -64,7 +65,9 @@ class RecorderClientIon
       stream << "capacity[" << capacity << "] ";
       stream << "share_data[";
       stream << "handle[" << share_data.handle << "] ";
-      stream << "fd[" << share_data.fd << "]]";
+      stream << "fd[" << share_data.fd << "] ";
+      stream << "free_data[";
+      stream << "handle[" << free_data.handle << "]]";
       return stream.str();
     }
   };
