@@ -87,6 +87,7 @@ int32_t AudioIon::Associate(const AudioHandle audio_handle,
                audio_handle);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer->ToString().c_str());
+  int result;
 
   if (ion_device_ == -1) {
     ion_device_ = open(ion_filename, O_RDONLY);
@@ -103,7 +104,15 @@ int32_t AudioIon::Associate(const AudioHandle audio_handle,
     AudioIonBufferMap::iterator buffer_iterator =
         client_iterator->second.find(buffer->buffer_id);
     if (buffer_iterator != client_iterator->second.end()) {
+      result = close(buffer->ion_fd);
+      if (result < 0) {
+        QMMF_ERROR("%s: %s() error closing ion_fd[%d]: %d[%s]", TAG, __func__,
+                   buffer->ion_fd, errno, strerror(errno));
+        QMMF_ERROR("%s: %s() [CRITICAL] ion fd has leaked", TAG, __func__);
+      }
+
       buffer->data = buffer_iterator->second.data;
+      buffer->ion_fd = buffer_iterator->second.share_data.fd;
       return 0;
     }
   } else {
@@ -112,7 +121,6 @@ int32_t AudioIon::Associate(const AudioHandle audio_handle,
   }
 
   AudioIonBuffer ion_buffer;
-  int result;
 
   ion_buffer.capacity = buffer->capacity;
   ion_buffer.share_data.handle = 0;
@@ -124,6 +132,8 @@ int32_t AudioIon::Associate(const AudioHandle audio_handle,
                __func__, errno, strerror(errno));
     return errno;
   }
+
+  ion_buffer.free_data.handle = ion_buffer.share_data.handle;
 
   ion_buffer.data = mmap(NULL, ion_buffer.capacity, PROT_READ | PROT_WRITE,
                          MAP_SHARED, ion_buffer.share_data.fd, 0);
@@ -176,9 +186,24 @@ int32_t AudioIon::Release(const AudioHandle audio_handle) {
                  buffer_value.second.share_data.fd, errno, strerror(errno));
     buffer_value.second.data = nullptr;
 
+    result = close(buffer_value.second.share_data.fd);
+    if (result < 0) {
+      QMMF_ERROR("%s: %s() error closing shared fd[%d]: %d[%s]", TAG, __func__,
+                 buffer_value.second.share_data.fd, errno, strerror(errno));
+      return errno;
+    }
     buffer_value.second.share_data.fd = -1;
-    client_iterator->second.erase(buffer_value.first);
+
+    result = ioctl(ion_device_, ION_IOC_FREE, &buffer_value.second.free_data);
+    if (result < 0) {
+      QMMF_ERROR("%s: %s() ION_IOC_FREE ioctl command failed: %d[%s]", TAG,
+                  __func__, errno, strerror(errno));
+      QMMF_ERROR("%s: %s() [CRITICAL] ion memory has leaked", TAG, __func__);
+    }
   }
+
+  client_iterator->second.clear();
+  QMMF_INFO("%s: %s() released all ion buffers", TAG, __func__);
 
   client_map_.erase(client_iterator->first);
 
