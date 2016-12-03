@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define TAG "RecorderService"
 
@@ -37,7 +37,7 @@ namespace qmmf {
 namespace recorder {
 
 RecorderService::RecorderService()
-    : recorder_(NULL), connected_(false) {
+    : recorder_(nullptr), connected_(false) {
 
   QMMF_INFO("%s:%s: RecorderService Instantiated! ", TAG, __func__);
 }
@@ -444,6 +444,34 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_CREATE_MULTICAMERA: {
+        uint32_t vector_size = data.readUint32();
+        std::vector<uint32_t> camera_ids;
+        for (uint32_t i = 0; i < vector_size; ++i) {
+          camera_ids.push_back(data.readUint32());
+        }
+        uint32_t virtual_camera_id;
+        ret = CreateMultiCamera(camera_ids, &virtual_camera_id);
+        QMMF_INFO("%s:%s: virtual_camera_id=%d", TAG, __func__,
+            virtual_camera_id);
+        reply->writeUint32(virtual_camera_id);
+        reply->writeInt32(ret);
+      }
+      break;
+      case RECORDER_CONFIGURE_MULTICAMERA: {
+        uint32_t virtual_camera_id = data.readUint32();
+        uint32_t config_type = data.readUint32();
+        uint32_t param_size = data.readUint32();
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(param_size, &blob);
+        void* param = const_cast<void*>(blob.data());
+        ret = ConfigureMultiCamera(virtual_camera_id, config_type, param,
+                                   param_size);
+        blob.release();
+        reply->writeUint32(ret);
+        return NO_ERROR;
+      }
+      break;
       default: {
         QMMF_ERROR("RecorderService:%s:Method is not supported !",__func__);
         reply->writeInt32(-1);
@@ -469,7 +497,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   assert(ret == NO_ERROR);
 
   death_notifier_ = new DeathNotifier(this);
-  if (NULL == death_notifier_.get()) {
+  if (nullptr == death_notifier_.get()) {
       QMMF_ERROR("%s:%s: Unable to allocate death notifier!", TAG, __func__);
       return NO_MEMORY;
   }
@@ -523,7 +551,7 @@ status_t RecorderService::StartCamera(const uint32_t camera_id,
                TAG, __func__);
     return NO_INIT;
   }
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->StartCamera(camera_id, params, enable_result_cb);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Can't start Camera!!", TAG, __func__);
@@ -540,7 +568,7 @@ status_t RecorderService::StopCamera(const uint32_t camera_id) {
   if(!connected_) {
     return NO_INIT;
   }
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->StopCamera(camera_id);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Can't Stop Camera!!", TAG, __func__);
@@ -556,7 +584,7 @@ status_t RecorderService::CreateSession(uint32_t *session_id) {
   if (!connected_)
     return NO_INIT;
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   uint32_t id;
   auto ret = recorder_->CreateSession(&id);
   assert(ret == NO_ERROR);
@@ -572,7 +600,7 @@ status_t RecorderService::DeleteSession(const uint32_t session_id) {
   if (!connected_)
     return NO_INIT;
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteSession(session_id);
   assert(ret == NO_ERROR);
   QMMF_DEBUG("%s:%s: Exit ", TAG, __func__);
@@ -586,7 +614,7 @@ status_t RecorderService::StartSession(const uint32_t session_id) {
     return NO_INIT;
   QMMF_INFO("%s:%s: Session_id(%d) to be Start", TAG, __func__, session_id);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->StartSession(session_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StartSession failed!", TAG, __func__);
@@ -604,7 +632,7 @@ status_t RecorderService::StopSession(const uint32_t session_id,
   QMMF_INFO("%s:%s: Session_id(%d) to be Stop with flash=%d", TAG, __func__,
                                       session_id, do_flush);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->StopSession(session_id, do_flush);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StopSession failed!", TAG, __func__);
@@ -620,7 +648,7 @@ status_t RecorderService::PauseSession(const uint32_t session_id) {
     return NO_INIT;
   QMMF_INFO("%s:%s: Session_id(%d) to be Pause", TAG, __func__, session_id);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->PauseSession(session_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: PauseSession failed!", TAG, __func__);
@@ -636,7 +664,7 @@ status_t RecorderService::ResumeSession(const uint32_t session_id) {
     return NO_INIT;
   QMMF_INFO("%s:%s: Session_id(%d) to be Resume", TAG, __func__, session_id);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->ResumeSession(session_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: ResumeSession failed!", TAG, __func__);
@@ -653,7 +681,7 @@ status_t RecorderService::CreateAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
                param.ToString().c_str());
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
 
   auto ret = recorder_->CreateAudioTrack(session_id, track_id, param);
   if (ret != NO_ERROR) {
@@ -669,7 +697,7 @@ status_t RecorderService::CreateVideoTrack(const uint32_t session_id,
                                            const VideoTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->CreateVideoTrack(session_id, track_id, param);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: CreateVideoTrack failed!", TAG, __func__);
@@ -685,7 +713,7 @@ status_t RecorderService::DeleteAudioTrack(const uint32_t session_id,
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
 
   auto ret = recorder_->DeleteAudioTrack(session_id, track_id);
   if (ret != NO_ERROR) {
@@ -700,7 +728,7 @@ status_t RecorderService::DeleteVideoTrack(const uint32_t session_id,
                                            const uint32_t track_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteVideoTrack(session_id, track_id);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: DeleteVideoTrack failed!", TAG, __func__);
@@ -718,7 +746,7 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s: session_id(%u):track_id(%u)", TAG, __func__,
       session_id, track_id);
 
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->ReturnTrackBuffer(session_id, track_id, buffers);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: ReturnTrackBuffer failed!", TAG, __func__);
@@ -746,7 +774,7 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t session_id,
 
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->SetVideoTrackParam(session_id, track_id, type, param,
                                            param_size);
   if (ret != NO_ERROR) {
@@ -764,7 +792,7 @@ status_t RecorderService::CaptureImage(const uint32_t camera_id,
                                           &meta) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->CaptureImage(camera_id, param, num_images, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CaptureImage failed!", TAG, __func__);
@@ -798,7 +826,7 @@ status_t RecorderService::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                    const int32_t buffer_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->ReturnImageCaptureBuffer(camera_id, buffer_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: ReturnImageCaptureBuffer failed!", TAG, __func__);
@@ -812,7 +840,7 @@ status_t RecorderService::SetCameraParam(const uint32_t camera_id,
                                          const CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->SetCameraParam(camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: SetCameraParam failed!", TAG, __func__);
@@ -826,7 +854,7 @@ status_t RecorderService::GetCameraParam(const uint32_t camera_id,
                                          CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->GetCameraParam(camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: GetCameraParam failed!", TAG, __func__);
@@ -840,7 +868,7 @@ status_t RecorderService::GetDefaultCaptureParam(const uint32_t camera_id,
                                                  CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->GetDefaultCaptureParam(camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: GetDefaultCaptureParam failed!", TAG, __func__);
@@ -855,7 +883,7 @@ status_t RecorderService::CreateOverlayObject(const uint32_t track_id,
                                               uint32_t *overlay_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->CreateOverlayObject(track_id, param, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateOverlayObject failed!", TAG, __func__);
@@ -869,7 +897,7 @@ status_t RecorderService::DeleteOverlayObject(const uint32_t track_id,
                                               const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteOverlayObject(track_id, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteOverlayObject failed!", TAG, __func__);
@@ -884,7 +912,7 @@ status_t RecorderService::GetOverlayObjectParams(const uint32_t track_id,
                                                  OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->GetOverlayObjectParams(track_id, overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: GetOverlayObjectParams failed!", TAG, __func__);
@@ -899,7 +927,7 @@ status_t RecorderService::UpdateOverlayObjectParams(const uint32_t track_id,
                                                     OverlayParam *param) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->UpdateOverlayObjectParams(track_id, overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: UpdateOverlayObjectParams failed!", TAG, __func__);
@@ -913,7 +941,7 @@ status_t RecorderService::SetOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->SetOverlayObject(track_id, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: SetOverlayObject failed!", TAG, __func__);
@@ -927,10 +955,40 @@ status_t RecorderService::RemoveOverlayObject(const uint32_t track_id,
                                               const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
-  assert(recorder_ != NULL);
+  assert(recorder_ != nullptr);
   auto ret = recorder_->RemoveOverlayObject(track_id, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: RemoveOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderService::CreateMultiCamera(const std::vector<uint32_t>
+                                            camera_ids,
+                                            uint32_t *virtual_camera_id) {
+  QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->CreateMultiCamera(camera_ids, virtual_camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreateMultiCamera failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit ", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderService::ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                               const uint32_t type,
+                                               const void *param,
+                                               const uint32_t param_size) {
+  QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->ConfigureMultiCamera(virtual_camera_id, type, param,
+                                             param_size);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ConfigureMultiCamera failed!", TAG, __func__);
     return ret;
   }
   QMMF_DEBUG("%s:%s: Exit ", TAG, __func__);

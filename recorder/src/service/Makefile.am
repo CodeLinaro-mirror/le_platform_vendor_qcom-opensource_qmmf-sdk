@@ -4,6 +4,7 @@ source_files += qmmf_recorder_ion.cc
 source_files += qmmf_remote_cb.cc
 source_files += qmmf_camera_source.cc
 source_files += qmmf_camera_context.cc
+source_files += qmmf_multicamera_manager.cc
 source_files += qmmf_encoder_core.cc
 source_files += qmmf_audio_source.cc
 source_files += qmmf_audio_raw_track_source.cc
