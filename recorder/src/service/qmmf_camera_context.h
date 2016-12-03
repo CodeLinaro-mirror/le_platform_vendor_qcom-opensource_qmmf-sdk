@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,8 +35,8 @@
 #include <condition_variable>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/service/qmmf_recorder_common.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "recorder/src/service/qmmf_camera_interface.h"
 
 namespace qmmf {
 
@@ -61,43 +61,44 @@ class IBufferProducer;
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
 // to camera device stream.
-class CameraContext : public RefBase {
+class CameraContext : public CameraInterface {
  public:
   CameraContext();
 
   ~CameraContext();
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
-                      const ResultCb &cb = nullptr);
+                      const ResultCb &cb = nullptr) override;
 
-  status_t CloseCamera(const uint32_t camera_id);
+  status_t CloseCamera(const uint32_t camera_id) override;
 
   status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
-                        const SnapshotCb& cb);
+                        const SnapshotCb& cb) override;
 
   status_t CancelCaptureImage();
 
-  status_t CreateStream(const CameraStreamParam& param);
+  status_t CreateStream(const CameraStreamParam& param) override;
 
-  status_t DeleteStream(const uint32_t track_id);
+  status_t DeleteStream(const uint32_t track_id) override;
 
-  status_t StartStream(const uint32_t track_id, sp<IBufferConsumer>& consumer);
+  status_t StartStream(const uint32_t track_id,
+                       sp<IBufferConsumer>& consumer) override;
 
-  status_t StopStream(const uint32_t track_id);
+  status_t StopStream(const uint32_t track_id) override;
 
-  status_t SetCameraParam(const CameraMetadata &meta);
+  status_t SetCameraParam(const CameraMetadata &meta) override;
 
-  status_t GetCameraParam(CameraMetadata &meta);
+  status_t GetCameraParam(CameraMetadata &meta) override;
 
-  status_t GetDefaultCaptureParam(CameraMetadata &meta);
+  status_t GetDefaultCaptureParam(CameraMetadata &meta) override;
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
-                                    const int32_t buffer_id);
+                                    const int32_t buffer_id) override;
 
-  CameraStartParam& GetCameraStartParam() { return camera_start_params_; }
+  CameraStartParam& GetCameraStartParam() override;
 
-  Vector<int32_t>& GetSupportedFps() { return supported_fps_; }
+  Vector<int32_t>& GetSupportedFps() override;
 
  private:
 

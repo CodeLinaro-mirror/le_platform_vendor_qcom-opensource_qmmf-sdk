@@ -820,6 +820,15 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   return ret;
 }
 
+CameraStartParam& CameraContext::GetCameraStartParam() {
+
+  return camera_start_params_;
+}
+
+Vector<int32_t>& CameraContext::GetSupportedFps() {
+
+  return supported_fps_;
+}
 
 status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
@@ -2150,7 +2159,7 @@ void ZslPort::ReturnZSLInputBuffer(StreamBuffer& buffer) {
   if (buffer.handle == zsl_input_buffer_.buffer.handle) {
     assert (context_ != nullptr);
     QMMF_INFO("%s:%s buffer(%d) returned from reprocess!", TAG, __func__,
-      buffer.fd);
+        buffer.fd);
     auto ret = context_->ReturnStreamBuffer(camera_stream_id_,
                                             zsl_input_buffer_.buffer);
     if (NO_ERROR == ret) {

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -40,6 +40,7 @@
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
+#include "recorder/src/service/qmmf_multicamera_manager.h"
 
 namespace qmmf {
 
@@ -54,9 +55,9 @@ CameraSource* CameraSource::instance_ = nullptr;
 
 CameraSource* CameraSource::CreateCameraSource() {
 
-  if(!instance_) {
+  if (!instance_) {
     instance_ = new CameraSource;
-    if(!instance_) {
+    if (!instance_) {
       QMMF_ERROR("%s:%s: Can't Create CameraSource Instance", TAG, __func__);
       //return nullptr;
     }
@@ -66,7 +67,8 @@ CameraSource* CameraSource::CreateCameraSource() {
   return instance_;
 }
 
-CameraSource::CameraSource() {
+CameraSource::CameraSource()
+    : virtual_camera_id_(0) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -75,8 +77,8 @@ CameraSource::CameraSource() {
 CameraSource::~CameraSource() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  if(!camera_contexts_.isEmpty()) {
-    camera_contexts_.clear();
+  if (!camera_map_.isEmpty()) {
+    camera_map_.clear();
   }
   instance_ = nullptr;
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -87,33 +89,41 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
                                    const ResultCb &cb) {
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
-  if(camera_contexts_.indexOfKey(camera_id) >= 0) {
-    QMMF_ERROR("%s:%s: Camera Id(%u) is already open!", TAG, __func__,
-        camera_id);
-    return BAD_VALUE;
+
+  sp<CameraInterface> camera;
+  //TODO: Add some more logic to check whether it is virtual camera or not,
+  // in some corner cases it can conflict with single camera.
+  if (virtual_camera_id_ == camera_id) {
+    camera = camera_map_.valueAt(camera_id);
+    assert(camera.get() != nullptr);
+  } else {
+    if (camera_map_.indexOfKey(camera_id) >= 0) {
+      QMMF_ERROR("%s:%s: Camera Id(%u) is already open!", TAG, __func__,
+          camera_id);
+      return BAD_VALUE;
+    }
+    camera = new CameraContext();
+    if (!camera.get()) {
+      QMMF_ERROR("%s:%s: Can't Instantiate CameraDevice(%d)!!", TAG,
+          __func__, camera_id);
+      return NO_MEMORY;
+    }
   }
 
-  sp<CameraContext> camera_context;
-  camera_context = new CameraContext();
-  if(!camera_context.get()) {
-    QMMF_ERROR("%s:%s: Can't Instantiate CameraDevice(%d)!!", TAG,
-        __func__,camera_id);
-    return NO_MEMORY;
-  }
-  auto ret = camera_context->OpenCamera(camera_id, param, cb);
-  if(ret != NO_ERROR) {
+  auto ret = camera->OpenCamera(camera_id, param, cb);
+  if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);
-    camera_context.clear();
-    camera_context = nullptr;
+    camera.clear();
+    camera = nullptr;
     ret = NO_INIT;
     goto FAIL;
   }
   QMMF_INFO("%s:%s: Camera(%d) Open is Successfull!", TAG, __func__, camera_id);
-  camera_contexts_.add(camera_id, camera_context);
+  camera_map_.add(camera_id, camera);
   return ret;
 FAIL:
-  camera_contexts_.clear();
+  camera_map_.clear();
   return ret;
 }
 
@@ -125,24 +135,56 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   //TODO: check if streams are still active, flush them before closing camera.
 
   bool match = false;
-  for(uint32_t i = 0; i < camera_contexts_.size(); ++i) {
-    if(camera_id == camera_contexts_.keyAt(i)) {
+  for (uint32_t i = 0; i < camera_map_.size(); ++i) {
+    if (camera_id == camera_map_.keyAt(i)) {
       match = true;
-      sp<CameraContext> context = camera_contexts_.valueAt(i);
-      assert(context.get() != nullptr);
-      ret = context->CloseCamera(camera_id);
+      sp<CameraInterface> camera = camera_map_.valueAt(i);
+      assert(camera.get() != nullptr);
+      ret = camera->CloseCamera(camera_id);
       assert(ret == NO_ERROR);
-      camera_contexts_.removeItem(camera_id);
+      camera_map_.removeItem(camera_id);
       QMMF_INFO("%s:%s: Camera(%d) is Closed Successfull!", TAG, __func__,
           camera_id);
       break;
     }
   }
-  if(!match) {
+  if (!match) {
     QMMF_ERROR("%s:%s: Invalid Camera Id(%d)", TAG, __func__, camera_id);
     return BAD_VALUE;
   }
   return ret;
+}
+
+status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+                                         uint32_t *virtual_camera_id) {
+
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  sp<CameraInterface> multi_camera = new MultiCameraManager();
+  assert(multi_camera.get() != nullptr);
+
+  MultiCameraManager *camera_mgr = static_cast<MultiCameraManager*>
+                                      (multi_camera.get());
+
+  auto ret = camera_mgr->CreateMultiCamera(camera_ids, virtual_camera_id);
+  if (ret != NO_ERROR) {
+    multi_camera.clear();
+    multi_camera = nullptr;
+    QMMF_ERROR("%s:%s: CreateMultiCamera Failed!", TAG, __func__);
+    return NO_INIT;
+  }
+  camera_map_.add(*virtual_camera_id, multi_camera);
+  virtual_camera_id_ = *virtual_camera_id;
+
+  QMMF_INFO("%s:%s: Exit ", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                            const uint32_t type,
+                                            const void *param,
+                                            const uint32_t param_size) {
+  // TODO:
+  return NO_ERROR;
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
@@ -154,11 +196,11 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraContext> camera_context;
-  for (uint8_t i = 0; i < camera_contexts_.size(); i++) {
-    if (camera_id == camera_contexts_.keyAt(i)) {
+  sp<CameraInterface> camera;
+  for (uint8_t i = 0; i < camera_map_.size(); i++) {
+    if (camera_id == camera_map_.keyAt(i)) {
         match = true;
-        camera_context = camera_contexts_.valueAt(i);
+        camera = camera_map_.valueAt(i);
     }
   }
   if (!match) {
@@ -166,8 +208,8 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
         "with", TAG, __func__);
     return BAD_VALUE;
   }
-  assert(camera_context.get() != nullptr);
-  auto ret = camera_context->CaptureImage(param, num_images, meta, cb);
+  assert(camera.get() != nullptr);
+  auto ret = camera->CaptureImage(param, num_images, meta, cb);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -210,11 +252,11 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraContext> camera_context;
-  for (uint8_t i = 0; i < camera_contexts_.size(); i++) {
-    if (camera_id == camera_contexts_.keyAt(i)) {
+  sp<CameraInterface> camera_context;
+  for (uint8_t i = 0; i < camera_map_.size(); i++) {
+    if (camera_id == camera_map_.keyAt(i)) {
       match = true;
-      camera_context = camera_contexts_.valueAt(i);
+      camera_context = camera_map_.valueAt(i);
     }
   }
   if (!match) {
@@ -236,11 +278,11 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   // Find out the camera context corresponding to camera id where track has to
   // be created.
   bool match = false;
-  sp<CameraContext> camera_context;
-  for (uint8_t i = 0; i < camera_contexts_.size(); i++) {
-    if (track_params.params.camera_id == camera_contexts_.keyAt(i)) {
+  sp<CameraInterface> camera_context;
+  for (uint8_t i = 0; i < camera_map_.size(); i++) {
+    if (track_params.params.camera_id == camera_map_.keyAt(i)) {
       match = true;
-      camera_context = camera_contexts_.valueAt(i);
+      camera_context = camera_map_.valueAt(i);
     }
   }
   if (!match) {
@@ -249,7 +291,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     return BAD_VALUE;
   }
 
-  // Create TrackSource and give it to CameraContext, CameraConext in turn would
+  // Create TrackSource and give it to CameraInterface, CameraConext in turn would
   // Map it to its one of port.
   shared_ptr<TrackSource> track_source = make_shared<TrackSource>(track_params,
                                                                   camera_context);
@@ -354,28 +396,28 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
 status_t CameraSource::SetCameraParam(const uint32_t camera_id,
                                       const CameraMetadata &meta) {
 
-  sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != nullptr);
+  sp<CameraInterface> camera = camera_map_.valueFor(camera_id);
+  assert(camera.get() != nullptr);
 
-  return camera_context->SetCameraParam(meta);
+  return camera->SetCameraParam(meta);
 }
 
 status_t CameraSource::GetCameraParam(const uint32_t camera_id,
                                       CameraMetadata &meta) {
 
-  sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != nullptr);
+  sp<CameraInterface> camera = camera_map_.valueFor(camera_id);
+  assert(camera.get() != nullptr);
 
-  return camera_context->GetCameraParam(meta);
+  return camera->GetCameraParam(meta);
 }
 
 status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
                                               CameraMetadata &meta) {
 
-  sp<CameraContext> camera_context = camera_contexts_.valueFor(camera_id);
-  assert(camera_context.get() != nullptr);
+  sp<CameraInterface> camera = camera_map_.valueFor(camera_id);
+  assert(camera.get() != nullptr);
 
-  return camera_context->GetDefaultCaptureParam(meta);
+  return camera->GetDefaultCaptureParam(meta);
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
@@ -516,7 +558,7 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
   bool valid = false;
   size_t size = track_sources_.size();
   QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__, size);
-  for(size_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++) {
     if (track_id == track_sources_.keyAt(i)) {
         valid = true;
         break;
@@ -526,7 +568,7 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
 }
 
 TrackSource::TrackSource(const VideoTrackParams& params,
-                         const sp<CameraContext>& context)
+                         const sp<CameraInterface>& camera_intf)
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
@@ -536,10 +578,10 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
   buffer_consumer_impl_ = impl;
-  assert(context.get() != nullptr);
-  camera_context_ = context;
+  assert(camera_intf.get() != nullptr);
+  camera_interface_ = camera_intf;
 
-  input_frame_rate_ = context->GetCameraStartParam().frame_rate;
+  input_frame_rate_ = camera_intf->GetCameraStartParam().frame_rate;
   QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
@@ -577,8 +619,8 @@ status_t TrackSource::Init() {
   stream_param.id               = track_params_.track_id;
   stream_param.low_power_mode   = track_params_.params.low_power_mode;
 
-  assert(camera_context_.get() != nullptr);
-  auto ret = camera_context_->CreateStream(stream_param);
+  assert(camera_interface_.get() != nullptr);
+  auto ret = camera_interface_->CreateStream(stream_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -607,12 +649,12 @@ status_t TrackSource::Init() {
 status_t TrackSource::DeInit() {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
-  assert(camera_context_.get() != nullptr);
+  assert(camera_interface_.get() != nullptr);
 
   auto ret = DeleteDisplayPreview(display::DisplayType::kPrimary);
   assert(ret == NO_ERROR);
 
-  ret = camera_context_->DeleteStream(TrackId());
+  ret = camera_interface_->DeleteStream(TrackId());
   assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
@@ -623,7 +665,7 @@ status_t TrackSource::StartTrack() {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  assert(camera_context_.get() != nullptr);
+  assert(camera_interface_.get() != nullptr);
 
   Mutex::Autolock lock(stop_lock_);
   is_stop_ = false;
@@ -633,7 +675,7 @@ status_t TrackSource::StartTrack() {
   consumer = GetConsumerIntf();
   assert(consumer.get() != nullptr);
 
-  auto ret = camera_context_->StartStream(TrackId(), consumer);
+  auto ret = camera_interface_->StartStream(TrackId(), consumer);
   assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -670,8 +712,8 @@ status_t TrackSource::StopTrack() {
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     //Encoder is not involved in this case.
-    assert(camera_context_.get() != nullptr);
-    auto ret = camera_context_->StopStream(TrackId());
+    assert(camera_interface_.get() != nullptr);
+    auto ret = camera_interface_->StopStream(TrackId());
     assert(ret == NO_ERROR);
 
     Mutex::Autolock autoLock(buffer_list_lock_);
@@ -704,7 +746,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
   if (event_type == PortEventType::kPortStatus) {
     CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
-    if(status == CodecPortStatus::kPortStop) {
+    if (status == CodecPortStatus::kPortStop) {
       // Encoder Received the EOS with valid last buffer successfully, stop the
       // camera stream and clear the received buffer queue.
       QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
@@ -714,8 +756,8 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       eos_acked_ = true;
     } else if (status == CodecPortStatus::kPortIdle) {
       ClearInputQueue();
-      assert(camera_context_.get() != nullptr);
-      auto ret = camera_context_->StopStream(TrackId());
+      assert(camera_interface_.get() != nullptr);
+      auto ret = camera_interface_->StopStream(TrackId());
       assert(ret == NO_ERROR);
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
@@ -908,7 +950,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         track_params_.params.format_type == VideoFormat::kBayerRDI ||
         track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-      if(IsStop()) {
+      if (IsStop()) {
         QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
             " to client!", TAG, __func__, TrackId());
         ReturnBufferToProducer(buffer);
@@ -1324,7 +1366,7 @@ FAIL:
     if (file != nullptr) {
       fclose(file);
     }
-    if(buf_vaaddr != nullptr) {
+    if (buf_vaaddr != nullptr) {
       munmap(buf_vaaddr, buffer.size);
       buf_vaaddr = nullptr;
     }
