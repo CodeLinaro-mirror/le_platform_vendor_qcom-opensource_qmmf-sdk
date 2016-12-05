@@ -520,6 +520,14 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
 
   sinkbuffers.clear();
 
+  if (paused_) {
+    Mutex::Autolock lock(sink_queue_lock_);
+    sinkbuffers[0].size = 0;
+    sinkbuffers[0].timestamp = 0;
+    sink_buffer_queue_.PushBack(sinkbuffers[0]);
+    wait_for_sink_frame_.signal();
+  }
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 
   return 0;

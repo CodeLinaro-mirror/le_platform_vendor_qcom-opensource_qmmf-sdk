@@ -308,7 +308,6 @@ status_t PlayerClient::DequeueInputBuffer(
     uint32_t track_id,
     std::vector<TrackBuffer>& buffers) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -433,7 +432,6 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
                                         size_t meta_size,
                                         TrackMetaBufferType meta_type) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
 
   auto ret = 0;
 

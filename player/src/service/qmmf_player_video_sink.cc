@@ -323,6 +323,9 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
         " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
         codec_buffer.timestamp);
     PushFrameToDisplay(codec_buffer);
+
+    int64_t sleep = 1000000/(track_params_.params.frame_rate);
+    usleep((sleep-3000));
   }
 
   List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
