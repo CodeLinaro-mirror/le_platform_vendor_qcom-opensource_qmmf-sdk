@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <vector>
+#include <sys/time.h>
 
 #include <utils/KeyedVector.h>
 
@@ -145,6 +146,13 @@ class TrackEncoder : public ICodecSource {
 #ifdef DUMP_BITSTREAM
   int32_t                    file_fd_;
 #endif
+
+#ifdef DEBUG_TRACK_FPS
+  uint32_t  num_bytes_;
+  struct timeval             prevtv_;
+  uint32_t                   count_;
+#endif
+
 };
 
 }; // namespace recorder
