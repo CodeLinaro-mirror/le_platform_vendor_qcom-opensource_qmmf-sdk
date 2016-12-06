@@ -256,7 +256,7 @@ int32_t RecorderIon::GetList(queue<BufferDescriptor>* buffers) {
 int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
                             AudioBuffer* audio_buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s: %s INPARAM: bn_buffer[%s]", TAG, __func__,
                bn_buffer.ToString().c_str());
 
   RecorderIonBufferMap::iterator ion_buffer_iterator =
@@ -283,7 +283,7 @@ int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
 int32_t RecorderIon::Export(const AudioBuffer& audio_buffer,
                             BnBuffer* bn_buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: audio_buffer[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s: %s INPARAM: audio_buffer[%s]", TAG, __func__,
                audio_buffer.ToString().c_str());
 
   RecorderIonBufferMap::iterator ion_buffer_iterator =
