@@ -34,6 +34,7 @@
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 
@@ -170,9 +171,11 @@ class RecorderTestWav
   void WritePCMHeader();
   void WriteG711Header();
 
+  ::std::mutex lock_;
   ::std::string filename_;
   ::std::ofstream output_;
   int32_t current_data_size_;
+  bool close_requested_;
   ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move

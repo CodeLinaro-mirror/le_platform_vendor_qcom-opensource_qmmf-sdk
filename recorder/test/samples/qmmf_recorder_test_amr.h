@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include "include/qmmf-sdk/qmmf_buffer.h"
@@ -53,6 +54,7 @@ class RecorderTestAmr
   int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
  private:
+  ::std::mutex lock_;
   ::std::string filename_;
   ::std::ofstream output_;
   ::qmmf::recorder::AudioTrackCreateParam params_;
