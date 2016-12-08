@@ -879,6 +879,13 @@ TEST_F(RecorderGtest, MaxSnapshotThumb) {
   ret = meta.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumb_size, 2);
   assert(ret == NO_ERROR);
 
+
+  /* we have only capture stream which will by default disable WB and lead to
+     broken picture */
+  uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
+  ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+  assert(ret == NO_ERROR);
+
   fprintf(stderr,"Capturing %dx%d JPEG with %dx%d thumbnail\n",
       image_param.width, image_param.height, thumb_size[0], thumb_size[1]);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
