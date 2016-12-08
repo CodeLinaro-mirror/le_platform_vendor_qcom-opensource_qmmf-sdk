@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,65 +29,48 @@
 
 #pragma once
 
-#include <cstdint>
-#include <functional>
-#include <sstream>
-#include <string>
+#include <vector>
 
-#include <sys/types.h>
-
-#include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_system_params.h"
+#include "system/src/service/qmmf_system_common.h"
 
 namespace qmmf {
 namespace system {
 
-typedef int32_t status_t;
+class SystemDevices {
+ public:
+  SystemDevices();
+  ~SystemDevices();
 
-// System Class specific callbacks
+  status_t RegisterForDeviceEvents(const SystemHandle system_handle,
+                                   const SystemDeviceHandler& handler);
+  status_t UnregisterFromDeviceEvents(const SystemHandle system_handle);
+  status_t QueryDeviceInfo(const SystemHandle system_handle,
+                           ::std::vector<DeviceInfo>* devices);
+  status_t QueryDeviceCapabilities(const SystemHandle system_handle,
+                                   const DeviceId device,
+                                   DeviceCaps* caps);
 
-// System errors
-typedef ::std::function<void(const int32_t error)> SystemCb;
+ private:
+  struct SystemDevice {
+    DeviceInfo info;
+    DeviceCaps caps;
+  };
 
-// SoundTrigger recognized utterance, or error occurred
-typedef ::std::function<void(const int32_t error)> TriggerCb;
+  static SystemDevice hard_wired_devices[];
 
-// device was unplugged or plugged
-typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
+  DeviceId current_id_;
+  SystemDeviceHandler device_handler_;
 
-// tone has finished playing, with possible error
-typedef ::std::function<void(const int32_t error)> ToneCb;
+  ::std::vector<SystemHandle> registered_handles_;
+  ::std::vector<SystemDevice> devices_;
 
-struct SoundModel {
-  DeviceId device;
-  uint32_t keywords;
-  uint32_t size;
-  void*    data;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "device[" << device << "] ";
-    stream << "keywords[" << keywords << "] ";
-    stream << "size[" << size << "] ";
-    stream << "data[" << data << "]";
-    return stream.str();
-  }
-};
-
-struct Tone {
-  uint32_t delay;  // milliseconds
-  uint32_t loop_num;
-  uint32_t size;
-  void*    buffer;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "delay[" << delay << "] ";
-    stream << "loop_num[" << loop_num << "] ";
-    stream << "size[" << size << "] ";
-    stream << "buffer[" << buffer << "]";
-    return stream.str();
-  }
+  // disable copy, assignment, and move
+  SystemDevices(const SystemDevices&) = delete;
+  SystemDevices(SystemDevices&&) = delete;
+  SystemDevices& operator=(const SystemDevices&) = delete;
+  SystemDevices& operator=(const SystemDevices&&) = delete;
 };
 
 }; // namespace system

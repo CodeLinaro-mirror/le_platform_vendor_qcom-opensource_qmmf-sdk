@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,65 +29,43 @@
 
 #pragma once
 
-#include <cstdint>
-#include <functional>
-#include <sstream>
-#include <string>
+#include <hardware/sound_trigger.h>
 
-#include <sys/types.h>
-
-#include "qmmf-sdk/qmmf_codec.h"
-#include "qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_system_params.h"
+#include "system/src/service/qmmf_system_common.h"
 
 namespace qmmf {
 namespace system {
 
-typedef int32_t status_t;
+class SystemTrigger {
+ public:
+  SystemTrigger();
+  ~SystemTrigger();
 
-// System Class specific callbacks
+  status_t LoadSoundModel(const SystemHandle system_handle,
+                          const SoundModel& soundmodel);
+  status_t UnloadSoundModel(const SystemHandle system_handle);
+  status_t EnableSoundTrigger(const SystemHandle system_handle,
+                              const SystemTriggerHandler& handler);
+  status_t DisableSoundTrigger(const SystemHandle system_handle);
 
-// System errors
-typedef ::std::function<void(const int32_t error)> SystemCb;
+  void EventCallback(const int32_t error);
 
-// SoundTrigger recognized utterance, or error occurred
-typedef ::std::function<void(const int32_t error)> TriggerCb;
+ private:
+  SystemHandle current_handle_;
+  SystemTriggerHandler trigger_handler_;
 
-// device was unplugged or plugged
-typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
+  const hw_module_t* hw_module_;
+  sound_trigger_hw_device_t* hw_device_;
+  sound_trigger_phrase_sound_model* sound_model_;
+  sound_model_handle_t sm_handle_;
+  sound_trigger_recognition_config rc_config_;
 
-// tone has finished playing, with possible error
-typedef ::std::function<void(const int32_t error)> ToneCb;
-
-struct SoundModel {
-  DeviceId device;
-  uint32_t keywords;
-  uint32_t size;
-  void*    data;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "device[" << device << "] ";
-    stream << "keywords[" << keywords << "] ";
-    stream << "size[" << size << "] ";
-    stream << "data[" << data << "]";
-    return stream.str();
-  }
-};
-
-struct Tone {
-  uint32_t delay;  // milliseconds
-  uint32_t loop_num;
-  uint32_t size;
-  void*    buffer;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "delay[" << delay << "] ";
-    stream << "loop_num[" << loop_num << "] ";
-    stream << "size[" << size << "] ";
-    stream << "buffer[" << buffer << "]";
-    return stream.str();
-  }
+  // disable copy, assignment, and move
+  SystemTrigger(const SystemTrigger&) = delete;
+  SystemTrigger(SystemTrigger&&) = delete;
+  SystemTrigger& operator=(const SystemTrigger&) = delete;
+  SystemTrigger& operator=(const SystemTrigger&&) = delete;
 };
 
 }; // namespace system

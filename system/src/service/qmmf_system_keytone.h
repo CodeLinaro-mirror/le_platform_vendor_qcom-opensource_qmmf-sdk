@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,65 +29,69 @@
 
 #pragma once
 
-#include <cstdint>
-#include <functional>
-#include <sstream>
-#include <string>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
 
-#include <sys/types.h>
-
-#include "qmmf-sdk/qmmf_codec.h"
+#include "common/audio/inc/qmmf_audio_definitions.h"
+#include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_system_params.h"
+#include "system/src/service/qmmf_system_common.h"
+#include "system/src/service/qmmf_system_ion.h"
 
 namespace qmmf {
 namespace system {
 
-typedef int32_t status_t;
+class SystemKeytone {
+ public:
+  SystemKeytone();
+  ~SystemKeytone();
 
-// System Class specific callbacks
+  status_t PlayTone(const SystemHandle system_handle,
+                    const ::std::vector<::qmmf::DeviceId>& devices,
+                    const Tone& tone,
+                    const SystemToneHandler& handler);
 
-// System errors
-typedef ::std::function<void(const int32_t error)> SystemCb;
+ private:
+  enum class SystemMessageType {
+    kMessageError,
+    kMessageBuffer,
+  };
 
-// SoundTrigger recognized utterance, or error occurred
-typedef ::std::function<void(const int32_t error)> TriggerCb;
+  struct SystemMessage {
+    SystemMessageType type;
+    union {
+      int32_t error;
+      ::qmmf::common::audio::AudioBuffer buffer;
+    };
+  };
 
-// device was unplugged or plugged
-typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
+  static void ThreadEntry(SystemKeytone* source);
+  void Thread();
 
-// tone has finished playing, with possible error
-typedef ::std::function<void(const int32_t error)> ToneCb;
+  void ErrorHandler(const int32_t error);
+  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
-struct SoundModel {
-  DeviceId device;
-  uint32_t keywords;
-  uint32_t size;
-  void*    data;
+  ::qmmf::common::audio::AudioEndPoint* end_point_;
+  SystemIon ion_;
 
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "device[" << device << "] ";
-    stream << "keywords[" << keywords << "] ";
-    stream << "size[" << size << "] ";
-    stream << "data[" << data << "]";
-    return stream.str();
-  }
-};
+  ::std::thread* thread_;
+  ::std::mutex message_lock_;
+  ::std::queue<SystemMessage> messages_;
+  ::std::condition_variable signal_;
 
-struct Tone {
-  uint32_t delay;  // milliseconds
-  uint32_t loop_num;
-  uint32_t size;
-  void*    buffer;
+  SystemHandle current_handle_;
+  SystemToneHandler tone_handler_;
+  Tone tone_;
 
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "delay[" << delay << "] ";
-    stream << "loop_num[" << loop_num << "] ";
-    stream << "size[" << size << "] ";
-    stream << "buffer[" << buffer << "]";
-    return stream.str();
-  }
+  // disable copy, assignment, and move
+  SystemKeytone(const SystemKeytone&) = delete;
+  SystemKeytone(SystemKeytone&&) = delete;
+  SystemKeytone& operator=(const SystemKeytone&) = delete;
+  SystemKeytone& operator=(const SystemKeytone&&) = delete;
 };
 
 }; // namespace system
