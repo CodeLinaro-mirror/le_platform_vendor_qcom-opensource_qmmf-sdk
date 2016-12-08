@@ -547,6 +547,14 @@ status_t RecorderTest::TakeSnapshot() {
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       assert(ret == NO_ERROR);
 
+      if (!sessions_.size()) {
+        /* we have only capture stream which will by default disable WB and lead
+           to broken picture */
+        uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
+        ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+        assert(ret == NO_ERROR);
+      }
+
       std::vector<CameraMetadata> meta_array;
       for (uint32_t i = 0; i < num_images; i++) {
         meta_array.push_back(meta);
