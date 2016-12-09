@@ -563,6 +563,8 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
     return BAD_VALUE;
   }
 
+  buffer_ion_.Release(track_id);
+
   auto ret = recorder_service_->DeleteAudioTrack(session_id, track_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
@@ -573,8 +575,6 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
   }
 
   UpdateSessionTopology(session_id, track_id, false /*remove*/);
-
-  buffer_ion_.Release(track_id);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;

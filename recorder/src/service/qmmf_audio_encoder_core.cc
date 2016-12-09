@@ -90,11 +90,8 @@ AudioEncoderCore::~AudioEncoderCore() {
   instance_ = nullptr;
 }
 
-status_t AudioEncoderCore::AddSource(const shared_ptr<IAudioTrackSource>& track_source,
-                                     const AudioTrackParams& params) {
+status_t AudioEncoderCore::AddSource(const AudioTrackParams& params) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_source[%p]", TAG, __func__,
-               track_source.get());
   QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
                params.ToString().c_str());
 
@@ -104,7 +101,7 @@ status_t AudioEncoderCore::AddSource(const shared_ptr<IAudioTrackSource>& track_
     return ::android::NO_MEMORY;
   }
 
-  status_t result = track_encoder->Init(track_source, track_encoder, params);
+  status_t result = track_encoder->Init(params);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() track_encoder[%u]->Init failed: %d", TAG, __func__,
                params.track_id, result);
@@ -133,7 +130,9 @@ status_t AudioEncoderCore::DeleteTrackEncoder(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
-status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id) {
+status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id,
+                                             const shared_ptr<IAudioTrackSource>&
+                                             track_source) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
 
@@ -145,7 +144,9 @@ status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id) {
     return ::android::BAD_VALUE;
   }
 
-  status_t result = track_encoder_iterator->second->Start();
+  status_t result = track_encoder_iterator->second->Start(
+      static_pointer_cast<AudioEncodedTrackSource>(track_source),
+      track_encoder_iterator->second);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() track_encoder[%u]->Start failed: %d", TAG, __func__,
                track_id, result);
@@ -277,8 +278,7 @@ status_t AudioEncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 }
 
 AudioTrackEncoder::AudioTrackEncoder()
-    : track_source_(nullptr),
-      avcodec_(nullptr) {
+    : avcodec_(nullptr) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
@@ -291,25 +291,19 @@ AudioTrackEncoder::~AudioTrackEncoder() {
                iresult, strerror(iresult));
 }
 
-status_t AudioTrackEncoder::Init(const shared_ptr<IAudioTrackSource>& track_source,
-                                 const shared_ptr<AudioTrackEncoder>& track_encoder,
-                                 const AudioTrackParams& track_params) {
+status_t AudioTrackEncoder::Init(const AudioTrackParams& track_params) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_source[%p]", TAG, __func__,
-               track_source.get());
   QMMF_VERBOSE("%s: %s() INPARAM: track_params[%s]", TAG, __func__,
                track_params.ToString().c_str());
 
   memset(&track_params_, 0x0, sizeof track_params_);
   track_params_ = track_params;
 
-  track_source_ = static_pointer_cast<AudioEncodedTrackSource>(track_source);
-  track_encoder_ = track_encoder;
-
   return ::android::NO_ERROR;
 }
 
-status_t AudioTrackEncoder::Start() {
+status_t AudioTrackEncoder::Start(const shared_ptr<ICodecSource> &track_source,
+                                  const shared_ptr<ICodecSource> &track_encoder) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
   status_t result;
@@ -336,7 +330,7 @@ status_t AudioTrackEncoder::Start() {
   }
 
   result = avcodec_->AllocateBuffer(kPortIndexInput, 0, 0,
-                                    shared_ptr<ICodecSource>(track_source_),
+                                    track_source,
                                     dummy_list);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() avcodec->AllocateBuffer(input) failed: %d",
@@ -352,7 +346,7 @@ status_t AudioTrackEncoder::Start() {
   }
 
   result = avcodec_->AllocateBuffer(kPortIndexOutput, 0, 0,
-                                    shared_ptr<ICodecSource>(track_encoder_),
+                                    track_encoder,
                                     dummy_list);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() avcodec->AllocateBuffer(output) failed: %d",

@@ -419,8 +419,9 @@ void AudioRawTrackSource::Thread() {
     // process buffers from endpoint
     if (!buffers.empty() && !paused && keep_running) {
       AudioBuffer buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
-                   TAG, __func__, buffer.ToString().c_str(), buffers.size());
+      QMMF_VERBOSE("%s: %s() track[%u] processing next buffer[%s] from queue[%u]",
+                   TAG, __func__, track_params_.track_id,
+                   buffer.ToString().c_str(), buffers.size());
 
       BnBuffer bn_buffer;
       ion_.Export(buffer, &bn_buffer);
@@ -446,9 +447,9 @@ void AudioRawTrackSource::Thread() {
     // process buffers from client
     if (!bn_buffers.empty() && !paused && keep_running) {
       BnBuffer bn_buffer = bn_buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next bn_buffer[%s] from queue[%u]",
-                   TAG, __func__, bn_buffer.ToString().c_str(),
-                   bn_buffers.size());
+      QMMF_VERBOSE("%s: %s() track[%u] processing next bn_buffer[%s] from queue[%u]",
+                   TAG, __func__, track_params_.track_id,
+                   bn_buffer.ToString().c_str(), bn_buffers.size());
 
       AudioBuffer buffer;
       ion_.Import(bn_buffer, &buffer);

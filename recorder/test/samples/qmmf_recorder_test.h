@@ -88,6 +88,7 @@ struct TrackInfo {
   uint32_t  track_id;
   uint32_t  camera_id;
   uint32_t  low_power_mode;
+  DeviceId  device_id;
 };
 
 class TestTrack;
@@ -149,6 +150,14 @@ class RecorderTest {
   status_t CreateAudioPCMTrack();
 
   status_t CreateAudio2PCMTrack();
+
+  status_t CreateAudioSCOTrack();
+
+  status_t CreateAudioPCMSCOTrack();
+
+  status_t CreateAudioA2DPTrack();
+
+  status_t CreateAudioPCMA2DPTrack();
 
   status_t CreateAudioAACTrack();
 
@@ -334,35 +343,39 @@ public:
         CREATE_1080pENC_AVC_1080LPM_SESSION_CMD = 'J',
         CREATE_PCM_AUD_SESSION_CMD              = 'a',
         CREATE_2PCM_AUD_SESSION_CMD             = 'b',
-        CREATE_AAC_AUD_SESSION_CMD        = 'c',
-        CREATE_2AAC_AUD_SESSION_CMD       = 'd',
-        CREATE_PCM_AAC_AUD_SESSION_CMD    = 'e',
-        CREATE_AMR_AUD_SESSION_CMD        = 'f',
-        CREATE_2AMR_AUD_SESSION_CMD       = 'g',
-        CREATE_PCM_AMR_AUD_SESSION_CMD    = 'h',
-        CREATE_G7ll_AUD_SESSION_CMD       = 'i',
-        CREATE_2G7ll_AUD_SESSION_CMD      = 'j',
-        CREATE_PCM_G7ll_AUD_SESSION_CMD   = 'k',
-        CREATE_RDI_SESSION_CMD            = 'r',
-        CREATE_YUV_SESSION_DISPLAY_CMD    = 'Z',
-        CREATE_YUV_SESSION_PREVIEW_CMD    = 'Y',
-        START_SESSION_CMD                 = 'A',
-        STOP_SESSION_CMD                  = 'B',
-        TAKE_SNAPSHOT_CMD                 = 'S',
-        SET_PARAM_CMD                     = 'T',
-        PAUSE_SESSION_CMD                 = 'P',
-        RESUME_SESSION_CMD                = 'R',
-        ENABLE_OVERLAY_CMD                = 'O',
-        DISABLE_OVERLAY_CMD               = 'L',
-        DELETE_SESSION_CMD                = 'D',
-        NOISE_REDUCTION_CMD               = 'N',
-        VIDEO_HDR_CMD                     = 'H',
-        IR_MODE_CMD                       = 'I',
-        EXIT_CMD                          = 'X',
-        CHOOSE_CAMERA_CMD                 = 'C',
-        SET_ANTIBANDING_MODE_CMD          = 'W',
-        NEXT_CMD                          = '\n',
-        INVALID_CMD                       = '0'
+        CREATE_SCO_AUD_SESSION_CMD              = 'c',
+        CREATE_PCM_SCO_AUD_SESSION_CMD          = 'd',
+        CREATE_A2DP_AUD_SESSION_CMD             = 'e',
+        CREATE_PCM_A2DP_AUD_SESSION_CMD         = 'f',
+        CREATE_AAC_AUD_SESSION_CMD              = 'g',
+        CREATE_2AAC_AUD_SESSION_CMD             = 'h',
+        CREATE_PCM_AAC_AUD_SESSION_CMD          = 'i',
+        CREATE_AMR_AUD_SESSION_CMD              = 'j',
+        CREATE_2AMR_AUD_SESSION_CMD             = 'k',
+        CREATE_PCM_AMR_AUD_SESSION_CMD          = 'l',
+        CREATE_G7ll_AUD_SESSION_CMD             = 'm',
+        CREATE_2G7ll_AUD_SESSION_CMD            = 'n',
+        CREATE_PCM_G7ll_AUD_SESSION_CMD         = 'o',
+        CREATE_RDI_SESSION_CMD                  = 'r',
+        CREATE_YUV_SESSION_DISPLAY_CMD          = 'Z',
+        CREATE_YUV_SESSION_PREVIEW_CMD          = 'Y',
+        START_SESSION_CMD                       = 'A',
+        STOP_SESSION_CMD                        = 'B',
+        TAKE_SNAPSHOT_CMD                       = 'S',
+        SET_PARAM_CMD                           = 'T',
+        PAUSE_SESSION_CMD                       = 'P',
+        RESUME_SESSION_CMD                      = 'R',
+        ENABLE_OVERLAY_CMD                      = 'O',
+        DISABLE_OVERLAY_CMD                     = 'L',
+        DELETE_SESSION_CMD                      = 'D',
+        NOISE_REDUCTION_CMD                     = 'N',
+        VIDEO_HDR_CMD                           = 'H',
+        IR_MODE_CMD                             = 'I',
+        EXIT_CMD                                = 'X',
+        CHOOSE_CAMERA_CMD                       = 'C',
+        SET_ANTIBANDING_MODE_CMD                = 'W',
+        NEXT_CMD                                = '\n',
+        INVALID_CMD                             = '0'
     };
 
     struct Command {

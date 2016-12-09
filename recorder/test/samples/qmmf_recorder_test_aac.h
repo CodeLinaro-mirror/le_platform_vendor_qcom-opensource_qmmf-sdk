@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include "include/qmmf-sdk/qmmf_buffer.h"
@@ -71,6 +72,7 @@ class RecorderTestAac
     uint64_t raw_data : 2;
   };
 
+  ::std::mutex lock_;
   ::std::string filename_;
   ::std::ofstream output_;
   ::qmmf::recorder::AudioTrackCreateParam params_;

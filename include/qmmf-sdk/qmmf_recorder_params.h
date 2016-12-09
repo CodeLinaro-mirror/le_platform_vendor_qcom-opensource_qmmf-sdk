@@ -119,6 +119,7 @@ struct MetaData {
 /// of track - else recording pipeline will stall.
 /// Track event_cb returns async error events and data_cb returns periodic
 /// data
+/// Note that both callback implementations need to be re-entrant.
 struct TrackCb {
   std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
                      ::std::vector<MetaData> meta_data)> data_cb;

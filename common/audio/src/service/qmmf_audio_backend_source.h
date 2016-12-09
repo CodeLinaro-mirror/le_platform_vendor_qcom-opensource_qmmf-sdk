@@ -35,7 +35,8 @@
 #include <thread>
 #include <vector>
 
-#include <hardware/audio.h>
+#include <mm-audio/qahw_api/inc/qahw_api.h>
+#include <mm-audio/qahw_api/inc/qahw_defs.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_backend.h"
@@ -45,29 +46,28 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
-class AudioBackendPrimary : public IAudioBackend {
+class AudioBackendSource : public IAudioBackend {
  public:
-  AudioBackendPrimary(const AudioHandle audio_handle,
-                      const AudioErrorHandler& error_handler,
-                      const AudioBufferHandler& buffer_handler);
-  ~AudioBackendPrimary();
+  AudioBackendSource(const AudioHandle audio_handle,
+                     const AudioErrorHandler& error_handler,
+                     const AudioBufferHandler& buffer_handler);
+  ~AudioBackendSource();
 
-  int32_t Open(const AudioEndPointType type,
-               const ::std::vector<DeviceId>& devices,
-               const AudioMetadata& metadata) override;
-  int32_t Close() override;
+  int32_t Open(const ::std::vector<DeviceId>& devices,
+               const AudioMetadata& metadata);
+  int32_t Close();
 
-  int32_t Start() override;
-  int32_t Stop(const bool flush) override;
-  int32_t Pause() override;
-  int32_t Resume() override;
+  int32_t Start();
+  int32_t Stop(const bool flush);
+  int32_t Pause();
+  int32_t Resume();
 
-  int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers) override;
+  int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers);
 
-  int32_t GetLatency(int32_t* latency) override;
-  int32_t GetBufferSize(int32_t* buffer_size) override;
+  int32_t GetLatency(int32_t* latency);
+  int32_t GetBufferSize(int32_t* buffer_size);
   int32_t SetParam(const AudioParamType type,
-                   const AudioParamData& data) override;
+                   const AudioParamData& data);
 
  private:
   enum class AudioMessageType {
@@ -83,13 +83,13 @@ class AudioBackendPrimary : public IAudioBackend {
     bool flush;
   };
 
-  static void StaticThreadEntry(AudioBackendPrimary* backend);
-  void ThreadEntry();
-  void SourceThread();
-  void SinkThread();
+  static const audio_io_handle_t kIOHandleMin;
+  static const audio_io_handle_t kIOHandleMax;
+
+  static void ThreadEntry(AudioBackendSource* backend);
+  void Thread();
 
   AudioHandle audio_handle_;
-  AudioEndPointType type_;
   AudioState state_;
 
   AudioErrorHandler error_handler_;
@@ -100,17 +100,16 @@ class AudioBackendPrimary : public IAudioBackend {
   ::std::queue<AudioMessage> messages_;
   ::std::condition_variable signal_;
 
-  const hw_module_t* hal_module_;
-  audio_hw_device_t* hal_device_;
-  audio_stream_in_t* hal_input_stream_;
-  audio_stream_out_t* hal_output_stream_;
+  qahw_module_handle_t* qahw_module_;
+  qahw_stream_handle_t* qahw_stream_;
+  audio_io_handle_t current_io_handle_;
 
   // disable default, copy, assignment, and move
-  AudioBackendPrimary() = delete;
-  AudioBackendPrimary(const AudioBackendPrimary&) = delete;
-  AudioBackendPrimary(AudioBackendPrimary&&) = delete;
-  AudioBackendPrimary& operator=(const AudioBackendPrimary&) = delete;
-  AudioBackendPrimary& operator=(const AudioBackendPrimary&&) = delete;
+  AudioBackendSource() = delete;
+  AudioBackendSource(const AudioBackendSource&) = delete;
+  AudioBackendSource(AudioBackendSource&&) = delete;
+  AudioBackendSource& operator=(const AudioBackendSource&) = delete;
+  AudioBackendSource& operator=(const AudioBackendSource&&) = delete;
 };
 
 }; // namespace audio

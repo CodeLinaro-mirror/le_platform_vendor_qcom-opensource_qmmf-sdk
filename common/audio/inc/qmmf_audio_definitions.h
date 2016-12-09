@@ -40,6 +40,8 @@
 #include <string>
 #include <type_traits>
 
+#include <unistd.h>
+
 #include <binder/Parcel.h>
 
 #include "common/qmmf_codec_internal.h"
@@ -95,7 +97,7 @@ struct AudioBuffer {
   void FromParcel(const ::android::Parcel& parcel, bool readFileDescriptor) {
     data = reinterpret_cast<void *>(parcel.readIntPtr());
     if (readFileDescriptor && data == nullptr)
-      ion_fd = static_cast<int32_t>(parcel.readFileDescriptor());
+      ion_fd = static_cast<int32_t>(dup(parcel.readFileDescriptor()));
     else
       ion_fd = parcel.readInt32();
     buffer_id = parcel.readInt32();

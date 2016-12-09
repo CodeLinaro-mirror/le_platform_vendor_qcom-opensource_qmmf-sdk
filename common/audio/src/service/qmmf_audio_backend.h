@@ -41,8 +41,7 @@ class IAudioBackend {
  public:
   virtual ~IAudioBackend() {}
 
-  virtual int32_t Open(const AudioEndPointType type,
-                       const ::std::vector<DeviceId>& devices,
+  virtual int32_t Open(const ::std::vector<DeviceId>& devices,
                        const AudioMetadata& metadata) = 0;
   virtual int32_t Close() = 0;
 

@@ -37,6 +37,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
@@ -44,9 +45,12 @@
 
 using ::qmmf::AudioFormat;
 using ::qmmf::BufferDescriptor;
+using ::qmmf::BufferFlags;
 using ::qmmf::G711Mode;
 using ::qmmf::recorder::AudioTrackCreateParam;
 using ::std::ios;
+using ::std::lock_guard;
+using ::std::mutex;
 using ::std::ofstream;
 using ::std::streampos;
 using ::std::string;
@@ -63,7 +67,9 @@ static const uint16_t kFormatMuLaw = 0x0007;
 
 static const char *kFilenameSuffix = ".wav";
 
-RecorderTestWav::RecorderTestWav() : current_data_size_(0) {
+RecorderTestWav::RecorderTestWav()
+    : current_data_size_(0),
+      close_requested_(false) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 
@@ -80,6 +86,7 @@ int32_t RecorderTestWav::Configure(const string& filename_prefix,
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s: %s() INPARAM: params[%s]", TAG, __func__,
                params.ToString().c_str());
+  lock_guard<mutex> lock(lock_);
 
   if (params.format != AudioFormat::kPCM &&
       params.format != AudioFormat::kG711) {
@@ -99,6 +106,7 @@ int32_t RecorderTestWav::Configure(const string& filename_prefix,
 
 int32_t RecorderTestWav::Open() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
 
   if (filename_.empty()) {
     QMMF_ERROR("%s: %s() called in unconfigured state", TAG, __func__);
@@ -118,28 +126,24 @@ int32_t RecorderTestWav::Open() {
     output_.seekp(sizeof(WavG711Header), ios::beg);
 
   current_data_size_ = 0;
+  close_requested_ = false;
 
   return 0;
 }
 
 void RecorderTestWav::Close() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
 
-  // finalize the file
-  if (output_.is_open()) {
-    output_.seekp(0, ios::beg);
-    if (params_.format == AudioFormat::kPCM)
-      WritePCMHeader();
-    else
-      WriteG711Header();
-    output_.close();
-  }
+  if (output_.is_open())
+    close_requested_ = true;
 }
 
 int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
+  lock_guard<mutex> lock(lock_);
 
   if (buffer.size == 0) {
     QMMF_WARN("%s: %s() buffer size is 0", TAG, __func__);
@@ -158,6 +162,17 @@ int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
               TAG, __func__, buffer.size, after - before);
 
   current_data_size_ += after - before;
+
+  // finalize the file
+  if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS) ||
+      close_requested_ == true) {
+    output_.seekp(0, ios::beg);
+    if (params_.format == AudioFormat::kPCM)
+      WritePCMHeader();
+    else
+      WriteG711Header();
+    output_.close();
+  }
 
   return 0;
 }

@@ -100,7 +100,6 @@ class PlayerTest {
   Mutex             state_lock;
   Condition         wait_for_state_change_;
 
-  int32_t           file_fd_;
   bool              stopped_;
   bool              start_again_;
   bool              paused_;

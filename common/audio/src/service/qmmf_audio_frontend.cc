@@ -38,7 +38,8 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_backend.h"
-#include "common/audio/src/service/qmmf_audio_backend_primary.h"
+#include "common/audio/src/service/qmmf_audio_backend_sink.h"
+#include "common/audio/src/service/qmmf_audio_backend_source.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
 #include "common/qmmf_log.h"
 
@@ -131,15 +132,25 @@ int32_t AudioFrontend::Configure(const AudioHandle audio_handle,
     return -EINVAL;
   }
 
-  IAudioBackend* primary = new AudioBackendPrimary(audio_handle, error_handler_,
-                                                   buffer_handler_);
-  if (primary == nullptr) {
-    QMMF_ERROR("%s: %s() unable to allocate primary backend", TAG, __func__);
+  IAudioBackend* backend;
+  if (type == AudioEndPointType::kSource) {
+    backend = new AudioBackendSource(audio_handle, error_handler_,
+                                     buffer_handler_);
+  } else if (type == AudioEndPointType::kSink) {
+    backend = new AudioBackendSink(audio_handle, error_handler_,
+                                   buffer_handler_);
+  } else {
+    QMMF_ERROR("%s: %s() invalid type given: %d", TAG, __func__,
+               static_cast<int>(type));
+    return -EINVAL;
+  }
+  if (backend == nullptr) {
+    QMMF_ERROR("%s: %s() unable to allocate backend", TAG, __func__);
     return -ENOMEM;
   }
-  backend_iterator->second = primary;
+  backend_iterator->second = backend;
 
-  int32_t result = backend_iterator->second->Open(type, devices, metadata);
+  int32_t result = backend_iterator->second->Open(devices, metadata);
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Open failed: %d", TAG, __func__, result);
 

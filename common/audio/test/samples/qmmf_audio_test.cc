@@ -51,6 +51,7 @@ namespace common {
 namespace audio {
 
 using ::qmmf::AudioFormat;
+using ::qmmf::AudioDeviceId;
 using ::qmmf::DeviceId;
 using ::qmmf::common::audio::AudioBuffer;
 using ::qmmf::common::audio::AudioEndPoint;
@@ -59,6 +60,7 @@ using ::qmmf::common::audio::AudioEventHandler;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::BufferFlags;
 using ::std::cin;
 using ::std::condition_variable;
 using ::std::cout;
@@ -123,7 +125,7 @@ void AudioTest::ConfigureSource() {
   type_ = AudioEndPointType::kSource;
 
   vector<DeviceId> devices;
-  devices.push_back(0);
+  devices.push_back(static_cast<int32_t>(AudioDeviceId::kBuiltIn));
 
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);
@@ -190,10 +192,14 @@ void AudioTest::ConfigureSink() {
 void AudioTest::Start() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
+  assert(thread_ == nullptr);
+
   int result = end_point_.Start();
   assert(result == 0);
 
-  assert(thread_ == nullptr);
+  while (!messages_.empty())
+    messages_.pop();
+
   thread_ = new thread(AudioTest::StaticThreadEntry, this);
   assert(thread_ != nullptr);
 }
@@ -209,14 +215,17 @@ void AudioTest::Stop() {
   message_lock_.unlock();
   signal_.notify_one();
 
+  int32_t result = end_point_.Stop(false);
+  assert(result == 0);
+
   if (thread_ != nullptr) {
     thread_->join();
     delete thread_;
     thread_ = nullptr;
   }
 
-  int32_t result = end_point_.Stop(false);
-  assert(result == 0);
+  while (!messages_.empty())
+    messages_.pop();
 }
 
 void AudioTest::Pause() {
@@ -295,10 +304,6 @@ void AudioTest::SourceThread() {
   vector<AudioBuffer> buffers;
   bool paused = false;
 
-  // clear the message queue of expired messages
-  while (!messages_.empty())
-    messages_.pop();
-
   // send the initial list of buffers
   ion_.GetList(&buffers);
   int32_t result = end_point_.SendBuffers(buffers);
@@ -306,6 +311,7 @@ void AudioTest::SourceThread() {
   buffers.clear();
 
   bool keep_running = true;
+  bool stop_received = false;
   while (keep_running) {
     // wait until there is something to do
     if (buffers.empty() && messages_.empty()) {
@@ -332,14 +338,17 @@ void AudioTest::SourceThread() {
         case AudioMessageType::kMessageStop:
           QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
           paused = false;
-          keep_running = false;
+          stop_received = true;
           break;
 
         case AudioMessageType::kMessageBuffer:
           QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
-                       message.buffer.ToString().c_str());
+          QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
+                       TAG, __func__, message.buffer.ToString().c_str(),
+                       buffers.size());
           buffers.push_back(message.buffer);
+          QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
+                       TAG, __func__, buffers.size());
           break;
       }
       messages_.pop();
@@ -349,11 +358,15 @@ void AudioTest::SourceThread() {
     if (!buffers.empty() && !paused && keep_running) {
       // write the data to file and reset the buffers
       for (AudioBuffer& buffer : buffers) {
-        QMMF_VERBOSE("%s: %s() processing next buffer[%s]", TAG, __func__,
-                     buffer.ToString().c_str());
+        QMMF_VERBOSE("%s: %s() processing next buffer[%s] for queue[%u]",
+                     TAG, __func__, buffer.ToString().c_str(), buffers.size());
 
         ion_.Associate(&buffer);
         wav_.Write(buffer);
+
+        if (stop_received &&
+            buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+          keep_running = false;
 
         memset(buffer.data, 0x00, buffer.capacity);
         buffer.size = 0;
@@ -373,10 +386,6 @@ void AudioTest::SinkThread() {
   vector<AudioBuffer> buffers;
   bool paused = false;
   bool keep_running = true;
-
-  // clear the message queue of expired messages
-  while (!messages_.empty())
-    messages_.pop();
 
   ion_.GetList(&buffers);
   for (AudioBuffer& buffer : buffers) {
