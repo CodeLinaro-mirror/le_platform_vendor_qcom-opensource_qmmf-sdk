@@ -582,6 +582,15 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
   return 0;
 }
 
+int32_t AudioBackendSource::GetRenderedPosition(uint32_t* frames,
+                                                uint64_t* time)
+{
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  QMMF_WARN("%s: %s() invalid operation", TAG, __func__);
+  return 0;
+}
+
 void AudioBackendSource::ThreadEntry(AudioBackendSource* backend) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 

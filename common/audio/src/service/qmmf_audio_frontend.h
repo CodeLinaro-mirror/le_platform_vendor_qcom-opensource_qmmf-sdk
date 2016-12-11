@@ -67,6 +67,8 @@ class AudioFrontend {
   int32_t GetBufferSize(const AudioHandle audio_handle, int32_t* buffer_size);
   int32_t SetParam(const AudioHandle audio_handle, const AudioParamType type,
                    const AudioParamData& data);
+  int32_t GetRenderedPosition(const AudioHandle audio_handle,
+                              uint32_t* frames, uint64_t* time);
 
  private:
   static const AudioHandle kAudioHandleMax;

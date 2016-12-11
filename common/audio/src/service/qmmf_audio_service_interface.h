@@ -57,6 +57,7 @@ enum class AudioServiceCommand {
   kAudioGetLatency,
   kAudioGetBufferSize,
   kAudioSetParam,
+  kGetRenderedPosition,
 };
 
 enum class AudioServiceCallbackCommand {
@@ -103,6 +104,8 @@ class IAudioService : public ::android::IInterface {
   virtual int32_t SetParam(const AudioHandle audio_handle,
                            const AudioParamType type,
                            const AudioParamData& data) = 0;
+  virtual int32_t GetRenderedPosition(const AudioHandle audio_handle,
+                                      uint32_t* frames, uint64_t* time) = 0;
 };
 
 // this class is responsible to provide callbacks from audio service
