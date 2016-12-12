@@ -2147,10 +2147,11 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
         return status;
       }
-      // TODO: This value is still under discussion and verification
-      PARAMETER_SETTLE_INTERVAL(2);
     }
   }
+  // TODO: This value is still under discussion and verification
+  PARAMETER_SETTLE_INTERVAL(2);
+
   status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
@@ -2168,9 +2169,22 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
         return status;
       }
-      // TODO: This value is still under discussion and verification
-      PARAMETER_SETTLE_INTERVAL(2);
+    } else {
+      //In case camera didn't set default turn on HDR if user requested
+      if ((!supported_hdr_modes_.empty()) && (params.vhdr)) {
+        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
+        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+        status = recorder_.SetCameraParam(camera_id_, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply SHDR\n", TAG, __func__);
+          return status;
+        }
+      }
     }
+    // TODO: This value is still under discussion and verification
+    PARAMETER_SETTLE_INTERVAL(2);
+
   }
   // TNR/SHDR - End
 
