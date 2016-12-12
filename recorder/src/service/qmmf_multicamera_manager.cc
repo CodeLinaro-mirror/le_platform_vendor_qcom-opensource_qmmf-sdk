@@ -193,22 +193,69 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
 }
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
+
   status_t ret = NO_ERROR;
-  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+  CameraStreamParam context_param (param);
+  ReCalculateWidth(context_param.cam_stream_dim.width);
+
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
-    ret = camera_context->CreateStream(param);
+    ret = camera_context->CreateStream(context_param);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CreateStream Failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
       return ret;
     }
+  }
+
+  StitchingBase::InitParams algo_param {};
+  algo_param.virtual_camera_id = virtual_camera_id_;
+  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+
+  GrallocMemory::BufferParams buf_param {};
+  if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
+    buf_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  } else {
+    buf_param.format      = HAL_PIXEL_FORMAT_RAW10;
+  }
+  buf_param.width         = param.cam_stream_dim.width;
+  buf_param.height        = param.cam_stream_dim.height;
+  buf_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+  buf_param.max_size      = 0;
+
+  buf_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
+  if (param.cam_stream_dim.width == kWidth4K &&
+      param.cam_stream_dim.height == kHeight4K) {
+    buf_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
+  }
+  buf_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+
+  sp<StreamStitching> stitching_algo = new StreamStitching(algo_param);
+  ret = stitching_algo->Initialize();
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
+    goto FAIL;
+  }
+  ret = stitching_algo->Configure(buf_param);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to configure stitching algo!", TAG, __func__);
+    goto FAIL;
+  }
+  stream_stitch_algos_.add(param.id, stitching_algo);
+  return ret;
+
+FAIL:
+  stitching_algo.clear();
+  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+    camera_contexts_.valueAt(i)->DeleteStream(context_param.id);
   }
   return ret;
 }
 
 status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
+
   status_t ret = NO_ERROR;
-  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
     ret = camera_context->DeleteStream(track_id);
@@ -217,15 +264,31 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
       return ret;
     }
   }
+
+  stream_stitch_algos_.editValueFor(track_id).clear();
+  stream_stitch_algos_.removeItem(track_id);
   return ret;
 }
 
 status_t MultiCameraManager::StartStream(const uint32_t track_id,
                                          sp<IBufferConsumer>& consumer) {
+
   status_t ret = NO_ERROR;
-  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->AddConsumer(consumer);
+  stitching_algo->Run();
+
+  for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
+
+    sp<IBufferConsumer> consumer =
+        stitching_algo->GetConsumerIntf(camera_contexts_.keyAt(i));
+    assert(consumer.get() != nullptr);
+
     ret = camera_context->StartStream(track_id, consumer);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: StartStream Failed!", TAG, __func__);
@@ -236,10 +299,18 @@ status_t MultiCameraManager::StartStream(const uint32_t track_id,
 }
 
 status_t MultiCameraManager::StopStream(const uint32_t track_id) {
+
   status_t ret = NO_ERROR;
-  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->RequestExitAndWait();
+  stitching_algo->RemoveConsumer();
+
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
+
     ret = camera_context->StopStream(track_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: StopStream Failed!", TAG, __func__);
@@ -317,6 +388,12 @@ Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
   return supported_fps_;
 }
 
+void MultiCameraManager::ReCalculateWidth(uint32_t &width) {
+
+  // Divide the width of the stitched output on the number of cameras.
+  width /= camera_contexts_.size();
+}
+
 // TODO: The callback for camera source should be called only after the frames
 //       from the two cameras have been synced. After that the Stitching algo
 //       will be called & the output buffer will be passed to camera source cb.
@@ -325,6 +402,117 @@ void MultiCameraManager::SnapshotCbCam(uint32_t camera_id, uint32_t count,
   Mutex::Autolock lock(lock_);
   QMMF_INFO("%s:%s: SnapshotCbCam camera_id: %d", TAG, __func__, camera_id);
   source_snapshot_cb_(camera_id, count, buffer, meta_data);
+}
+
+StreamStitching::StreamStitching(InitParams &param)
+    : StitchingBase(param) {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  work_thread_name_ = new String8("StreamStitching");
+
+  // Create consumers for the physical cameras.
+  for (auto const& camera_id : params_.camera_ids) {
+    BufferConsumerImpl<StreamStitching> *impl;
+    impl = new BufferConsumerImpl<StreamStitching>(this);
+    camera_consumers_map_.add(camera_id, impl);
+  }
+
+  BufferProducerImpl<StreamStitching> *producer_impl;
+  producer_impl = new BufferProducerImpl<StreamStitching>(this);
+  buffer_producer_impl_ = producer_impl;
+
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+}
+
+StreamStitching::~StreamStitching() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  buffer_producer_impl_.clear();
+  camera_consumers_map_.clear();
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+}
+
+status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
+
+  if (nullptr != buffer_consumer_impl_.get()) {
+    QMMF_ERROR("%s:%s: Consumer already set", TAG, __func__);
+    return INVALID_OPERATION;
+  }
+
+  if (consumer == nullptr) {
+    QMMF_ERROR("%s:%s: Input consumer is NULL", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  buffer_consumer_impl_ = consumer;
+  buffer_producer_impl_->AddConsumer(consumer);
+  consumer->SetProducerHandle(buffer_producer_impl_);
+  QMMF_VERBOSE("%s:%s: Consumer(0x%p) has been added.", TAG, __func__,
+             consumer.get());
+
+  return NO_ERROR;
+}
+
+status_t StreamStitching::RemoveConsumer() {
+
+  if(buffer_producer_impl_->GetNumConsumer() == 0) {
+    QMMF_ERROR("%s:%s: There are no connected consumers!", TAG, __func__);
+    return INVALID_OPERATION;
+  }
+  buffer_producer_impl_->RemoveConsumer(buffer_consumer_impl_);
+  buffer_consumer_impl_.clear();
+  return NO_ERROR;
+}
+
+sp<IBufferConsumer>& StreamStitching::GetConsumerIntf(uint32_t camera_id) {
+
+  return camera_consumers_map_.editValueFor(camera_id);
+}
+
+void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
+
+  Mutex::Autolock lock(frame_lock_);
+  QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
+               __func__, buffer.camera_id, buffer.frame_number);
+
+  if (stop_frame_sync_) {
+    ReturnBufferToCamera(buffer);
+  } else {
+    FrameSync(buffer);
+  }
+}
+
+void StreamStitching::NotifyBufferReturned(const StreamBuffer& buffer) {
+
+  QMMF_VERBOSE("%s:%s: Stream buffer(handle %p) returned", TAG, __func__,
+               buffer.handle);
+  ReturnBufferToBufferPool(buffer);
+}
+
+status_t StreamStitching::NotifyBufferToClient(StreamBuffer &buffer) {
+
+  status_t ret = NO_ERROR;
+  if(buffer_producer_impl_->GetNumConsumer() > 0) {
+    buffer_producer_impl_->NotifyBuffer(buffer);
+  } else {
+    QMMF_VERBOSE("%s:%s: No consumer, simply return buffer back to"
+        " memory pool!", TAG, __func__);
+    ret = ReturnBufferToBufferPool(buffer);
+  }
+  return ret;
+}
+
+status_t StreamStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
+
+  const sp<IBufferConsumer> consumer = GetConsumerIntf(buffer.camera_id);
+  if (consumer.get() == nullptr) {
+    QMMF_ERROR("%s:%s: Failed to retrieve buffer consumer for camera(%d)!",
+               TAG, __func__, buffer.camera_id);
+    return BAD_VALUE;
+  }
+  consumer->GetProducerHandle()->NotifyBufferReturned(buffer);
+  return NO_ERROR;
 }
 
 StitchingBase::StitchingBase(InitParams &param)
