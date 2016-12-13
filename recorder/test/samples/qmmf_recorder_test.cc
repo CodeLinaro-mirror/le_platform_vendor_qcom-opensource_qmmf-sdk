@@ -2130,7 +2130,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
 }
 
 // This session has one 1080p video encode and one AAC Audio track.
-status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
+status_t RecorderTest::Session1080pEncAndAudioAACTrack(const TrackType& vid_track_type) {
 
   TEST_INFO("%s: Enter", __func__);
   SessionCb session_status_cb;
@@ -2149,7 +2149,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
-  info.track_type = track_type;
+  info.track_type = vid_track_type;
   info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
@@ -2223,7 +2223,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
 }
 
 // In this test case session has one 4K video HEVC and one 1080p YUV track.
-status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
+status_t RecorderTest::Session4KEncAnd1080pYUVTracks(const TrackType&
                                                       track_type) {
 
   TEST_INFO("%s: Enter", __func__);
@@ -6468,10 +6468,10 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_4KENC_AVC_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC)\n",
       CmdMenu::CREATE_4KENC_HEVC_SESSION_CMD);
-  printf("   %c. Create Session: (1080p Enc AVC)\n",
-      CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD);
-  printf("   %c. Create Session: (1080p Enc HEVC)\n",
-      CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD);
+  printf("   %c. Create Session: (1080p AVC + AAC)\n",
+      CmdMenu::CREATE_1080pAVC_AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (1080p HEVC + AAC)\n",
+      CmdMenu::CREATE_1080pHEVC_AAC_AUD_SESSION_CMD);
   printf("   %c. Create Session: (4K YUV + 1080p Enc AVC)\n",
     CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
@@ -6479,7 +6479,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (1080p Enc AVC + 1080 YUV)\n",
     CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC + 1080 YUV)\n",
-    CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD);
+    CmdMenu::CREATE_4KENC_HEVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (720p LPM YUV)\n",
     CmdMenu::CREATE_720pLPM_SESSION_CMD);
   printf("   %c. Create Session: (1080p Enc AVC + 1080 LPM YUV)\n",
@@ -6623,20 +6623,20 @@ int main(int argc,char *argv[]) {
         test_context.Session4KEncTrack(TrackType::kVideoHEVC);
       }
       break;
-      case CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(TrackType::kVideoAVC);
+      case CmdMenu::CREATE_1080pAVC_AAC_AUD_SESSION_CMD: {
+        test_context.Session1080pEncAndAudioAACTrack(TrackType::kVideoAVC);
+      }
+      break;
+      case CmdMenu::CREATE_1080pHEVC_AAC_AUD_SESSION_CMD: {
+        test_context.Session1080pEncAndAudioAACTrack(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD: {
         test_context.Session1080pEnc1080YUV(TrackType::kVideoAVC);
       }
       break;
-      case CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD: {
-        test_context.Session4KHEVCAnd1080pYUVTracks(TrackType::kVideoAVC);
-      }
-      break;
-      case CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(TrackType::kVideoHEVC);
+      case CmdMenu::CREATE_4KENC_HEVC_1080YUV_SESSION_CMD: {
+        test_context.Session4KEncAnd1080pYUVTracks(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD: {
