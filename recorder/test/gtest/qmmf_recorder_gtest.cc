@@ -1988,7 +1988,6 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   assert(ret == NO_ERROR);
 
   camera_start_params_.frame_rate = 30;
-  //camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -5150,7 +5149,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   float fps = 60;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -5863,7 +5861,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   float fps = 60;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -6268,7 +6265,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   float fps = 60;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -6413,7 +6409,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   float fps = 60;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -6855,7 +6850,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   float fps = 60;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -7045,7 +7039,6 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   float fps = 30;
 
   camera_start_params_.frame_rate = fps;
-  camera_start_params_.setSensorVendorMode(6);
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 

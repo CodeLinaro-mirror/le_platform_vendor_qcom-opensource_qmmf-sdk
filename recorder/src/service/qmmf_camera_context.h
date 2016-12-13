@@ -52,10 +52,6 @@ using namespace cameraadaptor;
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
 
-//FIXME: This is temporary change until necessary vendor mode changes are merged
-// in HAL3.
-#define QCAMERA3_VENDOR_SENSOR_MODE 1
-
 namespace recorder {
 
 class CameraPort;
@@ -295,9 +291,6 @@ class CameraContext : public CameraInterface,
 
   // Maps of buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
-
-  // User define value for sensor mode
-  int32_t sensor_vendor_mode_;
 
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;

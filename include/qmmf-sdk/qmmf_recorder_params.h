@@ -53,8 +53,6 @@ namespace recorder {
 
 #define MAX_IN_DEVICES 4
 
-#define SENSOR_VENDOR_MODE_OFFSET (24)
-#define SENSOR_VENDOR_MODE_MASK (0xff)
 #define MAX_AUDIO_INPUT_DEVICES (10)
 #define MAX_AUDIO_PROFILE (80)
 #define MAX_THUMBNAIL_IMAGE_PARAM (2)
@@ -448,15 +446,6 @@ struct CameraStartParam {
     stream << "flags[" << flags << "]";
     return stream.str();
   };
-
-  void setSensorVendorMode(int32_t sensor_vendor_mode) {
-    flags &= ~(SENSOR_VENDOR_MODE_MASK);
-    flags |= sensor_vendor_mode << SENSOR_VENDOR_MODE_OFFSET;
-  };
-
-  int32_t getSensorVendorMode() const {
-    return flags >> SENSOR_VENDOR_MODE_OFFSET;
-  }
 };
 
 /// \brief For thumbnail images only kJPEG is supported
