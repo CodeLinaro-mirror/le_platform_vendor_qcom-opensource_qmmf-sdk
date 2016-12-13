@@ -1850,7 +1850,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2059,8 +2062,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2307,9 +2313,12 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
   dump_bitstream_.Close(track3_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2418,8 +2427,12 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
+
 /*
  * SessionWith1080p120fpsSnapshotVSTABEncTrack: This test will test session with one 1080p
  * 120fps h264 track.
@@ -2581,7 +2594,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2778,8 +2794,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2929,8 +2948,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3036,7 +3058,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3143,7 +3168,10 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3290,8 +3318,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3451,8 +3482,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3602,8 +3636,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3765,8 +3802,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3914,8 +3954,11 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4065,8 +4108,11 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4263,8 +4309,11 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
   dump_bitstream_.Close(track2_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4373,7 +4422,10 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
+
   dump_bitstream_.Close(track1_bitstream_filefd_);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4598,7 +4650,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
       track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
     }
 
-    track_ids.push_back(video_track_id1);
+    track_ids.push_back(video_track_id2);
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
@@ -6174,14 +6226,11 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   assert(ret == NO_ERROR);
 
   ret = DeInit();
-
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.Close(track1_bitstream_filefd_);
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
-
 }
 
 /*
@@ -6504,6 +6553,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
+
   if (dump_bitstream_.is_enabled) {
     StreamDumpInfo dumpinfo = {
       track2_bitstream_filefd_,
@@ -6513,7 +6563,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
       height };
     track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
   }
-  track_ids.push_back(video_track_id1);
+  track_ids.push_back(video_track_id2);
 
   sessions_.insert(std::make_pair(session_id, track_ids));
 
@@ -6668,7 +6718,6 @@ TEST_F(RecorderGtest, CameraParamTest) {
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
-
 }
 
 /*
@@ -6815,6 +6864,8 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
     AVQueueFree(&av_queue, AVFreePacket);
     av_queue = NULL;
   }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
