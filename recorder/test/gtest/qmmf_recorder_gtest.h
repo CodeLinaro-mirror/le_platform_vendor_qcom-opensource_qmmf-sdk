@@ -241,6 +241,8 @@ class RecorderGtest : public ::testing::Test {
                          uint32_t image_sequence_count,
                          uint64_t tv_ms);
 
+  status_t SetCameraFocalLength(const float focal_length);
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;

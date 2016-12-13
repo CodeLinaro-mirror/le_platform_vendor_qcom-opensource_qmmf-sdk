@@ -15256,6 +15256,97 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplayAlongWithGfxPlane) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+/* SessionWith1080pYUVTrackFocalLength: This test will test session with one
+* 1080p YUV track. Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith1080pYUVTrackFocalLength) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
+                                            1920,
+                                            1080,
+                                            30};
+    uint32_t video_track_id       = 1;
+
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = SetCameraFocalLength(5.0);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {
@@ -16350,4 +16441,26 @@ void DumpBitStream::CloseAll() {
   }
   file_fds_.clear();
   TEST_DBG("%s: Exit", __func__);
+}
+
+status_t RecorderGtest::SetCameraFocalLength(const float focal_length) {
+  CameraMetadata meta;
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  if (meta.exists(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS)) {
+    camera_metadata_entry_t entry;
+    entry = meta.find(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      if (entry.data.f[i] == focal_length) {
+        ret = recorder_.GetCameraParam(camera_id_, meta);
+        assert(ret == NO_ERROR);
+        meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+        ret = recorder_.SetCameraParam(camera_id_, meta);
+        assert(ret == NO_ERROR);
+        break;
+      }
+    }
+  }
+  return NO_ERROR;
 }
