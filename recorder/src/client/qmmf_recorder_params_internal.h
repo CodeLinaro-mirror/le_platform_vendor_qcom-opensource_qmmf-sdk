@@ -49,9 +49,9 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
       : AudioTrackCreateParam(const_cast<AudioTrackCreateParam&>(base)) {}
 
   void ToParcel(::android::Parcel* parcel) const {
-    parcel->writeUint32(static_cast<uint32_t>(in_devices.size()));
-    for (const DeviceId device : in_devices)
-      parcel->writeInt32(static_cast<int32_t>(device));
+    parcel->writeUint32(in_devices_num);
+    for (uint32_t i = 0; i < in_devices_num; i++)
+      parcel->writeInt32(static_cast<int32_t>(in_devices[i]));
     parcel->writeUint32(sample_rate);
     parcel->writeUint32(channels);
     parcel->writeUint32(bit_depth);
@@ -75,9 +75,11 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
   }
 
   AudioTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
-    size_t number_of_elements = static_cast<size_t>(parcel.readUint32());
-    for (size_t index = 0; index < number_of_elements; ++index)
-      in_devices.push_back(static_cast<DeviceId>(parcel.readInt32()));
+    uint32_t in_devices_num = static_cast<uint32_t>(parcel.readUint32());
+    if (in_devices_num > QMMF_ARRAY_SIZE(in_devices))
+      in_devices_num = QMMF_ARRAY_SIZE(in_devices);
+    for (uint32_t i = 0; i < in_devices_num; i++)
+      in_devices[i] = static_cast<DeviceId>(parcel.readInt32());
     sample_rate = parcel.readUint32();
     channels = parcel.readUint32();
     bit_depth = parcel.readUint32();

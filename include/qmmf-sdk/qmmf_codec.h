@@ -40,6 +40,7 @@ namespace qmmf {
 typedef int32_t CodecId;
 
 #define MAX_PLANE 3
+#define QMMF_ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
 enum class CodecType {
   kVideoEncoder,

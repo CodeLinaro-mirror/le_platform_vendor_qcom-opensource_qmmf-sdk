@@ -2525,7 +2525,9 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     // Create AudioTrack
     AudioTrackCreateParam audio_track_params;
     memset(&audio_track_params, 0x0, sizeof audio_track_params);
-    audio_track_params.in_devices.push_back(track_info.device_id);
+    audio_track_params.in_devices_num = 0;
+    audio_track_params.in_devices[audio_track_params.in_devices_num++] =
+        track_info.device_id;
     audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
