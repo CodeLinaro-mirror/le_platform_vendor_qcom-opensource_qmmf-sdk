@@ -109,6 +109,11 @@ class CameraContext : public RefBase {
     int64_t                timestamp;
   };
 
+  struct SyncFrame {
+    int64_t         last_frame_id;
+    Vector<int32_t> stream_ids;
+  };
+
   friend class CameraPort;
   friend class CameraReprocess;
 
@@ -232,6 +237,9 @@ class CameraContext : public RefBase {
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
   sp<CameraReprocess>      camera_reprocess_;
+  SyncFrame                sync_frame_;
+  Condition                sync_frame_cond_;
+  static const nsecs_t     kSyncFrameWaitDuration;
 };
 
 enum class CameraPortType {
