@@ -43,317 +43,329 @@ namespace player {
   CHECK_INTERFACE(IPlayerService, data, reply);
   int32_t ret = 0;
 
-    switch (code) {
-        case PLAYER_CONNECT: {
-          sp<IPlayerServiceCallback> client_cb_handle = interface_cast
-              <IPlayerServiceCallback>(data.readStrongBinder());
-          ret = Connect(client_cb_handle);
-          reply->writeInt32(ret);
-          return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_DISCONNECT: {
-            ret = Disconnect();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_CREATE_AUDIOTRACK:
-        {
-            uint32_t track_id = data.readUint32();
-            uint32_t blob_size;
-            data.readUint32(&blob_size);
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(blob_size, &blob);
-            void* params = const_cast<void*>(blob.data());
-            AudioTrackCreateParam audio_track_params;
-            memset(&audio_track_params, 0x0, sizeof audio_track_params);
-            memcpy(&audio_track_params, params, blob_size);
-            QMMF_DEBUG("%s:%s-CreateAudioTrack() TRACE", TAG, __func__);
-            QMMF_VERBOSE("%s:%s-CreateAudioTrack() INPARAM: track_id[%u]",
-                         TAG, __func__, track_id);
-            ret = CreateAudioTrack(track_id, audio_track_params);
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_CREATE_VIDEOTRACK:
-        {
-            uint32_t track_id = data.readUint32();
-            uint32_t blob_size;
-            data.readUint32(&blob_size);
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(blob_size, &blob);
-            void* params = const_cast<void*>(blob.data());
-            VideoTrackCreateParam video_track_param;
-            memset(&video_track_param, 0x0, sizeof video_track_param);
-            memcpy(&video_track_param, params, blob_size);
-            QMMF_DEBUG("%s:%s-CreateVideoTrack() TRACE", TAG, __func__);
-            QMMF_VERBOSE("%s:%s-CreateVideoTrack() INPARAM: track_id[%u]",
-                           TAG, __func__, track_id);
-            ret = CreateVideoTrack(track_id, video_track_param);
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_DELETE_AUDIOTRACK:
-        {
-            uint32_t track_id = data.readUint32();
-            ret = DeleteAudioTrack(track_id);
-            ion_fd_map::iterator it_fd;
-            for (it_fd=ion_fd_mapping.begin();
-                 it_fd!=ion_fd_mapping.end(); ++it_fd) {
-                ion_fd_mapping.erase(it_fd);
-            }
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_DELETE_VIDEOTRACK:
-        {
-            uint32_t track_id = data.readUint32();
-            ret = DeleteVideoTrack(track_id);
-            ion_fd_map::iterator it_fd;
-            for (it_fd=ion_fd_mapping.begin();
-                 it_fd!=ion_fd_mapping.end(); ++it_fd) {
-                ion_fd_mapping.erase(it_fd);
-            }
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_SET_AUDIOTRACK_PARAMS:
-        {
-            uint32_t track_id = data.readUint32();
-            uint32_t param_type = data.readUint32();
-            uint32_t blob_size;
-            data.readUint32(&blob_size);
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(blob_size, &blob);
-            void* params = const_cast<void*>(blob.data());
-            ret = SetAudioTrackParam(track_id,
-                static_cast<CodecParamType>(param_type), params, blob_size);
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_SET_VIDEOTRACK_PARAMS:
-        {
-            uint32_t track_id = data.readUint32();
-            uint32_t param_type = data.readUint32();
-            uint32_t blob_size;
-            data.readUint32(&blob_size);
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(blob_size, &blob);
-            void* params = const_cast<void*>(blob.data());
-            ret = SetVideoTrackParam(track_id,
-                static_cast<CodecParamType>(param_type), params, blob_size);
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_DEQUEUE_INPUT_BUFFER:
-        {
-            uint32_t track_id = data.readUint32();
-            std::vector<AVCodecBuffer> buffers;
-
-            uint32_t vector_size;
-            data.readUint32(&vector_size);
-
-            for (uint32_t i = 0; i < vector_size; i++)  {
-              AVCodecBuffer track_buffer;
-              memset(&track_buffer, 0x0, sizeof track_buffer);
-              buffers.push_back(track_buffer);
-            }
-
-            ret = DequeueInputBuffer(track_id, buffers);
-
-            reply->writeInt32(ret);
-
-            for (size_t i = 0; i < vector_size; i++)
-            {
-               uint32_t param_size = sizeof (AVCodecBuffer);
-               reply->writeUint32(param_size);
-               android::Parcel::WritableBlob blob;
-               reply->writeBlob(param_size, false, &blob);
-               memset(blob.data(), 0x0, param_size);
-               memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
-
-               QMMF_DEBUG("%s:%s fd %d", TAG, __func__,buffers[i].fd);
-               QMMF_DEBUG("%s:%s size %d", TAG,__func__,buffers[i].frame_length);
-               QMMF_DEBUG("%s:%s data 0x%p", TAG, __func__,buffers[i].data);
-
-               ion_fd_map::iterator it_fd;
-               if(ion_fd_mapping.size())
-               {
-                    for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end(); ++it_fd)
-                    {
-                      if(static_cast<uint32_t>(it_fd->first) == buffers[i].fd) {
-                           reply->writeInt32(1);
-                           reply->writeInt32(buffers[i].fd);
-                           break;
-                       }
-                     }
-
-                     if(it_fd == ion_fd_mapping.end()) {
-                            reply->writeInt32(0);
-                            reply->writeFileDescriptor(buffers[i].fd);
-                            reply->writeInt32(buffers[i].fd);
-                            ion_fd_mapping.insert({buffers[i].fd,1});
-                      }
-
-                } else {
-                        reply->writeInt32(0);
-                        reply->writeFileDescriptor(buffers[i].fd);
-                        reply->writeInt32(buffers[i].fd);
-                        ion_fd_mapping.insert({buffers[i].fd,1});
-
-                }
-
-               QMMF_DEBUG("%s:%s buffers[i].fd %d ", TAG, __func__,buffers[i].fd);
-               blob.release();
-            }
-
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_QUEUE_INPUT_BUFFER:
-        {
-            uint32_t track_id = data.readUint32();
-
-            std::vector<AVCodecBuffer> buffers;
-            uint32_t vector_size;
-            data.readUint32(&vector_size);
-
-            for (uint32_t i = 0; i < vector_size; i++)  {
-              uint32_t size;
-              data.readUint32(&size);
-              android::Parcel::ReadableBlob blob;
-              data.readBlob(size, &blob);
-              void* buffer = const_cast<void*>(blob.data());
-              AVCodecBuffer track_buffer;
-              assert(size == sizeof(track_buffer));
-              memset(&track_buffer, 0x0, sizeof track_buffer);
-              memcpy(&track_buffer, buffer, size);
-              buffers.push_back(track_buffer);
-              blob.release();
-            }
-
-            uint32_t meta_size, meta_type;
-            meta_size = data.readUint32();
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(meta_size, &blob);
-            void* meta_param = const_cast<void*>(blob.data());
-            meta_type = data.readUint32();
-            ret =  QueueInputBuffer(track_id, buffers, meta_param, meta_size,
-            static_cast<TrackMetaBufferType>(meta_type));
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_PREPARE:
-        {
-            ret = Prepare();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_START:
-        {
-            ret = Start();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_STOP:
-        {
-            int32_t do_flush;
-            data.readInt32(&do_flush);
-            ret = Stop(do_flush);
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_PAUSE:
-        {
-            ret = Pause();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_RESUME:
-        {
-            ret = Resume();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_SET_POSITION:
-        {
-            int64_t seek_time;
-            seek_time = data.readInt64();
-            ret = SetPosition(seek_time);
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_SET_TRICKMODE:
-        {
-           uint32_t speed, direction;
-           speed = data.readUint32();
-           direction = data.readUint32();
-           ret = SetTrickMode(speed,direction);
-           reply->writeInt32(ret);
-           return NO_ERROR;
-        }
-        break;
-
-        case PLAYER_GRAB_PICTURE:
-        {
-            uint32_t blob_size;
-            data.readUint32(&blob_size);
-            android::Parcel::ReadableBlob blob;
-            data.readBlob(blob_size, &blob);
-            void* params = const_cast<void*>(blob.data());
-            PictureParam picture_params;
-            memset(&picture_params, 0x0, sizeof picture_params);
-            memcpy(&picture_params, params, blob_size);
-            ret = GrabPicture(static_cast<PictureParam>(picture_params));
-            blob.release();
-            reply->writeInt32(ret);
-            return NO_ERROR;
-        }
-        break;
-
-        default:
-        {
-                  QMMF_ERROR("QIPCamService: %s: Method not supported ",__func__);
-                  reply->writeInt32(-1);
-        }
-        break;
+  switch (code) {
+    case PLAYER_CONNECT: {
+      sp<IPlayerServiceCallback> client_cb_handle = interface_cast
+          <IPlayerServiceCallback>(data.readStrongBinder());
+      ret = Connect(client_cb_handle);
+      reply->writeInt32(ret);
+      return NO_ERROR;
     }
-    return NO_ERROR;
+    break;
+
+    case PLAYER_DISCONNECT: {
+      ret = Disconnect();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_CREATE_AUDIOTRACK:
+    {
+      uint32_t track_id = data.readUint32();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      void* params = const_cast<void*>(blob.data());
+      AudioTrackCreateParam audio_track_params;
+      memset(&audio_track_params, 0x0, sizeof audio_track_params);
+      memcpy(&audio_track_params, params, blob_size);
+      QMMF_DEBUG("%s:%s-CreateAudioTrack() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s:%s-CreateAudioTrack() INPARAM: track_id[%u]",
+          TAG, __func__, track_id);
+      ret = CreateAudioTrack(track_id, audio_track_params);
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_CREATE_VIDEOTRACK:
+    {
+      uint32_t track_id = data.readUint32();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      void* params = const_cast<void*>(blob.data());
+      VideoTrackCreateParam video_track_param;
+      memset(&video_track_param, 0x0, sizeof video_track_param);
+      memcpy(&video_track_param, params, blob_size);
+      QMMF_DEBUG("%s:%s-CreateVideoTrack() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s:%s-CreateVideoTrack() INPARAM: track_id[%u]",
+          TAG, __func__, track_id);
+      ret = CreateVideoTrack(track_id, video_track_param);
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_DELETE_AUDIOTRACK:
+    {
+      uint32_t track_id = data.readUint32();
+      ret = DeleteAudioTrack(track_id);
+      if (track_fd_map_.isEmpty()) {
+        return NO_ERROR;
+      }
+
+      if (track_fd_map_.indexOfKey(track_id) >= 0) {
+        track_fd_map_.removeItem(track_id);
+      }
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_DELETE_VIDEOTRACK:
+    {
+      uint32_t track_id = data.readUint32();
+      ret = DeleteVideoTrack(track_id);
+      if (track_fd_map_.isEmpty()) {
+        return NO_ERROR;
+      }
+
+      if (track_fd_map_.indexOfKey(track_id) >= 0) {
+        track_fd_map_.removeItem(track_id);
+      }
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_SET_AUDIOTRACK_PARAMS:
+    {
+      uint32_t track_id = data.readUint32();
+      uint32_t param_type = data.readUint32();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      void* params = const_cast<void*>(blob.data());
+      ret = SetAudioTrackParam(track_id,
+          static_cast<CodecParamType>(param_type), params, blob_size);
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_SET_VIDEOTRACK_PARAMS:
+    {
+      uint32_t track_id = data.readUint32();
+      uint32_t param_type = data.readUint32();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      void* params = const_cast<void*>(blob.data());
+      ret = SetVideoTrackParam(track_id,
+          static_cast<CodecParamType>(param_type), params, blob_size);
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_DEQUEUE_INPUT_BUFFER:
+    {
+      uint32_t track_id = data.readUint32();
+      std::vector<AVCodecBuffer> buffers;
+
+      uint32_t vector_size;
+      data.readUint32(&vector_size);
+
+      for (uint32_t i = 0; i < vector_size; i++)  {
+        AVCodecBuffer track_buffer;
+        memset(&track_buffer, 0x0, sizeof track_buffer);
+        buffers.push_back(track_buffer);
+      }
+
+      ret = DequeueInputBuffer(track_id, buffers);
+
+      reply->writeInt32(ret);
+
+      {
+        Mutex::Autolock lock(lock_);
+
+        for (size_t i = 0; i < vector_size; i++)
+        {
+          uint32_t param_size = sizeof (AVCodecBuffer);
+          reply->writeUint32(param_size);
+          android::Parcel::WritableBlob blob;
+          reply->writeBlob(param_size, false, &blob);
+          memset(blob.data(), 0x0, param_size);
+          memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]),param_size);
+
+          QMMF_DEBUG("%s:%s service fd : %d", TAG, __func__, buffers[i].fd);
+          QMMF_DEBUG("%s:%s size %d", TAG,__func__, buffers[i].frame_length);
+          QMMF_DEBUG("%s:%s data 0x%p", TAG, __func__, buffers[i].data);
+
+          bool mapped = false;
+
+          if (!(track_fd_map_.isEmpty())) {
+
+            int32_t map_idx = track_fd_map_.indexOfKey(track_id);
+
+            if (map_idx >= 0) {
+              ion_fd_map_ fd_map = track_fd_map_.valueFor(track_id);
+              int32_t fd_idx = fd_map.indexOfKey(buffers[i].fd);
+
+              if (fd_idx >= 0) {
+                reply->writeInt32(1);
+                reply->writeInt32(buffers[i].fd);
+                mapped = true;
+              }
+            }
+          }
+
+          if (!mapped) {
+            reply->writeInt32(0);
+            reply->writeFileDescriptor(buffers[i].fd);
+            reply->writeInt32(buffers[i].fd);
+
+            ion_fd_map_ fd_map;
+
+            if (!track_fd_map_.isEmpty()) {
+              fd_map = track_fd_map_.valueFor(track_id);
+            }
+            fd_map.add(buffers[i].fd, 1);
+
+            track_fd_map_.replaceValueFor(track_id, fd_map);
+          }
+
+          blob.release();
+        }
+      }
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_QUEUE_INPUT_BUFFER:
+    {
+      uint32_t track_id = data.readUint32();
+
+      std::vector<AVCodecBuffer> buffers;
+      uint32_t vector_size;
+      data.readUint32(&vector_size);
+
+      for (uint32_t i = 0; i < vector_size; i++)  {
+        uint32_t size;
+        data.readUint32(&size);
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(size, &blob);
+        void* buffer = const_cast<void*>(blob.data());
+        AVCodecBuffer track_buffer;
+        assert(size == sizeof(track_buffer));
+        memset(&track_buffer, 0x0, sizeof track_buffer);
+        memcpy(&track_buffer, buffer, size);
+        buffers.push_back(track_buffer);
+        blob.release();
+      }
+
+      uint32_t meta_size, meta_type;
+      meta_size = data.readUint32();
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(meta_size, &blob);
+      void* meta_param = const_cast<void*>(blob.data());
+      meta_type = data.readUint32();
+      ret =  QueueInputBuffer(track_id, buffers, meta_param, meta_size,
+      static_cast<TrackMetaBufferType>(meta_type));
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_PREPARE:
+    {
+      ret = Prepare();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_START:
+    {
+      ret = Start();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_STOP:
+    {
+      int32_t do_flush;
+      data.readInt32(&do_flush);
+      ret = Stop(do_flush);
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_PAUSE:
+    {
+      ret = Pause();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_RESUME:
+    {
+      ret = Resume();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_SET_POSITION:
+    {
+      int64_t seek_time;
+      seek_time = data.readInt64();
+      ret = SetPosition(seek_time);
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_SET_TRICKMODE:
+    {
+      uint32_t speed, direction;
+      speed = data.readUint32();
+      direction = data.readUint32();
+      ret = SetTrickMode(speed,direction);
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    case PLAYER_GRAB_PICTURE:
+    {
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      void* params = const_cast<void*>(blob.data());
+      PictureParam picture_params;
+      assert(blob_size == sizeof(picture_params));
+      memcpy(&picture_params, params, blob_size);
+      ret = GrabPicture(static_cast<PictureParam>(picture_params));
+      blob.release();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
+    default:
+    {
+      QMMF_ERROR("QIPCamService: %s: Method not supported ",__func__);
+      reply->writeInt32(-1);
+    }
+    break;
+  }
+  return NO_ERROR;
 }
 
 PlayerService::PlayerService()

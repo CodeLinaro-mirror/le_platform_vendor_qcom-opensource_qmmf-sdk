@@ -123,11 +123,15 @@ class PlayerService: public BnInterface<IPlayerService> {
   PlayerImpl*           player_;
   sp<DeathNotifier>     death_notifier_;
   sp<RemoteCallBack>    remote_callback_;
+  Mutex                 lock_;
 
 
-  ion_fd_map ion_fd_mapping;
+  // mapping of service ion_fd and mapped status
+  typedef DefaultKeyedVector<uint32_t, uint32_t> ion_fd_map_;
 
-  std::map<uint32_t , std::vector<uint32_t>> track_fd_map_;
+  // mapping of <track_id, map <service_fd , mapped_status>>
+  DefaultKeyedVector<int32_t, ion_fd_map_> track_fd_map_;
+
 };
 
 };  // namespace player
