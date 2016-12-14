@@ -225,6 +225,19 @@ std::string RecorderTest::GetCurrentVHDRMode() {
           break;
         }
       }
+    } else {
+      //In case camera didn't set default check if there are any
+      //modes supported. In case there are set the first available.
+      if (!supported_hdr_modes_.empty()) {
+        vhdr_modes_iter start = supported_hdr_modes_.begin();
+        meta.update(QCAMERA3_VIDEO_HDR_MODE, &start->first, 1);
+        status = recorder_.SetCameraParam(camera_id_, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply: %s\n",
+                TAG, __func__, start->second.c_str());
+        }
+        ret = start->second;
+      }
     }
   }
 
@@ -361,6 +374,19 @@ std::string RecorderTest::GetCurrentIRMode() {
           ret = (it).second;
           break;
         }
+      }
+    }  else {
+      //In case camera didn't set default check if there are any
+      //modes supported. In case there are set the first available.
+      if (!supported_ir_modes_.empty()) {
+        ir_modes_iter start = supported_ir_modes_.begin();
+        meta.update(QCAMERA3_IR_MODE, &start->first, 1);
+        status = recorder_.SetCameraParam(camera_id_, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply: %s\n",
+                TAG, __func__, start->second.c_str());
+        }
+        ret = start->second;
       }
     }
   }
