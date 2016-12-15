@@ -65,6 +65,31 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
+#define AEC_SETTLE_INTERVAL 2
+
+enum class AfMode {
+  kNone,
+  kOff,
+  kAuto,
+  kMacro,
+  kContinousVideo,
+  kContinuousPicture,
+  kEdof
+};
+
+enum class SnapshotType {
+   kNone,
+   kJpeg,
+   kRawYuv,
+   kRawRdi
+};
+
+struct SnapshotInfo {
+   SnapshotType   type;
+   uint32_t       width;
+   uint32_t       height;
+};
+
 enum class TrackType {
   kNone,
   kAudioPCM,
@@ -96,12 +121,22 @@ class CmdMenu;
 
 class TestInitParams {
 public:
+    int32_t                camera_id;
+    SnapshotInfo           snapshot_info;
+    AfMode                 af_mode;
     uint32_t               recordTime;
     uint32_t               numStream;
     bool                   tnr;
     bool                   vhdr;
 
     TestInitParams() :
+            camera_id(-1),
+            snapshot_info {
+              SnapshotType::kNone,
+              0,
+              0
+            },
+            af_mode(AfMode::kOff),
             recordTime(0),
             numStream(0),
             tnr(0),
@@ -124,6 +159,8 @@ class RecorderTest {
   status_t StopCamera();
 
   status_t TakeSnapshot();
+
+  status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
 
   status_t Session4KAnd1080pYUVTracks();
 
@@ -195,14 +232,19 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
+  void printInitParameterAndTtrackInfo(const TestInitParams&
+                           initParams,const TrackInfo& track_info);
+
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
+  status_t ToggleAFMode(const AfMode& af_mode);
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
+  status_t GetCurrentAFMode(int32_t& mode);
 
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);

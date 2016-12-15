@@ -93,6 +93,77 @@ status_t RecorderTest::Disconnect() {
   return ret;
 }
 
+
+status_t RecorderTest::GetCurrentAFMode(int32_t& mode) {
+  CameraMetadata meta;
+
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+     if (meta.exists(ANDROID_CONTROL_AF_MODE)) {
+        mode = meta.find(ANDROID_CONTROL_AF_MODE).data.i32[0];
+        TEST_DBG("current af mode(%d)",mode);
+     } else {
+        TEST_ERROR("auto focus not support\n");
+        return NAME_NOT_FOUND;
+     }
+  } else {
+    TEST_ERROR("Fail to get camera param, %s, %d\n", strerror(errno), status);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
+status_t RecorderTest::ToggleAFMode(const AfMode& af_mode) {
+  CameraMetadata meta;
+  uint8_t mode;
+  status_t ret = NO_ERROR;
+  int32_t current_mode = 0;
+
+  switch(af_mode){
+    case AfMode::kOff:
+      mode = ANDROID_CONTROL_AF_MODE_OFF;
+      break;
+    case AfMode::kAuto:
+      mode = ANDROID_CONTROL_AF_MODE_AUTO;
+      break;
+    case AfMode::kMacro:
+      mode = ANDROID_CONTROL_AF_MODE_MACRO;
+      break;
+    case AfMode::kContinousVideo:
+      mode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+      break;
+    case AfMode::kContinuousPicture:
+      mode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+      break;
+    case AfMode::kEdof:
+      mode = ANDROID_CONTROL_AF_MODE_EDOF;
+      break;
+    default:
+      TEST_ERROR("Focuse -> Focus mode(%d) not supported! \n",af_mode);
+      return BAD_VALUE;
+  }
+
+  ret = GetCurrentAFMode(current_mode);
+  if(NO_ERROR != ret) {
+     TEST_ERROR("Fail to get current focus mode\n");
+     return ret;
+  } else {
+    if (current_mode != static_cast<int32_t>(mode)) {
+      TEST_ERROR("current focus mode (%d),update focus mode to (%d)now!",
+                current_mode,mode);
+      meta.update(ANDROID_CONTROL_AF_MODE, &mode, 1);
+      auto status = recorder_.SetCameraParam(camera_id_, meta);
+      if (NO_ERROR != status) {
+         TEST_ERROR("Fail to set focus mode param\n");
+         ret = status;
+      }
+    }
+  }
+
+ return ret;
+}
+
 int32_t RecorderTest::ToggleNR() {
   CameraMetadata meta;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
@@ -355,7 +426,8 @@ int32_t RecorderTest::SetAntibandingMode() {
   meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &mode, 1);
   status = recorder_.SetCameraParam(camera_id_, meta);
   if (NO_ERROR != status) {
-    ALOGE("%s:%s Failed to apply: ANDROID_CONTROL_AE_ANTIBANDING_MODE\n",TAG, __func__);
+    TEST_ERROR("%s:%s Failed to apply: ANDROID_CONTROL_AE_ANTIBANDING_MODE\n",
+                TAG, __func__);
     return status;
   }
 
@@ -459,6 +531,126 @@ status_t RecorderTest::StopCamera() {
   static_info_.clear();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
+}
+
+status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
+                                          snapshot_info) {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t ret = 0;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == 0);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+
+  image_param.width = snapshot_info.width;
+  image_param.height = snapshot_info.height;
+
+  switch(snapshot_info.type) {
+    case SnapshotType::kNone:
+      TEST_INFO("Snapshot format(%d) is not correct\n",snapshot_info.type);
+      break;
+    case SnapshotType::kJpeg:
+      // Check Supported JPEG snapshot resolutions.
+      if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+        entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+        for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+               entry.data.i32[i+3]) {
+             if ( (0 == snapshot_info.width)
+               && (0 == snapshot_info.height) ){
+               image_param.width = (uint32_t)entry.data.i32[i+1];
+               image_param.height = (uint32_t)entry.data.i32[i+2];
+               TEST_INFO("Snapshot JPEG size %dx%d is support\n",
+                       image_param.width,image_param.height);
+               break;
+             }
+             if ( (image_param.width == (uint32_t)entry.data.i32[i+1])
+               && (image_param.height == (uint32_t)entry.data.i32[i+2]) ){
+                TEST_INFO("Snapshot size %dx%d is support\n",
+                        image_param.width,image_param.height);
+                break;
+             }
+           }
+         }
+       }
+     }
+
+     image_param.image_format  = ImageFormat::kJPEG;
+     image_param.image_quality = 95;
+     break;
+   case SnapshotType::kRawYuv:
+     // Check available raw YUV resolutions.
+     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+       entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+       for (uint32_t i = 0 ; i < entry.count; i += 4) {
+         if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+             entry.data.i32[i+3]) {
+             TEST_INFO("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)", TAG,
+                    __func__, i, entry.data.i32[i+1], entry.data.i32[i+2]);
+             if ( (0 == snapshot_info.width)
+               && (0 == snapshot_info.height) ){
+               image_param.width = (uint32_t)entry.data.i32[i+1];
+               image_param.height = (uint32_t)entry.data.i32[i+2];
+               TEST_INFO("RAW YUV size %dx%d\n is support\n",
+                 image_param.width,image_param.height);
+               break;
+              }
+              if ( (image_param.width == (uint32_t)entry.data.i32[i+1])
+                 && (image_param.height == (uint32_t)entry.data.i32[i+2]) ){
+                 TEST_INFO("RAW YUV size %dx%d is support\n",
+                          image_param.width,image_param.height);
+              }
+            }
+          }
+        }
+      }
+
+      image_param.image_format = ImageFormat::kNV12;
+      break;
+    case SnapshotType::kRawRdi:
+      if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+          entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+        for (uint32_t i = 0 ; i < entry.count; i += 2) {
+          TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)\n", TAG,
+                __func__, i, entry.data.i32[i+0], entry.data.i32[i+1]);
+          image_param.width = (uint32_t)entry.data.i32[i+0];
+          image_param.height = (uint32_t)entry.data.i32[i+1];
+          break;
+        }
+      }
+
+      image_param.image_format = ImageFormat::kBayerRDI;
+      break;
+    default:
+      TEST_INFO("Snapshot format(%d) is not correct\n",snapshot_info.type);
+      return BAD_VALUE;
+  }
+
+  if (snapshot_info.type  != SnapshotType::kNone) {
+    ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
+                             BufferDescriptor buffer, MetaData meta_data)
+          { SnapshotCb(camera_id_, image_count, buffer, meta_data); };
+
+    assert(ret == NO_ERROR);
+
+    std::vector<CameraMetadata> meta_array;
+    meta_array.push_back(meta);
+
+    TEST_INFO("CaptureImage size %dx%d\n",image_param.width,image_param.height);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    if(ret != 0) {
+      ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
+    }
+  }
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
 status_t RecorderTest::TakeSnapshot() {
@@ -2042,6 +2234,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   if(ret != 0) {
     return ret;
   }
+  printf("%s Connect - Start\n",__func__);
 
   // Connect - Start
   RecorderCb recorder_status_cb;
@@ -2057,6 +2250,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   }
   // Connect - End
 
+  printf("%s StartCamera\n",__func__);
   // StartCamera - Begin
   // TODO: this parameters to be configured from config file
   // once the proper lower layer support for zsl is added
@@ -2087,6 +2281,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   InitSupportedIRModes();
 
   // StartCamera - End
+  printf("%s Create session and add track\n",__func__);
 
   // Create session and add track
   if (params.numStream != infos.size()) {
@@ -2119,22 +2314,25 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     ret = video_track->SetUp(track_info);
     assert(ret == 0);
     tracks.push_back(video_track);
+
+    if(track_info.track_type == TrackType::kAudioAAC) {
+       //Test audio AAC track
+       //TODO: To be removed when support added in config file
+       TestTrack *audio_aac_track = new TestTrack(this);
+       TrackInfo info;
+       memset(&info, 0x0, sizeof info);
+       info.track_id   = 101;
+       info.track_type = TrackType::kAudioAAC;
+       info.session_id = session_id;
+       info.camera_id = camera_id_;
+
+       ret = audio_aac_track->SetUp(info);
+       assert(ret == 0);
+       tracks.push_back(audio_aac_track);
+    }
   }
 
-  // Test audio AAC track
-  //TODO: To be removed when support added in config file
-  TestTrack *audio_aac_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioAAC;
-  info.session_id = session_id;
-  info.camera_id = camera_id_;
-
-  ret = audio_aac_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_aac_track);
-
+   printf("%s StartSession\n",__func__);
   // StartSession - Begin
   // Prepare tracks: setup files to dump track data, event etc.
   for (uint32_t i=0;i < tracks.size();i++) {
@@ -2214,8 +2412,37 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   }
   // TNR/SHDR - End
 
+  if (params.af_mode != AfMode::kNone) {
+     printf("%s toggle auto focus mode\n",__func__);
+     status = ToggleAFMode(params.af_mode);
+     if (NO_ERROR != status) {
+       TEST_ERROR("failed to toggle focus mode, status = %d\n", status);
+       if (BAD_VALUE == status) {
+         return BAD_VALUE;
+       }
+     }
+  }
+
+  if (params.snapshot_info.type != SnapshotType::kNone) {
+
+     printf("%s waiting for 2 seconds for exposure to settle\n",__func__);
+     // sleep required to settle the exposure before taking snapshot.
+     // This app does not provide interactive feedback to user
+     // about the exposure
+     PARAMETER_SETTLE_INTERVAL(AEC_SETTLE_INTERVAL);
+     TEST_INFO("start to take snapshot\n");
+     ret = TakeSnapshotWithConfig(params.snapshot_info);
+     if (NO_ERROR != ret) {
+        printf("failed to take snapshot with config\n");
+        assert(ret == NO_ERROR);
+     }
+  }
+
+  printf("%s Keep recording for %ds time\n",__func__,params.recordTime);
   // Keep recording for the given time
   sleep(params.recordTime);
+
+  printf("%s StopSession\n",__func__);
 
   // StopSession - Begin
   ret = recorder_.StopSession(session_id, true /*flush buffers*/);
@@ -2233,6 +2460,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
   // StopSession - End
+  printf("%s DeleteSession\n",__func__);
 
   // DeleteSession - Begin
   // Delete all the tracks associated to session.
@@ -2253,6 +2481,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   ret = recorder_.DeleteSession(session_id);
 
   // DeleteSession - End
+  printf("%s StopCamera\n",__func__);
 
   // StopCamera - Begin
   ret = recorder_.StopCamera(camera_id_);
@@ -2262,6 +2491,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   }
   static_info_.clear();
   // StopCamera - End
+  printf("%s Disconnect\n",__func__);
 
   // Disconnect - Begin
   ret = recorder_.Disconnect();
@@ -2273,6 +2503,24 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   ALOGD("%s: Exit ",__func__);
   return ret;
+}
+
+void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
+                                 initParams,const TrackInfo& track_info) {
+  printf("\ninitParams.camera_id = %d\n", initParams.camera_id);
+  printf("initParams.numStream = %d\n", initParams.numStream);
+  printf("initParams.snapshot_info.type = %d\n",
+          initParams.snapshot_info.type);
+  printf("initParams.snapshot_info.width = %d\n",
+          initParams.snapshot_info.width);
+  printf("initParams.snapshot_info.height = %d\n",
+          initParams.snapshot_info.height);
+  printf("initParams.af_mode = %d\n", initParams.af_mode);
+  printf("TrackInfo.track_type = %d\n", track_info.track_type);
+  printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
+  printf("TrackInfo.fps = %d\n", track_info.fps);
+  printf("TrackInfo.width = %d\n", track_info.width);
+  printf("TrackInfo.height = %d\n\n", track_info.height);
 }
 
 int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
@@ -2334,7 +2582,43 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     }
     value[j] = '\0';
 
-    if(!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
+    if(!strncmp("CameraID", key, strlen("CameraID"))) {
+      initParams->camera_id = atoi(value);
+    } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
+      if(!strncmp("None", value, strlen("None"))) {
+        initParams->snapshot_info.type= SnapshotType::kNone;
+      } else if(!strncmp("JPEG", value, strlen("JPEG"))) {
+        initParams->snapshot_info.type= SnapshotType::kJpeg;
+      } else if(!strncmp("RAWYUV", value, strlen("RAWYUV"))) {
+        initParams->snapshot_info.type= SnapshotType::kRawYuv;
+      } else if(!strncmp("RAWRDI", value, strlen("RAWRDI"))) {
+        initParams->snapshot_info.type= SnapshotType::kRawRdi;
+      } else {
+        ALOGE("%s: Unknown SnapshotType(%s)", __func__, value);
+        goto READ_FAILED;
+      }
+    } else if(!strncmp("SnapshotWidth", key, strlen("SnapshotWidth"))) {
+      initParams->snapshot_info.width = atoi(value);
+    } else if(!strncmp("SnapshotHeight", key, strlen("SnapshotHeight"))) {
+      initParams->snapshot_info.height = atoi(value);
+    } else if(!strncmp("AFMode", key, strlen("AFMode"))) {
+      if(!strncmp("None", value, strlen("None"))) {
+        initParams->af_mode = AfMode::kNone;
+      } else if(!strncmp("Off", value, strlen("Off"))) {
+        initParams->af_mode = AfMode::kOff;
+      } else if(!strncmp("AUTO", value, strlen("AUTO"))) {
+        initParams->af_mode = AfMode::kAuto;
+      } else if(!strncmp("MACRO", value, strlen("MACRO"))) {
+        initParams->af_mode = AfMode::kMacro;
+      } else if(!strncmp("CVAF", value, strlen("CVAF"))) {
+        initParams->af_mode = AfMode::kContinousVideo;
+      } else if(!strncmp("CPAF", value, strlen("CPAF"))) {
+        initParams->af_mode = AfMode::kContinuousPicture;
+      } else {
+        ALOGE("%s: Unknown AFMode(%s)", __func__, value);
+        goto READ_FAILED;
+      }
+    } else if(!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
       initParams->recordTime = atoi(value);
     } else if(!strncmp("NumStream", key, strlen("NumStream"))) {
       if(atoi(value) <= 0) {
@@ -2376,8 +2660,10 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       goto READ_FAILED;
     }
     if (isStreamReadCompleted) {
-      track_info.camera_id = camera_id_;
+      camera_id_ = initParams->camera_id;
+      track_info.camera_id = initParams->camera_id;
       infos->push_back(track_info);
+      printInitParameterAndTtrackInfo(*initParams,track_info);
     }
   }
 
