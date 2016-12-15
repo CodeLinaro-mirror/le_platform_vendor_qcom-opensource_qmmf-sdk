@@ -626,6 +626,97 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
   return ret;
 }
 
+TEST_F(Camera3Gtest, Video1080pEVcontrol) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest;
+  int64_t lastFrameNumber;
+  int32_t repeatingStreamId, videoRequestId;
+  CameraMetadata staticInfo;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  if (staticInfo.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
+    camera_metadata_entry metaEntry =
+        staticInfo.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
+
+    printf("EV Compensation 0\n");
+    ret = device_client_->BeginConfigure();
+    ASSERT_EQ(0, ret);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = STREAM_BUFFER_COUNT;
+    streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    streamParams.width = 1920;
+    streamParams.height = 1080;
+    streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+    streamParams.cb = [&](int32_t streamId,
+              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+    // 1080p Stream1
+    repeatingStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(repeatingStreamId, 0);
+    videoRequest.streamIds.add(repeatingStreamId);
+
+    ret = device_client_->EndConfigure();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                        &videoRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    int32_t evCompensation = 0;
+    videoRequest.metadata.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
+                                  &evCompensation,
+                                  1);
+
+    ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+    ASSERT_GE(ret, 0);
+    videoRequestId = ret;
+
+    // Run video for some time
+    sleep(5);
+
+    dump_yuv_ = true;
+
+    while (metaEntry.count) {
+      --metaEntry.count;
+      printf("EV Compensation: %d\n", metaEntry.data.i32[metaEntry.count]);
+
+      ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                          &videoRequest.metadata);
+      ASSERT_EQ(0, ret);
+
+      videoRequest.metadata.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
+                                    &metaEntry.data.i32[metaEntry.count],
+                                    1);
+
+      ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+      ASSERT_GE(ret, 0);
+      videoRequestId = ret;
+
+      // Run video for some time
+      sleep(5);
+
+      dump_yuv_ = true;
+    }
+
+    ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+    ASSERT_EQ(0, ret);
+
+    printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+       __func__, lastFrameNumber);
+
+    ret = device_client_->WaitUntilIdle();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(repeatingStreamId);
+    ASSERT_EQ(0, ret);
+    ASSERT_FALSE(camera_error_);
+  }
+}
+
 TEST_F(Camera3Gtest, Video1080pExposureModes) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
