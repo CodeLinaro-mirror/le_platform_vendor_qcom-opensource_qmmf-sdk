@@ -33,6 +33,7 @@
 #include <utils/Mutex.h>
 
 #include "qmmf-sdk/qmmf_display_params.h"
+#include "common/qmmf_log.h"
 
 namespace qmmf {
 
@@ -43,11 +44,6 @@ namespace display {
 */
 //#define LOG_LEVEL1
 //#define LOG_LEVEL2
-
-// QMMF_INFO, ERROR and WARN logs are enabled by default.
-#define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
 
 #ifdef LOG_LEVEL1
 #define QMMF_LEVEL1(fmt, args...)  ALOGD(fmt, ##args)

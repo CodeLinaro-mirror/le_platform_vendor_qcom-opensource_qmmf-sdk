@@ -317,12 +317,12 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
       return error;
     }
 
-  displayintf = nullptr;
-  displayinfo->second->surfaceinfo_.clear();
-  displayinfo->second->num_of_clients = 0;
-  delete displayinfo->second;
-  displayinfo->second = nullptr;
-  displayinfo_.erase(displayinfo);
+    displayintf = nullptr;
+    displayinfo->second->surfaceinfo_.clear();
+    displayinfo->second->num_of_clients = 0;
+    delete displayinfo->second;
+    displayinfo->second = nullptr;
+    displayinfo_.erase(displayinfo);
   }
   pthread_mutex_unlock(&thread_lock_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -558,7 +558,27 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   if(layer->input_buffer && layer->input_buffer->release_fence_fd>0) {
     close(layer->input_buffer->release_fence_fd);
   }
-
+  BufferInfo buffer_info;
+  int32_t aligned_width, aligned_height;
+  aligned_width = surface_buffer.plane_info[0].width;
+  aligned_height = surface_buffer.plane_info[0].height;
+  buffer_info.buffer_config.width = surface_buffer.plane_info[0].width;
+  buffer_info.buffer_config.height = surface_buffer.plane_info[0].height;
+  buffer_info.buffer_config.format = (LayerBufferFormat)surface_buffer.format;
+  buffer_info.buffer_config.buffer_count = 1;
+  buffer_info.buffer_config.cache = 0;
+  buffer_info.alloc_buffer_info.fd = -1;
+  buffer_info.alloc_buffer_info.stride = 0;
+  buffer_info.alloc_buffer_info.size = 0;
+  ret = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width, aligned_height);
+  if (ret != kErrorNone) {
+      QMMF_ERROR("%s:%s: GetBufferInfo Failed. Error = %d", TAG,
+          __func__, ret);
+  }
+  layer->input_buffer->width = aligned_width;
+  layer->input_buffer->height = aligned_height;
+  layer->input_buffer->unaligned_width = surface_buffer.plane_info[0].width;
+  layer->input_buffer->unaligned_height = surface_buffer.plane_info[0].height;
   layer->input_buffer->size = surface_buffer.plane_info[0].size;
   layer->input_buffer->planes[0].offset = surface_buffer.plane_info[0].offset;
   layer->input_buffer->planes[0].stride = surface_buffer.plane_info[0].stride;
@@ -860,7 +880,7 @@ Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
 LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
     bool queued_buffers_only) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
     QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
@@ -895,7 +915,7 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
     }
   }
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return layer_stack;
 }
 
@@ -905,7 +925,6 @@ DisplayError DisplayImpl::VSync(const DisplayEventVSync &vsync) {
   SCOPE_LOCK(vsync_callback_locker_);
   vsync_callback_locker_.Signal();
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-
   return kErrorNone;
 }
 
