@@ -76,6 +76,8 @@ class AudioService : public ::android::BnInterface<IAudioService>
                         int32_t* buffer_size) override;
   int32_t SetParam(const AudioHandle audio_handle, const AudioParamType type,
                    const AudioParamData& data) override;
+  int32_t GetRenderedPosition(const AudioHandle audio_handle,
+                              uint32_t* frames, uint64_t* time) override;
 
   // methods of BnInterface<IAudioService>
   int32_t onTransact(uint32_t code, const ::android::Parcel& data,

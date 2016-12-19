@@ -53,6 +53,7 @@ namespace recorder {
 
 #define SENSOR_VENDOR_MODE_OFFSET (24)
 #define SENSOR_VENDOR_MODE_MASK (0xff)
+#define MAX_AUDIO_INPUT_DEVICES (10)
 
 typedef int32_t status_t;
 
@@ -133,7 +134,8 @@ struct TrackCb {
 /// to external devices say through HDMI. In all other usecases
 /// out_device will be set to AUDIO_DEVICE_NONE
 struct AudioTrackCreateParam {
-  ::std::vector<DeviceId> in_devices;
+  uint32_t                in_devices_num;
+  DeviceId                in_devices[MAX_AUDIO_INPUT_DEVICES];
   uint32_t                sample_rate;
   uint32_t                channels;
   uint32_t                bit_depth;
@@ -145,9 +147,9 @@ struct AudioTrackCreateParam {
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "in_devices[";
-    for (const DeviceId device : in_devices)
-      stream << device << ", ";
-    stream << "SIZE[" << in_devices.size() << "]], ";
+    for (uint32_t i = 0; i < in_devices_num; i++)
+      stream << in_devices[i] << ", ";
+    stream << "SIZE[" << in_devices_num << "]], ";
     stream << "sample_rate[" << sample_rate << "] ";
     stream << "channels[" << channels << "] ";
     stream << "bit_depth[" << bit_depth << "] ";

@@ -68,6 +68,8 @@ class AudioBackendSource : public IAudioBackend {
   int32_t GetBufferSize(int32_t* buffer_size);
   int32_t SetParam(const AudioParamType type,
                    const AudioParamData& data);
+  int32_t GetRenderedPosition(uint32_t* frames,
+                              uint64_t* time);
 
  private:
   enum class AudioMessageType {

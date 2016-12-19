@@ -66,6 +66,7 @@ class AudioEndPointClient {
   int32_t GetLatency(int32_t* latency);
   int32_t GetBufferSize(int32_t* buffer_size);
   int32_t SetParam(const AudioParamType type, const AudioParamData& data);
+  int32_t GetRenderedPosition(uint32_t* frames, uint64_t* time);
 
   // callbacks from service
   void NotifyErrorEvent(const int32_t error);

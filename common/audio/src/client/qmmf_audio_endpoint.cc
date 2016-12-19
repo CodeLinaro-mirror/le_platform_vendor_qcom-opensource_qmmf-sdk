@@ -217,6 +217,22 @@ int32_t AudioEndPoint::SetParam(const AudioParamType type,
   return result;
 }
 
+int32_t AudioEndPoint::GetRenderedPosition(uint32_t* frames,
+                                           uint64_t* time) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  assert(audio_endpoint_client_ != nullptr);
+  assert(frames != nullptr);
+  assert(time != nullptr);
+
+  int32_t result = audio_endpoint_client_->GetRenderedPosition(frames, time);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() client->GetRenderedPosition failed: %d", TAG, __func__,
+        result);
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: [%u] [%llu]", TAG, __func__, *frames, *time);
+  return result;
+}
+
 }; // namespace audio
 }; // namespace common
 }; // namespace qmmf

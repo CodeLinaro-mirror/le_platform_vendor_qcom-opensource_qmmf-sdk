@@ -126,9 +126,14 @@ status_t AudioEncodedTrackSource::Init() {
   metadata.num_channels = track_params_.params.channels;
   metadata.sample_rate = track_params_.params.sample_rate;
   metadata.sample_size = track_params_.params.bit_depth;
+  {
+    vector<DeviceId> devices;
+    for (uint32_t i = 0; i < track_params_.params.in_devices_num; i++)
+      devices.push_back(track_params_.params.in_devices[i]);
 
-  result = end_point_->Configure(AudioEndPointType::kSource,
-                                 track_params_.params.in_devices, metadata);
+    result = end_point_->Configure(AudioEndPointType::kSource, devices,
+                                   metadata);
+  }
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Configure failed: %d[%s]", TAG, __func__,
                result, strerror(result));

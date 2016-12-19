@@ -67,6 +67,8 @@ fi
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
 # TODO this warning suppress issue in lib gralloc private
 [CPPFLAGS="$CPPFLAGS -Wno-multichar"]
+# TODO remove this when gcc version is updated
+[CPPFLAGS="$CPPFLAGS -Wno-missing-field-initializers"]
 # TODO define ANDROID macro to resolve redefinition of LOGE by MMDebugMsg.h
 [CPPFLAGS="$CPPFLAGS -DANDROID"]
 

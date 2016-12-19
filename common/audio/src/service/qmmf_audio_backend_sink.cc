@@ -526,6 +526,62 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
   return 0;
 }
 
+int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
+                                              uint64_t* time)
+{
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  switch (state_) {
+    case AudioState::kIdle:
+    case AudioState::kNew:
+    case AudioState::kConnect:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+          __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      // proceed
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+          static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+  int result = qahw_out_get_render_position(qahw_stream_, frames);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() Failed to get render position : %d", TAG,
+        __func__, result);
+  }
+
+  QMMF_VERBOSE("%s: %s() Total Frames Rendered : %u", TAG, __func__, *frames);
+
+  uint64_t frame;
+  struct timespec tv;
+
+  result = qahw_out_get_presentation_position(qahw_stream_, &frame, &tv);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() Failed to get presentation position: %d", TAG,
+        __func__, result);
+  }
+
+  *time = (uint64_t)(tv.tv_sec) * 1000000 + (uint64_t)(tv.tv_nsec) / 1000;
+
+  QMMF_VERBOSE("%s: %s() Total Frames Rendered (%llu) Time (%llu)", TAG,
+      __func__, frame, *time);
+#else
+  *frames = 16;
+  *time = 10000000;
+#endif
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: frames[%u] time[%llu]", TAG, __func__,
+      *frames, *time);
+  return 0;
+}
+
 void AudioBackendSink::ThreadEntry(AudioBackendSink* backend) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 

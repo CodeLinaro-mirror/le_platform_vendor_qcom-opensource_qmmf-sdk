@@ -317,6 +317,25 @@ int32_t AudioService::SetParam(const AudioHandle audio_handle,
   return result;
 }
 
+int32_t AudioService::GetRenderedPosition(const AudioHandle audio_handle,
+                                          uint32_t* frames, uint64_t* time) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+               audio_handle);
+  lock_guard<mutex> lock(lock_);
+
+  int32_t result = audio_frontend_.GetRenderedPosition(audio_handle, frames, time);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() frontend->GetRenderedPosition failed: %d", TAG, __func__,
+        result);
+  }
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: Frames[%u] Time[%llu]", TAG, __func__,
+      *frames, *time);
+  return result;
+}
+
+
 int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
                                  Parcel* output, uint32_t flags) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
@@ -510,6 +529,24 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
                    data.ToString(type).c_str());
       int32_t result = SetParam(audio_handle, type, data);
 
+      output->writeInt32(result);
+      break;
+    }
+
+    case AudioServiceCommand::kGetRenderedPosition: {
+      AudioHandle audio_handle = static_cast<AudioHandle>(input.readInt32());
+
+      QMMF_DEBUG("%s: %s-AudioGetRenderedPosition() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s: %s-AudioGetRenderedPosition() INPARAM: audio_handle[%d]",
+          TAG,__func__, audio_handle);
+      uint32_t frames;
+      uint64_t time;
+      int32_t result = GetRenderedPosition(audio_handle, &frames, &time);
+      QMMF_VERBOSE("%s: %s-GetRenderedPosition() OUTPARAM: frames[%u] time[%llu]",
+          TAG,__func__, frames, time);
+
+      output->writeUint32(frames);
+      output->writeUint64(time);
       output->writeInt32(result);
       break;
     }

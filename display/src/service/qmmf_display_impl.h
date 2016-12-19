@@ -32,6 +32,7 @@
 #include <utils/KeyedVector.h>
 
 #include "qmmf-sdk/qmmf_display_params.h"
+#include "common/qmmf_log.h"
 #include "display/src/service/qmmf_display_common.h"
 #include "display/src/service/qmmf_remote_cb.h"
 #include "display/src/service/qmmf_display_sdm_buffer_allocator.h"

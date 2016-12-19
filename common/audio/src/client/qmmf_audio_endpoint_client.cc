@@ -583,6 +583,48 @@ int32_t AudioEndPointClient::SetParam(const AudioParamType type,
   return result;
 }
 
+int32_t AudioEndPointClient::GetRenderedPosition(uint32_t* frames,
+                                                  uint64_t* time) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  lock_guard<mutex> lock(lock_);
+
+  switch (state_) {
+    case AudioState::kIdle:
+    case AudioState::kNew:
+    case AudioState::kConnect:
+      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+          __func__, static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+    case AudioState::kRunning:
+    case AudioState::kPaused:
+      // proceed
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+          static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  if (audio_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  int32_t result = audio_service_->GetRenderedPosition(audio_handle_, frames,
+      time);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() service->GetRenderedPosition failed: %d", TAG, __func__,
+        result);
+  }
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: frames[%u] time[%llu]", TAG, __func__,
+      *frames, *time);
+
+  return result;
+}
+
 void AudioEndPointClient::NotifyErrorEvent(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
@@ -813,6 +855,28 @@ class BpAudioService: public BpInterface<IAudioService> {
     remote()->transact(static_cast<uint32_t>
                                   (AudioServiceCommand::kAudioSetParam),
                        input, &output);
+
+    return output.readInt32();
+  }
+
+  int32_t GetRenderedPosition(const AudioHandle audio_handle,
+                             uint32_t* frames, uint64_t* time) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+                 audio_handle);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(audio_handle));
+
+    remote()->transact(static_cast<uint32_t>
+                                  (AudioServiceCommand::kGetRenderedPosition),
+                       input, &output);
+
+    *frames = output.readUint32();
+    *time = output.readUint64();
+    QMMF_VERBOSE("%s: %s() OUTPARAM: Frames[%u] Time[%llu]", TAG, __func__,
+        *frames, *time);
 
     return output.readInt32();
   }
