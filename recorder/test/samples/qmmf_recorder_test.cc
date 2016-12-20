@@ -362,7 +362,7 @@ int32_t RecorderTest::ToggleIR() {
 int32_t RecorderTest::ChooseCamera() {
 
   // TODO - propagate num cameras
-  int num_cameras = 2;
+  int num_cameras = 3;
   int input;
 
   do {

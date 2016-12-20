@@ -28,6 +28,7 @@
 */
 
 #include <inttypes.h>
+#include <libgralloc/gralloc_priv.h>
 #include "qmmf_dual_camera_adaptor_gtest.h"
 
 #define BUFFER_COUNT 4
@@ -60,8 +61,10 @@ void DualCamera3Gtest::SetUp() {
   ASSERT_GE(number_of_cameras_, 2U);
   memset(&ctx1_, 0, sizeof(ctx1_));
   memset(&ctx2_, 0, sizeof(ctx2_));
+  memset(&ctx3_, 0, sizeof(ctx3_));
   ctx1_.cameraIdx = 0;
-  ctx2_.cameraIdx = 1;
+  ctx2_.cameraIdx = 2;
+  ctx3_.cameraIdx = 3;
 }
 
 void DualCamera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
@@ -102,7 +105,7 @@ void DualCamera3Gtest::ResultCb(const CaptureResult &result) {
 }
 
 int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
-                                         uint32_t height) {
+                                         uint32_t height, uint32_t format) {
   CameraStreamParameters streamParams;
   CameraClientCallbacks clientCb;
   Camera3Request request;
@@ -146,10 +149,13 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
 
     memset(&streamParams, 0, sizeof(streamParams));
     streamParams.bufferCount = BUFFER_COUNT;
-    streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    streamParams.format = format;
     streamParams.width = width;
     streamParams.height = height;
     streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
+    if (format == HAL_PIXEL_FORMAT_RAW10) {
+      streamParams.grallocFlags |= private_handle_t::PRIV_FLAGS_RAW_ONLY;
+    }
     streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
       printf("%s: Received buffer from camera Id: %d\n", __func__,
              ctx.cameraIdx);
@@ -235,10 +241,10 @@ exit:
 }
 
 TEST_F(DualCamera3Gtest, DualPreview1080p) {
-  auto ret = StartStreaming(ctx2_, 1920, 1080);
+  auto ret = StartStreaming(ctx2_, 1920, 1080, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
-  ret = StartStreaming(ctx1_, 1920, 1080);
+  ret = StartStreaming(ctx1_, 1920, 1080, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
   // Let streaming run for a while
@@ -253,16 +259,40 @@ TEST_F(DualCamera3Gtest, DualPreview1080p) {
 }
 
 TEST_F(DualCamera3Gtest, DualPreviewVGA) {
-  auto ret = StartStreaming(ctx2_, 640, 480);
+  auto ret = StartStreaming(ctx2_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
-  ret = StartStreaming(ctx1_, 640, 480);
+  ret = StartStreaming(ctx1_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
   // Let streaming run for a while
   sleep(5);
 
+  ret = StopStreamingAndClose(ctx1_);
+  ASSERT_EQ(0, ret);
+
   ret = StopStreamingAndClose(ctx2_);
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
+TEST_F(DualCamera3Gtest, ThreeCamerasPreviewVGA) {
+  auto ret = StartStreaming(ctx1_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  ASSERT_EQ(0, ret);
+
+  ret = StartStreaming(ctx3_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  ASSERT_EQ(0, ret);
+
+  ret = StartStreaming(ctx2_, 640, 480, HAL_PIXEL_FORMAT_RAW10);
+  ASSERT_EQ(0, ret);
+
+  // Let streaming run for a while
+  sleep(10);
+
+  ret = StopStreamingAndClose(ctx2_);
+  ASSERT_EQ(0, ret);
+
+  ret = StopStreamingAndClose(ctx3_);
   ASSERT_EQ(0, ret);
 
   ret = StopStreamingAndClose(ctx1_);

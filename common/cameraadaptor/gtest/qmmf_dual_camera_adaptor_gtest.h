@@ -61,12 +61,12 @@ class DualCamera3Gtest : public ::testing::Test {
     uint32_t cameraIdx;
   } CameraContext;
 
-  int32_t StartStreaming(CameraContext &ctx, uint32_t width, uint32_t height);
+  int32_t StartStreaming(CameraContext &ctx, uint32_t width, uint32_t height, uint32_t format);
   int32_t StopStreamingAndClose(CameraContext &ctx);
 
   uint32_t number_of_cameras_;
   CameraClientCallbacks client_cb_;
-  CameraContext ctx1_, ctx2_;
+  CameraContext ctx1_, ctx2_, ctx3_;
   bool camera_error_;
 };
 
