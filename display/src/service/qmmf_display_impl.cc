@@ -387,11 +387,11 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
         __func__, error);
   }
 
-  layer->input_buffer->width = aligned_width;
-  layer->input_buffer->height = aligned_height;
-  layer->input_buffer->unaligned_width = surface_config.width;
-  layer->input_buffer->unaligned_height = surface_config.height;
-  layer->input_buffer->format = (LayerBufferFormat)surface_config.format;
+  layer->input_buffer.width = aligned_width;
+  layer->input_buffer.height = aligned_height;
+  layer->input_buffer.unaligned_width = surface_config.width;
+  layer->input_buffer.unaligned_height = surface_config.height;
+  layer->input_buffer.format = (LayerBufferFormat)surface_config.format;
   SetRect(surface_param.dst_rect, &layer->dst_rect);
   SetRect(surface_param.src_rect, &layer->src_rect);
   layer->frame_rate = surface_param.frame_rate;
@@ -555,8 +555,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
 
   Layer* layer = GetLayer(display_handle, surface_id);
   assert(layer != NULL);
-  if(layer->input_buffer && layer->input_buffer->release_fence_fd>0) {
-    close(layer->input_buffer->release_fence_fd);
+  if(layer->input_buffer.release_fence_fd>0) {
+    close(layer->input_buffer.release_fence_fd);
   }
   BufferInfo buffer_info;
   int32_t aligned_width, aligned_height;
@@ -575,13 +575,15 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
       QMMF_ERROR("%s:%s: GetBufferInfo Failed. Error = %d", TAG,
           __func__, ret);
   }
-  layer->input_buffer->width = aligned_width;
-  layer->input_buffer->height = aligned_height;
-  layer->input_buffer->unaligned_width = surface_buffer.plane_info[0].width;
-  layer->input_buffer->unaligned_height = surface_buffer.plane_info[0].height;
-  layer->input_buffer->size = surface_buffer.plane_info[0].size;
-  layer->input_buffer->planes[0].offset = surface_buffer.plane_info[0].offset;
-  layer->input_buffer->planes[0].stride = surface_buffer.plane_info[0].stride;
+  layer->input_buffer.width = aligned_width;
+  layer->input_buffer.height = aligned_height;
+  layer->input_buffer.unaligned_width = surface_buffer.plane_info[0].width;
+  layer->input_buffer.unaligned_height = surface_buffer.plane_info[0].height;
+  layer->input_buffer.size = surface_buffer.plane_info[0].size;
+  layer->input_buffer.planes[0].offset = surface_buffer.plane_info[0].offset;
+  layer->input_buffer.planes[0].stride = surface_buffer.plane_info[0].stride;
+  layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
+  layer->input_buffer.color_metadata.range = Range_Limited;
   SetRect(surface_param.dst_rect, &layer->dst_rect);
   SetRect(surface_param.src_rect, &layer->src_rect);
   layer->blending = (LayerBlending)surface_param.surface_blending;
@@ -595,8 +597,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->solid_fill_color = surface_param.solid_fill_color;
   layer->flags.solid_fill = surface_param.surface_flags.solid_fill;
   layer->flags.cursor = surface_param.surface_flags.cursor;
-  layer->input_buffer->planes[0].fd = surface_buffer.plane_info[0].ion_fd;
-  layer->input_buffer->buffer_id = surface_buffer.buf_id;
+  layer->input_buffer.planes[0].fd = surface_buffer.plane_info[0].ion_fd;
+  layer->input_buffer.buffer_id = surface_buffer.buf_id;
   if (surfaceinfo->second->buffer_internal) {
     auto buf_id_use = surfaceinfo->second->buf_id_use.find
         (surface_buffer.buf_id);
@@ -819,10 +821,6 @@ Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
   Layer* layer = new Layer();
   assert(layer != NULL);
 
-  LayerBuffer* layer_buffer = new LayerBuffer();
-  assert(layer_buffer != NULL);
-
-  layer->input_buffer = layer_buffer;
   displayinfo->second->layer_count++;
   *surface_id = displayinfo->second->layer_count;
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -848,7 +846,6 @@ void DisplayImpl::FreeLayer(DisplayHandle display_handle,
 
   Layer *layer = surfaceinfo->second->layer;
   assert(layer != NULL);
-  delete layer->input_buffer;
   delete layer;
   surfaceinfo->second->layer = nullptr;
   displayinfo->second->layer_count--;
