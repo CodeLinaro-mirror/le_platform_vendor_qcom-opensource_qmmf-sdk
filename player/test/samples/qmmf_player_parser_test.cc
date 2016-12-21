@@ -356,7 +356,7 @@ int32_t PlayerTest::Stop() {
 
 int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  Mutex::Autolock lock(state_lock);
+  Mutex::Autolock lock(state_lock_);
   auto ret = -1;
 
   ret = player_.Stop(false);
