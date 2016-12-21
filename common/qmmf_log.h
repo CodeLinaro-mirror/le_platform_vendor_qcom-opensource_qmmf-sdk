@@ -37,6 +37,8 @@
 // Remove comment markers to define LOG_LEVEL_VERBOSE for complete logs
 //#define LOG_LEVEL_VERBOSE
 
+#define LOG_LEVEL_KPI
+
 // INFO, ERROR and WARN logs are enabled by default
 #define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
@@ -54,4 +56,48 @@ static inline void unused(...) {};
 #define QMMF_VERBOSE(fmt, args...)  ALOGD(fmt, ##args)
 #else
 #define QMMF_VERBOSE(...) unused(__VA_ARGS__)
+#endif
+
+#ifdef LOG_LEVEL_KPI
+#include <cutils/properties.h>
+#include <cutils/trace.h>
+
+#define KPI_DISABLE 0
+#define KPI_ONLY 1
+extern volatile uint32_t kpi_debug_mask;
+
+#define QMMF_KPI_GET_MASK() ({\
+char prop[PROPERTY_VALUE_MAX];\
+property_get("persist.camera.kpi.debug", prop, "0"); \
+kpi_debug_mask = atoi (prop);})
+
+#define QMMF_KPI_BEGIN(name) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+     atrace_begin(ATRACE_TAG_ALWAYS, name); \
+}\
+})
+
+#define QMMF_KPI_END() ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+     atrace_end(ATRACE_TAG_ALWAYS); \
+}\
+})
+
+#define QMMF_KPI_ASYNC_BEGIN(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+     atrace_async_begin(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
+
+#define QMMF_KPI_ASYNC_END(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+     atrace_async_end(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
+#else
+#define QMMF_KPI_GET_MASK() do {} while (0)
+#define QMMF_KPI_BEGIN(name) do {} while (0)
+#define QMMF_KPI_END() do {} while (0)
+#define QMMF_KPI_ASYNC_BEGIN(name, cookie) do {} while (0)
+#define QMMF_KPI_ASYNC_END(name, cookie) do {} while (0)
 #endif
