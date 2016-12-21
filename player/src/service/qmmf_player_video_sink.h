@@ -104,6 +104,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteSink();
 
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
+
   void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
@@ -164,8 +166,17 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   void DumpYUVData(BufferDescriptor& codec_buffer);
 #endif
 
-status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
+  status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
 
+  status_t SkipFrame();
+
+  status_t ReturnBufferToCodec(BufferDescriptor& codec_buffer);
+
+  TrickModeSpeed           playback_speed_;
+  TrickModeDirection       playback_dir_;
+  uint64_t                 current_time_;
+  uint64_t                 prev_time_;
+  uint32_t                 displayed_frames_;
 };
 
 };  // namespace player

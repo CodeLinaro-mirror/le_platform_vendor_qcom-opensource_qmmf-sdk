@@ -40,7 +40,6 @@
 
 #include "common/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
-#include "player/src/service/qmmf_player_common.h"
 
 
 //#define DEBUG
@@ -81,16 +80,17 @@ void PlayerTest::playercb(EventType event_type, void *event_data,
       PlayerTestEvent[((int)event_type)]);
 
   TEST_INFO("%s:%s Player is in %s state", TAG,__func__,
-      statemap_[(uint32_t)ev->state]);
+      statemap_[static_cast<uint32_t>(ev->state)]);
 
   std::map<uint32_t, const char*>::iterator it;
 
-  it = statemap_.find((uint32_t)ev->state);
+  it = statemap_.find(static_cast<uint32_t>(ev->state));
   if (it != statemap_.end()) {
-    current_state_ = statemap_[(uint32_t)ev->state];
+    current_state_ = statemap_[static_cast<uint32_t>(ev->state)];
     TEST_INFO("%s:%s current_state_ is %s", TAG, __func__, current_state_);
   } else {
-    TEST_ERROR("%s:%s key %u not found", TAG,__func__, (uint32_t)ev->state);
+    TEST_ERROR("%s:%s key %u not found", TAG,__func__,
+        static_cast<uint32_t>(ev->state));
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -174,7 +174,12 @@ int32_t PlayerTest::Connect() {
   player_cb_.event_cb = [&] (EventType event_type, void *event_data,
       size_t event_data_size) {playercb(event_type,event_data,
       event_data_size); };
+
   auto ret = player_.Connect(player_cb_);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Connect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -182,7 +187,12 @@ int32_t PlayerTest::Connect() {
 int32_t PlayerTest::Disconnect() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
   auto ret = player_.Disconnect();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Disconnect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -197,11 +207,11 @@ int32_t PlayerTest::Prepare() {
   auto result = 0;
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  srcFile_audio_.open("/data/dump_audio.bin", ios::binary | ios::out);
+  srcFile_audio_.open("/data/dump_audio.bin", std::ios::binary | std::ios::out);
 #endif
 
 #ifdef DUMP_VIDEO_BITSTREAM
-  srcFile_video_.open("/data/dump_video.bin", ios::binary | ios::out);
+  srcFile_video_.open("/data/dump_video.bin", std::ios::binary | std::ios::out);
 #endif
 
   AudioTrackCreateParam audio_track_param_;
@@ -212,7 +222,10 @@ int32_t PlayerTest::Prepare() {
   memset(&video_track_param_, 0x0, sizeof video_track_param_);
   fileCount_video_ = 0;
 
-  ParseFile(audio_track_param_,video_track_param_);
+  result = ParseFile(audio_track_param_,video_track_param_);
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to ParseFile", TAG, __func__);
+  }
 
 #ifdef AUDIO
   TrackCb audio_track_cb_;
@@ -223,6 +236,9 @@ int32_t PlayerTest::Prepare() {
 
   result = player_.CreateAudioTrack(audio_track_id_,audio_track_param_,
       audio_track_cb_);
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to CreateAudioTrack", TAG, __func__);
+  }
 #endif
 
 #ifdef VIDEO
@@ -234,14 +250,17 @@ int32_t PlayerTest::Prepare() {
 
   result = player_.CreateVideoTrack(video_track_id_,video_track_param_,
       video_track_cb_);
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to CreateVideoTrack", TAG, __func__);
+  }
 #endif
 
   result = player_.Prepare();
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Prepare", TAG, __func__);
+  }
 
   start_again_ = false;
-
-  if (result != NO_ERROR)
-    return -1;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return result;
@@ -316,27 +335,39 @@ int32_t PlayerTest::Start() {
     VideoTrackCreateParam video_track_param_;
     memset(&video_track_param_, 0x0, sizeof video_track_param_);
 
-    ParseFile(audio_track_param_,video_track_param_);
+    ret  = ParseFile(audio_track_param_,video_track_param_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s Failed to ParseFile", TAG, __func__);
+    }
 
     videoLastFrame_ = false;
     audioLastFrame_ = false;
   }
 
   ret = player_.Start();
+  if (ret != 0) {
+    TEST_ERROR("%s:%s Failed to Start", TAG, __func__);
+  }
+
   stopped_ = false;
   paused_ = false;
   stop_playing_ = false;
 
 #ifdef AUDIO
-  pthread_create(&audio_thread_id_, nullptr, PlayerTest::StartPlayingAudio,
+  ret = pthread_create(&audio_thread_id_, nullptr, PlayerTest::StartPlayingAudio,
       (void*)this);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to create StartPlayingAudio Thread", TAG, __func__);
+  }
 #endif
 
 #ifdef VIDEO
-  pthread_create(&video_thread_id_, nullptr, PlayerTest::StartPlayingVideo,
+  ret = pthread_create(&video_thread_id_, nullptr, PlayerTest::StartPlayingVideo,
       (void*)this);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to create StartPlayingVideo Thread", TAG, __func__);
+  }
 #endif
-
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -354,8 +385,10 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   while (!(playertest->stopped_ && playertest->audioLastFrame_))
   {
     if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0))
+        (strcmp(playertest->current_state_,"Paused") == 0) ||
+        !(strcmp(playertest->current_state_,"Started") == 0)) {
       continue;
+    }
 
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -466,8 +499,10 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   while (!(playertest->stopped_ && playertest->videoLastFrame_))
   {
     if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0))
+        (strcmp(playertest->current_state_,"Paused") == 0) ||
+        !(strcmp(playertest->current_state_,"Started") == 0)) {
       continue;
+    }
 
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -588,6 +623,9 @@ int32_t PlayerTest::StopPlaying() {
 #endif
 
   ret = player_.Stop(false);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Stop", TAG, __func__);
+  }
 
 #ifdef DUMP_AUDIO_BITSTREAM
   if(srcFile_audio_.is_open())
@@ -607,7 +645,12 @@ int32_t PlayerTest::StopPlaying() {
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = true;
+
   auto ret = player_.Pause();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Pause", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -615,7 +658,17 @@ int32_t PlayerTest::Pause() {
 int32_t PlayerTest::Resume() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = false;
+
   auto ret = player_.Resume();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
+  }
+
+  ret = player_.SetTrickMode(1,1);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Set noraml speed", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -632,7 +685,27 @@ int32_t PlayerTest::SetPosition() {
 int32_t PlayerTest::SetTrickMode() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
-  //auto ret = player_.SetTrickMode();
+
+  uint32_t speed, dir;
+
+  printf("\n");
+  printf("****** Set Trick Mode *******\n" );
+  printf(" Enter Speed (supported [1, 2, 4, 8]): ");
+  scanf("%d", &speed);
+  printf(" Enter Direction (supported [RW->0, FF->1]): ");
+  scanf("%d", &dir);
+
+  if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
+      && (dir == 0 || dir == 1)) {
+    ret = player_.SetTrickMode(speed, dir);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+    }
+  } else {
+    TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
+        "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -650,11 +723,17 @@ int32_t PlayerTest::Delete() {
   auto ret = 0;
 
 #ifdef AUDIO
-  player_.DeleteAudioTrack(audio_track_id_);
+  ret = player_.DeleteAudioTrack(audio_track_id_);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to DeleteAudioTrack", TAG, __func__);
+  }
 #endif
 
 #ifdef VIDEO
   player_.DeleteVideoTrack(video_track_id_);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to DeleteVideoTrack", TAG, __func__);
+  }
 #endif
 
   delete m_pIStreamPort_;
@@ -912,6 +991,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
+  printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -982,6 +1062,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_CMD: {
         test_context.Delete();
+      }
+      break;
+      case CmdMenu::TRICK_MODE_CMD: {
+        test_context.SetTrickMode();
       }
       break;
       case CmdMenu::NEXT_CMD: {
