@@ -156,8 +156,6 @@ class CameraSource {
   // Map of track it and TrackSources.
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
 
-  uint32_t virtual_camera_id_;
-
   // Not allowed
   CameraSource();
   CameraSource(const CameraSource&);

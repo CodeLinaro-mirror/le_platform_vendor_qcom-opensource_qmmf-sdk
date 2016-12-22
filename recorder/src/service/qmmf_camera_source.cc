@@ -67,8 +67,7 @@ CameraSource* CameraSource::CreateCameraSource() {
   return instance_;
 }
 
-CameraSource::CameraSource()
-    : virtual_camera_id_(0) {
+CameraSource::CameraSource() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -90,12 +89,16 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
 
+  bool is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
   sp<CameraInterface> camera;
-  //TODO: Add some more logic to check whether it is virtual camera or not,
-  // in some corner cases it can conflict with single camera.
-  if (virtual_camera_id_ == camera_id) {
-    camera = camera_map_.valueAt(camera_id);
-    assert(camera.get() != nullptr);
+
+  if (is_virtual_camera_id) {
+    if (NAME_NOT_FOUND == camera_map_.indexOfKey(camera_id)) {
+      QMMF_ERROR("%s:%s: Invalid Virtual Camera Id(%u)!", TAG, __func__,
+                 camera_id);
+      return BAD_VALUE;
+    }
+    camera = camera_map_.valueFor(camera_id);
   } else {
     if (camera_map_.indexOfKey(camera_id) >= 0) {
       QMMF_ERROR("%s:%s: Camera Id(%u) is already open!", TAG, __func__,
@@ -108,22 +111,21 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
           __func__, camera_id);
       return NO_MEMORY;
     }
+    // Add contexts to map when in regular camera case.
+    camera_map_.add(camera_id, camera);
   }
 
   auto ret = camera->OpenCamera(camera_id, param, cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);
-    camera.clear();
-    camera = nullptr;
-    ret = NO_INIT;
-    goto FAIL;
+    if (!is_virtual_camera_id) {
+      camera.clear();
+      camera_map_.removeItem(camera_id);
+    }
+    return ret;
   }
   QMMF_INFO("%s:%s: Camera(%d) Open is Successfull!", TAG, __func__, camera_id);
-  camera_map_.add(camera_id, camera);
-  return ret;
-FAIL:
-  camera_map_.clear();
   return ret;
 }
 
@@ -138,8 +140,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   for (uint32_t i = 0; i < camera_map_.size(); ++i) {
     if (camera_id == camera_map_.keyAt(i)) {
       match = true;
-      sp<CameraInterface> camera = camera_map_.valueAt(i);
-      assert(camera.get() != nullptr);
+      sp<CameraInterface> camera = camera_map_.valueFor(camera_id);
       ret = camera->CloseCamera(camera_id);
       assert(ret == NO_ERROR);
       camera_map_.removeItem(camera_id);
@@ -160,20 +161,23 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   sp<CameraInterface> multi_camera = new MultiCameraManager();
-  assert(multi_camera.get() != nullptr);
+  if (!multi_camera.get()) {
+    QMMF_ERROR("%s:%s: Can't Instantiate MultiCameraDevice!!", TAG, __func__);
+    return NO_MEMORY;
+  }
 
-  MultiCameraManager *camera_mgr = static_cast<MultiCameraManager*>
-                                      (multi_camera.get());
+  MultiCameraManager *camera_mgr =
+      static_cast<MultiCameraManager*>(multi_camera.get());
 
   auto ret = camera_mgr->CreateMultiCamera(camera_ids, virtual_camera_id);
   if (ret != NO_ERROR) {
-    multi_camera.clear();
-    multi_camera = nullptr;
     QMMF_ERROR("%s:%s: CreateMultiCamera Failed!", TAG, __func__);
+    multi_camera.clear();
     return NO_INIT;
   }
+  // Adds only virtual cameras. Virtual camera is a camera used
+  // for 360 camera case.
   camera_map_.add(*virtual_camera_id, multi_camera);
-  virtual_camera_id_ = *virtual_camera_id;
 
   QMMF_INFO("%s:%s: Exit ", TAG, __func__);
   return NO_ERROR;
