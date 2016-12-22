@@ -43,13 +43,14 @@ namespace qmmf {
 namespace recorder {
 
 MultiCameraManager::MultiCameraManager()
-  : virtual_camera_id_(0x5DC) {}
+  : virtual_camera_id_(kVirtualCameraIdOffset) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
 status_t MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t>
                                                camera_ids,
                                                uint32_t* virtual_camera_id) {
+
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   if (camera_ids.size() < 2) {
     return BAD_VALUE;
@@ -83,6 +84,7 @@ status_t MultiCameraManager::ConfigureMultiCamera(uint32_t virtual_camera_id,
 status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
                                         const CameraStartParam &param,
                                         const ResultCb &cb) {
+
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
@@ -91,24 +93,30 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     // virtual camera id is not correct.
     return BAD_VALUE;
   }
-  Vector<uint32_t> camera_ids;
-  camera_ids = virtual_camera_map_.valueFor(virtual_camera_id);
+  Vector<uint32_t> camera_ids = virtual_camera_map_.valueFor(virtual_camera_id);
   QMMF_INFO("%s:%s: Total Number of cameras to be open(%d)", TAG, __func__,
       camera_ids.size());
 
-  for (uint32_t i = 0; i < camera_ids.size(); ++i) {
-    QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, camera_ids[i]);
-    sp<CameraContext> camera_context;
-    camera_context = new CameraContext();
-    auto ret = camera_context->OpenCamera(camera_ids[i], param);
+  for (auto const& cam_id : camera_ids) {
+    if (camera_contexts_.indexOfKey(cam_id) >= 0) {
+      QMMF_WARN("%s:%s: Camera Id(%u) is already open, skipping!", TAG,
+                 __func__, cam_id);
+      continue;
+    }
+    QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, cam_id);
+    sp<CameraContext> camera_context = new CameraContext();
+    auto ret = camera_context->OpenCamera(cam_id, param);
     if(ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: OpenCamera(%d) failed!", TAG, __func__, camera_ids[i]);
+      QMMF_ERROR("%s:%s: OpenCamera(%d) failed!", TAG, __func__, cam_id);
       camera_context.clear();
       camera_context = nullptr;
       return NO_INIT;
     }
-    camera_contexts_.add(camera_ids[i], camera_context);
+    camera_contexts_.add(cam_id, camera_context);
   }
+
+  multicam_start_params_ = param;
+  supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;

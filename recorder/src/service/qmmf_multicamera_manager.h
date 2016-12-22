@@ -40,6 +40,8 @@ namespace qmmf {
 
 namespace recorder {
 
+static const uint32_t kVirtualCameraIdOffset = 1000;
+
 class MultiCameraManager : public CameraInterface {
  public:
   MultiCameraManager();
