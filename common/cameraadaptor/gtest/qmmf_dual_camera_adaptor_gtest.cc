@@ -270,6 +270,24 @@ TEST_F(DualCamera3Gtest, DualPreviewVGA) {
   ASSERT_FALSE(camera_error_);
 }
 
+TEST_F(DualCamera3Gtest, StereoPreviewVGA) {
+
+  CameraContext StereoCtx;
+  memset(&StereoCtx, 0, sizeof(StereoCtx));
+  StereoCtx.cameraIdx = 2;
+
+  auto ret = StartStreaming(StereoCtx, 1280, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  ASSERT_EQ(0, ret);
+
+  // Let streaming run for a while
+  sleep(5);
+
+  ret = StopStreamingAndClose(StereoCtx);
+  ASSERT_EQ(0, ret);
+
+  ASSERT_FALSE(camera_error_);
+}
+
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here
