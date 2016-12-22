@@ -35,6 +35,7 @@
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
 
@@ -88,16 +89,22 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
-  // map of virtual camera id and its corresponding actual camera Ids.
-  // <virtual camera id, Vector of actual camera id >
-  DefaultKeyedVector<uint32_t, Vector<uint32_t> > virtual_camera_map_;
-
-  // Map of camera id and CameraContext.
-  DefaultKeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
+  void SnapshotCbCam(uint32_t camera_id, uint32_t count, BnBuffer& buffer,
+                     MetaData& meta_data);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
   Vector<int32_t>          supported_fps_;
+
+  // map of virtual camera id and its corresponding actual camera Ids.
+  // <virtual camera id, Vector of actual camera id >
+  KeyedVector<uint32_t, Vector<uint32_t> > virtual_camera_map_;
+
+  // Map of camera id and CameraContext.
+  KeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
+
+  SnapshotCb               source_snapshot_cb_;
+  Mutex                    lock_;
 };
 
 }; // recorder.
