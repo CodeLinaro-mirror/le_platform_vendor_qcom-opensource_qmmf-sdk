@@ -34,6 +34,7 @@
 #include <pthread.h>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 
 #include <qmmf-sdk/qmmf_player.h>
 #include <qmmf-sdk/qmmf_player_params.h>
@@ -61,7 +62,7 @@ enum class TrackTypes{
 
 enum class PlayerState {
   kError = 0,
-  lIdle = 1 << 0,
+  kIdle = 1 << 0,
   kPrepared = 1 << 1,
   kStarted = 1 << 2,
   kPaused = 1 << 3,
@@ -140,9 +141,7 @@ class PlayerTest {
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
 
-  Mutex                           state_lock_;
-  Condition                       wait_for_state_change_;
-
+  std::mutex                      state_change_lock_;
   bool                            stopped_;
   bool                            stop_playing_;
   bool                            start_again_;
@@ -169,6 +168,8 @@ class PlayerTest {
   const char*                     player_test_event_[2];
   const char *                    current_state_;
   TrackTypes                      track_type_;
+  TrickModeSpeed                  playback_speed_;
+  TrickModeDirection              playback_dir_;
 };
 
 class CmdMenu {

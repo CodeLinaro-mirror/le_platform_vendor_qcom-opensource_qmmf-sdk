@@ -157,6 +157,7 @@ int32_t PlayerTest::Disconnect() {
 
 int32_t PlayerTest::Prepare() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   auto result = 0;
 
@@ -187,7 +188,6 @@ int32_t PlayerTest::Prepare() {
   }
 
   start_again_ = false;
-
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return result;
 }
@@ -233,6 +233,7 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
 
 int32_t PlayerTest::Start() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   auto ret = 0;
 
   if(start_again_)
@@ -274,12 +275,18 @@ void * PlayerTest::StartPlaying(void *ptr) {
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
+  const char *current_state;
 
   while (!playertest->stopped_)
   {
-    if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0)||
-        !(strcmp(playertest->current_state_,"Started") == 0)) {
+
+    {
+      std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+      current_state = playertest->current_state_;
+    }
+
+    if (playertest->paused_ || (strcmp(current_state,"Paused") == 0)||
+        !(strcmp(current_state,"Started") == 0)) {
       continue;
     }
 
@@ -327,7 +334,12 @@ void * PlayerTest::StartPlaying(void *ptr) {
           sizeof (uint32_t),TrackMetaBufferType::kNone);
       assert(NO_ERROR == ret);
       buffers.clear();
-      playertest->stopped_ = true;
+
+      {
+        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+        playertest->stopped_ = true;
+      }
+
       playertest->StopPlaying();
       break;
     }
@@ -341,6 +353,9 @@ void * PlayerTest::StartPlaying(void *ptr) {
     assert(NO_ERROR == ret);
 
     buffers.clear();
+
+    if (playertest->stopped_)
+      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -349,15 +364,18 @@ void * PlayerTest::StartPlaying(void *ptr) {
 
 int32_t PlayerTest::Stop() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopped_ = true;
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
 
 int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  Mutex::Autolock lock(state_lock_);
-  auto ret = -1;
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+  auto ret = 0;
 
   ret = player_.Stop(false);
   if (ret != NO_ERROR) {
@@ -383,6 +401,8 @@ int32_t PlayerTest::StopPlaying() {
 
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   paused_ = true;
   auto ret = player_.Pause();
   if (ret != NO_ERROR) {
@@ -396,6 +416,8 @@ int32_t PlayerTest::Pause() {
 int32_t PlayerTest::Resume()
 {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   paused_ = false;
   auto ret = player_.Resume();
   if (ret != NO_ERROR) {
@@ -428,8 +450,10 @@ int32_t PlayerTest::GrabPicture() {
 }
 
 int32_t PlayerTest::Delete() {
-  auto ret = 0;
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
+  auto ret = 0;
   uint32_t track_id_1 =1;
   ret = player_.DeleteAudioTrack(track_id_1);
   if (ret != NO_ERROR) {
