@@ -256,19 +256,19 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraInterface> camera_context;
+  sp<CameraInterface> camera;
   for (uint8_t i = 0; i < camera_map_.size(); i++) {
     if (camera_id == camera_map_.keyAt(i)) {
       match = true;
-      camera_context = camera_map_.valueAt(i);
+      camera = camera_map_.valueAt(i);
     }
   }
   if (!match) {
     QMMF_ERROR("%s:%s: Invalid Camera Id!", TAG, __func__);
     return BAD_VALUE;
   }
-  assert(camera_context.get() != nullptr);
-  auto ret = camera_context->ReturnImageCaptureBuffer(camera_id, buffer_id);
+  assert(camera.get() != nullptr);
+  auto ret = camera->ReturnImageCaptureBuffer(camera_id, buffer_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -282,11 +282,11 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   // Find out the camera context corresponding to camera id where track has to
   // be created.
   bool match = false;
-  sp<CameraInterface> camera_context;
+  sp<CameraInterface> camera;
   for (uint8_t i = 0; i < camera_map_.size(); i++) {
     if (track_params.params.camera_id == camera_map_.keyAt(i)) {
       match = true;
-      camera_context = camera_map_.valueAt(i);
+      camera = camera_map_.valueAt(i);
     }
   }
   if (!match) {
@@ -298,7 +298,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   // Create TrackSource and give it to CameraInterface, CameraConext in turn would
   // Map it to its one of port.
   shared_ptr<TrackSource> track_source = make_shared<TrackSource>(track_params,
-                                                                  camera_context);
+                                                                  camera);
   if (!track_source.get()) {
     QMMF_ERROR("%s:%s: Can't create TrackSource Instance", TAG, __func__);
     return NO_MEMORY;
