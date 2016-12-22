@@ -205,6 +205,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
     if (camera_id == camera_map_.keyAt(i)) {
         match = true;
         camera = camera_map_.valueAt(i);
+        break;
     }
   }
   if (!match) {
@@ -261,6 +262,7 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
     if (camera_id == camera_map_.keyAt(i)) {
       match = true;
       camera = camera_map_.valueAt(i);
+      break;
     }
   }
   if (!match) {
@@ -287,6 +289,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     if (track_params.params.camera_id == camera_map_.keyAt(i)) {
       match = true;
       camera = camera_map_.valueAt(i);
+      break;
     }
   }
   if (!match) {
