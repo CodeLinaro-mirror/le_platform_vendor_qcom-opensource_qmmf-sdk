@@ -219,6 +219,7 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param) {
 status_t VideoTrackSink::StartSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopplayback_ = false;
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
@@ -227,6 +228,7 @@ status_t VideoTrackSink::StartSink() {
 status_t VideoTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopplayback_ = true;
   QMMF_DEBUG("%s:%s: Total number of video frames decoded %d", TAG, __func__,
       decoded_frame_number_);
@@ -246,6 +248,7 @@ status_t VideoTrackSink::PauseSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
 
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = true;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -256,6 +259,7 @@ status_t VideoTrackSink::ResumeSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
 
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = false;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -273,7 +277,6 @@ status_t VideoTrackSink::DeleteSink() {
   }
 
   video_track_decoder_.reset();
-
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -319,7 +322,8 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 
-void VideoTrackSink::PassTrackDecoder(const shared_ptr<VideoTrackDecoder>& video_track_decoder) {
+void VideoTrackSink::PassTrackDecoder(
+    const shared_ptr<VideoTrackDecoder>& video_track_decoder) {
   video_track_decoder_ = video_track_decoder;
 }
 
@@ -364,7 +368,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
       !(codec_buffer.size) || paused_)) {
     ++decoded_frame_number_;
-
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded video frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), decoded_frame_number_,
         codec_buffer.timestamp);

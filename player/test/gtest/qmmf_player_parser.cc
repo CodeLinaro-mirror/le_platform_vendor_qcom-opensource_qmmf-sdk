@@ -514,7 +514,7 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
   v_OffsetVector  = OffsetVector.begin();
   v_frameSize = frameSize.begin();
 
-  sr = mIsWide ? 16000 : 8000;
+  sr = 16000;
   channel = 1;
 
   params->sample_rate               = sr;
