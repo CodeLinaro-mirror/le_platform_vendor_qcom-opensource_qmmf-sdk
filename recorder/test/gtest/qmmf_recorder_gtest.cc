@@ -2424,6 +2424,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+  video_track_param.low_power_mode = true;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
