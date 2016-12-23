@@ -52,7 +52,8 @@ class ICodecSource {
                              void* client_data) = 0;
   virtual status_t ReturnBuffer(BufferDescriptor& buffer_descriptor,
                                 void* client_data) = 0;
-  virtual status_t NotifyPortStatus(CodecPortStatus status) = 0;
+  virtual status_t NotifyPortEvent(PortEventType event_type,
+                                   void* event_data) = 0;
 };
 
 class IAVCodec {

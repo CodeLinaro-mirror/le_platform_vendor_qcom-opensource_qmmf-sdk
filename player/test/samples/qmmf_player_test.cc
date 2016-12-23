@@ -40,7 +40,6 @@
 
 #include "common/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
-#include "player/src/service/qmmf_player_common.h"
 
 
 //#define DEBUG
@@ -64,12 +63,6 @@
 // Enable this define to dump YUV from decoder
 //#define DUMP_YUV_FRAMES
 
-// Disable this define for video only playback
-#define AUDIO
-
-// Disable this define for audio only playback
-#define VIDEO
-
 void PlayerTest::playercb(EventType event_type, void *event_data,
                           size_t event_data_size) {
 
@@ -78,19 +71,20 @@ void PlayerTest::playercb(EventType event_type, void *event_data,
   Event* ev = (Event *)event_data;
 
   TEST_INFO("%s:%s Event type is %s", TAG, __func__,
-      PlayerTestEvent[((int)event_type)]);
+      player_test_event_[((int)event_type)]);
 
   TEST_INFO("%s:%s Player is in %s state", TAG,__func__,
-      statemap_[(uint32_t)ev->state]);
+      statemap_[static_cast<uint32_t>(ev->state)]);
 
   std::map<uint32_t, const char*>::iterator it;
 
-  it = statemap_.find((uint32_t)ev->state);
+  it = statemap_.find(static_cast<uint32_t>(ev->state));
   if (it != statemap_.end()) {
-    current_state_ = statemap_[(uint32_t)ev->state];
+    current_state_ = statemap_[static_cast<uint32_t>(ev->state)];
     TEST_INFO("%s:%s current_state_ is %s", TAG, __func__, current_state_);
   } else {
-    TEST_ERROR("%s:%s key %u not found", TAG,__func__, (uint32_t)ev->state);
+    TEST_ERROR("%s:%s key %u not found", TAG,__func__,
+        static_cast<uint32_t>(ev->state));
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -121,8 +115,8 @@ PlayerTest::PlayerTest()
   if(filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
 
-  PlayerTestEvent[0] = "Error";
-  PlayerTestEvent[1] = "State Changed";
+  player_test_event_[0] = "Error";
+  player_test_event_[1] = "State Changed";
 
   statemap_.insert(std::pair<uint32_t, const char*> (0,"Error"));
   statemap_.insert(std::pair<uint32_t, const char*> (1,"Idle"));
@@ -145,8 +139,8 @@ PlayerTest::PlayerTest(char* filename_)
   if (filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
 
-  PlayerTestEvent[0] = "Error";
-  PlayerTestEvent[1] = "State Changed";
+  player_test_event_[0] = "Error";
+  player_test_event_[1] = "State Changed";
 
   statemap_.insert(std::pair<uint32_t, const char *> (0,"Error"));
   statemap_.insert(std::pair<uint32_t, const char *> (1,"Idle"));
@@ -174,7 +168,12 @@ int32_t PlayerTest::Connect() {
   player_cb_.event_cb = [&] (EventType event_type, void *event_data,
       size_t event_data_size) {playercb(event_type,event_data,
       event_data_size); };
+
   auto ret = player_.Connect(player_cb_);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Connect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -182,7 +181,12 @@ int32_t PlayerTest::Connect() {
 int32_t PlayerTest::Disconnect() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
   auto ret = player_.Disconnect();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Disconnect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -197,11 +201,11 @@ int32_t PlayerTest::Prepare() {
   auto result = 0;
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  srcFile_audio_.open("/data/dump_audio.bin", ios::binary | ios::out);
+  srcFile_audio_.open("/data/dump_audio.bin", std::ios::binary | std::ios::out);
 #endif
 
 #ifdef DUMP_VIDEO_BITSTREAM
-  srcFile_video_.open("/data/dump_video.bin", ios::binary | ios::out);
+  srcFile_video_.open("/data/dump_video.bin", std::ios::binary | std::ios::out);
 #endif
 
   AudioTrackCreateParam audio_track_param_;
@@ -212,36 +216,49 @@ int32_t PlayerTest::Prepare() {
   memset(&video_track_param_, 0x0, sizeof video_track_param_);
   fileCount_video_ = 0;
 
-  ParseFile(audio_track_param_,video_track_param_);
+  result = ParseFile(audio_track_param_,video_track_param_);
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to ParseFile", TAG, __func__);
+  }
 
-#ifdef AUDIO
-  TrackCb audio_track_cb_;
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
 
-  audio_track_cb_.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) {audiotrackcb(event_type, event_data,
-      event_data_size);};
+    TrackCb audio_track_cb_;
 
-  result = player_.CreateAudioTrack(audio_track_id_,audio_track_param_,
-      audio_track_cb_);
-#endif
+    audio_track_cb_.event_cb = [&] (EventType event_type, void *event_data,
+        size_t event_data_size) {audiotrackcb(event_type, event_data,
+        event_data_size);};
 
-#ifdef VIDEO
- TrackCb video_track_cb_;
+    result = player_.CreateAudioTrack(audio_track_id_,audio_track_param_,
+                                      audio_track_cb_);
+    if (result != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to CreateAudioTrack", TAG, __func__);
+    }
+  }
 
-  video_track_cb_.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) {videotrackcb(event_type, event_data,
-      event_data_size);};
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
 
-  result = player_.CreateVideoTrack(video_track_id_,video_track_param_,
-      video_track_cb_);
-#endif
+    TrackCb video_track_cb_;
+
+    video_track_cb_.event_cb = [&] (EventType event_type, void *event_data,
+        size_t event_data_size) {videotrackcb(event_type, event_data,
+        event_data_size);};
+
+    result = player_.CreateVideoTrack(video_track_id_,video_track_param_,
+                                      video_track_cb_);
+    if (result != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to CreateVideoTrack", TAG, __func__);
+    }
+  }
 
   result = player_.Prepare();
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Prepare", TAG, __func__);
+  }
 
   start_again_ = false;
-
-  if (result != NO_ERROR)
-    return -1;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return result;
@@ -253,51 +270,55 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
 
   CreateDataSource();
 
-#ifdef AUDIO
-  audio_track_param_.sample_rate = m_sTrackInfo_.sAudio.ulSampleRate;
-  audio_track_param_.channels    = m_sTrackInfo_.sAudio.ulChCount;
-  audio_track_param_.bit_depth   = 16; //TODO m_sTrackInfo_.sAudio.ulBitDepth;
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
 
-  if (m_sTrackInfo_.sAudio.ulCodecType == 3) {
-    audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
-    audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
-    audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
-    audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
-  } else if (m_sTrackInfo_.sAudio.ulCodecType == 55) {  //need verification
-    audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
-    audio_track_param_.codec_params.amr.isWAMR   = 0;
-  } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {  //need verification
-    audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
-    audio_track_param_.codec_params.amr.isWAMR   = 1;
-  }
-  audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
-  TEST_INFO("%s:%s audio_track_id_ : %d ", TAG, __func__, audio_track_id_);
+    audio_track_param_.sample_rate = m_sTrackInfo_.sAudio.ulSampleRate;
+    audio_track_param_.channels    = m_sTrackInfo_.sAudio.ulChCount;
+    audio_track_param_.bit_depth   = 16; //TODO m_sTrackInfo_.sAudio.ulBitDepth;
 
-  TEST_INFO("%s:%s sample rate : %d channel %d bitdepth %d, bitrate %d ", TAG
-      , __func__, audio_track_param_.sample_rate, audio_track_param_.channels,
-      audio_track_param_.bit_depth, m_sTrackInfo_.sAudio.ulBitRate);
-#endif
+    if (m_sTrackInfo_.sAudio.ulCodecType == 3) {
+      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
+      audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
+      audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
+      audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 55) {  //need verification
+      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.codec_params.amr.isWAMR   = 0;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {  //need verification
+      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.codec_params.amr.isWAMR   = 1;
+    }
+    audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
+    TEST_INFO("%s:%s audio_track_id_ : %d ", TAG, __func__, audio_track_id_);
 
-#ifdef VIDEO
-  if (m_sTrackInfo_.sVideo.ulCodecType == 11) {
-    video_track_param_.codec       = VideoCodecType::kAVC;
-  } else if (m_sTrackInfo_.sVideo.ulCodecType == 12) {
-    video_track_param_.codec       = VideoCodecType::kHEVC;
+    TEST_INFO("%s:%s sample rate : %d channel %d bitdepth %d, bitrate %d ", TAG
+        , __func__, audio_track_param_.sample_rate, audio_track_param_.channels,
+        audio_track_param_.bit_depth, m_sTrackInfo_.sAudio.ulBitRate);
   }
 
-  video_track_param_.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
-  video_track_param_.height      = 1088; //TODO m_sTrackInfo_.sVideo.ulHeight;
-  video_track_param_.width       = 1920; //TODO m_sTrackInfo_.sVideo.ulWidth;
-  video_track_param_.bitrate     = m_sTrackInfo_.sVideo.ulBitRate;
-  video_track_param_.num_buffers = 1;
-  video_track_param_.out_device  = VideoOutSubtype::kHDMI;
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
 
-  TEST_INFO("%s:%s video_track_id_ : %d ", TAG, __func__, video_track_id_);
+    if (m_sTrackInfo_.sVideo.ulCodecType == 11) {
+      video_track_param_.codec       = VideoCodecType::kAVC;
+    } else if (m_sTrackInfo_.sVideo.ulCodecType == 12) {
+      video_track_param_.codec       = VideoCodecType::kHEVC;
+    }
 
-  TEST_INFO("%s:%s height : %d width %d frame_rate %d, bitrate %d ", TAG
-      , __func__, video_track_param_.height, video_track_param_.width,
-      video_track_param_.frame_rate, video_track_param_.bitrate);
-#endif
+    video_track_param_.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
+    video_track_param_.height      = m_sTrackInfo_.sVideo.ulHeight;
+    video_track_param_.width       = m_sTrackInfo_.sVideo.ulWidth;
+    video_track_param_.bitrate     = m_sTrackInfo_.sVideo.ulBitRate;
+    video_track_param_.num_buffers = 1;
+    video_track_param_.out_device  = VideoOutSubtype::kHDMI;
+
+    TEST_INFO("%s:%s video_track_id_ : %d ", TAG, __func__, video_track_id_);
+
+    TEST_INFO("%s:%s height : %d width %d frame_rate %d, bitrate %d ", TAG
+        , __func__, video_track_param_.height, video_track_param_.width,
+        video_track_param_.frame_rate, video_track_param_.bitrate);
+  }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -316,27 +337,43 @@ int32_t PlayerTest::Start() {
     VideoTrackCreateParam video_track_param_;
     memset(&video_track_param_, 0x0, sizeof video_track_param_);
 
-    ParseFile(audio_track_param_,video_track_param_);
+    ret  = ParseFile(audio_track_param_,video_track_param_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s Failed to ParseFile", TAG, __func__);
+    }
 
     videoLastFrame_ = false;
     audioLastFrame_ = false;
   }
 
   ret = player_.Start();
+  if (ret != 0) {
+    TEST_ERROR("%s:%s Failed to Start", TAG, __func__);
+  }
+
   stopped_ = false;
   paused_ = false;
   stop_playing_ = false;
 
-#ifdef AUDIO
-  pthread_create(&audio_thread_id_, nullptr, PlayerTest::StartPlayingAudio,
-      (void*)this);
-#endif
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
 
-#ifdef VIDEO
-  pthread_create(&video_thread_id_, nullptr, PlayerTest::StartPlayingVideo,
-      (void*)this);
-#endif
+    ret = pthread_create(&audio_thread_id_, nullptr, PlayerTest::StartPlayingAudio,
+                         (void*)this);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to create StartPlayingAudio Thread", TAG, __func__);
+    }
+  }
 
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+
+    ret = pthread_create(&video_thread_id_, nullptr, PlayerTest::StartPlayingVideo,
+                         (void*)this);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to create StartPlayingVideo Thread", TAG, __func__);
+    }
+  }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -354,8 +391,10 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   while (!(playertest->stopped_ && playertest->audioLastFrame_))
   {
     if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0))
+        (strcmp(playertest->current_state_,"Paused") == 0) ||
+        !(strcmp(playertest->current_state_,"Started") == 0)) {
       continue;
+    }
 
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -466,8 +505,10 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   while (!(playertest->stopped_ && playertest->videoLastFrame_))
   {
     if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0))
+        (strcmp(playertest->current_state_,"Paused") == 0) ||
+        !(strcmp(playertest->current_state_,"Started") == 0)) {
       continue;
+    }
 
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -579,15 +620,22 @@ int32_t PlayerTest::StopPlaying() {
 
   stop_playing_ = true;
 
-#ifdef AUDIO
-  pthread_join(audio_thread_id_, NULL);
-#endif
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
 
-#ifdef VIDEO
-  pthread_join(video_thread_id_, NULL);
-#endif
+    pthread_join(audio_thread_id_, NULL);
+  }
+
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+
+    pthread_join(video_thread_id_, NULL);
+  }
 
   ret = player_.Stop(false);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Stop", TAG, __func__);
+  }
 
 #ifdef DUMP_AUDIO_BITSTREAM
   if(srcFile_audio_.is_open())
@@ -607,7 +655,12 @@ int32_t PlayerTest::StopPlaying() {
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = true;
+
   auto ret = player_.Pause();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Pause", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -615,16 +668,24 @@ int32_t PlayerTest::Pause() {
 int32_t PlayerTest::Resume() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = false;
+
   auto ret = player_.Resume();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
+  }
+
+  ret = player_.SetTrickMode(1,1);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 int32_t PlayerTest::SetPosition() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-    auto ret = 0;
-  //int64_t seek_time;
-  //auto ret = player_.SetPosition(seek_time);
+  auto ret = 0;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -632,7 +693,27 @@ int32_t PlayerTest::SetPosition() {
 int32_t PlayerTest::SetTrickMode() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
-  //auto ret = player_.SetTrickMode();
+
+  uint32_t speed, dir;
+
+  printf("\n");
+  printf("****** Set Trick Mode *******\n" );
+  printf(" Enter Speed (supported [1, 2, 4, 8]): ");
+  scanf("%d", &speed);
+  printf(" Enter Direction (supported [RW->0, FF->1]): ");
+  scanf("%d", &dir);
+
+  if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
+      && (dir == 0 || dir == 1)) {
+    ret = player_.SetTrickMode(speed, dir);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+    }
+  } else {
+    TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
+        "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -649,13 +730,23 @@ int32_t PlayerTest::Delete() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
 
-#ifdef AUDIO
-  player_.DeleteAudioTrack(audio_track_id_);
-#endif
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
 
-#ifdef VIDEO
-  player_.DeleteVideoTrack(video_track_id_);
-#endif
+    ret = player_.DeleteAudioTrack(audio_track_id_);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to DeleteAudioTrack", TAG, __func__);
+    }
+  }
+
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+
+    ret = player_.DeleteVideoTrack(video_track_id_);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to DeleteVideoTrack", TAG, __func__);
+    }
+  }
 
   delete m_pIStreamPort_;
   m_pIStreamPort_ = NULL;
@@ -695,15 +786,15 @@ uint32_t PlayerTest::ReadMediaInfo() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   uint32_t eErr = 0;
-  uint32 ulNumTracks = 0;
   FileSourceTrackIdInfoType aTrackList[MM_SOURCE_MAX_TRACKS];
   FileSourceMjMediaType eMjType = FILE_SOURCE_MJ_TYPE_UNKNOWN;
   FileSourceMnMediaType eMnType = FILE_SOURCE_MN_TYPE_UNKNOWN;
   FileSourceStatus eFS_Status = FILE_SOURCE_FAIL;
+  track_type_ = TrackTypes::kAudioVideo;
 
   // Get total number of tracks available.
   m_sTrackInfo_.ulNumTracks = m_pDemux_->GetWholeTracksIDList(aTrackList);
-  TEST_INFO("%s:%s: NumTracks = %u", TAG, __func__, ulNumTracks);
+  TEST_INFO("%s:%s: NumTracks = %u", TAG, __func__, m_sTrackInfo_.ulNumTracks);
 
   for (uint32 ulIdx = 0; ulIdx < m_sTrackInfo_.ulNumTracks; ulIdx++) {
     FileSourceTrackIdInfoType sTrackInfo = aTrackList[ulIdx];
@@ -726,6 +817,9 @@ uint32_t PlayerTest::ReadMediaInfo() {
 
         eErr = ReadAudioTrackMediaInfo(sTrackInfo.id, eMnType);
         audio_track_id_ = sTrackInfo.id;
+        if (m_sTrackInfo_.ulNumTracks  == 1) {
+          track_type_ = TrackTypes::kAudioOnly;
+        }
 
       } else if (FILE_SOURCE_MJ_TYPE_VIDEO == eMjType) {
         TEST_INFO("%s:%s: TRACK_VIDEO @MIME_TYPE = %u", TAG, __func__,
@@ -737,9 +831,11 @@ uint32_t PlayerTest::ReadMediaInfo() {
 
         eErr = ReadVideoTrackMediaInfo(sTrackInfo.id, eMnType);
         video_track_id_ = sTrackInfo.id;
+        if (m_sTrackInfo_.ulNumTracks  == 1) {
+          track_type_ = TrackTypes::kVideoOnly;
+        }
       }
-    }
-    else {
+    } else {
       eErr = MM_STATUS_ErrorStreamCorrupt;
       TEST_ERROR("%s %sFailed to identify Tracks Error= %u", TAG, __func__,
       eFS_Status);
@@ -912,6 +1008,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
+  printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -982,6 +1079,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_CMD: {
         test_context.Delete();
+      }
+      break;
+      case CmdMenu::TRICK_MODE_CMD: {
+        test_context.SetTrickMode();
       }
       break;
       case CmdMenu::NEXT_CMD: {

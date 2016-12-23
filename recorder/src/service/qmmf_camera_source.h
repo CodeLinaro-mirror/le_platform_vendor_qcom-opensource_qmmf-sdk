@@ -180,7 +180,8 @@ class TrackSource : public ICodecSource {
   status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
 
   // This method is used by Encoder to notify stop.
-  status_t NotifyPortStatus(CodecPortStatus status) override;
+  status_t NotifyPortEvent(PortEventType event_type,
+                           void* event_data) override;
 
   // Global track specific params can be query from TrackSource during its life
   // cycle.

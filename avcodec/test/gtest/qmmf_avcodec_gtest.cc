@@ -363,7 +363,8 @@ void InputCodecSourceImpl::AddBufferList(vector<BufferDescriptor>& list) {
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t InputCodecSourceImpl::NotifyPortStatus(CodecPortStatus status) {
+status_t InputCodecSourceImpl::NotifyPortEvent(PortEventType event_type,
+                                               void* event_data)  {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -454,7 +455,8 @@ void OutputCodecSourceImpl::AddBufferList(vector<BufferDescriptor>& list) {
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t OutputCodecSourceImpl::NotifyPortStatus(CodecPortStatus status) {
+status_t OutputCodecSourceImpl::NotifyPortEvent(PortEventType event_type,
+                                                void* event_data)  {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
