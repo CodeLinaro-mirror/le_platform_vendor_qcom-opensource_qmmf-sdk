@@ -294,7 +294,7 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
 
   size_t num_tracks = tracks.size();
 
-  for(uint8_t i = 0; i < num_tracks; i++) {
+  for(size_t i = 0; i < num_tracks; i++) {
 
     if ((tracks[i].track_id == track_id) &&
         (tracks[i].type == TrackType::kVideo)) {
@@ -322,7 +322,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
 
   size_t num_tracks = tracks.size();
 
-  for(uint8_t i = 0; i < num_tracks; i++) {
+  for(size_t i = 0; i < num_tracks; i++) {
 
     if ((tracks[i].track_id == track_id) &&
         (tracks[i].type == TrackType::kVideo)) {
@@ -360,7 +360,7 @@ status_t PlayerImpl::Prepare() {
 
       size_t num_tracks = tracks.size();
 
-      for(uint8_t i = 0; i < num_tracks; i++) {
+      for(size_t i = 0; i < num_tracks; i++) {
         if (tracks[i].type == TrackType::kVideo) {
           ret = video_decoder_core_->PrepareTrackPipeline(tracks[i].track_id,
              video_sink_->GetTrackSink(tracks[i].track_id));
@@ -413,7 +413,7 @@ status_t PlayerImpl::Start() {
 
     size_t num_tracks = tracks.size();
 
-    for(uint8_t i = 0; i < num_tracks; i++) {
+    for(size_t i = 0; i < num_tracks; i++) {
       if (tracks[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StartTrackDecoder(tracks[i].track_id);
       } else if (tracks[i].type == TrackType::kAudio) {
@@ -465,7 +465,7 @@ status_t PlayerImpl::Stop(bool do_flush) {
 
     size_t num_tracks = tracks.size();
 
-    for(uint8_t i = 0; i < num_tracks; i++) {
+    for(size_t i = 0; i < num_tracks; i++) {
       if (tracks[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StopTrackDecoder(tracks[i].track_id,
            do_flush);
@@ -516,7 +516,7 @@ status_t PlayerImpl::Pause() {
 
     size_t num_tracks = tracks.size();
 
-    for(uint8_t i = 0; i < num_tracks; i++) {
+    for(size_t i = 0; i < num_tracks; i++) {
       if (tracks[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->PauseTrackDecoder(tracks[i].track_id);
       } else if (tracks[i].type == TrackType::kAudio) {
@@ -565,7 +565,7 @@ status_t PlayerImpl::Resume() {
 
     size_t num_tracks = tracks.size();
 
-    for(uint8_t i = 0; i < num_tracks; i++) {
+    for(size_t i = 0; i < num_tracks; i++) {
       if (tracks[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks[i].track_id);
       } else if (tracks[i].type == TrackType::kAudio) {
@@ -620,8 +620,36 @@ status_t PlayerImpl::SetPosition(int64_t seek_time) {
 status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
+  status_t ret = NO_ERROR;
+
+  size_t num_tracks = tracks.size();
+  assert(num_tracks != 0);
+
+  for(size_t i = 0; i < num_tracks; i++) {
+    if (tracks[i].type == TrackType::kVideo) {
+      ret = video_decoder_core_->SetTrackTrickMode(tracks[i].track_id,
+          static_cast<TrickModeSpeed> (speed),
+          static_cast<TrickModeDirection> (direction));
+    }
+  }
+
+  // In reverse mode audio will always be paused
+  if (speed != static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) ||
+      (direction == static_cast<uint32_t>(TrickModeDirection::kReverse))) {
+    for(size_t i = 0; i < num_tracks; i++) {
+      if (tracks[i].type == TrackType::kAudio)
+        ret = audio_decoder_core_->PauseTrackDecoder(tracks[i].track_id);
+    }
+  } else if (speed == static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) &&
+      (direction == static_cast<uint32_t>(TrickModeDirection::kForward))) {
+    for(size_t i = 0; i < num_tracks; i++) {
+      if (tracks[i].type == TrackType::kAudio)
+        ret = audio_decoder_core_->ResumeTrackDecoder(tracks[i].track_id);
+    }
+  }
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::GrabPicture(PictureParam param) {
@@ -641,7 +669,7 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
 
   size_t num_tracks = tracks.size();
 
-  for(uint8_t i = 0; i < num_tracks; i++) {
+  for(size_t i = 0; i < num_tracks; i++) {
     if (tracks[i].type == TrackType::kAudio) {
       ret = audio_decoder_core_->SetAudioTrackDecoderParams(
           tracks[i].track_id,type, param, param_size);
@@ -662,7 +690,7 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
 
   size_t num_tracks = tracks.size();
 
-  for(uint8_t i = 0; i < num_tracks; i++) {
+  for(size_t i = 0; i < num_tracks; i++) {
      if (tracks[i].type == TrackType::kVideo) {
        ret = video_decoder_core_->SetVideoTrackDecoderParams(
            tracks[i].track_id,type, param, param_size);

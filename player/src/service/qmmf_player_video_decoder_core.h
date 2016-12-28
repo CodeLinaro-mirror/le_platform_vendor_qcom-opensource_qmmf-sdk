@@ -62,7 +62,7 @@ class VideoDecoderCore {
       std::vector<AVCodecBuffer>& buffers);
 
   status_t PrepareTrackPipeline(uint32_t track_id,
-      const ::std::shared_ptr<VideoTrackSink>& audio_track_sink);
+      const ::std::shared_ptr<VideoTrackSink>& video_track_sink);
 
   status_t StartTrackDecoder(uint32_t track_id);
 
@@ -78,6 +78,9 @@ class VideoDecoderCore {
                                       uint32_t param_size);
 
   status_t DeleteTrackDecoder(uint32_t track_id);
+
+  status_t SetTrackTrickMode(uint32_t track_id, TrickModeSpeed speed,
+                             TrickModeDirection direction);
 
  private:
 
@@ -108,8 +111,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
-  status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& audio_track_sink,
-                           const ::std::shared_ptr<VideoTrackDecoder>& audio_track_decoder);
+  status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& video_track_sink,
+                           const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
 
   status_t StartDecoder();
 
@@ -124,17 +127,24 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteDecoder();
 
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
+
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;
   status_t ReturnBuffer(BufferDescriptor& stream_buffer,
                         void* client_data) override;
-  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
+  status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                           void* event_data) override;
+
+  status_t ReconfigOutputPort(void *arg);
 
  private:
 
   status_t AllocInputPortBufs();
 
   status_t AllocOutputPortBufs();
+
+  status_t ReleaseOutputBuffers();
 
   uint32_t TrackId() { return video_track_params_.track_id; }
 
@@ -165,6 +175,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
 
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
+  uint32_t                             output_buffer_count_;
+  uint32_t                             output_buffer_size_;
 
   Mutex                   wait_for_empty_frame_lock_;
   Condition               wait_for_empty_frame_;

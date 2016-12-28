@@ -96,6 +96,7 @@ AC_CONFIG_FILES([ \
     qmmf-sdk.pc \
     recorder/test/samples/Makefile \
     recorder/test/gtest/Makefile \
+    recorder/test/timelapse/Makefile \
     display/test/samples/Makefile \
     display/test/gtest/Makefile \
     player/test/demuxer/Makefile \

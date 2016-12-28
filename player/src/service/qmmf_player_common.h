@@ -99,7 +99,7 @@ enum class TrickModeSpeed {
 };
 
 enum class TrickModeDirection {
-  kReverse = -1,
+  kReverse = 0,
   kForward = 1,
 };
 

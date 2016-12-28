@@ -672,29 +672,33 @@ status_t TrackSource::StopTrack() {
   return NO_ERROR;
 }
 
-status_t TrackSource::NotifyPortStatus(CodecPortStatus status) {
+status_t TrackSource::NotifyPortEvent(PortEventType event_type,
+                                      void* event_data) {
 
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
-  if(status == CodecPortStatus::kPortStop) {
-    // Encoder Received the EOS with valid last buffer successfully, stop the
-    // camera stream and clear the received buffer queue.
-    QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
-        __func__, TrackId());
-    ClearInputQueue();
+  if (event_type == PortEventType::kPortStatus) {
+    CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
+    if(status == CodecPortStatus::kPortStop) {
+      // Encoder Received the EOS with valid last buffer successfully, stop the
+      // camera stream and clear the received buffer queue.
+      QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
+          __func__, TrackId());
+      ClearInputQueue();
 
-  } else if (status == CodecPortStatus::kPortIdle) {
-    ClearInputQueue();
-    assert(camera_context_.get() != nullptr);
-    auto ret = camera_context_->StopStream(TrackId());
-    assert(ret == NO_ERROR);
-    // All input port buffers from encoder are returned, Being encoded queue
-    // should be zero at this point.
-    assert(frames_being_encoded_.Size() == 0);
-    QMMF_INFO("%s:%s: track_id(%d) All queued buffers are returned from"
-        " encoder!!", TAG, __func__, TrackId());
-    // wait_for_idle_ will not be needed once we make stop api as async.
-    Mutex::Autolock lock(idle_lock_);
-    wait_for_idle_.signal();
+    } else if (status == CodecPortStatus::kPortIdle) {
+      ClearInputQueue();
+      assert(camera_context_.get() != nullptr);
+      auto ret = camera_context_->StopStream(TrackId());
+      assert(ret == NO_ERROR);
+      // All input port buffers from encoder are returned, Being encoded queue
+      // should be zero at this point.
+      assert(frames_being_encoded_.Size() == 0);
+      QMMF_INFO("%s:%s: track_id(%d) All queued buffers are returned from"
+          " encoder!!", TAG, __func__, TrackId());
+      // wait_for_idle_ will not be needed once we make stop api as async.
+      Mutex::Autolock lock(idle_lock_);
+      wait_for_idle_.signal();
+    }
   }
 
   QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());

@@ -39,7 +39,6 @@
 
 #include "common/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_parser_test.h"
-#include "player/src/service/qmmf_player_common.h"
 
 
 //#define DEBUG
@@ -75,16 +74,17 @@ void PlayerTest::playercb(EventType event_type,
       player_test_event_[((int)event_type)]);
 
   TEST_INFO("%s:%s Player is in %s state", TAG,__func__,
-      statemap_[(uint32_t)ev->state]);
+      statemap_[static_cast<uint32_t>(ev->state)]);
 
   std::map<uint32_t, const char*>::iterator it;
 
-  it = statemap_.find((uint32_t)ev->state);
+  it = statemap_.find(static_cast<uint32_t>(ev->state));
   if (it != statemap_.end()) {
-    current_state_ = statemap_[(uint32_t)ev->state];
+    current_state_ = statemap_[static_cast<uint32_t>(ev->state)];
     TEST_INFO("%s:%s current_state_ is %s", TAG, __func__, current_state_);
   } else {
-    TEST_ERROR("%s:%s key %u not found", TAG,__func__, (uint32_t)ev->state);
+    TEST_ERROR("%s:%s key %u not found", TAG,__func__,
+        static_cast<uint32_t>(ev->state));
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -136,6 +136,10 @@ int32_t PlayerTest::Connect() {
                   size_t event_data_size) {playercb(event_type,event_data,
                   event_data_size); };
   auto ret = player_.Connect(player_cb_);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Connect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -143,6 +147,10 @@ int32_t PlayerTest::Connect() {
 int32_t PlayerTest::Disconnect() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = player_.Disconnect();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Disconnect", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -157,7 +165,7 @@ int32_t PlayerTest::Prepare() {
   memset(&audio_track_param_, 0x0, sizeof audio_track_param_);
 
   result = ParseFile(audio_track_param_);
-  if (result != 0) {
+  if (result != NO_ERROR) {
     TEST_INFO("%s:%s unable to parse file", TAG, __func__);
   }
 
@@ -174,11 +182,11 @@ int32_t PlayerTest::Prepare() {
       audio_track_cb_);
 
   result = player_.Prepare();
+  if (result != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Prepare", TAG, __func__);
+  }
 
   start_again_ = false;
-
-  if (result != NO_ERROR)
-    return -1;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return result;
@@ -194,7 +202,7 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
     case AudioFileType::kAAC:
       aac_file_io_ = new AACfileIO(filename_);
       result = aac_file_io_->Fillparams(&audio_track_param_);
-      if (result != 0) {
+      if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the AAC params", TAG, __func__);
       }
       break;
@@ -202,7 +210,7 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
     case AudioFileType::kG711:
       g711_file_io_ = new G711fileIO(filename_);
       result = g711_file_io_->Fillparams(&audio_track_param_);
-      if (result != 0) {
+      if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the G711 params", TAG, __func__);
       }
       break;
@@ -210,7 +218,7 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
     case AudioFileType::kAMR:
       amr_file_io_ = new AMRfileIO(filename_);
       result = amr_file_io_->Fillparams(&audio_track_param_);
-      if (result != 0) {
+      if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the AMR params", TAG, __func__);
       }
       break;
@@ -233,13 +241,13 @@ int32_t PlayerTest::Start() {
     AudioTrackCreateParam audio_track_param_;
     memset(&audio_track_param_, 0x0, sizeof audio_track_param_);
     ret = ParseFile(audio_track_param_);
-    if (ret != 0) {
+    if (ret != NO_ERROR) {
       TEST_INFO("%s:%s unable to parse file", TAG, __func__);
     }
   }
 
   ret = player_.Start();
-  if (ret != 0) {
+  if (ret != NO_ERROR) {
     TEST_INFO("%s:%s unable to start playabck", TAG, __func__);
   }
   stopped_ = false;
@@ -247,7 +255,7 @@ int32_t PlayerTest::Start() {
 
   ret = pthread_create(&start_thread_id, NULL, PlayerTest::StartPlaying,
       (void*)this);
-  if (ret != 0) {
+  if (ret != NO_ERROR) {
     TEST_INFO("%s:%s unable to create StartPlaying thread", TAG, __func__);
   }
 
@@ -270,8 +278,10 @@ void * PlayerTest::StartPlaying(void *ptr) {
   while (!playertest->stopped_)
   {
     if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0))
+        (strcmp(playertest->current_state_,"Paused") == 0)||
+        !(strcmp(playertest->current_state_,"Started") == 0)) {
       continue;
+    }
 
     memset(&tb,0x0,sizeof(tb));
     buffers.push_back(tb);
@@ -346,10 +356,13 @@ int32_t PlayerTest::Stop() {
 
 int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  Mutex::Autolock lock(state_lock);
+  Mutex::Autolock lock(state_lock_);
   auto ret = -1;
 
   ret = player_.Stop(false);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Stop", TAG, __func__);
+  }
 
   switch(filetype_)
   {
@@ -372,6 +385,10 @@ int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = true;
   auto ret = player_.Pause();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Pause", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -381,6 +398,10 @@ int32_t PlayerTest::Resume()
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   paused_ = false;
   auto ret = player_.Resume();
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -410,7 +431,11 @@ int32_t PlayerTest::Delete() {
   auto ret = 0;
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   uint32_t track_id_1 =1;
-  player_.DeleteAudioTrack(track_id_1);
+  ret = player_.DeleteAudioTrack(track_id_1);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to DeleteAudioTrack", TAG, __func__);
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -433,8 +458,11 @@ void CmdMenu::PrintMenu() {
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand() {
-  PrintMenu();
+CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
+  if (is_print_menu) {
+    PrintMenu();
+    is_print_menu = false;
+  }
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
@@ -446,6 +474,7 @@ int main(int argc,char *argv[]) {
 
   CmdMenu cmd_menu(test_context);
 
+  bool is_print_menu = true;
   int32_t exit_test = false;
 
   if (argc == 2) {
@@ -476,7 +505,7 @@ int main(int argc,char *argv[]) {
 
   while (!exit_test) {
 
-    CmdMenu::Command command = cmd_menu.GetCommand();
+    CmdMenu::Command command = cmd_menu.GetCommand(is_print_menu);
     switch (command.cmd) {
 
       case CmdMenu::CONNECT_CMD: {
@@ -509,6 +538,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_CMD: {
         test_context.Delete();
+      }
+      break;
+      case CmdMenu::NEXT_CMD: {
+        is_print_menu = true;
       }
       break;
       case CmdMenu::EXIT_CMD: {

@@ -46,6 +46,21 @@ enum class AudioFileType{
   kG711
 };
 
+enum class PlayerState
+{
+  kError = 0,
+  lIdle = 1 << 0,
+  kPrepared = 1 << 1,
+  kStarted = 1 << 2,
+  kPaused = 1 << 3,
+  kStopped =  1 << 4,
+  kCompleted = 1<< 5,
+};
+
+struct Event{
+  PlayerState state;
+};
+
 class PlayerTest {
  public:
   PlayerTest();
@@ -97,7 +112,7 @@ class PlayerTest {
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
-  Mutex             state_lock;
+  Mutex             state_lock_;
   Condition         wait_for_state_change_;
 
   bool              stopped_;
@@ -126,6 +141,7 @@ class CmdMenu {
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
       EXIT_CMD                          = 'X',
+      NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'
   };
 
@@ -141,7 +157,7 @@ class CmdMenu {
 
   ~CmdMenu() {};
 
-  Command GetCommand();
+  Command GetCommand(bool& is_print_menu);
 
   void PrintMenu();
 

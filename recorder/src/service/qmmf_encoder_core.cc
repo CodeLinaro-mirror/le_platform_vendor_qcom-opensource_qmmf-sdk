@@ -558,7 +558,8 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   return NO_ERROR;
 }
 
-status_t TrackEncoder::NotifyPortStatus(CodecPortStatus status) {
+status_t TrackEncoder::NotifyPortEvent(PortEventType event_type,
+                                       void* event_data) {
 
   QMMF_DEBUG("%s:%s Enter", TAG, __func__);
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);

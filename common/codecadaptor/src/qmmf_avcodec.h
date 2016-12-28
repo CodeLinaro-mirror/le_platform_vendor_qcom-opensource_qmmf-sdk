@@ -141,6 +141,7 @@ class AVCodec : public IAVCodec {
 
   bool IsInputPortStop();
   bool IsOutputPortStop();
+  bool IsPortReconfig();
 
   void StopOutput();
 
@@ -155,8 +156,12 @@ class AVCodec : public IAVCodec {
   // DeliverOutput thread will pull bitstream encoded data from Encoder
   static void* DeliverOutput(void *ptr);
 
-  // DeliverEvent will notify event from OMX component
-  void DeliverEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2);
+  //Will check for PortReconfig Event
+  static void* ThreadRun(void *arg);
+
+  status_t HandleOutputPortSettingsChange(OMX_U32 nData2);
+
+  status_t PortReconfigOutput();
 
   static OMX_ERRORTYPE OnEvent(OMX_IN OMX_HANDLETYPE component,
                                OMX_IN OMX_PTR app_data,
@@ -195,6 +200,12 @@ class AVCodec : public IAVCodec {
   ::std::condition_variable       wait_for_header_;
   ::std::mutex                    queue_lock_;
 
+  TSQueue<OMX_BUFFERHEADERTYPE*>  free_output_buffhdr_list_;
+  TSQueue<OMX_BUFFERHEADERTYPE*>  used_output_buffhdr_list_;
+  ::std::mutex                    lock_output_;
+  ::std::condition_variable       wait_for_header_output_;
+  ::std::mutex                    queue_lock_output_;
+
   uint32_t                 in_buff_hdr_size_;
   uint32_t                 out_buff_hdr_size_;
   CodecCmdType             cmd_buffer_[CMD_BUF_MAX_COUNT];
@@ -209,6 +220,11 @@ class AVCodec : public IAVCodec {
   ::std::vector<BufferDescriptor> input_buffer_list_;
   ::std::vector<OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO> outputpParam_enc_;
   ::std::vector<struct VideoDecoderOutputMetaData> outputpParam_dec_;
+  //For Port Reconfig
+  bool                      bPortReconfig_;
+  ::android::Mutex          port_reconfig_lock_;
+  ::android::Mutex          threadrun_port_reconfig_lock_;
+  ::android::Condition      wait_for_threadrun;
 };
 
 }; // namespace avcodec
