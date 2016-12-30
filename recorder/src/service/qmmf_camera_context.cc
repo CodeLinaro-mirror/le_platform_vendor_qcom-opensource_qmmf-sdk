@@ -1204,7 +1204,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
             QMMF_INFO("%s:%s: cam_stream_id(%d) removed from Request!", TAG,
                       __func__, cam_stream_id);
             req.streamIds.removeAt(idx);
-            removed_streams.add(cam_stream_id);
+            bool is_present = false;
+            for (size_t j = 0; j < removed_streams.size(); j++) {
+              if (removed_streams[j] == cam_stream_id) {
+                is_present = true;
+                break;
+              }
+            }
+            if (!is_present) {
+              removed_streams.add(cam_stream_id);
+            }
         }
       }
     } else if (port->getPortState() == PortState::PORT_STARTED) {
