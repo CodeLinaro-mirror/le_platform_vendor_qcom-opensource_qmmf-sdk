@@ -14,6 +14,7 @@
  * NumStream       : Number of stream to record.
  * TNR             : 1(Enable tnr), 0(Disable tnr)
  * VHDR            : 1(Enable vhdr), 0(Disable vhdr)
+ * BinningCorrect  : 1 (enable binning correction), 0 (disable binning correction).
  * TrackType       : YUV(Track YUV format stream), AVC(Track AVC format stream),
  *                 : HEVC(Track HEVC format stream), RAW(Track RAW format stream).
  * CamLowPowerMode : 0 (with post processing), 1 (without post processing)
@@ -30,6 +31,7 @@ RecordingTime     : 10
 NumStream         : 2
 TNR               : 0
 VHDR              : 0
+BinningCorrect    : 0
 
 #First Stream Encoder Params
 Width             : 3840
