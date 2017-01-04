@@ -1565,10 +1565,10 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.nSliceHeaderSpacing = 0;
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 2;
-    h264_type.nBFrames = 1;
+    h264_type.nBFrames = 0;
     h264_type.nPFrames = frame_rate*iframe_interval;
     h264_type.nAllowedPictureTypes =
-        OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP | OMX_VIDEO_PictureTypeB;
+        OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
     h264_type.nRefIdx10ActiveMinus1 = 0;
     h264_type.nRefIdx11ActiveMinus1 = 0;
     h264_type.bEntropyCodingCABAC = OMX_TRUE;
