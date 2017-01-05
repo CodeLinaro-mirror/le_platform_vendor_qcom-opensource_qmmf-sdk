@@ -178,8 +178,30 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   return ret;
 }
 
-status_t CameraSource::CancelCaptureImage() {
-  //Not Implemented
+status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  bool match = false;
+  sp<CameraContext> camera_context;
+  for (uint8_t i = 0; i < camera_contexts_.size(); i++) {
+    if (camera_id == camera_contexts_.keyAt(i)) {
+        match = true;
+        camera_context = camera_contexts_.valueAt(i);
+    }
+  }
+  if (!match) {
+    QMMF_ERROR("%s:%s: Invalid Camera Id(%d)!", TAG, __func__, camera_id);
+    return BAD_VALUE;
+  }
+
+  assert(camera_context.get() != nullptr);
+  auto ret = camera_context->CancelCaptureImage();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CancelCaptureImage Failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 

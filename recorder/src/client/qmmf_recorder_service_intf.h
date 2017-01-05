@@ -204,7 +204,7 @@ class IRecorderService : public IInterface {
   virtual status_t ConfigImageCapture(const uint32_t camera_id,
                                       const ImageCaptureConfig &config) = 0;
 
-  virtual status_t CancelCaptureImage() = 0;
+  virtual status_t CancelCaptureImage(const uint32_t camera_id) = 0;
 
   virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;

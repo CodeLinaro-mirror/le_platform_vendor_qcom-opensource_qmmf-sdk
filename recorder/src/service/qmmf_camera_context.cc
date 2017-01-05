@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <QCamera3VendorTags.h>
+#include <chrono>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -103,6 +104,8 @@ bool CameraContext::IsInputSupported(const CameraMetadata &static_meta) {
 }
 
 status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
   int32_t stream_id = -1;
   int32_t ret = NO_ERROR;
 
@@ -112,7 +115,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
                  __func__);
       return BAD_VALUE;
     }
-
+    QMMF_INFO("%s:%s: Deleting Existing Snapshot Stream!!", TAG, __func__);
     ret = DeleteDeviceStream(snapshot_request_.streamIds[0]);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
@@ -466,7 +469,7 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
                                      const std::vector<CameraMetadata> &meta,
                                      const SnapshotCb& cb) {
 
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
   burst_cnt_ = 0;
@@ -479,6 +482,9 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
         (sequence_cnt_ != num_images);
 
     sequence_cnt_ = num_images;
+
+    QMMF_INFO("%s:%s: reconfigure_needed_=%d", TAG, __func__,
+        reconfigure_needed_);
 
     if (reconfigure_needed_) {
       ret = CreateSnapshotStream(param);
@@ -520,6 +526,51 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
     }
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t CameraContext::CancelCaptureImage() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+
+  if (!snapshot_request_.streamIds.isEmpty() && snapshot_request_id_ > -1) {
+
+    std::unique_lock<std::mutex> lock(capture_count_lock_);
+    {
+      cancel_capture_ = true;
+      if (sequence_cnt_ > 0) {
+        // Single or Burst capture is not complete yet, wait till pending buffers
+        // (for pending count) are returned.
+        QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
+            __func__, sequence_cnt_);
+        int32_t wait_time = sequence_cnt_ * (kSyncFrameWaitDuration/1000000);
+        if (capture_count_signal_.wait_for(lock,
+            std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+          QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
+          return UNKNOWN_ERROR;
+        }
+      }
+      assert(sequence_cnt_ == 0);
+    }
+
+    ret = camera_device_->WaitUntilIdle();
+    assert(ret == NO_ERROR);
+
+    ret = DeleteDeviceStream(snapshot_request_.streamIds[0]);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
+          __func__, ret);
+      return ret;
+    }
+    snapshot_request_.streamIds.clear();
+
+    if (camera_reprocess_.get() != nullptr) {
+      camera_reprocess_->Delete();
+    }
+  }
+  cancel_capture_ = false;
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -1150,7 +1201,7 @@ status_t CameraContext::CancelRequest() {
 
 status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
                                            StreamBuffer buffer) {
-  QMMF_VERBOSE("%s:%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
+  QMMF_DEBUG("%s:%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
       __func__, stream_id, buffer.handle, buffer.timestamp);
 
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
@@ -1217,6 +1268,19 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
         buffer.info.plane_info[i].height);
   }
   QMMF_DEBUG("%s:%s fd(0x%x):size(%d) ", TAG, __func__, buffer.fd, buffer.size);
+
+  std::lock_guard<std::mutex> lock(capture_count_lock_);
+  {
+    --sequence_cnt_;
+    if (cancel_capture_) {
+      camera_device_->ReturnStreamBuffer(stream_id, buffer);
+      if (sequence_cnt_ == 0) {
+        QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
+        capture_count_signal_.notify_one();
+      }
+      return;
+    }
+  }
 
   uint32_t content_size;
   int32_t width = -1, height = -1;

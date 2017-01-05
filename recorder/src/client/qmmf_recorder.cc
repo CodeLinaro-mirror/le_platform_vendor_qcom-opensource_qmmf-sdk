@@ -294,10 +294,10 @@ status_t Recorder::ConfigImageCapture(const uint32_t camera_id,
   return ret;
 }
 
-status_t Recorder::CancelCaptureImage() {
+status_t Recorder::CancelCaptureImage(const uint32_t camera_id) {
 
   assert(recorder_client_ != NULL);
-  auto ret = recorder_client_->CancelCaptureImage();
+  auto ret = recorder_client_->CancelCaptureImage(camera_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
   }

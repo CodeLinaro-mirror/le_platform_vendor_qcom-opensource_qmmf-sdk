@@ -2274,6 +2274,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
+
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
