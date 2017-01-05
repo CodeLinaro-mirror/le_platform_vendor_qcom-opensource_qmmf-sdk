@@ -1418,7 +1418,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
         }
       }
 
-      image_param.image_format = ImageFormat::kBayerRDI;
+      image_param.image_format = ImageFormat::kBayerRDI10BIT;
       break;
     default:
       TEST_INFO("Snapshot format(%d) is not correct\n",snapshot_info.type);
@@ -1466,7 +1466,7 @@ status_t RecorderTest::TakeSnapshot() {
     std::cout << "****** Take Snapshot *******" << std::endl;
     std::cout << "  1. JPEG - 4K " << std::endl;
     std::cout << "  2. RAW:YUV - 1080p " << std::endl;
-    std::cout << "  3. RAW:BAYER " << std::endl;
+    std::cout << "  3. RAW:BAYER RDI 10 bit" << std::endl;
     std::cout << "  4. JPEG Burst (30 frames) - 1080p " << std::endl;
     std::cout << "  0. exit " << std::endl;
     std::cout << "  Enter option:" << std::endl;
@@ -1539,7 +1539,7 @@ status_t RecorderTest::TakeSnapshot() {
         }
         image_param.width = w; // 5344
         image_param.height = h; // 4016
-        image_param.image_format = ImageFormat::kBayerRDI;
+        image_param.image_format = ImageFormat::kBayerRDI10BIT;
         break;
       case '4':
         snapshot_choice_ = SnapshotType::kJpegBurst;
@@ -4306,7 +4306,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.format_type = VideoFormat::kYUV;
       break;
       case TrackType::kVideoRDI:
-      video_track_param.format_type = VideoFormat::kBayerRDI;
+      video_track_param.format_type = VideoFormat::kBayerRDI10BIT;
       break;
       default:
       break;
