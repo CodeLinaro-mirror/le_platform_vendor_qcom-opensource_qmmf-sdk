@@ -1273,6 +1273,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  ----------
 
 #if USE_CAIRO
+  OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
   // Draw text first.
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
@@ -1417,14 +1418,19 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
   y_          = param.bounding_box.start_y;
   width_      = param.bounding_box.width;
   height_     = param.bounding_box.height;
-  bbox_color_ = param.color;
 
-  bbox_name_.clear();
-  int32_t textLen = strlen(param.bounding_box.box_name);
+  if ( (bbox_color_ != param.color)
+     || strcmp(bbox_name_.string(), param.bounding_box.box_name)) {
 
-  int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
-  bbox_name_.setTo(param.bounding_box.box_name, textLimit);
-  MarkDirty(true);
+    bbox_color_ = param.color;
+    bbox_name_.clear();
+    int32_t textLen = strlen(param.bounding_box.box_name);
+
+    int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
+    bbox_name_.setTo(param.bounding_box.box_name, textLimit);
+    MarkDirty(true);
+  }
+
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
 }
