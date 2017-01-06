@@ -35,6 +35,7 @@
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <map>
+#include <linux/msm_ion.h>
 
 #include "qmmf-sdk/qmmf_player_params.h"
 #include "player/src/client/qmmf_player_service_intf.h"
@@ -65,6 +66,7 @@ class PlayerClient {
                             TrackCb& cb);
 
   status_t DeleteAudioTrack(uint32_t track_id);
+
   status_t DeleteVideoTrack(uint32_t track_id);
 
   status_t Prepare();
@@ -130,6 +132,8 @@ class PlayerClient {
 
   void NotifyDeleteVideoTrack(uint32_t track_id);
 
+  void NotifyGrabPictureData(BufferDescriptor& buffer);
+
  private:
 
   bool CheckServiceStatus();
@@ -143,7 +147,8 @@ class PlayerClient {
           ALOGD("PlayerClient:%s: Player service died", __func__);
           Mutex::Autolock l(parent_->lock_);
           parent_->player_service_.clear();
-          parent_->player_service_ = NULL;
+          parent_->player_service_ = nullptr;
+          assert(0);
     }
     PlayerClient* parent_;
   };
@@ -167,6 +172,9 @@ class PlayerClient {
     void*    vaddr;
 
     size_t   frame_len;
+
+    // ION handle
+    ion_user_handle_t ion_handle;
   } BufInfo;
 
   // map<fd , buf_info>
@@ -209,6 +217,8 @@ class ServiceCallbackHandler : public BnPlayerServiceCallback {
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data,
                              size_t event_data_size) override;
+
+  void NotifyGrabPictureData(BufferDescriptor& buffer) override;
 
   PlayerClient *client_;
 };
