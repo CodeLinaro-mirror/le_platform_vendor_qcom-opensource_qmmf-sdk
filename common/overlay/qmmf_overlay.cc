@@ -58,6 +58,8 @@ namespace overlay {
 
 using namespace android;
 
+#define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
+
 Overlay::Overlay()
     : target_c2dsurface_id_(-1), ion_device_(-1),
      id_(0) {
@@ -1219,6 +1221,26 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   height_     = param.bounding_box.height;
   bbox_color_ = param.color;
 
+  float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
+  float scaled_height = static_cast<float>(height_) / DOWNSCALE_FACTOR;
+
+  float aspect_ratio = scaled_width / scaled_height;
+
+  OVDBG_INFO("%s: BoundingBox(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
+      __func__, param.bounding_box.width, param.bounding_box.height,
+      aspect_ratio, scaled_width, scaled_height);
+
+  int32_t width = static_cast<int32_t>(std::round(scaled_width));
+  width = ROUND_TO(width, 16); // Round to multiple of 16.
+  width = width > BOUNDING_BOX_BUF_WIDTH ? width : BOUNDING_BOX_BUF_WIDTH;
+  int32_t height = static_cast<int32_t>(std::round(width / aspect_ratio));
+
+  buffer_width_  = width;
+  buffer_height_ = height;
+
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, buffer_width_,
+      buffer_height_);
+
   int32_t textLen = strlen(param.bounding_box.box_name);
 
   int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
@@ -1299,8 +1321,8 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
                          bbox_color.blue, bbox_color.alpha);
   double x_rect = 0.0;
   double y_rect = text_extents.height + (font_extents.descent/2);
-  cairo_rectangle (cr_context_, x_rect, y_rect, BOUNDING_BOX_BUF_WIDTH,
-                   BOUNDING_BOX_BUF_HEIGHT - y_rect);
+  cairo_rectangle (cr_context_, x_rect, y_rect, buffer_width_,
+                   buffer_height_ - y_rect);
   cairo_stroke (cr_context_);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -1354,9 +1376,9 @@ void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
                                          DrawInfo* draw_info) {
   OVDBG_VERBOSE("%s: Enter", __func__);
   //Cut Text portion while scaling up bounding box to stream size.
-  int32_t textPortion = BOUNDING_BOX_BUF_HEIGHT * BOUNDING_BOX_TEXT_PERCENT/100;
+  int32_t textPortion = buffer_height_ * BOUNDING_BOX_TEXT_PERCENT/100;
   textPortion        += BOUNDING_BOX_TEXT_MARGIN;
-  int32_t ratio          = height_ / BOUNDING_BOX_BUF_HEIGHT;
+  int32_t ratio           = height_ / buffer_height_;
   draw_info->x            = x_;
   draw_info->y            = y_ - (ratio * textPortion);
   draw_info->width        = width_;
@@ -1410,7 +1432,7 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
 int32_t OverlayItemBoundingBox::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  int32_t size = BOUNDING_BOX_BUF_WIDTH * BOUNDING_BOX_BUF_HEIGHT * 4;
+  int32_t size = buffer_width_ * buffer_height_ * 4;
 
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
@@ -1425,9 +1447,9 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
                                                     CAIRO_FORMAT_ARGB32,
-                                                    BOUNDING_BOX_BUF_WIDTH,
-                                                    BOUNDING_BOX_BUF_HEIGHT,
-                                                    BOUNDING_BOX_BUF_WIDTH * 4);
+                                                    buffer_width_,
+                                                    buffer_height_,
+                                                    buffer_width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
@@ -1460,11 +1482,11 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
 #elif USE_SKIA
   c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
 #endif
-  c2dSurfaceDef.width  = BOUNDING_BOX_BUF_WIDTH;
-  c2dSurfaceDef.height = BOUNDING_BOX_BUF_HEIGHT;
+  c2dSurfaceDef.width  = buffer_width_;
+  c2dSurfaceDef.height = buffer_height_;
   c2dSurfaceDef.buffer = mem_info.vaddr;
   c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = BOUNDING_BOX_BUF_WIDTH * 4;
+  c2dSurfaceDef.stride = buffer_width_ * 4;
 
   //Create source c2d surface.
   ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
