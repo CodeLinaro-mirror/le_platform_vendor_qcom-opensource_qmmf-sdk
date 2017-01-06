@@ -2272,7 +2272,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = 30;
+  camera_params.frame_rate          = params.camera_fps;
   camera_params.flags               = 0x0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
@@ -2520,6 +2520,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
                                  initParams,const TrackInfo& track_info) {
   printf("\ninitParams.camera_id = %d\n", initParams.camera_id);
+  printf("\ninitParams.camera_fps = %d\n", initParams.camera_fps);
   printf("initParams.numStream = %d\n", initParams.numStream);
   printf("initParams.snapshot_info.type = %d\n",
           initParams.snapshot_info.type);
@@ -2598,6 +2599,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
 
     if(!strncmp("CameraID", key, strlen("CameraID"))) {
       initParams->camera_id = atoi(value);
+    } else if(!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
+      initParams->camera_fps = atoi(value);
     } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
       if(!strncmp("None", value, strlen("None"))) {
         initParams->snapshot_info.type= SnapshotType::kNone;

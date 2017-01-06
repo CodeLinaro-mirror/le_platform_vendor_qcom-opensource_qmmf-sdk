@@ -123,6 +123,7 @@ class CmdMenu;
 class TestInitParams {
 public:
     int32_t                camera_id;
+    uint8_t                camera_fps;
     SnapshotInfo           snapshot_info;
     AfMode                 af_mode;
     uint32_t               recordTime;
@@ -132,6 +133,7 @@ public:
 
     TestInitParams() :
             camera_id(-1),
+            camera_fps(0),
             snapshot_info {
               SnapshotType::kNone,
               0,

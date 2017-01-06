@@ -1,5 +1,7 @@
 /*
  * CameraID        : 0 (Hires camera), 1 (Optic flow camera).
+ * CameraFPS       : 30 (default), max FPS required for HFR use cases.
+ *                 : Eg: Set to 60 for 1080p60 + 480p30 use case.
  * SnapshotType    : None (Disable snapshot),JPEG (JPEG snapshot),
  *                 : RAWYUV (Raw YUV snapshot),RAWRDI (Raw snapshot).
  * SnapshotWidth   : Width of snapshot,0 (Take snapshot with max size).
@@ -18,6 +20,7 @@
  */
 
 CameraID          : 0
+CameraFPS         : 30
 SnapshotType      : None
 SnapshotWidth     : 3840
 SnapshotHeight    : 2160
