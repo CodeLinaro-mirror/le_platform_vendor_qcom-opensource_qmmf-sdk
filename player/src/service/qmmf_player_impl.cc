@@ -654,9 +654,19 @@ status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
 
 status_t PlayerImpl::GrabPicture(PictureParam param) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+
+  size_t num_tracks = tracks.size();
+
+  for(size_t i = 0; i < num_tracks; i++) {
+    if (tracks[i].type == TrackType::kVideo) {
+      ret = (video_sink_->GetTrackSink(tracks[i].track_id))->GrabPicture(param);
+      break;
+    }
+  }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 //Audio post processing
