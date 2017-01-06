@@ -118,5 +118,12 @@ void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
+void RemoteCallBack::NotifyGrabPictureData(BufferDescriptor& buffer) {
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  assert(client_cb_handle_.get() != nullptr);
+  client_cb_handle_->NotifyGrabPictureData(buffer);
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+}
+
 };  // namespace player
 };  // namespace qmmf

@@ -189,7 +189,7 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kAudio;
-  tracks.push_back(track_info);
+  tracks_.push_back(track_info);
   track_map_.add(track_id, track_info);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -229,7 +229,7 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kVideo;
-  tracks.push_back(track_info);
+  tracks_.push_back(track_info);
   track_map_.add(track_id, track_info);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -252,10 +252,10 @@ status_t PlayerImpl::DeleteAudioTrack(uint32_t track_id) {
   audio_decoder_core_->DeleteTrackDecoder(track_id);
   track_map_.removeItem(track_id);
 
-  auto it = std::find_if(tracks.begin(), tracks.end(),
+  auto it = std::find_if(tracks_.begin(), tracks_.end(),
      [track_id](TrackInfo& track){ return track.track_id == track_id; });
 
-  tracks.erase(it);
+  tracks_.erase(it);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -277,10 +277,10 @@ status_t PlayerImpl::DeleteVideoTrack(uint32_t track_id) {
   video_decoder_core_->DeleteTrackDecoder(track_id);
   track_map_.removeItem(track_id);
 
-  auto it = std::find_if(tracks.begin(), tracks.end(),
+  auto it = std::find_if(tracks_.begin(), tracks_.end(),
      [track_id](TrackInfo& track){ return track.track_id == track_id; });
 
-  tracks.erase(it);
+  tracks_.erase(it);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
@@ -292,19 +292,19 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
-  size_t num_tracks = tracks.size();
+  size_t num_tracks = tracks_.size();
 
   for(size_t i = 0; i < num_tracks; i++) {
 
-    if ((tracks[i].track_id == track_id) &&
-        (tracks[i].type == TrackType::kVideo)) {
+    if ((tracks_[i].track_id == track_id) &&
+        (tracks_[i].type == TrackType::kVideo)) {
       ret = video_decoder_core_->DequeueTrackInputBuffer(
-          tracks[i].track_id, buffers);
+          tracks_[i].track_id, buffers);
 
-    } else if ((tracks[i].track_id == track_id) &&
-        (tracks[i].type == TrackType::kAudio)) {
+    } else if ((tracks_[i].track_id == track_id) &&
+        (tracks_[i].type == TrackType::kAudio)) {
       ret = audio_decoder_core_->DequeueTrackInputBuffer(
-          tracks[i].track_id, buffers);
+          tracks_[i].track_id, buffers);
     }
   }
 
@@ -320,19 +320,19 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
-  size_t num_tracks = tracks.size();
+  size_t num_tracks = tracks_.size();
 
   for(size_t i = 0; i < num_tracks; i++) {
 
-    if ((tracks[i].track_id == track_id) &&
-        (tracks[i].type == TrackType::kVideo)) {
+    if ((tracks_[i].track_id == track_id) &&
+        (tracks_[i].type == TrackType::kVideo)) {
       ret = video_decoder_core_->QueueTrackInputBuffer(
-          tracks[i].track_id, buffers);
+          tracks_[i].track_id, buffers);
 
-    } else if ((tracks[i].track_id == track_id) &&
-        (tracks[i].type == TrackType::kAudio)) {
+    } else if ((tracks_[i].track_id == track_id) &&
+        (tracks_[i].type == TrackType::kAudio)) {
       ret = audio_decoder_core_->QueueTrackInputBuffer(
-         tracks[i].track_id, buffers);
+         tracks_[i].track_id, buffers);
     }
   }
 
@@ -358,15 +358,15 @@ status_t PlayerImpl::Prepare() {
       PlayerState::QPLAYER_STATE_STOPPED)) {
     QMMF_INFO("%s:%s: PrepareTrackPipeline !", TAG, __func__);
 
-      size_t num_tracks = tracks.size();
+      size_t num_tracks = tracks_.size();
 
       for(size_t i = 0; i < num_tracks; i++) {
-        if (tracks[i].type == TrackType::kVideo) {
-          ret = video_decoder_core_->PrepareTrackPipeline(tracks[i].track_id,
-             video_sink_->GetTrackSink(tracks[i].track_id));
-        } else if (tracks[i].type == TrackType::kAudio) {
-          ret = audio_decoder_core_->PrepareTrackPipeline(tracks[i].track_id,
-             audio_sink_->GetTrackSink(tracks[i].track_id));
+        if (tracks_[i].type == TrackType::kVideo) {
+          ret = video_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
+             video_sink_->GetTrackSink(tracks_[i].track_id));
+        } else if (tracks_[i].type == TrackType::kAudio) {
+          ret = audio_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
+             audio_sink_->GetTrackSink(tracks_[i].track_id));
         }
       }
 
@@ -411,13 +411,13 @@ status_t PlayerImpl::Start() {
       PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED |
       PlayerState::QPLAYER_STATE_STOPPED)) {
 
-    size_t num_tracks = tracks.size();
+    size_t num_tracks = tracks_.size();
 
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->StartTrackDecoder(tracks[i].track_id);
-      } else if (tracks[i].type == TrackType::kAudio) {
-        ret = audio_decoder_core_->StartTrackDecoder(tracks[i].track_id);
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
       }
     }
 
@@ -463,14 +463,14 @@ status_t PlayerImpl::Stop(bool do_flush) {
       PlayerState::QPLAYER_STATE_PAUSED |
       PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED)) {
 
-    size_t num_tracks = tracks.size();
+    size_t num_tracks = tracks_.size();
 
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->StopTrackDecoder(tracks[i].track_id,
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
            do_flush);
-      } else if (tracks[i].type == TrackType::kAudio) {
-        ret = audio_decoder_core_->StopTrackDecoder(tracks[i].track_id,
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
            do_flush);
       }
     }
@@ -514,13 +514,13 @@ status_t PlayerImpl::Pause() {
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED)) {
 
-    size_t num_tracks = tracks.size();
+    size_t num_tracks = tracks_.size();
 
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->PauseTrackDecoder(tracks[i].track_id);
-      } else if (tracks[i].type == TrackType::kAudio) {
-        ret = audio_decoder_core_->PauseTrackDecoder(tracks[i].track_id);
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
       }
     }
 
@@ -563,13 +563,13 @@ status_t PlayerImpl::Resume() {
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_PAUSED)) {
 
-    size_t num_tracks = tracks.size();
+    size_t num_tracks = tracks_.size();
 
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->ResumeTrackDecoder(tracks[i].track_id);
-      } else if (tracks[i].type == TrackType::kAudio) {
-        ret = audio_decoder_core_->ResumeTrackDecoder(tracks[i].track_id);
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
       }
     }
 
@@ -622,12 +622,12 @@ status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
 
   status_t ret = NO_ERROR;
 
-  size_t num_tracks = tracks.size();
+  size_t num_tracks = tracks_.size();
   assert(num_tracks != 0);
 
   for(size_t i = 0; i < num_tracks; i++) {
-    if (tracks[i].type == TrackType::kVideo) {
-      ret = video_decoder_core_->SetTrackTrickMode(tracks[i].track_id,
+    if (tracks_[i].type == TrackType::kVideo) {
+      ret = video_decoder_core_->SetTrackTrickMode(tracks_[i].track_id,
           static_cast<TrickModeSpeed> (speed),
           static_cast<TrickModeDirection> (direction));
     }
@@ -637,14 +637,14 @@ status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
   if (speed != static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) ||
       (direction == static_cast<uint32_t>(TrickModeDirection::kReverse))) {
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->PauseTrackDecoder(tracks[i].track_id);
+      if (tracks_[i].type == TrackType::kAudio)
+        ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
     }
   } else if (speed == static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) &&
       (direction == static_cast<uint32_t>(TrickModeDirection::kForward))) {
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->ResumeTrackDecoder(tracks[i].track_id);
+      if (tracks_[i].type == TrackType::kAudio)
+        ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
     }
   }
 
@@ -654,9 +654,22 @@ status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
 
 status_t PlayerImpl::GrabPicture(PictureParam param) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+
+  BufferDescriptor pbuffer;
+  memset(&pbuffer, 0x0, sizeof pbuffer);
+
+  for (const TrackInfo& track : tracks_) {
+    if (track.type == TrackType::kVideo) {
+      ret = (video_sink_->GetTrackSink(track.track_id))->GrabPicture(param,
+          pbuffer);
+      NotifyGrabPictureDataCallback(pbuffer);
+      break;
+    }
+  }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 //Audio post processing
@@ -667,12 +680,12 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
-  size_t num_tracks = tracks.size();
+  size_t num_tracks = tracks_.size();
 
   for(size_t i = 0; i < num_tracks; i++) {
-    if (tracks[i].type == TrackType::kAudio) {
+    if (tracks_[i].type == TrackType::kAudio) {
       ret = audio_decoder_core_->SetAudioTrackDecoderParams(
-          tracks[i].track_id,type, param, param_size);
+          tracks_[i].track_id,type, param, param_size);
     }
   }
 
@@ -688,12 +701,12 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
-  size_t num_tracks = tracks.size();
+  size_t num_tracks = tracks_.size();
 
   for(size_t i = 0; i < num_tracks; i++) {
-     if (tracks[i].type == TrackType::kVideo) {
+     if (tracks_[i].type == TrackType::kVideo) {
        ret = video_decoder_core_->SetVideoTrackDecoderParams(
-           tracks[i].track_id,type, param, param_size);
+           tracks_[i].track_id,type, param, param_size);
     }
   }
 
@@ -768,6 +781,12 @@ void PlayerImpl::NotifyDeleteAudioTrackCallback(uint32_t track_id) {
 void PlayerImpl::NotifyDeleteVideoTrackCallback(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   remote_cb_->NotifyDeleteVideoTrack(track_id);
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+}
+
+void PlayerImpl::NotifyGrabPictureDataCallback(BufferDescriptor& buffer){
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  remote_cb_->NotifyGrabPictureData(buffer);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
