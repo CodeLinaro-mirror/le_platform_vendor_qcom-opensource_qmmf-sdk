@@ -5278,9 +5278,9 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   object_params.color = COLOR_LIGHT_GREEN;
   // Dummy coordinates for test purpose.
   object_params.bounding_box.start_x = 20;
-  object_params.bounding_box.start_y = 40;
-  object_params.bounding_box.width   = 1920/8;
-  object_params.bounding_box.height  = 1080/8;
+  object_params.bounding_box.start_y = 20;
+  object_params.bounding_box.width   = 400;
+  object_params.bounding_box.height  = 200;
   std::string bb_text("Test BBox..");
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
@@ -5291,40 +5291,34 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   ret = recorder_.SetOverlay(video_track_id, bbox_id);
   assert(ret == 0);
 
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
-      test_info_->name(), i);
+  //Mimic moving bounding box.
+  for (uint32_t j = 0; j < 100; ++j) {
+    ret = recorder_.GetOverlayObjectParams(video_track_id, bbox_id,
+                                           object_params);
+    assert(ret == 0);
 
-    //Mimic moving bounding box.
-    for (uint32_t j = 0; j < 20; ++j) {
-      ret = recorder_.GetOverlayObjectParams(video_track_id, bbox_id,
-                                             object_params);
-      assert(ret == 0);
+    object_params.bounding_box.start_x = ((object_params.bounding_box.start_x +
+        object_params.bounding_box.width) < width) ?
+        object_params.bounding_box.start_x + 5 : 20;
 
-      object_params.bounding_box.start_x = (object_params.bounding_box.start_x +
-          object_params.bounding_box.width < 1920) ?
-          object_params.bounding_box.start_x + 20 : 20;
+    object_params.bounding_box.width = ((object_params.bounding_box.start_x +
+        object_params.bounding_box.width) < width) ?
+        object_params.bounding_box.width + 5 : 200;
 
-      object_params.bounding_box.width = (object_params.bounding_box.start_x +
-          object_params.bounding_box.width < 1920) ?
-          object_params.bounding_box.width + 50 : 1920/8;
+    object_params.bounding_box.start_y = ((object_params.bounding_box.start_y +
+        object_params.bounding_box.height) < height) ?
+        object_params.bounding_box.start_y + 2 : 20;
 
-      object_params.bounding_box.start_y = (object_params.bounding_box.start_y +
-          object_params.bounding_box.height < 1080) ?
-          object_params.bounding_box.start_y + 10 : 40;
+    object_params.bounding_box.height = ((object_params.bounding_box.start_y +
+        object_params.bounding_box.height) < height) ?
+        object_params.bounding_box.height + 2 : 100;
 
-      object_params.bounding_box.height = (object_params.bounding_box.start_y +
-          object_params.bounding_box.height < 1080) ?
-          object_params.bounding_box.height + 50 : 1080/8;
-
-      ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
-                                                object_params);
-      assert(ret == 0);
-      usleep(250000);
-    }
-
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
+                                              object_params);
+    assert(ret == 0);
+    usleep(250000);
   }
+
   // Remove overlay object from video track.
   ret = recorder_.RemoveOverlay(video_track_id, bbox_id);
   assert(ret == 0);
@@ -5356,6 +5350,178 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* 4KEncWithBoundingBoxOverlay: This test applies bounding box overlay type
+*                              ontop of 4K video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 2160;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device  = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create BoundingBox type overlay.
+  OverlayParam object_params;
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type  = OverlayType::kBoundingBox;
+  object_params.color = COLOR_LIGHT_GREEN;
+  // Dummy coordinates for test purpose.
+  object_params.bounding_box.start_x = 40;
+  object_params.bounding_box.start_y = 40;
+  object_params.bounding_box.width   = 800;
+  object_params.bounding_box.height  = 400;
+  std::string bb_text("Test BBox..");
+  bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+
+  uint32_t bbox_id;
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                       &bbox_id);
+  assert(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  //Mimic moving bounding box.
+  for (uint32_t j = 0; j < 100; ++j) {
+    ret = recorder_.GetOverlayObjectParams(video_track_id, bbox_id,
+                                           object_params);
+    assert(ret == 0);
+
+    object_params.bounding_box.start_x = ((object_params.bounding_box.start_x +
+        object_params.bounding_box.width) < width) ?
+        object_params.bounding_box.start_x + 5 : 20;
+
+    object_params.bounding_box.width = ((object_params.bounding_box.start_x +
+        object_params.bounding_box.width) < width) ?
+        object_params.bounding_box.width + 5 : 200;
+
+    object_params.bounding_box.start_y = ((object_params.bounding_box.start_y +
+        object_params.bounding_box.height) < height) ?
+        object_params.bounding_box.start_y + 2 : 20;
+
+    object_params.bounding_box.height = ((object_params.bounding_box.start_y +
+        object_params.bounding_box.height) < height) ?
+        object_params.bounding_box.height + 2 : 100;
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
+                                              object_params);
+    assert(ret == 0);
+    usleep(250000);
+  }
+
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, bbox_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
 /*
 * 1080pEncWithUserTextOverlay: This test applies custom user text ontop of 1080
 *                              video.
