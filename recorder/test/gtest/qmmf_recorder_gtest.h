@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <map>
+#include <cutils/properties.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -42,6 +43,47 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
+
+#define DEFAULT_YUV_DUMP_FREQ  "200"
+#define DEFAULT_ITERATIONS     "50"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_YUV_FRAMES   "persist.qmmf.rec.gtest.dumpyuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_BITSTREAM    "persist.qmmf.rec.gtest.dumpstrm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_JPEG         "persist.qmmf.rec.gtest.dumpjpeg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_RAW          "persist.qmmf.rec.gtest.dumpraw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_YUV_FREQ     "persist.qmmf.rec.gtest.dumpfreq"
+// Prop to set no of iterations
+#define PROP_N_ITERATIONS      "persist.qmmf.rec.gtest.iter"
+
+typedef struct StreamDumpInfo {
+  int32_t       file_fd;
+  VideoFormat   format;
+  uint32_t      track_id;
+  int32_t       width;
+  int32_t       height;
+} StreamDumpInfo;
+
+class DumpBitStream {
+ public:
+  DumpBitStream() : is_enabled(false) {};
+
+  ~DumpBitStream() {};
+
+  status_t SetUp(StreamDumpInfo& dumpinfo);
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers,
+                int32_t& file_fd);
+
+  void Close(int32_t file_fd)
+             {if (file_fd > 0) {close(file_fd); file_fd = -1;}}
+
+  bool is_enabled;
+};
 
 class RecorderGtest : public ::testing::Test {
  public:
@@ -90,9 +132,6 @@ class RecorderGtest : public ::testing::Test {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                     int32_t file_fd);
-
   status_t QueueVideoFrame(VideoFormat format_type,
                            const uint8_t *buffer, size_t size,
                            int64_t timestamp, AVQueue *que);
@@ -115,5 +154,11 @@ class RecorderGtest : public ::testing::Test {
   int32_t               track2_bitstream_filefd_;
   int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
+
+  DumpBitStream         dump_bitstream_;
+  bool                  is_dump_jpeg_enabled_;
+  bool                  is_dump_raw_enabled_;
+  bool                  is_dump_yuv_enabled_;
+  uint32_t              dump_yuv_freq_;
 };
 
