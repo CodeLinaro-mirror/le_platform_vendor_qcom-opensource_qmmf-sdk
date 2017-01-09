@@ -170,6 +170,10 @@ class RecorderTest {
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
 
+  status_t StartDualCameraMode();
+
+  status_t StopDualCameraMode();
+
   status_t Session4KAnd1080pYUVTracks();
 
   status_t Session4KEncTrack(const TrackType& type);
@@ -391,6 +395,8 @@ public:
         DISCONNECT_CMD                          = '2',
         START_CAMERA_CMD                        = '3',
         STOP_CAMERA_CMD                         = '4',
+        START_DUALCAMERA_CMD                    = 's',
+        STOP_DUALCAMERA_CMD                     = 't',
         CREATE_YUV_SESSION_CMD                  = '5',
         CREATE_4KENC_AVC_SESSION_CMD            = '6',
         CREATE_4KENC_HEVC_SESSION_CMD           = '7',
