@@ -764,6 +764,153 @@ status_t RecorderTest::TakeSnapshot() {
   return ret;
 }
 
+status_t RecorderTest::StartDualCameraMode() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  CameraStartParam camera_params;
+  memset(&camera_params, 0x0, sizeof camera_params);
+  camera_params.zsl_mode            = false;
+  camera_params.zsl_queue_depth     = 10;
+  camera_params.zsl_width           = 3840;
+  camera_params.zsl_height          = 2160;
+  camera_params.frame_rate          = 30;
+  camera_params.flags               = 0x0;
+
+  camera_id_ = 1;
+
+  auto ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id, raw_width = 0, raw_height = 0;
+
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  recorder_.GetDefaultCaptureParam(camera_id_, meta);
+
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      raw_width = entry.data.i32[i+0];
+      raw_height = entry.data.i32[i+1];
+      break;
+    }
+  }
+  assert(raw_width != 0 && raw_height != 0);
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session0_tracks;
+
+  TestTrack *rdi_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = raw_width;
+  info.height     = raw_height;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.low_power_mode = false;
+
+  ret = rdi_track->SetUp(info);
+  assert(ret == 0);
+  session0_tracks.push_back(rdi_track);
+
+  sessions_.insert(std::make_pair(session_id, session0_tracks));
+
+  rdi_track->Prepare();
+  auto result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+
+  camera_id_ = 0;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  } else {
+    InitSupportedNRModes();
+    InitSupportedVHDRModes();
+    InitSupportedIRModes();
+  }
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session2_tracks;
+
+  TestTrack *yuv_1080p_track = new TestTrack(this);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1920;
+  info.height     = 1080;
+  info.track_id   = 2;
+  info.track_type = TrackType::kVideoAVC;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+
+  ret = yuv_1080p_track->SetUp(info);
+  assert(ret == 0);
+  session2_tracks.push_back(yuv_1080p_track);
+
+  sessions_.insert(std::make_pair(session_id, session2_tracks));
+
+  yuv_1080p_track->Prepare();
+  result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+  session_enabled_ = true;
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::StopDualCameraMode() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  for (session_iter_ it = sessions_.begin(); it != sessions_.end(); ++it) {
+
+    uint32_t session_id = it->first;
+    auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
+    assert(result == NO_ERROR);
+
+    for (auto track : it->second) {
+      track->CleanUp();
+    }
+  }
+  session_enabled_ = false;
+
+  camera_id_ = 1;
+
+  auto ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 1 Failed!!", TAG, __func__);
+  }
+
+  camera_id_ = 0;
+
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 0 Failed!!", TAG, __func__);
+  }
+
+  static_info_.clear();
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return 0;
+
+}
+
 // This session has two YUV video tracks 4K and 1080p.
 status_t RecorderTest::Session4KAnd1080pYUVTracks() {
 
@@ -3319,6 +3466,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Choose camera\n", CmdMenu::CHOOSE_CAMERA_CMD);
   printf("   %c. Start Camera\n", CmdMenu::START_CAMERA_CMD);
   printf("   %c. Stop Camera\n", CmdMenu::STOP_CAMERA_CMD);
+  printf("   %c. Start Dual Camera Mode \n", CmdMenu::START_DUALCAMERA_CMD);
+  printf("   %c. Stop Dual Camera Mode \n", CmdMenu::STOP_DUALCAMERA_CMD);
   printf("   %c. Create Session: (4K YUV + 1080 YUV)\n",
       CmdMenu::CREATE_YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc AVC)\n",
@@ -3443,6 +3592,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::STOP_CAMERA_CMD: {
         test_context.StopCamera();
+      }
+      break;
+      case CmdMenu::START_DUALCAMERA_CMD: {
+        test_context.StartDualCameraMode();
+      }
+      break;
+      case CmdMenu::STOP_DUALCAMERA_CMD: {
+        test_context.StopDualCameraMode();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_CMD: {
