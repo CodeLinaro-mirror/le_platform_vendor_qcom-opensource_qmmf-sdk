@@ -92,7 +92,9 @@ class CameraContext : public RefBase {
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id);
 
-  uint32_t GetCameraFrameRate() { return camera_start_params_.frame_rate; }
+  CameraStartParam& GetCameraStartParam() { return camera_start_params_; }
+
+  Vector<int32_t>& GetSupportedFps() { return supported_fps_; }
 
  private:
 
@@ -103,12 +105,6 @@ class CameraContext : public RefBase {
     uint32_t framerate;
   };
 
-  struct ZSLEntry {
-    StreamBuffer           buffer;
-    CameraMetadata         result;
-    int64_t                timestamp;
-  };
-
   struct SyncFrame {
     int64_t         last_frame_id;
     Vector<int32_t> stream_ids;
@@ -116,18 +112,13 @@ class CameraContext : public RefBase {
 
   friend class CameraPort;
   friend class CameraReprocess;
+  friend class ZslPort;
 
   void InitSupportedFPS(const CameraMetadata &static_meta);
 
   bool IsInputSupported(const CameraMetadata &static_meta);
 
   status_t CreateZSLStream(const CameraStartParam &param);
-
-  status_t FlushZSLQueueLocked();
-
-  status_t RemoveZSLStreamLocked();
-
-  status_t PickZSLBuffer();
 
   status_t CreateSnapshotStream(const ImageParam &param);
 
@@ -159,14 +150,10 @@ class CameraContext : public RefBase {
 
   void InitHFRModes(CameraMetadata &static_meta);
 
+  status_t CaptureZSLImage(const ImageParam &param);
+
   //Camera client callbacks.
   void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
-
-  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
-
-  void GetZSLInputBuffer(StreamBuffer &buffer);
-
-  void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
   void ReprocessCaptureCallback(int32_t stream_id, StreamBuffer buffer);
 
@@ -208,16 +195,8 @@ class CameraContext : public RefBase {
   Camera3Request           reprocess_request_;
 
   ResultCb                 result_cb_;
-
-  //ZSL
-  int32_t                  zsl_stream_id_;
-  int32_t                  zsl_input_stream_id_;
   Vector<int32_t>          supported_fps_;
-
-  Mutex                    zsl_queue_lock_;
-  List<ZSLEntry>           zsl_queue_;
-  ZSLEntry                 zsl_input_buffer_;
-  bool                     zsl_running_;
+  sp<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
   DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
@@ -256,6 +235,12 @@ enum class PortState {
   PORT_STOPPED,
 };
 
+struct ZSLEntry {
+  StreamBuffer    buffer;
+  CameraMetadata  result;
+  int64_t         timestamp;
+};
+
 // CameraPort is one to one mapped to Camera device stream. It takes buffers
 // from camera stream and passes to its consumers, for optimization reason
 // single port can serve multiple consumers if their characterstics are exactly
@@ -265,9 +250,9 @@ class CameraPort : public RefBase {
   CameraPort(const CameraStreamParam& param, size_t batch_size,
              CameraPortType port_type, CameraContext *context);
 
-  ~CameraPort();
+  virtual ~CameraPort();
 
-  status_t Init();
+  virtual status_t Init();
 
   status_t DeInit();
 
@@ -292,9 +277,15 @@ class CameraPort : public RefBase {
 
   uint32_t GetPortFramerate() { return params_.frame_rate; }
 
-  size_t GetPortBatchSize() { return batch_size; }
+  size_t GetPortBatchSize() { return batch_size_; }
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
+
+ protected:
+  CameraPortType         port_type_;
+  CameraContext*         context_;
+  int32_t                camera_stream_id_;
+  PortState              port_state_;
 
  private:
 
@@ -304,18 +295,55 @@ class CameraPort : public RefBase {
 
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParam      params_;
-  CameraContext*         context_;
-  int32_t                camera_stream_id_;
   CameraStreamParameters cam_stream_params_;
   Mutex                  consumer_lock_;
   bool                   ready_to_start_;
-  PortState              port_state_;
-  size_t                 batch_size;
+  size_t                 batch_size_;
 
   // map of <consumer id, IBufferConsumer>
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
+};
 
+class ZslPort : public CameraPort {
 
+ public:
+  ZslPort(const CameraStreamParam& param, size_t batch_size,
+          CameraPortType port_type, CameraContext *context);
+
+  ~ZslPort();
+
+  status_t Init() override;
+
+  status_t PauseAndFlushZSLQueue();
+
+  void ResumeZSL();
+
+  bool IsRunning();
+
+  status_t PickZSLBuffer();
+
+  ZSLEntry& GetInputBuffer() { return zsl_input_buffer_; }
+
+  void HandleZSLCaptureResult(const CaptureResult &result);
+
+  int32_t GetInputStreamId() { return input_stream_id_; }
+
+ private:
+
+  status_t SetUpZSL();
+
+  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+
+  void GetZSLInputBuffer(StreamBuffer &buffer);
+
+  void ReturnZSLInputBuffer(StreamBuffer &buffer);
+
+  int32_t         input_stream_id_ = -1;
+  Mutex           zsl_queue_lock_;
+  List<ZSLEntry>  zsl_queue_;
+  ZSLEntry        zsl_input_buffer_ = {};
+  bool            zsl_running_ = false;
+  uint32_t        zsl_queue_depth_ = 0;
 };
 
 struct ReprocParam {
