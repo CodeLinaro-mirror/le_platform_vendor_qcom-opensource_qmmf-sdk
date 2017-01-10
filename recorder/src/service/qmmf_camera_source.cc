@@ -514,7 +514,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(context.get() != nullptr);
   camera_context_ = context;
 
-  input_frame_rate_ = context->GetCameraFrameRate();
+  input_frame_rate_ = context->GetCameraStartParam().frame_rate;
   QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
