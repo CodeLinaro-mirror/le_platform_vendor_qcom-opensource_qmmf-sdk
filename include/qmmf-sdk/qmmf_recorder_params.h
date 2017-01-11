@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -54,6 +54,7 @@ namespace recorder {
 #define SENSOR_VENDOR_MODE_OFFSET (24)
 #define SENSOR_VENDOR_MODE_MASK (0xff)
 #define MAX_AUDIO_INPUT_DEVICES (10)
+#define MAX_THUMBNAIL_IMAGE_PARAM (2)
 
 typedef int32_t status_t;
 
@@ -282,14 +283,15 @@ struct ImageParam {
 ///
 /// \param raw_image_type: Could be either of RDI RAW or IDEAL Raw
 /// \param thumbnail_image_param: Thumbnail image characteristics. This is
-/// vector since a single image can contain more than one thumbnail
+/// array since a single image can contain more than one thumbnail
 struct ImageCaptureConfig {
   uint32_t sensor_frame_skip_interval;
   bool with_exif;
   bool with_camera_meta;
   bool with_raw;
   ImageFormat raw_image_format;
-  ::std::vector<ImageParam> thumbnail_image_param;
+  uint32_t num_thumbnail_image_param;
+  ImageParam thumbnail_image_param[MAX_THUMBNAIL_IMAGE_PARAM];
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -306,9 +308,9 @@ struct ImageCaptureConfig {
                          (raw_image_format)
            << "] ";
     stream << "thumbnail_image_param[";
-    for (const ImageParam image_param : thumbnail_image_param)
-      stream << image_param.ToString() << ", ";
-    stream << "SIZE[" << thumbnail_image_param.size() << "]]";
+    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
+      stream << "thumbnail_image_param[" << thumbnail_image_param[i].ToString() << "] ";
+    stream << "SIZE[" << num_thumbnail_image_param << "]], ";
     return stream.str();
   }
 };
