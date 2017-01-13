@@ -806,7 +806,12 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     }
   }
 
-  if (IsFrameSkip()) {
+  // Return buffer back to camera if frameskip is valid for this frame
+  // and is NOT a stop condition. In STOP condition, frame skip logic
+  // is bypassed as the buffer consumer may wait for the last buffer
+  // as part of stop processing. Skipping frames may result in timeouts
+  // in the consumer.
+  if ((!IsStop()) && IsFrameSkip()) {
     // Skip frame to adjust fps.
     ReturnBufferToProducer(buffer);
     return;
