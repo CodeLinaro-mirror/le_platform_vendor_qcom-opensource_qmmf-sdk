@@ -9,6 +9,8 @@
  *                 : CPAF (Continuous-picture), EDOF (EDOF Mode).
  * RecordingTime   : Time duration for recording in second.
  * NumStream       : Number of stream to record.
+ * YUVRDIDump      : Enable (enable to dump YUV and RDI frames),
+ *                 : Disable (Disable to dump YUV and RDI frames)
  * TNR             : 1(Enable tnr), 0(Disable tnr)
  * VHDR            : 1(Enable vhdr), 0(Disable vhdr)
  * TrackType       : YUV, AVC (to be extended for Audio)
@@ -22,6 +24,7 @@ SnapshotHeight    : 2160
 AFMode            : None
 RecordingTime     : 10
 NumStream         : 2
+YUVRDIDump        : Enable
 TNR               : 0
 VHDR              : 0
 

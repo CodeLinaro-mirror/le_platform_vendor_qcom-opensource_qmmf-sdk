@@ -58,7 +58,8 @@ static const char* kDefaultAudioFilenamePrefix =
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
-            session_enabled_(false) {
+            session_enabled_(false),
+            yuv_dump_mode_(DumpMode::kEnable) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
@@ -2461,6 +2462,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
 
+  yuv_dump_mode_ = params.yuvdumpmode;
+
    printf("%s StartSession\n",__func__);
   // StartSession - Begin
   // Prepare tracks: setup files to dump track data, event etc.
@@ -2631,6 +2634,7 @@ void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
   printf("initParams.snapshot_info.height = %d\n",
           initParams.snapshot_info.height);
   printf("initParams.af_mode = %d\n", initParams.af_mode);
+  printf("initParams.yuv_dump_mode = %d\n", initParams.yuvdumpmode);
   printf("TrackInfo.track_type = %d\n", track_info.track_type);
   printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
   printf("TrackInfo.fps = %d\n", track_info.fps);
@@ -2742,6 +2746,15 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
         goto READ_FAILED;
       }
       initParams->numStream = atoi(value);
+    } else if(!strncmp("YUVRDIDump", key, strlen("YUVRDIDump"))) {
+      if(!strncmp("Enable", value, strlen("Enable"))) {
+        initParams->yuvdumpmode = DumpMode::kEnable;
+      } else if(!strncmp("Disable", value, strlen("Disable"))) {
+        initParams->yuvdumpmode = DumpMode::kDisable;
+      } else {
+        ALOGE("%s: Unknown YUVDumpMode(%s)", __func__, value);
+        goto READ_FAILED;
+      }
     } else if(!strncmp("VHDR", key, strlen("VHDR"))) {
       initParams->vhdr = atoi(value)?true:false;
     } else if(!strncmp("TNR", key, strlen("TNR"))) {
@@ -3260,21 +3273,21 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
             TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
                 cam_buf_meta.plane_info[i].height);
           }
-          #ifdef DUMP_YUV_FRAMES
-          // Dump every 200th Frame.
-          ++num_yuv_frames_;
-          if (num_yuv_frames_ == 200) {
-            const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
-                "raw" : "yuv";
-            String8 file_path;
-            file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
-                track_info_.track_id, cam_buf_meta.plane_info[0].width,
-                cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
-            recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
-                                            file_path);
-            num_yuv_frames_ = 0;
+          if (recorder_test_->GetDumpMode() == DumpMode::kEnable) {
+            // Dump every 200th Frame.
+            ++num_yuv_frames_;
+            if (num_yuv_frames_ == 200) {
+              const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
+                  "raw" : "yuv";
+              String8 file_path;
+              file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
+                  track_info_.track_id, cam_buf_meta.plane_info[0].width,
+                  cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
+              recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
+                                              file_path);
+              num_yuv_frames_ = 0;
+            }
           }
-          #endif
           PushFrameToDisplay(buffers[i], cam_buf_meta);
         }
       }

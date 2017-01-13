@@ -42,9 +42,6 @@
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 
-// Enable this define to dump YUV data from YUV track
-#define DUMP_YUV_FRAMES
-
 // Enable this define to dump encoded bit stream data.
 #define DUMP_BITSTREAM
 
@@ -90,6 +87,11 @@ struct SnapshotInfo {
    uint32_t       height;
 };
 
+enum class DumpMode {
+   kDisable,
+   kEnable
+};
+
 enum class TrackType {
   kNone,
   kAudioPCM,
@@ -126,6 +128,7 @@ public:
     AfMode                 af_mode;
     uint32_t               recordTime;
     uint32_t               numStream;
+    DumpMode               yuvdumpmode;
     bool                   tnr;
     bool                   vhdr;
 
@@ -139,6 +142,7 @@ public:
             af_mode(AfMode::kOff),
             recordTime(0),
             numStream(0),
+            yuvdumpmode(DumpMode::kEnable),
             tnr(0),
             vhdr(0) {};
 };
@@ -270,6 +274,7 @@ class RecorderTest {
 
   Recorder& GetRecorder() { return recorder_; }
 
+  DumpMode GetDumpMode() { return yuv_dump_mode_; }
  private:
   Recorder recorder_;
 
@@ -296,6 +301,7 @@ class RecorderTest {
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
   bool use_display;
+  DumpMode yuv_dump_mode_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
