@@ -66,6 +66,7 @@ class DualCamera3Gtest : public ::testing::Test {
 
   uint32_t number_of_cameras_;
   CameraClientCallbacks client_cb_;
+  sp<Camera3DeviceClient> device_client_;
   CameraContext ctx1_, ctx2_, ctx3_;
   bool camera_error_;
 };

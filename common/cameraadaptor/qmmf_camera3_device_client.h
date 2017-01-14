@@ -109,6 +109,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   friend class Camera3RequestHandler;
   friend class Camera3Monitor;
   friend class Camera3Gtest;
+  friend class DualCamera3Gtest;
 
   int32_t AddRequestListLocked(const List<const CameraMetadata> &requests,
                                bool streaming, int64_t *lastFrameNumber = NULL);

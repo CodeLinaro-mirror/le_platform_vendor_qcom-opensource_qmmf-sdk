@@ -51,25 +51,56 @@ void DualCamera3Gtest::SetUp() {
                             int64_t ts) { ShutterCb(extras, ts); };
   client_cb_.resultCb = [&](const CaptureResult &result) { ResultCb(result); };
 
-  sp<Camera3DeviceClient> device = new Camera3DeviceClient(client_cb_);
-  ASSERT_TRUE(NULL != device.get());
+  device_client_= new Camera3DeviceClient(client_cb_);
+  ASSERT_TRUE(NULL != device_client_.get());
 
-  auto ret = device->Initialize();
+  auto ret = device_client_->Initialize();
   ASSERT_EQ(0, ret);
 
-  number_of_cameras_ = device->GetNumberOfCameras();
+  number_of_cameras_ = device_client_->GetNumberOfCameras();
   ASSERT_GE(number_of_cameras_, 2U);
   memset(&ctx1_, 0, sizeof(ctx1_));
   memset(&ctx2_, 0, sizeof(ctx2_));
   memset(&ctx3_, 0, sizeof(ctx3_));
   ctx1_.cameraIdx = 0;
-  ctx2_.cameraIdx = 2;
-  ctx3_.cameraIdx = 3;
+  ctx2_.cameraIdx = 1;
+  ctx3_.cameraIdx = 2;
 }
 
 void DualCamera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+  String8 path;
+  alloc_device_t *grallocDevice = device_client_->GetGrallocDevice();
+  gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
+        grallocDevice->common.module);
+
+  printf("%s: E streamId: %d buffer: %p size %d ts: %" PRId64 "\n", __func__, streamId,
+         buffer.handle, buffer.size, buffer.timestamp);
+
+  if (!(buffer.frame_number % 10)) {
+    if (buffer.info.format < BufferFormat::kBLOB ) {
+       path.appendFormat("/data/frame_%" PRId64 "_dim_%dx%d.yuv", buffer.frame_number,
+          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+    } else if (buffer.info.format > BufferFormat::kBLOB ) {
+       path.appendFormat("/data/frame_%" PRId64 "_dim_%dx%d.raw", buffer.frame_number,
+          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+    }
+    FILE *f = fopen(path.string(), "w+");
+    uint8_t *mappedBuffer = NULL;
+    auto ret = mapper->lock(mapper, buffer.handle, GRALLOC_USAGE_SW_READ_OFTEN, 0,
+                      0, buffer.info.plane_info[0].width,
+                      buffer.info.plane_info[0].height,
+                      (void **)&mappedBuffer);
+    if ((0 != ret) || (NULL == mappedBuffer)) {
+       printf("%s: Unable to map gralloc buffer: %p res: %d\n", __func__,
+             mappedBuffer, ret);
+    }
+    uint64_t size = buffer.size;
+    if (size != fwrite(mappedBuffer, sizeof(uint8_t), size, f)) {
+       ret = ferror(f);
+       printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
+    }
+  }
+
 }
 
 void DualCamera3Gtest::ErrorCb(CameraErrorCode errorCode,
@@ -277,13 +308,17 @@ TEST_F(DualCamera3Gtest, DualPreviewVGA) {
 }
 
 TEST_F(DualCamera3Gtest, ThreeCamerasPreviewVGA) {
-  auto ret = StartStreaming(ctx1_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  auto ret = StartStreaming(ctx2_, 640, 480, HAL_PIXEL_FORMAT_RAW10);
   ASSERT_EQ(0, ret);
 
-  ret = StartStreaming(ctx3_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  sleep(5);
+
+  ret = StartStreaming(ctx1_, 640, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
-  ret = StartStreaming(ctx2_, 640, 480, HAL_PIXEL_FORMAT_RAW10);
+  sleep(5);
+
+  ret = StartStreaming(ctx3_, 1280, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
   ASSERT_EQ(0, ret);
 
   // Let streaming run for a while
@@ -291,11 +326,11 @@ TEST_F(DualCamera3Gtest, ThreeCamerasPreviewVGA) {
 
   ret = StopStreamingAndClose(ctx2_);
   ASSERT_EQ(0, ret);
-
-  ret = StopStreamingAndClose(ctx3_);
-  ASSERT_EQ(0, ret);
-
+  sleep(2);
   ret = StopStreamingAndClose(ctx1_);
+  ASSERT_EQ(0, ret);
+  sleep(2);
+  ret = StopStreamingAndClose(ctx3_);
   ASSERT_EQ(0, ret);
   ASSERT_FALSE(camera_error_);
 }
