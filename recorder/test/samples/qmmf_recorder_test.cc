@@ -3025,8 +3025,8 @@ status_t TestTrack::EnableOverlay() {
   // Dummy coordinates for test purpose.
   object_params.bounding_box.start_x = 100;
   object_params.bounding_box.start_y = 200;
-  object_params.bounding_box.width   = 1920/4;
-  object_params.bounding_box.height  = 1080/4;
+  object_params.bounding_box.width   = 1900;
+  object_params.bounding_box.height  = 200;
   std::string bb_text("Test BBox..");
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
