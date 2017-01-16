@@ -127,8 +127,6 @@ typedef struct BnTrackBuffer {
   }
 } BnTrackBuffer;
 
-//mapping of service ion_fd and client ion_fd
-typedef std::map<int32_t, int32_t> ion_fd_map;
 
 class IPlayerServiceCallback;
 class IPlayerService : public IInterface {

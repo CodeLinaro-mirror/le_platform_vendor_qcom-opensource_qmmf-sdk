@@ -183,6 +183,17 @@ class AudioEndPoint {
   //
   int32_t SetParam(const AudioParamType type, const AudioParamData& data);
 
+  //
+  // Request for the rendering time taken by ADSP to render audio frames
+  // since the output has exited standby.
+  //
+  // frames (output): number of frmaes rendered
+  // time (output): time elapsed in millisecond
+  //
+  // Returns error code.
+  //
+  int32_t GetRenderedPosition(uint32_t* frames, uint64_t* time);
+
  private:
   AudioEndPointClient* audio_endpoint_client_;
 

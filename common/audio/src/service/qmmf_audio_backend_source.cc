@@ -224,7 +224,9 @@ int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
 
   result = qahw_open_input_stream(qahw_module_, current_io_handle_,
                                   audio_devices, &config, &qahw_stream_,
-                                  AUDIO_INPUT_FLAG_NONE, "input_stream",
+                                  static_cast<audio_input_flags_t>
+                                  (QAHW_INPUT_FLAG_COMPRESS),
+                                  "input_stream",
                                   AUDIO_SOURCE_DEFAULT);
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to open input stream: %d[%s]", TAG, __func__,
@@ -579,6 +581,15 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
       break;
   }
 
+  return 0;
+}
+
+int32_t AudioBackendSource::GetRenderedPosition(uint32_t* frames,
+                                                uint64_t* time)
+{
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  QMMF_WARN("%s: %s() invalid operation", TAG, __func__);
   return 0;
 }
 

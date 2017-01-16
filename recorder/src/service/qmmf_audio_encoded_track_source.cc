@@ -58,6 +58,8 @@ using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
 using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::PortEventType;
+using ::qmmf::avcodec::PortreconfigData;
 using ::std::chrono::seconds;
 using ::std::condition_variable;
 using ::std::cv_status;
@@ -126,9 +128,14 @@ status_t AudioEncodedTrackSource::Init() {
   metadata.num_channels = track_params_.params.channels;
   metadata.sample_rate = track_params_.params.sample_rate;
   metadata.sample_size = track_params_.params.bit_depth;
+  {
+    vector<DeviceId> devices;
+    for (uint32_t i = 0; i < track_params_.params.in_devices_num; i++)
+      devices.push_back(track_params_.params.in_devices[i]);
 
-  result = end_point_->Configure(AudioEndPointType::kSource,
-                                 track_params_.params.in_devices, metadata);
+    result = end_point_->Configure(AudioEndPointType::kSource, devices,
+                                   metadata);
+  }
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Configure failed: %d[%s]", TAG, __func__,
                result, strerror(result));
@@ -350,27 +357,30 @@ status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
   return ::android::NO_ERROR;
 }
 
-status_t AudioEncodedTrackSource::NotifyPortStatus(CodecPortStatus status) {
+status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
+                                                  void* event_data) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
-
-  switch (status) {
-    case CodecPortStatus::kPortStop:
-      if (stop_called_)
-        stop_notify_received_ = true;
-      break;
-    case CodecPortStatus::kPortIdle:
-      if (stop_notify_received_) {
-        mutex_.lock();
-        while (!buffers_.empty())
-          buffers_.pop();
-        mutex_.unlock();
-        signal_.notify_one();
-        QMMF_VERBOSE("%s: %s() emptied the buffer queue", TAG, __func__);
-      }
-      break;
-    case CodecPortStatus::kPortStart:
-      break;
+  if (event_type == PortEventType::kPortStatus) {
+    CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
+    switch (status) {
+      case CodecPortStatus::kPortStop:
+        if (stop_called_)
+          stop_notify_received_ = true;
+        break;
+      case CodecPortStatus::kPortIdle:
+        if (stop_notify_received_) {
+          mutex_.lock();
+          while (!buffers_.empty())
+            buffers_.pop();
+          mutex_.unlock();
+          signal_.notify_one();
+          QMMF_VERBOSE("%s: %s() emptied the buffer queue", TAG, __func__);
+        }
+        break;
+      case CodecPortStatus::kPortStart:
+        break;
+    }
   }
 
   return ::android::NO_ERROR;

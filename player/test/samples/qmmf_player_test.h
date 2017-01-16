@@ -36,10 +36,10 @@
 #include <iostream>
 
 #include <qmmf-sdk/qmmf_player.h>
+#include <qmmf-sdk/qmmf_player_params.h>
 #include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
-
 
 
 using namespace qmmf;
@@ -50,6 +50,27 @@ enum class AudioFileType{
   kAAC,
   kAMR,
   kG711
+};
+
+enum class TrackTypes{
+  kAudioVideo,
+  kAudioOnly,
+  kVideoOnly,
+  kInvalid,
+};
+
+enum class PlayerState {
+  kError = 0,
+  lIdle = 1 << 0,
+  kPrepared = 1 << 1,
+  kStarted = 1 << 2,
+  kPaused = 1 << 3,
+  kStopped =  1 << 4,
+  kCompleted = 1<< 5,
+};
+
+struct Event{
+  PlayerState state;
 };
 
 class PlayerTest {
@@ -119,7 +140,7 @@ class PlayerTest {
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
 
-  Mutex                           state_lock;
+  Mutex                           state_lock_;
   Condition                       wait_for_state_change_;
 
   bool                            stopped_;
@@ -145,8 +166,9 @@ class PlayerTest {
   bool                            paused_;
 
   std::map<uint32_t, const char*> statemap_;
-  const char*                     PlayerTestEvent[2];
+  const char*                     player_test_event_[2];
   const char *                    current_state_;
+  TrackTypes                      track_type_;
 };
 
 class CmdMenu {
@@ -160,6 +182,7 @@ class CmdMenu {
       PAUSE_CMD                         = '6',
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
+      TRICK_MODE_CMD                    = '9',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'

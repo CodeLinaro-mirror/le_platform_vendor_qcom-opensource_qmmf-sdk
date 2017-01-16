@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include "qmmf-sdk/qmmf_display.h"
 #include "qmmf-sdk/qmmf_display_params.h"
+#include "player/src/service/qmmf_player_video_decoder_core.h"
 
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;
@@ -56,6 +57,7 @@ namespace qmmf {
 namespace player {
 
 class VideoTrackSink;
+class VideoTrackDecoder;
 
 class VideoSink {
  public:
@@ -104,7 +106,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteSink();
 
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
+
   void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
+
+  void PassTrackDecoder(const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
@@ -112,7 +118,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   status_t ReturnBuffer(BufferDescriptor& codec_buffer,
                         void* client_data) override;
 
-  status_t NotifyPortStatus(::qmmf::avcodec::CodecPortStatus status) override;
+  status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                           void* event_data) override;
 
   status_t CreateDisplay(display::DisplayType display_type,
       VideoTrackParams& track_param);
@@ -124,11 +131,17 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   void DisplayVSyncHandler(int64_t time_stamp);
 
+  status_t UpdateCropParameters(void* arg);
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
 
   VideoTrackParams        track_params_;
+  ::qmmf::avcodec::PortreconfigData::CropData                crop_data_;
+  uint32_t                current_width;
+  uint32_t                current_height;
+  ::std::shared_ptr<VideoTrackDecoder> video_track_decoder_;
 
   Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
   TSQueue<::qmmf::avcodec::CodecBuffer> output_free_buffer_queue_;
@@ -164,8 +177,17 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   void DumpYUVData(BufferDescriptor& codec_buffer);
 #endif
 
-status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
+  status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
 
+  status_t SkipFrame();
+
+  status_t ReturnBufferToCodec(BufferDescriptor& codec_buffer);
+
+  TrickModeSpeed           playback_speed_;
+  TrickModeDirection       playback_dir_;
+  uint64_t                 current_time_;
+  uint64_t                 prev_time_;
+  uint32_t                 displayed_frames_;
 };
 
 };  // namespace player

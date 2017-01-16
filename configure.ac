@@ -67,6 +67,8 @@ fi
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
 # TODO this warning suppress issue in lib gralloc private
 [CPPFLAGS="$CPPFLAGS -Wno-multichar"]
+# TODO remove this when gcc version is updated
+[CPPFLAGS="$CPPFLAGS -Wno-missing-field-initializers"]
 # TODO define ANDROID macro to resolve redefinition of LOGE by MMDebugMsg.h
 [CPPFLAGS="$CPPFLAGS -DANDROID"]
 
@@ -94,6 +96,7 @@ AC_CONFIG_FILES([ \
     qmmf-sdk.pc \
     recorder/test/samples/Makefile \
     recorder/test/gtest/Makefile \
+    recorder/test/timelapse/Makefile \
     display/test/samples/Makefile \
     display/test/gtest/Makefile \
     player/test/demuxer/Makefile \

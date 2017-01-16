@@ -46,6 +46,8 @@ using ::qmmf::avcodec::AVCodec;
 using ::qmmf::avcodec::CodecBuffer;
 using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
+using ::qmmf::avcodec::PortEventType;
+using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::kPortIndexInput;
 using ::qmmf::avcodec::kPortIndexOutput;
 using ::qmmf::avcodec::kPortALL;
@@ -811,7 +813,8 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 }
 
 // This method is used by AVCodec to notify stop
-status_t AudioTrackDecoder::NotifyPortStatus(CodecPortStatus status) {
+status_t AudioTrackDecoder::NotifyPortEvent(PortEventType event_type,
+                                            void* event_data) {
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
 
 

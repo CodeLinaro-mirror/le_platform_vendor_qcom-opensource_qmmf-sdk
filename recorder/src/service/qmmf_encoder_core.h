@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <vector>
+#include <sys/time.h>
 
 #include <utils/KeyedVector.h>
 
@@ -111,7 +112,8 @@ class TrackEncoder : public ICodecSource {
   status_t ReturnBuffer(BufferDescriptor& codec_buffer,
                         void* client_data) override;
 
-  status_t NotifyPortStatus(CodecPortStatus status) override;
+  status_t NotifyPortEvent(PortEventType event_type,
+                           void* event_data) override;
 
   // Method to handle returned buffers from client.
   status_t OnBufferReturnFromClient(std::vector<BnBuffer> &buffers);
@@ -145,6 +147,13 @@ class TrackEncoder : public ICodecSource {
 #ifdef DUMP_BITSTREAM
   int32_t                    file_fd_;
 #endif
+
+#ifdef DEBUG_TRACK_FPS
+  uint32_t  num_bytes_;
+  struct timeval             prevtv_;
+  uint32_t                   count_;
+#endif
+
 };
 
 }; // namespace recorder

@@ -369,6 +369,35 @@ int32_t AudioFrontend::SetParam(const AudioHandle audio_handle,
   return result;
 }
 
+int32_t AudioFrontend::GetRenderedPosition(const AudioHandle audio_handle,
+                                           uint32_t* frames, uint64_t* time) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
+               audio_handle);
+
+  AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
+  if (backend_iterator == backends_.end()) {
+    QMMF_ERROR("%s: %s() no backend for key[%d]", TAG, __func__, audio_handle);
+    return -EINVAL;
+  }
+
+  if (backend_iterator->second == nullptr) {
+    QMMF_ERROR("%s: %s() backend[%d] has a null object pointer", TAG, __func__,
+               audio_handle);
+    return -ENOSYS;
+  }
+
+  int32_t result = backend_iterator->second->GetRenderedPosition(frames, time);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() backend->GetRenderedPosition failed: %d", TAG, __func__,
+        result);
+  }
+
+  QMMF_VERBOSE("%s: %s() OUTPARAM: Frames[%u] Time[%llu]", TAG, __func__,
+      *frames, *time);
+  return result;
+}
+
 }; // namespace audio
 }; // namespace common
 }; // namespace qmmf

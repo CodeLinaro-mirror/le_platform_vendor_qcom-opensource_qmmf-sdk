@@ -48,6 +48,8 @@ uint32_t CameraContext::kConstrainedModeThreshold = 30;
 //Framerate at which batch requests are needed.
 uint32_t CameraContext::kHFRBatchModeThreshold = 120;
 
+const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
+
 CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
@@ -1152,6 +1154,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   int32_t ret = NO_ERROR;
   uint32_t max_fps = 0;
+  Vector<int32_t> removed_streams;
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -1201,6 +1204,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
             QMMF_INFO("%s:%s: cam_stream_id(%d) removed from Request!", TAG,
                       __func__, cam_stream_id);
             req.streamIds.removeAt(idx);
+            bool is_present = false;
+            for (size_t j = 0; j < removed_streams.size(); j++) {
+              if (removed_streams[j] == cam_stream_id) {
+                is_present = true;
+                break;
+              }
+            }
+            if (!is_present) {
+              removed_streams.add(cam_stream_id);
+            }
         }
       }
     } else if (port->getPortState() == PortState::PORT_STARTED) {
@@ -1250,6 +1263,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     QMMF_INFO("%s:%s:Cancelling the request, no pending stream!", TAG, __func__);
     ret = CancelRequest();
     assert (ret == NO_ERROR);
+    removed_streams.clear();
 
     if (camera_start_params_.zsl_mode && (0 <= zsl_stream_id_)) {
       Mutex::Autolock l(zsl_queue_lock_);
@@ -1273,19 +1287,30 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
             ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
       }
     }
-    int64_t last_frame_mumber;
     List<Camera3Request> request_list;
     for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
+    if (!removed_streams.isEmpty()) {
+      sync_frame_.stream_ids.clear();
+      sync_frame_.stream_ids.appendVector(removed_streams);
+    }
     auto ret = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                 &last_frame_mumber);
+                                                 &sync_frame_.last_frame_id);
     assert(ret >= 0);
     if (streaming_request_id_ > -1) {
       previous_streaming_request_id_ = streaming_request_id_;
     }
     streaming_request_id_ = ret;
+    while (!sync_frame_.stream_ids.isEmpty()) {
+      auto stat = sync_frame_cond_.waitRelative(device_access_lock_,
+                                                kSyncFrameWaitDuration);
+      if (NO_ERROR == ret) {
+          QMMF_ERROR("%s:%s: Sync frame condition failed: %d\n",
+                     TAG, __func__, stat);
+      }
+    }
   }
   QMMF_INFO("%s:%s: SubmitRequest for Num streams(%d)  is successfull"
       " request_id(%d) batches: %d", TAG, __func__, size, streaming_request_id_,
@@ -1337,6 +1362,25 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
 
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
   assert(ret == NO_ERROR);
+
+  if (sync_frame_.last_frame_id == buffer.frame_number) {
+    Mutex::Autolock lock(device_access_lock_);
+    if (!sync_frame_.stream_ids.isEmpty()) {
+      ssize_t idx = -1;
+      size_t count = sync_frame_.stream_ids.size();
+      for (size_t i = 0; i < count; i++) {
+        if (sync_frame_.stream_ids[i] == stream_id) {
+          idx = i;
+          break;
+        }
+      }
+      if (0 <= idx) {
+        sync_frame_.stream_ids.removeAt(idx);
+        sync_frame_cond_.signal();
+      }
+    }
+  }
+
   return ret;
 }
 

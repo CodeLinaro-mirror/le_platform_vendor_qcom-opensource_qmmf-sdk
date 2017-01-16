@@ -79,7 +79,6 @@ PlayerClient::~PlayerClient() {
   QMMF_DEBUG("%s:%s Exit 0x%p", TAG, __func__, this);
 }
 
-
 status_t PlayerClient::Connect(PlayerCb& cb) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
@@ -328,100 +327,101 @@ status_t PlayerClient::DequeueInputBuffer(
 
   auto ret = player_service_->DequeueInputBuffer(track_id, codecbuffer);
 
-  for (size_t i = 0; i < codecbuffer.size(); i++) {
+  {
+    Mutex::Autolock lock(lock_);
+    for (size_t i = 0; i < codecbuffer.size(); i++) {
 
-  BufInfo bufinfo;
-  memset(&bufinfo, 0x0, sizeof bufinfo);
-  bool is_mapped = false;
+    BufInfo bufinfo;
+    memset(&bufinfo, 0x0, sizeof bufinfo);
+    bool is_mapped = false;
 
-  if (!track_buf_map_.isEmpty()) {
-    DefaultKeyedVector<uint32_t, BufInfo> buf_map;
-    int32_t map_idx = track_buf_map_.indexOfKey(track_id);
+    if (!track_buf_map_.isEmpty()) {
+      DefaultKeyedVector<uint32_t, BufInfo> buf_map;
+      int32_t map_idx = track_buf_map_.indexOfKey(track_id);
 
-    if (map_idx >= 0) {
-      buf_map = track_buf_map_.valueFor(track_id);
-      int32_t buf_idx = buf_map.indexOfKey(codecbuffer[i].buf_id);
+      if (map_idx >= 0) {
+        buf_map = track_buf_map_.valueFor(track_id);
+        int32_t buf_idx = buf_map.indexOfKey(codecbuffer[i].buf_id);
 
-      if (buf_idx >= 0) {
-        bufinfo = buf_map.valueFor(codecbuffer[i].buf_id);
-        assert(bufinfo.buf_id > 0);
-        buffers[i].data   = bufinfo.vaddr;
-        buffers[i].size   = codecbuffer[i].frame_length;
-        buffers[i].buf_id = codecbuffer[i].buf_id;
-        is_mapped = true;
-        QMMF_VERBOSE("%s:%s: Buf is already mapped! ion_fd(%d):"
-          "vaddr(0x%p)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
+        if (buf_idx >= 0) {
+          bufinfo = buf_map.valueFor(codecbuffer[i].buf_id);
+          assert(bufinfo.buf_id > 0);
+          buffers[i].data   = bufinfo.vaddr;
+          buffers[i].size   = codecbuffer[i].frame_length;
+          buffers[i].buf_id = codecbuffer[i].buf_id;
+          is_mapped = true;
+          QMMF_VERBOSE("%s:%s: Buf is already mapped! ion_fd(%d):"
+            "vaddr(0x%p)", TAG, __func__, bufinfo.buf_id, bufinfo.vaddr);
+        }
       }
     }
-  }
 
-  if (!is_mapped) {
-    // Map Ion Fd to client address space.
-    assert(ion_device_ > 0);
-    struct ion_fd_data ion_info_fd;
-    memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
+    if (!is_mapped) {
+      // Map Ion Fd to client address space.
+      assert(ion_device_ > 0);
+      struct ion_fd_data ion_info_fd;
+      memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
 
-    assert(codecbuffer[i].fd > 0);
+      assert(codecbuffer[i].fd > 0);
 
-    ion_info_fd.fd = codecbuffer[i].fd;
-    ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
-    if(ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
-          ion_info_fd.fd);
-    }
-    QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
-    vaddr = mmap(NULL, codecbuffer[i].frame_length, PROT_READ | PROT_WRITE,
-                      MAP_SHARED, ion_info_fd.fd, 0);
-    assert(vaddr != NULL);
+      ion_info_fd.fd = codecbuffer[i].fd;
+      ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+      if(ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
+            ion_info_fd.fd);
+      }
+      QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
+      vaddr = mmap(NULL, codecbuffer[i].frame_length, PROT_READ | PROT_WRITE,
+                        MAP_SHARED, ion_info_fd.fd, 0);
+      assert(vaddr != NULL);
 
-    bufinfo.vaddr     = vaddr;
-    bufinfo.buf_id    = codecbuffer[i].buf_id;
-    bufinfo.client_fd = codecbuffer[i].fd;
-    bufinfo.frame_len = codecbuffer[i].frame_length;
+      bufinfo.vaddr     = vaddr;
+      bufinfo.buf_id    = codecbuffer[i].buf_id;
+      bufinfo.client_fd = codecbuffer[i].fd;
+      bufinfo.frame_len = codecbuffer[i].frame_length;
 
-     DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
-     if (track_buf_map_.isEmpty()) {
-       buffer_map.add(codecbuffer[i].buf_id, bufinfo);
-     } else {
-       buffer_map = track_buf_map_.valueFor(track_id);
-       buffer_map.add(codecbuffer[i].buf_id, bufinfo);
-     }
-
-     track_buf_map_.replaceValueFor(track_id, buffer_map);
-
-     QMMF_VERBOSE("%s:%s: track_buf_map_.size = %d", TAG, __func__,
-         track_buf_map_.size());
-
-     for (uint32_t i = 0; i < track_buf_map_.size(); i++) {
-       buffer_map = track_buf_map_[i];
-       QMMF_VERBOSE("%s:%s: track_id : %d buffer_map.size=%d", TAG, __func__,
-           track_buf_map_.keyAt(i), buffer_map.size());
-
-       for(uint32_t j = 0; j < buffer_map.size(); j++) {
-         QMMF_VERBOSE("%s:%s: buffer_map:idx(%d) :key(%d) :fd:%d :data:"
-             "0x%p", TAG, __func__, j, buffer_map.keyAt(j), buffer_map[j].buf_id,
-             buffer_map[j].vaddr);
+       DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
+       if (track_buf_map_.isEmpty()) {
+         buffer_map.add(codecbuffer[i].buf_id, bufinfo);
+       } else {
+         buffer_map = track_buf_map_.valueFor(track_id);
+         buffer_map.add(codecbuffer[i].buf_id, bufinfo);
        }
 
-     }
-       buffers[i].data   = vaddr;
-       buffers[i].size   = codecbuffer[i].frame_length;
-       buffers[i].buf_id = codecbuffer[i].buf_id;
-     }
+       track_buf_map_.replaceValueFor(track_id, buffer_map);
 
-     QMMF_DEBUG("%s:%s vaddr 0x%p", TAG, __func__,buffers[i].data);
-     QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].size);
-     QMMF_DEBUG("%s:%s buf_id %d", TAG, __func__,buffers[i].buf_id);
+       QMMF_VERBOSE("%s:%s: track_buf_map_.size = %d", TAG, __func__,
+           track_buf_map_.size());
+
+       for (uint32_t i = 0; i < track_buf_map_.size(); i++) {
+         buffer_map = track_buf_map_[i];
+         QMMF_VERBOSE("%s:%s: track_id : %d buffer_map.size=%d", TAG, __func__,
+             track_buf_map_.keyAt(i), buffer_map.size());
+
+         for(uint32_t j = 0; j < buffer_map.size(); j++) {
+           QMMF_VERBOSE("%s:%s: buffer_map:idx(%d) :key(%d) :fd:%d :data:"
+               "0x%p", TAG, __func__, j, buffer_map.keyAt(j), buffer_map[j].buf_id,
+               buffer_map[j].vaddr);
+         }
+       }
+         buffers[i].data   = vaddr;
+         buffers[i].size   = codecbuffer[i].frame_length;
+         buffers[i].buf_id = codecbuffer[i].buf_id;
+       }
+
+       QMMF_DEBUG("%s:%s vaddr 0x%p", TAG, __func__,buffers[i].data);
+       QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].size);
+       QMMF_DEBUG("%s:%s buf_id %d", TAG, __func__,buffers[i].buf_id);
+    }
+
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s DequeueInputBuffer failed: %d", TAG, __func__, ret);
+    }
+
+    for (int32_t i = 0; i < size; i++) {
+      codecbuffer.clear();
+    }
   }
-
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s DequeueInputBuffer failed: %d", TAG, __func__, ret);
-  }
-
-  for (int32_t i = 0; i < size; i++) {
-    codecbuffer.clear();
-  }
-
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
 }
@@ -432,6 +432,7 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
                                         size_t meta_size,
                                         TrackMetaBufferType meta_type) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  Mutex::Autolock lock(lock_);
 
   auto ret = 0;
 
@@ -440,7 +441,6 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
   }
 
   int32_t size = buffers.size();
-
 
   for (auto i =0; i< size; i++) {
 
@@ -454,12 +454,12 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
 
     buf_map = track_buf_map_.valueFor(track_id);
 
-    QMMF_DEBUG("%s:%s track_id is %d", TAG, __func__, track_id);
+    QMMF_DEBUG("%s:%s track_id : %d", TAG, __func__, track_id);
 
     bufinfo = buf_map.valueFor(buffers[i].buf_id);
 
-    QMMF_DEBUG("%s:%s bufinfo.vaddr is 0x%p", TAG, __func__,bufinfo.vaddr);
-    QMMF_DEBUG("%s:%s buffers[i].data is 0x%p", TAG, __func__, buffers[i].data);
+    QMMF_DEBUG("%s:%s vaddr : 0x%p", TAG, __func__,bufinfo.vaddr);
+    QMMF_DEBUG("%s:%s data : 0x%p", TAG, __func__, buffers[i].data);
 
     if (bufinfo.vaddr == buffers[i].data) {
 
@@ -719,298 +719,318 @@ void PlayerClient::NotifyDeleteVideoTrack(uint32_t track_id) {
 //Binder Proxy implementation of IPlayerService.
 class BpPlayerService : public BpInterface<IPlayerService>
 {
-public:
-    BpPlayerService(const sp<IBinder>& impl)
-    : BpInterface<IPlayerService>(impl) {}
+ public:
+  BpPlayerService(const sp<IBinder>& impl)
+  : BpInterface<IPlayerService>(impl) {}
 
-    ion_fd_map ion_fd_mapping;
+  status_t Connect(const sp<IPlayerServiceCallback>& service_cb) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeStrongBinder(IInterface::asBinder(service_cb));
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_CONNECT), data, &reply);
+    return reply.readInt32();
+  }
 
-    status_t Connect(const sp<IPlayerServiceCallback>& service_cb) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeStrongBinder(IInterface::asBinder(service_cb));
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_CONNECT), data, &reply);
-      return reply.readInt32();
+  status_t Disconnect() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_DISCONNECT), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t CreateAudioTrack(uint32_t track_id,
+                            AudioTrackCreateParam& param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+
+    uint32_t param_size = sizeof param;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_CREATE_AUDIOTRACK), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t CreateVideoTrack(uint32_t track_id,
+                            VideoTrackCreateParam& param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+
+    uint32_t param_size = sizeof param;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_CREATE_VIDEOTRACK), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t DeleteAudioTrack(uint32_t track_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_DELETE_AUDIOTRACK), data, &reply);
+
+    if (track_fd_map_.isEmpty()) {
+      return NO_ERROR;
     }
 
-    status_t Disconnect() {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_DISCONNECT), data, &reply);
-      return reply.readInt32();
+    if (track_fd_map_.indexOfKey(track_id) >= 0) {
+      track_fd_map_.removeItem(track_id);
+    }
+    return reply.readInt32();
+  }
+
+  status_t DeleteVideoTrack(uint32_t track_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_DELETE_VIDEOTRACK), data, &reply);
+
+    if (track_fd_map_.isEmpty()) {
+      return NO_ERROR;
     }
 
-    status_t CreateAudioTrack(uint32_t track_id,
-                              AudioTrackCreateParam& param) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-
-      uint32_t param_size = sizeof param;
-      data.writeUint32(param_size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(param_size, false, &blob);
-      memset(blob.data(), 0x0, param_size);
-      memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_CREATE_AUDIOTRACK), data, &reply);
-      blob.release();
-      return reply.readInt32();
+    if (track_fd_map_.indexOfKey(track_id) >= 0) {
+      track_fd_map_.removeItem(track_id);
     }
+    return reply.readInt32();
+  }
 
-    status_t CreateVideoTrack(uint32_t track_id,
-                              VideoTrackCreateParam& param) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
+  status_t SetAudioTrackParam(uint32_t track_id,
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_SET_AUDIOTRACK_PARAMS), data, &reply);
+    return reply.readInt32();
+  }
 
-      uint32_t param_size = sizeof param;
-      data.writeUint32(param_size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(param_size, false, &blob);
-      memset(blob.data(), 0x0, param_size);
-      memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_CREATE_VIDEOTRACK), data, &reply);
-      blob.release();
-      return reply.readInt32();
-    }
+  status_t SetVideoTrackParam(uint32_t track_id,
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
 
-    status_t DeleteAudioTrack(uint32_t track_id) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-                                      PLAYER_DELETE_AUDIOTRACK), data, &reply);
-      ion_fd_map::iterator it_fd;
-      for (it_fd = ion_fd_mapping.begin();
-        it_fd != ion_fd_mapping.end(); ++it_fd) {
-        ion_fd_mapping.erase(it_fd);
-      }
-      ion_fd_mapping.clear();
-      return reply.readInt32();
-    }
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_SET_VIDEOTRACK_PARAMS), data, &reply);
+    return reply.readInt32();
+  }
 
-    status_t DeleteVideoTrack(uint32_t track_id) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_DELETE_VIDEOTRACK), data, &reply);
+  status_t DequeueInputBuffer(uint32_t track_id,
+                              std::vector<AVCodecBuffer>& buffers) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
 
-      ion_fd_map::iterator it_fd;
-      for (it_fd = ion_fd_mapping.begin();
-        it_fd != ion_fd_mapping.end(); ++it_fd) {
-        ion_fd_mapping.erase(it_fd);
-      }
-      ion_fd_mapping.clear();
-      return reply.readInt32();
-    }
+    size_t size = buffers.size();
+    assert(size > 0);
+    data.writeUint32(size);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_DEQUEUE_INPUT_BUFFER), data, &reply);
+    int32_t ret = reply.readInt32();
 
-    status_t SetAudioTrackParam(uint32_t track_id,
-                                CodecParamType type,
-                                void *param,
-                                size_t param_size) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-      data.writeUint32(static_cast<uint32_t>(type));
-      data.writeUint32(param_size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(param_size, false, &blob);
-      memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_SET_AUDIOTRACK_PARAMS), data, &reply);
-      return reply.readInt32();
-    }
-
-    status_t SetVideoTrackParam(uint32_t track_id,
-                                CodecParamType type,
-                                void *param,
-                                size_t param_size) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-      data.writeUint32(static_cast<uint32_t>(type));
-      data.writeUint32(param_size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(param_size, false, &blob);
-      memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
-
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_SET_VIDEOTRACK_PARAMS), data, &reply);
-      return reply.readInt32();
-    }
-
-    status_t DequeueInputBuffer(uint32_t track_id,
-                                std::vector<AVCodecBuffer>& buffers) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
-
-      size_t size = buffers.size();
-      assert(size > 0);
-      data.writeUint32(size);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_DEQUEUE_INPUT_BUFFER), data, &reply);
-      int32_t ret = reply.readInt32();
+    {
+      Mutex::Autolock lock(lock_);
 
       for (size_t i = 0; i < size; i++)
       {
-            uint32_t param_size;
-            reply.readUint32(&param_size);
-            android::Parcel::ReadableBlob blob;
-            reply.readBlob(param_size, &blob);
-            void* buffer = const_cast<void*>(blob.data());
-            AVCodecBuffer track_buffer;
-            assert(param_size == sizeof(track_buffer));
-            memset(&track_buffer, 0x0, sizeof track_buffer);
-            memcpy(&track_buffer, buffer, param_size);
+        uint32_t param_size;
+        reply.readUint32(&param_size);
+        android::Parcel::ReadableBlob blob;
+        reply.readBlob(param_size, &blob);
+        void* buffer = const_cast<void*>(blob.data());
+        AVCodecBuffer track_buffer;
+        assert(param_size == sizeof(track_buffer));
+        memset(&track_buffer, 0x0, sizeof track_buffer);
+        memcpy(&track_buffer, buffer, param_size);
 
-            int32_t mapped;
-            reply.readInt32(&mapped);
+        int32_t mapped;
+        reply.readInt32(&mapped);
 
-            QMMF_DEBUG("%s:%s mapped %d", TAG, __func__,mapped);
+        if (!mapped) {
+          buffers[i].frame_length = track_buffer.frame_length;
+          buffers[i].fd         = dup(reply.readFileDescriptor());
+          buffers[i].buf_id     = track_buffer.buf_id;
+          buffers[i].data       = track_buffer.data;
 
-            if(!mapped) {
-                buffers[i].frame_length = track_buffer.frame_length;
-                buffers[i].fd         = dup(reply.readFileDescriptor());
-                buffers[i].buf_id     = track_buffer.buf_id;
-                buffers[i].data       = track_buffer.data;
-                ion_fd_mapping.insert({buffers[i].buf_id,buffers[i].fd});
-            } else {
-                 ion_fd_map::iterator it;
-                 auto ion_fd_map_ = ion_fd_mapping.find(track_buffer.buf_id);
+          ion_fd_map_ fd_map;
+          if (track_fd_map_.isEmpty()) {
+            fd_map.add(buffers[i].buf_id, buffers[i].fd);
+          } else {
+            fd_map = track_fd_map_.valueFor(track_id);
+            fd_map.add(buffers[i].buf_id, buffers[i].fd);
+          }
 
-                 buffers[i].fd           = ion_fd_map_->second;
-                 buffers[i].frame_length = track_buffer.frame_length;
-                 buffers[i].buf_id       = track_buffer.buf_id;
-                 buffers[i].data         = track_buffer.data;
-            }
+          track_fd_map_.replaceValueFor(track_id, fd_map);
+        } else {
 
-            QMMF_DEBUG("%s:%s dup fd %d", TAG, __func__,buffers[i].fd);
-            QMMF_DEBUG("%s:%s size %d", TAG, __func__,buffers[i].frame_length);
-            QMMF_DEBUG("%s:%s data 0x%p", TAG, __func__,buffers[i].data);
+          ion_fd_map_ fd_map = track_fd_map_.valueFor(track_id);
+          uint32_t client_fd = fd_map.valueFor(track_buffer.buf_id);
 
-            int32_t fd;
-            reply.readInt32(&fd);
-            blob.release();
+          buffers[i].fd           = client_fd;
+          buffers[i].frame_length = track_buffer.frame_length;
+          buffers[i].buf_id       = track_buffer.buf_id;
+          buffers[i].data         = track_buffer.data;
+        }
+
+        QMMF_DEBUG("%s:%s client fd : %d", TAG, __func__, buffers[i].fd);
+        QMMF_DEBUG("%s:%s service fd : %d", TAG, __func__, buffers[i].buf_id);
+        QMMF_DEBUG("%s:%s data : 0x%p", TAG, __func__, buffers[i].data);
+
+        int32_t fd;
+        reply.readInt32(&fd);
+        blob.release();
       }
-
-      QMMF_VERBOSE("%s:%s: buffers.size()=%d", TAG, __func__, buffers.size());
-
-      return ret;
     }
 
-    status_t QueueInputBuffer(uint32_t track_id,
-                              std::vector<AVCodecBuffer>& buffers,
-                              void *meta_param,
-                              size_t meta_size,
-                              TrackMetaBufferType meta_type) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(track_id);
+    QMMF_VERBOSE("%s:%s: buffers.size()=%d", TAG, __func__, buffers.size());
+    return ret;
+  }
 
-      size_t size = buffers.size();
+  status_t QueueInputBuffer(uint32_t track_id,
+                            std::vector<AVCodecBuffer>& buffers,
+                            void *meta_param,
+                            size_t meta_size,
+                            TrackMetaBufferType meta_type) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(track_id);
 
-      assert(size > 0);
-      data.writeUint32(size);
-      for (size_t i = 0; i < size; i++) {
-        uint32_t param_size = sizeof (AVCodecBuffer);
-        data.writeUint32(param_size);
-        android::Parcel::WritableBlob blob;
-        data.writeBlob(param_size, false, &blob);
-        memset(blob.data(), 0x0, param_size);
-        memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
-      }
+    size_t size = buffers.size();
 
-      data.writeUint32(meta_size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(meta_size, false, &blob);
-      memcpy(blob.data(), reinterpret_cast<void*>(meta_param), meta_size);
-      data.writeUint32(static_cast<uint32_t>(meta_type));
-
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_QUEUE_INPUT_BUFFER), data, &reply);
-      return reply.readInt32();
-    }
-
-    status_t Prepare() {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_PREPARE), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t Start() {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_START), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t Stop(bool do_flush) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeInt32(do_flush);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_STOP), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t Pause() {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_PAUSE), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t Resume() {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_RESUME), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t SetPosition(int64_t seek_time) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeInt64(seek_time);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_SET_POSITION), data, &reply);
-      return reply.readInt32();
-    }
-
-    status_t SetTrickMode(uint32_t speed, uint32_t direction) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      data.writeUint32(speed);
-      data.writeUint32(direction);
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_SET_TRICKMODE), data, &reply, IBinder::FLAG_ONEWAY);
-      return reply.readInt32();
-    }
-
-    status_t GrabPicture(PictureParam param) {
-      Parcel data, reply;
-      data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-      uint32_t param_size = sizeof param;
+    assert(size > 0);
+    data.writeUint32(size);
+    for (size_t i = 0; i < size; i++) {
+      uint32_t param_size = sizeof (AVCodecBuffer);
       data.writeUint32(param_size);
       android::Parcel::WritableBlob blob;
       data.writeBlob(param_size, false, &blob);
       memset(blob.data(), 0x0, param_size);
-      memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-
-      remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-          PLAYER_GRAB_PICTURE), data, &reply);
-      return reply.readInt32();
+      memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
     }
+
+    data.writeUint32(meta_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(meta_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(meta_param), meta_size);
+    data.writeUint32(static_cast<uint32_t>(meta_type));
+
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_QUEUE_INPUT_BUFFER), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t Prepare() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_PREPARE), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t Start() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_START), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t Stop(bool do_flush) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeInt32(do_flush);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_STOP), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t Pause() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_PAUSE), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t Resume() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_RESUME), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t SetPosition(int64_t seek_time) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeInt64(seek_time);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_SET_POSITION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t SetTrickMode(uint32_t speed, uint32_t direction) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    data.writeUint32(speed);
+    data.writeUint32(direction);
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_SET_TRICKMODE), data, &reply, IBinder::FLAG_ONEWAY);
+    return reply.readInt32();
+  }
+
+  status_t GrabPicture(PictureParam param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    uint32_t param_size = sizeof param;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
+
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_GRAB_PICTURE), data, &reply);
+    return reply.readInt32();
+  }
+
+ private:
+  // mapping of service ion_fd and client ion_fd
+  typedef DefaultKeyedVector<uint32_t, uint32_t> ion_fd_map_;
+
+  // mapping of <track_id, map <service_fd, client_fd>>
+  DefaultKeyedVector<int32_t, ion_fd_map_> track_fd_map_;
+
+  Mutex                                    lock_;
 };
 
 
@@ -1131,80 +1151,13 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
                             size_t meta_size) {
 
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
-/*
-    Parcel data, reply;
-    data.writeInterfaceToken(IPlayerServiceCallback::
-        getInterfaceDescriptor());
-
-    data.writeUint32(track_id);
-    data.writeUint32(buffers.size());
-    for(uint32_t i = 0; i < buffers.size(); i++) {
-
-      bool is_mapped = false;
-      int32_t idx = -1;
-      if (!track_buf_map_.isEmpty()) {
-        idx = track_buf_map_.indexOfKey(track_id);
-        if (idx >= 0) {
-          buffer_map buf_map;
-          buf_map  = track_buf_map_.valueFor(track_id);
-          int32_t id = buf_map.indexOfKey(buffers[i].ion_fd);
-          if (id >= 0) {
-            // This ION fd has already been sent to client, no binder packing is
-            // required, only index would be sufficient for client to get mapped
-            // buffer from his own map.
-            is_mapped = buf_map.valueFor(buffers[i].ion_fd);
-            QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d is_mapped:%d", TAG,
-                __func__, i, buffers[i].ion_fd, is_mapped);
-
-          }
-        }
-      }
-      // If buffer has not been sent to client then pack the file descriptor
-      // and provide hint about incoming fd.
-      data.writeInt32(!is_mapped);
-      if (!is_mapped) {
-        // Pack file descriptor.
-        data.writeFileDescriptor(buffers[i].ion_fd);
-        buffer_map map_to_update;
-        if (idx >= 0) {
-          map_to_update = track_buf_map_.valueFor(track_id);
-        }
-        map_to_update.add(buffers[i].ion_fd, true);
-        track_buf_map_.replaceValueFor(track_id, map_to_update);
-        QMMF_VERBOSE("%s:Bp%s: track_id=%d", TAG, __func__, track_id);
-        QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d mapping:%d", TAG, __func__,
-            i, buffers[i].ion_fd, true);
-        }
-      uint32_t size = sizeof (BnTrackBuffer);
-      data.writeUint32(size);
-      android::Parcel::WritableBlob blob;
-      data.writeBlob(size, false, &blob);
-      memset(blob.data(), 0x0, size);
-      memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), size);
-    }
-    //Pack meta
-    data.writeUint32(meta_size);
-    android::Parcel::WritableBlob meta_blob;
-    if(meta_size > 0) {
-      data.writeBlob(meta_size, false, &meta_blob);
-      memset(meta_blob.data(), 0x0, meta_size);
-      memcpy(meta_blob.data(), meta_param, meta_size);
-      data.writeUint32(static_cast<uint32_t>(meta_type));
-    }
-
-    remote()->transact(uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_VIDEO_TRACK_DATA),
-        data, &reply);
-
-    if(meta_size > 0) {
-        meta_blob.release();
-    }
-    */
     QMMF_VERBOSE("%s:%s: Exit - Sent Message One Way!!", TAG, __func__);
   }
 
   void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size) {
-
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifyAudioTrackData(uint32_t track_id,
@@ -1212,57 +1165,17 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
                             void* meta_param, TrackMetaBufferType meta_type,
                             size_t meta_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    /*
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-    for (const BnTrackBuffer& buffer : buffers)
-      QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
-                   buffer.ToString().c_str());
-    Parcel data, reply;
-
-    data.writeInterfaceToken(
-        IPlayerServiceCallback::getInterfaceDescriptor());
-    data.writeUint32(track_id);
-    data.writeInt32(static_cast<int32_t>(buffers.size()));
-    for (const BnTrackBuffer& buffer : buffers)
-      buffer.ToParcel(&data, true);
-
-    remote()->transact(
-        uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_AUDIO_TRACK_DATA),
-        data, &reply, IBinder::FLAG_ONEWAY);
-    */
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    /*
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-    QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
-                 static_cast<int>(event_type));
-    Parcel data, reply;
-
-    data.writeInterfaceToken(
-        IPlayerServiceCallback::getInterfaceDescriptor());
-    data.writeUint32(track_id);
-    data.writeInt32(static_cast<int32_t>(event_type));
-
-    remote()->transact(
-        uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_AUDIO_TRACK_EVENT),
-    */
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifyDeleteVideoTrack(uint32_t track_id) {
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
-    /*
-    if (track_buf_map_.isEmpty()) {
-      return;
-    }
-    if (track_buf_map_.indexOfKey(track_id) >= 0) {
-      track_buf_map_.removeItem(track_id);
-    }
-    */
     QMMF_VERBOSE("%s:Bp%s: Exit", TAG, __func__);
   }
 
@@ -1286,15 +1199,15 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
 
   switch(code) {
     case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_EVENT: {
-        EventType event_type = static_cast<EventType>(data.readInt32());
-        uint32_t blobSize;
-        data.readUint32(&blobSize);
-        android::Parcel::ReadableBlob blob;
-        data.readBlob(blobSize, &blob);
-        void* event = const_cast<void*>(blob.data());
-        NotifyPlayerEvent(event_type,event,blobSize);
-        blob.release();
-        return NO_ERROR;
+      EventType event_type = static_cast<EventType>(data.readInt32());
+      uint32_t blobSize;
+      data.readUint32(&blobSize);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blobSize, &blob);
+      void* event = const_cast<void*>(blob.data());
+      NotifyPlayerEvent(event_type,event,blobSize);
+      blob.release();
+      return NO_ERROR;
     }
     break;
     case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_VIDEO_TRACK_DATA: {
