@@ -640,10 +640,14 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
     assert(ret == NO_ERROR);
 
     std::vector<CameraMetadata> meta_array;
-    meta_array.push_back(meta);
+    for (uint32_t i = 0; i < snapshot_info.count; i++) {
+      meta_array.push_back(meta);
+    }
 
-    TEST_INFO("CaptureImage size %dx%d\n",image_param.width,image_param.height);
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    TEST_INFO("CaptureImage size %dx%d images count \n",
+              image_param.width,image_param.height,snapshot_info.count);
+    ret = recorder_.CaptureImage(camera_id_, image_param, snapshot_info.count,
+                                 meta_array, cb);
     if(ret != 0) {
       ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
     }
@@ -2523,6 +2527,8 @@ void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
           initParams.snapshot_info.width);
   printf("initParams.snapshot_info.height = %d\n",
           initParams.snapshot_info.height);
+  printf("initParams.snapshot_info.count = %d\n",
+          initParams.snapshot_info.count);
   printf("initParams.af_mode = %d\n", initParams.af_mode);
   printf("TrackInfo.track_type = %d\n", track_info.track_type);
   printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
@@ -2609,6 +2615,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       initParams->snapshot_info.width = atoi(value);
     } else if(!strncmp("SnapshotHeight", key, strlen("SnapshotHeight"))) {
       initParams->snapshot_info.height = atoi(value);
+    } else if(!strncmp("SnapshotCount", key, strlen("SnapshotCount"))) {
+      initParams->snapshot_info.count = atoi(value);
     } else if(!strncmp("AFMode", key, strlen("AFMode"))) {
       if(!strncmp("None", value, strlen("None"))) {
         initParams->af_mode = AfMode::kNone;
@@ -2654,6 +2662,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
         track_info.track_type = TrackType::kVideoHEVC;
       } else if(!strncmp("YUV", value, strlen("YUV"))) {
         track_info.track_type = TrackType::kVideoYUV;
+      } else if(!strncmp("RAW", value, strlen("RAW"))) {
+        track_info.track_type = TrackType::kVideoRDI;
       } else if(!strncmp("Preview", value, strlen("Preview"))) {
         track_info.track_type = TrackType::kVideoPreview;
       } else {
@@ -3025,8 +3035,8 @@ status_t TestTrack::EnableOverlay() {
   // Dummy coordinates for test purpose.
   object_params.bounding_box.start_x = 100;
   object_params.bounding_box.start_y = 200;
-  object_params.bounding_box.width   = 1920/4;
-  object_params.bounding_box.height  = 1080/4;
+  object_params.bounding_box.width   = 1900;
+  object_params.bounding_box.height  = 200;
   std::string bb_text("Test BBox..");
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
