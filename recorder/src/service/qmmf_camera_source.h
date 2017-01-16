@@ -242,12 +242,16 @@ class TrackSource : public ICodecSource {
 #endif
   status_t PushFrameToDisplay(StreamBuffer& buffer);
 
+  void ReturnBufferToProducer(StreamBuffer& buffer);
+
   VideoTrackParams    track_params_;
   sp<IBufferConsumer> buffer_consumer_impl_;
   Condition           wait_for_frame_;
   Mutex               lock_;
   bool                is_stop_;
   Mutex               stop_lock_;
+  bool                eos_acked_;
+  Mutex               eos_lock_;
 
   // will be used till we make stop api as async.
   Condition           wait_for_idle_;
