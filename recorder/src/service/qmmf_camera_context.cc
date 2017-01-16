@@ -2147,7 +2147,8 @@ void ZslPort::ReturnZSLInputBuffer(StreamBuffer& buffer) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   if (buffer.handle == zsl_input_buffer_.buffer.handle) {
     assert (context_ != nullptr);
-    QMMF_INFO("%s:%s buffer(%d) returned from reprocess!", TAG, __func__);
+    QMMF_INFO("%s:%s buffer(%d) returned from reprocess!", TAG, __func__,
+      buffer.fd);
     auto ret = context_->ReturnStreamBuffer(camera_stream_id_,
                                             zsl_input_buffer_.buffer);
     if (NO_ERROR == ret) {

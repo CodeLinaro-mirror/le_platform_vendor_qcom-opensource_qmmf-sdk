@@ -1230,10 +1230,10 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
       __func__, param.bounding_box.width, param.bounding_box.height,
       aspect_ratio, scaled_width, scaled_height);
 
-  int32_t width = static_cast<int32_t>(std::round(scaled_width));
+  int32_t width = static_cast<int32_t>(round(scaled_width));
   width = ROUND_TO(width, 16); // Round to multiple of 16.
   width = width > BOUNDING_BOX_BUF_WIDTH ? width : BOUNDING_BOX_BUF_WIDTH;
-  int32_t height = static_cast<int32_t>(std::round(width / aspect_ratio));
+  int32_t height = static_cast<int32_t>(round(width / aspect_ratio));
 
   buffer_width_  = width;
   buffer_height_ = height;

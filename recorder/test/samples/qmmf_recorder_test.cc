@@ -745,7 +745,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
       meta_array.push_back(meta);
     }
 
-    TEST_INFO("CaptureImage size %dx%d images count \n",
+    TEST_INFO("CaptureImage size %dx%d images count %d\n",
               image_param.width,image_param.height,snapshot_info.count);
     ret = recorder_.CaptureImage(camera_id_, image_param, snapshot_info.count,
                                  meta_array, cb);

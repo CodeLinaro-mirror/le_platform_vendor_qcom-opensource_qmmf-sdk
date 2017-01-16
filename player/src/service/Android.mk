@@ -28,7 +28,7 @@ LOCAL_SRC_FILES += qmmf_player_video_sink.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_player_client libqmmf_codec_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_audio_client libqmmf_display_client
-LOCAL_SHARED_LIBRARIES += libbinder
+LOCAL_SHARED_LIBRARIES += libbinder libfastcvopt
 
 LOCAL_MODULE = libqmmf_player_service
 
