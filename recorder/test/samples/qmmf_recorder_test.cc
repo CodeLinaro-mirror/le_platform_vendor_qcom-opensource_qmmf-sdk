@@ -2127,9 +2127,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
                               BufferDescriptor buffer, MetaData meta_data) {
 
-  TEST_INFO("%s:%s Enter", TAG, __func__);
+  TEST_INFO("%s:%s Enter ", TAG, __func__);
   String8 file_path;
-  static uint32_t snapshot_count = 0;
   const char* ext_str;
 
   if (meta_data.meta_flag  &
@@ -2168,9 +2167,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       assert(0);
       break;
     }
-    file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+    file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
+        ext_str);
     DumpFrameToFile(buffer, cam_buf_meta, file_path);
-    snapshot_count++;
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
