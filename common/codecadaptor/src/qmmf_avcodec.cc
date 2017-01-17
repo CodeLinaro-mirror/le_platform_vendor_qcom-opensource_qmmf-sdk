@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -513,7 +513,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   memset(&param, 0, sizeof(PrependSPSPPSToIDRFramesParams));
   param.nSize = sizeof(PrependSPSPPSToIDRFramesParams);
   param.bEnable = OMX_FALSE;
-  switch(codec_param.video_enc_param.format_type) {
+  switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
       if (codec_param.video_enc_param.codec_param.avc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
@@ -527,8 +527,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
         param_aud.bEnable = OMX_TRUE;
       }
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_QcomIndexParamAUDelimiter,
-                (OMX_PTR)&param_aud);
+          static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamAUDelimiter),
+          reinterpret_cast<OMX_PTR>(&param_aud));
       if (ret != OMX_ErrorNone) {
           QMMF_ERROR("%s:%s Failed to configure AUD delimiter",
                      TAG, __func__);
@@ -545,8 +545,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
             return ret;
         }
       }
-
       break;
+
     case VideoFormat::kHEVC:
       if (codec_param.video_enc_param.codec_param.hevc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
@@ -562,29 +562,29 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
             return ret;
         }
       }
-
       break;
+
     default:
       QMMF_ERROR("%s:%s Codec Type does not support", TAG, __func__);
       return BAD_VALUE;
   }
   ret = omx_client_->SetParameter(
-            (OMX_INDEXTYPE)OMX_QcomIndexParamSequenceHeaderWithIDR,
-            (OMX_PTR)&param);
-  if (ret != OK) {
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamSequenceHeaderWithIDR),
+      reinterpret_cast<OMX_PTR>(&param));
+  if (ret != 0) {
       QMMF_ERROR("%s:%s Failed to configure in band sps/pps", TAG, __func__);
       return ret;
   }
 
   ret = SetPortParams(kPortIndexInput, width, height, frame_rate);
-  if (ret != OK) {
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to set port definiton on %s", TAG, __func__,
         PORT_NAME(kPortIndexInput));
     return ret;
   }
 
   ret = SetPortParams(kPortIndexOutput, width, height, frame_rate);
-  if (ret != OK) {
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to set port definiton on %s", TAG, __func__,
         PORT_NAME(kPortIndexOutput));
     return ret;
@@ -596,8 +596,6 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     QMMF_INFO("%s:%s Setting the Low Power Encode mode", TAG, __func__);
     QOMX_EXTNINDEX_VIDEO_PERFMODE perf_param;
     InitOMXParams(&perf_param);
-    // 1 represents High Quality Mode
-    // 2 represents Low Power Mode
     perf_param.nPerfMode = 2;
     ret = omx_client_->SetConfig(
         static_cast<OMX_INDEXTYPE>(OMX_QcomIndexConfigVideoVencPerfMode),
@@ -608,74 +606,98 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     }
   }
 
-  switch(codec_param.video_enc_param.format_type) {
+  switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
       enable_init_qp =
-        codec_param.video_enc_param.codec_param.avc.qp_params.enable_init_qp;
+          codec_param.video_enc_param.codec_param.avc.qp_params.enable_init_qp;
       enable_qp_range =
-        codec_param.video_enc_param.codec_param.avc.qp_params.enable_qp_range;
+          codec_param.video_enc_param.codec_param.avc.qp_params.enable_qp_range;
       enable_qp_IBP_range =
-        codec_param.video_enc_param.codec_param.avc.qp_params.enable_qp_IBP_range;
+          codec_param.video_enc_param.codec_param.avc.qp_params
+          .enable_qp_IBP_range;
       init_IQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_IQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.init_qp
+          .init_IQP;
       init_PQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_PQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.init_qp
+          .init_PQP;
       init_BQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_BQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.init_qp
+          .init_BQP;
       min_QP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_range.min_QP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.qp_range.min_QP;
       max_QP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_range.max_QP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.qp_range.max_QP;
       min_IQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range
+          .min_IQP;
       max_IQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range
+          .max_IQP;
       min_PQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP;
-      max_PQP=
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP;
-      min_BQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP;
-      max_BQP =
-        codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP;
+          codec_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range
+          .min_PQP;
+      max_PQP =
+          codec_param.video_enc_param.codec_param.avc.qp_params
+          .qp_IBP_range.max_PQP;
+      min_BQP = codec_param.video_enc_param.codec_param.avc.qp_params
+          .qp_IBP_range.min_BQP;
+      max_BQP = codec_param.video_enc_param.codec_param.avc.qp_params
+          .qp_IBP_range.max_BQP;
       ltr_count = codec_param.video_enc_param.codec_param.avc.ltr_count;
       hier_num_layer = codec_param.video_enc_param.codec_param.avc.hier_layer;
-      rate_control = codec_param.video_enc_param.codec_param.avc.ratecontrol_type;
+      rate_control =
+          codec_param.video_enc_param.codec_param.avc.ratecontrol_type;
 
       ret = SetupAVCEncoderParameters(codec_param);
       break;
+
     case VideoFormat::kHEVC:
       enable_init_qp =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.enable_init_qp;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.enable_init_qp;
       enable_qp_range =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_range;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .enable_qp_range;
       enable_qp_IBP_range =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_IBP_range;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .enable_qp_IBP_range;
       init_IQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_IQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp
+          .init_IQP;
       init_PQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_PQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp
+          .init_PQP;
       init_BQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_BQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.init_qp
+          .init_BQP;
       min_QP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_range.min_QP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.qp_range
+          .min_QP;
       max_QP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_range.max_QP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params.qp_range
+          .max_QP;
       min_IQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.min_IQP;
       max_IQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.max_IQP;
       min_PQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP;
-      max_PQP=
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.min_PQP;
+      max_PQP =
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.max_PQP;
       min_BQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.min_BQP;
       max_BQP =
-        codec_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP;
+          codec_param.video_enc_param.codec_param.hevc.qp_params
+          .qp_IBP_range.max_BQP;
       ltr_count = codec_param.video_enc_param.codec_param.hevc.ltr_count;
       hier_num_layer = codec_param.video_enc_param.codec_param.hevc.hier_layer;
-      rate_control = codec_param.video_enc_param.codec_param.hevc.ratecontrol_type;
+      rate_control =
+          codec_param.video_enc_param.codec_param.hevc.ratecontrol_type;
 
       ret = SetupHEVCEncoderParameters(codec_param);
       break;
@@ -684,7 +706,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       return -1;
   }
 
-  if (ret != OK) {
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to set up codec parameter", TAG, __func__);
     return ret;
   }
@@ -701,9 +723,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       initqp.nQpB = init_BQP;
       initqp.bEnableInitQp = 0x7; // Intial QP applied to all frame
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)QOMX_IndexParamVideoInitialQp,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
+          static_cast<OMX_INDEXTYPE>(QOMX_IndexParamVideoInitialQp),
+          reinterpret_cast<OMX_PTR>(&initqp));
+      if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
         return ret;
       }
@@ -716,9 +738,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       initqp.nQpP = init_PQP;
       initqp.nQpB = init_BQP;
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_IndexParamVideoQuantization,
-                (OMX_PTR)&initqp);
-      if (ret != OK) {
+          static_cast<OMX_INDEXTYPE>(OMX_IndexParamVideoQuantization),
+          reinterpret_cast<OMX_PTR>(&initqp));
+      if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to set Initial QP parameter", TAG, __func__);
         return ret;
       }
@@ -730,9 +752,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     InitOMXParams(&qp_range);
     qp_range.nPortIndex = kPortIndexOutput;
     ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoQPRange),
+        reinterpret_cast<OMX_PTR>(&qp_range));
+    if (ret != 0) {
       QMMF_ERROR("%s:%s Failed to get QP Min/Max Range", TAG, __func__);
       return ret;
     }
@@ -740,8 +762,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     qp_range.maxQP = max_QP;
 
     ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoQPRange,
-              (OMX_PTR)&qp_range);
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoQPRange),
+        reinterpret_cast<OMX_PTR>(&qp_range));
     if (ret != OK) {
       QMMF_ERROR("%s:%s Failed to set QP Min/Max Range", TAG, __func__);
       return ret;
@@ -754,9 +776,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     qp_range.nPortIndex = kPortIndexOutput;
 
     ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoIPBQPRange),
+        reinterpret_cast<OMX_PTR>(&qp_range));
+    if (ret != 0) {
       QMMF_ERROR("%s:%s Failed to get IPBQP Range parameter", TAG, __func__);
       return ret;
     }
@@ -768,9 +790,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     qp_range.maxBQP = max_BQP;
 
     ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexParamVideoIPBQPRange,
-              (OMX_PTR)&qp_range);
-    if (ret != OK) {
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoIPBQPRange),
+        reinterpret_cast<OMX_PTR>(&qp_range));
+    if (ret != 0) {
       QMMF_ERROR("%s:%s Failed to set IPBQP Range parameter", TAG, __func__);
       return ret;
     }
@@ -781,17 +803,19 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     InitOMXParams(&ltr_frame);
     ltr_frame.nPortIndex = kPortIndexOutput;
 
-    ret = omx_client_->GetParameter((OMX_INDEXTYPE)QOMX_IndexParamVideoLTRCount,
-              (OMX_PTR)&ltr_frame);
-    if (ret != OK) {
+    ret = omx_client_->GetParameter(
+        static_cast<OMX_INDEXTYPE>(QOMX_IndexParamVideoLTRCount),
+        reinterpret_cast<OMX_PTR>(&ltr_frame));
+    if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to get ltr count parameter", TAG, __func__);
         return ret;
     }
 
     ltr_frame.nCount = ltr_count;
-    ret = omx_client_->SetParameter((OMX_INDEXTYPE)QOMX_IndexParamVideoLTRCount,
-              (OMX_PTR)&ltr_frame);
-    if (ret != OK) {
+    ret = omx_client_->SetParameter(
+        static_cast<OMX_INDEXTYPE>(QOMX_IndexParamVideoLTRCount),
+        reinterpret_cast<OMX_PTR>(&ltr_frame));
+    if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to set ltr count parameter", TAG, __func__);
         return ret;
     }
@@ -803,9 +827,9 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     hier_layer.nPortIndex = kPortIndexOutput;
 
     ret = omx_client_->GetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexHierarchicalStructure,
-              (OMX_PTR)&hier_layer);
-    if (ret != OK) {
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexHierarchicalStructure),
+        reinterpret_cast<OMX_PTR>(&hier_layer));
+    if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to get hierarchial parameter", TAG, __func__);
         return ret;
     }
@@ -814,16 +838,16 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     hier_layer.nNumLayers = hier_num_layer;
 
     ret = omx_client_->SetParameter(
-              (OMX_INDEXTYPE)OMX_QcomIndexHierarchicalStructure,
-              (OMX_PTR)&hier_layer);
-    if (ret != OK) {
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexHierarchicalStructure),
+        reinterpret_cast<OMX_PTR>(&hier_layer));
+    if (ret != 0) {
         QMMF_ERROR("%s:%s Failed to set hierarchial parameter", TAG, __func__);
         return ret;
     }
   }
 
   ret = ConfigureBitrate(codec_param);
-  if (ret != OK) {
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to configure bitrate", TAG, __func__);
     return ret;
   }
@@ -841,26 +865,23 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   InitOMXParams(&inputPortFmt);
   inputPortFmt.nPortIndex = kPortIndexInput;
   inputPortFmt.nFramePackingFormat = OMX_QCOM_FramePacking_OnlyOneCompleteFrame;
-
-  ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_QcomIndexPortDefn,
-            static_cast<OMX_PTR>(&inputPortFmt));
-
-  if (ret != OK) {
-    QMMF_ERROR("%s:%s Failed to Set Frame Packing Format",
-        TAG, __func__);
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexPortDefn),
+      reinterpret_cast<OMX_PTR>(&inputPortFmt));
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Failed to Set Frame Packing Format", TAG, __func__);
     return ret;
   }
 
   OMX_QTI_VIDEO_PARAM_FORCE_UNCOMPRESSED_FOR_OPB_TYPE pParam_forceyuv;
   InitOMXParams(&pParam_forceyuv);
   pParam_forceyuv.bEnable = OMX_TRUE;
-
-  ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_QTIIndexParamForceUnCompressedForOPB,
-            static_cast<OMX_PTR>(&pParam_forceyuv));
-
-  if (ret != OK) {
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_QTIIndexParamForceUnCompressedForOPB),
+      reinterpret_cast<OMX_PTR>(&pParam_forceyuv));
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to force YUV(Uncompressed) OPB Data on %s",
-        TAG, __func__, PORT_NAME(kPortIndexOutput));
+               TAG, __func__, PORT_NAME(kPortIndexOutput));
     return ret;
   }
 
@@ -868,32 +889,46 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   InitOMXParams(&videoPortFmt);
   videoPortFmt.nPortIndex = kPortIndexOutput;
   videoPortFmt.eColorFormat =
-    (OMX_COLOR_FORMATTYPE)QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m;
-
+      static_cast<OMX_COLOR_FORMATTYPE>
+                 (QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m);
   ret = omx_client_->SetParameter(OMX_IndexParamVideoPortFormat,
-            static_cast<OMX_PTR>(&videoPortFmt));
-
-  if (ret != OK) {
-    QMMF_ERROR("%s:%s Failed to Set ColorFormat",TAG, __func__);
+                                  reinterpret_cast<OMX_PTR>(&videoPortFmt));
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Failed to Set ColorFormat", TAG, __func__);
     return ret;
+  }
+
+  if (codec_param.video_dec_param.enable_downscalar) {
+    QMMF_INFO("%s:%s Enabling downcalar", TAG, __func__);
+    QOMX_INDEXDOWNSCALAR downscalar_params;
+    InitOMXParams(&downscalar_params);
+    downscalar_params.bEnable = OMX_TRUE;
+    downscalar_params.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->SetParameter(
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoDownScalar),
+        reinterpret_cast<OMX_PTR>(&downscalar_params));
+    if (ret != 0) {
+      QMMF_ERROR("%s:%s Failed to Enable Downscalar", TAG, __func__);
+      return ret;
+    }
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE input_port;
   InitOMXParams(&input_port);
   input_port.nPortIndex = kPortIndexInput;
   input_port.eDir = OMX_DirInput;
-
-  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &input_port);
-  if (ret != OK) {
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+                                  reinterpret_cast<OMX_PTR>(&input_port));
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to Get Port param definiton on %s",
-        TAG, __func__, PORT_NAME(kPortIndexInput));
+               TAG, __func__, PORT_NAME(kPortIndexInput));
     return ret;
   }
 
   QMMF_INFO("%s: %s input_port.nBufferCountMin[%u]", TAG, __func__,
-      input_port.nBufferCountMin);
+            input_port.nBufferCountMin);
   QMMF_INFO("%s: %s input_port.nBufferSize[%u]", TAG, __func__,
-      input_port.nBufferSize);
+            input_port.nBufferSize);
 
   if (input_port.eDir != OMX_DirInput) {
     QMMF_ERROR("%s:%s Error: Expected Input port", TAG, __func__);
@@ -903,28 +938,29 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   input_port.format.video.nFrameHeight = codec_param.video_dec_param.height;
   input_port.format.video.nFrameWidth  = codec_param.video_dec_param.width;
   FractionToQ16(input_port.format.video.xFramerate,
-      (int)(codec_param.video_dec_param.frame_rate* 2), 2);
-
-  ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
-            static_cast<OMX_PTR>(&input_port));
-
-  if (ret != OK) {
+                (int)(codec_param.video_dec_param.frame_rate* 2), 2);
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_IndexParamPortDefinition),
+      reinterpret_cast<OMX_PTR>(&input_port));
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to set port definiton(H,W,FPS) on %s",
-        TAG, __func__, PORT_NAME(kPortIndexInput));
+               TAG, __func__, PORT_NAME(kPortIndexInput));
     return ret;
   }
 
-  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &input_port);
-  if(ret != OK) {
+  ret = omx_client_->GetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_IndexParamPortDefinition),
+      reinterpret_cast<OMX_PTR>(&input_port));
+  if(ret != 0) {
     QMMF_ERROR("%s:%s Failed to Get Param port definiton on %s",
-        TAG, __func__, PORT_NAME(kPortIndexInput));
+               TAG, __func__, PORT_NAME(kPortIndexInput));
     return ret;
   }
 
-  QMMF_INFO("%s: %s Actual InputBuffercount[%u]", TAG, __func__,
-      input_port.nBufferCountActual);
-  QMMF_INFO("%s: %s Actual InputBuffersize[%u]", TAG, __func__,
-      input_port.nBufferSize);
+  QMMF_INFO("%s: %s input_port.nBufferCountActual[%u]", TAG, __func__,
+            input_port.nBufferCountActual);
+  QMMF_INFO("%s: %s input_port.nBufferSize[%u]", TAG, __func__,
+            input_port.nBufferSize);
 
   in_buff_hdr_size_ = input_port.nBufferCountActual;
 
@@ -932,11 +968,45 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   InitOMXParams(&output_port);
   output_port.nPortIndex = kPortIndexOutput;
   output_port.eDir = OMX_DirOutput;
-
-  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &output_port);
-  if (ret != OK) {
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+                                  reinterpret_cast<OMX_PTR>(&output_port));
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to Get Port param definiton on %s",
-        TAG, __func__, PORT_NAME(kPortIndexOutput));
+               TAG, __func__, PORT_NAME(kPortIndexOutput));
+    return ret;
+  }
+
+  QMMF_INFO("%s: %s output_port.nBufferCountMin[%u]", TAG, __func__,
+            output_port.nBufferCountMin);
+  QMMF_INFO("%s: %s output_port.nBufferCountActual[%u]", TAG, __func__,
+            output_port.nBufferCountActual);
+  QMMF_INFO("%s: %s output_port.nBufferSize[%u]", TAG, __func__,
+            output_port.nBufferSize);
+
+  if (codec_param.video_dec_param.enable_downscalar) {
+    QMMF_INFO("%s:%s Setting up Downscalar height and width", TAG, __func__);
+    output_port.format.video.nFrameHeight =
+        codec_param.video_dec_param.output_height;
+    output_port.format.video.nFrameWidth  =
+        codec_param.video_dec_param.output_width;
+  } else {
+    output_port.format.video.nFrameHeight = codec_param.video_dec_param.height;
+    output_port.format.video.nFrameWidth  = codec_param.video_dec_param.width;
+  }
+
+  ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
+                                  reinterpret_cast<OMX_PTR>(&output_port));
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Failed to set port definiton(H,W) on %s",
+               TAG, __func__, PORT_NAME(kPortIndexOutput));
+    return ret;
+  }
+
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+                                  reinterpret_cast<OMX_PTR>(&output_port));
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Failed to Get Port param definiton on %s",
+               TAG, __func__, PORT_NAME(kPortIndexOutput));
     return ret;
   }
 
@@ -946,11 +1016,11 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   }
 
   QMMF_INFO("%s: %s output_port.nBufferCountMin[%u]", TAG, __func__,
-      output_port.nBufferCountMin);
-  QMMF_INFO("%s: %s Actual OutputBuffercount[%u]", TAG, __func__,
-      output_port.nBufferCountActual);
-  QMMF_INFO("%s: %s Actual OutputBuffersize[%u]", TAG, __func__,
-    output_port.nBufferSize);
+            output_port.nBufferCountMin);
+  QMMF_INFO("%s: %s output_port.nBufferCountActual[%u]", TAG, __func__,
+            output_port.nBufferCountActual);
+  QMMF_INFO("%s: %s output_port.nBufferSize[%u]", TAG, __func__,
+            output_port.nBufferSize);
 
   out_buff_hdr_size_ = output_port.nBufferCountActual;
 
@@ -958,21 +1028,19 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   QOMX_VIDEO_DECODER_PICTURE_ORDER picture_order;
   InitOMXParams(&picture_order);
   picture_order.eOutputPictureOrder =
-    QOMX_VIDEO_PICTURE_ORDER::QOMX_VIDEO_DISPLAY_ORDER;
+      QOMX_VIDEO_PICTURE_ORDER::QOMX_VIDEO_DISPLAY_ORDER;
   picture_order.nPortIndex = kPortIndexOutput;
-
-  ret = omx_client_->SetParameter((OMX_INDEXTYPE)\
-            OMX_QcomIndexParamVideoDecoderPictureOrder,
-            static_cast<OMX_PTR>(&picture_order));
-
-  if (ret != OK) {
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoDecoderPictureOrder),
+      reinterpret_cast<OMX_PTR>(&picture_order));
+  if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to Set picture order!", TAG, __func__);
     return ret;
   }
 
   QMMF_INFO("%s:%s Decoder: Video format: W x H (%u x %u)", TAG, __func__,
-      (uint32_t)output_port.format.video.nFrameWidth,
-      (uint32_t)output_port.format.video.nFrameHeight);
+            (uint32_t)output_port.format.video.nFrameWidth,
+            (uint32_t)output_port.format.video.nFrameHeight);
 
   codec_params_ = codec_param;
 
@@ -2855,7 +2923,6 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetOutputBufferHdr(BufferDescriptor& buffer) {
           (static_cast<const private_handle_t*>(pParam->pHandle));
       handle->fd = buffer.fd;
       handle->size = buffer.capacity;
-      handle->flags = private_handle_t::PRIV_FLAGS_DISP_CONSUMER;
       used_output_buffhdr_list_.PushBack(header);
       free_output_buffhdr_list_.Erase(free_output_buffhdr_list_.Begin());
       QMMF_VERBOSE("%s:%s free_output_buffhdr_list_.Size = %d", TAG, __func__,
