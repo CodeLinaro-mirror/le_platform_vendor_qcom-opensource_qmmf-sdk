@@ -1274,8 +1274,8 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
   memset(&meta_data, 0x0, sizeof meta_data);
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
   meta_data.cam_buffer_meta_data = buffer.info;
-  client_snapshot_cb_(camera_id_, 1, bn_buffer, meta_data);
-  burst_cnt_++;
+  ++burst_cnt_;
+  client_snapshot_cb_(camera_id_, burst_cnt_, bn_buffer, meta_data);
 
   QMMF_INFO("%s:%s Exit ", TAG, __func__);
 }
