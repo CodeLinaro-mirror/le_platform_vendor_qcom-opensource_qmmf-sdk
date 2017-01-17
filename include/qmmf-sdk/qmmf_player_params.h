@@ -97,6 +97,9 @@ typedef struct VideoTrackCreateParam {
     uint32_t height;
     uint32_t frame_rate;
     uint32_t bitrate;
+    bool enable_downscalar;
+    uint32_t output_height;
+    uint32_t output_width;
     VideoCodecType codec;
     VideoOutSubtype out_device;
 } VideoTrackCreateParam;
