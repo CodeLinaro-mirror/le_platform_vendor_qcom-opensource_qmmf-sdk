@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#define TAG "CameraAdaptor"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -454,7 +456,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   return 0;
 }
 
-int32_t Camera3DeviceClient::DeleteStream(int streamId) {
+int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
   int32_t res = 0;
   Camera3Stream *stream;
   int32_t outputStreamIdx;
@@ -473,6 +475,15 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
     case STATE_NOT_CONFIGURED:
     case STATE_CONFIGURED:
     case STATE_RUNNING:
+      if (!cache) {
+        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
+            __func__);
+        res = InternalPauseAndWaitLocked();
+        if (0 != res) {
+          SET_ERR_L("Can't pause captures to reconfigure streams!");
+          goto exit;
+        }
+      }
       break;
     default:
       QMMF_ERROR("%s: Unknown state: %d\n", __func__, state_);
@@ -504,7 +515,18 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
     }
-    deleted_streams_.push_back(stream);
+    if (!cache) {
+      reconfig_ = true;
+      res = ConfigureStreamsLocked();
+      if (0 != res) {
+        QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+                 __func__, next_stream_id_, strerror(-res), res);
+        goto exit;
+      }
+      InternalResumeLocked();
+    } else {
+      deleted_streams_.push_back(stream);
+    }
   }
   reconfig_ = true;
 

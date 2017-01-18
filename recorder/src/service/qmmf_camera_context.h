@@ -128,7 +128,7 @@ class CameraContext : public RefBase {
   status_t CreateDeviceStream(CameraStreamParameters& params,
                               uint32_t frame_rate, int32_t* stream_id);
 
-  status_t DeleteDeviceStream(int32_t stream_id);
+  status_t DeleteDeviceStream(int32_t stream_id, bool cache);
 
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
@@ -202,8 +202,6 @@ class CameraContext : public RefBase {
   std::condition_variable  capture_count_signal_;
   bool                     cancel_capture_ = false;
 
-  Camera3Request           reprocess_request_;
-
   ResultCb                 result_cb_;
   Vector<int32_t>          supported_fps_;
   sp<CameraPort>           zsl_port_;
@@ -224,7 +222,6 @@ class CameraContext : public RefBase {
   Vector<Camera3Request>   streaming_active_requests_;
 
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
-  int32_t                  input_stream_id_;
   sp<CameraReprocess>      camera_reprocess_;
   SyncFrame                sync_frame_;
   Condition                sync_frame_cond_;

@@ -116,7 +116,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
       return BAD_VALUE;
     }
     QMMF_INFO("%s:%s: Deleting Existing Snapshot Stream!!", TAG, __func__);
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0]);
+    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], true);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
                  __func__, ret);
@@ -540,8 +540,8 @@ status_t CameraContext::CancelCaptureImage() {
     {
       cancel_capture_ = true;
       if (sequence_cnt_ > 0) {
-        // Single or Burst capture is not complete yet, wait till pending buffers
-        // (for pending count) are returned.
+        // Single or Burst capture is not complete yet, wait till pending
+        // buffers (for pending count) are returned.
         QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
             __func__, sequence_cnt_);
         int32_t wait_time = sequence_cnt_ * (kSyncFrameWaitDuration/1000000);
@@ -554,10 +554,8 @@ status_t CameraContext::CancelCaptureImage() {
       assert(sequence_cnt_ == 0);
     }
 
-    ret = camera_device_->WaitUntilIdle();
-    assert(ret == NO_ERROR);
-
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0]);
+    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], reprocess_enable_ ?
+                             true : false);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
           __func__, ret);
@@ -905,7 +903,6 @@ status_t CameraContext::CreateDeviceInputStream(
   // then BeginConfigure is not required to be called, stream can be created
   // without calling it.
   if (streaming_request_id_ < 0) {
-    QMMF_INFO("%s:%s Calling BeginConfigure!!", TAG, __func__);
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
   }
@@ -921,7 +918,6 @@ status_t CameraContext::CreateDeviceInputStream(
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
   if (streaming_request_id_ < 0) {
-    QMMF_INFO("%s:%s Calling EndConfigure!!", TAG, __func__);
     ret = camera_device_->EndConfigure();
     assert(ret == NO_ERROR);
   }
@@ -930,7 +926,7 @@ status_t CameraContext::CreateDeviceInputStream(
   return ret;
 }
 
-status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
+status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
@@ -967,7 +963,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id) {
     assert(ret == NO_ERROR);
   }
 
-  ret = camera_device_->DeleteStream(stream_id);
+  ret = camera_device_->DeleteStream(stream_id, cache);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: Camera Device Stream(%d) deleted successfully!", TAG,
       __func__, stream_id);
@@ -1646,7 +1642,7 @@ status_t CameraPort::DeInit() {
   assert(ready_to_start_ == false);
   assert(context_ != nullptr);
 
-  auto ret = context_->DeleteDeviceStream(camera_stream_id_);
+  auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteDeviceStream failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -2353,7 +2349,7 @@ status_t CameraReprocess::Delete() {
 
   if (!reprocess_request_.streamIds.isEmpty()) {
     for (auto streamId : reprocess_request_.streamIds) {
-      if (NO_ERROR != context_->DeleteDeviceStream(streamId)) {
+      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
         QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream",
                    __func__);
         return BAD_VALUE;

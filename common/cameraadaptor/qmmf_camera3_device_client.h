@@ -69,7 +69,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t BeginConfigure() { return 0; }
   int32_t EndConfigure(bool isConstrainedHighSpeed = false);
 
-  int32_t DeleteStream(int streamId);
+  int32_t DeleteStream(int streamId, bool cache);
   int32_t CreateStream(const CameraStreamParameters &outputConfiguration);
   int32_t CreateInputStream(
       const CameraInputStreamParameters &inputConfiguration);
