@@ -713,7 +713,6 @@ status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
