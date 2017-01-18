@@ -1005,6 +1005,107 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
   }
 }
 
+TEST_F(Camera3Gtest, Video1080pSnapshotHDR) {
+  CameraStreamParameters streamParams;
+  Camera3Request previewRequest, snapshotRequest;
+  int64_t lastFrameNumber;
+  int32_t previewStreamId, snapshotStreamId;
+  int32_t previewRequestId;
+  CameraMetadata staticInfo;
+  uint8_t sceneMode = ANDROID_CONTROL_MODE_USE_SCENE_MODE;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  if (staticInfo.exists(ANDROID_CONTROL_AVAILABLE_SCENE_MODES)) {
+    camera_metadata_entry metaEntry =
+        staticInfo.find(ANDROID_CONTROL_AVAILABLE_SCENE_MODES);
+
+    ret = device_client_->BeginConfigure();
+    ASSERT_EQ(0, ret);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = STREAM_BUFFER_COUNT;
+    streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    streamParams.width = 1920;
+    streamParams.height = 1080;
+    streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
+    streamParams.cb = [&](int32_t streamId,
+              StreamBuffer buffer) { StreamCb(streamId, buffer); };
+
+    // 1080p Stream1
+    previewStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(previewStreamId, 0);
+    previewRequest.streamIds.add(previewStreamId);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = 3;
+    streamParams.format = HAL_PIXEL_FORMAT_BLOB;
+    streamParams.width = 4000;
+    streamParams.height = 3000;
+    streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+    streamParams.cb = [&](int32_t streamId,
+               StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+
+    snapshotStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(snapshotStreamId, 0);
+    snapshotRequest.streamIds.add(snapshotStreamId);
+
+    ret = device_client_->EndConfigure();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
+                        &previewRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_STILL_CAPTURE,
+                        &snapshotRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+    ASSERT_GE(ret, 0);
+    previewRequestId = ret;
+
+    sleep(2);
+
+    for ( uint8_t i = 0; i < metaEntry.count; i++) {
+        if (metaEntry.data.u8[i] == ANDROID_CONTROL_SCENE_MODE_HDR) {
+            snapshotRequest.metadata.update(ANDROID_CONTROL_MODE, &sceneMode, 1);
+            snapshotRequest.metadata.update(ANDROID_CONTROL_SCENE_MODE,
+                                    &metaEntry.data.u8[i],
+                                    1);
+            ret = device_client_->SubmitRequest(snapshotRequest, false, &lastFrameNumber);
+            ASSERT_GE(ret, 0);
+            break;
+        }
+    }
+
+    // Run preview for some time
+    sleep(2);
+
+    ret = device_client_->CancelRequest(previewRequestId, &lastFrameNumber);
+    ASSERT_EQ(0, ret);
+
+    printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+       __func__, lastFrameNumber);
+
+    ret = device_client_->WaitUntilIdle();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(snapshotStreamId, true);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(previewRequestId, true);
+    ASSERT_EQ(0, ret);
+    ASSERT_FALSE(camera_error_);
+  } else {
+    printf("%s: Snapshot HDR is not supported by the Camera.\n",
+       __func__);
+   ret = 0;
+   ASSERT_EQ(0, ret);
+  }
+}
+
 TEST_F(Camera3Gtest, ZSLStream12Mp) {
   CameraStreamParameters streamParams;
   Camera3Request zslRequest;
