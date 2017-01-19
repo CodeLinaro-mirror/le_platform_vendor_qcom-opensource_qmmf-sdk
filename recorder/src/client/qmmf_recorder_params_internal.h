@@ -75,7 +75,7 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
   }
 
   AudioTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
-    uint32_t in_devices_num = static_cast<uint32_t>(parcel.readUint32());
+    in_devices_num = static_cast<uint32_t>(parcel.readUint32());
     if (in_devices_num > QMMF_ARRAY_SIZE(in_devices))
       in_devices_num = QMMF_ARRAY_SIZE(in_devices);
     for (uint32_t i = 0; i < in_devices_num; i++)
