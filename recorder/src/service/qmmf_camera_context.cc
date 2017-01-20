@@ -887,7 +887,11 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     }
     QMMF_INFO("%s:%s: is_constrained_mode(%d)", TAG, __func__,
         is_constrained_mode);
-    ret = camera_device_->EndConfigure(is_constrained_mode);
+    bool is_raw_only = false;
+    if (params.format == HAL_PIXEL_FORMAT_RAW10) {
+      is_raw_only = true;
+    }
+    ret = camera_device_->EndConfigure(is_constrained_mode, is_raw_only);
     assert(ret == NO_ERROR);
   }
 
