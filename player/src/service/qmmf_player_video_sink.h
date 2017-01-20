@@ -54,9 +54,6 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
-#define DISPLAY_WIDTH 1920
-#define DISPLAY_HEIGHT 1080
-
 namespace qmmf {
 namespace player {
 
@@ -137,8 +134,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t UpdateCropParameters(void* arg);
 
-  status_t GrabPicture(PictureParam param);
-
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
@@ -194,8 +189,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   uint64_t                 current_time_;
   uint64_t                 prev_time_;
   uint32_t                 displayed_frames_;
-  int32_t                  grabpicture_file_fd_;
-  bool                     grab_picture_;
   std::mutex               state_change_lock_;
 };
 

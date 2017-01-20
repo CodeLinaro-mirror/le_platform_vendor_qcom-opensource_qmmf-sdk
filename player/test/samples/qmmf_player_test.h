@@ -113,9 +113,6 @@ class PlayerTest {
   void videotrackcb(EventType event_type, void *event_data,
                     size_t event_data_size);
 
-  void GrabPictureCb(EventType event_type, void *event_data,
-                     size_t event_data_size);
-
   static void* StartPlayingAudio(void* ptr);
 
   static void* StartPlayingVideo(void* ptr);
@@ -187,7 +184,6 @@ class CmdMenu {
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
       TRICK_MODE_CMD                    = '9',
-      GRAB_PICTURE                      = 'P',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'

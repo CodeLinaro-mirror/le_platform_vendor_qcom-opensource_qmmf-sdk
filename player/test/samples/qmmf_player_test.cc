@@ -104,13 +104,6 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void PlayerTest::GrabPictureCb(EventType event_type, void *event_data,
-                               size_t event_data_size) {
-
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
-}
-
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
@@ -790,21 +783,8 @@ int32_t PlayerTest::SetTrickMode() {
 
 int32_t PlayerTest::GrabPicture() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  auto ret = 0;
-
-  PictureParam param_;
-  PictureCallback picture_cb_;
-
-  memset(&param_, 0x0, sizeof param_);
-  param_.height = m_sTrackInfo_.sVideo.ulHeight;
-  param_.width = m_sTrackInfo_.sVideo.ulWidth;
-  param_.quality = 1;
-
-  picture_cb_.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) {GrabPictureCb(event_type, event_data,
-      event_data_size);};
-
-  player_.GrabPicture(param_, picture_cb_);
+    auto ret = 0;
+  //player_.GrabPicture();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1094,7 +1074,6 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
-  printf("   %c. GrabPicture\n", CmdMenu::GRAB_PICTURE);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1169,10 +1148,6 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::TRICK_MODE_CMD: {
         test_context.SetTrickMode();
-      }
-      break;
-      case CmdMenu::GRAB_PICTURE: {
-        test_context.GrabPicture();
       }
       break;
       case CmdMenu::NEXT_CMD: {

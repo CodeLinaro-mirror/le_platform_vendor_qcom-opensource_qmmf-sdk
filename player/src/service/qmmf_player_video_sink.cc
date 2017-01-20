@@ -32,8 +32,7 @@
 #include "player/src/service/qmmf_player_video_sink.h"
 
 #include <memory>
-#define ALIGNED_WIDTH(x) ((x)+((x%128)?(128-(x%128)):0))
-#define ALIGNED_HEIGHT(x) ((x)+((x%32)?(32-(x%32)):0))
+#define ALIGNED_WIDTH(x) ((x)+((x%64)?(64-(x%64)):0))
 
 namespace qmmf {
 namespace player {
@@ -171,8 +170,7 @@ VideoTrackSink::VideoTrackSink()
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kForward),
       current_time_(0), prev_time_(0),
-      displayed_frames_(0), grabpicture_file_fd_(-1),
-      grab_picture_(false) {
+      displayed_frames_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -180,16 +178,11 @@ VideoTrackSink::VideoTrackSink()
     QMMF_ERROR("%s:%s Failed to open o/p yuv dump file ", TAG, __func__);
   }
 #endif
-
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
 VideoTrackSink::~VideoTrackSink() {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  if (grabpicture_file_fd_ > 0) {
-    close(grabpicture_file_fd_);
-  }
-
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
@@ -523,8 +516,13 @@ status_t VideoTrackSink::CreateDisplay(
   }
 
   memset(&surface_config, 0x0, sizeof surface_config);
-  surface_config.width = track_param.params.width;
-  surface_config.height = track_param.params.height;
+  if (track_param.params.width > 3000 && track_param.params.height > 2000) {
+    surface_config.width = 2560;
+    surface_config.height = 1440;
+  } else {
+    surface_config.width = track_param.params.width;
+    surface_config.height = track_param.params.height;
+  }
 
   surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
   surface_config.buffer_count = track_param.params.num_buffers;
@@ -537,13 +535,16 @@ status_t VideoTrackSink::CreateDisplay(
     return res;
   }
   display_started_ = 1;
+   if (track_param.params.width > 3000 && track_param.params.height > 2000) {
+    surface_param_.src_rect = { 0.0, 0.0, (float)2560,
+        (float)1440 };
+  } else {
+    surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
+        (float)track_param.params.height };
+  }
 
-  surface_param_.src_rect = { 0.0, 0.0,
-      static_cast<float>(track_param.params.width),
-      static_cast<float>(track_param.params.height)};
-
-  surface_param_.dst_rect = { 0.0, 0.0, DISPLAY_WIDTH, DISPLAY_HEIGHT};
-
+  surface_param_.dst_rect = { 0.0, 0.0, 1920,
+      1080 };
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
@@ -632,35 +633,6 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       return ret;
     }
 
-    if (grab_picture_) {
-      String8 snapshot_filepath;
-      struct timeval tv;
-      gettimeofday(&tv, NULL);
-
-      snapshot_filepath.appendFormat("/data/player_snapshot_%d_%dx%d_%lu.%s",
-          track_params_.track_id, surface_config.width, surface_config.height,
-          tv.tv_sec, "yuv");
-
-      grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
-          O_WRONLY | O_TRUNC, 0655);
-      assert(grabpicture_file_fd_ >= 0);
-
-      uint32_t bytes_written;
-      int32_t width = ALIGNED_WIDTH(surface_config.width);
-      int32_t height = ALIGNED_HEIGHT(surface_config.height);
-      uint32_t size = (width*height*3)/2;
-
-      QMMF_DEBUG("%s:%s: size(%d)", TAG, __func__, size);
-
-      bytes_written  = write(grabpicture_file_fd_, vaddr, size);
-      if (bytes_written != size) {
-        QMMF_ERROR("Bytes written != %d and written = %u", size, bytes_written);
-      }
-
-      QMMF_INFO("%s:%s: bytes_written(%d)", TAG, __func__, bytes_written);
-      grab_picture_ = false;
-    }
-
     ret = display_->DequeueSurfaceBuffer( surface_id_, surface_buffer_);
     if(ret != 0) {
       QMMF_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
@@ -669,15 +641,6 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
    }
 
    return NO_ERROR;
-}
-
-status_t VideoTrackSink::GrabPicture(PictureParam param) {
-  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-
-  grab_picture_ = true;
-
-  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
-  return NO_ERROR;
 }
 
 #ifdef DUMP_YUV_FRAMES
