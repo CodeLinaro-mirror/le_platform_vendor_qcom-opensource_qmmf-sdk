@@ -2751,7 +2751,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         video_track_param.codec_param.avc.bitrate      = bitrate;
       else
         video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+      video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
       video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
       video_track_param.codec_param.avc.ratecontrol_type =
           VideoRateControlType::kVariableSkipFrames;
