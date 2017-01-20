@@ -950,7 +950,7 @@ status_t RecorderTest::TakeSnapshot() {
   return ret;
 }
 
-status_t RecorderTest::StartDualCameraMode() {
+status_t RecorderTest::StartMultiCameraMode() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -1002,7 +1002,7 @@ status_t RecorderTest::StartDualCameraMode() {
   info.width      = raw_width;
   info.height     = raw_height;
   info.track_id   = 1;
-  info.track_type = TrackType::kVideoYUV;
+  info.track_type = TrackType::kVideoRDI;
   info.session_id = session_id;
   info.camera_id = camera_id_;
   info.low_power_mode = false;
@@ -1017,6 +1017,7 @@ status_t RecorderTest::StartDualCameraMode() {
   auto result = recorder_.StartSession(session_id);
   assert(result == NO_ERROR);
 
+  sleep(1);
   camera_id_ = 0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
@@ -1040,8 +1041,8 @@ status_t RecorderTest::StartDualCameraMode() {
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
   memset(&info, 0x0, sizeof info);
-  info.width      = 1920;
-  info.height     = 1080;
+  info.width      = 3840;
+  info.height     = 2160;
   info.track_id   = 2;
   info.track_type = TrackType::kVideoAVC;
   info.session_id = session_id;
@@ -1058,11 +1059,51 @@ status_t RecorderTest::StartDualCameraMode() {
   assert(result == NO_ERROR);
   session_enabled_ = true;
 
+  sleep(1);
+  camera_id_ = 2;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  }
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session3_tracks;
+
+  TestTrack *yuv_stereo_track = new TestTrack(this);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1280;
+  info.height     = 480;
+  info.track_id   = 3;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.low_power_mode = true;
+
+  ret = yuv_stereo_track->SetUp(info);
+  assert(ret == 0);
+  session3_tracks.push_back(yuv_stereo_track);
+
+  sessions_.insert(std::make_pair(session_id, session3_tracks));
+
+  yuv_stereo_track->Prepare();
+  result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+
+  camera_id_ = 0;
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t RecorderTest::StopDualCameraMode() {
+status_t RecorderTest::StopMultiCameraMode() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   for (session_iter_ it = sessions_.begin(); it != sessions_.end(); ++it) {
@@ -1082,6 +1123,13 @@ status_t RecorderTest::StopDualCameraMode() {
   auto ret = recorder_.StopCamera(camera_id_);
   if(ret != 0) {
     ALOGE("%s:%s StopCamera 1 Failed!!", TAG, __func__);
+  }
+
+  camera_id_ = 2;
+
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 2 Failed!!", TAG, __func__);
   }
 
   camera_id_ = 0;
@@ -3755,8 +3803,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Choose camera\n", CmdMenu::CHOOSE_CAMERA_CMD);
   printf("   %c. Start Camera\n", CmdMenu::START_CAMERA_CMD);
   printf("   %c. Stop Camera\n", CmdMenu::STOP_CAMERA_CMD);
-  printf("   %c. Start Dual Camera Mode \n", CmdMenu::START_DUALCAMERA_CMD);
-  printf("   %c. Stop Dual Camera Mode \n", CmdMenu::STOP_DUALCAMERA_CMD);
+  printf("   %c. Start Multi Camera Mode \n", CmdMenu::START_MULTICAMERA_CMD);
+  printf("   %c. Stop Multi Camera Mode \n", CmdMenu::STOP_MULTICAMERA_CMD);
   printf("   %c. Create Session: (4K YUV + 1080 YUV)\n",
       CmdMenu::CREATE_YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc AVC)\n",
@@ -3886,12 +3934,12 @@ int main(int argc,char *argv[]) {
         test_context.StopCamera();
       }
       break;
-      case CmdMenu::START_DUALCAMERA_CMD: {
-        test_context.StartDualCameraMode();
+      case CmdMenu::START_MULTICAMERA_CMD: {
+        test_context.StartMultiCameraMode();
       }
       break;
-      case CmdMenu::STOP_DUALCAMERA_CMD: {
-        test_context.StopDualCameraMode();
+      case CmdMenu::STOP_MULTICAMERA_CMD: {
+        test_context.StopMultiCameraMode();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_CMD: {
