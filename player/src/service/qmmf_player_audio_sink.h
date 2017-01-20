@@ -32,6 +32,7 @@
 #include <memory>
 #include <vector>
 #include <unistd.h>
+#include <mutex>
 
 #include "player/src/service/qmmf_player_common.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
@@ -168,6 +169,9 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t               file_fd_;
   void DumpPCMData(BufferDescriptor& codec_buffer);
 #endif
+
+  uint32_t               total_bytes_decoded_;
+  std::mutex             state_change_lock_;
 };
 
 };  // namespace player

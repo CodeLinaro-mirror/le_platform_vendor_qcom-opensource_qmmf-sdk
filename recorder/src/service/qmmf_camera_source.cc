@@ -505,8 +505,11 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
 
 TrackSource::TrackSource(const VideoTrackParams& params,
                          const sp<CameraContext>& context)
-    : track_params_(params), is_stop_(false), enable_overlay_(false),
-    display_started_(0) {
+    : track_params_(params),
+      is_stop_(false),
+      eos_acked_(false),
+      enable_overlay_(false),
+      display_started_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -514,7 +517,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(context.get() != nullptr);
   camera_context_ = context;
 
-  input_frame_rate_ = context->GetCameraFrameRate();
+  input_frame_rate_ = context->GetCameraStartParam().frame_rate;
   QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
@@ -547,10 +550,10 @@ status_t TrackSource::Init() {
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
-  stream_param.cam_stream_type       = track_params_.camera_stream_type;
-  stream_param.frame_rate            = track_params_.params.frame_rate;
-  stream_param.id                    = track_params_.track_id;
-  stream_param.low_power_mode        = track_params_.params.low_power_mode;
+  stream_param.cam_stream_type  = track_params_.camera_stream_type;
+  stream_param.frame_rate       = track_params_.params.frame_rate;
+  stream_param.id               = track_params_.track_id;
+  stream_param.low_power_mode   = track_params_.params.low_power_mode;
 
   assert(camera_context_.get() != nullptr);
   auto ret = camera_context_->CreateStream(stream_param);
@@ -602,6 +605,7 @@ status_t TrackSource::StartTrack() {
 
   Mutex::Autolock lock(stop_lock_);
   is_stop_ = false;
+  eos_acked_ = false;
 
   sp<IBufferConsumer> consumer;
   consumer = GetConsumerIntf();
@@ -684,7 +688,8 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
           __func__, TrackId());
       ClearInputQueue();
-
+      Mutex::Autolock lock(eos_lock_);
+      eos_acked_ = true;
     } else if (status == CodecPortStatus::kPortIdle) {
       ClearInputQueue();
       assert(camera_context_.get() != nullptr);
@@ -763,7 +768,7 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
     if ((*iter).handle ==  buffer.data) {
       QMMF_VERBOSE("%s:%s: Buffer found in frames_being_encoded_ list!", TAG,
           __func__);
-      buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned((*iter));
+      ReturnBufferToProducer((*iter));
       frames_being_encoded_.Erase(iter);
       found = true;
       break;
@@ -782,12 +787,28 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
 #ifdef NO_FRAME_PROCESS
-  buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+  ReturnBufferToProducer(buffer);
   return;
 #endif
+
+  {
+    Mutex::Autolock lock(eos_lock_);
+    if (eos_acked_ && IsStop()) {
+      auto track_format = track_params_.params.format_type;
+      if (track_format == VideoFormat::kAVC
+          || track_format == VideoFormat::kHEVC) {
+        // Return buffer if track is stoped and EOS is acknowledged by AVCodec.
+        QMMF_INFO("%s:%s: Track(%d) Stoped and eos is acked!", TAG, __func__,
+          TrackId());
+        ReturnBufferToProducer(buffer);
+        return;
+      }
+    }
+  }
+
   if (IsFrameSkip()) {
     // Skip frame to adjust fps.
-    buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+    ReturnBufferToProducer(buffer);
     return;
   }
 
@@ -852,7 +873,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 #endif
   if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
     PushFrameToDisplay(buffer);
-    buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+    ReturnBufferToProducer(buffer);
   } else {
     // If format type is YUV or BAYER then give callback from this point, do not
     // feed buffer to Encoder.
@@ -863,7 +884,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       if(IsStop()) {
         QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
             " to client!", TAG, __func__, TrackId());
-        buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+        ReturnBufferToProducer(buffer);
         return;
       }
 
@@ -918,7 +939,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
           __func__, TrackId(), bn_buffers[i].ion_fd);
       assert(idx >= 0);
       StreamBuffer buffer = buffer_list_.valueFor(bn_buffers[i].ion_fd);
-      buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+      ReturnBufferToProducer(buffer);
       buffer_list_.removeItem(bn_buffers[i].ion_fd);
     }
   }
@@ -971,7 +992,7 @@ void TrackSource::ClearInputQueue() {
   assert(buffer_consumer_impl_->GetProducerHandle().get() != nullptr);
   auto iter = frames_received_.Begin();
   for (; iter != frames_received_.End(); ++iter) {
-    buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned((*iter));
+    ReturnBufferToProducer((*iter));
   }
   frames_received_.Clear();
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -1232,6 +1253,10 @@ status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
   return ret;
 }
 
+void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
+  assert(buffer_consumer_impl_ != nullptr);
+  buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+}
 
 #ifdef ENABLE_FRAME_DUMP
 status_t TrackSource::DumpYUV(StreamBuffer& buffer) {

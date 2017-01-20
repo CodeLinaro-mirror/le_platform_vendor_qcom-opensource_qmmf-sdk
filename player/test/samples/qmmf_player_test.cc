@@ -108,7 +108,9 @@ PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
       audioLastFrame_(false), videoLastFrame_(false),
-      paused_(false), current_state_("Idle") {
+      paused_(false), current_state_("Idle"),
+      playback_speed_(TrickModeSpeed::kSpeed_1x),
+      playback_dir_(TrickModeDirection::kForward) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -133,7 +135,9 @@ PlayerTest::PlayerTest(char* filename_)
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
       audioLastFrame_(false), videoLastFrame_(false),
-      paused_(false), current_state_("Idle") {
+      paused_(false), current_state_("Idle"),
+      playback_speed_(TrickModeSpeed::kSpeed_1x),
+      playback_dir_(TrickModeDirection::kForward) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -194,6 +198,7 @@ int32_t PlayerTest::Disconnect() {
 int32_t PlayerTest::Prepare() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   if(m_pIStreamPort_ == nullptr && filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
@@ -327,6 +332,8 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
 
 int32_t PlayerTest::Start() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   auto ret = 0;
 
   if(start_again_)
@@ -387,12 +394,18 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
+  const char *current_state;
 
   while (!(playertest->stopped_ && playertest->audioLastFrame_))
   {
-    if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0) ||
-        !(strcmp(playertest->current_state_,"Started") == 0)) {
+
+    {
+      std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+      current_state = playertest->current_state_;
+    }
+
+    if (playertest->paused_ || (strcmp(current_state,"Paused") == 0) ||
+        !(strcmp(current_state,"Started") == 0)) {
       continue;
     }
 
@@ -469,7 +482,11 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
       playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
-      playertest->stopped_ = true;
+      {
+        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+        playertest->stopped_ = true;
+      }
+
       playertest->audioLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
@@ -487,6 +504,9 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
     assert(NO_ERROR == ret);
     buffers.clear();
+
+    if (playertest->stopped_)
+      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -501,12 +521,18 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
+  const char *current_state;
 
   while (!(playertest->stopped_ && playertest->videoLastFrame_))
   {
-    if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0) ||
-        !(strcmp(playertest->current_state_,"Started") == 0)) {
+
+    {
+      std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+      current_state = playertest->current_state_;
+    }
+
+    if (playertest->paused_ || (strcmp(current_state,"Paused") == 0) ||
+        !(strcmp(current_state,"Started") == 0)) {
       continue;
     }
 
@@ -583,7 +609,11 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
       playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
-      playertest->stopped_ = true;
+      {
+        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+        playertest->stopped_ = true;
+      }
+
       playertest->videoLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
@@ -601,6 +631,9 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
     assert(NO_ERROR == ret);
     buffers.clear();
+
+    if (playertest->stopped_)
+      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -609,16 +642,22 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
 int32_t PlayerTest::Stop() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopped_ = true;
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
 
 int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  auto ret = -1;
+  auto ret = 0;
 
-  stop_playing_ = true;
+  {
+    std::lock_guard<std::mutex> lock(state_change_lock_);
+    stop_playing_ = true;
+  }
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
@@ -630,6 +669,14 @@ int32_t PlayerTest::StopPlaying() {
       track_type_ == TrackTypes::kVideoOnly) {
 
     pthread_join(video_thread_id_, NULL);
+  }
+
+  if (playback_speed_ != TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kReverse) {
+    ret = player_.SetTrickMode(1, 1);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    }
   }
 
   ret = player_.Stop(false);
@@ -647,13 +694,18 @@ int32_t PlayerTest::StopPlaying() {
     srcFile_video_.close();
 #endif
 
-  start_again_ = true;
+  {
+    std::lock_guard<std::mutex> lock(state_change_lock_);
+    start_again_ = true;
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = true;
 
   auto ret = player_.Pause();
@@ -667,16 +719,21 @@ int32_t PlayerTest::Pause() {
 
 int32_t PlayerTest::Resume() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+  auto ret = 0;
   paused_ = false;
 
-  auto ret = player_.Resume();
-  if (ret != NO_ERROR) {
-    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
+  if (playback_speed_ != TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kReverse) {
+    ret = player_.SetTrickMode(1, 1);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    }
   }
 
-  ret = player_.SetTrickMode(1,1);
+   ret = player_.Resume();
   if (ret != NO_ERROR) {
-    TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -692,26 +749,32 @@ int32_t PlayerTest::SetPosition() {
 
 int32_t PlayerTest::SetTrickMode() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
   auto ret = 0;
 
-  uint32_t speed, dir;
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+    uint32_t speed, dir;
 
-  printf("\n");
-  printf("****** Set Trick Mode *******\n" );
-  printf(" Enter Speed (supported [1, 2, 4, 8]): ");
-  scanf("%d", &speed);
-  printf(" Enter Direction (supported [RW->0, FF->1]): ");
-  scanf("%d", &dir);
+    printf("\n");
+    printf("****** Set Trick Mode *******\n" );
+    printf(" Enter Speed (supported [1, 2, 4, 8]): ");
+    scanf("%d", &speed);
+    printf(" Enter Direction (supported [RW->0, FF->1]): ");
+    scanf("%d", &dir);
 
-  if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
-      && (dir == 0 || dir == 1)) {
-    ret = player_.SetTrickMode(speed, dir);
-    if (ret != NO_ERROR) {
-      TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+    if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
+        && (dir == 0 || dir == 1)) {
+      ret = player_.SetTrickMode(speed, dir);
+      playback_speed_ = static_cast<TrickModeSpeed>(speed);
+      playback_dir_ = static_cast<TrickModeDirection>(dir);
+      if (ret != NO_ERROR) {
+        TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+      }
+    } else {
+      TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
+          "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
     }
-  } else {
-    TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
-        "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -728,6 +791,8 @@ int32_t PlayerTest::GrabPicture() {
 
 int32_t PlayerTest::Delete() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   auto ret = 0;
 
   if (track_type_ == TrackTypes::kAudioVideo ||

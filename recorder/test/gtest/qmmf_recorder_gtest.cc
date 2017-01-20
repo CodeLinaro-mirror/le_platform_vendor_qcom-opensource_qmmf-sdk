@@ -145,8 +145,50 @@ TEST_F(RecorderGtest, ConnectToService) {
 }
 
 /*
-* ZSL4K1080pYUVPreview: This case will test ZSL at 4K along with 1080p
-* YUV preview.
+* ZSLStartStopCamera: This test case will test Start & StopCamera Api in ZSL
+*  mode.
+* Api test sequence:
+*   loop Start {
+*   ------------------
+*  - StartCamera
+*  - StopCamera
+*   ------------------
+*   } loop End
+*/
+TEST_F(RecorderGtest, StartStopCameraZSLMode) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+
+  camera_start_params_.zsl_mode = true;
+  camera_start_params_.zsl_width = 1920;
+  camera_start_params_.zsl_height = 1080;
+  camera_start_params_.zsl_queue_depth = 4;
+  camera_start_params_.frame_rate = 30;
+
+  assert(ret == NO_ERROR);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    assert(ret == NO_ERROR);
+    sleep(3);
+
+    ret = recorder_.StopCamera(camera_id_);
+    assert(ret == NO_ERROR);
+  }
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pZSLCapture: This case will test 1080p ZSL capture.
 * Api test sequence:
 *   ------------------
 *  - StartCamera
@@ -154,7 +196,7 @@ TEST_F(RecorderGtest, ConnectToService) {
 *  - CreateVideoTrack
 *  *   loop Start {
 *   ------------------
-*  - CaptureImage
+*  - CaptureImage (ZSL)
 *  *   ------------------
 *   } loop End
 *  - StopSession
@@ -164,7 +206,238 @@ TEST_F(RecorderGtest, ConnectToService) {
 *  - StopCamera
 *   ------------------
 */
-TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
+TEST_F(RecorderGtest, 1080pZSLCapture) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  camera_start_params_.zsl_mode = true;
+  camera_start_params_.zsl_width = 1920;
+  camera_start_params_.zsl_height = 1080;
+  camera_start_params_.zsl_queue_depth = 4;
+  camera_start_params_.frame_rate = 30;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  sleep(3);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = camera_start_params_.zsl_width;
+  image_param.height        = camera_start_params_.zsl_height;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    sleep(3);
+  }
+
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+  sleep(3);
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pZSL1080pVideo: This case will test 1080p ZSL along with 1080p AVC video.
+* Api test sequence:
+*   ------------------
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  *   loop Start {
+*   ------------------
+*  - CaptureImage (ZSL)
+*  *   ------------------
+*   } loop End
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - CaptureImage
+*  - StopCamera
+*   ------------------
+*/
+TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  camera_start_params_.zsl_mode = true;
+  camera_start_params_.zsl_width = 1920;
+  camera_start_params_.zsl_height = 1080;
+  camera_start_params_.zsl_queue_depth = 4;
+  camera_start_params_.frame_rate = 30;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id     = 0;
+  video_track_param.width         = camera_start_params_.zsl_width;
+  video_track_param.height        = camera_start_params_.zsl_height;
+  video_track_param.frame_rate    = 30;
+  video_track_param.format_type   = VideoFormat::kAVC;
+  video_track_param.out_device    = 0x01;
+  uint32_t video_track_id = 1;
+
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.h264",
+                                  camera_start_params_.zsl_height,
+                                  camera_start_params_.zsl_width);
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
+      buffers, std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  sleep(3);
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  sleep(3);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = camera_start_params_.zsl_width;
+  image_param.height        = camera_start_params_.zsl_height;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    sleep(3);
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+  sleep(3);
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 4KZSL1080pYUVPreview: This case will test ZSL at 4K along with 1080p
+* YUV preview.
+* Api test sequence:
+*   ------------------
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  *   loop Start {
+*   ------------------
+*  - CaptureImage (ZSL)
+*  *   ------------------
+*   } loop End
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - CaptureImage
+*  - StopCamera
+*   ------------------
+*/
+TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
 
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
@@ -193,12 +466,12 @@ TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
   VideoTrackCreateParam preview_track_param;
   memset(&preview_track_param, 0x0, sizeof preview_track_param);
 
-  preview_track_param.camera_id     = 0;
-  preview_track_param.width         = 1920;
-  preview_track_param.height        = 1080;
-  preview_track_param.frame_rate    = camera_start_params_.frame_rate;
-  preview_track_param.format_type   = VideoFormat::kYUV;
-  preview_track_param.out_device    = 0x01;
+  preview_track_param.camera_id      = 0;
+  preview_track_param.width          = 1920;
+  preview_track_param.height         = 1080;
+  preview_track_param.frame_rate     = camera_start_params_.frame_rate;
+  preview_track_param.format_type    = VideoFormat::kYUV;
+  preview_track_param.out_device     = 0x01;
   preview_track_param.low_power_mode = true;
   uint32_t preview_track_id = 1;
 
@@ -260,6 +533,11 @@ TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
 
   ClearSessions();
 
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                               cb);
+  assert(ret == NO_ERROR);
+  sleep(3);
+
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
 
@@ -271,7 +549,7 @@ TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
 }
 
 /*
-* ZSL4K1080p480pYUVPreview: This case will test ZSL at 4K along with 1080p
+* 4KZSL1080p480pYUVPreview: This case will test ZSL at 4K along with 1080p
 * and 480p YUV preview.
 * Api test sequence:
 *   ------------------
@@ -280,7 +558,7 @@ TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
 *  - CreateVideoTrack
 *  *   loop Start {
 *   ------------------
-*  - CaptureImage
+*  - CaptureImage (ZSL)
 *  *   ------------------
 *   } loop End
 *  - StopSession
@@ -290,7 +568,7 @@ TEST_F(RecorderGtest, ZSL4K1080pYUVPreview) {
 *  - StopCamera
 *   ------------------
 */
-TEST_F(RecorderGtest, ZSL4K1080p480pYUVPreview) {
+TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
 
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
@@ -410,7 +688,8 @@ TEST_F(RecorderGtest, ZSL4K1080p480pYUVPreview) {
 }
 
 /*
-* ZSL1080p: This case will test ZSL at 1080p along with 1080p AVC video.
+* 4KZSLTwo1080pVideo: This case will test ZSL at 4K along with two 1080p
+* videos.
 * Api test sequence:
 *   ------------------
 *  - StartCamera
@@ -418,8 +697,8 @@ TEST_F(RecorderGtest, ZSL4K1080p480pYUVPreview) {
 *  - CreateVideoTrack
 *  *   loop Start {
 *   ------------------
-*  - CaptureImage
-*  *   ------------------
+*  - CaptureImage (ZSL)
+*  *   ---------------
 *   } loop End
 *  - StopSession
 *  - DeleteVideoTrack
@@ -428,7 +707,7 @@ TEST_F(RecorderGtest, ZSL4K1080p480pYUVPreview) {
 *  - StopCamera
 *   ------------------
 */
-TEST_F(RecorderGtest, ZSL1080p) {
+TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
 
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
@@ -437,8 +716,8 @@ TEST_F(RecorderGtest, ZSL1080p) {
   assert(ret == NO_ERROR);
 
   camera_start_params_.zsl_mode = true;
-  camera_start_params_.zsl_width = 1920;
-  camera_start_params_.zsl_height = 1080;
+  camera_start_params_.zsl_width = 3840;
+  camera_start_params_.zsl_height = 2160;
   camera_start_params_.zsl_queue_depth = 4;
   camera_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -455,24 +734,25 @@ TEST_F(RecorderGtest, ZSL1080p) {
   assert(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
   video_track_param.camera_id     = 0;
-  video_track_param.width         = camera_start_params_.zsl_width;
-  video_track_param.height        = camera_start_params_.zsl_height;
+  video_track_param.width         = 1920;
+  video_track_param.height        = 1080;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = VideoFormat::kAVC;
   video_track_param.out_device    = 0x01;
-  uint32_t video_track_id = 1;
+  uint32_t video_track_id_1 = 1;
 
 #ifdef DUMP_BITSTREAM
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
   String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.h64",
-                                  camera_start_params_.zsl_height,
-                                  camera_start_params_.zsl_width);
+  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+      video_track_id_1, video_track_param.width, video_track_param.height,
+      "h264");
   track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
+     O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ > 0);
 #endif
 
   TrackCb video_track_cb;
@@ -484,12 +764,36 @@ TEST_F(RecorderGtest, ZSL1080p) {
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
       event_type, event_data, event_data_size); };
 
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                    video_track_param, video_track_cb);
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_1,
+                                   video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
 
   std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
+  track_ids.push_back(video_track_id_1);
+
+  uint32_t video_track_id_2 = 2;
+#ifdef DUMP_BITSTREAM
+    if (track2_bitstream_filefd_ > 0) {
+      close(track2_bitstream_filefd_);
+    }
+    bitstream_filepath.clear();
+    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+        video_track_id_2, video_track_param.width, video_track_param.height,
+        "h264");
+    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+        O_WRONLY | O_TRUNC, 0655);
+    assert(track2_bitstream_filefd_ > 0);
+#endif
+
+  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
+      buffers, std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_2,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  track_ids.push_back(video_track_id_2);
   sessions_.insert(std::make_pair(session_id, track_ids));
 
   ret = recorder_.StartSession(session_id);
@@ -525,7 +829,10 @@ TEST_F(RecorderGtest, ZSL1080p) {
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_2);
   assert(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
@@ -543,10 +850,6 @@ TEST_F(RecorderGtest, ZSL1080p) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -813,7 +1116,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
 
 /*
 * MaxSnapshotThumb: This test will test Max resolution JPEG snapshot
-*                  with a max sixe thumbnail.
+*                   with a max size thumbnail.
 * Api test sequence:
 *  - StartCamera
 *   loop Start {
