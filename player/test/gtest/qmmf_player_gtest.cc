@@ -551,7 +551,7 @@ void * PlayerGtest::StartPlaying(void *ptr) {
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
 
-  while (!playergtest->stopped_) {
+  while (1) {
 
     {
       std::lock_guard<std::mutex> lock(playergtest->state_change_lock_);
@@ -626,8 +626,6 @@ void * PlayerGtest::StartPlaying(void *ptr) {
 
     buffers.clear();
 
-    if (playergtest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);

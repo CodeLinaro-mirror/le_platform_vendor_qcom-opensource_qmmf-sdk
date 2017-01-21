@@ -435,7 +435,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   TrackBuffer tb;
   const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->audioLastFrame_))
+  while (!(playertest->audioLastFrame_))
   {
 
     {
@@ -544,8 +544,6 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
     assert(NO_ERROR == ret);
     buffers.clear();
 
-    if (playertest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -562,7 +560,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   TrackBuffer tb;
   const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->videoLastFrame_))
+  while (!(playertest->videoLastFrame_))
   {
 
     {
@@ -671,8 +669,6 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
     assert(NO_ERROR == ret);
     buffers.clear();
 
-    if (playertest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
