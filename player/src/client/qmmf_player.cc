@@ -248,7 +248,7 @@ status_t Player::GrabPicture(PictureParam param, PictureCallback& cb) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
-  auto ret = player_client_->GrabPicture(param,cb);
+  auto ret = player_client_->GrabPicture(param, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: GrabPicture failed!", __func__);
   }

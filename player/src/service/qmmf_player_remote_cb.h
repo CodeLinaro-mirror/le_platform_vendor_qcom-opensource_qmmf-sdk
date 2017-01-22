@@ -69,6 +69,8 @@ class RemoteCallBack : public RefBase {
 
   void NotifyDeleteVideoTrack(uint32_t track_id);
 
+  void NotifyGrabPictureData(BufferDescriptor& buffer);
+
  private:
   sp<IPlayerServiceCallback> client_cb_handle_;
 };

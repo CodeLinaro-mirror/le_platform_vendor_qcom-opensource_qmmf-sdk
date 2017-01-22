@@ -39,7 +39,11 @@
 #include <sys/ioctl.h>
 #include <linux/msm_ion.h>
 #include <unistd.h>
+#include <fastcv/fastcv.h>
+#include <media/msm_media_info.h>
+#include <cutils/properties.h>
 #include <mutex>
+
 #include "qmmf-sdk/qmmf_display.h"
 #include "qmmf-sdk/qmmf_display_params.h"
 #include "player/src/service/qmmf_player_video_decoder_core.h"
@@ -53,6 +57,9 @@ using ::qmmf::display::SurfaceParam;
 using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
+
+#define DISPLAY_WIDTH 1920
+#define DISPLAY_HEIGHT 1080
 
 namespace qmmf {
 namespace player {
@@ -134,6 +141,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t UpdateCropParameters(void* arg);
 
+  status_t GrabPicture(PictureParam param, BufferDescriptor& buffer);
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
@@ -184,12 +193,28 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t ReturnBufferToCodec(BufferDescriptor& codec_buffer);
 
+  int32_t AllocateGrabPictureBuffer(const uint32_t size);
+
+  status_t CopyGrabPictureBuffer(SurfaceBuffer& buffer, uint32_t size);
+
+  void GetSnapShotDumpsProperty();
+
   TrickModeSpeed           playback_speed_;
   TrickModeDirection       playback_dir_;
   uint64_t                 current_time_;
   uint64_t                 prev_time_;
   uint32_t                 displayed_frames_;
   std::mutex               state_change_lock_;
+  bool                     grab_picture_;
+  int32_t                  ion_device_;
+
+  int32_t                                grabpicture_file_fd_;
+  BufferDescriptor                       grab_picture_buffer_;
+  struct ion_handle_data                 grab_picture_ion_handle_;
+  Mutex                                  grab_picture_buffer_copy_lock_;
+  Condition                              wait_for_grab_picture_buffer_copy_;
+  uint32_t                               snapshot_dumps_;
+  std::mutex                             grab_picture_lock;
 };
 
 };  // namespace player
