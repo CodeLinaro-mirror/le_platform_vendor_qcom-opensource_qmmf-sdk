@@ -173,6 +173,10 @@ class CameraContext : public RefBase {
 
   bool IsReprocessNeed(const ImageParam &param);
 
+  CameraPort* GetPort(const uint32_t track_id);
+
+  void DeletePort(const uint32_t track_id);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
@@ -199,7 +203,7 @@ class CameraContext : public RefBase {
   sp<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  DefaultKeyedVector<uint32_t, sp<CameraPort> > active_ports_;
+  Vector<sp<CameraPort> > active_ports_;
 
   // Maps of buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
@@ -281,6 +285,10 @@ class CameraPort : public RefBase {
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
+  uint32_t GetConsumerId() { return consumer_id_; }
+
+  CameraPortType GetPortType() { return port_type_; }
+
  protected:
   CameraPortType         port_type_;
   CameraContext*         context_;
@@ -299,6 +307,7 @@ class CameraPort : public RefBase {
   Mutex                  consumer_lock_;
   bool                   ready_to_start_;
   size_t                 batch_size_;
+  uint32_t               consumer_id_;
 
   // map of <consumer id, IBufferConsumer>
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
