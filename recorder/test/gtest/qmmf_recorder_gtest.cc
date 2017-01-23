@@ -7732,7 +7732,6 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
-  static uint32_t snapshot_count = 0;
   const char* ext_str;
 
   if (meta_data.meta_flag  &
@@ -7780,7 +7779,8 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         break;
       }
 
-      file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+      file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
+          ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
@@ -7797,8 +7797,6 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
                 buffer.data, written_len, file_path.string());
-
-      snapshot_count++;
 
     FAIL:
       if (file != NULL) {
