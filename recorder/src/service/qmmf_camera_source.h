@@ -273,6 +273,7 @@ class TrackSource : public ICodecSource {
   Overlay  overlay_;
   bool     enable_overlay_;
 
+  float   source_frame_rate_;
   float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;
@@ -285,10 +286,11 @@ class TrackSource : public ICodecSource {
   SurfaceBuffer surface_buffer_;
   bool display_started_;
 
-#ifdef DEBUG_TRACK_FPS
+  uint32_t debug_fps_;
+  struct timeval input_prevtv_;
+  uint32_t input_count_;
   struct timeval prevtv_;
   uint32_t count_;
-#endif
 };
 
 }; //namespace recorder
