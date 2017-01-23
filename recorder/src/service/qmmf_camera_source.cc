@@ -49,6 +49,8 @@ using ::std::make_shared;
 using ::std::shared_ptr;
 
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
+static const int32_t kDebugTrackFps = 1<<0;
+static const int32_t kDebugSourceTrackFps = 1<<1;
 
 CameraSource* CameraSource::instance_ = nullptr;
 
@@ -509,7 +511,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_stop_(false),
       eos_acked_(false),
       enable_overlay_(false),
-      display_started_(0) {
+      display_started_(0),
+      input_count_(0),
+      count_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -517,8 +521,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(context.get() != nullptr);
   camera_context_ = context;
 
-  input_frame_rate_ = context->GetCameraStartParam().frame_rate;
-  QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
+  source_frame_rate_ = context->GetCameraStartParam().frame_rate;
+  QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, source_frame_rate_);
+  input_frame_rate_ = source_frame_rate_;
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
   remaining_frame_skip_time_ = output_frame_interval_;
@@ -526,7 +531,14 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
 
-  count_ = 0;
+  // TODO: There are issues related to how recorder service
+  // treats the adb properties at runtime. Once it gets resolved,
+  // the following lines for prop querying may be moved to
+  // OnFrameAvailable.
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DEBUG_FPS, prop_val, "1");
+  debug_fps_ = atoi(prop_val);
+
   QMMF_INFO("%s:%s: TrackSource (0x%p)", TAG, __func__, this);
 }
 
@@ -806,25 +818,15 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     }
   }
 
-  // Return buffer back to camera if frameskip is valid for this frame
-  // and is NOT a stop condition. In STOP condition, frame skip logic
-  // is bypassed as the buffer consumer may wait for the last buffer
-  // as part of stop processing. Skipping frames may result in timeouts
-  // in the consumer.
-  if ((!IsStop()) && IsFrameSkip()) {
-    // Skip frame to adjust fps.
-    ReturnBufferToProducer(buffer);
-    return;
-  }
-
-  // Dynamic FPS measurement
+  // Dynamic FPS measurement of source (Camera)
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-                       (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
-  count_++;
+                       (input_prevtv_.tv_sec * 1000000 +
+                       input_prevtv_.tv_usec));
+  input_count_++;
   if (time_diff >= FPS_TIME_INTERVAL) {
-    float framerate = (count_ * 1000000) / (float)time_diff;
+    float framerate = (input_count_ * 1000000) / (float)time_diff;
     bool is_first_time = (framerate <= 1.0);
 
     // Re-calculate input and output frame intervals if input framerate
@@ -843,12 +845,23 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
       remaining_frame_skip_time_ = output_frame_interval_;
     }
-#ifdef DEBUG_TRACK_FPS
-    QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
-              TrackId(), framerate);
-#endif
-    prevtv_ = tv;
-    count_ = 0;
+    if (debug_fps_ & kDebugSourceTrackFps) {
+      QMMF_INFO("%s:%s: track_id(%d): source fps: = %0.2f", TAG, __func__,
+                TrackId(), framerate);
+    }
+    input_prevtv_ = tv;
+    input_count_ = 0;
+  }
+
+  // Return buffer back to camera if frameskip is valid for this frame
+  // and is NOT a stop condition. In STOP condition, frame skip logic
+  // is bypassed as the buffer consumer may wait for the last buffer
+  // as part of stop processing. Skipping frames may result in timeouts
+  // in the consumer.
+  if ((!IsStop()) && IsFrameSkip()) {
+    // Skip frame to adjust fps.
+    ReturnBufferToProducer(buffer);
+    return;
   }
 
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
@@ -968,6 +981,22 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
 void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  // Dynamic FPS measurement of Track
+  if (debug_fps_ & kDebugTrackFps) {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
+                         (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
+    count_++;
+    if (time_diff >= FPS_TIME_INTERVAL) {
+      float framerate = (count_ * 1000000) / (float)time_diff;
+      QMMF_INFO("%s:%s: track_id(%d): track fps: = %0.2f", TAG, __func__,
+                TrackId(), framerate);
+      prevtv_ = tv;
+      count_ = 0;
+    }
+  }
 
   Mutex::Autolock lock(lock_);
   frames_received_.PushBack(buffer);

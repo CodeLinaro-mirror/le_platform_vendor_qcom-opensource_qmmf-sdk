@@ -148,12 +148,11 @@ class TrackEncoder : public ICodecSource {
   int32_t                    file_fd_;
 #endif
 
-#ifdef DEBUG_TRACK_FPS
-  uint32_t  num_bytes_;
+  // Encoded stream Dynamic FPS measurement
+  uint32_t                   debug_fps_;
+  uint32_t                   num_bytes_;
   struct timeval             prevtv_;
   uint32_t                   count_;
-#endif
-
 };
 
 }; // namespace recorder

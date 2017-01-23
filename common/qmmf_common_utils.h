@@ -40,6 +40,7 @@
 #include <utils/Log.h>
 #include <system/graphics.h>
 #include <system/window.h>
+#include <cutils/properties.h>
 
 #include "common/qmmf_log.h"
 #include "qmmf-sdk/qmmf_codec.h"
