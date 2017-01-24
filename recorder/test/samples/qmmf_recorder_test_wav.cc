@@ -145,23 +145,21 @@ int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
                buffer.ToString().c_str());
   lock_guard<mutex> lock(lock_);
 
-  if (buffer.size == 0) {
-    QMMF_WARN("%s: %s() buffer size is 0", TAG, __func__);
-    return 0;
-  }
   if (!output_.is_open()) {
     QMMF_WARN("%s: %s() handle is not open, skipping", TAG, __func__);
     return 0;
   }
 
-  streampos before = output_.tellp();
-  output_.write(reinterpret_cast<const char *>(buffer.data), buffer.size);
-  streampos after = output_.tellp();
-  if (after - before != buffer.size)
-    QMMF_WARN("%s: %s() failed to write AAC data: size[%u] written[%llu]",
-              TAG, __func__, buffer.size, after - before);
+  if (buffer.size > 0) {
+    streampos before = output_.tellp();
+    output_.write(reinterpret_cast<const char *>(buffer.data), buffer.size);
+    streampos after = output_.tellp();
+    if (after - before != buffer.size)
+      QMMF_WARN("%s: %s() failed to write AAC data: size[%u] written[%llu]",
+                TAG, __func__, buffer.size, after - before);
 
-  current_data_size_ += after - before;
+    current_data_size_ += after - before;
+  }
 
   // finalize the file
   if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS) ||
