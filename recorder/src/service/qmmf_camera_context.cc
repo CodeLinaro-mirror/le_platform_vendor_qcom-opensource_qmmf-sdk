@@ -474,19 +474,19 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
   client_snapshot_cb_ = cb;
   burst_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
-    bool reconfigure_needed_ = (snapshot_param_.width !=
+
+    bool reconfigure_needed = (snapshot_param_.width !=
         param.width) ||
         (snapshot_param_.height != param.height) ||
         snapshot_request_.streamIds.isEmpty() ||
-        (reprocess_enable_ != IsReprocessNeed(param)) ||
-        (sequence_cnt_ != num_images);
+        (reprocess_enable_ != IsReprocessNeed(param));
 
     sequence_cnt_ = num_images;
 
-    QMMF_INFO("%s:%s: reconfigure_needed_=%d", TAG, __func__,
-        reconfigure_needed_);
+    QMMF_INFO("%s:%s: reconfigure_needed=%d", TAG, __func__,
+        reconfigure_needed);
 
-    if (reconfigure_needed_) {
+    if (reconfigure_needed) {
       ret = CreateSnapshotStream(param);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s:%s Failed during snapshot re-configure",
