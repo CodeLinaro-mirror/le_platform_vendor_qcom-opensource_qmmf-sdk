@@ -3781,6 +3781,7 @@ int main(int argc,char *argv[]) {
       case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMG711Track();
       }
+      break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {
           test_context.SessionRDITrack();
       }
@@ -3840,6 +3841,7 @@ int main(int argc,char *argv[]) {
       case CmdMenu::IR_MODE_CMD: {
         test_context.ToggleIR();
       }
+      break;
       case CmdMenu::CHOOSE_CAMERA_CMD: {
         test_context.ChooseCamera();
       }
