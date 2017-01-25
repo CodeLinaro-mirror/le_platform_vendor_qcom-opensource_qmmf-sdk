@@ -74,7 +74,7 @@ class CameraContext : public CameraInterface {
 
   status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
-                        const SnapshotCb& cb) override;
+                        const StreamSnapshotCb& cb) override;
 
   status_t CancelCaptureImage();
 
@@ -147,8 +147,6 @@ class CameraContext : public CameraInterface {
 
   status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
 
-  uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
-
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
@@ -195,7 +193,7 @@ class CameraContext : public CameraInterface {
   Camera3Request           snapshot_request_;
   int32_t                  snapshot_request_id_;
   ImageParam               snapshot_param_;
-  SnapshotCb               client_snapshot_cb_;
+  StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
   uint32_t                 burst_cnt_;
   bool                     reprocess_enable_;

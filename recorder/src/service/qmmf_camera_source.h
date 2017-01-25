@@ -149,12 +149,16 @@ class CameraSource {
  private:
 
   bool IsTrackIdValid(const uint32_t track_id);
+  void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
+  uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
 
   // Map of camera id and CameraContext.
   DefaultKeyedVector<uint32_t, sp<CameraInterface>> camera_map_;
 
   // Map of track it and TrackSources.
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
+
+  SnapshotCb client_snapshot_cb_;
 
   // Not allowed
   CameraSource();
