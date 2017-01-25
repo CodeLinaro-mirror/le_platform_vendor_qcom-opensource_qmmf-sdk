@@ -75,6 +75,7 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 #define MAX_OVERLAYS  10
 #define BG_TRANSPARENT_COLOR 0xFFFFFF00
 #define BG_DEBUG_COLOR       0xFFE5CC80 //Light gray.
+#define DOWNSCALE_FACTOR     4
 
 // Remove comment marker to enable backgroud surface drawing of overlay objects.
 //#define DEBUG_BACKGROUND_SURFACE
@@ -220,9 +221,9 @@ class OverlayItemDateAndTime: public OverlayItem {
 #endif
 };
 
-#define BOUNDING_BOX_BUF_WIDTH     240
-#define BOUNDING_BOX_BUF_HEIGHT    135
-#define BOUNDING_BOX_STROKE_WIDTH  5
+#define BOUNDING_BOX_BUF_WIDTH     480
+#define BOUNDING_BOX_BUF_HEIGHT    270
+#define BOUNDING_BOX_STROKE_WIDTH  4
 #define BOUNDING_BOX_TEXT_LIMIT    20
 #define BOUNDING_BOX_TEXT_SIZE     25
 #define BOUNDING_BOX_TEXT_PERCENT  20
@@ -253,7 +254,9 @@ class OverlayItemBoundingBox: public OverlayItem {
   SkCanvas*            canvas_;
 #endif
   android::String8  bbox_name_;
-  uint32_t          text_height_;
+  uint32_t          text_height_   = 0;
+  int32_t           buffer_width_  = 0;
+  int32_t           buffer_height_ = 0;
 };
 
 #define TEXT_BUF_WIDTH              480

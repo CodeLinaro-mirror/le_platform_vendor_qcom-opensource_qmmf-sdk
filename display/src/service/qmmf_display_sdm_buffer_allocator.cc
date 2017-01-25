@@ -278,6 +278,13 @@ int DisplayBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
 
   return 0;
 }
+
+DisplayError DisplayBufferAllocator::GetAllocatedBufferInfo(const BufferConfig &buffer_config,
+                                     AllocatedBufferInfo *allocated_buffer_info) {
+  QMMF_ERROR("NotSupported");
+  return kErrorNotSupported;
+}
+
 }; // namespace display
 
 }; //namespace qmmf

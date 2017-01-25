@@ -88,6 +88,7 @@ struct SnapshotInfo {
    SnapshotType   type;
    uint32_t       width;
    uint32_t       height;
+   uint32_t       count;
 };
 
 enum class TrackType {
@@ -133,6 +134,7 @@ public:
             camera_id(-1),
             snapshot_info {
               SnapshotType::kNone,
+              0,
               0,
               0
             },

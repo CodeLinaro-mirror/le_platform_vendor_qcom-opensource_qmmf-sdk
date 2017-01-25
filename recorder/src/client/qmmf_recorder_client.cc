@@ -1037,7 +1037,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
       buf_info.pointer   = vaddr;
       buf_info.ion_fd    = ion_info_fd.fd;
-      buf_info.frame_len = bn_buffers[i].size;
+      buf_info.frame_len = bn_buffers[i].capacity;
       buf_info.ion_handle = ion_info_fd.handle;
 
       DefaultKeyedVector<uint32_t, BufInfo> buffer_map;

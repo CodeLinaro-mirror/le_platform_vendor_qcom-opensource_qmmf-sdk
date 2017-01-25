@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -218,9 +218,9 @@ struct ImageCaptureConfigInternal : public ImageCaptureConfig {
     parcel->writeInt32(static_cast<int32_t>(with_camera_meta));
     parcel->writeInt32(static_cast<int32_t>(with_raw));
     parcel->writeInt32(static_cast<int32_t>(raw_image_format));
-    parcel->writeUint32(thumbnail_image_param.size());
-    for (const ImageParam& image_param : thumbnail_image_param)
-      ImageParamInternal(image_param).ToParcel(parcel);
+    parcel->writeUint32(num_thumbnail_image_param);
+    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
+      ImageParamInternal(thumbnail_image_param[i]).ToParcel(parcel);
   }
 
   ImageCaptureConfigInternal& FromParcel(const ::android::Parcel& parcel) {
@@ -229,9 +229,11 @@ struct ImageCaptureConfigInternal : public ImageCaptureConfig {
     with_camera_meta = static_cast<bool>(parcel.readInt32());
     with_raw = static_cast<bool>(parcel.readInt32());
     raw_image_format = static_cast<ImageFormat>(parcel.readInt32());
-    size_t number_of_elements = parcel.readUint32();
-    for (size_t index = 0; index < number_of_elements; ++index)
-      thumbnail_image_param.push_back(ImageParamInternal().FromParcel(parcel));
+    num_thumbnail_image_param = static_cast<uint32_t>(parcel.readUint32());
+    if (num_thumbnail_image_param > QMMF_ARRAY_SIZE(thumbnail_image_param))
+      num_thumbnail_image_param = QMMF_ARRAY_SIZE(thumbnail_image_param);
+    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
+      ImageParamInternal(thumbnail_image_param[i]).FromParcel(parcel);
     return *this;
   }
 };
