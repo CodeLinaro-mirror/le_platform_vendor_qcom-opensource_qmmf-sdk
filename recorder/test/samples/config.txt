@@ -4,6 +4,7 @@
  *                 : RAWYUV (Raw YUV snapshot),RAWRDI (Raw snapshot).
  * SnapshotWidth   : Width of snapshot,0 (Take snapshot with max size).
  * SnapshotHeight  : Height of snapshot,0 (Take snapshot with max size).
+ * SnapshotCount   : Count of snapshot (The Max count of continus snapshot is 30).
  * AFMode          : None (Not to operate auto focus[default]), Off (Disable Auto focus),
  *                 : AUTO (Auto Focus), MACRO (Macro Focus Mode),CVAF (Continuous-video ),
  *                 : CPAF (Continuous-picture), EDOF (EDOF Mode).
@@ -11,7 +12,8 @@
  * NumStream       : Number of stream to record.
  * TNR             : 1(Enable tnr), 0(Disable tnr)
  * VHDR            : 1(Enable vhdr), 0(Disable vhdr)
- * TrackType       : YUV, AVC (to be extended for Audio)
+ * TrackType       : YUV(Track YUV format stream), AVC(Track AVC format stream),
+ *                 : HEVC(Track HEVC format stream), RAW(Track RAW format stream).
  * CamLowPowerMode : 0 (with post processing), 1 (without post processing)
  */
 
@@ -19,6 +21,7 @@ CameraID          : 0
 SnapshotType      : None
 SnapshotWidth     : 3840
 SnapshotHeight    : 2160
+SnapshotCount     : 0
 AFMode            : None
 RecordingTime     : 10
 NumStream         : 2

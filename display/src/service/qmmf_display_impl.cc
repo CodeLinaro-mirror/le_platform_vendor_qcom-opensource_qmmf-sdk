@@ -599,6 +599,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->flags.cursor = surface_param.surface_flags.cursor;
   layer->input_buffer.planes[0].fd = surface_buffer.plane_info[0].ion_fd;
   layer->input_buffer.buffer_id = surface_buffer.buf_id;
+  layer->flags.updating = true;
   if (surfaceinfo->second->buffer_internal) {
     auto buf_id_use = surfaceinfo->second->buf_id_use.find
         (surface_buffer.buf_id);
