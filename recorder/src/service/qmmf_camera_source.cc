@@ -214,9 +214,12 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
     return BAD_VALUE;
   }
   assert(camera.get() != nullptr);
-  auto ret = camera->CaptureImage(param, num_images, meta, cb);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
+
+  client_snapshot_cb_ = cb;
+  StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
+    SnapshotCallback(count, buf);
+  };
+  auto ret = camera->CaptureImage(param, num_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
     return ret;
@@ -572,6 +575,82 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
     }
   }
   return valid;
+}
+
+uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
+
+  uint32_t ret = width;
+  uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
+
+  if (width > blob_size) {
+    size_t offset = width - blob_size;
+    uint8_t *footer = blobBuffer + offset;
+    struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
+
+    if (CAMERA3_JPEG_BLOB_ID == jpegBlob->jpeg_blob_id) {
+      ret = jpegBlob->jpeg_size;
+    } else {
+      QMMF_ERROR("%s:%s Jpeg Blob structure missing!\n", TAG, __func__);
+    }
+  } else {
+    QMMF_ERROR("%s:%s Buffer width: %u equal or smaller than Blob size: %u\n",
+        TAG, __func__, width, blob_size);
+  }
+  return ret;
+}
+
+void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
+
+  uint32_t content_size;
+  int32_t width = -1, height = -1;
+  void* vaddr = nullptr;
+  switch (buffer.info.format) {
+    case BufferFormat::kNV12:
+    case BufferFormat::kNV21:
+    case BufferFormat::kRAW10:
+    case BufferFormat::kRAW16:
+      width  = buffer.info.plane_info[0].width;
+      height = buffer.info.plane_info[0].height;
+      content_size = buffer.size;
+      break;
+    case BufferFormat::kBLOB:
+      vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+          buffer.fd, 0);
+      assert(vaddr != nullptr);
+      assert(0 < buffer.info.num_planes);
+      content_size = GetJpegSize((uint8_t*) vaddr,
+                                 buffer.info.plane_info[0].width);
+      QMMF_INFO("%s:%s: jpeg buffer size(%d)", TAG, __func__, content_size);
+      assert(0 < content_size);
+      if (vaddr) {
+        munmap(vaddr, buffer.size);
+        vaddr = nullptr;
+      }
+      width  = -1;
+      height = -1;
+    break;
+    default:
+      QMMF_ERROR("%s:%s format(%d) not supported", TAG, __func__,
+          buffer.info.format);
+      assert(0);
+    break;
+  }
+
+  BnBuffer bn_buffer;
+  memset(&bn_buffer, 0x0, sizeof bn_buffer);
+  bn_buffer.ion_fd    = buffer.fd;
+  bn_buffer.size      = content_size;
+  bn_buffer.timestamp = buffer.timestamp;
+  bn_buffer.width     = width;
+  bn_buffer.height    = height;
+  bn_buffer.buffer_id = buffer.fd;
+  bn_buffer.capacity  = buffer.size;
+
+  MetaData meta_data;
+  memset(&meta_data, 0x0, sizeof meta_data);
+  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
+  meta_data.cam_buffer_meta_data = buffer.info;
+  client_snapshot_cb_(buffer.camera_id, count, bn_buffer, meta_data);
 }
 
 TrackSource::TrackSource(const VideoTrackParams& params,
