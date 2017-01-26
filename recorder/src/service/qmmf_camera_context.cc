@@ -1136,6 +1136,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
+    Mutex::Autolock sync_lock(sync_frame_lock_);
     if (!removed_streams.isEmpty()) {
       sync_frame_.stream_ids.clear();
       sync_frame_.stream_ids.appendVector(removed_streams);
@@ -1148,7 +1149,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     }
     streaming_request_id_ = ret;
     while (!sync_frame_.stream_ids.isEmpty()) {
-      auto stat = sync_frame_cond_.waitRelative(device_access_lock_,
+      auto stat = sync_frame_cond_.waitRelative(sync_frame_lock_,
                                                 kSyncFrameWaitDuration);
       if (NO_ERROR == ret) {
           QMMF_ERROR("%s:%s: Sync frame condition failed: %d\n",
@@ -1207,8 +1208,8 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
   assert(ret == NO_ERROR);
 
+  Mutex::Autolock lock(sync_frame_lock_);
   if (sync_frame_.last_frame_id == buffer.frame_number) {
-    Mutex::Autolock lock(device_access_lock_);
     if (!sync_frame_.stream_ids.isEmpty()) {
       ssize_t idx = -1;
       size_t count = sync_frame_.stream_ids.size();
