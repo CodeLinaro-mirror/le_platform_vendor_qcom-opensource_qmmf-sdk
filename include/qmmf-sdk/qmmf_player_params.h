@@ -37,6 +37,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "include/qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_buffer.h"
 
 namespace qmmf {
 namespace player {
@@ -151,6 +152,7 @@ typedef struct PictureCallback {
     std::function<void( EventType event_type,
                         void *event_data,
                         size_t event_data_size)> event_cb;
+    std::function<void(BufferDescriptor& buffer)> data_cb;
 } PictureCallback;
 
 };
