@@ -51,6 +51,8 @@
 // Sleep for specified seconds to allow settling after parameter change
 #define PARAMETER_SETTLE_INTERVAL(x) sleep(x)
 
+#define FEATURE_NOT_AVAILABLE  "Not available"
+
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
@@ -129,6 +131,7 @@ public:
     uint32_t               numStream;
     bool                   tnr;
     bool                   vhdr;
+    bool                   binning_correct;
 
     TestInitParams() :
             camera_id(-1),
@@ -142,7 +145,8 @@ public:
             recordTime(0),
             numStream(0),
             tnr(0),
-            vhdr(0) {};
+            vhdr(0),
+            binning_correct(false) {};
 };
 
 
@@ -241,11 +245,13 @@ class RecorderTest {
   int32_t ToggleVHDR();
   int32_t ToggleIR();
   status_t ToggleAFMode(const AfMode& af_mode);
+  int32_t ToggleBinningCorrectionMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
+  std::string GetCurrentBinningCorrectionMode();
   status_t GetCurrentAFMode(int32_t& mode);
 
   // Config file related.
@@ -279,9 +285,14 @@ class RecorderTest {
   typedef std::map <int32_t, std::string>::iterator vhdr_modes_iter;
   typedef std::map <int32_t, std::string> ir_modes_map;
   typedef std::map <int32_t, std::string>::iterator ir_modes_iter;
+  typedef std::map <int32_t, std::string> bc_modes_map;
+  typedef std::map <int32_t, std::string>::iterator bc_modes_iter;
   void InitSupportedNRModes();
   void InitSupportedVHDRModes();
   void InitSupportedIRModes();
+  void InitSupportedBinningCorrectionModes();
+
+  int32_t SetBinningCorrectionMode(const bool& mode);
 
   // <session_id, vector<TestTrack*> >
   std::map <uint32_t , std::vector<TestTrack*> > sessions_;
@@ -293,7 +304,9 @@ class RecorderTest {
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
+  bc_modes_map supported_bc_modes_;
   bool use_display;
+
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -418,6 +431,7 @@ public:
         EXIT_CMD                                = 'X',
         CHOOSE_CAMERA_CMD                       = 'C',
         SET_ANTIBANDING_MODE_CMD                = 'W',
+        BINNING_CORRECTION_CMD                  = '#',
         NEXT_CMD                                = '\n',
         INVALID_CMD                             = '0'
     };
