@@ -219,14 +219,28 @@ status_t PlayerClient::DeleteAudioTrack(uint32_t track_id) {
       BufInfo buf_info = info_map.valueAt(j);
       QMMF_INFO("%s:%s: track_id(%d):buf_info.client_fd(%d) to close", TAG,
           __func__, track_id, buf_info.client_fd);
-      if (buf_info.client_fd > 0) {
-        close(buf_info.client_fd);
+      if (buf_info.vaddr != nullptr) {
+        struct ion_handle_data ion_handle;
+        memset(&ion_handle, 0, sizeof(ion_handle));
+        ion_handle.handle = buf_info.ion_handle;
+        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        }
+
+        QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
+            TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
+        if (buf_info.vaddr != nullptr) {
+          munmap(buf_info.vaddr, buf_info.frame_len);
+          buf_info.vaddr = nullptr;
+        }
       }
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
-          TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
-      if (buf_info.vaddr != NULL) {
-        munmap(buf_info.vaddr, buf_info.frame_len);
-        buf_info.vaddr = NULL;
+
+      if (buf_info.client_fd > 0) {
+        auto stat = close(buf_info.client_fd);
+        if (0 != stat) {
+          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+              buf_info.client_fd, -errno);
+        }
       }
     }
     track_buf_map_.removeItem(track_id);
@@ -260,14 +274,29 @@ status_t PlayerClient::DeleteVideoTrack(uint32_t track_id) {
       BufInfo buf_info = info_map.valueAt(j);
       QMMF_INFO("%s:%s: track_id(%d):buf_info.client_fd(%d) to close", TAG,
           __func__, track_id, buf_info.client_fd);
-      if (buf_info.client_fd > 0) {
-        close(buf_info.client_fd);
+
+      if (buf_info.vaddr != nullptr) {
+        struct ion_handle_data ion_handle;
+        memset(&ion_handle, 0, sizeof(ion_handle));
+        ion_handle.handle = buf_info.ion_handle;
+        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        }
+
+        QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
+            TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
+        if (buf_info.vaddr != nullptr) {
+          munmap(buf_info.vaddr, buf_info.frame_len);
+          buf_info.vaddr = nullptr;
+        }
       }
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
-          TAG, __func__, track_id, buf_info.vaddr, buf_info.frame_len);
-      if (buf_info.vaddr != NULL) {
-        munmap(buf_info.vaddr, buf_info.frame_len);
-        buf_info.vaddr = NULL;
+
+      if (buf_info.client_fd > 0) {
+        auto stat = close(buf_info.client_fd);
+        if (0 != stat) {
+          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+              buf_info.client_fd, -errno);
+        }
       }
     }
     track_buf_map_.removeItem(track_id);
@@ -313,7 +342,7 @@ status_t PlayerClient::DequeueInputBuffer(
   }
 
   int32_t size = buffers.size();
-  void* vaddr;
+  void* vaddr = nullptr;
 
   std::vector<AVCodecBuffer> codecbuffer;
   AVCodecBuffer cb;
@@ -371,14 +400,15 @@ status_t PlayerClient::DequeueInputBuffer(
             ion_info_fd.fd);
       }
       QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
-      vaddr = mmap(NULL, codecbuffer[i].frame_length, PROT_READ | PROT_WRITE,
-                        MAP_SHARED, ion_info_fd.fd, 0);
-      assert(vaddr != NULL);
+      vaddr = mmap(nullptr, codecbuffer[i].frame_length, PROT_READ | PROT_WRITE,
+                   MAP_SHARED, ion_info_fd.fd, 0);
+      assert(vaddr != nullptr);
 
-      bufinfo.vaddr     = vaddr;
-      bufinfo.buf_id    = codecbuffer[i].buf_id;
-      bufinfo.client_fd = codecbuffer[i].fd;
-      bufinfo.frame_len = codecbuffer[i].frame_length;
+      bufinfo.vaddr      = vaddr;
+      bufinfo.buf_id     = codecbuffer[i].buf_id;
+      bufinfo.client_fd  = codecbuffer[i].fd;
+      bufinfo.frame_len  = codecbuffer[i].frame_length;
+      bufinfo.ion_handle = ion_info_fd.handle;
 
        DefaultKeyedVector<uint32_t, BufInfo> buffer_map;
        if (track_buf_map_.isEmpty()) {
@@ -654,7 +684,7 @@ status_t PlayerClient::SetVideoTrackParam(uint32_t track_id,
 bool PlayerClient::CheckServiceStatus() {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   bool connected = true;
-  if (NULL == player_service_.get()) {
+  if (nullptr == player_service_.get()) {
     QMMF_WARN("%s:%s Not connected to Player service!", TAG, __func__);
     connected = false;
   }
@@ -713,6 +743,52 @@ void PlayerClient::NotifyDeleteAudioTrack(uint32_t track_id) {
 
 void PlayerClient::NotifyDeleteVideoTrack(uint32_t track_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+}
+
+void PlayerClient::NotifyGrabPictureData(BufferDescriptor& buffer) {
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  void* vaddr = nullptr;
+  struct ion_fd_data ion_info_fd;
+  memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
+
+  ion_info_fd.fd = buffer.fd;
+  auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
+        ion_info_fd.fd);
+  }
+
+  QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
+  vaddr = mmap(nullptr, buffer.capacity, PROT_READ | PROT_WRITE,
+               MAP_SHARED, ion_info_fd.fd, 0);
+  assert(vaddr != nullptr);
+
+  buffer.data = vaddr;
+  buffer.fd = ion_info_fd.fd;
+
+  picture_cb_.data_cb(buffer);
+
+  // free ion fd
+  struct ion_handle_data ion_handle;
+  memset(&ion_handle, 0, sizeof(ion_handle));
+  ion_handle.handle = ion_info_fd.handle;
+  if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+    QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+  }
+
+  // unmap memory
+  if (vaddr != nullptr) {
+    munmap(vaddr, buffer.capacity);
+    vaddr = nullptr;
+  }
+
+  // close fd
+  if (ion_info_fd.fd > 0) {
+    close(ion_info_fd.fd);
+  }
+
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1051,7 +1127,7 @@ void ServiceCallbackHandler::NotifyPlayerEvent(EventType event_type,
                                                void *event_data,
                                                size_t event_data_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyPlayerEvent(event_type,event_data,event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1063,8 +1139,8 @@ void ServiceCallbackHandler::NotifyVideoTrackData(
     TrackMetaBufferType meta_type,
     size_t meta_size) {
 
-  QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
-  assert(client_ != NULL);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  assert(client_ != nullptr);
   client_->NotifyVideoTrackData(track_id, bn_buffers, meta_param, meta_type,
     meta_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -1075,7 +1151,7 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
                                                    void *event_data,
                                                    size_t event_data_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyVideoTrackEvent(track_id, event_type, event_data,
   event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -1092,7 +1168,7 @@ void ServiceCallbackHandler::NotifyAudioTrackData(
   for (const BnTrackBuffer& bn_buffer : bn_buffers)
   QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
                bn_buffer.ToString().c_str());
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyAudioTrackData(track_id, bn_buffers, meta_param, meta_type,
                               meta_size);
 
@@ -1107,10 +1183,17 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
              static_cast<int>(event_type));
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
                                event_data_size);
 
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+}
+
+void ServiceCallbackHandler::NotifyGrabPictureData(BufferDescriptor& buffer){
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  assert(client_ != nullptr);
+  client_->NotifyGrabPictureData(buffer);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1179,6 +1262,26 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
     QMMF_VERBOSE("%s:Bp%s: Exit", TAG, __func__);
   }
 
+  void NotifyGrabPictureData(BufferDescriptor& buffer) {
+    QMMF_DEBUG("%s:Bp%s: Enter", TAG, __func__);
+
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerServiceCallback::getInterfaceDescriptor());
+    data.writeFileDescriptor(buffer.fd);
+    uint32_t size = sizeof buffer;
+    data.writeUint32(size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(size, false, &blob);
+    memset(blob.data(), 0x0, size);
+    memcpy(blob.data(), reinterpret_cast<void*>(&buffer), size);
+
+    remote()->transact(uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_GRAB_PICTURE_DATA),
+       data, &reply,IBinder::FLAG_ONEWAY);
+
+    blob.release();
+    QMMF_DEBUG("%s:Bp%s: Exit", TAG, __func__);
+  }
+
  private:
   // vector <ion_fd, bool>
   typedef DefaultKeyedVector <uint32_t, bool> buffer_map;
@@ -1240,7 +1343,7 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       QMMF_VERBOSE("%s:Bn%s: buffers.size()=%d", TAG, __func__, buffers.size());
       uint32_t meta_size, meta_type =
           static_cast<uint32_t>(TrackMetaBufferType::kNone);
-      void* meta_param = NULL;
+      void* meta_param = nullptr;
       android::Parcel::ReadableBlob meta_blob;
       data.readUint32(&meta_size);
       if (meta_size > 0) {
@@ -1299,7 +1402,24 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       return NO_ERROR;
     }
     break;
+    case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_GRAB_PICTURE_DATA: {
+      QMMF_DEBUG("%s:%s-NotifyGrabPictureData() TRACE", TAG, __func__);
 
+      uint32_t size;
+      uint32_t ion_fd = dup(data.readFileDescriptor());
+      data.readUint32(&size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(size, &blob);
+      void* buf = const_cast<void*>(blob.data());
+      BufferDescriptor buffer;
+      memset(&buffer, 0x0, sizeof buffer);
+      memcpy(&buffer, buf, size);
+      buffer.fd = ion_fd;
+      NotifyGrabPictureData(buffer);
+      blob.release();
+      return NO_ERROR;
+    }
+    break;
     default: {
       QMMF_ERROR("%s:%s Method not supported ", TAG, __func__);
     }

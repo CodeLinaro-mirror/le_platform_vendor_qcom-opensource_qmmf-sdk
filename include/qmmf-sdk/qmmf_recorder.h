@@ -238,7 +238,7 @@ class Recorder {
   ///
   /// CaptureImage is a async API. Clients can call CancelCaptureImage anytime
   /// after CaptureImage to cancel pending image captures
-  status_t CancelCaptureImage();
+  status_t CancelCaptureImage(const uint32_t camera_id);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const BufferDescriptor &buffer);

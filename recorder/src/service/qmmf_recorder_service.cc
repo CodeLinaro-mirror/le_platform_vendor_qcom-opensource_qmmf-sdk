@@ -300,7 +300,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_CANCEL_IMAGECAPTURE: {
-        ret = Disconnect();
+        uint32_t camera_id;
+        data.readUint32(&camera_id);
+        ret = CancelCaptureImage(camera_id);
         reply->writeInt32(ret);
         return ret;
       }
@@ -778,9 +780,16 @@ status_t RecorderService::ConfigImageCapture(const uint32_t camera_id,
   return NO_ERROR;
 }
 
-status_t RecorderService::CancelCaptureImage() {
+status_t RecorderService::CancelCaptureImage(const uint32_t camera_id) {
 
-  // NOT IMPLEMENTED YET.
+  QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  assert(recorder_ != NULL);
+  auto ret = recorder_->CancelCaptureImage(camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CancelCaptureImage failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit ", TAG, __func__);
   return NO_ERROR;
 }
 

@@ -104,13 +104,44 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
+void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  String8 snapshot_filepath;
+  uint32_t size;
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+
+  snapshot_filepath.appendFormat("/data/player_snapshot_%dx%d_%lu.%s",
+      m_sTrackInfo_.sVideo.ulWidth, m_sTrackInfo_.sVideo.ulHeight,
+      tv.tv_sec, "yuv");
+
+  grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(grabpicture_file_fd_ >= 0);
+
+  size = (m_sTrackInfo_.sVideo.ulWidth * m_sTrackInfo_.sVideo.ulHeight*3)/2;
+  TEST_DBG("%s:%s: vaddr 0x%p", TAG, __func__,buffer.data);
+  TEST_DBG("%s:%s: size %u", TAG, __func__, size);
+
+  uint32_t bytes_written;
+  bytes_written  = write(grabpicture_file_fd_, buffer.data, size);
+  if (bytes_written !=  size) {
+    QMMF_ERROR("Bytes written != %d and written = %u",
+        size, bytes_written);
+  }
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
       audioLastFrame_(false), videoLastFrame_(false),
       paused_(false), current_state_("Idle"),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
-      playback_dir_(TrickModeDirection::kForward) {
+      playback_dir_(TrickModeDirection::kForward),
+      grabpicture_file_fd_(-1) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -137,7 +168,8 @@ PlayerTest::PlayerTest(char* filename_)
       audioLastFrame_(false), videoLastFrame_(false),
       paused_(false), current_state_("Idle"),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
-      playback_dir_(TrickModeDirection::kForward) {
+      playback_dir_(TrickModeDirection::kForward),
+      grabpicture_file_fd_(-1) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -161,6 +193,9 @@ PlayerTest::~PlayerTest() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   statemap_.clear();
+  if (grabpicture_file_fd_ > 0) {
+    close(grabpicture_file_fd_);
+  }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -287,11 +322,15 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
       audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
       audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
       audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
-    } else if (m_sTrackInfo_.sAudio.ulCodecType == 55) {  //need verification
-      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 7) {
+      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.sample_rate = 16000;
+      audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 0;
-    } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {  //need verification
-      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {
+      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.sample_rate = 16000;
+      audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 1;
     }
     audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
@@ -783,8 +822,20 @@ int32_t PlayerTest::SetTrickMode() {
 
 int32_t PlayerTest::GrabPicture() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-    auto ret = 0;
-  //player_.GrabPicture();
+  auto ret = 0;
+
+  PictureParam param_;
+  PictureCallback picture_cb_;
+
+  memset(&param_, 0x0, sizeof param_);
+  param_.height = m_sTrackInfo_.sVideo.ulHeight;
+  param_.width = m_sTrackInfo_.sVideo.ulWidth;
+  param_.quality = 1;
+
+  picture_cb_.data_cb = [&] (BufferDescriptor& buffer)
+      {GrabPictureDataCB(buffer);};
+
+  player_.GrabPicture(param_, picture_cb_);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1074,6 +1125,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
+  printf("   %c. GrabPicture\n", CmdMenu::GRAB_PICTURE);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1148,6 +1200,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::TRICK_MODE_CMD: {
         test_context.SetTrickMode();
+      }
+      break;
+      case CmdMenu::GRAB_PICTURE: {
+        test_context.GrabPicture();
       }
       break;
       case CmdMenu::NEXT_CMD: {

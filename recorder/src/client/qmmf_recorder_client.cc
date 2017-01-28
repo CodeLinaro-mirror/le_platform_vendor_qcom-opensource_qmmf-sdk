@@ -709,15 +709,14 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
   return ret;
 }
 
-status_t RecorderClient::CancelCaptureImage() {
+status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
-  auto ret = recorder_service_->CancelCaptureImage();
+  auto ret = recorder_service_->CancelCaptureImage(camera_id);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s CancelCaptureImage failed!", TAG, __func__);
   }
@@ -1480,9 +1479,10 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return 0;
   }
 
-  status_t CancelCaptureImage() {
+  status_t CancelCaptureImage(const uint32_t camera_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(camera_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_CANCEL_IMAGECAPTURE), data, &reply);
     return reply.readInt32();

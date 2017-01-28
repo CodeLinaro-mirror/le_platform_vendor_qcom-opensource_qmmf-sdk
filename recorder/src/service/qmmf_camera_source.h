@@ -83,7 +83,7 @@ class CameraSource {
                         const std::vector<CameraMetadata> &meta,
                         const SnapshotCb& cb);
 
-  status_t CancelCaptureImage();
+  status_t CancelCaptureImage(const uint32_t camera_id);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                            const int32_t buffer_id);
