@@ -6794,15 +6794,13 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
-    StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
-      format_type,
-      video_track_id,
-      width,
-      height };
-    track1_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
-  }
+  StreamDumpInfo dumpinfo = {
+    track1_bitstream_filefd_,
+    format_type,
+    video_track_id,
+    width,
+    height };
+  track1_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
 
   TrackCb video_track_cb;
   video_track_cb.data_cb =
