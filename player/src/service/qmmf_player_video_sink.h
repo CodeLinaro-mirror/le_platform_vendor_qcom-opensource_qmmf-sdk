@@ -39,6 +39,7 @@
 #include <sys/ioctl.h>
 #include <linux/msm_ion.h>
 #include <unistd.h>
+#include <mutex>
 #include "qmmf-sdk/qmmf_display.h"
 #include "qmmf-sdk/qmmf_display_params.h"
 #include "player/src/service/qmmf_player_video_decoder_core.h"
@@ -188,6 +189,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   uint64_t                 current_time_;
   uint64_t                 prev_time_;
   uint32_t                 displayed_frames_;
+  std::mutex               state_change_lock_;
 };
 
 };  // namespace player

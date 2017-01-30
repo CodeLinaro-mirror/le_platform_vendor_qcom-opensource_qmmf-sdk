@@ -101,5 +101,6 @@ AC_CONFIG_FILES([ \
     display/test/gtest/Makefile \
     player/test/demuxer/Makefile \
     player/test/samples/Makefile \
+    player/test/gtest/Makefile \
 ])
 AC_OUTPUT

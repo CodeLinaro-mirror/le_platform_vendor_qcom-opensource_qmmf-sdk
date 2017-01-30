@@ -35,6 +35,7 @@
 #include <qmmf-sdk/qmmf_player_params.h>
 #include "player/test/samples/qmmf_player_parser.h"
 #include <pthread.h>
+#include <mutex>
 
 using namespace qmmf;
 using namespace player;
@@ -49,7 +50,7 @@ enum class AudioFileType{
 enum class PlayerState
 {
   kError = 0,
-  lIdle = 1 << 0,
+  kIdle = 1 << 0,
   kPrepared = 1 << 1,
   kStarted = 1 << 2,
   kPaused = 1 << 3,
@@ -112,9 +113,7 @@ class PlayerTest {
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
-  Mutex             state_lock_;
-  Condition         wait_for_state_change_;
-
+  std::mutex        state_change_lock_;
   bool              stopped_;
   bool              start_again_;
   bool              paused_;
