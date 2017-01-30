@@ -68,6 +68,7 @@ using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
 #define AEC_SETTLE_INTERVAL 2
+#define MAX_NUM_CAMERAS 3
 
 enum class AfMode {
   kNone,
@@ -91,6 +92,7 @@ struct SnapshotInfo {
    uint32_t       width;
    uint32_t       height;
    uint32_t       count;
+   uint32_t       camera_id;
 };
 
 enum class TrackType {
@@ -114,7 +116,7 @@ struct TrackInfo {
   uint32_t  bitrate;
   uint32_t  session_id;
   uint32_t  track_id;
-  uint32_t  camera_id;
+  int32_t  camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
 };
@@ -124,19 +126,21 @@ class CmdMenu;
 
 class TestInitParams {
 public:
-    int32_t                camera_id;
-    uint8_t                camera_fps;
+    int32_t                camera_id[MAX_NUM_CAMERAS];
+    uint8_t                camera_fps[MAX_NUM_CAMERAS];
+    int32_t                num_cameras;
     SnapshotInfo           snapshot_info;
     AfMode                 af_mode;
     uint32_t               recordTime;
-    uint32_t               numStream;
+    uint32_t               numStream[MAX_NUM_CAMERAS];
     bool                   tnr;
     bool                   vhdr;
     bool                   binning_correct;
 
     TestInitParams() :
-            camera_id(-1),
-            camera_fps(0),
+            camera_id { -1, -1, -1},
+            camera_fps { 0, 0, 0},
+            num_cameras(0),
             snapshot_info {
               SnapshotType::kNone,
               0,
@@ -145,7 +149,7 @@ public:
             },
             af_mode(AfMode::kOff),
             recordTime(0),
-            numStream(0),
+            numStream {0, 0, 0},
             tnr(0),
             vhdr(0),
             binning_correct(false) {};
@@ -245,20 +249,21 @@ class RecorderTest {
   status_t DisableOverlay();
 
   void printInitParameterAndTtrackInfo(const TestInitParams&
-                           initParams,const TrackInfo& track_info);
+                                 initParams,const TrackInfo& track_info,
+                                 int32_t camera_index);
 
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
-  status_t ToggleAFMode(const AfMode& af_mode);
+  status_t ToggleAFMode(const AfMode& af_mode, int32_t camera_id);
   int32_t ToggleBinningCorrectionMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
-  std::string GetCurrentBinningCorrectionMode();
-  status_t GetCurrentAFMode(int32_t& mode);
+  std::string GetCurrentBinningCorrectionMode(int32_t camera_id);
+  status_t GetCurrentAFMode(int32_t& mode, int32_t camera_id);
 
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
@@ -298,7 +303,7 @@ class RecorderTest {
   void InitSupportedIRModes();
   void InitSupportedBinningCorrectionModes();
 
-  int32_t SetBinningCorrectionMode(const bool& mode);
+  int32_t SetBinningCorrectionMode(const bool& mode, int32_t camera_id);
 
   // <session_id, vector<TestTrack*> >
   std::map <uint32_t , std::vector<TestTrack*> > sessions_;
@@ -328,6 +333,8 @@ class TestTrack {
   TrackType& GetTrackType() { return track_info_.track_type; }
 
   uint32_t GetTrackId() { return track_info_.track_id; }
+
+  uint32_t GetCameraId() { return track_info_.camera_id; }
 
   status_t SetUp(TrackInfo& track_info);
 
