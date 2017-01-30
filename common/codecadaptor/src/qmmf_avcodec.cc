@@ -954,6 +954,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
+  codec_params_ = codec_param;
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -2018,6 +2020,10 @@ status_t AVCodec::StartCodec() {
         QMMF_ERROR("%s:%s Failed to enable port on %s", TAG, __func__,
             PORT_NAME(kPortIndexOutput));
         return ret;
+    }
+
+    if (format_type_ == CodecType::kVideoDecoder) {
+      ConfigureVideoDecoder(codec_params_);
     }
   }
 
