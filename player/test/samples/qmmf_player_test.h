@@ -43,6 +43,9 @@
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
 #include "qmmf-sdk/qmmf_buffer.h"
 
+#define EOS_FLAG 1
+#define EOS_BUFFER_SIZE 0
+
 using namespace qmmf;
 using namespace player;
 using namespace android;
@@ -139,6 +142,12 @@ class PlayerTest {
   int32_t ParseFile(AudioTrackCreateParam& audio_track_param_,
                     VideoTrackCreateParam& video_track_param_);
 
+  uint32_t UpdateCurrentPlaybackTime(uint64_t current_time);
+
+  uint32_t GetCurrentPlaybackTime();
+
+  bool IsPlayerStopped();
+
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
@@ -173,6 +182,8 @@ class PlayerTest {
   TrickModeSpeed                  playback_speed_;
   TrickModeDirection              playback_dir_;
   int32_t                         grabpicture_file_fd_;
+  uint64_t                        current_playback_time_;
+  std::mutex                      time_lock_;
 };
 
 class CmdMenu {
@@ -186,8 +197,9 @@ class CmdMenu {
       PAUSE_CMD                         = '6',
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
-      TRICK_MODE_CMD                    = '9',
+      TRICK_MODE_CMD                    = 'T',
       GRAB_PICTURE                      = 'P',
+      SEEK_CMD                          = 'S',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'
