@@ -365,7 +365,7 @@ status_t VideoDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
 
 status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
                                              TrickModeSpeed speed,
-                                             TrickModeDirection direction) {
+                                             TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -377,7 +377,7 @@ status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret =  track_decoder->SetTrickMode(speed, direction);
+  auto ret =  track_decoder->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) SetTrackTrickMode failed!", TAG, __func__,
      track_id);
@@ -784,12 +784,12 @@ status_t VideoTrackDecoder::DeleteDecoder()
 }
 
 status_t VideoTrackDecoder::SetTrickMode(TrickModeSpeed speed,
-                                         TrickModeDirection direction) {
+                                         TrickModeDirection dir) {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
-      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(dir));
 
-  auto ret = video_track_sink_->SetTrickMode(speed, direction);
+  auto ret = video_track_sink_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) SetTrickMode failed!", TAG, __func__,
         TrackId());

@@ -94,7 +94,7 @@ class PlayerImpl {
 
   status_t SetPosition(int64_t seek_time);
 
-  status_t SetTrickMode(uint32_t speed, uint32_t direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   status_t GrabPicture(PictureParam param);
 
@@ -139,6 +139,8 @@ class PlayerImpl {
 
   bool IsTrackValid(const uint32_t track_id);
 
+  bool IsTrickModeEnabled();
+
   typedef struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
@@ -155,6 +157,9 @@ class PlayerImpl {
   PlayerState         current_state_;
   pthread_t           prepare_th;
   Mutex               state_lock_;
+  TrickModeSpeed      trick_mode_speed_;
+  TrickModeDirection  trick_mode_dir_;
+  Mutex               trick_mode_change_lock_;
 
   std::vector<TrackInfo> tracks_;
   DefaultKeyedVector<uint32_t, TrackInfo> track_map_;

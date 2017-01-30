@@ -80,7 +80,7 @@ class VideoDecoderCore {
   status_t DeleteTrackDecoder(uint32_t track_id);
 
   status_t SetTrackTrickMode(uint32_t track_id, TrickModeSpeed speed,
-                             TrickModeDirection direction);
+                             TrickModeDirection dir);
 
  private:
 
@@ -127,7 +127,7 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteDecoder();
 
-  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;
