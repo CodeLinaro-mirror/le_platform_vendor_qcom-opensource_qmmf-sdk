@@ -94,10 +94,10 @@ status_t RecorderTest::Disconnect() {
 }
 
 
-status_t RecorderTest::GetCurrentAFMode(int32_t& mode) {
+status_t RecorderTest::GetCurrentAFMode(int32_t& mode, int32_t camera_id) {
   CameraMetadata meta;
 
-  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  auto status = recorder_.GetCameraParam(camera_id, meta);
   if (NO_ERROR == status) {
      if (meta.exists(ANDROID_CONTROL_AF_MODE)) {
         mode = meta.find(ANDROID_CONTROL_AF_MODE).data.i32[0];
@@ -114,7 +114,7 @@ status_t RecorderTest::GetCurrentAFMode(int32_t& mode) {
   return NO_ERROR;
 }
 
-status_t RecorderTest::ToggleAFMode(const AfMode& af_mode) {
+status_t RecorderTest::ToggleAFMode(const AfMode& af_mode, int32_t camera_id) {
   CameraMetadata meta;
   uint8_t mode;
   status_t ret = NO_ERROR;
@@ -144,7 +144,7 @@ status_t RecorderTest::ToggleAFMode(const AfMode& af_mode) {
       return BAD_VALUE;
   }
 
-  ret = GetCurrentAFMode(current_mode);
+  ret = GetCurrentAFMode(current_mode, camera_id);
   if(NO_ERROR != ret) {
      TEST_ERROR("Fail to get current focus mode\n");
      return ret;
@@ -153,7 +153,7 @@ status_t RecorderTest::ToggleAFMode(const AfMode& af_mode) {
       TEST_ERROR("current focus mode (%d),update focus mode to (%d)now!",
                 current_mode,mode);
       meta.update(ANDROID_CONTROL_AF_MODE, &mode, 1);
-      auto status = recorder_.SetCameraParam(camera_id_, meta);
+      auto status = recorder_.SetCameraParam(camera_id, meta);
       if (NO_ERROR != status) {
          TEST_ERROR("Fail to set focus mode param\n");
          ret = status;
@@ -425,10 +425,10 @@ int32_t RecorderTest::ToggleBinningCorrectionMode() {
   return status;
 }
 
-std::string RecorderTest::GetCurrentBinningCorrectionMode() {
+std::string RecorderTest::GetCurrentBinningCorrectionMode(int32_t camera_id) {
   CameraMetadata meta;
   std::string ret(FEATURE_NOT_AVAILABLE);
-  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  auto status = recorder_.GetCameraParam(camera_id, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_BINNING_CORRECTION_MODE)) {
       int32_t mode = meta.find(QCAMERA3_BINNING_CORRECTION_MODE).data.i32[0];
@@ -444,7 +444,7 @@ std::string RecorderTest::GetCurrentBinningCorrectionMode() {
       if (!supported_bc_modes_.empty()) {
         bc_modes_iter start = supported_bc_modes_.begin();
         meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &start->first, 1);
-        status = recorder_.SetCameraParam(camera_id_, meta);
+        status = recorder_.SetCameraParam(camera_id, meta);
         if (NO_ERROR != status) {
           ALOGE("%s:%s Failed to apply: %s\n",
                 TAG, __func__, start->second.c_str());
@@ -457,9 +457,9 @@ std::string RecorderTest::GetCurrentBinningCorrectionMode() {
   return ret;
 }
 
-int32_t RecorderTest::SetBinningCorrectionMode(const bool& mode) {
+int32_t RecorderTest::SetBinningCorrectionMode(const bool& mode, int32_t camera_id) {
   CameraMetadata meta;
-  auto ret = recorder_.GetCameraParam(camera_id_, meta);
+  auto ret = recorder_.GetCameraParam(camera_id, meta);
   assert(ret == NO_ERROR);
 
   int32_t binning_correction_mode = QCAMERA3_BINNING_CORRECTION_MODE_OFF;
@@ -467,7 +467,7 @@ int32_t RecorderTest::SetBinningCorrectionMode(const bool& mode) {
     binning_correction_mode = QCAMERA3_BINNING_CORRECTION_MODE_ON;
   }
   meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &binning_correction_mode, 1);
-  ret = recorder_.SetCameraParam(camera_id_, meta);
+  ret = recorder_.SetCameraParam(camera_id, meta);
   return ret;
 }
 
@@ -641,7 +641,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
   int32_t ret = 0;
   camera_metadata_entry_t entry;
   CameraMetadata meta;
-  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ret = recorder_.GetDefaultCaptureParam(snapshot_info.camera_id, meta);
   assert(ret == 0);
 
   ImageParam image_param;
@@ -747,7 +747,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
 
     TEST_INFO("CaptureImage size %dx%d images count %d\n",
               image_param.width,image_param.height,snapshot_info.count);
-    ret = recorder_.CaptureImage(camera_id_, image_param, snapshot_info.count,
+    ret = recorder_.CaptureImage(snapshot_info.camera_id, image_param, snapshot_info.count,
                                  meta_array, cb);
     if (NO_ERROR == ret) {
       std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
@@ -2598,6 +2598,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   TestInitParams params;
   std::vector<TrackInfo> infos;
+  uint32_t session_id;
   ret = ParseConfig(argv[2], &params, &infos);
   if(ret != 0) {
     return ret;
@@ -2628,155 +2629,130 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = params.camera_fps;
   camera_params.flags               = 0x0;
 
-  ret = recorder_.StartCamera(camera_id_, camera_params);
-  if(ret != 0) {
-    ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
-    return ret;
-  }
+  camera_id_ = 0;
 
-  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
-  if (NO_ERROR != ret) {
-    ALOGE("%s:%s Unable to query default capture parameters!\n",
-           TAG, __func__);
-    return ret;
-  }
-
-  InitSupportedNRModes();
-  InitSupportedVHDRModes();
-  InitSupportedIRModes();
-
-  // StartCamera - End
-  printf("%s Create session and add track\n",__func__);
-
-  // Create session and add track
-  if (params.numStream != infos.size()) {
-    ALOGE("%s:%s Number of streams and params provided not equal!!", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  // Session for encoder tracks
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  if(ret != 0) {
-    ALOGE("%s:%s CreateSession Failed!!", TAG, __func__);
-    return ret;
-  }
-  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  for(uint32_t i=1; i <= params.numStream; i++) {
-    TestTrack *video_track = new TestTrack(this);
-    TrackInfo track_info = infos[i-1];
-    track_info.track_id = i;
-    track_info.session_id = session_id;
-    track_info.camera_id = camera_id_;
-    ret = video_track->SetUp(track_info);
-    assert(ret == 0);
-    tracks.push_back(video_track);
-
-    if(track_info.track_type == TrackType::kAudioAAC) {
-       //Test audio AAC track
-       //TODO: To be removed when support added in config file
-       TestTrack *audio_aac_track = new TestTrack(this);
-       TrackInfo info;
-       memset(&info, 0x0, sizeof info);
-       info.track_id   = 101;
-       info.track_type = TrackType::kAudioAAC;
-       info.session_id = session_id;
-       info.camera_id = camera_id_;
-
-       ret = audio_aac_track->SetUp(info);
-       assert(ret == 0);
-       tracks.push_back(audio_aac_track);
+  for (int camera_index = 0; camera_index < params.num_cameras; camera_index++) {
+    std::vector<TestTrack*> tracks;
+    camera_params.frame_rate          = params.camera_fps[camera_index];
+    ret = recorder_.StartCamera(params.camera_id[camera_index], camera_params);
+    if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+      return ret;
     }
-  }
 
-  printf("%s StartSession\n",__func__);
-
-  // StartSession - Begin
-  // Prepare tracks: setup files to dump track data, event etc.
-  for (uint32_t i=0;i < tracks.size();i++) {
-    tracks[i]->Prepare();
-    TrackType type = tracks[i]->GetTrackType();
-    if ( (type == TrackType::kVideoYUV)
-      || (type == TrackType::kVideoRDI)
-      || (type == TrackType::kVideoAVC)
-      || (type == TrackType::kVideoHEVC)
-      || (type == TrackType::kVideoPreview) ) {
-      session_enabled_ = true;
+    ret = recorder_.GetDefaultCaptureParam(params.camera_id[camera_index], static_info_);
+    if (NO_ERROR != ret) {
+      ALOGE("%s:%s Unable to query default capture parameters!\n",
+             TAG, __func__);
+      return ret;
     }
-  }
+    if( params.camera_id[camera_index] == 0) {
+      InitSupportedNRModes();
+      InitSupportedVHDRModes();
+      InitSupportedIRModes();
+    }
 
-  ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
-  // StartSession - End
+    // StartCamera - End
+    printf("%s Create session and add track\n",__func__);
 
-  // Setting binning correction off by default
-  if (GetCurrentBinningCorrectionMode() != FEATURE_NOT_AVAILABLE) {
-    ret = SetBinningCorrectionMode(false);
-    assert (ret == NO_ERROR);
-  }
+    // Create session and add track
+    if (params.numStream[camera_index] > infos.size()) {
+      ALOGE("%s:%s Number of streams and params provided not equal!!", TAG, __func__);
+      return BAD_VALUE;
+    }
 
-  // TNR & SHDR - Start
-  CameraMetadata meta;
-  auto status = recorder_.GetCameraParam(camera_id_, meta);
-  if (NO_ERROR == status) {
-    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-      if (params.tnr) {
-        const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-        ALOGI("%s:%s Selecting TNR mode to %s \n",
-          TAG, __func__,"High quality");
-        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
-      } else {
-        const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
-        ALOGI("%s:%s Selecting TNR mode to %s \n",TAG, __func__,"Off");
-        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    // Session for encoder tracks
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+        size_t event_data_size) { SessionCallbackHandler(event_type,
+        event_data, event_data_size); };
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    if(ret != 0) {
+      ALOGE("%s:%s CreateSession Failed!!", TAG, __func__);
+      return ret;
+    }
+    TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+    for(uint32_t i=1; i <= infos.size(); i++) {
+      TrackInfo track_info = infos[i-1];
+      if (track_info.camera_id == params.camera_id[camera_index]) {
+        TestTrack *video_track = new TestTrack(this);
+        track_info.track_id = session_id << 4 | i;
+        track_info.session_id = session_id;
+        ret = video_track->SetUp(track_info);
+        assert(ret == 0);
+        tracks.push_back(video_track);
+        printf("%s, Create track id %d, camera_id %d\n", __func__, track_info.track_id, track_info.camera_id);
       }
-      status = recorder_.SetCameraParam(camera_id_, meta);
-      if (NO_ERROR != status) {
-        ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
-        return status;
+
+      if(track_info.track_type == TrackType::kAudioAAC) {
+         //Test audio AAC track
+         //TODO: To be removed when support added in config file
+         TestTrack *audio_aac_track = new TestTrack(this);
+         TrackInfo info;
+         memset(&info, 0x0, sizeof info);
+         info.track_id   = 101;
+         info.track_type = TrackType::kAudioAAC;
+         info.session_id = session_id;
+         info.camera_id = params.camera_id[camera_index];
+
+         ret = audio_aac_track->SetUp(info);
+         assert(ret == 0);
+         tracks.push_back(audio_aac_track);
       }
     }
-  }
-  // TODO: This value is still under discussion and verification
-  PARAMETER_SETTLE_INTERVAL(2);
+    sessions_.insert(std::make_pair(session_id, tracks));
+     printf("%s StartSession\n",__func__);
+    // StartSession - Begin
+    // Prepare tracks: setup files to dump track data, event etc.
+    for (uint32_t i=0;i < tracks.size();i++) {
+      tracks[i]->Prepare();
+      TrackType type = tracks[i]->GetTrackType();
+      if ( (type == TrackType::kVideoYUV)
+        || (type == TrackType::kVideoRDI)
+        || (type == TrackType::kVideoAVC)
+        || (type == TrackType::kVideoHEVC)
+        || (type == TrackType::kVideoPreview) ) {
+        session_enabled_ = true;
+      }
+    }
 
-  status = recorder_.GetCameraParam(camera_id_, meta);
-  if (NO_ERROR == status) {
-    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
-      if (params.vhdr) {
-        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
-        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
-        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
-      } else {
-        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
-        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"Off");
-        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
-      }
-      status = recorder_.SetCameraParam(camera_id_, meta);
-      if (NO_ERROR != status) {
-        ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
-        return status;
-      }
-    } else {
-      //In case camera didn't set default turn on HDR if user requested
-      if ((!supported_hdr_modes_.empty()) && (params.vhdr)) {
-        const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
-        ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
-        meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
-        status = recorder_.SetCameraParam(camera_id_, meta);
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    printf("%s: Start session at %ld:%ld for camera_id %d\n",
+        __func__, tv.tv_sec, tv.tv_usec, params.camera_id[camera_index]);
+    // StartSession - End
+
+    // Setting binning correction off by default
+    if (GetCurrentBinningCorrectionMode(params.camera_id[camera_index])
+               != FEATURE_NOT_AVAILABLE) {
+      ret = SetBinningCorrectionMode(false, params.camera_id[camera_index]);
+      assert (ret == NO_ERROR);
+    }
+
+    // TNR & SHDR - Start
+    CameraMetadata meta;
+    auto status = recorder_.GetCameraParam(params.camera_id[camera_index], meta);
+    if (NO_ERROR == status) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        if (params.tnr) {
+          const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+          ALOGI("%s:%s Selecting TNR mode to %s \n",
+            TAG, __func__,"High quality");
+          meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+        } else {
+          const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+          ALOGI("%s:%s Selecting TNR mode to %s \n",TAG, __func__,"Off");
+          meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+        }
+        status = recorder_.SetCameraParam(params.camera_id[camera_index], meta);
         if (NO_ERROR != status) {
-          ALOGE("%s:%s Failed to apply SHDR\n", TAG, __func__);
+          ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
           return status;
         }
       }
@@ -2784,23 +2760,59 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     // TODO: This value is still under discussion and verification
     PARAMETER_SETTLE_INTERVAL(2);
 
-  }
-  // TNR/SHDR - End
+    status = recorder_.GetCameraParam(params.camera_id[camera_index], meta);
+    if (NO_ERROR == status) {
+      if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+        if (params.vhdr) {
+          const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+          ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
+          meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+        } else {
+          const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+          ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"Off");
+          meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+        }
+        status = recorder_.SetCameraParam(params.camera_id[camera_index], meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply: TNR/VHDR\n",TAG, __func__);
+          return status;
+        }
+      } else {
+        //In case camera didn't set default turn on HDR if user requested
+        if ((!supported_hdr_modes_.empty()) && (params.vhdr)) {
+          const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+          ALOGI("%s:%s Selecting sHDR mode to %s \n",TAG, __func__,"On");
+          meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+          status = recorder_.SetCameraParam(params.camera_id[camera_index], meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply SHDR\n", TAG, __func__);
+            return status;
+          }
+        }
+      }
+      // TODO: This value is still under discussion and verification
+      PARAMETER_SETTLE_INTERVAL(2);
 
-  if (params.binning_correct) {
-    ret = SetBinningCorrectionMode(true);
-    assert (ret == NO_ERROR);
-  }
+    }
+    // TNR/SHDR - End
 
-  if (params.af_mode != AfMode::kNone) {
-     printf("%s toggle auto focus mode\n",__func__);
-     status = ToggleAFMode(params.af_mode);
-     if (NO_ERROR != status) {
-       TEST_ERROR("failed to toggle focus mode, status = %d\n", status);
-       if (BAD_VALUE == status) {
-         return BAD_VALUE;
+    if (params.binning_correct) {
+      ret = SetBinningCorrectionMode(true, params.camera_id[camera_index]);
+      assert (ret == NO_ERROR);
+    }
+
+    if (params.af_mode != AfMode::kNone) {
+       printf("%s toggle auto focus mode\n",__func__);
+       status = ToggleAFMode(params.af_mode,params.camera_id[camera_index]);
+       if (NO_ERROR != status) {
+         TEST_ERROR("failed to toggle focus mode, status = %d\n", status);
+         if (BAD_VALUE == status) {
+           return BAD_VALUE;
+         }
        }
-     }
+    }
+
+    static_info_.clear();
   }
 
   if (params.snapshot_info.type != SnapshotType::kNone) {
@@ -2821,55 +2833,68 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   printf("%s Keep recording for %ds time\n",__func__,params.recordTime);
   // Keep recording for the given time
   sleep(params.recordTime);
-
+  int32_t camera_id[3] = { -1, -1, -1};
+  uint32_t camera_idx = 0;
   printf("%s StopSession\n",__func__);
+  for (session_iter_ it = sessions_.begin(); it != sessions_.end(); it++) {
+    session_id = it->first;
+    std::vector<TestTrack*> tracks = it->second;
+    // StopSession - Begin
+    ret = recorder_.StopSession(session_id, true );
+    assert(ret == NO_ERROR);
 
-  // StopSession - Begin
-  ret = recorder_.StopSession(session_id, true /*flush buffers*/);
-  assert(ret == NO_ERROR);
+    for (uint32_t i=0;i < tracks.size();i++) {
+      tracks[i]->CleanUp();
+      TrackType type = tracks[i]->GetTrackType();
+      if ( (type == TrackType::kVideoYUV)
+           || (type == TrackType::kVideoRDI)
+           || (type == TrackType::kVideoAVC)
+           || (type == TrackType::kVideoHEVC)
+           || (type == TrackType::kVideoPreview) ) {
+        session_enabled_ = false;
+      }
+    }
+    // StopSession - End
+    printf("%s DeleteSession\n",__func__);
 
-  for (uint32_t i=0;i < tracks.size();i++) {
-    tracks[i]->CleanUp();
-    TrackType type = tracks[i]->GetTrackType();
-    if ( (type == TrackType::kVideoYUV)
-         || (type == TrackType::kVideoRDI)
-         || (type == TrackType::kVideoAVC)
-         || (type == TrackType::kVideoHEVC)
-         || (type == TrackType::kVideoPreview) ) {
-      session_enabled_ = false;
+    // DeleteSession - Begin
+    // Delete all the tracks associated to session.
+    for (uint32_t i=0;i < tracks.size();i++) {
+      if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
+            tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
+            tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
+            tracks[i]->GetTrackType() == TrackType::kAudioG711) {
+        ret = recorder_.DeleteAudioTrack(session_id, tracks[i]->GetTrackId());
+      } else {
+        ret = recorder_.DeleteVideoTrack(session_id, tracks[i]->GetTrackId());
+      }
+      assert(ret == 0);
+      if(camera_id[camera_idx] == -1) {
+        camera_id[camera_idx] = tracks[i]->GetCameraId();
+      }
+      delete tracks[i];
+      tracks[i] = nullptr;
+    }
+    // Once all tracks are deleted successfully delete session.
+    ret = recorder_.DeleteSession(session_id);
+
+    // DeleteSession - End
+
+    ++camera_idx;
+    sleep(1);
+  }
+
+  for (int i = 0; i < 3; i++) {
+    // StopCamera - Begin
+    if (camera_id[i] > -1) {
+      printf("%s StopCamera\n",__func__);
+      ret = recorder_.StopCamera(camera_id[i]);
+      if(ret != 0) {
+        ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
+        return ret;
+      }
     }
   }
-  // StopSession - End
-  printf("%s DeleteSession\n",__func__);
-
-  // DeleteSession - Begin
-  // Delete all the tracks associated to session.
-  for (uint32_t i=0;i < tracks.size();i++) {
-    if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
-          tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
-          tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
-          tracks[i]->GetTrackType() == TrackType::kAudioG711) {
-      ret = recorder_.DeleteAudioTrack(session_id, tracks[i]->GetTrackId());
-    } else {
-      ret = recorder_.DeleteVideoTrack(session_id, tracks[i]->GetTrackId());
-    }
-    assert(ret == 0);
-    delete tracks[i];
-    tracks[i] = nullptr;
-  }
-  // Once all tracks are deleted successfully delete session.
-  ret = recorder_.DeleteSession(session_id);
-
-  // DeleteSession - End
-  printf("%s StopCamera\n",__func__);
-
-  // StopCamera - Begin
-  ret = recorder_.StopCamera(camera_id_);
-  if(ret != 0) {
-    ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
-    return ret;
-  }
-  static_info_.clear();
   // StopCamera - End
   printf("%s Disconnect\n",__func__);
 
@@ -2886,24 +2911,26 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 }
 
 void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
-                                 initParams,const TrackInfo& track_info) {
-  printf("\ninitParams.camera_id = %d\n", initParams.camera_id);
-  printf("\ninitParams.camera_fps = %d\n", initParams.camera_fps);
-  printf("initParams.numStream = %d\n", initParams.numStream);
-  printf("initParams.snapshot_info.type = %d\n",
-          initParams.snapshot_info.type);
-  printf("initParams.snapshot_info.width = %d\n",
-          initParams.snapshot_info.width);
-  printf("initParams.snapshot_info.height = %d\n",
-          initParams.snapshot_info.height);
-  printf("initParams.snapshot_info.count = %d\n",
-          initParams.snapshot_info.count);
-  printf("initParams.af_mode = %d\n", initParams.af_mode);
-  printf("TrackInfo.track_type = %d\n", track_info.track_type);
-  printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
-  printf("TrackInfo.fps = %5.2f\n", track_info.fps);
-  printf("TrackInfo.width = %d\n", track_info.width);
-  printf("TrackInfo.height = %d\n\n", track_info.height);
+                                 initParams,const TrackInfo& track_info,
+                                 int32_t camera_index)
+{
+    printf("\ninitParams.camera_fps = %d\n", initParams.camera_fps[camera_index]);
+    printf("\ninitParams.snapshot_info.camera_id = %d\n",
+            initParams.snapshot_info.camera_id);
+    printf("initParams.snapshot_info.type = %d\n",
+            initParams.snapshot_info.type);
+    printf("initParams.snapshot_info.width = %d\n",
+            initParams.snapshot_info.width);
+    printf("initParams.snapshot_info.height = %d\n",
+            initParams.snapshot_info.height);
+    printf("initParams.snapshot_info.count = %d\n",
+            initParams.snapshot_info.count);
+    printf("initParams.af_mode = %d\n", initParams.af_mode);
+    printf("TrackInfo.track_type = %d\n", track_info.track_type);
+    printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
+    printf("TrackInfo.fps = %5.2f\n", track_info.fps);
+    printf("TrackInfo.width = %d\n", track_info.width);
+    printf("TrackInfo.height = %d\n\n", track_info.height);
 }
 
 int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
@@ -2917,6 +2944,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
   char value[50];
   char key[25];
   uint32_t id = 0;
+  int32_t camera_index = -1;
 
   if(!(fp = fopen(fileName,"r"))) {
     ALOGE("failed to open config file: %s", fileName);
@@ -2943,7 +2971,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
      }
 
 
-    if((id > 0) && (id > initParams->numStream)) {
+    if((id > 0) && (id > initParams->numStream[camera_index])) {
       break;
     }
 
@@ -2965,10 +2993,26 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     }
     value[j] = '\0';
 
-    if(!strncmp("CameraID", key, strlen("CameraID"))) {
-      initParams->camera_id = atoi(value);
+    if (!strncmp("NumCameras", key, strlen("NumCameras"))) {
+      initParams->num_cameras = atoi(value);
+      printf("%s: Num cameras read %d\n", __func__, initParams->num_cameras);
+      if (initParams->num_cameras  > MAX_NUM_CAMERAS) {
+         ALOGE("%s: Unsupported number of Cameras %d",
+             __func__, initParams->num_cameras);
+         goto READ_FAILED;
+      }
+    } else if(!strncmp("CameraID", key, strlen("CameraID"))) {
+      if (++camera_index < initParams->num_cameras) {
+         initParams->camera_id[camera_index] = atoi(value);
+         id = 0;
+         printf("%s: Camera ID %d\n", __func__, initParams->camera_id[camera_index]);
+      } else {
+         ALOGE("%s: Number requested cameras %d are more than declared  %d",
+             __func__, camera_index + 1, initParams->num_cameras);
+          goto READ_FAILED;
+      }
     } else if(!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
-      initParams->camera_fps = atof(value);
+      initParams->camera_fps[camera_index] = atof(value);
     } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
       if(!strncmp("None", value, strlen("None"))) {
         initParams->snapshot_info.type= SnapshotType::kNone;
@@ -2982,6 +3026,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
         ALOGE("%s: Unknown SnapshotType(%s)", __func__, value);
         goto READ_FAILED;
       }
+    } else if(!strncmp("SnapshotCameraID", key, strlen("SnapshotCameraID"))) {
+       initParams->snapshot_info.camera_id = atoi(value);
     } else if(!strncmp("SnapshotWidth", key, strlen("SnapshotWidth"))) {
       initParams->snapshot_info.width = atoi(value);
     } else if(!strncmp("SnapshotHeight", key, strlen("SnapshotHeight"))) {
@@ -3013,7 +3059,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
                 atoi (value));
         goto READ_FAILED;
       }
-      initParams->numStream = atoi(value);
+      initParams->numStream[camera_index] = atoi(value);
     } else if(!strncmp("VHDR", key, strlen("VHDR"))) {
       initParams->vhdr = atoi(value)?true:false;
     } else if(!strncmp("TNR", key, strlen("TNR"))) {
@@ -3051,14 +3097,13 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       goto READ_FAILED;
     }
     if (isStreamReadCompleted) {
-      camera_id_ = initParams->camera_id;
-      track_info.camera_id = initParams->camera_id;
+      track_info.camera_id = initParams->camera_id[camera_index];
       infos->push_back(track_info);
-      printInitParameterAndTtrackInfo(*initParams,track_info);
+      printInitParameterAndTtrackInfo(*initParams,track_info, camera_index);
     }
   }
 
-  if (initParams->numStream > infos->size()) {
+  if (initParams->numStream[camera_index] > infos->size()) {
     ALOGE("%s: Insufficient stream parameter for total stream count(%d/%d)",
            __func__, infos->size(), initParams->numStream);
     goto READ_FAILED;
@@ -3599,7 +3644,13 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
           #ifdef DUMP_YUV_FRAMES
           // Dump every 200th Frame.
           ++num_yuv_frames_;
-          if (num_yuv_frames_ == 200) {
+          if (num_yuv_frames_ == 1) {
+             struct timeval tv;
+             gettimeofday(&tv, NULL);
+             printf("%s: First frame at %ld:%ld for camera_id %d, track id %d \n",
+               __func__, tv.tv_sec, tv.tv_usec, track_info_.camera_id, track_id);
+          }
+          if (!(num_yuv_frames_ % 200)) {
             const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
                 "raw" : "yuv";
             String8 file_path;
@@ -3608,7 +3659,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
                 cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
             recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
                                             file_path);
-            num_yuv_frames_ = 0;
           }
           #endif
           PushFrameToDisplay(buffers[i], cam_buf_meta);

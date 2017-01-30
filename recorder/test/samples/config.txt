@@ -1,16 +1,19 @@
 /*
- * CameraID        : 0 (Hires camera), 1 (Optic flow camera).
- * CameraFPS       : 30 (default), max FPS required for HFR use cases.
- *                 : Eg: Set to 60 for 1080p60 + 480p30 use case.
  * SnapshotType    : None (Disable snapshot),JPEG (JPEG snapshot),
  *                 : RAWYUV (Raw YUV snapshot),RAWRDI (Raw snapshot).
+ * SnapshotCameraID: ID of the camera which has to make the snapshot
  * SnapshotWidth   : Width of snapshot,0 (Take snapshot with max size).
  * SnapshotHeight  : Height of snapshot,0 (Take snapshot with max size).
  * SnapshotCount   : Count of snapshot (The Max count of continus snapshot is 30).
+ *
+ * CameraID        : 0 (Hires camera), 1 (Optic flow camera), 2 (DFS).
+ * CameraFPS       : 30 (default), max FPS required for HFR use cases.
+ *                 : Eg: Set to 60 for 1080p60 + 480p30 use case.
  * AFMode          : None (Not to operate auto focus[default]), Off (Disable Auto focus),
  *                 : AUTO (Auto Focus), MACRO (Macro Focus Mode),CVAF (Continuous-video ),
  *                 : CPAF (Continuous-picture), EDOF (EDOF Mode).
  * RecordingTime   : Time duration for recording in second.
+ * NumCameras      : Number of cameras to open during the test. Max number is 3.
  * NumStream       : Number of stream to record.
  * TNR             : 1(Enable tnr), 0(Disable tnr)
  * VHDR            : 1(Enable vhdr), 0(Disable vhdr)
@@ -20,15 +23,36 @@
  * CamLowPowerMode : 0 (with post processing), 1 (without post processing)
  */
 
-CameraID          : 0
-CameraFPS         : 30
+
+NumCameras        : 3
+RecordingTime     : 10
+
+SnapshotCameraID  : 0
 SnapshotType      : None
 SnapshotWidth     : 3840
 SnapshotHeight    : 2160
 SnapshotCount     : 0
+
+/*First camera*/
+CameraID          : 1
+NumStream         : 1
+CameraFPS         : 30
+TNR               : 0
+VHDR              : 0
+
+#First Stream Encoder Params
+Width             : 640
+Height            : 480
+FPS               : 30
+Bitrate           : 8000000
+TrackType         : RAW
+CamLowPowerMode   : 1
+
+/*Second camera*/
+CameraID          : 0
 AFMode            : None
-RecordingTime     : 10
-NumStream         : 2
+NumStream         : 1
+CameraFPS         : 30
 TNR               : 0
 VHDR              : 0
 BinningCorrect    : 0
@@ -41,10 +65,18 @@ Bitrate           : 8000000
 TrackType         : AVC
 CamLowPowerMode   : 0
 
-#Second Stream Encoder Params
-Width             : 1920
-Height            : 1080
+/*Third camera*/
+CameraID          : 2
+AFMode            : None
+NumStream         : 1
+CameraFPS         : 30
+TNR               : 0
+VHDR              : 0
+
+#First Stream Encoder Params
+Width             : 1280
+Height            : 480
 FPS               : 30
-Bitrate           : 6000000
+Bitrate           : 8000000
 TrackType         : YUV
 CamLowPowerMode   : 1
