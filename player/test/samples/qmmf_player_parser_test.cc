@@ -277,7 +277,7 @@ void * PlayerTest::StartPlaying(void *ptr) {
   TrackBuffer tb;
   const char *current_state;
 
-  while (!playertest->stopped_)
+  while (1)
   {
 
     {
@@ -354,8 +354,6 @@ void * PlayerTest::StartPlaying(void *ptr) {
 
     buffers.clear();
 
-    if (playertest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
