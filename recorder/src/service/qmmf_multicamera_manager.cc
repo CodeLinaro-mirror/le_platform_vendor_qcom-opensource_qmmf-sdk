@@ -58,7 +58,10 @@ MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
     multicam_start_params_{},
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
-    sequence_cnt_(0) {}
+    sequence_cnt_(0),
+    postprocess_enable_(false),
+    client_snapshot_cb_(nullptr),
+    pproc_memory_pool_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
@@ -143,6 +146,16 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
     return ret;
   }
+
+  multi_camera_pproc_ = new CameraJpeg();
+  pproc_memory_pool_ = new GrallocMemory();
+  ret = pproc_memory_pool_->Initialize();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Post-processing memory pool initialization failed!",
+               TAG, __func__);
+    return NO_INIT;
+  }
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -178,6 +191,10 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     camera_contexts_.removeItem(cam_id);
   }
 
+  multi_camera_pproc_->Delete();
+
+  delete pproc_memory_pool_;
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
@@ -194,9 +211,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     return BAD_VALUE;
   }
 
+  postprocess_enable_ = false;
+  client_snapshot_cb_ = nullptr;
   ImageFormat image_format = param.image_format;
   if (param.image_format == ImageFormat::kJPEG) {
-    // TODO: Implement JPEG post processing.
+    postprocess_enable_ = true;
     image_format = ImageFormat::kNV12;
   }
 
@@ -207,6 +226,12 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   if (reconfigure_needed) {
     snapshot_stitch_algo_->RequestExitAndWait();
 
+    if (postprocess_enable_) {
+      multi_camera_pproc_->Delete();
+      SetPostProcess(param, image_format, multicam_start_params_.frame_rate);
+    }
+
+    // Set buffer params for stitching.
     GrallocMemory::BufferParams buffer_param {};
     buffer_param.format           = ImageToHalFormat(image_format);
     buffer_param.width            = param.width;
@@ -222,6 +247,23 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
       QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
       return ret;
     }
+
+    // Set buffer params for post-processing.
+    GrallocMemory::BufferParams gbuffer_param{};
+    gbuffer_param.format           = HAL_PIXEL_FORMAT_BLOB;
+    gbuffer_param.width            = param.width;
+    gbuffer_param.height           = param.height;
+    gbuffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
+    // TODO: Need to revisit the calculation of max_size.
+    //       Width and height need to be extracted from metadata.
+    gbuffer_param.max_size         = (param.width * param.height) * 2;
+    gbuffer_param.max_buffer_count = num_images;
+    ret = pproc_memory_pool_->Configure(gbuffer_param);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
+      return ret;
+    }
+
     snapshot_param_ = param;
     sequence_cnt_   = num_images;
     snapshot_stitch_algo_->Run();
@@ -231,7 +273,16 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   cam_param.image_format = image_format;
   ReCalculateWidth(cam_param.width);
 
-  snapshot_stitch_algo_->SetClientCallback(cb);
+  if (postprocess_enable_) {
+    StreamSnapshotCb pproc_cb = [&] (uint32_t count, StreamBuffer& buf) {
+      PostprocessCaptureCallback(buf);
+    };
+    snapshot_stitch_algo_->SetClientCallback(pproc_cb);
+    client_snapshot_cb_ = cb;
+  } else {
+    snapshot_stitch_algo_->SetClientCallback(cb);
+  }
+
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
@@ -417,14 +468,33 @@ status_t MultiCameraManager::GetDefaultCaptureParam(CameraMetadata &meta) {
 status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       const int32_t buffer_id) {
 
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  Mutex::Autolock lock(pproc_lock_);
   ssize_t idx = virtual_camera_map_.indexOfKey(camera_id);
   if (idx == NAME_NOT_FOUND) {
     QMMF_ERROR("%s:%s: Invalid virtual camera ID!", TAG, __func__);
     return BAD_VALUE;
   }
-  status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer_id);
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+
+  // Return the post-processed buffer back to gralloc memory pool.
+  idx = pproc_buffer_list_.indexOfKey(buffer_id);
+  if (idx == NAME_NOT_FOUND) {
+    QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!", TAG, __func__, buffer_id);
+    return BAD_VALUE;
+  }
+
+  StreamBuffer buffer = pproc_buffer_list_.valueFor(buffer_id);
+  QMMF_VERBOSE("%s:%s: Post processed buffer(handle %p, fd %d) returned", TAG,
+               __func__, buffer.handle, buffer.fd);
+  status_t ret = pproc_memory_pool_->ReturnBuffer(buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to return post-processed buffer!", TAG, __func__);
+    return ret;
+  }
+
+  pproc_buffer_list_.removeItem(buffer_id);
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -468,6 +538,85 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
       break;
   }
   return format;
+}
+
+void MultiCameraManager::SetPostProcess(const ImageParam &param,
+                                        const ImageFormat &input_format,
+                                        uint32_t frame_rate) {
+  PostProcParam in, out;
+  PostProcCb cb_reprocess =
+      [this] (StreamBuffer in_buffer, StreamBuffer out_buffer) -> void
+      { ClientCaptureCallback(in_buffer, out_buffer); };
+
+  in.width = param.width;
+  in.height = param.height;
+  in.format = ImageToHalFormat(input_format);
+  out.width = param.width;
+  out.height = param.height;
+  out.format = ImageToHalFormat(param.image_format);
+
+  status_t ret = multi_camera_pproc_->Create(0, in, out, frame_rate, 1,
+                                             nullptr, cb_reprocess, nullptr);
+  assert(ret >= NO_ERROR);
+  if (ret < NO_ERROR) {
+    QMMF_ERROR("%s: Error with creating reporcess: %d\n", __func__, ret);
+  }
+}
+
+void MultiCameraManager::PostprocessCaptureCallback(StreamBuffer buffer) {
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+
+  StreamBuffer output_buffer {};
+
+  status_t ret = pproc_memory_pool_->GetBuffer(output_buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to retrieve gralloc buffer", TAG, __func__);
+    return;
+  }
+
+  ret = pproc_memory_pool_->PopulateMetaInfo(output_buffer.info,
+                                               output_buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to populate buffer meta info", TAG, __func__);
+    return;
+  }
+  struct private_handle_t *priv_handle =
+      (struct private_handle_t *) output_buffer.handle;
+  output_buffer.fd           = priv_handle->fd;
+  output_buffer.size         = priv_handle->size;
+  output_buffer.frame_number = buffer.frame_number;
+  output_buffer.timestamp    = buffer.timestamp;
+  output_buffer.camera_id    = buffer.camera_id;
+
+  multi_camera_pproc_->AddBuff(buffer, output_buffer);
+  QMMF_INFO("%s:%s Exit ", TAG, __func__);
+}
+
+void MultiCameraManager::ClientCaptureCallback(StreamBuffer in_buffer,
+                                               StreamBuffer out_buffer) {
+
+  // Return input(stitched) buffer back to SnapshotStitching.
+  status_t ret = snapshot_stitch_algo_->ImageBufferReturned(in_buffer.fd);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to return stitch image buffer!", TAG, __func__);
+    return;
+  }
+  // Map output(post-processed) buffer's fd to StreamBuffer. This is needed to
+  // return post-processed buffers to their owners on ReturnImageCaptureBuffer.
+  {
+    Mutex::Autolock lock(pproc_lock_);
+    pproc_buffer_list_.add(out_buffer.fd, out_buffer);
+  }
+
+  // Send the post-processed buffer to the client.
+  assert(client_snapshot_cb_ != nullptr);
+  if(client_snapshot_cb_ == nullptr) {
+    QMMF_ERROR("%s:%s: Unable to send post-processed image buffer to client!",
+               TAG, __func__);
+    return;
+  }
+  client_snapshot_cb_(1, out_buffer);
+  return;
 }
 
 SnapshotStitching::SnapshotStitching(
