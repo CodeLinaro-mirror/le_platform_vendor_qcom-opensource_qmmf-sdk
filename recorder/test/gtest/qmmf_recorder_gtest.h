@@ -36,6 +36,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <cutils/properties.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -58,6 +59,20 @@ struct FaceInfo {
   std::vector<Rect<uint32_t>> face_rect;
 };
 
+// Prop to set Track Resolutions and FPS
+#define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
+#define PROP_TRACK1_HEIGHT          "persist.qmmf.rec.gtest.t1.h"
+#define PROP_TRACK1_FPS             "persist.qmmf.rec.gtest.t1.fps"
+#define PROP_TRACK2_WIDTH           "persist.qmmf.rec.gtest.t2.w"
+#define PROP_TRACK2_HEIGHT          "persist.qmmf.rec.gtest.t2.h"
+#define PROP_TRACK2_FPS             "persist.qmmf.rec.gtest.t2.fps"
+// Prop to update Camera Parameters: SHDR and TNR
+#define PROP_CAM_PARAMS1            "persist.qmmf.rec.gtest.cam.par1"
+#define PROP_CAM_PARAMS2            "persist.qmmf.rec.gtest.cam.par2"
+// Prop to determine whether to create or delete session
+#define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
+#define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
+
 class RecorderGtest : public ::testing::Test {
  public:
   RecorderGtest() : recorder_(), face_bbox_active_(false) {};
@@ -74,6 +89,11 @@ class RecorderGtest : public ::testing::Test {
   int32_t Init();
 
   int32_t DeInit();
+
+  void InitSupportedVHDRModes();
+  bool IsVHDRSupported();
+  void InitSupportedNRModes();
+  bool IsNRSupported();
 
   void ClearSessions();
 
@@ -139,5 +159,11 @@ class RecorderGtest : public ::testing::Test {
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
   std::mutex face_overlay_lock_;
+
+  typedef std::vector<uint8_t> nr_modes_;
+  typedef std::vector<int32_t> vhdr_modes_;
+  CameraMetadata       static_info_;
+  nr_modes_            supported_nr_modes_;
+  vhdr_modes_          supported_hdr_modes_;
 };
 

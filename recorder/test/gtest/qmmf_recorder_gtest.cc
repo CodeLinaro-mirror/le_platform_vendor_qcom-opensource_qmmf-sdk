@@ -40,6 +40,7 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
+#include <QCamera3VendorTags.h>
 
 #include "common/avqueue/qmmf_queue.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
@@ -78,6 +79,8 @@ static const int32_t kDefaultJpegQuality = 85;
 
 #define FHD_1080p_STREAM_WIDTH 1920
 #define FHD_1080p_STREAM_HEIGHT 1080
+
+using namespace qcamera;
 
 void RecorderGtest::SetUp() {
 
@@ -121,6 +124,50 @@ int32_t RecorderGtest::DeInit() {
   auto ret = recorder_.Disconnect();
   assert(ret == NO_ERROR);
   return ret;
+}
+
+void RecorderGtest::InitSupportedVHDRModes() {
+  camera_metadata_entry_t entry;
+  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
+    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      supported_hdr_modes_.push_back(entry.data.i32[i]);
+    }
+  }
+}
+
+bool RecorderGtest::IsVHDRSupported() {
+  bool is_supported = false;
+  for (const auto& mode : supported_hdr_modes_) {
+    if (QCAMERA3_VIDEO_HDR_MODE_ON == mode) {
+      is_supported = true;
+      break;
+    }
+  }
+  return is_supported;
+}
+
+void RecorderGtest::InitSupportedNRModes() {
+  camera_metadata_entry_t entry;
+  if (static_info_.exists(
+      ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)) {
+    entry = static_info_.find(
+        ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      supported_nr_modes_.push_back(entry.data.u8[i]);
+    }
+  }
+}
+
+bool RecorderGtest::IsNRSupported() {
+  bool is_supported = false;
+  for (const auto& mode : supported_nr_modes_) {
+    if (ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY == mode) {
+      is_supported = true;
+      break;
+    }
+  }
+  return is_supported;
 }
 
 /*
@@ -7877,6 +7924,340 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
     AVQueueFree(&av_queue, AVFreePacket);
     av_queue = NULL;
   }
+}
+
+/*
+* DynamicSessionAndTracksUpdateWithCamParams: This is a usecase which will test
+*                                    adding or deleting tracks and sessions,
+*                                    along with changing camera parameters such as
+*                                    TNR and SHDR.
+*   Properties              : [Default Values]
+*   -------------------------------------------
+*   PROP_TRACK1_WIDTH       : [3840]
+*   PROP_TRACK1_HEIGHT      : [2160]
+*   PROP_TRACK1_FPS         : [30]
+*   PROP_TRACK2_WIDTH       : [1920]
+*   PROP_TRACK2_HEIGHT      : [1080]
+*   PROP_TRACK2_FPS         : [24]
+*   PROP_CAM_PARAMS1        : bit 0: SHDR [0], bit 1: TNR [0]
+*   PROP_CAM_PARAMS2        : bit 0: SHDR [0], bit 1: TNR [0]
+*   PROP_TRACK1_DELETE      : [0]
+*   PROP_SESSION2_CREATE    : [0]
+*
+* Api test sequence:
+*  - StartCamera
+*   ------------------
+*   - StartSession - 4k AVC
+*   - [Enable/Disable SHDR, TNR]
+*   - [StartSession - 1080p AVC]
+*   - [Enable/Disable SHDR, TNR]
+*   - [StopSession  - 1080p]
+*   - StopSession - 4k
+*   ------------------
+*   - Stop Camera
+*/
+TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  // Init
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  // Fetch Properties
+  uint32_t w1, h1, w2, h2;
+  uint32_t fps1, fps2;
+  bool shdr1, shdr2, is_shdr_supported;
+  bool tnr1, tnr2, is_tnr_supported;
+  bool is_t1_delete, is_s2_create;
+  char prop_val[PROPERTY_VALUE_MAX];
+
+  property_get(PROP_TRACK1_WIDTH, prop_val, "3840");
+  w1 = atoi(prop_val);
+  assert(0 != w1);
+  property_get(PROP_TRACK1_HEIGHT, prop_val, "2160");
+  h1 = atoi(prop_val);
+  assert(0 != h1);
+  property_get(PROP_TRACK2_WIDTH, prop_val, "1920");
+  w2 = atoi(prop_val);
+  assert(0 != w2);
+  property_get(PROP_TRACK2_HEIGHT, prop_val, "1080");
+  h2 = atoi(prop_val);
+  assert(0 != h2);
+
+  property_get(PROP_TRACK1_FPS, prop_val, "30");
+  fps1 = atoi(prop_val);
+  assert(0 != fps1);
+  property_get(PROP_TRACK2_FPS, prop_val, "24");
+  fps2 = atoi(prop_val);
+  assert(0 != fps2);
+
+  property_get(PROP_CAM_PARAMS1, prop_val, "0");
+  shdr1 = atoi(prop_val) & 0x1;
+  tnr1 = atoi(prop_val) & 0x2;
+  property_get(PROP_CAM_PARAMS2, prop_val, "0");
+  shdr2 = atoi(prop_val) & 0x1;
+  tnr2 = atoi(prop_val) & 0x2;
+
+  property_get(PROP_TRACK1_DELETE, prop_val, "0");
+  is_t1_delete = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SESSION2_CREATE, prop_val, "0");
+  is_s2_create = (atoi(prop_val) == 0) ? false : true;
+
+  fprintf(stderr, "\nw1:%d h1:%d fps1:%d w2:%d h2:%d fps2:%d "
+          "shdr1:%d tnr1:%d shdr2:%d tnr2:%d\n",
+          w1, h1, fps1, w2, h2, fps2, shdr1, tnr1, shdr2, tnr2);
+
+  bool is_allowed = (!(is_t1_delete && is_s2_create));
+  assert(true == is_allowed);
+
+  // Start
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  assert(ret == NO_ERROR);
+
+  InitSupportedVHDRModes();
+  is_shdr_supported = IsVHDRSupported();
+  InitSupportedNRModes();
+  is_tnr_supported = IsNRSupported();
+
+  fprintf(stderr, "\nis_shdr_supported:%d is_tnr_supported:%d\n",
+          is_shdr_supported, is_tnr_supported);
+
+  // Create Session1
+  SessionCb s1_status_cb;
+  s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t s1_id;
+  ret = recorder_.CreateSession(s1_status_cb, &s1_id);
+  assert(s1_id > 0);
+  assert(ret == NO_ERROR);
+
+  // Create 4k AVC Stream
+  VideoTrackCreateParam video_track1;
+  memset(&video_track1, 0x0, sizeof video_track1);
+
+  video_track1.camera_id      = 0;
+  video_track1.width          = w1;
+  video_track1.height         = h1;
+  video_track1.frame_rate     = fps1;
+  video_track1.format_type    = VideoFormat::kAVC;
+  video_track1.out_device     = 0x01;
+  video_track1.low_power_mode = false;
+
+  TrackCb video_track1_cb;
+  video_track1_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  video_track1_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  uint32_t video_track1_id = 1;
+  ret = recorder_.CreateVideoTrack(s1_id, video_track1_id,
+                                   video_track1, video_track1_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> s1_track_ids;
+  s1_track_ids.push_back(video_track1_id);
+  sessions_.insert(std::make_pair(s1_id, s1_track_ids));
+
+  // Start Session1
+  ret = recorder_.StartSession(s1_id);
+  assert(ret == NO_ERROR);
+  sleep(5);
+
+  // Camera Params
+  CameraMetadata meta;
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  // SHDR
+  if (is_shdr_supported) {
+    if (shdr1) {
+      fprintf(stderr, "\nSetting shdr1 ON..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting shdr1 OFF..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    }
+  }
+
+  // TNR
+  if (is_tnr_supported) {
+    if (tnr1) {
+      fprintf(stderr, "\nSetting TNR1 ON..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting TNR1 OFF..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    }
+  }
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  sleep(15);
+
+  if (!is_s2_create) {
+    ret = recorder_.StopSession(s1_id, false);
+    assert(ret == NO_ERROR);
+  }
+
+  if (is_t1_delete) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Create 1080p AVC Stream
+  VideoTrackCreateParam video_track2;
+  memset(&video_track2, 0x0, sizeof video_track2);
+
+  video_track2.camera_id      = 0;
+  video_track2.width          = w2;
+  video_track2.height         = h2;
+  video_track2.frame_rate     = fps2;
+  video_track2.format_type    = VideoFormat::kAVC;
+  video_track2.out_device     = 0x01;
+  video_track2.low_power_mode = false;
+
+  TrackCb video_track2_cb;
+  video_track2_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  video_track2_cb.data_cb = [&] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  uint32_t video_track2_id = 2;
+
+  // Create Session2
+  uint32_t s2_id;
+  if (is_s2_create) {
+    SessionCb s2_status_cb;
+    s2_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateSession(s2_status_cb, &s2_id);
+    assert(s2_id > 0);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.CreateVideoTrack(s2_id, video_track2_id,
+                                     video_track2, video_track2_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> s2_track_ids;
+    s2_track_ids.push_back(video_track2_id);
+    sessions_.insert(std::make_pair(s2_id, s2_track_ids));
+
+    ret = recorder_.StartSession(s2_id);
+    assert(ret == NO_ERROR);
+
+  } else {
+    // Add T2 to the existing Session and restart Session
+    ret = recorder_.CreateVideoTrack(s1_id, video_track2_id,
+                                     video_track2, video_track2_cb);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+    std::vector<uint32_t> tracks;
+    if (!is_t1_delete) {
+      tracks.push_back(video_track1_id);
+    }
+    tracks.push_back(video_track2_id);
+    sessions_.insert(std::make_pair(s1_id, tracks));
+
+    ret = recorder_.StartSession(s1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Camera Params
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  // SHDR
+  if (is_shdr_supported) {
+    if (shdr2) {
+      fprintf(stderr, "\nSetting shdr2 ON..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting shdr2 OFF..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    }
+  }
+
+  // TNR
+  if (is_tnr_supported) {
+    if (tnr2) {
+      fprintf(stderr, "\nSetting TNR2 ON..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting TNR2 OFF..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    }
+  }
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+  sleep(15);
+
+  // Stop Session-2
+  if (is_s2_create) {
+    ret = recorder_.StopSession(s2_id, false);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(s2_id, video_track2_id);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteSession(s2_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Stop Session-1
+  ret = recorder_.StopSession(s1_id, false);
+  assert(ret == NO_ERROR);
+
+  if (!is_t1_delete) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  if (!is_s2_create) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track2_id);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteSession(s1_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  // Deinit and Stop
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
