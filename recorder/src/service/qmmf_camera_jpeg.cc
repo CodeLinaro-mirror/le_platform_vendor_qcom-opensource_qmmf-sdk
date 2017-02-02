@@ -79,7 +79,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
     return BAD_VALUE;
   }
 
-  jpeg_encoder_ = JpegEncoder::getInstance(&meta_info);
+  jpeg_encoder_ = JpegEncoder::getInstance();
 
   capture_client_cb_ = cb;
   input_stream_id_ = stream_id;
@@ -144,6 +144,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer,
     snapshot_info img_buffer;
     img_buffer.img_data[0] = (uint8_t*)buf_vaaddr;
     img_buffer.out_data[0] = (uint8_t*)out_vaaddr;
+    img_buffer.source_info = in_buffer.info;
     auto buf_vaddr = jpeg_encoder_->Encode(img_buffer, &jpeg_size);
 
     memcpy(buf_vaaddr, buf_vaddr, jpeg_size);
