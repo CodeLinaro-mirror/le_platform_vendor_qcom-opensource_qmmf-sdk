@@ -55,6 +55,8 @@ class CameraInterface : public RefBase {
                                 const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
+  virtual status_t CancelCaptureImage() = 0;
+
   virtual status_t CreateStream(const CameraStreamParam& param) = 0;
 
   virtual status_t DeleteStream(const uint32_t track_id) = 0;
