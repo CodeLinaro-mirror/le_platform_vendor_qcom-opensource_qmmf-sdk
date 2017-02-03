@@ -4,7 +4,9 @@ source_files += qmmf_recorder_ion.cc
 source_files += qmmf_remote_cb.cc
 source_files += qmmf_camera_source.cc
 source_files += qmmf_camera_context.cc
+if ENABLE_360
 source_files += qmmf_multicamera_manager.cc
+endif
 source_files += qmmf_encoder_core.cc
 source_files += qmmf_audio_source.cc
 source_files += qmmf_audio_raw_track_source.cc
@@ -24,7 +26,7 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-libqmmf_recorder_service_la_LDFLAGS  += -libhardware
+libqmmf_recorder_service_la_LDFLAGS  += -lhardware
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_adaptor.la
