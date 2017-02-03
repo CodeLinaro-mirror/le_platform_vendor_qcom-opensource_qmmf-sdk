@@ -1197,7 +1197,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kSaturation) {
   ret = device_client_->SubmitRequest(snapshotRequest, false, &lastFrameNumber);
   ASSERT_GE(ret, 0);
 
-  sat = 100;
+  sat = 10;
   ret = videoRequest.metadata.update(QCAMERA3_USE_SATURATION, &sat, 1);
   ASSERT_EQ(ret, 0);
 
