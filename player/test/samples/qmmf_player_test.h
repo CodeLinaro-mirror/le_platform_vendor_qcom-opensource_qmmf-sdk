@@ -41,7 +41,7 @@
 #include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
-
+#include "qmmf-sdk/qmmf_buffer.h"
 
 using namespace qmmf;
 using namespace player;
@@ -113,6 +113,8 @@ class PlayerTest {
   void videotrackcb(EventType event_type, void *event_data,
                     size_t event_data_size);
 
+  void GrabPictureDataCB(BufferDescriptor& buffer);
+
   static void* StartPlayingAudio(void* ptr);
 
   static void* StartPlayingVideo(void* ptr);
@@ -170,6 +172,7 @@ class PlayerTest {
   TrackTypes                      track_type_;
   TrickModeSpeed                  playback_speed_;
   TrickModeDirection              playback_dir_;
+  int32_t                         grabpicture_file_fd_;
 };
 
 class CmdMenu {
@@ -184,6 +187,7 @@ class CmdMenu {
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
       TRICK_MODE_CMD                    = '9',
+      GRAB_PICTURE                      = 'P',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'

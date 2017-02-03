@@ -112,7 +112,7 @@ class RecorderClient {
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageCaptureConfig &config);
 
-  status_t CancelCaptureImage();
+  status_t CancelCaptureImage(const uint32_t camera_id);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const BufferDescriptor &buffer);

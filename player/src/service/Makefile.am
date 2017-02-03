@@ -17,7 +17,7 @@ libqmmf_player_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_player_service_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_player_service_la_CPPFLAGS += -I$(LIBGRALLOC)
 libqmmf_player_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
-libqmmf_player_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
+libqmmf_player_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils -lfastcvopt
 
 libqmmf_player_service_la_LIBADD   = ../client/libqmmf_player_client.la
 libqmmf_player_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la

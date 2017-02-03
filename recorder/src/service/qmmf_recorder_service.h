@@ -127,7 +127,7 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageCaptureConfig &config) override;
 
-  status_t CancelCaptureImage() override;
+  status_t CancelCaptureImage(const uint32_t camera_id) override;
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t  buffer_id) override;

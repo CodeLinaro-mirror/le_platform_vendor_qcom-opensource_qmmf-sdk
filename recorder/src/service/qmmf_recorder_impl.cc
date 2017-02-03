@@ -1018,9 +1018,16 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t camera_id,
 }
 
 
-status_t RecorderImpl::CancelCaptureImage() {
+status_t RecorderImpl::CancelCaptureImage(const uint32_t camera_id) {
 
-  //NOT IMPLEMENTED.
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->CancelCaptureImage(camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CancelCaptureImage failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 

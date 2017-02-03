@@ -384,7 +384,7 @@ int32_t Camera3Gtest::StopDeleteStream(int32_t streamId, int32_t requestId) {
     return ret;
   }
 
-  ret = device_client_->DeleteStream(streamId);
+  ret = device_client_->DeleteStream(streamId, true);
   if (0 != ret) {
     return ret;
   }
@@ -703,7 +703,7 @@ TEST_F(Camera3Gtest, Video1080pSceneControl) {
     ret = device_client_->WaitUntilIdle();
     ASSERT_EQ(0, ret);
 
-    ret = device_client_->DeleteStream(repeatingStreamId);
+    ret = device_client_->DeleteStream(repeatingStreamId, true);
     ASSERT_EQ(0, ret);
     ASSERT_FALSE(camera_error_);
   }
@@ -794,7 +794,7 @@ TEST_F(Camera3Gtest, Video1080pEVcontrol) {
     ret = device_client_->WaitUntilIdle();
     ASSERT_EQ(0, ret);
 
-    ret = device_client_->DeleteStream(repeatingStreamId);
+    ret = device_client_->DeleteStream(repeatingStreamId, true);
     ASSERT_EQ(0, ret);
     ASSERT_FALSE(camera_error_);
   }
@@ -874,7 +874,7 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
     ret = device_client_->WaitUntilIdle();
     ASSERT_EQ(0, ret);
 
-    ret = device_client_->DeleteStream(repeatingStreamId);
+    ret = device_client_->DeleteStream(repeatingStreamId, true);
     ASSERT_EQ(0, ret);
     ASSERT_FALSE(camera_error_);
   }
@@ -2123,7 +2123,7 @@ TEST_F(Camera3Gtest, DynamicDeleteVideo1080p) {
   }
   pthread_mutex_unlock(&input_lock_);
 
-  ret = device_client_->DeleteStream(videoStreamId1);
+  ret = device_client_->DeleteStream(videoStreamId1, true);
   ASSERT_EQ(0, ret);
 
   //Continue streaming with just one stream
