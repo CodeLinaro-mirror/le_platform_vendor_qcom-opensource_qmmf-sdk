@@ -70,6 +70,7 @@ enum class VideoFormat {
   kHEVC,
   kAVC,
   kYUV,
+  kPreview,
   kBayerRDI,
   kBayerIdeal,
 };

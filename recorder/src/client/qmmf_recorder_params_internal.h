@@ -127,6 +127,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
       case VideoFormat::kYUV:
       case VideoFormat::kBayerRDI:
       case VideoFormat::kBayerIdeal:
+      case VideoFormat::kPreview:
         // nothing to write
         break;
     }
@@ -149,6 +150,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
       case VideoFormat::kYUV:
       case VideoFormat::kBayerRDI:
       case VideoFormat::kBayerIdeal:
+      case VideoFormat::kPreview:
         // nothing to read
         break;
     }
