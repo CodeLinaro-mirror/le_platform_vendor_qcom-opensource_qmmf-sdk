@@ -629,9 +629,11 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
 TEST_F(Camera3Gtest, Video1080pManualExposure) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
+  CameraMetadata staticInfo;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
   int64_t exposureTime = 10000000;
+  int32_t sensitivity = 100;
 
   auto ret = device_client_->BeginConfigure();
   ASSERT_EQ(0, ret);
@@ -684,6 +686,46 @@ TEST_F(Camera3Gtest, Video1080pManualExposure) {
   exposureTime = 30000000;
   printf("Manual Exposure Time: %lld\n", exposureTime);
   videoRequest.metadata.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  ASSERT_TRUE(staticInfo.exists(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE));
+
+  camera_metadata_entry metaEntry =
+      staticInfo.find(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE);
+  int32_t minSens = metaEntry.data.i32[0];
+  int32_t maxSens = metaEntry.data.i32[1];
+
+//  ANDROID_SENSOR_SENSITIVITY
+  printf("%s: sensor sensitivity range: min[%" PRId32 "], max[%" PRId32 "]\n",
+     __func__, minSens, maxSens);
+
+  sensitivity = minSens;
+
+  videoRequest.metadata.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  sensitivity = maxSens;
+
+  videoRequest.metadata.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
 
   ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
   ASSERT_GE(ret, 0);
