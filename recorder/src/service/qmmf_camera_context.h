@@ -225,6 +225,7 @@ class CameraContext : public RefBase {
   sp<CameraReprocess>      camera_reprocess_;
   SyncFrame                sync_frame_;
   Condition                sync_frame_cond_;
+  Mutex                    sync_frame_lock_;
   static const nsecs_t     kSyncFrameWaitDuration;
 };
 
