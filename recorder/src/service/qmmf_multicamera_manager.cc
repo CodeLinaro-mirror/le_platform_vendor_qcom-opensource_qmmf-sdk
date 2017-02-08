@@ -840,13 +840,16 @@ bool StitchingBase::ThreadLoop() {
 
 status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
+  bool match_found;
   int32_t timestamp_delta;
   uint32_t num_matched_frames = 1;
   Vector<StreamBuffer> *unsynced_buffers;
+  // Map of camera id and index of the matched buffer from
+  // the unsynced_buffers queue for that camera id.
+  KeyedVector<uint32_t, uint32_t> matched_buffers;
 
-  // Initialize the result vector with empty stream buffers.
-  // Each matched buffer for given camera will replace the empty buffer on
-  // the position corresponding to it's camera id.
+  // Each matched buffer for given camera will be added to the
+  // synced_frames vector and identified by it's camera id.
   KeyedVector<uint32_t, StreamBuffer> synced_frames;
   synced_frames.add(buffer.camera_id, buffer);
 
@@ -855,6 +858,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     if (camera_id == buffer.camera_id) {
       continue;
     }
+    match_found = false;
 
     // Retrieve a list with unsynced buffers for each of the other cameras.
     unsynced_buffers = &unsynced_buffer_map_.editValueFor(camera_id);
@@ -866,27 +870,20 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
       if (std::abs(timestamp_delta) < kTimestampMaxDelta) {
         synced_frames.add(camera_id, unsynced_frame);
-        unsynced_buffers->removeAt(idx);
-        // Clear the unsynced buffers from queue of the matched camera_id,
-        // starting from beginning to latest matched buffer and return them
-        // back to their corresponding producers and break the loop.
-        for (int32_t i = 0; i < idx; ++i) {
-          StreamBuffer &buf = unsynced_buffers->editItemAt(i);
-          ReturnBufferToCamera(buf);
-        }
-        unsynced_buffers->removeItemsAt(0, idx);
+        matched_buffers.add(camera_id, idx);
         ++num_matched_frames;
+        match_found = true;
         break;
       } else if (timestamp_delta > 0) {
-        // Remove buffers with lower timestamp than the synchronization
-        // buffer from the other unsynced buffer queues and break the loop.
-        for (int32_t i = 0; i <= idx; ++i) {
-          StreamBuffer &buf = unsynced_buffers->editItemAt(i);
-          ReturnBufferToCamera(buf);
-        }
-        unsynced_buffers->removeItemsAt(0, (idx + 1));
+        // No need to check the rest of the buffers in the queue for
+        // this camera_id, as they will be with a lower timestamp.
         break;
       }
+    }
+    // If a matched frame wasn't found there is no need to check
+    // all other remaining cameras (if any).
+    if (!match_found) {
+      break;
     }
   }
 
@@ -895,14 +892,8 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     QMMF_DEBUG("%s:%s: Camera %u: No matching buffers found", TAG, __func__,
                  buffer.camera_id);
 
-    // Push the buffers from the synced vector into the unsynced buffer
-    // queue for their respective camera id, that includes the synchronization
-    // buffer which came at FrameSync call.
-    for (size_t idx = 0; idx < synced_frames.size(); ++idx) {
-      const StreamBuffer &buf = synced_frames.valueAt(idx);
-      unsynced_buffer_map_.editValueFor(buf.camera_id).push_back(buf);
-    }
-    synced_frames.clear();
+    // Push the buffer in the unsynced buffer queue for its camera id.
+    unsynced_buffer_map_.editValueFor(buffer.camera_id).push_back(buffer);
 
     // Check if the queue of current buffer camera_id has reached max size.
     unsynced_buffers = &unsynced_buffer_map_.editValueFor(buffer.camera_id);
@@ -925,6 +916,21 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
   // A matched frame(s) have been found, return all unsynced buffers and clear
   // the queue of the camera_id from which the synchronization buffer came.
   ReturnUnsyncedBuffers(buffer.camera_id);
+
+  // Clear the obsolete unsynced buffers from queue of the matched cameras,
+  // starting from beginning to the latest matched buffer and return them
+  // back to their corresponding producers.
+  for (size_t idx = 0; idx < matched_buffers.size(); ++idx) {
+    uint32_t camera_id = matched_buffers.keyAt(idx);
+    uint32_t match_idx = matched_buffers.valueAt(idx);
+    unsynced_buffers = &unsynced_buffer_map_.editValueFor(camera_id);
+    unsynced_buffers->removeAt(match_idx);
+    for (uint32_t i = 0; i < match_idx; ++i) {
+      StreamBuffer &buf = unsynced_buffers->editItemAt(i);
+      ReturnBufferToCamera(buf);
+    }
+    unsynced_buffers->removeItemsAt(0, match_idx);
+  }
 
   Mutex::Autolock lock(sync_lock_);
   synced_buffer_queue_.push(synced_frames);
