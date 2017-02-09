@@ -409,7 +409,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded video frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), decoded_frame_number_,
         codec_buffer.timestamp);
-      current_time_ = codec_buffer.timestamp;
 
  #ifdef DUMP_YUV_FRAMES
     DumpYUVData(codec_buffer);
@@ -418,7 +417,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     if (SkipFrame()) {
       QMMF_DEBUG("%s:%s:Skipping frame number %d to display", TAG, __func__,
            decoded_frame_number_);
-      prev_time_ = current_time_;
       ReturnBufferToCodec(codec_buffer);
       return NO_ERROR;
     } else {
@@ -428,15 +426,15 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
         QMMF_ERROR("%s:%s PushFrameToDisplay Failed!!", TAG, __func__);
       }
 
+      int64_t sleep = 1000000/(track_params_.params.frame_rate);
       QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
-          (float)((current_time_ - prev_time_)/(float)1000));
-      usleep(current_time_ - prev_time_);
+          (float)sleep/(float)1000);
+      usleep(sleep);
 
       ++displayed_frames_;
       QMMF_DEBUG("%s:%s: track_id(%d) displayed video frame number %d",
           TAG, __func__, TrackId(), decoded_frame_number_);
     }
-    prev_time_ = current_time_;
   }
 
   ReturnBufferToCodec(codec_buffer);

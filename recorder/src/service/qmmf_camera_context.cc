@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define TAG "RecorderCameraContext"
 
@@ -467,7 +467,7 @@ std::function<void(int32_t stream_id, StreamBuffer buffer)>
 status_t CameraContext::CaptureImage(const ImageParam &param,
                                      const uint32_t num_images,
                                      const std::vector<CameraMetadata> &meta,
-                                     const SnapshotCb& cb) {
+                                     const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
@@ -820,6 +820,15 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   return ret;
 }
 
+CameraStartParam& CameraContext::GetCameraStartParam() {
+
+  return camera_start_params_;
+}
+
+Vector<int32_t>& CameraContext::GetSupportedFps() {
+
+  return supported_fps_;
+}
 
 status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
@@ -1132,6 +1141,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
+    Mutex::Autolock sync_lock(sync_frame_lock_);
     if (!removed_streams.isEmpty()) {
       sync_frame_.stream_ids.clear();
       sync_frame_.stream_ids.appendVector(removed_streams);
@@ -1144,7 +1154,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     }
     streaming_request_id_ = ret;
     while (!sync_frame_.stream_ids.isEmpty()) {
-      auto stat = sync_frame_cond_.waitRelative(device_access_lock_,
+      auto stat = sync_frame_cond_.waitRelative(sync_frame_lock_,
                                                 kSyncFrameWaitDuration);
       if (NO_ERROR == ret) {
           QMMF_ERROR("%s:%s: Sync frame condition failed: %d\n",
@@ -1203,8 +1213,8 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
   assert(ret == NO_ERROR);
 
+  Mutex::Autolock lock(sync_frame_lock_);
   if (sync_frame_.last_frame_id == buffer.frame_number) {
-    Mutex::Autolock lock(device_access_lock_);
     if (!sync_frame_.stream_ids.isEmpty()) {
       ssize_t idx = -1;
       size_t count = sync_frame_.stream_ids.size();
@@ -1224,30 +1234,8 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
   return ret;
 }
 
-uint32_t CameraContext::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
-
-  uint32_t ret = width;
-  uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
-
-  if (width > blob_size) {
-    size_t offset = width - blob_size;
-    uint8_t *footer = blobBuffer + offset;
-    struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
-
-    if (CAMERA3_JPEG_BLOB_ID == jpegBlob->jpeg_blob_id) {
-      ret = jpegBlob->jpeg_size;
-    } else {
-      QMMF_ERROR("%s:%s Jpeg Blob structure missing!\n", TAG, __func__);
-    }
-  } else {
-    QMMF_ERROR("%s:%s Buffer width: %u equal or smaller than Blob size: %u\n",
-        TAG, __func__, width, blob_size);
-  }
-  return ret;
-}
-
 void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
-                                          StreamBuffer buffer) {
+                                            StreamBuffer buffer) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
@@ -1278,66 +1266,15 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
     }
   }
 
-  uint32_t content_size;
-  int32_t width = -1, height = -1;
-  void* vaddr = nullptr;
-  switch (buffer.info.format) {
-    case BufferFormat::kNV12:
-    case BufferFormat::kNV21:
-    case BufferFormat::kRAW10:
-    case BufferFormat::kRAW16:
-      width  = buffer.info.plane_info[0].width;
-      height = buffer.info.plane_info[0].height;
-      content_size = buffer.size;
-      break;
-    case BufferFormat::kBLOB:
-      vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
-          buffer.fd, 0);
-      assert(vaddr != nullptr);
-      assert(0 < buffer.info.num_planes);
-      content_size = GetJpegSize((uint8_t*) vaddr,
-                                buffer.info.plane_info[0].width);
-      QMMF_DEBUG("%s:%s: jpeg buffer size(%d)", TAG, __func__, content_size);
-      assert(0 < content_size);
-      if (vaddr) {
-        munmap(vaddr, buffer.size);
-        vaddr = nullptr;
-      }
-      width  = -1;
-      height = -1;
-    break;
-    default:
-      QMMF_ERROR("%s:%s format(%d) not supported", TAG, __func__,
-          buffer.info.format);
-      assert(0);
-    break;
-  }
-
-  BnBuffer bn_buffer;
-  memset(&bn_buffer, 0x0, sizeof bn_buffer);
-  bn_buffer.ion_fd    = buffer.fd;
-  bn_buffer.size      = content_size;
-  bn_buffer.timestamp = buffer.timestamp;
-  bn_buffer.width     = width;
-  bn_buffer.height    = height;
-  bn_buffer.buffer_id = buffer.fd;
-  bn_buffer.capacity  = buffer.size;
-
+  buffer.camera_id = camera_id_;
   snapshot_buffer_list_.add(buffer.fd, buffer);
   snapshot_buffer_stream_list_.add(buffer.fd, stream_id);
 
   assert(client_snapshot_cb_ != nullptr);
-  QMMF_INFO("%s:%s: Snapshot data received, posting it to client!", TAG,
-      __func__);
-
-  MetaData meta_data;
-  memset(&meta_data, 0x0, sizeof meta_data);
-  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-  meta_data.cam_buffer_meta_data = buffer.info;
+  client_snapshot_cb_(burst_cnt_, buffer);
   ++burst_cnt_;
-  client_snapshot_cb_(camera_id_, burst_cnt_, bn_buffer, meta_data);
 
-  QMMF_INFO("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 status_t CameraContext::ValidateResolution(const ImageFormat format,
@@ -1802,6 +1739,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
       __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
 
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
+    stream_buffer.camera_id = context_->camera_id_;
     buffer_producer_impl_->NotifyBuffer(stream_buffer);
   } else {
     // Return the buffer back to camera.
@@ -2148,7 +2086,7 @@ void ZslPort::ReturnZSLInputBuffer(StreamBuffer& buffer) {
   if (buffer.handle == zsl_input_buffer_.buffer.handle) {
     assert (context_ != nullptr);
     QMMF_INFO("%s:%s buffer(%d) returned from reprocess!", TAG, __func__,
-      buffer.fd);
+        buffer.fd);
     auto ret = context_->ReturnStreamBuffer(camera_stream_id_,
                                             zsl_input_buffer_.buffer);
     if (NO_ERROR == ret) {

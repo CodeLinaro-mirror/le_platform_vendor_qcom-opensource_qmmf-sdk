@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -36,6 +36,7 @@
 #include <utils/Condition.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
@@ -77,6 +78,14 @@ class CameraSource {
                        const ResultCb &cb = nullptr);
 
   status_t StopCamera(const uint32_t camera_id);
+
+  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+                             uint32_t *virtual_camera_id);
+
+  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                const uint32_t type,
+                                const void *param,
+                                const uint32_t param_size);
 
   status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
                         const uint32_t num_images,
@@ -135,18 +144,21 @@ class CameraSource {
   status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
-
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
  private:
 
   bool IsTrackIdValid(const uint32_t track_id);
+  void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
+  uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
 
   // Map of camera id and CameraContext.
-  DefaultKeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
+  DefaultKeyedVector<uint32_t, sp<CameraInterface>> camera_map_;
 
   // Map of track it and TrackSources.
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
+
+  SnapshotCb client_snapshot_cb_;
 
   // Not allowed
   CameraSource();
@@ -160,7 +172,8 @@ class CameraSource {
 // Encoder, and manages buffer circulation, skip etc.
 class TrackSource : public ICodecSource {
  public:
-  TrackSource(const VideoTrackParams& params, const sp<CameraContext>& context);
+  TrackSource(const VideoTrackParams& params,
+              const sp<CameraInterface>& camera_intf);
 
   ~TrackSource();
 
@@ -268,7 +281,7 @@ class TrackSource : public ICodecSource {
   // List of buffers held by encoder.
   TSQueue<StreamBuffer> frames_being_encoded_;
 
-  sp<CameraContext>     camera_context_;
+  sp<CameraInterface>   camera_interface_;
 
   Overlay  overlay_;
   bool     enable_overlay_;
