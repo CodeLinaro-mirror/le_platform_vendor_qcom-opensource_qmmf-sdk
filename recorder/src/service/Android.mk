@@ -13,6 +13,7 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
+LOCAL_CFLAGS += -DENABLE_360=1
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmmf-alg/
