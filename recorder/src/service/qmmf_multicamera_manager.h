@@ -49,6 +49,8 @@ namespace recorder {
 
 static const uint32_t kVirtualCameraIdOffset = 1000;
 
+class StreamStitching;
+
 class MultiCameraManager : public CameraInterface {
  public:
   MultiCameraManager();
@@ -98,6 +100,8 @@ class MultiCameraManager : public CameraInterface {
   void SnapshotCbCam(uint32_t camera_id, uint32_t count, BnBuffer& buffer,
                      MetaData& meta_data);
 
+  void ReCalculateWidth(uint32_t &width);
+
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
   Vector<int32_t>          supported_fps_;
@@ -109,8 +113,14 @@ class MultiCameraManager : public CameraInterface {
   // Map of camera id and CameraContext.
   KeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
 
+  // Map of track id and StreamStitching class
+  KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
+
   SnapshotCb               source_snapshot_cb_;
   Mutex                    lock_;
+
+  static const uint32_t kWidth4K  = 3840;
+  static const uint32_t kHeight4K = 1920;
 };
 
 class GrallocMemory {
@@ -265,6 +275,38 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static const int32_t kTimestampMaxDelta = 140000000; // 140 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
+};
+
+class StreamStitching : public StitchingBase {
+ public:
+  StreamStitching(InitParams &param);
+  ~StreamStitching();
+
+  // Methods for establishing buffer communication link between the
+  // consumer of the client and buffer producer of the stitching pipeline.
+  status_t AddConsumer(const sp<IBufferConsumer>& consumer);
+  status_t RemoveConsumer();
+
+  // Method to provide consumer interface, it would be used by a CameraContext
+  // port producer to post buffers.
+  sp<IBufferConsumer>& GetConsumerIntf(uint32_t camera_id);
+
+  // Method for handling incoming buffers from CameraPort buffer producer.
+  void OnFrameAvailable(StreamBuffer& buffer);
+
+  // Method for handling a buffer returned back from the CameraSource.
+  void NotifyBufferReturned(const StreamBuffer& buffer);
+
+ protected:
+  status_t NotifyBufferToClient(StreamBuffer &buffer) override;
+  status_t ReturnBufferToCamera(StreamBuffer &buffer) override;
+
+ private:
+  sp<IBufferProducer>      buffer_producer_impl_;
+  sp<IBufferConsumer>      buffer_consumer_impl_;
+
+  // Map of camera id and it's corresponding buffer consumer.
+  KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
 };
 
 }; // recorder.
