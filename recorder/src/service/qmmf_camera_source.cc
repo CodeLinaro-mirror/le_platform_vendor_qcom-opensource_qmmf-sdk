@@ -240,11 +240,11 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraContext> camera_context;
-  for (uint8_t i = 0; i < camera_contexts_.size(); i++) {
-    if (camera_id == camera_contexts_.keyAt(i)) {
-        match = true;
-        camera_context = camera_contexts_.valueAt(i);
+  sp<CameraInterface> camera;
+  for (uint8_t i = 0; i < camera_map_.size(); i++) {
+    if (camera_id == camera_map_.keyAt(i)) {
+      match = true;
+      camera = camera_map_.valueAt(i);
     }
   }
   if (!match) {
@@ -252,8 +252,8 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
     return BAD_VALUE;
   }
 
-  assert(camera_context.get() != nullptr);
-  auto ret = camera_context->CancelCaptureImage();
+  assert(camera.get() != nullptr);
+  auto ret = camera->CancelCaptureImage();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CancelCaptureImage Failed!", TAG, __func__);
     return ret;

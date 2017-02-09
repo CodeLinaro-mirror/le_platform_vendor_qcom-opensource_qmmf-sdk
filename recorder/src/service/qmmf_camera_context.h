@@ -76,7 +76,7 @@ class CameraContext : public CameraInterface {
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t CancelCaptureImage();
+  status_t CancelCaptureImage() override;
 
   status_t CreateStream(const CameraStreamParam& param) override;
 

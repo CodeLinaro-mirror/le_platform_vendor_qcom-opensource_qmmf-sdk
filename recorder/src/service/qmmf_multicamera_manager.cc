@@ -246,6 +246,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   return ret;
 }
 
+status_t MultiCameraManager::CancelCaptureImage() {
+  //TODO
+  return NO_ERROR;
+}
+
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
 
   status_t ret = NO_ERROR;

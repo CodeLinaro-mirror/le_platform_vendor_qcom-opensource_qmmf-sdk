@@ -75,6 +75,8 @@ class MultiCameraManager : public CameraInterface {
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
+  status_t CancelCaptureImage() override;
+
   status_t CreateStream(const CameraStreamParam& param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
