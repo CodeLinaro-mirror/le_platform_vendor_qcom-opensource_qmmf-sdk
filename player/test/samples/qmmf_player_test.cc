@@ -388,7 +388,7 @@ int32_t PlayerTest::Start() {
         static_cast<int64>(current_playback_time_/1000));
 
     if (mFSStatus == FILE_SOURCE_FAIL) {
-      TEST_INFO("%s:%s: Failed to seek", TAG, __func__,
+      TEST_INFO("%s:%s: Failed to seek %d", TAG, __func__,
           static_cast<uint32_t>(mFSStatus));
     }
   }

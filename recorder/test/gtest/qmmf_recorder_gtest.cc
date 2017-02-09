@@ -67,7 +67,6 @@ static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
 static const int32_t kDefaultJpegQuality = 85;
-static const uint32_t kYUVDumpFreq   = 100;
 
 #define COLOR_DARK_GRAY 0x202020FF;
 #define COLOR_YELLOW    0xFFFF00FF;
