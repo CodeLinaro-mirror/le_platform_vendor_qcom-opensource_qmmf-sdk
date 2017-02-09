@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1164,6 +1164,37 @@ status_t RecorderImpl::RemoveOverlayObject(const uint32_t track_id,
   auto ret = camera_source_->RemoveOverlayObject(track_id, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: RemoveOverlayObject failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+                                         uint32_t *virtual_camera_id) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->CreateMultiCamera(camera_ids, virtual_camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreateMultiCamera failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderImpl::ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                            const uint32_t type,
+                                            const void *param,
+                                            const uint32_t param_size) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->ConfigureMultiCamera(virtual_camera_id, type,
+                                                  param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ConfigureMultiCamera failed!", TAG, __func__);
     return ret;
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
