@@ -998,14 +998,13 @@ status_t StitchingBase::InitLibrary() {
     QMMF_WARN("%s:%s: Stitch library already initialized", TAG, __func__);
     return ret;
   }
-  void *handle = nullptr;
 
-  //handle = dlopen(kStitchLib, RTLD_NOW);
-  //if (nullptr == handle) {
-  //  QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-  //             kStitchLib, dlerror());
-  //  return BAD_VALUE;
-  //}
+  void* handle = dlopen(kStitchLib, RTLD_NOW);
+  if (nullptr == handle) {
+    QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
+               kStitchLib, dlerror());
+    return BAD_VALUE;
+  }
 
   stitch_lib_.handle = handle;
 
