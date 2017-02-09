@@ -24,6 +24,7 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
+libqmmf_recorder_service_la_LDFLAGS  += -libhardware
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_adaptor.la

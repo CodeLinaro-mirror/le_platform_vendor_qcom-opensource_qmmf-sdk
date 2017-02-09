@@ -29,9 +29,15 @@
 
 #pragma once
 
+#include <queue>
+#include <map>
+#include <set>
+
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
+
+#include <qmmf_alg_intf.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -105,6 +111,160 @@ class MultiCameraManager : public CameraInterface {
 
   SnapshotCb               source_snapshot_cb_;
   Mutex                    lock_;
+};
+
+class GrallocMemory {
+ public:
+  struct BufferParams {
+    uint32_t width;
+    uint32_t height;
+    int32_t  format;
+    int32_t  gralloc_flags;
+    uint32_t max_size;
+    uint32_t max_buffer_count;
+  };
+
+  GrallocMemory(alloc_device_t *gralloc_device = nullptr);
+  ~GrallocMemory();
+
+  status_t Initialize();
+  status_t Configure(BufferParams &params);
+
+  status_t GetBuffer(buffer_handle_t &buffer);
+  status_t ReturnBuffer(const buffer_handle_t &buffer);
+
+  status_t PopulateMetaInfo(CameraBufferMetaData &info,
+                            buffer_handle_t &buffer);
+
+ private:
+  status_t GetBufferLocked(buffer_handle_t &buffer);
+  status_t ReturnBufferLocked(const buffer_handle_t &buffer);
+
+  status_t AllocGrallocBuffer(buffer_handle_t *buf);
+  status_t FreeGrallocBuffer(buffer_handle_t buf);
+
+  BufferParams             params_;
+  alloc_device_t           *gralloc_device_;
+  buffer_handle_t          *gralloc_slots_;
+  uint32_t                 buffers_allocated_;
+  uint32_t                 pending_buffer_count_;
+
+  // Pool with allocated gralloc buffers, the bool value indicates
+  // if the buffer has been returned to the producer and is available
+  // to be used.
+  KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
+
+  Mutex                    buffer_lock_;
+  Condition                wait_for_buffer_;
+
+  static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
+};
+
+class StitchingBase : public Camera3Thread, public RefBase  {
+ public:
+  struct InitParams {
+    uint32_t         virtual_camera_id;
+    Vector<uint32_t> camera_ids;
+  };
+
+  StitchingBase(InitParams &param);
+  ~StitchingBase();
+
+  status_t Initialize();
+  status_t Configure(GrallocMemory::BufferParams &param);
+
+  int32_t Run();
+  void RequestExit() override;
+  void RequestExitAndWait() override;
+
+ protected:
+  // Thread for preparing synced and output buffers for processing by the
+  // stitch library and passing them to the same library for stitching.
+  bool ThreadLoop() override;
+
+  // Pure virtual methods for handling the return of stream buffers
+  // to their corresponding point of origin.
+  virtual status_t NotifyBufferToClient(StreamBuffer &buffer) = 0;
+  virtual status_t ReturnBufferToCamera(StreamBuffer &buffer) = 0;
+
+  // Method for handling the synchronization between frames.
+  status_t FrameSync(StreamBuffer& buffer);
+
+  // Method for returning an output buffer back to the memory pool.
+  status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
+
+  InitParams               params_;
+  bool                     stop_frame_sync_;
+  String8                  *work_thread_name_;
+
+  Mutex                    frame_lock_;
+
+ private:
+  struct StitchLibInterface {
+    void        *handle;
+    void        *context;
+    bool        configured;
+    qmmf_alg_status_t (*init)(void **handle,
+                              qmmf_alg_blob_t *calibration_data);
+    void        (*deinit)(void *handle);
+    qmmf_alg_status_t (*get_caps)(void *handle, qmmf_alg_caps_t *caps);
+    qmmf_alg_status_t (*set_tuning)(void *handle, qmmf_alg_blob_t *blob);
+    qmmf_alg_status_t (*config)(void *handle, qmmf_alg_config_t *config);
+    qmmf_alg_status_t (*register_bufs)(void *handle, qmmf_alg_buf_list_t bufs);
+    qmmf_alg_status_t (*unregister_bufs)(void *handle,
+                                         qmmf_alg_buf_list_t bufs);
+    qmmf_alg_status_t (*flush)(void *handle);
+    qmmf_alg_status_t (*process)(void *handle,
+                                 qmmf_alg_process_data_t *proc_data);
+    qmmf_alg_status_t (*get_debug_info_log)(void *handle, char **log);
+  };
+
+  void StopFrameSync();
+
+  status_t ReturnProcessedBuffer(buffer_handle_t &handle);
+  status_t ReturnUnsyncedBuffers(uint32_t camera_id);
+
+  status_t InitLibrary();
+  status_t DeInitLibrary();
+  status_t Configlibrary(Vector<StreamBuffer> &input_buffers,
+                         Vector<StreamBuffer> &output_buffers);
+  status_t ProcessBuffers(Vector<StreamBuffer> &input_buffers,
+                          Vector<StreamBuffer> &output_buffers);
+  status_t ParseCalibFile(void **data, uint32_t &size);
+  status_t PopulateImageFormat(qmmf_alg_format_t &fmt,
+                               const StreamBuffer *buffer);
+  status_t PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
+                         qmmf_alg_buffer_t &img_buffer,
+                         const StreamBuffer *buffer);
+
+  static void ProcessCallback(qmmf_alg_cb_t *cb_data);
+
+  StitchLibInterface       stitch_lib_;
+  GrallocMemory            *memory_pool_;
+
+  // Map of incoming filled buffers for each of the actual cameras
+  // that have not yet been synchronized.
+  KeyedVector<uint32_t, Vector<StreamBuffer> > unsynced_buffer_map_;
+
+  // List with buffers ready to go through stitch processing.
+  // The uint32_t is the camera id to which this buffer belongs to.
+  std::queue<KeyedVector<uint32_t, StreamBuffer> > synced_buffer_queue_;
+
+  // Map of the stream buffers that are given to the library for processing.
+  std::map<buffer_handle_t, StreamBuffer> process_buffers_map_;
+
+  // List containing all gralloc buffers that have been registered
+  // by the library.
+  std::set<buffer_handle_t> registered_buffers_;
+
+  Mutex                    process_buffers_lock_;
+
+  Mutex                    sync_lock_;
+  Condition                wait_for_sync_frames_;
+
+  static const int32_t kTimestampMaxDelta = 140000000; // 140 ms.
+
+  static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
 
 }; // recorder.
