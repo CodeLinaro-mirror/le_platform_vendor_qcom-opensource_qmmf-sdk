@@ -29,6 +29,7 @@ LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
+LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
