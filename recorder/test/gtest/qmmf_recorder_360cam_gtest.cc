@@ -44,7 +44,7 @@
 
 #define DUMP_META_PATH "/data/param.dump"
 
-//#define DEBUG
+#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #ifdef DEBUG
@@ -54,16 +54,17 @@
 #endif
 
 // Enable this define to dump YUV data from YUV track
-//#define DUMP_YUV_FRAMES
+#define DUMP_YUV_FRAMES
 
 // Enable this define to dump encoded bit stream data.
-//#define DUMP_BITSTREAM
+#define DUMP_BITSTREAM
 
 static const int32_t kIterationCount = 50;
 static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
+static const uint32_t kYUVDumpFreq   = 100;
 
 void Recorder360Gtest::SetUp() {
 
@@ -627,7 +628,7 @@ status_t Recorder360Gtest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
   for (auto& iter : buffers) {
     if(file_fd > 0) {
       uint32_t exp_size = iter.size;
-      TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
+      TEST_DBG("%s:%s BitStream buffer data(0x%p):size(%d):ts(%lld):flag(0x%x)"
         ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
          iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
