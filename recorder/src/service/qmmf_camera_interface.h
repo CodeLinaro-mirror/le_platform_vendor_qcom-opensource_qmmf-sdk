@@ -53,7 +53,7 @@ class CameraInterface : public RefBase {
   virtual status_t CaptureImage(const ImageParam &param,
                                 const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta,
-                                const SnapshotCb& cb) = 0;
+                                const StreamSnapshotCb& cb) = 0;
 
   virtual status_t CreateStream(const CameraStreamParam& param) = 0;
 

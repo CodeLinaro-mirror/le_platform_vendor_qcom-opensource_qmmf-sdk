@@ -89,6 +89,9 @@ typedef std::function<void(uint32_t track_id, std::vector<BnBuffer>& buffers,
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
     BnBuffer& buffer, MetaData& meta_data)>  SnapshotCb;
 
+typedef std::function<void(uint32_t image_sequence_count,
+                           StreamBuffer& buffer)> StreamSnapshotCb;
+
 typedef std::function<void(uint32_t camera_id,
                            const CameraMetadata &result)> ResultCb;
 

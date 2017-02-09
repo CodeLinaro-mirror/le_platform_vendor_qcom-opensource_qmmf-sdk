@@ -50,6 +50,7 @@ namespace recorder {
 static const uint32_t kVirtualCameraIdOffset = 1000;
 
 class StreamStitching;
+class SnapshotStitching;
 
 class MultiCameraManager : public CameraInterface {
  public:
@@ -72,7 +73,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
-                        const SnapshotCb& cb) override;
+                        const StreamSnapshotCb& cb) override;
 
   status_t CreateStream(const CameraStreamParam& param) override;
 
@@ -97,14 +98,19 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
-  void SnapshotCbCam(uint32_t camera_id, uint32_t count, BnBuffer& buffer,
-                     MetaData& meta_data);
-
   void ReCalculateWidth(uint32_t &width);
+
+  int32_t ImageToHalFormat(const ImageFormat &image);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
   Vector<int32_t>          supported_fps_;
+
+  //Non zsl capture request.
+  ImageParam               snapshot_param_;
+  uint32_t                 sequence_cnt_;
+
+  sp<SnapshotStitching>    snapshot_stitch_algo_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -116,7 +122,6 @@ class MultiCameraManager : public CameraInterface {
   // Map of track id and StreamStitching class
   KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
 
-  SnapshotCb               source_snapshot_cb_;
   Mutex                    lock_;
 
   static const uint32_t kWidth4K  = 3840;
@@ -307,6 +312,37 @@ class StreamStitching : public StitchingBase {
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
+};
+
+class SnapshotStitching : public StitchingBase {
+ public:
+  SnapshotStitching(InitParams &param,
+                    KeyedVector<uint32_t, sp<CameraContext> > &contexts);
+  ~SnapshotStitching();
+
+  void SetClientCallback(const StreamSnapshotCb& cb) {
+    client_snapshot_cb_ = cb;
+  }
+
+  // A callback method for handling incoming buffers from CameraContexts.
+  void FrameAvailableCb(uint32_t count, StreamBuffer &buffer);
+
+  // Method for handling a buffer returned back from the CameraSource.
+  status_t ImageBufferReturned(const int32_t buffer_id);
+
+ protected:
+  status_t NotifyBufferToClient(StreamBuffer &buffer) override;
+  status_t ReturnBufferToCamera(StreamBuffer &buffer) override;
+
+ private:
+  // Maps of buffer Id and Buffer.
+  KeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
+
+  // Map of camera id and CameraContext taken from MultiCameraManager.
+  KeyedVector<uint32_t, sp<CameraContext> > camera_contexts_;
+
+  StreamSnapshotCb         client_snapshot_cb_;
+  Mutex                    snapshot_lock;
 };
 
 }; // recorder.
