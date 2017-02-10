@@ -227,6 +227,8 @@ class CameraContext : public RefBase {
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
   static const nsecs_t     kSyncFrameWaitDuration;
+  bool                     capture_in_progress_;
+  std::vector<CameraMetadata> meta_;
 };
 
 enum class CameraPortType {

@@ -500,6 +500,7 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
       int64_t last_frame_mumber;
       uint8_t jpeg_quality = snapshot_param_.image_quality;
       List<Camera3Request> requests;
+      meta_ = meta;
       std::vector<CameraMetadata>::const_iterator it = meta.begin();
       for (uint32_t i = 0; i < sequence_cnt_; i++) {
         if (it != meta.end()) {
@@ -525,6 +526,7 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
       return ret;
     }
   }
+
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1496,6 +1498,11 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
 
   QMMF_WARN("%s:%s: Camera Client: error_code: %d\n", TAG, __func__,
             error_code);
+
+  if (snapshot_request_id_ == result.requestId) {
+	  QMMF_ERROR("%s:%s: Try new CaptureImage !!!", TAG, __func__);
+	  CaptureImage(snapshot_param_, sequence_cnt_, meta_, client_snapshot_cb_);
+  }
 }
 
 void CameraContext::CameraIdleCb() {
@@ -1504,7 +1511,6 @@ void CameraContext::CameraIdleCb() {
 
 void CameraContext::CameraShutterCb(const CaptureResultExtras &result,
                                     int64_t time_stamp) {
-
 }
 
 void CameraContext::CameraPreparedCb(int32_t) {
