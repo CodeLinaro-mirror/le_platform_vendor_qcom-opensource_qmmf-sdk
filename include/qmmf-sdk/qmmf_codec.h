@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -87,6 +87,7 @@ enum class CodecParamType {
   kAudioVolumeParamType,
   kDecodeOperatingRate,
   kEnableFrameRepeat,
+  kVQZipInfo,
 };
 
 enum class AVCProfileType {
@@ -372,6 +373,50 @@ struct VideoEncIdrInterval {
     stream << "idr_period[" << idr_period << "] ";
     stream << "num_pframes[" << num_pframes << "] ";
     stream << "num_bframes[" << num_bframes << "]";
+    return stream.str();
+  }
+};
+
+/// @brief Data structure for VQZIp info to initialize the vqzip transcoding
+/// with obtained profile,level,Cabac bool from GetParameters function
+/// \param: format: fill in this variable, the format of video(Input Variable)
+///         avc_vqzip_info: structure for vqzip info for avc(Output variable)
+///         avc_vqzip_info.profile: profile of avc
+///         avc_vqzip_info.level: level of avc
+///         avc_vqzip_info.is_cabac_used: specifies whether cabac encoding is
+///                                       used in the bitstream
+/// TODO: currently vqzip is supported for AVC format videos only.Once HEVC
+/// support comes, the struture for hevc_vqzip_info will be added.
+struct VQZipInfo {
+  VideoFormat format;
+  struct {
+    AVCProfileType profile;
+    AVCLevelType level;
+    bool is_cabac_used;
+  } avc_vqzip_info;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    switch (format) {
+      case VideoFormat::kAVC:
+        stream  << "profile["
+                << static_cast<::std::underlying_type<AVCProfileType>::type>
+                              (avc_vqzip_info.profile)
+                << "] ";
+        stream  << "level["
+                << static_cast<::std::underlying_type<AVCLevelType>::type>
+                              (avc_vqzip_info.level)
+                << "] ";
+        stream  << "is_cabac_used[" << ::std::boolalpha
+                << avc_vqzip_info.is_cabac_used << ::std::noboolalpha << "] ";
+        break;
+      default:
+        stream << "Unsupported VideoFormat["
+               << static_cast<::std::underlying_type<VideoFormat>::type>
+                             (format)
+               << "] for VQZip";
+        break;
+    }
     return stream.str();
   }
 };

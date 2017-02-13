@@ -100,6 +100,7 @@ typedef struct VideoTrackCreateParam {
     bool enable_downscalar;
     uint32_t output_height;
     uint32_t output_width;
+    bool enable_vqzip_extradata;
     VideoCodecType codec;
     VideoOutSubtype out_device;
 
@@ -117,6 +118,8 @@ typedef struct VideoTrackCreateParam {
         stream << "output_width[" << output_width << "] ";
         stream << "output_height[" << output_height << "] ";
       }
+      stream << "enable_vqzip_extradata[" << ::std::boolalpha
+             << enable_vqzip_extradata << ::std::noboolalpha <<"] ";
       stream << "VideoCodecType["
              << static_cast<::std::underlying_type<VideoCodecType>::type>(codec)
              << "] ";

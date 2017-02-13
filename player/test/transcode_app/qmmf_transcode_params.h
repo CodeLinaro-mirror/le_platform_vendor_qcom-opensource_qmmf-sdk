@@ -81,6 +81,8 @@ enum class BufferOwner {
   kTranscoderSink,
   kTranscoderPipeIn,
   kTranscoderPipeOut,
+  kVQZipInputPort,
+  kVQZipOutputPort
 };
 
 static inline uint32_t OwnerIndex(const BufferOwner owner) {
@@ -97,6 +99,12 @@ static inline uint32_t OwnerIndex(const BufferOwner owner) {
       break;
     case BufferOwner::kTranscoderPipeOut:
       index = 0x11000000;
+      break;
+    case BufferOwner::kVQZipInputPort:
+      index = 0x00100000;
+      break;
+    case BufferOwner::kVQZipOutputPort:
+      index = 0x01100000;
       break;
     default:
       QMMF_ERROR("%s: Unknown BufferOwner", __func__);
@@ -161,6 +169,7 @@ class TSInt32 {
 
 struct TranscodeParams {
   TranscodeType                  track_type;
+  bool                           enable_vqzip;
   ::std::string                  track_file;
   ::std::string                  input_file;
   ::std::string                  output_file;
@@ -182,6 +191,8 @@ struct TranscodeParams {
            << static_cast<::std::underlying_type<CodecType>::type>
                          (source_codec_type)
            << "] ";
+    stream << "EnableVqzip[" << ::std::boolalpha << enable_vqzip
+           << ::std::noboolalpha << "] ";
     stream << "source_params[";
     switch (source_codec_type) {
       case CodecType::kVideoDecoder:
@@ -319,6 +330,90 @@ class FramerateCalculator {
   struct timeval             prevtv_;
   struct timeval             currtv_;
 };  // class FrameRateCalculator
+
+class VQZipInfoExtractor {
+public:
+  VQZipInfoExtractor(const ::qmmf::player::VideoTrackCreateParam& param,
+                     const MM_TRACK_INFOTYPE& track_info,
+                     CMM_MediaDemuxInt* const demuxer);
+  ~VQZipInfoExtractor();
+
+  status_t Init();
+  status_t DeInit();
+  status_t ExtractVQZipInfo(VQZipInfo* vqzip_info);
+
+  void ReadNextFrame(TSQueue<TranscodeBuffer>::iterator buffer);
+  void NotiftyFBD(const TranscodeBuffer& buffer);
+
+private:
+  void ReleaseResources();
+
+  class InputCodecSourceImpl:
+    public ::qmmf::avcodec::ICodecSource,
+    public ::std::enable_shared_from_this<InputCodecSourceImpl> {
+  public:
+    InputCodecSourceImpl(
+        const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& avcodec,
+        VQZipInfoExtractor* const src);
+    ~InputCodecSourceImpl();
+
+    status_t Prepare();
+    void ReleaseBuffer();
+
+    status_t GetBuffer(BufferDescriptor& buffer_descriptor,
+                       void* client_data) override;
+    status_t ReturnBuffer(BufferDescriptor& buffer_descriptor,
+                          void* client_data) override;
+    status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                             void* event_data) override;
+  private:
+    ::std::vector<TranscodeBuffer>                 buffer_list_;
+    ::std::shared_ptr<::qmmf::avcodec::IAVCodec>   avcodec_;
+    VQZipInfoExtractor*                            source_;
+    TSQueue<TranscodeBuffer>                       free_buffer_queue_;
+    TSQueue<TranscodeBuffer>                       occupy_buffer_queue_;
+    ::std::mutex                                   wait_for_frame_mutex_;
+    ::std::condition_variable                      wait_for_frame_;
+  };
+
+  class OutputCodecSourceImpl:
+    public ::qmmf::avcodec::ICodecSource,
+    public ::std::enable_shared_from_this<OutputCodecSourceImpl> {
+  public:
+    OutputCodecSourceImpl(
+        const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& avcodec,
+        VQZipInfoExtractor* const sink);
+    ~OutputCodecSourceImpl();
+
+    status_t Prepare();
+    void ReleaseBuffer();
+
+    status_t GetBuffer(BufferDescriptor& buffer_descriptor,
+                       void* client_data) override;
+    status_t ReturnBuffer(BufferDescriptor& buffer_descriptor,
+                          void* client_data) override;
+    status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
+                             void* event_data) override;
+  private:
+    ::std::vector<TranscodeBuffer>                 buffer_list_;
+    ::std::shared_ptr<::qmmf::avcodec::IAVCodec>   avcodec_;
+    VQZipInfoExtractor*                            sink_;
+    TSQueue<TranscodeBuffer>                       free_buffer_queue_;
+    TSQueue<TranscodeBuffer>                       occupy_buffer_queue_;
+    ::std::mutex                                   wait_for_frame_mutex_;
+    ::std::condition_variable                      wait_for_frame_;
+  };
+
+  ::std::shared_ptr<::qmmf::avcodec::IAVCodec>     avcodec_;
+  ::qmmf::player::VideoTrackCreateParam            avcodec_decode_params_;
+  ::std::shared_ptr<InputCodecSourceImpl>          input_source_impl_;
+  ::std::shared_ptr<OutputCodecSourceImpl>         output_source_impl_;
+  MM_TRACK_INFOTYPE                                m_sTrackInfo_;
+  CMM_MediaDemuxInt*                               m_pDemux_;
+  ::std::mutex                                     wait_for_fbd_mutex_;
+  ::std::condition_variable                        wait_for_fbd_;
+  bool                                             isFirstFrame_;
+}; // class VQZipInfoExtractor
 
 };  // namespace transcode
 };  // namespace qmmf
