@@ -2044,6 +2044,9 @@ status_t AVCodec::StartCodec() {
           return ret;
       }
 
+      QMMF_INFO("%s:%s allocate buffer on %s pBuffer %p  i %d", TAG, __func__,
+            PORT_NAME(kPortIndexInput), in_buff_hdr_[i]->pBuffer, i);
+
       encoder_media_buffer_type* mediaBuffer =
           (encoder_media_buffer_type*)in_buff_hdr_[i]->pBuffer;
       assert(mediaBuffer != nullptr);
