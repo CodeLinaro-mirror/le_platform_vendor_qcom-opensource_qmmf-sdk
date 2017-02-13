@@ -47,7 +47,7 @@ namespace recorder {
 //Framerate after which we need to run in constrained mode.
 uint32_t CameraContext::kConstrainedModeThreshold = 30;
 //Framerate at which batch requests are needed.
-uint32_t CameraContext::kHFRBatchModeThreshold = 120;
+uint32_t CameraContext::kHFRBatchModeThreshold = 90;
 
 const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
