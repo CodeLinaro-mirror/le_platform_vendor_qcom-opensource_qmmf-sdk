@@ -92,9 +92,9 @@ void EncodeCbGlobal(jpeg_job_status_t status, uint32_t /*client_hdl*/,
   }
 }
 
-JpegEncoder *JpegEncoder::getInstance(CameraBufferMetaData *meta_info) {
+JpegEncoder *JpegEncoder::getInstance() {
   if (!JpegEncoder::encoder_instance_) {
-      JpegEncoder::encoder_instance_ = new JpegEncoder(meta_info);
+      JpegEncoder::encoder_instance_ = new JpegEncoder();
   }
   return JpegEncoder::encoder_instance_;
 }
@@ -104,7 +104,7 @@ void JpegEncoder::releaseInstance() {
   JpegEncoder::encoder_instance_ = nullptr;
 }
 
-JpegEncoder::JpegEncoder(CameraBufferMetaData *source_info) :
+JpegEncoder::JpegEncoder() :
     cfg_(NULL),
     job_result_ptr_(NULL),
     job_result_size_(0) {
@@ -129,39 +129,10 @@ JpegEncoder::JpegEncoder(CameraBufferMetaData *source_info) :
   memset(&cfg->params_, 0, sizeof(cfg->params_));
   memset(&cfg->job_, 0, sizeof(cfg->job_));
 
-  size_t size = source_info->plane_info[0].stride *
-                source_info->plane_info[0].scanline;
-  cfg->params_.src_main_buf[0].buf_size = 3 * size / 2;
-  cfg->params_.src_main_buf[0].format = MM_JPEG_FMT_YUV;
-  cfg->params_.src_main_buf[0].fd = -1;
-  cfg->params_.src_main_buf[0].index = 0;
-  cfg->params_.src_main_buf[0].offset.mp[0].len = (uint32_t)size;
-  cfg->params_.src_main_buf[0].offset.mp[0].stride =
-      source_info->plane_info[0].stride;
-  cfg->params_.src_main_buf[0].offset.mp[0].scanline =
-      source_info->plane_info[0].scanline;
-  cfg->params_.src_main_buf[0].offset.mp[1].len = (uint32_t)(size >> 1);
-
-  cfg->params_.src_thumb_buf[0] = cfg->params_.src_main_buf[0];
-
   cfg->params_.jpeg_cb = EncodeCbGlobal;
   cfg->params_.userdata = this;
 
-  switch (source_info->format) {
-    case BufferFormat::kNV12:
-      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V2;
-      break;
-    case BufferFormat::kNV21:
-      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
-      break;
-    default:
-      break;
-  }
-
-  cfg->params_.thumb_color_format = cfg->params_.color_format;
-
   cfg->params_.num_dst_bufs = 1;
-  cfg->params_.dest_buf[0].buf_size = cfg->params_.src_main_buf[0].buf_size;
   cfg->params_.dest_buf[0].buf_vaddr = nullptr;
   cfg->params_.dest_buf[0].fd = -1;
   cfg->params_.dest_buf[0].index = 0;
@@ -179,34 +150,6 @@ JpegEncoder::JpegEncoder(CameraBufferMetaData *source_info) :
   cfg->job_.encode_job.dst_index = 0;
   cfg->job_.encode_job.src_index = 0;
   cfg->job_.encode_job.rotation = 0;
-
-  cfg->job_.encode_job.main_dim.src_dim.width =
-      source_info->plane_info[0].stride;
-  cfg->job_.encode_job.main_dim.src_dim.height =
-      source_info->plane_info[0].scanline;
-  cfg->job_.encode_job.main_dim.dst_dim.width =
-      source_info->plane_info[0].width;
-  cfg->job_.encode_job.main_dim.dst_dim.height =
-      source_info->plane_info[0].height;
-  cfg->job_.encode_job.main_dim.crop.top = 0;
-  cfg->job_.encode_job.main_dim.crop.left = 0;
-  cfg->job_.encode_job.main_dim.crop.width =
-      source_info->plane_info[0].width;
-  cfg->job_.encode_job.main_dim.crop.height =
-      source_info->plane_info[0].height;
-  cfg->params_.main_dim = cfg->job_.encode_job.main_dim;
-
-  cfg->job_.encode_job.thumb_dim.src_dim.width =
-      source_info->plane_info[0].stride;
-  cfg->job_.encode_job.thumb_dim.src_dim.height =
-      source_info->plane_info[0].scanline;
-  cfg->job_.encode_job.thumb_dim.dst_dim.width = 320;
-  cfg->job_.encode_job.thumb_dim.dst_dim.height = 240;
-  cfg->job_.encode_job.thumb_dim.crop.top = 0;
-  cfg->job_.encode_job.thumb_dim.crop.left = 0;
-  cfg->job_.encode_job.thumb_dim.crop.width = 0;
-  cfg->job_.encode_job.thumb_dim.crop.height = 0;
-  cfg->params_.thumb_dim = cfg->job_.encode_job.thumb_dim;
 
   cfg->job_.encode_job.exif_info.numOfEntries = 0;
   cfg->params_.burst_mode = 0;
@@ -226,9 +169,6 @@ JpegEncoder::JpegEncoder(CameraBufferMetaData *source_info) :
         JpegEncoder::DEFAULT_QTABLE_1[i];
   }
 
-  cfg->pic_size_.w = source_info->plane_info[0].width;
-  cfg->pic_size_.h = source_info->plane_info[0].height;
-
   cfg->job_.job_type = JPEG_JOB_TYPE_ENCODE;
   cfg->job_.encode_job.src_index = 0;
   cfg->job_.encode_job.dst_index = 0;
@@ -240,7 +180,61 @@ JpegEncoder::~JpegEncoder() {
   std::lock_guard<std::mutex> al(cfg->encode_lock_);
 }
 
-void *JpegEncoder::Encode(snapshot_info in_buffer, size_t *jpeg_size) {
+void JpegEncoder::FillImgData(const CameraBufferMetaData& source_info) {
+  JE_GET_PARAMS(cfg);
+
+  size_t size = source_info.plane_info[0].stride *
+                source_info.plane_info[0].scanline;
+  cfg->params_.src_main_buf[0].buf_size = 3 * size / 2;
+  cfg->params_.src_main_buf[0].format = MM_JPEG_FMT_YUV;
+  cfg->params_.src_main_buf[0].fd = -1;
+  cfg->params_.src_main_buf[0].index = 0;
+  cfg->params_.src_main_buf[0].offset.mp[0].len = (uint32_t)size;
+  cfg->params_.src_main_buf[0].offset.mp[0].stride = source_info.plane_info[0].stride;
+  cfg->params_.src_main_buf[0].offset.mp[0].scanline = source_info.plane_info[0].scanline;
+  cfg->params_.src_main_buf[0].offset.mp[1].len = (uint32_t)(size >> 1);
+
+  cfg->params_.src_thumb_buf[0] = cfg->params_.src_main_buf[0];
+
+  switch (source_info.format) {
+    case BufferFormat::kNV12:
+      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V2;
+      break;
+    case BufferFormat::kNV21:
+      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
+      break;
+    default:
+      break;
+  }
+  cfg->params_.thumb_color_format = cfg->params_.color_format;
+
+  cfg->params_.dest_buf[0].buf_size = cfg->params_.src_main_buf[0].buf_size;
+
+  cfg->job_.encode_job.main_dim.src_dim.width = source_info.plane_info[0].stride;
+  cfg->job_.encode_job.main_dim.src_dim.height = source_info.plane_info[0].scanline;
+  cfg->job_.encode_job.main_dim.dst_dim.width = source_info.plane_info[0].width;
+  cfg->job_.encode_job.main_dim.dst_dim.height = source_info.plane_info[0].height;
+  cfg->job_.encode_job.main_dim.crop.top = 0;
+  cfg->job_.encode_job.main_dim.crop.left = 0;
+  cfg->job_.encode_job.main_dim.crop.width = source_info.plane_info[0].width;
+  cfg->job_.encode_job.main_dim.crop.height = source_info.plane_info[0].height;
+  cfg->params_.main_dim = cfg->job_.encode_job.main_dim;
+
+  cfg->job_.encode_job.thumb_dim.src_dim.width = source_info.plane_info[0].stride;
+  cfg->job_.encode_job.thumb_dim.src_dim.height = source_info.plane_info[0].scanline;
+  cfg->job_.encode_job.thumb_dim.dst_dim.width = 320;
+  cfg->job_.encode_job.thumb_dim.dst_dim.height = 240;
+  cfg->job_.encode_job.thumb_dim.crop.top = 0;
+  cfg->job_.encode_job.thumb_dim.crop.left = 0;
+  cfg->job_.encode_job.thumb_dim.crop.width = 0;
+  cfg->job_.encode_job.thumb_dim.crop.height = 0;
+  cfg->params_.thumb_dim = cfg->job_.encode_job.thumb_dim;
+
+  cfg->pic_size_.w = source_info.plane_info[0].width;
+  cfg->pic_size_.h = source_info.plane_info[0].height;
+}
+
+void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t *jpeg_size) {
   JE_GET_PARAMS(cfg);
   std::lock_guard<std::mutex> al(cfg->encode_lock_);
   job_result_ptr_ = NULL;
@@ -250,6 +244,7 @@ void *JpegEncoder::Encode(snapshot_info in_buffer, size_t *jpeg_size) {
     goto jpeg_encode_exit;
   }
 
+  FillImgData(in_buffer.source_info);
   cfg->params_.src_main_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.src_thumb_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.dest_buf[0].buf_vaddr = in_buffer.out_data[0];
