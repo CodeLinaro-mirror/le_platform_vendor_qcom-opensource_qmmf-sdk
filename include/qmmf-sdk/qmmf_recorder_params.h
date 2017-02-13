@@ -180,6 +180,8 @@ struct VideoTrackCreateParam {
   VideoFormat      format_type;
   VideoCodecParams codec_param;
   bool             low_power_mode;
+  bool             do_vqzip;
+  VQZipInfo        vqzip_params;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -192,6 +194,9 @@ struct VideoTrackCreateParam {
                          (format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
+    stream << "do_vqzip[" << ::std::boolalpha << do_vqzip
+           << ::std::noboolalpha << "] ";
+    stream << "vqzip_params[" << vqzip_params.ToString() << "]";
     return stream.str();
   }
 };
