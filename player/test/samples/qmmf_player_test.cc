@@ -141,7 +141,7 @@ PlayerTest::PlayerTest()
       paused_(false), current_state_("Idle"),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kForward),
-      grabpicture_file_fd_(-1) {
+      grabpicture_file_fd_(-1), current_playback_time_(0) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -169,7 +169,7 @@ PlayerTest::PlayerTest(char* filename_)
       paused_(false), current_state_("Idle"),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kForward),
-      grabpicture_file_fd_(-1) {
+      grabpicture_file_fd_(-1), current_playback_time_(0) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -435,7 +435,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   TrackBuffer tb;
   const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->audioLastFrame_))
+  while (!(playertest->audioLastFrame_))
   {
 
     {
@@ -504,12 +504,13 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
         nFormatBlockSize ;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
+    playertest->UpdateCurrentPlaybackTime(sSampleInfo.startTime);
 
-    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
+    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->IsPlayerStopped()) {
       //EOF reached or Stopped
       TEST_INFO("%s:%s:File read completed", TAG, __func__);
-      buffers[0].flag = 1;
-      buffers[0].filled_size = 0;
+      buffers[0].flag = EOS_FLAG;
+      buffers[0].filled_size = EOS_BUFFER_SIZE;
 
       TEST_DBG("%s:%s: audio_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
@@ -544,8 +545,6 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
     assert(NO_ERROR == ret);
     buffers.clear();
 
-    if (playertest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -562,7 +561,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   TrackBuffer tb;
   const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->videoLastFrame_))
+  while (!(playertest->videoLastFrame_))
   {
 
     {
@@ -632,11 +631,15 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         nFormatBlockSize;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
-    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
+    if (playertest->track_type_ == TrackTypes::kVideoOnly) {
+      playertest->UpdateCurrentPlaybackTime(sSampleInfo.startTime);
+    }
+
+    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->IsPlayerStopped()) {
       //EOF reached or Stopped
       TEST_INFO("%s:%s:File read completed", TAG, __func__);
-      buffers[0].flag = 1;
-      buffers[0].filled_size = 0;
+      buffers[0].flag = EOS_FLAG;
+      buffers[0].filled_size = EOS_BUFFER_SIZE;
 
       TEST_DBG("%s:%s: video_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
@@ -671,8 +674,6 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
     assert(NO_ERROR == ret);
     buffers.clear();
 
-    if (playertest->stopped_)
-      break;
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -687,6 +688,11 @@ int32_t PlayerTest::Stop() {
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
+}
+
+bool PlayerTest::IsPlayerStopped() {
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+  return stopped_;
 }
 
 int32_t PlayerTest::StopPlaying() {
@@ -782,6 +788,26 @@ int32_t PlayerTest::Resume() {
 int32_t PlayerTest::SetPosition() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
+  uint64_t time;
+  FileSourceStatus mFSStatus = FILE_SOURCE_FAIL;
+
+  uint64_t current_time = GetCurrentPlaybackTime();
+  uint64_t clip_duration = m_pDemux_->GetClipDuration();
+
+  printf("\n");
+  printf("****** Seek *******\n" );
+  printf("Enter time between [0 to %llu sec] :: ", clip_duration/(1000000));
+  scanf("%llu", &time);
+
+  mFSStatus = m_pDemux_->SeekAbsolutePosition(time*1000, true,
+      static_cast<int64_t>(current_time/1000));
+  if (mFSStatus == FILE_SOURCE_FAIL) {
+    TEST_INFO("%s:%s: Failed to seek %u to %llu sec", TAG, __func__,
+        static_cast<uint32_t>(mFSStatus), time);
+  }
+
+  TEST_INFO("%s:%s: Seek to %llu sec", TAG, __func__, time);
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -871,6 +897,30 @@ int32_t PlayerTest::Delete() {
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
+}
+
+uint32_t PlayerTest::UpdateCurrentPlaybackTime(uint64_t current_time) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(time_lock_);
+
+  current_playback_time_ = current_time;
+
+  TEST_DBG("%s:%s: Current video playback time %lld", TAG, __func__,
+    static_cast<int64_t>(current_playback_time_/1000));
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return 0;
+}
+
+uint32_t PlayerTest::GetCurrentPlaybackTime() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(time_lock_);
+
+  TEST_INFO("%s:%s: Current video playback time %lld", TAG, __func__,
+      static_cast<int64_t>(current_playback_time_/1000));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return current_playback_time_;
 }
 
 uint32_t PlayerTest::CreateDataSource() {
@@ -1126,6 +1176,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
   printf("   %c. GrabPicture\n", CmdMenu::GRAB_PICTURE);
+  printf("   %c. Seek\n", CmdMenu::SEEK_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1204,6 +1255,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::GRAB_PICTURE: {
         test_context.GrabPicture();
+      }
+      break;
+      case CmdMenu::SEEK_CMD: {
+        test_context.SetPosition();
       }
       break;
       case CmdMenu::NEXT_CMD: {

@@ -3352,6 +3352,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
           OMX_BUFFERFLAG_EOS);
       avcodec->isEOSonOutput_ = true;
     }
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {
