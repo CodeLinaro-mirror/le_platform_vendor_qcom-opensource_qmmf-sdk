@@ -225,6 +225,7 @@ class AVCodec : public IAVCodec {
   ::android::Mutex          port_reconfig_lock_;
   ::android::Mutex          threadrun_port_reconfig_lock_;
   ::android::Condition      wait_for_threadrun;
+  CodecParam                codec_params_;
 };
 
 }; // namespace avcodec

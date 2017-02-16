@@ -89,12 +89,14 @@ class CMM_MediaDemuxInt {
     int64 trackid,
     const int tAbsoluteTime,
     bool bSeekToSync = true,
-    int64 nCurrPlayTime = -1);
+    int64 nCurrPlayTime = -1,
+    FS_SEEK_MODE eSeekMode = FS_SEEK_DEFAULT);
 
   FileSourceStatus SeekAbsolutePosition(
     const int tAbsoluteTime,
     bool bSeekToSync = true,
-    int64 nCurrPlayTime = -1);
+    int64 nCurrPlayTime = -1,
+    FS_SEEK_MODE eSeekMode = FS_SEEK_DEFAULT);
 
   FileSourceStatus SeekRelativeSyncPoint(
     int currentPlaybacktime,
