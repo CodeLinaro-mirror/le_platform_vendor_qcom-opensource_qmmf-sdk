@@ -1342,6 +1342,7 @@ status_t TrackSource::CreateDisplayPreview(display::DisplayType display_type,
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
+  surface_config.context = 1;
   res = display_->CreateSurface(surface_config, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
@@ -1416,7 +1417,7 @@ status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
 
   if (display_started_) {
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = static_cast<int32_t>(buffer.fd);
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = buffer.info.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.frame_length;
