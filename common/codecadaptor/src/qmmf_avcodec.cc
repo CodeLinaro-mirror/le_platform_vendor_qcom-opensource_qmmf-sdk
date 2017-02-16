@@ -433,7 +433,10 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
   }
 
   // set component to Idle state
-  ret = SetState(OMX_StateIdle, OMX_FALSE);
+  if (format_type_ != CodecType::kVideoDecoder) {
+    ret = SetState(OMX_StateIdle, OMX_FALSE);
+  }
+
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
@@ -817,6 +820,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
+  ret = SetState(OMX_StateIdle, OMX_FALSE);
+
   OMX_QCOM_PARAM_PORTDEFINITIONTYPE inputPortFmt;
   InitOMXParams(&inputPortFmt);
   inputPortFmt.nPortIndex = kPortIndexInput;
@@ -856,6 +861,20 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to Set ColorFormat",TAG, __func__);
     return ret;
+  }
+
+  if (codec_param.video_dec_param.enable_downscalar) {
+    QMMF_INFO("%s:%s Enabling downcalar", TAG, __func__);
+    QOMX_INDEXDOWNSCALAR downscalar_params;
+    InitOMXParams(&downscalar_params);
+    downscalar_params.bEnable = OMX_TRUE;
+    downscalar_params.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_QcomIndexParamVideoDownScalar,
+              static_cast<OMX_PTR>(&downscalar_params));
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Failed to Enable Downscalar", TAG, __func__);
+      return ret;
+    }
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE input_port;
@@ -912,6 +931,38 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
   InitOMXParams(&output_port);
   output_port.nPortIndex = kPortIndexOutput;
   output_port.eDir = OMX_DirOutput;
+
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &output_port);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to Get Port param definiton on %s",
+        TAG, __func__, PORT_NAME(kPortIndexOutput));
+    return ret;
+  }
+
+  QMMF_INFO("%s: %s output_port.nBufferCountMin[%u]", TAG, __func__,
+      output_port.nBufferCountMin);
+  QMMF_INFO("%s: %s Actual OutputBuffercount[%u]", TAG, __func__,
+      output_port.nBufferCountActual);
+  QMMF_INFO("%s: %s Actual OutputBuffersize[%u]", TAG, __func__,
+    output_port.nBufferSize);
+
+  if (codec_param.video_dec_param.enable_downscalar) {
+    QMMF_INFO("%s:%s Setting up Downscalr height and width", TAG, __func__);
+    output_port.format.video.nFrameHeight = codec_param.video_dec_param.output_height;
+    output_port.format.video.nFrameWidth  = codec_param.video_dec_param.output_width;
+  } else {
+    output_port.format.video.nFrameHeight = codec_param.video_dec_param.height;
+    output_port.format.video.nFrameWidth  = codec_param.video_dec_param.width;
+  }
+
+  ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
+            static_cast<OMX_PTR>(&output_port));
+
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to set port definiton(H,W) on %s",
+        TAG, __func__, PORT_NAME(kPortIndexOutput));
+    return ret;
+  }
 
   ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &output_port);
   if (ret != OK) {
