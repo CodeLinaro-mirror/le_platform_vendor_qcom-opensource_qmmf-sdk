@@ -67,9 +67,10 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t OpenCamera(uint32_t idx);
   int32_t BeginConfigure() { return 0; }
-  int32_t EndConfigure(bool isConstrainedHighSpeed = false);
+  int32_t EndConfigure(bool isConstrainedHighSpeed = false,
+                       bool isRawOnly = false);
 
-  int32_t DeleteStream(int streamId);
+  int32_t DeleteStream(int streamId, bool cache);
   int32_t CreateStream(const CameraStreamParameters &outputConfiguration);
   int32_t CreateInputStream(
       const CameraInputStreamParameters &inputConfiguration);
@@ -109,6 +110,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   friend class Camera3RequestHandler;
   friend class Camera3Monitor;
   friend class Camera3Gtest;
+  friend class DualCamera3Gtest;
 
   int32_t AddRequestListLocked(const List<const CameraMetadata> &requests,
                                bool streaming, int64_t *lastFrameNumber = NULL);
@@ -137,7 +139,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
                            int32_t &maxJpegSizeHeight);
 
-  int32_t ConfigureStreams(bool isConstrainedHighSpeed = false);
+  int32_t ConfigureStreams(bool isConstrainedHighSpeed = false,
+                           bool isRawOnly = false);
   int32_t ConfigureStreamsLocked();
 
   void SetErrorState(const char *fmt, ...);
@@ -223,6 +226,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static const int64_t WAIT_FOR_RUNNING = 1e9;   // 1 sec.
 
   bool is_hfr_supported_;
+  bool is_raw_only_;
   bool hfr_mode_enabled_;
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;

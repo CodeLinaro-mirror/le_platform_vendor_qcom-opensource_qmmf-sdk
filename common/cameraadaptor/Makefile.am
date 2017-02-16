@@ -12,6 +12,7 @@ libcamera_adaptor_la_SOURCES += qmmf_camera3_utils.cc
 libcamera_adaptor_la_CPPFLAGS = -I$(top_srcdir)/include
 libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
 libcamera_adaptor_la_CPPFLAGS += -I$(LIBGRALLOC)
+libcamera_adaptor_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libcamera_adaptor_la_LDFLAGS  = -lutils -lbinder -lcamera_client -lhardware
 libcamera_adaptor_la_LDFLAGS  += -lcamera_metadata -lpthread -ldl -llog
 

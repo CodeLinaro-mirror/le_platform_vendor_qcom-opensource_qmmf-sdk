@@ -168,7 +168,8 @@ status_t AudioSink::DeleteTrackSink(uint32_t track_id) {
 
 AudioTrackSink::AudioTrackSink()
     : end_point_(nullptr), stopplayback_(false),
-      paused_(false), decoded_frame_number_(0) {
+      paused_(false), decoded_frame_number_(0),
+      total_bytes_decoded_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
 #ifdef DUMP_PCM_DATA
@@ -315,6 +316,7 @@ end_point_ = nullptr;
 
 status_t AudioTrackSink::StartSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
 #ifdef DUMP_PCM_DATA
  if (file_fd_ == -1)
@@ -329,68 +331,80 @@ status_t AudioTrackSink::StartSink() {
        TrackId());
    return ret;
   }
-
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t AudioTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   stopplayback_ = true;
   QMMF_DEBUG("%s:%s: Total number of audio frames decoded %d", TAG, __func__,
       decoded_frame_number_);
   decoded_frame_number_ = 0;
 
+  QMMF_DEBUG("%s:%s: Total number of audio bytes decoded %d", TAG, __func__,
+      total_bytes_decoded_);
+  total_bytes_decoded_ = 0;
+
   auto ret = end_point_->Stop(true);
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
-       TrackId());
+        TrackId());
     return ret;
   }
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t AudioTrackSink::PauseSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   paused_ = true;
   auto ret = end_point_->Pause();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) PauseSink failed!", TAG, __func__,
-       TrackId());
+        TrackId());
     return ret;
   }
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t AudioTrackSink::ResumeSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   paused_ = false;
   auto ret = end_point_->Resume();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) ResumeSink failed!", TAG, __func__,
-       TrackId());
+        TrackId());
     return ret;
   }
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t AudioTrackSink::DeleteSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   auto ret = end_point_->Disconnect();
   assert(ret == 0);
 
   if (ret != NO_ERROR) {
-   QMMF_ERROR("%s:%s: track_id(%d) Disconnect failed!", TAG, __func__,
-       TrackId());
-   return ret;
+    QMMF_ERROR("%s:%s: track_id(%d) Disconnect failed!", TAG, __func__,
+        TrackId());
+    return ret;
   }
+
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -511,13 +525,18 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   sinkbuffers[0].size = codec_buffer.size;
   sinkbuffers[0].capacity = codec_buffer.size;
 
+  total_bytes_decoded_ = total_bytes_decoded_ + sinkbuffers[0].size;
+
   QMMF_VERBOSE("%s:%s: sink buffer vaddr = 0x%p", TAG, __func__,
       sinkbuffers[0].data);
   QMMF_VERBOSE("%s:%s: sink buffer size = %d", TAG, __func__,
       sinkbuffers[0].size);
 
-  if(!paused_)
-    result = end_point_->SendBuffers(sinkbuffers);
+  {
+    std::lock_guard<std::mutex> lock(state_change_lock_);
+    if(!paused_)
+      result = end_point_->SendBuffers(sinkbuffers);
+  }
 
   assert(result == 0);
 

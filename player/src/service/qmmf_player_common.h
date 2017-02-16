@@ -91,22 +91,9 @@ struct AVCodecBuffer {
   uint32_t buf_id;
 };
 
-enum class TrickModeSpeed {
-  kSpeed_1x = 1 << 0,
-  kSpeed_2x = 1 << 1,
-  kSpeed_4x = 1 << 2,
-  kSpeed_8x = 1 << 3,
-};
-
-enum class TrickModeDirection {
-  kReverse = 0,
-  kForward = 1,
-};
-
 struct Event{
   PlayerState state;
 };
-
 
 extern "C" void DebugAudioTrackCreateParam (const char* _func_,
                                             AudioTrackCreateParam& track_params);

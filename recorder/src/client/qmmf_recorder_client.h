@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -112,7 +112,7 @@ class RecorderClient {
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageCaptureConfig &config);
 
-  status_t CancelCaptureImage();
+  status_t CancelCaptureImage(const uint32_t camera_id);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const BufferDescriptor &buffer);
@@ -142,6 +142,14 @@ class RecorderClient {
   status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
   status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
+
+  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+                             uint32_t *virtual_camera_id);
+
+  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                const uint32_t type,
+                                const void *param,
+                                const uint32_t param_size);
 
   // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,

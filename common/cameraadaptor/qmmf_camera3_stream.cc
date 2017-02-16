@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -541,6 +541,7 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   memset(&b, 0, sizeof(b));
   b.timestamp = timestamp;
   b.frame_number = frame_number;
+  b.stream_id = id_;
   b.data_space = data_space;
   b.handle = *buffer.buffer;
   b.fd = priv_handle->fd;

@@ -104,11 +104,44 @@ void PlayerTest::videotrackcb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
+void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  String8 snapshot_filepath;
+  uint32_t size;
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+
+  snapshot_filepath.appendFormat("/data/player_snapshot_%dx%d_%lu.%s",
+      m_sTrackInfo_.sVideo.ulWidth, m_sTrackInfo_.sVideo.ulHeight,
+      tv.tv_sec, "yuv");
+
+  grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(grabpicture_file_fd_ >= 0);
+
+  size = (m_sTrackInfo_.sVideo.ulWidth * m_sTrackInfo_.sVideo.ulHeight*3)/2;
+  TEST_DBG("%s:%s: vaddr 0x%p", TAG, __func__,buffer.data);
+  TEST_DBG("%s:%s: size %u", TAG, __func__, size);
+
+  uint32_t bytes_written;
+  bytes_written  = write(grabpicture_file_fd_, buffer.data, size);
+  if (bytes_written !=  size) {
+    QMMF_ERROR("Bytes written != %d and written = %u",
+        size, bytes_written);
+  }
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+}
+
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
       audioLastFrame_(false), videoLastFrame_(false),
-      paused_(false), current_state_("Idle") {
+      paused_(false), current_state_("Idle"),
+      playback_speed_(TrickModeSpeed::kSpeed_1x),
+      playback_dir_(TrickModeDirection::kForward),
+      grabpicture_file_fd_(-1), current_playback_time_(0) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -133,7 +166,10 @@ PlayerTest::PlayerTest(char* filename_)
     : filename_(nullptr), stopped_(false), stop_playing_(false),
       start_again_(false), audioFirstFrame_(true), videoFirstFrame_(true),
       audioLastFrame_(false), videoLastFrame_(false),
-      paused_(false), current_state_("Idle") {
+      paused_(false), current_state_("Idle"),
+      playback_speed_(TrickModeSpeed::kSpeed_1x),
+      playback_dir_(TrickModeDirection::kForward),
+      grabpicture_file_fd_(-1), current_playback_time_(0) {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   if (filename_ != nullptr)
@@ -157,6 +193,9 @@ PlayerTest::~PlayerTest() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   statemap_.clear();
+  if (grabpicture_file_fd_ > 0) {
+    close(grabpicture_file_fd_);
+  }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -194,6 +233,7 @@ int32_t PlayerTest::Disconnect() {
 int32_t PlayerTest::Prepare() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
 
   if(m_pIStreamPort_ == nullptr && filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
@@ -282,11 +322,15 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
       audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
       audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
       audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
-    } else if (m_sTrackInfo_.sAudio.ulCodecType == 55) {  //need verification
-      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 7) {
+      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.sample_rate = 16000;
+      audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 0;
-    } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {  //need verification
-      audio_track_param_.codec      = (AudioCodecType)AudioFormat::kAMR;
+    } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {
+      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.sample_rate = 16000;
+      audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 1;
     }
     audio_track_param_.out_device                = AudioOutSubtype::kBuiltIn;
@@ -327,6 +371,8 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
 
 int32_t PlayerTest::Start() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   auto ret = 0;
 
   if(start_again_)
@@ -387,12 +433,18 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
+  const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->audioLastFrame_))
+  while (!(playertest->audioLastFrame_))
   {
-    if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0) ||
-        !(strcmp(playertest->current_state_,"Started") == 0)) {
+
+    {
+      std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+      current_state = playertest->current_state_;
+    }
+
+    if (playertest->paused_ || (strcmp(current_state,"Paused") == 0) ||
+        !(strcmp(current_state,"Started") == 0)) {
       continue;
     }
 
@@ -452,12 +504,13 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
         nFormatBlockSize ;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
+    playertest->UpdateCurrentPlaybackTime(sSampleInfo.startTime);
 
-    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
+    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->IsPlayerStopped()) {
       //EOF reached or Stopped
       TEST_INFO("%s:%s:File read completed", TAG, __func__);
-      buffers[0].flag = 1;
-      buffers[0].filled_size = 0;
+      buffers[0].flag = EOS_FLAG;
+      buffers[0].filled_size = EOS_BUFFER_SIZE;
 
       TEST_DBG("%s:%s: audio_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
@@ -469,7 +522,11 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
       playertest->player_.QueueInputBuffer(playertest->audio_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
-      playertest->stopped_ = true;
+      {
+        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+        playertest->stopped_ = true;
+      }
+
       playertest->audioLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
@@ -487,6 +544,7 @@ void * PlayerTest::StartPlayingAudio(void *ptr) {
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
     assert(NO_ERROR == ret);
     buffers.clear();
+
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -501,12 +559,18 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
   PlayerTest* playertest = static_cast<PlayerTest *>(ptr);
   std::vector<TrackBuffer> buffers;
   TrackBuffer tb;
+  const char *current_state;
 
-  while (!(playertest->stopped_ && playertest->videoLastFrame_))
+  while (!(playertest->videoLastFrame_))
   {
-    if (playertest->paused_ ||
-        (strcmp(playertest->current_state_,"Paused") == 0) ||
-        !(strcmp(playertest->current_state_,"Started") == 0)) {
+
+    {
+      std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+      current_state = playertest->current_state_;
+    }
+
+    if (playertest->paused_ || (strcmp(current_state,"Paused") == 0) ||
+        !(strcmp(current_state,"Started") == 0)) {
       continue;
     }
 
@@ -567,11 +631,15 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         nFormatBlockSize;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
-    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->stopped_) {
+    if (playertest->track_type_ == TrackTypes::kVideoOnly) {
+      playertest->UpdateCurrentPlaybackTime(sSampleInfo.startTime);
+    }
+
+    if (FILE_SOURCE_DATA_END == eMediaStatus || playertest->IsPlayerStopped()) {
       //EOF reached or Stopped
       TEST_INFO("%s:%s:File read completed", TAG, __func__);
-      buffers[0].flag = 1;
-      buffers[0].filled_size = 0;
+      buffers[0].flag = EOS_FLAG;
+      buffers[0].filled_size = EOS_BUFFER_SIZE;
 
       TEST_DBG("%s:%s: video_filled_size %d", TAG, __func__,
           buffers[0].filled_size);
@@ -583,7 +651,11 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
       playertest->player_.QueueInputBuffer(playertest->video_track_id_, buffers,
           (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
       buffers.clear();
-      playertest->stopped_ = true;
+      {
+        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
+        playertest->stopped_ = true;
+      }
+
       playertest->videoLastFrame_ = true;
       if (!playertest->stop_playing_)
         playertest->StopPlaying();
@@ -601,6 +673,7 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         (void*)&val, sizeof (uint32_t), TrackMetaBufferType::kNone);
     assert(NO_ERROR == ret);
     buffers.clear();
+
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -609,16 +682,27 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
 
 int32_t PlayerTest::Stop() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopped_ = true;
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
 
+bool PlayerTest::IsPlayerStopped() {
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+  return stopped_;
+}
+
 int32_t PlayerTest::StopPlaying() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-  auto ret = -1;
+  auto ret = 0;
 
-  stop_playing_ = true;
+  {
+    std::lock_guard<std::mutex> lock(state_change_lock_);
+    stop_playing_ = true;
+  }
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
@@ -630,6 +714,14 @@ int32_t PlayerTest::StopPlaying() {
       track_type_ == TrackTypes::kVideoOnly) {
 
     pthread_join(video_thread_id_, NULL);
+  }
+
+  if (playback_speed_ != TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kReverse) {
+    ret = player_.SetTrickMode(1, 1);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    }
   }
 
   ret = player_.Stop(false);
@@ -647,13 +739,18 @@ int32_t PlayerTest::StopPlaying() {
     srcFile_video_.close();
 #endif
 
-  start_again_ = true;
+  {
+    std::lock_guard<std::mutex> lock(state_change_lock_);
+    start_again_ = true;
+  }
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 int32_t PlayerTest::Pause() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = true;
 
   auto ret = player_.Pause();
@@ -667,16 +764,21 @@ int32_t PlayerTest::Pause() {
 
 int32_t PlayerTest::Resume() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+  auto ret = 0;
   paused_ = false;
 
-  auto ret = player_.Resume();
-  if (ret != NO_ERROR) {
-    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
+  if (playback_speed_ != TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kReverse) {
+    ret = player_.SetTrickMode(1, 1);
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    }
   }
 
-  ret = player_.SetTrickMode(1,1);
+   ret = player_.Resume();
   if (ret != NO_ERROR) {
-    TEST_ERROR("%s:%s Failed to set normal speed", TAG, __func__);
+    TEST_ERROR("%s:%s Failed to Resume", TAG, __func__);
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -686,32 +788,58 @@ int32_t PlayerTest::Resume() {
 int32_t PlayerTest::SetPosition() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   auto ret = 0;
+  uint64_t time;
+  FileSourceStatus mFSStatus = FILE_SOURCE_FAIL;
+
+  uint64_t current_time = GetCurrentPlaybackTime();
+  uint64_t clip_duration = m_pDemux_->GetClipDuration();
+
+  printf("\n");
+  printf("****** Seek *******\n" );
+  printf("Enter time between [0 to %llu sec] :: ", clip_duration/(1000000));
+  scanf("%llu", &time);
+
+  mFSStatus = m_pDemux_->SeekAbsolutePosition(time*1000, true,
+      static_cast<int64_t>(current_time/1000));
+  if (mFSStatus == FILE_SOURCE_FAIL) {
+    TEST_INFO("%s:%s: Failed to seek %u to %llu sec", TAG, __func__,
+        static_cast<uint32_t>(mFSStatus), time);
+  }
+
+  TEST_INFO("%s:%s: Seek to %llu sec", TAG, __func__, time);
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 int32_t PlayerTest::SetTrickMode() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+
   auto ret = 0;
 
-  uint32_t speed, dir;
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+    uint32_t speed, dir;
 
-  printf("\n");
-  printf("****** Set Trick Mode *******\n" );
-  printf(" Enter Speed (supported [1, 2, 4, 8]): ");
-  scanf("%d", &speed);
-  printf(" Enter Direction (supported [RW->0, FF->1]): ");
-  scanf("%d", &dir);
+    printf("\n");
+    printf("****** Set Trick Mode *******\n" );
+    printf(" Enter Speed (supported [1, 2, 4, 8]): ");
+    scanf("%d", &speed);
+    printf(" Enter Direction (supported [RW->0, FF->1]): ");
+    scanf("%d", &dir);
 
-  if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
-      && (dir == 0 || dir == 1)) {
-    ret = player_.SetTrickMode(speed, dir);
-    if (ret != NO_ERROR) {
-      TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+    if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
+        && (dir == 0 || dir == 1)) {
+      ret = player_.SetTrickMode(speed, dir);
+      playback_speed_ = static_cast<TrickModeSpeed>(speed);
+      playback_dir_ = static_cast<TrickModeDirection>(dir);
+      if (ret != NO_ERROR) {
+        TEST_ERROR("%s:%s Failed to SetTrickMode", TAG, __func__);
+      }
+    } else {
+      TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
+          "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
     }
-  } else {
-    TEST_INFO("%s:%s:Wrong speed or dir, supported values are "
-        "speed [1, 2, 4, 8] dir [0, 1]", TAG, __func__);
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -720,14 +848,28 @@ int32_t PlayerTest::SetTrickMode() {
 
 int32_t PlayerTest::GrabPicture() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
-    auto ret = 0;
-  //player_.GrabPicture();
+  auto ret = 0;
+
+  PictureParam param_;
+  PictureCallback picture_cb_;
+
+  memset(&param_, 0x0, sizeof param_);
+  param_.height = m_sTrackInfo_.sVideo.ulHeight;
+  param_.width = m_sTrackInfo_.sVideo.ulWidth;
+  param_.quality = 1;
+
+  picture_cb_.data_cb = [&] (BufferDescriptor& buffer)
+      {GrabPictureDataCB(buffer);};
+
+  player_.GrabPicture(param_, picture_cb_);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 int32_t PlayerTest::Delete() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
   auto ret = 0;
 
   if (track_type_ == TrackTypes::kAudioVideo ||
@@ -755,6 +897,30 @@ int32_t PlayerTest::Delete() {
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
+}
+
+uint32_t PlayerTest::UpdateCurrentPlaybackTime(uint64_t current_time) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  std::lock_guard<std::mutex> lock(time_lock_);
+
+  current_playback_time_ = current_time;
+
+  TEST_DBG("%s:%s: Current video playback time %lld", TAG, __func__,
+    static_cast<int64_t>(current_playback_time_/1000));
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return 0;
+}
+
+uint32_t PlayerTest::GetCurrentPlaybackTime() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(time_lock_);
+
+  TEST_INFO("%s:%s: Current video playback time %lld", TAG, __func__,
+      static_cast<int64_t>(current_playback_time_/1000));
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return current_playback_time_;
 }
 
 uint32_t PlayerTest::CreateDataSource() {
@@ -1009,6 +1175,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
+  printf("   %c. GrabPicture\n", CmdMenu::GRAB_PICTURE);
+  printf("   %c. Seek\n", CmdMenu::SEEK_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -1083,6 +1251,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::TRICK_MODE_CMD: {
         test_context.SetTrickMode();
+      }
+      break;
+      case CmdMenu::GRAB_PICTURE: {
+        test_context.GrabPicture();
+      }
+      break;
+      case CmdMenu::SEEK_CMD: {
+        test_context.SetPosition();
       }
       break;
       case CmdMenu::NEXT_CMD: {

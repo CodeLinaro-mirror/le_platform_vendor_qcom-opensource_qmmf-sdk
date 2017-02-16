@@ -62,6 +62,8 @@ if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
 
+AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
+
 [CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
@@ -101,5 +103,6 @@ AC_CONFIG_FILES([ \
     display/test/gtest/Makefile \
     player/test/demuxer/Makefile \
     player/test/samples/Makefile \
+    player/test/gtest/Makefile \
 ])
 AC_OUTPUT

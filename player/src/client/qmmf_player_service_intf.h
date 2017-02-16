@@ -146,6 +146,7 @@ class IPlayerService : public IInterface {
       VideoTrackCreateParam& param) = 0;
 
   virtual status_t DeleteAudioTrack(uint32_t track_id) = 0;
+
   virtual status_t DeleteVideoTrack(uint32_t track_id) = 0;
 
   virtual status_t Prepare() = 0;
@@ -193,6 +194,7 @@ enum PLAYER_SERVICE_CB_CMDS {
   PLAYER_NOTIFY_VIDEO_TRACK_EVENT,
   PLAYER_NOTIFY_AUDIO_TRACK_DATA,
   PLAYER_NOTIFY_AUDIO_TRACK_EVENT,
+  PLAYER_NOTIFY_GRAB_PICTURE_DATA,
 };
 
 //Binder interface for callbacks from PlayerService to PlayerClient.
@@ -222,6 +224,8 @@ class IPlayerServiceCallback : public IInterface {
   virtual void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) = 0;
+
+  virtual void NotifyGrabPictureData(BufferDescriptor& buffer) = 0;
 
   // This method is not exposed to client as a callback, it is just to update
   // Internal data structure, ServiceCallbackHandler is not forced to implement

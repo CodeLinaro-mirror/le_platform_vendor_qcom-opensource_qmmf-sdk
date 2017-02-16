@@ -34,13 +34,17 @@
 #include <pthread.h>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 
 #include <qmmf-sdk/qmmf_player.h>
 #include <qmmf-sdk/qmmf_player_params.h>
 #include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
+#include "qmmf-sdk/qmmf_buffer.h"
 
+#define EOS_FLAG 1
+#define EOS_BUFFER_SIZE 0
 
 using namespace qmmf;
 using namespace player;
@@ -61,7 +65,7 @@ enum class TrackTypes{
 
 enum class PlayerState {
   kError = 0,
-  lIdle = 1 << 0,
+  kIdle = 1 << 0,
   kPrepared = 1 << 1,
   kStarted = 1 << 2,
   kPaused = 1 << 3,
@@ -112,6 +116,8 @@ class PlayerTest {
   void videotrackcb(EventType event_type, void *event_data,
                     size_t event_data_size);
 
+  void GrabPictureDataCB(BufferDescriptor& buffer);
+
   static void* StartPlayingAudio(void* ptr);
 
   static void* StartPlayingVideo(void* ptr);
@@ -136,13 +142,17 @@ class PlayerTest {
   int32_t ParseFile(AudioTrackCreateParam& audio_track_param_,
                     VideoTrackCreateParam& video_track_param_);
 
+  uint32_t UpdateCurrentPlaybackTime(uint64_t current_time);
+
+  uint32_t GetCurrentPlaybackTime();
+
+  bool IsPlayerStopped();
+
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
 
-  Mutex                           state_lock_;
-  Condition                       wait_for_state_change_;
-
+  std::mutex                      state_change_lock_;
   bool                            stopped_;
   bool                            stop_playing_;
   bool                            start_again_;
@@ -169,6 +179,11 @@ class PlayerTest {
   const char*                     player_test_event_[2];
   const char *                    current_state_;
   TrackTypes                      track_type_;
+  TrickModeSpeed                  playback_speed_;
+  TrickModeDirection              playback_dir_;
+  int32_t                         grabpicture_file_fd_;
+  uint64_t                        current_playback_time_;
+  std::mutex                      time_lock_;
 };
 
 class CmdMenu {
@@ -182,7 +197,9 @@ class CmdMenu {
       PAUSE_CMD                         = '6',
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
-      TRICK_MODE_CMD                    = '9',
+      TRICK_MODE_CMD                    = 'T',
+      GRAB_PICTURE                      = 'P',
+      SEEK_CMD                          = 'S',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'

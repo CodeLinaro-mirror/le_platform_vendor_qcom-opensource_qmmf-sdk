@@ -199,7 +199,7 @@ int32_t RecorderTest::ToggleNR() {
 
 std::string RecorderTest::GetCurrentNRMode() {
   CameraMetadata meta;
-  std::string ret("Not available");
+  std::string ret(FEATURE_NOT_AVAILABLE);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
@@ -285,7 +285,7 @@ int32_t RecorderTest::ToggleVHDR() {
 
 std::string RecorderTest::GetCurrentVHDRMode() {
   CameraMetadata meta;
-  std::string ret("Not available");
+  std::string ret(FEATURE_NOT_AVAILABLE);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
@@ -371,10 +371,110 @@ int32_t RecorderTest::ToggleIR() {
   return status;
 }
 
+void RecorderTest::InitSupportedBinningCorrectionModes() {
+  camera_metadata_entry_t entry;
+
+  if (static_info_.exists(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES)) {
+    entry = static_info_.find(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.i32[i]) {
+        case QCAMERA3_BINNING_CORRECTION_MODE_OFF:
+          supported_bc_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case QCAMERA3_BINNING_CORRECTION_MODE_ON:
+          supported_bc_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s:%s Invalid binning correction mode: %d\n", TAG, __func__,
+                entry.data.i32[i]);
+      }
+    }
+  }
+}
+
+int32_t RecorderTest::ToggleBinningCorrectionMode() {
+  CameraMetadata meta;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_BINNING_CORRECTION_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_BINNING_CORRECTION_MODE).data.i32[0];
+      bc_modes_iter it = supported_bc_modes_.begin();
+      bc_modes_iter next;
+      while (it != supported_bc_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_bc_modes_.end()) {
+            next = supported_bc_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentBinningCorrectionMode() {
+  CameraMetadata meta;
+  std::string ret(FEATURE_NOT_AVAILABLE);
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(QCAMERA3_BINNING_CORRECTION_MODE)) {
+      int32_t mode = meta.find(QCAMERA3_BINNING_CORRECTION_MODE).data.i32[0];
+      for (auto it : supported_bc_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    } else {
+      //In case camera didn't set default check if there are any
+      //modes supported. In case there are set the first available.
+      if (!supported_bc_modes_.empty()) {
+        bc_modes_iter start = supported_bc_modes_.begin();
+        meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &start->first, 1);
+        status = recorder_.SetCameraParam(camera_id_, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply: %s\n",
+                TAG, __func__, start->second.c_str());
+        }
+        ret = start->second;
+      }
+    }
+  }
+
+  return ret;
+}
+
+int32_t RecorderTest::SetBinningCorrectionMode(const bool& mode) {
+  CameraMetadata meta;
+  auto ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  int32_t binning_correction_mode = QCAMERA3_BINNING_CORRECTION_MODE_OFF;
+  if(mode) { //Enabled
+    binning_correction_mode = QCAMERA3_BINNING_CORRECTION_MODE_ON;
+  }
+  meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &binning_correction_mode, 1);
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  return ret;
+}
+
 int32_t RecorderTest::ChooseCamera() {
 
   // TODO - propagate num cameras
-  int num_cameras = 2;
+  int num_cameras = 3;
   int input;
 
   do {
@@ -436,7 +536,7 @@ int32_t RecorderTest::SetAntibandingMode() {
 
 std::string RecorderTest::GetCurrentIRMode() {
   CameraMetadata meta;
-  std::string ret("Not available");
+  std::string ret(FEATURE_NOT_AVAILABLE);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     if (meta.exists(QCAMERA3_IR_MODE)) {
@@ -513,6 +613,7 @@ status_t RecorderTest::StartCamera() {
     InitSupportedNRModes();
     InitSupportedVHDRModes();
     InitSupportedIRModes();
+    InitSupportedBinningCorrectionModes();
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -644,7 +745,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
       meta_array.push_back(meta);
     }
 
-    TEST_INFO("CaptureImage size %dx%d images count \n",
+    TEST_INFO("CaptureImage size %dx%d images count %d\n",
               image_param.width,image_param.height,snapshot_info.count);
     ret = recorder_.CaptureImage(camera_id_, image_param, snapshot_info.count,
                                  meta_array, cb);
@@ -2127,9 +2228,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
                               BufferDescriptor buffer, MetaData meta_data) {
 
-  TEST_INFO("%s:%s Enter", TAG, __func__);
+  TEST_INFO("%s:%s Enter ", TAG, __func__);
   String8 file_path;
-  static uint32_t snapshot_count = 0;
   const char* ext_str;
 
   if (meta_data.meta_flag  &
@@ -2168,12 +2268,13 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       assert(0);
       break;
     }
-    file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+    file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
+        ext_str);
     DumpFrameToFile(buffer, cam_buf_meta, file_path);
-    snapshot_count++;
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
+
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
@@ -2272,7 +2373,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = 30;
+  camera_params.frame_rate          = params.camera_fps;
   camera_params.flags               = 0x0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
@@ -2344,7 +2445,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
 
-   printf("%s StartSession\n",__func__);
+  printf("%s StartSession\n",__func__);
+
   // StartSession - Begin
   // Prepare tracks: setup files to dump track data, event etc.
   for (uint32_t i=0;i < tracks.size();i++) {
@@ -2362,6 +2464,12 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
   // StartSession - End
+
+  // Setting binning correction off by default
+  if (GetCurrentBinningCorrectionMode() != FEATURE_NOT_AVAILABLE) {
+    ret = SetBinningCorrectionMode(false);
+    assert (ret == NO_ERROR);
+  }
 
   // TNR & SHDR - Start
   CameraMetadata meta;
@@ -2423,6 +2531,11 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   }
   // TNR/SHDR - End
+
+  if (params.binning_correct) {
+    ret = SetBinningCorrectionMode(true);
+    assert (ret == NO_ERROR);
+  }
 
   if (params.af_mode != AfMode::kNone) {
      printf("%s toggle auto focus mode\n",__func__);
@@ -2520,6 +2633,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
                                  initParams,const TrackInfo& track_info) {
   printf("\ninitParams.camera_id = %d\n", initParams.camera_id);
+  printf("\ninitParams.camera_fps = %d\n", initParams.camera_fps);
   printf("initParams.numStream = %d\n", initParams.numStream);
   printf("initParams.snapshot_info.type = %d\n",
           initParams.snapshot_info.type);
@@ -2598,6 +2712,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
 
     if(!strncmp("CameraID", key, strlen("CameraID"))) {
       initParams->camera_id = atoi(value);
+    } else if(!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
+      initParams->camera_fps = atoi(value);
     } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
       if(!strncmp("None", value, strlen("None"))) {
         initParams->snapshot_info.type= SnapshotType::kNone;
@@ -2647,6 +2763,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       initParams->vhdr = atoi(value)?true:false;
     } else if(!strncmp("TNR", key, strlen("TNR"))) {
       initParams->tnr = atoi(value)?true:false;
+    } else if(!strncmp("BinningCorrect", key, strlen("BinningCorrect"))) {
+      initParams->binning_correct = atoi(value)?true:false;
     } else if(!strncmp("Width", key, strlen("Width"))) {
       track_info.width = atoi(value);
     } else if(!strncmp("Height", key, strlen("Height"))) {
@@ -2752,7 +2870,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         video_track_param.codec_param.avc.bitrate      = bitrate;
       else
         video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+      video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
       video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
       video_track_param.codec_param.avc.ratecontrol_type =
           VideoRateControlType::kVariableSkipFrames;
@@ -3667,6 +3785,12 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::SET_ANTIBANDING_MODE_CMD: {
         test_context.SetAntibandingMode();
+      }
+      break;
+      // TODO: To be exposed to end user once
+      // 1080p@90FPS usecase is enabled through Menu
+      case CmdMenu::BINNING_CORRECTION_CMD: {
+        test_context.ToggleBinningCorrectionMode();
       }
       break;
       case CmdMenu::EXIT_CMD: {
