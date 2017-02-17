@@ -130,7 +130,7 @@ class MultiCameraManager : public CameraInterface {
   static const uint32_t kHeight4K = 1920;
 };
 
-class GrallocMemory {
+class GrallocMemory : public RefBase {
  public:
   struct BufferParams {
     uint32_t width;
@@ -212,6 +212,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   InitParams               params_;
   bool                     stop_frame_sync_;
+  bool                     use_frame_sync_timeout;
   String8                  *work_thread_name_;
 
   Mutex                    frame_lock_;
@@ -257,7 +258,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
   StitchLibInterface       stitch_lib_;
-  GrallocMemory            *memory_pool_;
+  sp<GrallocMemory>        memory_pool_;
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.
@@ -279,6 +280,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   Mutex                    sync_lock_;
   Condition                wait_for_sync_frames_;
 
+  static const nsecs_t kFrameSyncTimeout  = 50000000;  // 50 ms
   static const int32_t kTimestampMaxDelta = 140000000; // 140 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
