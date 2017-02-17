@@ -440,7 +440,7 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
-                                            const uint32_t frame_rate) {
+                                            const float frame_rate) {
 
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
@@ -1270,14 +1270,14 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
   return ret;
 }
 
-void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
+void TrackSource::UpdateFrameRate(const float frame_rate) {
 
   Mutex::Autolock autoLock(frame_skip_lock_);
-  assert(frame_rate > 0);
+  assert(frame_rate > 0.0f);
 
-  if (track_params_.params.frame_rate != frame_rate) {
-      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%d) to (%d)", TAG,
-          __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
+  if (fabs(track_params_.params.frame_rate - frame_rate) > 0.1f) {
+      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%5.2f) to (%5.2f)",
+          TAG, __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
   }

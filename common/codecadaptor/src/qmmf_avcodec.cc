@@ -500,7 +500,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   bool enable_qp_IBP_range = false;
   uint32_t width = codec_param.video_enc_param.width;
   uint32_t height = codec_param.video_enc_param.height;
-  uint32_t frame_rate = codec_param.video_enc_param.frame_rate;
+  float    frame_rate = codec_param.video_enc_param.frame_rate;
   uint32_t init_IQP, init_PQP, init_BQP;
   uint32_t min_QP, max_QP;
   uint32_t min_IQP, max_IQP,  min_PQP, max_PQP, min_BQP, max_BQP;
@@ -1370,6 +1370,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
       }
       break;
     }
+
     case ::qmmf::player::AudioCodecType::kAMR:
       // set the AMR output parameters
       OMX_AUDIO_PARAM_AMRTYPE amr_params;
@@ -1455,7 +1456,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
 }
 
 status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
-                                OMX_U32 frame_rate) {
+                                float frame_rate) {
 
   status_t ret = 0;
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
@@ -1469,7 +1470,7 @@ status_t AVCodec::SetPortParams(OMX_U32 port, OMX_U32 width, OMX_U32 height,
     return ret;
   }
 
-  FractionToQ16(port_def.format.video.xFramerate,(int)(frame_rate * 2), 2);
+  port_def.format.video.xFramerate = (frame_rate * (1 << 16));
   port_def.format.video.nFrameWidth = width;
   port_def.format.video.nFrameHeight = height;
 
@@ -2396,6 +2397,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
   uint32_t *value;
+  float *fps = nullptr;
   VideoEncIdrInterval *idr_interval;
   VideoEncLtrUse *ltr_use;
   OMX_INDEXTYPE index;
@@ -2415,7 +2417,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
                 __func__, bitrate_params.nEncodeBitrate, ret);
       break;
     case CodecParamType::kFrameRateType:
-      value = static_cast<uint32_t*>(codec_param);
+      fps = static_cast<float*>(codec_param);
       OMX_CONFIG_FRAMERATETYPE framerate;
       InitOMXParams(&framerate);
       framerate.nPortIndex = kPortIndexInput;
@@ -2425,7 +2427,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
             param_type);
         return ret;
       }
-      FractionToQ16(framerate.xEncodeFramerate, (int32_t)((*value) * 2), 2);
+      framerate.xEncodeFramerate = ((*fps) * (1 << 16));
       ret = omx_client_->SetConfig(OMX_IndexConfigVideoFramerate, &framerate);
       break;
     case CodecParamType::kInsertIDRType:
