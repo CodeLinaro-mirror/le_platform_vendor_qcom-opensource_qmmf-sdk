@@ -76,6 +76,9 @@ static const int32_t kDefaultJpegQuality = 85;
 #define COLOR_LIGHT_GREEN 0x33CC00FF;
 #define COLOR_LIGHT_BLUE 0x189BF2FF;
 
+#define FHD_1080p_STREAM_WIDTH 1920
+#define FHD_1080p_STREAM_HEIGHT 1080
+
 void RecorderGtest::SetUp() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
@@ -185,6 +188,271 @@ TEST_F(RecorderGtest, StartStopCameraZSLMode) {
   }
   ret = DeInit();
   assert(ret == NO_ERROR);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+ * FaceDetectionFor1080pYUVPreview: This test will test FD at 1080p preview stream.
+ * Api test sequence:
+ *  - StartCamera
+ *   ------------------
+ *   - CreateSession
+ *   - CreateVideoTrack
+ *   - StartVideoTrack
+ *   - SetCameraParam
+ *   - StopSession
+ *   - Delete Overlay object
+ *   - DeleteVideoTrack
+ *   - DeleteSession
+ *   ------------------
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width  = FHD_1080p_STREAM_WIDTH;
+  int32_t stream_height = FHD_1080p_STREAM_HEIGHT;
+  face_info_.fd_stream_width = stream_width;
+  face_info_.fd_stream_height = stream_height;
+  CameraResultCb result_cb = [this] (uint32_t camera_id,
+      const CameraMetadata &result) {
+           ParseFaceInfo(result, face_info_);
+           ApplyFaceOveralyOnStream(face_info_);};
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+    size_t event_data_size) -> void
+    { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id     = 0;
+  video_track_param.width         = stream_width;
+  video_track_param.height        = stream_height;
+  video_track_param.frame_rate    = 30;
+  video_track_param.format_type   = VideoFormat::kYUV;
+  video_track_param.out_device    = 0x01;
+  video_track_param.low_power_mode = true;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+    std::vector<BufferDescriptor> buffers,
+    std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+    void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+    event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+  video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  CameraMetadata meta;
+  uint8_t fd_mode = ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE;
+
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+  EXPECT_TRUE(meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
+
+  meta.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fd_mode, 1);
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  face_bbox_active_ = true;
+  face_track_id_ = video_track_id;
+  TEST_INFO("Enable Face Detection");
+
+  sleep(kRecordDuration);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+  face_overlay_lock_.lock();
+  for (uint32_t i = 0; i < face_bbox_id_.size(); i++) {
+    // Delete overlay object.
+    ret = recorder_.DeleteOverlayObject(face_track_id_,
+                                        face_bbox_id_[i]);
+    assert(ret == NO_ERROR);
+  }
+  face_bbox_active_ = false;
+  face_bbox_id_.clear();
+  face_overlay_lock_.unlock();
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+ * FaceDetectionFor1080pAVCVideo: This test will test FD at 1080p video stream.
+ * Api test sequence:
+ *  - StartCamera
+ *   ------------------
+ *   - CreateSession
+ *   - CreateVideoTrack
+ *   - StartVideoTrack
+ *   - SetCameraParam
+ *   - StopSession
+ *   - Delete Overlay object
+ *   - DeleteVideoTrack
+ *   - DeleteSession
+ *   ------------------
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t stream_width  = FHD_1080p_STREAM_WIDTH;
+  int32_t stream_height = FHD_1080p_STREAM_HEIGHT;
+
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/gtest_FaceDetectionFor1080pAVCVideo_track_%dx%d.%s",
+      stream_width, stream_height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
+      O_WRONLY | O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+  face_info_.fd_stream_width = stream_width;
+  face_info_.fd_stream_height = stream_height;
+  CameraResultCb result_cb = [this] (uint32_t camera_id,
+      const CameraMetadata &result) {
+           ParseFaceInfo(result, face_info_);
+           ApplyFaceOveralyOnStream(face_info_);};
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+     [this] (EventType event_type, void *event_data, size_t event_data_size) -> void {
+     SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id  = 0;
+  video_track_param.width = stream_width;
+  video_track_param.height = stream_height;
+  video_track_param.frame_rate = 30;
+  video_track_param.format_type = format_type;
+  video_track_param.out_device = 0x01;
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+     std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb =
+    [this] (uint32_t track_id, EventType event_type,void *event_data,
+           size_t event_data_size) -> void { VideoTrackEventCb(track_id,
+             event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  CameraMetadata meta;
+  uint8_t fd_mode = ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE;
+
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+  EXPECT_TRUE(meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
+
+  meta.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fd_mode, 1);
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  face_bbox_active_ = true;
+  face_track_id_ = video_track_id;
+  TEST_INFO("Enable Face Detection");
+
+  sleep(kRecordDuration);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  face_overlay_lock_.lock();
+  for (uint32_t i = 0; i < face_bbox_id_.size(); i ++) {
+    // Delete overlay object.
+    ret = recorder_.DeleteOverlayObject(face_track_id_,
+                                        face_bbox_id_[i]);
+    assert(ret == NO_ERROR);
+  }
+  face_bbox_active_ = false;
+  face_bbox_id_.clear();
+  face_overlay_lock_.unlock();
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+  ClearSessions();
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  if (track1_bitstream_filefd_ > 0) {
+    close(track1_bitstream_filefd_);
+  }
+
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -8020,4 +8288,110 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   TEST_INFO("%s:%s Exit", TAG, __func__);
+}
+
+void RecorderGtest::ParseFaceInfo(const android::CameraMetadata &res,
+                                  struct FaceInfo &info) {
+  camera_metadata_ro_entry rect_entry, crop_entry;
+  Rect<uint32_t> rect;
+  uint32_t active_w = 0, active_h = 0;
+
+  if (res.exists(ANDROID_STATISTICS_FACE_RECTANGLES)) {
+    // Check Face Rectangles exit or not.
+    rect_entry = res.find(ANDROID_STATISTICS_FACE_RECTANGLES);
+    if (rect_entry.count > 0) {
+      crop_entry = res.find(ANDROID_SCALER_CROP_REGION);
+      if (crop_entry.count < 4) {
+        TEST_ERROR("Unable to read crop region (count = %d)", crop_entry.count);
+        assert(0);
+      } else {
+        active_w = crop_entry.data.i32[2];
+        active_h = crop_entry.data.i32[3];
+      }
+
+      if ((active_w == 0) || (active_h == 0)) {
+        TEST_ERROR("Invaild crop region(%d, %d)", active_w, active_h);
+        assert(0);
+      }
+
+      TEST_INFO("%d face detected", rect_entry.count / 4);
+      for (uint32_t i = 0 ; i < rect_entry.count; i += 4) {
+        rect.left = rect_entry.data.i32[i + 0] *
+                       info.fd_stream_width / active_w;
+        rect.top = rect_entry.data.i32[i + 1] *
+                       info.fd_stream_height / active_h;
+        rect.width = rect_entry.data.i32[i + 2] *
+                       info.fd_stream_width / active_w - rect.left;
+        rect.height = rect_entry.data.i32[i + 3] *
+                       info.fd_stream_height / active_h - rect.top;
+        info.face_rect.push_back(rect);
+      }
+    }else {
+      TEST_INFO("No face detected");
+    }
+  }
+}
+
+void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
+  face_overlay_lock_.lock();
+  if (face_bbox_active_) {
+    uint32_t i;
+    int ret;
+    uint32_t last_num = face_bbox_id_.size();
+    uint32_t cur_num = info.face_rect.size();
+    OverlayParam object_params;
+
+    for(i = 0; i < std::min(last_num, cur_num); i++) {
+      ret = RecorderGtest::recorder_.GetOverlayObjectParams(face_track_id_,
+          face_bbox_id_[i], object_params);
+      assert(ret == 0);
+      object_params.bounding_box.start_x = info.face_rect[i].left;
+      object_params.bounding_box.width = info.face_rect[i].width;
+      if (object_params.bounding_box.width <= 0) {
+        TEST_INFO("invalid width(%d)", object_params.bounding_box.width);
+        object_params.bounding_box.width = 1;
+      }
+      object_params.bounding_box.start_y = info.face_rect[i].top;
+      object_params.bounding_box.height = info.face_rect[i].height;
+      if (object_params.bounding_box.height <= 0) {
+        TEST_INFO("invalid width(%d)", object_params.bounding_box.height);
+        object_params.bounding_box.height = 1;
+      }
+      ret = RecorderGtest::recorder_.UpdateOverlayObjectParams(face_track_id_,
+          face_bbox_id_[i], object_params);
+      assert(ret == 0);
+      ret = RecorderGtest::recorder_.SetOverlay(face_track_id_, face_bbox_id_[i]);
+      assert(ret == 0);
+    }
+
+    if (last_num > cur_num) {
+      for(i = cur_num; i < last_num; i++) {
+        ret = RecorderGtest::recorder_.RemoveOverlay(face_track_id_,
+                                                     face_bbox_id_[i]);
+        assert(ret == 0);
+      }
+    } else if (last_num < cur_num) {
+      for (i = last_num; i < cur_num; i++) {
+        // Create BoundingBox type overlay.
+        std::string bb_text("Face");
+        uint32_t bbox_id;
+        memset(&object_params, 0x0, sizeof object_params);
+        object_params.type  = OverlayType::kBoundingBox;
+        object_params.color = COLOR_LIGHT_GREEN;
+        object_params.bounding_box.start_x = info.face_rect[i].left;
+        object_params.bounding_box.start_y = info.face_rect[i].top;
+        object_params.bounding_box.width   = info.face_rect[i].width;
+        object_params.bounding_box.height  = info.face_rect[i].height;
+        bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
+        ret = recorder_.CreateOverlayObject(face_track_id_,
+                 object_params, &bbox_id);
+        assert(ret == 0);
+        face_bbox_id_.push_back(bbox_id);
+        ret = RecorderGtest::recorder_.SetOverlay(face_track_id_, bbox_id);
+        assert(ret == 0);
+      }
+    }
+  }
+  face_overlay_lock_.unlock();
+  info.face_rect.clear();
 }

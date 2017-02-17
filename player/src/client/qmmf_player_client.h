@@ -90,7 +90,7 @@ class PlayerClient {
 
   status_t SetPosition(int64_t seek_time);
 
-  status_t SetTrickMode(uint32_t speed, uint32_t direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   status_t GrabPicture(PictureParam param, PictureCallback& cb);
 

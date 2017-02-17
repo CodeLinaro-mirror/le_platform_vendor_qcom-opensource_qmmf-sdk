@@ -557,13 +557,15 @@ FileSourceStatus CMM_MediaDemuxInt::SeekAbsolutePosition(
   int64 trackid,
   const int tAbsoluteTime,
   bool bSeekToSync,
-  int64 nCurrPlayTime) {
+  int64 nCurrPlayTime,
+  FS_SEEK_MODE eSeekMode) {
 
   FileSourceStatus err = \
     m_pFileSource->SeekAbsolutePosition(trackid,
                                         tAbsoluteTime,
                                         bSeekToSync,
-                                        nCurrPlayTime);
+                                        nCurrPlayTime,
+                                        eSeekMode);
   if (err != FILE_SOURCE_SUCCESS) {
     return err;
   }
@@ -590,11 +592,13 @@ FileSourceStatus CMM_MediaDemuxInt::SeekAbsolutePosition(
 FileSourceStatus CMM_MediaDemuxInt::SeekAbsolutePosition(
   const int tAbsoluteTime,
   bool bSeekToSync,
-  int64 nCurrPlayTime) {
+  int64 nCurrPlayTime,
+  FS_SEEK_MODE eSeekMode) {
 
   FileSourceStatus err = m_pFileSource->SeekAbsolutePosition(tAbsoluteTime,
                                                              bSeekToSync,
-                                                             nCurrPlayTime);
+                                                             nCurrPlayTime,
+                                                             eSeekMode);
   if (err != FILE_SOURCE_SUCCESS) {
     return err;
   }

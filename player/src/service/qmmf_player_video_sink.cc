@@ -169,7 +169,7 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false), paused_(false),
       decoded_frame_number_(0), display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
-      playback_dir_(TrickModeDirection::kForward),
+      playback_dir_(TrickModeDirection::kNormalForward),
       current_time_(0), prev_time_(0),
       displayed_frames_(0), grab_picture_(false),
       ion_device_(-1), grabpicture_file_fd_(-1), snapshot_dumps_(0) {
@@ -320,13 +320,13 @@ status_t VideoTrackSink::DeleteSink() {
 }
 
 status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
-                                      TrickModeDirection direction) {
+                                      TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
-      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+  QMMF_DEBUG("%s:%s: Speed (%u) Type (%u)", TAG, __func__,
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(dir));
 
   playback_speed_ = speed;
-  playback_dir_ = direction;
+  playback_dir_ = dir;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
@@ -426,10 +426,23 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
         QMMF_ERROR("%s:%s PushFrameToDisplay Failed!!", TAG, __func__);
       }
 
-      int64_t sleep = 1000000/(track_params_.params.frame_rate);
-      QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
-          (float)sleep/(float)1000);
-      usleep(sleep);
+     int64_t sleep = 1000000/(track_params_.params.frame_rate);
+
+     if (playback_dir_ == TrickModeDirection::kSlowForward) {
+        QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Slow Forward", TAG, __func__,
+            (float)(sleep*static_cast<uint32_t>(playback_speed_))/(float)1000);
+        usleep(sleep*(static_cast<uint32_t>(playback_speed_)));
+
+     } else if (playback_dir_ == TrickModeDirection::kNormalRewind){
+       QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Rewind", TAG, __func__,
+            (float)(sleep*6)/(float)1000);
+       usleep(sleep*6);
+
+     } else {
+       QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Playback", TAG, __func__,
+           (float)sleep/(float)1000);
+       usleep(sleep);
+     }
 
       ++displayed_frames_;
       QMMF_DEBUG("%s:%s: track_id(%d) displayed video frame number %d",
@@ -470,7 +483,8 @@ status_t VideoTrackSink::ReturnBufferToCodec(
 status_t VideoTrackSink::SkipFrame() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  if (playback_speed_ == TrickModeSpeed::kSpeed_1x) {
+  if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kSlowForward ) {
     return false;
 
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_2x) {

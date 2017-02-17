@@ -954,6 +954,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
+  codec_params_ = codec_param;
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -2019,6 +2021,10 @@ status_t AVCodec::StartCodec() {
             PORT_NAME(kPortIndexOutput));
         return ret;
     }
+
+    if (format_type_ == CodecType::kVideoDecoder) {
+      ConfigureVideoDecoder(codec_params_);
+    }
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
@@ -2043,6 +2049,9 @@ status_t AVCodec::StartCodec() {
               PORT_NAME(kPortIndexInput));
           return ret;
       }
+
+      QMMF_INFO("%s:%s allocate buffer on %s pBuffer %p  i %d", TAG, __func__,
+            PORT_NAME(kPortIndexInput), in_buff_hdr_[i]->pBuffer, i);
 
       encoder_media_buffer_type* mediaBuffer =
           (encoder_media_buffer_type*)in_buff_hdr_[i]->pBuffer;
