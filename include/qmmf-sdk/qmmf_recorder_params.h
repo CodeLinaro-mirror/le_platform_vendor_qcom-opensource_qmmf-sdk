@@ -175,7 +175,7 @@ struct VideoTrackCreateParam {
   uint32_t         camera_id;
   uint32_t         width;
   uint32_t         height;
-  uint32_t         frame_rate;
+  float            frame_rate;
   VideoFormat      format_type;
   VideoCodecParams codec_param;
   uint32_t         out_device;

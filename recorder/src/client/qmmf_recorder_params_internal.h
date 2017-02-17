@@ -115,7 +115,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
     parcel->writeUint32(camera_id);
     parcel->writeUint32(width);
     parcel->writeUint32(height);
-    parcel->writeUint32(frame_rate);
+    parcel->writeFloat(frame_rate);
     parcel->writeInt32(static_cast<int32_t>(format_type));
     switch (format_type) {
       case VideoFormat::kHEVC:
@@ -137,7 +137,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
     camera_id = parcel.readUint32();
     width = parcel.readUint32();
     height = parcel.readUint32();
-    frame_rate = parcel.readUint32();
+    frame_rate = parcel.readFloat();
     format_type = static_cast<VideoFormat>(parcel.readInt32());
     switch (format_type) {
       case VideoFormat::kHEVC:
