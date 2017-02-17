@@ -129,45 +129,36 @@ template <class T>
 class SignalQueue {
  public:
   SignalQueue(uint32_t size):cmd_queue_size(size) {
-    QMMF_INFO("%s: Enter",__func__);
-    QMMF_INFO("%s: Exit",__func__);
+    QMMF_DEBUG("%s: Enter",__func__);
+    QMMF_DEBUG("%s: Exit",__func__);
   }
 
   ~SignalQueue() {
-    QMMF_INFO("%s: Enter",__func__);
+    QMMF_DEBUG("%s: Enter",__func__);
     cmd_queue_size = -1;
-    QMMF_INFO("%s: Exit",__func__);
+    QMMF_DEBUG("%s: Exit",__func__);
   }
 
   T Pop() {
-    void* item = NULL;
-    status_t ret = 0;
+    void* item = nullptr;
+    status_t ret = NO_ERROR;
     uint32_t size;
 
     {
       Mutex::Autolock l(cmd_queue_mutex_);
       size = cmd_queue_.size();
-    }
-    if (size == 0) {
-      // wait for signal or for data to come into queue
-      Mutex::Autolock l(lock_);
       while (size == 0) {
-        ret = wait_for_cmd_.waitRelative(lock_, kWaitDelay);
+        // wait for signal or for data to come into queue
+        ret = wait_for_cmd_.waitRelative(cmd_queue_mutex_, kWaitDelay);
         if (TIMED_OUT == ret) {
             QMMF_WARN("%s: Wait for cmd.. timed out", __func__);
-            {
-              Mutex::Autolock l(cmd_queue_mutex_);
-              size = cmd_queue_.size();
-            }
+            size = cmd_queue_.size();
             continue;
         } else {
             break;
         }
       }
-    }
-    if (ret == 0) {
-      {
-        Mutex::Autolock l(cmd_queue_mutex_);
+      if (NO_ERROR == ret) {
         item = *cmd_queue_.begin();
         cmd_queue_.erase(cmd_queue_.begin());
       }
@@ -177,19 +168,13 @@ class SignalQueue {
 
   status_t Push(void* item) {
     uint32_t size;
-    {
-      Mutex::Autolock l(cmd_queue_mutex_);
-      size = cmd_queue_.size();
-    }
+    Mutex::Autolock l(cmd_queue_mutex_);
+    size = cmd_queue_.size();
     if (cmd_queue_size < size) {
       QMMF_ERROR("%s: command queue size full", __func__);
       return -1;
     }
-    {
-      Mutex::Autolock l(cmd_queue_mutex_);
-      cmd_queue_.push_back(item);
-    }
-    Mutex::Autolock autoLock(lock_);
+    cmd_queue_.push_back(item);
     wait_for_cmd_.signal();
     return NO_ERROR;
   }
