@@ -50,6 +50,7 @@
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
@@ -87,7 +88,11 @@ void RecorderGtest::SetUp() {
 
   char prop_val[PROPERTY_VALUE_MAX];
   property_get(PROP_DUMP_BITSTREAM, prop_val, "0");
-  dump_bitstream_.is_enabled = (atoi(prop_val) == 0) ? false : true;
+  if (atoi(prop_val) == 0) {
+    dump_bitstream_.Enable(false);
+  } else {
+    dump_bitstream_.Enable(true);
+  }
   property_get(PROP_DUMP_JPEG, prop_val, "0");
   is_dump_jpeg_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_DUMP_RAW, prop_val, "0");
@@ -323,10 +328,6 @@ TEST_F(RecorderGtest, 1080pZSLCapture) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -387,9 +388,8 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       video_track_param.format_type,
       video_track_id,
       static_cast<int32_t>(video_track_param.width),
@@ -468,8 +468,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -799,9 +798,8 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id_1 = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       video_track_param.format_type,
       video_track_id_1,
       static_cast<int32_t>(video_track_param.width),
@@ -828,14 +826,13 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
 
   uint32_t video_track_id_2 = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       video_track_param.format_type,
       video_track_id_2,
       static_cast<int32_t>(video_track_param.width),
       static_cast<int32_t>(video_track_param.height) };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
@@ -904,9 +901,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -1591,9 +1586,8 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -1685,7 +1679,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1747,9 +1741,8 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
-    if (dump_bitstream_.is_enabled) {
+    if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
-        track1_bitstream_filefd_,
         format_type,
         video_track_id,
         width,
@@ -1800,7 +1793,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1858,9 +1851,8 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -1913,8 +1905,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -1996,9 +1987,8 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
   uint32_t video_track_id = 1;
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2027,14 +2017,13 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   track_ids.push_back(video_track_id);
 
   uint32_t video_track4K1fps_id = 2;
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track4K1fps_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.frame_rate  = 1;
@@ -2127,9 +2116,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -2212,9 +2199,8 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
   uint32_t video_track_id = 1;
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2243,14 +2229,13 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   track_ids.push_back(video_track_id);
 
   uint32_t video_track4K1fps_id = 2;
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track4K1fps_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.frame_rate  = 1;
@@ -2274,14 +2259,13 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   uint32_t video_track240p_id = 3;
   width = 432;
   height = 240;
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track3_bitstream_filefd_,
       format_type,
       video_track240p_id,
       width,
       height };
-    track3_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.width = width;
@@ -2380,10 +2364,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-  dump_bitstream_.Close(track3_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -2441,9 +2422,8 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2496,8 +2476,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -2555,9 +2534,8 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2665,8 +2643,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -2724,9 +2701,8 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2760,14 +2736,13 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -2867,9 +2842,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -2926,9 +2899,8 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -2962,14 +2934,13 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -3023,9 +2994,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3082,9 +3051,8 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3135,8 +3103,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3194,9 +3161,8 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3247,8 +3213,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3305,9 +3270,8 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3340,14 +3304,13 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -3399,9 +3362,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3458,9 +3419,8 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3493,14 +3453,13 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -3565,9 +3524,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3625,9 +3582,8 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3661,14 +3617,13 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -3721,9 +3676,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3781,9 +3734,8 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3817,14 +3769,13 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -3889,9 +3840,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -3948,9 +3897,8 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -3983,14 +3931,13 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -4043,9 +3990,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -4102,9 +4047,8 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -4138,14 +4082,13 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -4199,9 +4142,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -4259,9 +4200,8 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -4295,14 +4235,13 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track480p_id,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   video_track_param.camera_id   = 0;
@@ -4402,9 +4341,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -4462,9 +4399,8 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -4517,8 +4453,7 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -4581,9 +4516,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     video_track_param.out_device  = 0x01;
     uint32_t video_track_id = 1;
 
-    if (dump_bitstream_.is_enabled) {
+    if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
-        track1_bitstream_filefd_,
         format_type,
         video_track_id,
         width,
@@ -4635,7 +4569,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4716,9 +4651,8 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    if (dump_bitstream_.is_enabled) {
+    if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
-        track1_bitstream_filefd_,
         format_type,
         video_track_id1,
         width,
@@ -4737,14 +4671,13 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    if (dump_bitstream_.is_enabled) {
+    if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
-        track2_bitstream_filefd_,
         format_type,
         video_track_id2,
         width,
         height };
-      track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+      ret = dump_bitstream_.SetUp(dumpinfo);
     }
 
     track_ids.push_back(video_track_id2);
@@ -4778,9 +4711,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5222,9 +5153,8 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -5326,7 +5256,8 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5392,9 +5323,8 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -5513,7 +5443,8 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5579,9 +5510,8 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -5685,9 +5615,8 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5751,9 +5680,8 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -5858,7 +5786,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5922,9 +5850,8 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -6043,7 +5970,8 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6108,9 +6036,8 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -6217,7 +6144,8 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6274,9 +6202,8 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -6334,8 +6261,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6392,9 +6318,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -6451,7 +6376,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6641,9 +6566,8 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id1,
       width,
@@ -6663,14 +6587,13 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track_id2,
       width,
       height };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
   track_ids.push_back(video_track_id1);
 
@@ -6709,9 +6632,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6985,9 +6906,8 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -7096,7 +7016,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7159,9 +7079,8 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id,
       width,
@@ -7270,7 +7189,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7350,9 +7269,8 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
                                      video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track1_bitstream_filefd_,
       format_type,
       video_track_id1,
       static_cast<int32_t>(video_track_param.width),
@@ -7378,14 +7296,13 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
 
-  if (dump_bitstream_.is_enabled) {
+  if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
-      track2_bitstream_filefd_,
       format_type,
       video_track_id2,
       static_cast<int32_t>(video_track_param.width),
       static_cast<int32_t>(video_track_param.height) };
-    track2_bitstream_filefd_ = dump_bitstream_.SetUp(dumpinfo);
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
   track_ids.push_back(video_track_id2);
@@ -7475,8 +7392,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.Close(track1_bitstream_filefd_);
-  dump_bitstream_.Close(track2_bitstream_filefd_);
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7556,7 +7472,6 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   uint32_t video_track_id = 1;
 
   StreamDumpInfo dumpinfo = {
-    track1_bitstream_filefd_,
     format_type,
     video_track_id,
     width,
@@ -7613,12 +7528,13 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
 
-  ret = DumpQueue(av_queue, track1_bitstream_filefd_);
+  ret = DumpQueue(av_queue, dump_bitstream_.GetFileFd(1));
   assert(ret == NO_ERROR);
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  dump_bitstream_.Close(track1_bitstream_filefd_);
+
+  dump_bitstream_.CloseAll();
 
   if (NULL != av_queue) {
     AVQueueFree(&av_queue, AVFreePacket);
@@ -8201,8 +8117,9 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.is_enabled) {
-    dump_bitstream_.Dump(buffers, track1_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(1);
+    dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
@@ -8218,8 +8135,9 @@ void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
                                           std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.is_enabled) {
-    dump_bitstream_.Dump(buffers, track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(2);
+    dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
@@ -8236,8 +8154,9 @@ void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
                                              meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.is_enabled) {
-    dump_bitstream_.Dump(buffers, track3_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(3);
+    dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
@@ -8340,12 +8259,11 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
-status_t DumpBitStream::SetUp(StreamDumpInfo& dumpinfo) {
+status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   assert(dumpinfo.width > 0);
   assert(dumpinfo.height > 0);
-  Close(dumpinfo.file_fd);
 
   const char* type_string;
   switch (dumpinfo.format) {
@@ -8364,20 +8282,21 @@ status_t DumpBitStream::SetUp(StreamDumpInfo& dumpinfo) {
   bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
                                   dumpinfo.track_id, dumpinfo.width,
                                   dumpinfo.height, extn.string());
-  dumpinfo.file_fd = open(bitstream_filepath.string(),
+  int32_t file_fd = open(bitstream_filepath.string(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
-
-  if (!dumpinfo.file_fd > 0) {
+  if (file_fd <= 0) {
     TEST_ERROR("%s:%s File open failed!", TAG, __func__);
     return BAD_VALUE;
   }
+
+  file_fds_.push_back(file_fd);
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
-                             int32_t& file_fd) {
+                             const int32_t file_fd) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   assert(file_fd > 0);
@@ -8398,10 +8317,35 @@ status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
 
     if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
       TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
-      Close(file_fd);
+      break;
     }
   }
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
+}
+
+void DumpBitStream::Close(int32_t file_fd) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (file_fd > 0) {
+    auto iter = std::find(file_fds_.begin(), file_fds_.end(), file_fd);
+    if(iter != file_fds_.end()) {
+      close(file_fd);
+      file_fds_.erase(iter);
+    } else {
+      TEST_WARN("%s:%s: file_fd does not exist!", TAG, __func__);
+    }
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+void DumpBitStream::CloseAll() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  for (auto& iter : file_fds_) {
+    if (iter > 0) {
+      close(iter);
+    }
+  }
+  file_fds_.clear();
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }

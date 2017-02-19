@@ -62,7 +62,6 @@ using namespace android;
 #define PROP_N_ITERATIONS      "persist.qmmf.rec.gtest.iter"
 
 typedef struct StreamDumpInfo {
-  int32_t       file_fd;
   VideoFormat   format;
   uint32_t      track_id;
   int32_t       width;
@@ -71,33 +70,30 @@ typedef struct StreamDumpInfo {
 
 class DumpBitStream {
  public:
-  DumpBitStream() : is_enabled(false) {};
+  DumpBitStream() : is_enabled_(false) {};
 
-  ~DumpBitStream() {};
+  ~DumpBitStream() {file_fds_.clear();}
 
-  status_t SetUp(StreamDumpInfo& dumpinfo);
+  bool IsEnabled() {return is_enabled_;}
+
+  int32_t GetFileFd(const uint32_t count)
+                   {assert(count > 0);
+                    assert(count <= file_fds_.size());
+                    return file_fds_[count-1];}
+
+  void Enable(const bool enable) {is_enabled_ = enable;}
+
+  status_t SetUp(const StreamDumpInfo& dumpinfo);
 
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
-                int32_t& file_fd);
+                const int32_t file_fd);
 
-  void Close(int32_t file_fd)
-             {if (file_fd > 0) {close(file_fd); file_fd = -1;}}
+  void Close(int32_t file_fd);
 
-  bool is_enabled;
-};
-
-template<class T>
-struct Rect {
-  T left;
-  T top;
-  T width;
-  T height;
-};
-
-struct FaceInfo {
-  uint32_t fd_stream_height;
-  uint32_t fd_stream_width;
-  std::vector<Rect<uint32_t>> face_rect;
+  void CloseAll();
+ private:
+  bool is_enabled_;
+  std::vector<int32_t> file_fds_;
 };
 
 // Prop to set Track Resolutions and FPS
@@ -184,9 +180,6 @@ class RecorderGtest : public ::testing::Test {
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
-  int32_t               track1_bitstream_filefd_;
-  int32_t               track2_bitstream_filefd_;
-  int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
   DumpBitStream         dump_bitstream_;
@@ -194,15 +187,6 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_raw_enabled_;
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
-
-  void ParseFaceInfo(const android::CameraMetadata &res,
-                     struct FaceInfo &info);
-  void ApplyFaceOveralyOnStream(struct FaceInfo &info);
-  std::vector<uint32_t> face_bbox_id_;
-  bool face_bbox_active_;
-  uint32_t face_track_id_;
-  struct FaceInfo face_info_;
-  std::mutex face_overlay_lock_;
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
