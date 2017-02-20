@@ -1186,7 +1186,7 @@ status_t RecorderImpl::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 }
 
 status_t RecorderImpl::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const uint32_t type,
+                                            const MultiCameraConfigType type,
                                             const void *param,
                                             const uint32_t param_size) {
 

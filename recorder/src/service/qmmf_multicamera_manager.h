@@ -65,9 +65,9 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                              uint32_t* virtual_camera_id);
 
-  status_t ConfigureMultiCamera(uint32_t virtual_camera_id,
-                                /*MultiCameraConfigTypes*/ uint32_t type,
-                                void *param, size_t param_size);
+  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                const MultiCameraConfigType type,
+                                const void *param, const size_t param_size);
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
                       const ResultCb &cb = nullptr) override;
@@ -116,6 +116,7 @@ class MultiCameraManager : public CameraInterface {
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
+  MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
 
   //Non zsl capture request.
@@ -198,8 +199,9 @@ class GrallocMemory : public RefBase {
 class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
-    uint32_t         virtual_camera_id;
-    Vector<uint32_t> camera_ids;
+    uint32_t               virtual_camera_id;
+    Vector<uint32_t>       camera_ids;
+    MultiCameraConfigType  multicam_type;
   };
 
   StitchingBase(InitParams &param);
