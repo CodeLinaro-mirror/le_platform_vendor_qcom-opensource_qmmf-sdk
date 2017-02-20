@@ -304,60 +304,32 @@ status_t MultiCameraManager::CancelCaptureImage() {
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
 
-  status_t ret = NO_ERROR;
+  status_t ret;
+  size_t ctx_idx;
+
   CameraStreamParam context_param (param);
   ReCalculateWidth(context_param.cam_stream_dim.width);
 
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+  for (ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
     assert(camera_context.get() != nullptr);
     ret = camera_context->CreateStream(context_param);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
-      return ret;
+      goto FAIL;
     }
   }
 
-  StitchingBase::InitParams algo_param {};
-  algo_param.virtual_camera_id = virtual_camera_id_;
-  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
-
-  GrallocMemory::BufferParams buf_param {};
-  if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
-    buf_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-  } else {
-    buf_param.format      = HAL_PIXEL_FORMAT_RAW10;
-  }
-  buf_param.width         = param.cam_stream_dim.width;
-  buf_param.height        = param.cam_stream_dim.height;
-  buf_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
-  buf_param.max_size      = 0;
-
-  buf_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
-  if (param.cam_stream_dim.width == kWidth4K &&
-      param.cam_stream_dim.height == kHeight4K) {
-    buf_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
-  }
-  buf_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-
-  sp<StreamStitching> stitching_algo = new StreamStitching(algo_param);
-  ret = stitching_algo->Initialize();
+  ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
+    QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
     goto FAIL;
   }
-  ret = stitching_algo->Configure(buf_param);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to configure stitching algo!", TAG, __func__);
-    goto FAIL;
-  }
-  stream_stitch_algos_.add(param.id, stitching_algo);
-  return ret;
+
+  return NO_ERROR;
 
 FAIL:
-  stitching_algo.clear();
-  for (size_t i = 0; i < camera_contexts_.size(); i++) {
+  for (ssize_t i = ctx_idx - 1; i >= 0; --i) {
     camera_contexts_.valueAt(i)->DeleteStream(context_param.id);
   }
   return ret;
@@ -376,8 +348,11 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
     }
   }
 
-  stream_stitch_algos_.editValueFor(track_id).clear();
-  stream_stitch_algos_.removeItem(track_id);
+  ret = DeleteStreamStitching(track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
+  }
+
   return ret;
 }
 
@@ -659,6 +634,62 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
     Mutex::Autolock lock(jpeg_lock_);
     jpeg_buffers_.removeItem(buffer_id);
   }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam &param) {
+
+  StitchingBase::InitParams algo_param {};
+  algo_param.virtual_camera_id = virtual_camera_id_;
+  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.multicam_type = multicam_type_;
+
+  GrallocMemory::BufferParams buf_param {};
+  if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
+    buf_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  } else {
+    buf_param.format      = HAL_PIXEL_FORMAT_RAW10;
+  }
+  buf_param.width         = param.cam_stream_dim.width;
+  buf_param.height        = param.cam_stream_dim.height;
+  buf_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+  buf_param.max_size      = 0;
+
+  buf_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
+  if (param.cam_stream_dim.width == kWidth4K &&
+      param.cam_stream_dim.height == kHeight4K) {
+    buf_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
+  }
+  buf_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+
+  sp<StreamStitching> stitching_algo = new StreamStitching(algo_param);
+  status_t ret = stitching_algo->Initialize();
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
+    return ret;
+  }
+  ret = stitching_algo->Configure(buf_param);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to configure stitching algo!", TAG, __func__);
+    return ret;
+  }
+  stream_stitch_algos_.add(param.id, stitching_algo);
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
+
+  ssize_t index = stream_stitch_algos_.indexOfKey(id);
+  if (index < 0) {
+    QMMF_ERROR("%s:%s: Stitching algo not present for track id %d", TAG,
+               __func__, id);
+    return BAD_VALUE ;
+  }
+
+  stream_stitch_algos_.editValueAt(index).clear();
+  stream_stitch_algos_.removeItemsAt(index);
+
   return NO_ERROR;
 }
 

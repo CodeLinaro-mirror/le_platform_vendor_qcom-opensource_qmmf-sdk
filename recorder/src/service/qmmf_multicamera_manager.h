@@ -114,6 +114,11 @@ class MultiCameraManager : public CameraInterface {
   void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
   status_t ReturnJpegBuffer(const int32_t buffer_id);
 
+  // Create Stitching stream is identified with param.id, make sure
+  // that same id is passed on DeleteStreamStitching
+  status_t CreateStreamStitching(const CameraStreamParam &param);
+  status_t DeleteStreamStitching(const uint32_t id);
+
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
   MultiCameraConfigType    multicam_type_;
