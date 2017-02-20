@@ -2382,6 +2382,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
   VideoEncIdrInterval *idr_interval;
   VideoEncLtrUse *ltr_use;
   OMX_INDEXTYPE index;
+  OMX_PARAM_U32TYPE operating_rate_params;
 
   switch (param_type) {
     case CodecParamType::kBitRateType:
@@ -2447,6 +2448,15 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
       useltr_params.nFrames = ltr_use->frame;
       index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRUse;
       ret = omx_client_->SetConfig(index, &useltr_params);
+      break;
+    case CodecParamType::kDecodeOperatingRate:
+      value = static_cast<uint32_t*>(codec_param);
+      InitOMXParams(&operating_rate_params);
+      operating_rate_params.nPortIndex = kPortIndexOutput;
+      FractionToQ16(operating_rate_params.nU32,
+          (int32_t)((*value)* 2), 2);
+      ret = omx_client_->SetConfig((OMX_INDEXTYPE)OMX_IndexConfigOperatingRate,
+          static_cast<OMX_PTR>(&operating_rate_params));
       break;
     default:
       QMMF_ERROR("%s:%s Unknown param type", TAG, __func__);
