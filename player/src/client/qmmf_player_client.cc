@@ -602,7 +602,7 @@ status_t PlayerClient::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-status_t PlayerClient::SetTrickMode(uint32_t speed, uint32_t direction) {
+status_t PlayerClient::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
 
@@ -610,7 +610,7 @@ status_t PlayerClient::SetTrickMode(uint32_t speed, uint32_t direction) {
     return NO_INIT;
   }
 
-  auto ret = player_service_->SetTrickMode(speed, direction);
+  auto ret = player_service_->SetTrickMode(speed, dir);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s SetTrickMode failed: %d", TAG, __func__, ret);
   }
@@ -1075,11 +1075,11 @@ class BpPlayerService : public BpInterface<IPlayerService>
     return reply.readInt32();
   }
 
-  status_t SetTrickMode(uint32_t speed, uint32_t direction) {
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-    data.writeUint32(speed);
-    data.writeUint32(direction);
+    data.writeUint32(static_cast<uint32_t>(speed));
+    data.writeUint32(static_cast<uint32_t>(dir));
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_SET_TRICKMODE), data, &reply, IBinder::FLAG_ONEWAY);
     return reply.readInt32();

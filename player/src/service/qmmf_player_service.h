@@ -104,7 +104,7 @@ class PlayerService: public BnInterface<IPlayerService> {
 
   status_t SetPosition(int64_t seek_time) override;
 
-  status_t SetTrickMode(uint32_t speed, uint32_t direction) override;
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) override;
 
   status_t GrabPicture(PictureParam param) override;
 

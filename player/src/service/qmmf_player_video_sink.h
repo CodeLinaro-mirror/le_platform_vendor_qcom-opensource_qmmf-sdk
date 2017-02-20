@@ -114,7 +114,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteSink();
 
-  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
 
