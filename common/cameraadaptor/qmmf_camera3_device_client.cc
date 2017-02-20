@@ -382,7 +382,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   if (hfr_mode_enabled_) {
     config.operation_mode =
         CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
-  } if (is_raw_only_) {
+  } else if (is_raw_only_) {
     config.operation_mode =
         QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
   } else {
