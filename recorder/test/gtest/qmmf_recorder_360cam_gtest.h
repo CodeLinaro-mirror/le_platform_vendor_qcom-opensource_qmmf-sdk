@@ -94,8 +94,8 @@ class Recorder360Gtest : public ::testing::Test {
                      int32_t file_fd);
 
   Recorder              recorder_;
-  uint32_t              multi_camera_id_;
-  MultiCameraConfigType multi_camera_type_;
+  uint32_t              multicam_id_;
+  MultiCameraConfigType multicam_type_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      multicam_start_params_;
