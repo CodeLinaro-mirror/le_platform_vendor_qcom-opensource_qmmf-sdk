@@ -62,8 +62,6 @@ if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
 
-AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
-
 [CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
