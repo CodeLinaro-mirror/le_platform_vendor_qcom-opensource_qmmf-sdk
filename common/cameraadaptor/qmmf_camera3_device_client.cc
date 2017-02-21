@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#define TAG "CameraAdaptor"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -29,13 +31,14 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_device_client.h"
+#include <QCamera3VendorTags.h>
 
 // Convenience macros for transitioning to the error state
 #define SET_ERR(fmt, ...) \
   SetErrorState("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
 #define SET_ERR_L(fmt, ...) \
   SetErrorStateLocked("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
-
+using namespace qcamera;
 extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
@@ -67,6 +70,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       pause_state_notify_(false),
       state_listeners_(0),
       is_hfr_supported_(false),
+      is_raw_only_(false),
       hfr_mode_enabled_(false),
       prepare_handler_() {
   camera3_callback_ops::notify = &notifyFromHal;
@@ -333,7 +337,8 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed) {
+int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
+                                          bool isRawOnly) {
   if (NULL == camera_module_) {
     return -ENODEV;
   }
@@ -343,13 +348,15 @@ int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed) {
     return -EINVAL;
   }
 
-  return ConfigureStreams(isConstrainedHighSpeed);
+  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly);
 }
 
-int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed) {
+int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
+                                              bool isRawOnly) {
   pthread_mutex_lock(&lock_);
 
   hfr_mode_enabled_ = isConstrainedHighSpeed;
+  is_raw_only_ = isRawOnly;
   bool res = ConfigureStreamsLocked();
 
   pthread_mutex_unlock(&lock_);
@@ -375,6 +382,9 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   if (hfr_mode_enabled_) {
     config.operation_mode =
         CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
+  } else if (is_raw_only_) {
+    config.operation_mode =
+        QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
   } else {
     config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
   }
@@ -454,7 +464,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   return 0;
 }
 
-int32_t Camera3DeviceClient::DeleteStream(int streamId) {
+int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
   int32_t res = 0;
   Camera3Stream *stream;
   int32_t outputStreamIdx;
@@ -473,6 +483,15 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
     case STATE_NOT_CONFIGURED:
     case STATE_CONFIGURED:
     case STATE_RUNNING:
+      if (!cache) {
+        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
+            __func__);
+        res = InternalPauseAndWaitLocked();
+        if (0 != res) {
+          SET_ERR_L("Can't pause captures to reconfigure streams!");
+          goto exit;
+        }
+      }
       break;
     default:
       QMMF_ERROR("%s: Unknown state: %d\n", __func__, state_);
@@ -504,7 +523,18 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId) {
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
     }
-    deleted_streams_.push_back(stream);
+    if (!cache) {
+      reconfig_ = true;
+      res = ConfigureStreamsLocked();
+      if (0 != res) {
+        QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+                 __func__, next_stream_id_, strerror(-res), res);
+        goto exit;
+      }
+      InternalResumeLocked();
+    } else {
+      deleted_streams_.push_back(stream);
+    }
   }
   reconfig_ = true;
 

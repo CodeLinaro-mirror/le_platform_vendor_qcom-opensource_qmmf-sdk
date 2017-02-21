@@ -70,6 +70,7 @@ class PlayerImpl {
                           VideoTrackCreateParam& param);
 
   status_t DeleteAudioTrack(uint32_t track_id);
+
   status_t DeleteVideoTrack(uint32_t track_id);
 
   status_t Prepare();
@@ -93,9 +94,8 @@ class PlayerImpl {
 
   status_t SetPosition(int64_t seek_time);
 
-  status_t SetTrickMode(uint32_t speed, uint32_t direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
-  // TODO
   status_t GrabPicture(PictureParam param);
 
   status_t SetAudioTrackParam(uint32_t track_id,
@@ -108,36 +108,38 @@ class PlayerImpl {
                             void *param,
                             size_t param_size);
 
- void setCurrentState(PlayerState state);
+  void setCurrentState(PlayerState state);
 
-
- void NotifyPlayerEventCallback(EventType event_type, void *event_data,
+  void NotifyPlayerEventCallback(EventType event_type, void *event_data,
                           size_t event_data_size);
 
- void NotifyVideoTrackDataCallback(uint32_t track_id,
+  void NotifyVideoTrackDataCallback(uint32_t track_id,
                            std::vector<BnTrackBuffer> &buffers,
                            void *meta_param, TrackMetaBufferType meta_type,
                            size_t meta_size);
 
- void NotifyVideoTrackEventCallback(uint32_t track_id, EventType event_type,
+  void NotifyVideoTrackEventCallback(uint32_t track_id, EventType event_type,
                             void *event_data, size_t event_data_size);
 
- void NotifyAudioTrackDataCallback(uint32_t track_id,
+  void NotifyAudioTrackDataCallback(uint32_t track_id,
                            std::vector<BnTrackBuffer> &buffers,
                            void *meta_param, TrackMetaBufferType meta_type,
                            size_t meta_size);
 
- void NotifyAudioTrackEventCallback(uint32_t track_id, EventType event_type,
+  void NotifyAudioTrackEventCallback(uint32_t track_id, EventType event_type,
                             void *event_data, size_t event_data_size);
 
   void NotifyDeleteAudioTrackCallback(uint32_t track_id);
 
- void NotifyDeleteVideoTrackCallback(uint32_t track_id);
+  void NotifyDeleteVideoTrackCallback(uint32_t track_id);
 
+  void NotifyGrabPictureDataCallback(BufferDescriptor& buffer);
 
  private:
 
   bool IsTrackValid(const uint32_t track_id);
+
+  bool IsTrickModeEnabled();
 
   typedef struct TrackInfo {
     uint32_t         track_id;
@@ -155,8 +157,11 @@ class PlayerImpl {
   PlayerState         current_state_;
   pthread_t           prepare_th;
   Mutex               state_lock_;
+  TrickModeSpeed      trick_mode_speed_;
+  TrickModeDirection  trick_mode_dir_;
+  Mutex               trick_mode_change_lock_;
 
-  std::vector<TrackInfo> tracks;
+  std::vector<TrackInfo> tracks_;
   DefaultKeyedVector<uint32_t, TrackInfo> track_map_;
 
 

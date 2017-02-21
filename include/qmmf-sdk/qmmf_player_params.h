@@ -37,6 +37,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "include/qmmf-sdk/qmmf_device.h"
+#include "qmmf-sdk/qmmf_buffer.h"
 
 namespace qmmf {
 namespace player {
@@ -123,6 +124,22 @@ typedef struct PictureParam {
     uint32_t quality;
 } PictureParam;
 
+enum class TrickModeSpeed {
+  kSpeed_1x = 1 << 0,
+  kSpeed_2x = 1 << 1,
+  kSpeed_4x = 1 << 2,
+  kSpeed_8x = 1 << 3,
+};
+
+enum class TrickModeDirection {
+  kNormalForward  = 1,    // normal forward means 1x forward i.e. normal playback
+  kFastForward    = 2,
+  kSlowForward    = 3,
+  kNormalRewind   = 4,    // normal rewind means 1x rewind
+  kFastRewind     = 5,
+  kSlowRewind     = 6,
+};
+
 typedef struct PlayerCb {
     std::function<void( EventType event_type,
                         void *event_data,
@@ -139,6 +156,7 @@ typedef struct PictureCallback {
     std::function<void( EventType event_type,
                         void *event_data,
                         size_t event_data_size)> event_cb;
+    std::function<void(BufferDescriptor& buffer)> data_cb;
 } PictureCallback;
 
 };

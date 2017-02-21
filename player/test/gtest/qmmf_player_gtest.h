@@ -26,3 +26,116 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+#pragma once
+
+#include <map>
+#include <string>
+#include <vector>
+#include <fcntl.h>
+#include <dirent.h>
+#include <functional>
+#include <gtest/gtest.h>
+#include <pthread.h>
+#include <mutex>
+
+#include <cutils/properties.h>
+#include <qmmf-sdk/qmmf_player.h>
+#include <qmmf-sdk/qmmf_player_params.h>
+#include "player/test/gtest/qmmf_player_parser.h"
+
+#define DEFAULT_ITERATION 1
+
+using namespace qmmf;
+using namespace player;
+using namespace android;
+
+enum class AudioFileType {
+  kAAC,
+  kAMR,
+  kG711
+};
+
+enum class PlayerState {
+  kError = 0,
+  kIdle = 1 << 0,
+  kPrepared = 1 << 1,
+  kStarted = 1 << 2,
+  kPaused = 1 << 3,
+  kStopped =  1 << 4,
+  kCompleted = 1<< 5,
+};
+
+struct Event {
+  PlayerState state;
+};
+
+class PlayerGtest : public ::testing::Test {
+ public:
+  PlayerGtest() : player_() {};
+
+  ~PlayerGtest() {};
+
+ protected:
+  const ::testing::TestInfo* test_info_;
+
+  void GetGTestParams();
+
+  void SetUp() override;
+
+  void TearDown() override;
+
+  int32_t Init();
+
+  int32_t DeInit();
+
+  void playercb(EventType event_type, void *event_data,
+                size_t event_data_size);
+
+  void audiotrackcb(EventType event_type, void *event_data,
+                    size_t event_data_size);
+
+  void videotrackcb(EventType event_type, void *event_data,
+                    size_t event_data_size);
+
+  int32_t ParseFile(AudioTrackCreateParam& audio_track_param_);
+
+  int32_t Prepare();
+
+  int32_t Start();
+
+  static void* StartPlaying(void* ptr);
+
+  int32_t Stop();
+
+  int32_t StopPlaying();
+
+  int32_t Pause();
+
+  int32_t Resume();
+
+  int32_t Delete();
+
+  char *            filename_;
+  AudioFileType     filetype_;
+
+  Player            player_;
+  uint32_t          iteration_count_;
+  PlayerCb          player_cb_;
+
+  std::mutex        state_change_lock_;
+
+  bool              stopped_;
+  bool              start_again_;
+  bool              paused_;
+  pthread_t         start_thread_id;
+
+  AACfileIO*        aac_file_io_;
+  G711fileIO*       g711_file_io_;
+  AMRfileIO*        amr_file_io_;
+
+  std::map<uint32_t, const char *>  statemap_;
+  const char*                       player_test_event_[2];
+  const char *                      current_state_;
+  std::vector<std::string>          codec_type_;
+};

@@ -16,7 +16,6 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-parser/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-osal/include
 
 LOCAL_SRC_FILES := qmmf_player_test.cc
-LOCAL_SRC_FILES += qmmf_player_parser.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_demuxer libmmosal libmmparser_lite
 LOCAL_SHARED_LIBRARIES += libqmmf_player_client

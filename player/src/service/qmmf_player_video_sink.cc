@@ -32,7 +32,8 @@
 #include "player/src/service/qmmf_player_video_sink.h"
 
 #include <memory>
-#define ALIGNED_WIDTH(x) ((x)+((x%64)?(64-(x%64)):0))
+#define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
+static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
 namespace qmmf {
 namespace player {
@@ -168,9 +169,10 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false), paused_(false),
       decoded_frame_number_(0), display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
-      playback_dir_(TrickModeDirection::kForward),
+      playback_dir_(TrickModeDirection::kNormalForward),
       current_time_(0), prev_time_(0),
-      displayed_frames_(0) {
+      displayed_frames_(0), grab_picture_(false),
+      ion_device_(-1), grabpicture_file_fd_(-1), snapshot_dumps_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -178,11 +180,39 @@ VideoTrackSink::VideoTrackSink()
     QMMF_ERROR("%s:%s Failed to open o/p yuv dump file ", TAG, __func__);
   }
 #endif
+
+  // open ion device
+  ion_device_ = open("/dev/ion", O_RDONLY);
+  if (ion_device_ < 0) {
+    QMMF_ERROR("%s: %s() error opening ion device: %d[%s]", TAG, __func__,
+        errno, strerror(errno));
+  }
+
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
 VideoTrackSink::~VideoTrackSink() {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  if (grab_picture_buffer_.data) {
+    munmap(grab_picture_buffer_.data, grab_picture_buffer_.capacity);
+    grab_picture_buffer_.data = nullptr;
+  }
+
+  if (grab_picture_buffer_.fd) {
+    QMMF_INFO("%s:%s track_id(%d) grab_picture_buffer_.fd =%d Free",
+        TAG, __func__, TrackId(), grab_picture_buffer_.fd);
+    ioctl(ion_device_, ION_IOC_FREE, &(grab_picture_ion_handle_.handle));
+    close(grab_picture_buffer_.fd);
+    grab_picture_buffer_.fd = 0;
+  }
+
+  if (snapshot_dumps_) {
+    if (grabpicture_file_fd_ > 0) {
+        close(grabpicture_file_fd_);
+    }
+  }
+
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
 
@@ -204,6 +234,21 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param) {
     return ret;
   }
 
+  uint32_t buffer_size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12,
+      track_param.params.width, track_param.params.height);
+  QMMF_DEBUG("%s:%s: buffer_size is (%d)", TAG, __func__,buffer_size);
+
+  AllocateGrabPictureBuffer(buffer_size);
+
+  ret = fcvSetOperationMode(FASTCV_OP_CPU_OFFLOAD);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s Unable to set FastCV operation mode: %d",TAG,__func__,
+        ret);
+    return ret;
+  }
+
+  GetSnapShotDumpsProperty();
+
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 
   return NO_ERROR;
@@ -212,6 +257,7 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param) {
 status_t VideoTrackSink::StartSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopplayback_ = false;
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
@@ -220,6 +266,7 @@ status_t VideoTrackSink::StartSink() {
 status_t VideoTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   stopplayback_ = true;
   QMMF_DEBUG("%s:%s: Total number of video frames decoded %d", TAG, __func__,
       decoded_frame_number_);
@@ -239,6 +286,7 @@ status_t VideoTrackSink::PauseSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
 
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = true;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -249,6 +297,7 @@ status_t VideoTrackSink::ResumeSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   auto ret = 0;
 
+  std::lock_guard<std::mutex> lock(state_change_lock_);
   paused_ = false;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -266,19 +315,18 @@ status_t VideoTrackSink::DeleteSink() {
   }
 
   video_track_decoder_.reset();
-
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
-                                      TrickModeDirection direction) {
+                                      TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
-      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+  QMMF_DEBUG("%s:%s: Speed (%u) Type (%u)", TAG, __func__,
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(dir));
 
   playback_speed_ = speed;
-  playback_dir_ = direction;
+  playback_dir_ = dir;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
@@ -312,7 +360,8 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
 }
 
-void VideoTrackSink::PassTrackDecoder(const shared_ptr<VideoTrackDecoder>& video_track_decoder) {
+void VideoTrackSink::PassTrackDecoder(
+    const shared_ptr<VideoTrackDecoder>& video_track_decoder) {
   video_track_decoder_ = video_track_decoder;
 }
 
@@ -357,11 +406,9 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
       !(codec_buffer.size) || paused_)) {
     ++decoded_frame_number_;
-
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded video frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), decoded_frame_number_,
         codec_buffer.timestamp);
-      current_time_ = codec_buffer.timestamp;
 
  #ifdef DUMP_YUV_FRAMES
     DumpYUVData(codec_buffer);
@@ -370,7 +417,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     if (SkipFrame()) {
       QMMF_DEBUG("%s:%s:Skipping frame number %d to display", TAG, __func__,
            decoded_frame_number_);
-      prev_time_ = current_time_;
       ReturnBufferToCodec(codec_buffer);
       return NO_ERROR;
     } else {
@@ -380,15 +426,28 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
         QMMF_ERROR("%s:%s PushFrameToDisplay Failed!!", TAG, __func__);
       }
 
-      QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
-          (float)((current_time_ - prev_time_)/(float)1000));
-      usleep(current_time_ - prev_time_);
+     int64_t sleep = 1000000/(track_params_.params.frame_rate);
+
+     if (playback_dir_ == TrickModeDirection::kSlowForward) {
+        QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Slow Forward", TAG, __func__,
+            (float)(sleep*static_cast<uint32_t>(playback_speed_))/(float)1000);
+        usleep(sleep*(static_cast<uint32_t>(playback_speed_)));
+
+     } else if (playback_dir_ == TrickModeDirection::kNormalRewind){
+       QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Rewind", TAG, __func__,
+            (float)(sleep*6)/(float)1000);
+       usleep(sleep*6);
+
+     } else {
+       QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Playback", TAG, __func__,
+           (float)sleep/(float)1000);
+       usleep(sleep);
+     }
 
       ++displayed_frames_;
       QMMF_DEBUG("%s:%s: track_id(%d) displayed video frame number %d",
           TAG, __func__, TrackId(), decoded_frame_number_);
     }
-    prev_time_ = current_time_;
   }
 
   ReturnBufferToCodec(codec_buffer);
@@ -424,7 +483,8 @@ status_t VideoTrackSink::ReturnBufferToCodec(
 status_t VideoTrackSink::SkipFrame() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  if (playback_speed_ == TrickModeSpeed::kSpeed_1x) {
+  if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kSlowForward ) {
     return false;
 
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_2x) {
@@ -458,18 +518,18 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
   QMMF_INFO("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
   ::qmmf::avcodec::PortreconfigData *reconfig_data =
       static_cast<::qmmf::avcodec::PortreconfigData*>(arg);
-  surface_config.width = current_width =
-      (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).width;
-  surface_config.height = current_height =
-      (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).height;
-  crop_data_ =
-      static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect);
 
   switch (reconfig_data->reconfig_type) {
     case ::qmmf::avcodec::PortreconfigData::PortReconfigType::kBufferRequirementsChanged:
+      surface_config.width = current_width =
+          (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).width;
+      surface_config.height = current_height =
+          (static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect)).height;
       wait_for_frame_.signal();
       break;
     case ::qmmf::avcodec::PortreconfigData::PortReconfigType::kCropParametersChanged:
+      crop_data_ =
+          static_cast<::qmmf::avcodec::PortreconfigData::CropData>(reconfig_data->rect);
       break;
     default:
       QMMF_ERROR("%s:%s Unknown PortReconfigType", TAG, __func__);
@@ -513,13 +573,8 @@ status_t VideoTrackSink::CreateDisplay(
   }
 
   memset(&surface_config, 0x0, sizeof surface_config);
-  if (track_param.params.width > 3000 && track_param.params.height > 2000) {
-    surface_config.width = 2560;
-    surface_config.height = 1440;
-  } else {
-    surface_config.width = track_param.params.width;
-    surface_config.height = track_param.params.height;
-  }
+  surface_config.width = track_param.params.width;
+  surface_config.height = track_param.params.height;
 
   surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
   surface_config.buffer_count = track_param.params.num_buffers;
@@ -532,16 +587,13 @@ status_t VideoTrackSink::CreateDisplay(
     return res;
   }
   display_started_ = 1;
-   if (track_param.params.width > 3000 && track_param.params.height > 2000) {
-    surface_param_.src_rect = { 0.0, 0.0, (float)2560,
-        (float)1440 };
-  } else {
-    surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
-        (float)track_param.params.height };
-  }
 
-  surface_param_.dst_rect = { 0.0, 0.0, 1920,
-      1080 };
+  surface_param_.src_rect = { 0.0, 0.0,
+      static_cast<float>(track_param.params.width),
+      static_cast<float>(track_param.params.height)};
+
+  surface_param_.dst_rect = { 0.0, 0.0, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
@@ -607,7 +659,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
      surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
      surface_buffer_.buf_id =0;
      surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-     surface_buffer_.plane_info[0].stride = ALIGNED_WIDTH(surface_config.width);
+     surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config.width, 128);
      surface_buffer_.plane_info[0].size = codec_buffer.size;
      surface_buffer_.plane_info[0].width = surface_config.width;
      surface_buffer_.plane_info[0].height = surface_config.height;
@@ -619,9 +671,21 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
                                  (float)crop_data_.height + (float)crop_data_.top};
 
     QMMF_DEBUG("%s:%s CropData Used for Display L(%u) T(%u) R(%u) B(%u)"
-        " surface_config.width(%u) surface_config.height(%d)", TAG, __func__,
-        crop_data_.left, crop_data_.top, crop_data_.width, crop_data_.height,
-        surface_config.width, surface_config.height);
+        " surface_config.width(%u) surface_config.height(%d) stride(%d)", TAG,
+        __func__,crop_data_.left, crop_data_.top, crop_data_.width,
+        crop_data_.height, surface_config.width, surface_config.height,
+        surface_buffer_.plane_info[0].stride);
+
+    {
+      std::lock_guard<std::mutex> lock(grab_picture_lock);
+      if (grab_picture_) {
+        uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12,
+            surface_config.width, surface_config.height);
+        CopyGrabPictureBuffer(surface_buffer_, size);
+        grab_picture_ = false;
+      }
+    }
+
     auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
          surface_param_);
 
@@ -638,6 +702,168 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
    }
 
    return NO_ERROR;
+}
+
+status_t VideoTrackSink::GrabPicture(PictureParam param,
+                                     BufferDescriptor& buffer) {
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  if (grab_picture_) {
+    QMMF_WARN("%s:%s Previous request is not complete!", TAG, __func__);
+    return -EBUSY;
+  }
+
+  grab_picture_ = true;
+
+  {
+    Mutex::Autolock auto_lock(grab_picture_buffer_copy_lock_);
+    auto ret = wait_for_grab_picture_buffer_copy_.waitRelative(
+        grab_picture_buffer_copy_lock_, kWaitDuration);
+    if (ret == TIMED_OUT) {
+      QMMF_ERROR("%s:%s: track_id(%d) Failed to copy grab picture buffer",
+          TAG, __func__, TrackId());
+      return ret;
+    }
+  }
+
+  buffer = grab_picture_buffer_;
+
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
+                                                uint32_t size) {
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  size_t scanline =  ROUND_TO(surface_config.height, 32);
+
+  uint32_t  yplane_length = scanline * buffer.plane_info[0].stride;
+
+  fcvScaleDownMNu8(static_cast<uint8_t*>(buffer.plane_info[0].buf),
+      track_params_.params.width,
+      track_params_.params.height,
+      buffer.plane_info[0].stride,
+      static_cast<uint8_t*>(grab_picture_buffer_.data),
+      track_params_.params.width,
+      track_params_.params.height,
+      buffer.plane_info[0].stride);
+
+  fcvScaleDownMNInterleaveu8((static_cast<uint8_t*>(buffer.plane_info[0].buf) +
+      yplane_length),
+      track_params_.params.width >> 1,
+      track_params_.params.height >> 1,
+      buffer.plane_info[0].stride,
+      (static_cast<uint8_t*>(grab_picture_buffer_.data) +
+      track_params_.params.width*track_params_.params.height),
+      track_params_.params.width >> 1,
+      track_params_.params.height >> 1,
+      buffer.plane_info[0].stride);
+
+  grab_picture_buffer_.capacity = size;
+
+  QMMF_DEBUG("%s:%s: Buffer data(0x%p)", TAG, __func__,grab_picture_buffer_.data);
+  QMMF_DEBUG("%s:%s: Buffer size(%d)", TAG, __func__,size);
+
+ if (snapshot_dumps_) {
+    String8 snapshot_filepath;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    snapshot_filepath.appendFormat("/data/player_service_snapshot_%dx%d_%lu.%s",
+        surface_config.width, surface_config.height, tv.tv_sec, "yuv");
+
+    grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
+        O_WRONLY | O_TRUNC, 0655);
+    assert(grabpicture_file_fd_ >= 0);
+
+    uint32_t bytes_written;
+    bytes_written  = write(grabpicture_file_fd_, grab_picture_buffer_.data, size);
+    if (bytes_written != size) {
+      QMMF_ERROR("Bytes written != %d and written = %u", size, bytes_written);
+    }
+
+    close(grabpicture_file_fd_);
+  }
+
+  wait_for_grab_picture_buffer_copy_.signal();
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
+int32_t VideoTrackSink::AllocateGrabPictureBuffer(const uint32_t size) {
+  QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: size(%d)", TAG, __func__, size);
+  int32_t ret = 0;
+
+  assert(ion_device_ >= 0);
+  int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
+  void *vaddr      = NULL;
+
+  struct ion_allocation_data alloc;
+  struct ion_fd_data         ion_fddata;
+
+  vaddr = NULL;
+  memset(&grab_picture_buffer_, 0x0, sizeof(grab_picture_buffer_));
+  memset(&alloc, 0x0, sizeof(alloc));
+  memset(&ion_fddata, 0x0, sizeof(ion_fddata));
+  memset(&grab_picture_ion_handle_, 0x0, sizeof(grab_picture_ion_handle_));
+
+  alloc.len = size;
+  alloc.len = (alloc.len + 4095) & (~4095);
+  alloc.align = 4096;
+  alloc.flags = ION_FLAG_CACHED;
+  alloc.heap_id_mask = ion_type;
+
+  ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
+  if (ret < 0) {
+    QMMF_ERROR("%s:%s ION allocation failed!", TAG, __func__);
+    goto ION_ALLOC_FAILED;
+  }
+
+  ion_fddata.handle = alloc.handle;
+  ret = ioctl(ion_device_, ION_IOC_SHARE, &ion_fddata);
+  if (ret < 0) {
+    QMMF_ERROR("%s:%s ION map failed %s", TAG, __func__, strerror(errno));
+    goto ION_MAP_FAILED;
+  }
+
+  vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
+               ion_fddata.fd, 0);
+
+  if (vaddr == MAP_FAILED) {
+    QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
+        strerror(errno), errno);
+    goto ION_MAP_FAILED;
+  }
+
+  grab_picture_ion_handle_.handle = ion_fddata.handle;
+  grab_picture_buffer_.fd         = ion_fddata.fd;
+  grab_picture_buffer_.capacity   = alloc.len;
+  grab_picture_buffer_.data       = vaddr;
+
+  QMMF_DEBUG("%s:%s Fd(%d)", TAG, __func__, grab_picture_buffer_.fd);
+  QMMF_DEBUG("%s:%s size(%d)", TAG, __func__, grab_picture_buffer_.capacity);
+  QMMF_DEBUG("%s:%s vaddr(%p)", TAG, __func__, grab_picture_buffer_.data);
+
+  QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+
+  ION_MAP_FAILED:
+    struct ion_handle_data ionHandleData;
+    memset(&ionHandleData, 0x0, sizeof(ionHandleData));
+    ionHandleData.handle = ion_fddata.handle;
+    ioctl(ion_device_, ION_IOC_FREE, &ionHandleData);
+  ION_ALLOC_FAILED:
+    QMMF_ERROR("%s:%s ION Buffer allocation failed!", TAG, __func__);
+    return -1;
+}
+
+void VideoTrackSink::GetSnapShotDumpsProperty() {
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.player.snapshot.dumps", prop, "0");
+  snapshot_dumps_ = (uint32_t) atoi(prop);
 }
 
 #ifdef DUMP_YUV_FRAMES

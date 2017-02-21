@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,7 +35,6 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <map>
-#include <mutex>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -44,25 +43,11 @@ using namespace qmmf;
 using namespace recorder;
 using namespace android;
 
-template<class T>
-struct Rect {
-  T left;
-  T top;
-  T width;
-  T height;
-};
-
-struct FaceInfo {
-  uint32_t fd_stream_height;
-  uint32_t fd_stream_width;
-  std::vector<Rect<uint32_t>> face_rect;
-};
-
-class RecorderGtest : public ::testing::Test {
+class Recorder360Gtest : public ::testing::Test {
  public:
-  RecorderGtest() : recorder_(), face_bbox_active_(false) {};
+  Recorder360Gtest() : recorder_() {};
 
-  ~RecorderGtest() {};
+  ~Recorder360Gtest() {};
 
  protected:
   const ::testing::TestInfo* test_info_;
@@ -108,36 +93,16 @@ class RecorderGtest : public ::testing::Test {
   status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
                      int32_t file_fd);
 
-  status_t QueueVideoFrame(VideoFormat format_type,
-                           const uint8_t *buffer, size_t size,
-                           int64_t timestamp, AVQueue *que);
-
-  void VideoCachedDataCb(uint32_t track_id,
-                         std::vector<BufferDescriptor> buffers,
-                         std::vector<MetaData> meta_buffers,
-                         VideoFormat format_type,
-                         AVQueue *que);
-
-  status_t DumpQueue(AVQueue *queue, int32_t file_fd);
-
   Recorder              recorder_;
-  uint32_t              camera_id_;
+  uint32_t              multi_camera_id_;
+  uint32_t              multi_camera_type_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
-  CameraStartParam      camera_start_params_;
+  CameraStartParam      multicam_start_params_;
   RecorderCb            recorder_status_cb_;
   int32_t               track1_bitstream_filefd_;
   int32_t               track2_bitstream_filefd_;
   int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
-
-  void ParseFaceInfo(const android::CameraMetadata &res,
-                     struct FaceInfo &info);
-  void ApplyFaceOveralyOnStream(struct FaceInfo &info);
-  std::vector<uint32_t> face_bbox_id_;
-  bool face_bbox_active_;
-  uint32_t face_track_id_;
-  struct FaceInfo face_info_;
-  std::mutex face_overlay_lock_;
 };
 

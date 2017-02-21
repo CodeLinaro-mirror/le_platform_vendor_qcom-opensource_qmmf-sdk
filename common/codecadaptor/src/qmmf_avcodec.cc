@@ -954,6 +954,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
+  codec_params_ = codec_param;
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -1565,10 +1567,10 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.nSliceHeaderSpacing = 0;
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 2;
-    h264_type.nBFrames = 1;
+    h264_type.nBFrames = 0;
     h264_type.nPFrames = frame_rate*iframe_interval;
     h264_type.nAllowedPictureTypes =
-        OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP | OMX_VIDEO_PictureTypeB;
+        OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
     h264_type.nRefIdx10ActiveMinus1 = 0;
     h264_type.nRefIdx11ActiveMinus1 = 0;
     h264_type.bEntropyCodingCABAC = OMX_TRUE;
@@ -2019,6 +2021,10 @@ status_t AVCodec::StartCodec() {
             PORT_NAME(kPortIndexOutput));
         return ret;
     }
+
+    if (format_type_ == CodecType::kVideoDecoder) {
+      ConfigureVideoDecoder(codec_params_);
+    }
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
@@ -2043,6 +2049,9 @@ status_t AVCodec::StartCodec() {
               PORT_NAME(kPortIndexInput));
           return ret;
       }
+
+      QMMF_INFO("%s:%s allocate buffer on %s pBuffer %p  i %d", TAG, __func__,
+            PORT_NAME(kPortIndexInput), in_buff_hdr_[i]->pBuffer, i);
 
       encoder_media_buffer_type* mediaBuffer =
           (encoder_media_buffer_type*)in_buff_hdr_[i]->pBuffer;
@@ -3352,6 +3361,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
           OMX_BUFFERFLAG_EOS);
       avcodec->isEOSonOutput_ = true;
     }
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {

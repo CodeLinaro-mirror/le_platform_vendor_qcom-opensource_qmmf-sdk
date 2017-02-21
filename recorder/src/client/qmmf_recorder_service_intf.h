@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -85,6 +85,8 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_UPDATE_OVERLAYOBJECT_PARAMS,
   RECORDER_SET_OVERLAYOBJECT,
   RECORDER_REMOVE_OVERLAYOBJECT,
+  RECORDER_CREATE_MULTICAMERA,
+  RECORDER_CONFIGURE_MULTICAMERA,
 };
 
 struct BnBuffer {
@@ -204,7 +206,7 @@ class IRecorderService : public IInterface {
   virtual status_t ConfigImageCapture(const uint32_t camera_id,
                                       const ImageCaptureConfig &config) = 0;
 
-  virtual status_t CancelCaptureImage() = 0;
+  virtual status_t CancelCaptureImage(const uint32_t camera_id) = 0;
 
   virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;
@@ -238,6 +240,13 @@ class IRecorderService : public IInterface {
 
   virtual status_t RemoveOverlayObject(const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
+
+  virtual status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+                                     uint32_t *virtual_camera_id) = 0;
+
+  virtual status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                        const uint32_t type, const void *param,
+                                        const uint32_t param_size) = 0;
 };
 
 enum RECORDER_SERVICE_CB_CMDS{
