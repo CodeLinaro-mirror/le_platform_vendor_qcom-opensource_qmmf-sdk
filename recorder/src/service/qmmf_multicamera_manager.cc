@@ -51,11 +51,15 @@ namespace qmmf {
 
 namespace recorder {
 
+#ifdef LE_BUILD
+static const char *kDefaultLibLocation = "/usr/lib/";
+static const char *k360StitchLib = "libEngine_QmmfAlgPolaris.so.0";
+#else
 static const char *kDefaultLibLocation = "/vendor/lib/";
-
 static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
-static const char *kStitchCalibFile = "/data/misc/qmmf/calibfile";
+#endif
 
+static const char *kStitchCalibFile = "/data/misc/qmmf/calibfile";
 static const char *kSideBySideLib = "libqmmf_alg_side_by_side.so";
 
 MultiCameraManager::MultiCameraManager()
