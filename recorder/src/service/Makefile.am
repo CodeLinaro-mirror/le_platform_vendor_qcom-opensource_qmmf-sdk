@@ -24,6 +24,8 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_recorder_service_la_CPPFLAGS += -I$(LIBGRALLOC)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -DLE_BUILD
+
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
 libqmmf_recorder_service_la_LDFLAGS  += -lhardware

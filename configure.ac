@@ -72,8 +72,6 @@ if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
 
-AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
-
 [CPPFLAGS="$CPPFLAGS -std=c++14 -Wall -Wextra -Werror"]
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
@@ -83,6 +81,16 @@ AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
 [CPPFLAGS="$CPPFLAGS -Wno-missing-field-initializers"]
 # TODO define ANDROID macro to resolve redefinition of LOGE by MMDebugMsg.h
 [CPPFLAGS="$CPPFLAGS -DANDROID"]
+
+AC_ARG_WITH([basemachine],
+        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
+        [Specify the Machine name]),
+        [case "${withval}" in
+                apq8053) multicam_enable=true ;;
+                *) multicam_enable=false ;;
+        esac],
+        [multicam_enable=false])
+AM_CONDITIONAL([ENABLE_360], [test x$multicam_enable = xtrue])
 
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])
