@@ -998,7 +998,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         output_frame_interval_ = 1000000.0 / input_frame_rate_;
       else
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-      remaining_frame_skip_time_ = output_frame_interval_;
     }
 #ifdef DEBUG_TRACK_FPS
     QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
@@ -1251,9 +1250,6 @@ void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
-    remaining_frame_skip_time_ = output_frame_interval_;
-    QMMF_INFO("%s:%s: remaining_frame_skip_time_(%f)", TAG, __func__,
-        remaining_frame_skip_time_);
   }
 }
 
