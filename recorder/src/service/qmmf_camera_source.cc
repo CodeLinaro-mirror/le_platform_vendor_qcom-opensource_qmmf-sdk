@@ -998,7 +998,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         output_frame_interval_ = 1000000.0 / input_frame_rate_;
       else
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-      remaining_frame_skip_time_ = output_frame_interval_;
     }
 #ifdef DEBUG_TRACK_FPS
     QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
@@ -1251,9 +1250,6 @@ void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
-    remaining_frame_skip_time_ = output_frame_interval_;
-    QMMF_INFO("%s:%s: remaining_frame_skip_time_(%f)", TAG, __func__,
-        remaining_frame_skip_time_);
   }
 }
 
@@ -1312,6 +1308,7 @@ status_t TrackSource::CreateDisplayPreview(display::DisplayType display_type,
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
+  surface_config.context = 1;
   res = display_->CreateSurface(surface_config, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
@@ -1386,7 +1383,7 @@ status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
 
   if (display_started_) {
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = static_cast<int32_t>(buffer.fd);
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = buffer.info.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.frame_length;
