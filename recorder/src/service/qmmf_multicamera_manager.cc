@@ -298,8 +298,31 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
 }
 
 status_t MultiCameraManager::CancelCaptureImage() {
-  //TODO
-  return NO_ERROR;
+
+  status_t ret = NO_ERROR;
+  snapshot_stitch_algo_->RequestExitAndWait();
+
+  {
+    // Wait for all currently processed buffers to return.
+    Mutex::Autolock lock(jpeg_lock_);
+    while (!jpeg_buffers_map_.isEmpty()) {
+      ret = wait_for_jpeg_.waitRelative(jpeg_lock_, kWaitJPEGTimeout);
+      if (TIMED_OUT == ret) {
+        QMMF_ERROR("%s%s: Wait for jpeg buffers timed out", TAG, __func__);
+        return ret;
+      }
+    }
+  }
+
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+    ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG, __func__,
+          camera_contexts_.keyAt(i));
+      return ret;
+    }
+  }
+  return ret;
 }
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
@@ -453,7 +476,7 @@ status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
   // Check if the returned buffer is one of the JPEG buffers. If it's not,
   // it's most likely a YUV buffer; return it to the SnapshotStitching class.
   // If buffer_id is invalid, the SnapshotStitching class will take care of it.
-  idx = jpeg_buffers_.indexOfKey(buffer_id);
+  idx = jpeg_buffers_map_.indexOfKey(buffer_id);
   if (idx == NAME_NOT_FOUND) {
     status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer_id);
     if (NO_ERROR != ret) {
@@ -606,7 +629,7 @@ void MultiCameraManager::OnJpegImageAvailable(StreamBuffer in_buffer,
   // return encoded buffers to their owners on ReturnImageCaptureBuffer.
   {
     Mutex::Autolock lock(jpeg_lock_);
-    jpeg_buffers_.add(out_buffer.fd, out_buffer);
+    jpeg_buffers_map_.add(out_buffer.fd, out_buffer);
   }
 
   // Send the encoded buffer to the client.
@@ -621,7 +644,7 @@ void MultiCameraManager::OnJpegImageAvailable(StreamBuffer in_buffer,
 
 status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
 
-  StreamBuffer buffer = jpeg_buffers_.valueFor(buffer_id);
+  StreamBuffer buffer = jpeg_buffers_map_.valueFor(buffer_id);
   QMMF_DEBUG("%s:%s: Post processed buffer(handle %p, fd %d) returned",
       TAG, __func__, buffer.handle, buffer.fd);
   status_t ret = jpeg_memory_pool_->ReturnBuffer(buffer.handle);
@@ -632,7 +655,8 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   }
   {
     Mutex::Autolock lock(jpeg_lock_);
-    jpeg_buffers_.removeItem(buffer_id);
+    jpeg_buffers_map_.removeItem(buffer_id);
+    wait_for_jpeg_.signal();
   }
   return NO_ERROR;
 }
@@ -968,14 +992,16 @@ void StitchingBase::RequestExit() {
 
   Mutex::Autolock lock(frame_lock_);
   Camera3Thread::RequestExit();
-  StopFrameSync();
+  status_t ret = StopFrameSync();
+  assert(NO_ERROR == ret);
 }
 
 void StitchingBase::RequestExitAndWait() {
 
   Mutex::Autolock lock(frame_lock_);
   Camera3Thread::RequestExitAndWait();
-  StopFrameSync();
+  status_t ret = StopFrameSync();
+  assert(NO_ERROR == ret);
 }
 
 bool StitchingBase::ThreadLoop() {
@@ -1039,7 +1065,7 @@ bool StitchingBase::ThreadLoop() {
   }
 
   {
-    Mutex::Autolock lock(process_buffers_lock_);
+    Mutex::Autolock lock(buffers_lock_);
     for (auto const& buffer : input_buffers) {
       std::pair<buffer_handle_t, StreamBuffer> pair (buffer.handle, buffer);
       process_buffers_map_.insert(pair);
@@ -1168,41 +1194,60 @@ status_t StitchingBase::ReturnBufferToBufferPool(const StreamBuffer &buffer) {
   return ret;
 }
 
-void StitchingBase::StopFrameSync() {
+status_t StitchingBase::StopFrameSync() {
 
-  // Return all unsynced buffers back to the camera contexts
+  status_t ret = NO_ERROR;
+
+  // Return all unsynced buffers back to the camera contexts.
   for (auto const& camera_id : params_.camera_ids) {
-    status_t ret = ReturnUnsyncedBuffers(camera_id);
+    ret = ReturnUnsyncedBuffers(camera_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: Failed to return some of the unsynchronized buffers"
           " for camera %d!", TAG, __func__, camera_id);
     }
   }
-  // Flush all pending buffers from the library
+  // Flush all pending buffers from the library.
   if (nullptr != stitch_lib_.handle) {
     stitch_lib_.flush(stitch_lib_.context);
   }
+  // Wait for all currently processed buffers to return.
+  Mutex::Autolock lock(buffers_lock_);
+  while (!process_buffers_map_.empty()) {
+    ret = wait_for_buffers_.waitRelative(buffers_lock_, kWaitBuffersTimeout);
+    if (TIMED_OUT == ret) {
+      QMMF_ERROR("%s%s: Wait for processed buffers timed out", TAG, __func__);
+      break;
+    }
+  }
   stop_frame_sync_ = true;
+  return ret;
 }
 
-status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle) {
+status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
+                                              qmmf_alg_status_t status) {
 
   status_t ret = NO_ERROR;
-  Mutex::Autolock lock(process_buffers_lock_);
+  Mutex::Autolock lock(buffers_lock_);
   if (process_buffers_map_.find(handle) == process_buffers_map_.end()) {
     QMMF_ERROR("%s:%s: Buffer %p not registered", TAG, __func__, handle);
     return BAD_VALUE;
   }
+
   StreamBuffer &buffer = process_buffers_map_.at(handle);
   QMMF_DEBUG("%s:%s: Got buffer(%p), camera id %d", TAG, __func__, handle,
       buffer.camera_id);
 
   if (buffer.camera_id == params_.virtual_camera_id) {
-    ret = NotifyBufferToClient(buffer);
+    if (QMMF_ALG_SUCCESS == status) {
+      ret = NotifyBufferToClient(buffer);
+    } else {
+      ret = ReturnBufferToBufferPool(buffer);
+    }
   } else {
     ret = ReturnBufferToCamera(buffer);
   }
   process_buffers_map_.erase(handle);
+  wait_for_buffers_.signal();
 
   return ret;
 }
@@ -1613,10 +1658,8 @@ void StitchingBase::ProcessCallback(qmmf_alg_cb_t *cb_data) {
 
   QMMF_DEBUG("%s:%s: Return status (%d)", TAG, __func__, cb_data->status);
 
-  if (QMMF_ALG_SUCCESS == cb_data->status) {
-    StitchingBase *algo = static_cast<StitchingBase *> (cb_data->user_data);
-    algo->ReturnProcessedBuffer(cb_data->buf->handle);
-  }
+  StitchingBase *algo = static_cast<StitchingBase *> (cb_data->user_data);
+  algo->ReturnProcessedBuffer(cb_data->buf->handle, cb_data->status);
 }
 
 GrallocMemory::GrallocMemory(alloc_device_t *gralloc_device)
