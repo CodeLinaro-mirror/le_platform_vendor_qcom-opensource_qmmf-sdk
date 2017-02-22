@@ -145,10 +145,14 @@ class MultiCameraManager : public CameraInterface {
   KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
 
   // Map of output_buffer's fd to StreamBuffer
-  KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_;
+  KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_map_;
+
+  Mutex                    jpeg_lock_;
+  Condition                wait_for_jpeg_;
 
   Mutex                    lock_;
-  Mutex                    jpeg_lock_;
+
+  static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
@@ -249,7 +253,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     bool        configured;
     qmmf_alg_status_t (*init)(void **handle,
                               qmmf_alg_blob_t *calibration_data);
-    void        (*deinit)(void *handle);
+    void              (*deinit)(void *handle);
     qmmf_alg_status_t (*get_caps)(void *handle, qmmf_alg_caps_t *caps);
     qmmf_alg_status_t (*set_tuning)(void *handle, qmmf_alg_blob_t *blob);
     qmmf_alg_status_t (*config)(void *handle, qmmf_alg_config_t *config);
@@ -262,10 +266,11 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     qmmf_alg_status_t (*get_debug_info_log)(void *handle, char **log);
   };
 
-  void StopFrameSync();
+  status_t StopFrameSync();
 
-  status_t ReturnProcessedBuffer(buffer_handle_t &handle);
   status_t ReturnUnsyncedBuffers(uint32_t camera_id);
+  status_t ReturnProcessedBuffer(buffer_handle_t &handle,
+                                 qmmf_alg_status_t status);
 
   status_t InitLibrary();
   status_t DeInitLibrary();
@@ -300,13 +305,15 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // by the library.
   std::set<buffer_handle_t> registered_buffers_;
 
-  Mutex                    process_buffers_lock_;
+  Mutex                    buffers_lock_;
+  Condition                wait_for_buffers_;
 
   Mutex                    sync_lock_;
   Condition                wait_for_sync_frames_;
 
-  static const nsecs_t kFrameSyncTimeout  = 50000000;  // 50 ms
-  static const int32_t kTimestampMaxDelta = 140000000; // 140 ms.
+  static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
+  static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
+  static const int32_t kTimestampMaxDelta  = 150000000; // 150 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
