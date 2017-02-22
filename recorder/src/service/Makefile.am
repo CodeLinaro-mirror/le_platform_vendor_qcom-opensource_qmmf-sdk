@@ -12,6 +12,11 @@ source_files += qmmf_audio_source.cc
 source_files += qmmf_audio_raw_track_source.cc
 source_files += qmmf_audio_encoded_track_source.cc
 source_files += qmmf_audio_encoder_core.cc
+if ENABLE_360
+source_files += qmmf_jpeg_encoder.cc
+source_files += qmmf_camera_jpeg.cc
+endif
+
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so
@@ -24,6 +29,11 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_recorder_service_la_CPPFLAGS += -I$(LIBGRALLOC)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERASTACKCOMMON_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAINTERFACE_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(EXIF_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -DLE_BUILD
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
