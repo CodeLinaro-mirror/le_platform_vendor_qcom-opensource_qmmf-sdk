@@ -58,7 +58,10 @@ MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
     multicam_start_params_{},
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
-    sequence_cnt_(0) {}
+    sequence_cnt_(0),
+    postprocess_enable_(false),
+    client_snapshot_cb_(nullptr),
+    pproc_memory_pool_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
@@ -115,7 +118,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   for (auto const& cam_id : camera_ids) {
     if (camera_contexts_.indexOfKey(cam_id) >= 0) {
       QMMF_WARN("%s:%s: Camera Id(%u) is already open, skipping!", TAG,
-                 __func__, cam_id);
+          __func__, cam_id);
       continue;
     }
     QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, cam_id);
@@ -143,6 +146,16 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
     return ret;
   }
+
+  multi_camera_pproc_ = new CameraJpeg();
+  pproc_memory_pool_ = new GrallocMemory();
+  ret = pproc_memory_pool_->Initialize();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Post-processing memory pool initialization failed!",
+               TAG, __func__);
+    return NO_INIT;
+  }
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -178,6 +191,10 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     camera_contexts_.removeItem(cam_id);
   }
 
+  multi_camera_pproc_->Delete();
+
+  delete pproc_memory_pool_;
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
@@ -194,9 +211,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     return BAD_VALUE;
   }
 
+  postprocess_enable_ = false;
+  client_snapshot_cb_ = nullptr;
   ImageFormat image_format = param.image_format;
   if (param.image_format == ImageFormat::kJPEG) {
-    // TODO: Implement JPEG post processing.
+    postprocess_enable_ = true;
     image_format = ImageFormat::kNV12;
   }
 
@@ -207,6 +226,12 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   if (reconfigure_needed) {
     snapshot_stitch_algo_->RequestExitAndWait();
 
+    if (postprocess_enable_) {
+      multi_camera_pproc_->Delete();
+      SetPostProcess(param, image_format, multicam_start_params_.frame_rate);
+    }
+
+    // Set buffer params for stitching.
     GrallocMemory::BufferParams buffer_param {};
     buffer_param.format           = ImageToHalFormat(image_format);
     buffer_param.width            = param.width;
@@ -216,12 +241,29 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     buffer_param.max_buffer_count = num_images;
 
     QMMF_INFO("%s:%s: W(%d) & H(%d)", TAG, __func__, buffer_param.width,
-              buffer_param.height);
+        buffer_param.height);
     ret = snapshot_stitch_algo_->Configure(buffer_param);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
       return ret;
     }
+
+    // Set buffer params for post-processing.
+    GrallocMemory::BufferParams gbuffer_param{};
+    gbuffer_param.format           = HAL_PIXEL_FORMAT_BLOB;
+    gbuffer_param.width            = param.width;
+    gbuffer_param.height           = param.height;
+    gbuffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
+    // TODO: Need to revisit the calculation of max_size.
+    //       Width and height need to be extracted from metadata.
+    gbuffer_param.max_size         = (param.width * param.height) * 2;
+    gbuffer_param.max_buffer_count = num_images;
+    ret = pproc_memory_pool_->Configure(gbuffer_param);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
+      return ret;
+    }
+
     snapshot_param_ = param;
     sequence_cnt_   = num_images;
     snapshot_stitch_algo_->Run();
@@ -231,7 +273,16 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   cam_param.image_format = image_format;
   ReCalculateWidth(cam_param.width);
 
-  snapshot_stitch_algo_->SetClientCallback(cb);
+  if (postprocess_enable_) {
+    StreamSnapshotCb pproc_cb = [&] (uint32_t count, StreamBuffer& buf) {
+      PostprocessCaptureCallback(buf);
+    };
+    snapshot_stitch_algo_->SetClientCallback(pproc_cb);
+    client_snapshot_cb_ = cb;
+  } else {
+    snapshot_stitch_algo_->SetClientCallback(cb);
+  }
+
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
@@ -417,14 +468,33 @@ status_t MultiCameraManager::GetDefaultCaptureParam(CameraMetadata &meta) {
 status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       const int32_t buffer_id) {
 
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  Mutex::Autolock lock(pproc_lock_);
   ssize_t idx = virtual_camera_map_.indexOfKey(camera_id);
   if (idx == NAME_NOT_FOUND) {
     QMMF_ERROR("%s:%s: Invalid virtual camera ID!", TAG, __func__);
     return BAD_VALUE;
   }
-  status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer_id);
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+
+  // Return the post-processed buffer back to gralloc memory pool.
+  idx = pproc_buffer_list_.indexOfKey(buffer_id);
+  if (idx == NAME_NOT_FOUND) {
+    QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!", TAG, __func__, buffer_id);
+    return BAD_VALUE;
+  }
+
+  StreamBuffer buffer = pproc_buffer_list_.valueFor(buffer_id);
+  QMMF_VERBOSE("%s:%s: Post processed buffer(handle %p, fd %d) returned", TAG,
+               __func__, buffer.handle, buffer.fd);
+  status_t ret = pproc_memory_pool_->ReturnBuffer(buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to return post-processed buffer!", TAG, __func__);
+    return ret;
+  }
+
+  pproc_buffer_list_.removeItem(buffer_id);
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -460,7 +530,7 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
     case ImageFormat::kBayerIdeal:
       // Not supported.
       QMMF_ERROR("%s:%s ImageFormat::kBayerIdeal is Not supported!", TAG,
-                 __func__);
+          __func__);
       return BAD_VALUE;
       break;
     default:
@@ -468,6 +538,85 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
       break;
   }
   return format;
+}
+
+void MultiCameraManager::SetPostProcess(const ImageParam &param,
+                                        const ImageFormat &input_format,
+                                        uint32_t frame_rate) {
+  PostProcParam in, out;
+  PostProcCb cb_reprocess =
+      [this] (StreamBuffer in_buffer, StreamBuffer out_buffer) -> void
+      { ClientCaptureCallback(in_buffer, out_buffer); };
+
+  in.width = param.width;
+  in.height = param.height;
+  in.format = ImageToHalFormat(input_format);
+  out.width = param.width;
+  out.height = param.height;
+  out.format = ImageToHalFormat(param.image_format);
+
+  status_t ret = multi_camera_pproc_->Create(0, in, out, frame_rate, 1,
+                                             nullptr, cb_reprocess, nullptr);
+  assert(ret >= NO_ERROR);
+  if (ret < NO_ERROR) {
+    QMMF_ERROR("%s: Error with creating reporcess: %d\n", __func__, ret);
+  }
+}
+
+void MultiCameraManager::PostprocessCaptureCallback(StreamBuffer buffer) {
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+
+  StreamBuffer output_buffer {};
+
+  status_t ret = pproc_memory_pool_->GetBuffer(output_buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to retrieve gralloc buffer", TAG, __func__);
+    return;
+  }
+
+  ret = pproc_memory_pool_->PopulateMetaInfo(output_buffer.info,
+                                               output_buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to populate buffer meta info", TAG, __func__);
+    return;
+  }
+  struct private_handle_t *priv_handle =
+      (struct private_handle_t *) output_buffer.handle;
+  output_buffer.fd           = priv_handle->fd;
+  output_buffer.size         = priv_handle->size;
+  output_buffer.frame_number = buffer.frame_number;
+  output_buffer.timestamp    = buffer.timestamp;
+  output_buffer.camera_id    = buffer.camera_id;
+
+  multi_camera_pproc_->AddBuff(buffer, output_buffer);
+  QMMF_INFO("%s:%s Exit ", TAG, __func__);
+}
+
+void MultiCameraManager::ClientCaptureCallback(StreamBuffer in_buffer,
+                                               StreamBuffer out_buffer) {
+
+  // Return input(stitched) buffer back to SnapshotStitching.
+  status_t ret = snapshot_stitch_algo_->ImageBufferReturned(in_buffer.fd);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to return stitch image buffer!", TAG, __func__);
+    return;
+  }
+  // Map output(post-processed) buffer's fd to StreamBuffer. This is needed to
+  // return post-processed buffers to their owners on ReturnImageCaptureBuffer.
+  {
+    Mutex::Autolock lock(pproc_lock_);
+    pproc_buffer_list_.add(out_buffer.fd, out_buffer);
+  }
+
+  // Send the post-processed buffer to the client.
+  assert(client_snapshot_cb_ != nullptr);
+  if(client_snapshot_cb_ == nullptr) {
+    QMMF_ERROR("%s:%s: Unable to send post-processed image buffer to client!",
+               TAG, __func__);
+    return;
+  }
+  client_snapshot_cb_(1, out_buffer);
+  return;
 }
 
 SnapshotStitching::SnapshotStitching(
@@ -492,8 +641,8 @@ void SnapshotStitching::FrameAvailableCb(uint32_t count,
                                          StreamBuffer &buffer) {
 
   Mutex::Autolock lock(frame_lock_);
-  QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %" PRId64 " is available",
-               TAG, __func__, buffer.camera_id, buffer.frame_number);
+  QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %" PRId64 " is available", TAG,
+      __func__, buffer.camera_id, buffer.frame_number);
 
   // Handling input buffers from camera contexts.
   if (stop_frame_sync_) {
@@ -513,8 +662,8 @@ status_t SnapshotStitching::ImageBufferReturned(const int32_t buffer_id) {
   }
 
   StreamBuffer buffer = snapshot_buffer_list_.valueFor(buffer_id);
-  QMMF_VERBOSE("%s:%s: Image capture buffer(handle %p, fd %d) returned", TAG,
-               __func__, buffer.handle, buffer.fd);
+  QMMF_DEBUG("%s:%s: Image capture buffer(handle %p, fd %d) returned", TAG,
+      __func__, buffer.handle, buffer.fd);
 
   // Handling return buffer from camera source.
   status_t ret = ReturnBufferToBufferPool(buffer);
@@ -548,20 +697,18 @@ status_t SnapshotStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
   status_t ret = NO_ERROR;
   ssize_t idx = camera_contexts_.indexOfKey(buffer.camera_id);
   if (NAME_NOT_FOUND == idx) {
-    QMMF_ERROR("%s:%s: Invalid camera ID(%d)!", TAG, __func__,
-               buffer.camera_id);
+    QMMF_ERROR("%s:%s: Invalid camera ID(%d)", TAG, __func__, buffer.camera_id);
     return BAD_VALUE;
   }
 
-  sp<CameraContext> camera_context =
-      camera_contexts_.valueFor(buffer.camera_id);
+  sp<CameraContext> camera = camera_contexts_.valueFor(buffer.camera_id);
 
-  ret = camera_context->ReturnImageCaptureBuffer(buffer.camera_id, buffer.fd);
+  ret = camera->ReturnImageCaptureBuffer(buffer.camera_id, buffer.fd);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to return buffer to camera(%d)!", TAG, __func__,
-               buffer.camera_id);
-    camera_context.clear();
+    QMMF_ERROR("%s:%s: Failed to return buffer to camera(%d)", TAG,
+        __func__, buffer.camera_id);
   }
+  camera.clear();
   return ret;
 }
 
@@ -570,6 +717,7 @@ StreamStitching::StreamStitching(InitParams &param)
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
+  use_frame_sync_timeout = true;
   work_thread_name_ = new String8("StreamStitching");
 
   // Create consumers for the physical cameras.
@@ -609,8 +757,8 @@ status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
   buffer_consumer_impl_ = consumer;
   buffer_producer_impl_->AddConsumer(consumer);
   consumer->SetProducerHandle(buffer_producer_impl_);
-  QMMF_VERBOSE("%s:%s: Consumer(0x%p) has been added.", TAG, __func__,
-             consumer.get());
+  QMMF_VERBOSE("%s:%s: Consumer(%p) has been added.", TAG, __func__,
+      consumer.get());
 
   return NO_ERROR;
 }
@@ -635,7 +783,7 @@ void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
 
   Mutex::Autolock lock(frame_lock_);
   QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
-               __func__, buffer.camera_id, buffer.frame_number);
+      __func__, buffer.camera_id, buffer.frame_number);
 
   if (stop_frame_sync_) {
     ReturnBufferToCamera(buffer);
@@ -647,7 +795,7 @@ void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
 void StreamStitching::NotifyBufferReturned(const StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: Stream buffer(handle %p) returned", TAG, __func__,
-               buffer.handle);
+      buffer.handle);
   ReturnBufferToBufferPool(buffer);
 }
 
@@ -679,8 +827,8 @@ status_t StreamStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
 StitchingBase::StitchingBase(InitParams &param)
     : params_(param),
       stop_frame_sync_(false),
-      work_thread_name_(nullptr),
-      memory_pool_(nullptr) {
+      use_frame_sync_timeout(false),
+      work_thread_name_(nullptr) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
@@ -701,7 +849,7 @@ StitchingBase::~StitchingBase() {
   unsynced_buffer_map_.clear();
   process_buffers_map_.clear();
   registered_buffers_.clear();
-  delete memory_pool_;
+  memory_pool_.clear();
   delete work_thread_name_;
 
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -711,7 +859,7 @@ StitchingBase::~StitchingBase() {
 status_t StitchingBase::Initialize() {
 
   status_t ret = NO_ERROR;
-  if (nullptr != memory_pool_) {
+  if (nullptr != memory_pool_.get()) {
     QMMF_WARN("%s:%s: Memory pool already initialized", TAG, __func__);
     return ret;
   }
@@ -766,9 +914,14 @@ bool StitchingBase::ThreadLoop() {
     // If there aren't any pending synchronized buffers waiting to go through
     // stitch processing, wait until such buffer becomes available.
     if (synced_buffer_queue_.empty()) {
-      ret = wait_for_sync_frames_.wait(sync_lock_);
+      if (use_frame_sync_timeout) {
+        ret = wait_for_sync_frames_.waitRelative(sync_lock_, kFrameSyncTimeout);
+      } else {
+        ret = wait_for_sync_frames_.wait(sync_lock_);
+      }
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s: Wait for frame available failed", TAG, __func__);
+        QMMF_ERROR("%s:%s: Wait for frame available failed, ret(%d)", TAG,
+            __func__, ret);
         return true;
       }
     }
@@ -833,13 +986,16 @@ bool StitchingBase::ThreadLoop() {
 
 status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
+  bool match_found;
   int32_t timestamp_delta;
   uint32_t num_matched_frames = 1;
   Vector<StreamBuffer> *unsynced_buffers;
+  // Map of camera id and index of the matched buffer from
+  // the unsynced_buffers queue for that camera id.
+  KeyedVector<uint32_t, uint32_t> matched_buffers;
 
-  // Initialize the result vector with empty stream buffers.
-  // Each matched buffer for given camera will replace the empty buffer on
-  // the position corresponding to it's camera id.
+  // Each matched buffer for given camera will be added to the
+  // synced_frames vector and identified by it's camera id.
   KeyedVector<uint32_t, StreamBuffer> synced_frames;
   synced_frames.add(buffer.camera_id, buffer);
 
@@ -848,6 +1004,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     if (camera_id == buffer.camera_id) {
       continue;
     }
+    match_found = false;
 
     // Retrieve a list with unsynced buffers for each of the other cameras.
     unsynced_buffers = &unsynced_buffer_map_.editValueFor(camera_id);
@@ -859,43 +1016,30 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
       if (std::abs(timestamp_delta) < kTimestampMaxDelta) {
         synced_frames.add(camera_id, unsynced_frame);
-        unsynced_buffers->removeAt(idx);
-        // Clear the unsynced buffers from queue of the matched camera_id,
-        // starting from beginning to latest matched buffer and return them
-        // back to their corresponding producers and break the loop.
-        for (int32_t i = 0; i < idx; ++i) {
-          StreamBuffer &buf = unsynced_buffers->editItemAt(i);
-          ReturnBufferToCamera(buf);
-        }
-        unsynced_buffers->removeItemsAt(0, idx);
+        matched_buffers.add(camera_id, idx);
         ++num_matched_frames;
+        match_found = true;
         break;
       } else if (timestamp_delta > 0) {
-        // Remove buffers with lower timestamp than the synchronization
-        // buffer from the other unsynced buffer queues and break the loop.
-        for (int32_t i = 0; i <= idx; ++i) {
-          StreamBuffer &buf = unsynced_buffers->editItemAt(i);
-          ReturnBufferToCamera(buf);
-        }
-        unsynced_buffers->removeItemsAt(0, (idx + 1));
+        // No need to check the rest of the buffers in the queue for
+        // this camera_id, as they will be with a lower timestamp.
         break;
       }
+    }
+    // If a matched frame wasn't found there is no need to check
+    // all other remaining cameras (if any).
+    if (!match_found) {
+      break;
     }
   }
 
   // Matched number of frames is not the same as the number of cameras.
   if (num_matched_frames != params_.camera_ids.size()) {
     QMMF_DEBUG("%s:%s: Camera %u: No matching buffers found", TAG, __func__,
-                 buffer.camera_id);
+        buffer.camera_id);
 
-    // Push the buffers from the synced vector into the unsynced buffer
-    // queue for their respective camera id, that includes the synchronization
-    // buffer which came at FrameSync call.
-    for (size_t idx = 0; idx < synced_frames.size(); ++idx) {
-      const StreamBuffer &buf = synced_frames.valueAt(idx);
-      unsynced_buffer_map_.editValueFor(buf.camera_id).push_back(buf);
-    }
-    synced_frames.clear();
+    // Push the buffer in the unsynced buffer queue for its camera id.
+    unsynced_buffer_map_.editValueFor(buffer.camera_id).push_back(buffer);
 
     // Check if the queue of current buffer camera_id has reached max size.
     unsynced_buffers = &unsynced_buffer_map_.editValueFor(buffer.camera_id);
@@ -918,6 +1062,21 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
   // A matched frame(s) have been found, return all unsynced buffers and clear
   // the queue of the camera_id from which the synchronization buffer came.
   ReturnUnsyncedBuffers(buffer.camera_id);
+
+  // Clear the obsolete unsynced buffers from queue of the matched cameras,
+  // starting from beginning to the latest matched buffer and return them
+  // back to their corresponding producers.
+  for (size_t idx = 0; idx < matched_buffers.size(); ++idx) {
+    uint32_t camera_id = matched_buffers.keyAt(idx);
+    uint32_t match_idx = matched_buffers.valueAt(idx);
+    unsynced_buffers = &unsynced_buffer_map_.editValueFor(camera_id);
+    unsynced_buffers->removeAt(match_idx);
+    for (uint32_t i = 0; i < match_idx; ++i) {
+      StreamBuffer &buf = unsynced_buffers->editItemAt(i);
+      ReturnBufferToCamera(buf);
+    }
+    unsynced_buffers->removeItemsAt(0, match_idx);
+  }
 
   Mutex::Autolock lock(sync_lock_);
   synced_buffer_queue_.push(synced_frames);
@@ -962,7 +1121,7 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle) {
   }
   StreamBuffer &buffer = process_buffers_map_.at(handle);
   QMMF_DEBUG("%s:%s: Got buffer(%p), camera id %d", TAG, __func__, handle,
-            buffer.camera_id);
+      buffer.camera_id);
 
   if (buffer.camera_id == params_.virtual_camera_id) {
     ret = NotifyBufferToClient(buffer);
@@ -985,7 +1144,7 @@ status_t StitchingBase::ReturnUnsyncedBuffers(uint32_t camera_id) {
     ret = ReturnBufferToCamera(buf);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to return buffer %p for camera %d", TAG,
-                 __func__, buf.handle, camera_id);
+          __func__, buf.handle, camera_id);
       return ret;
     }
     buffers.pop();
@@ -1007,7 +1166,7 @@ status_t StitchingBase::InitLibrary() {
   void* handle = dlopen(kStitchLib, RTLD_NOW);
   if (nullptr == handle) {
     QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-               kStitchLib, dlerror());
+        kStitchLib, dlerror());
     return BAD_VALUE;
   }
 
@@ -1035,19 +1194,19 @@ status_t StitchingBase::InitLibrary() {
     QMMF_ERROR("%s:%s: qmmf_alg_init %p", TAG, __func__, stitch_lib_.init);
     QMMF_ERROR("%s:%s: qmmf_alg_deinit %p", TAG, __func__, stitch_lib_.deinit);
     QMMF_ERROR("%s:%s: qmmf_alg_get_caps %p", TAG, __func__,
-               stitch_lib_.get_caps);
+        stitch_lib_.get_caps);
     QMMF_ERROR("%s:%s: qmmf_alg_set_tuning %p", TAG, __func__,
-               stitch_lib_.set_tuning);
+        stitch_lib_.set_tuning);
     QMMF_ERROR("%s:%s: qmmf_alg_config %p", TAG, __func__, stitch_lib_.config);
     QMMF_ERROR("%s:%s: qmmf_alg_register_bufs %p", TAG, __func__,
-               stitch_lib_.register_bufs);
+        stitch_lib_.register_bufs);
     QMMF_ERROR("%s:%s: qmmf_alg_unregister_bufs %p", TAG, __func__,
-               stitch_lib_.unregister_bufs);
+        stitch_lib_.unregister_bufs);
     QMMF_ERROR("%s:%s: qmmf_alg_flush %p", TAG, __func__, stitch_lib_.flush);
     QMMF_ERROR("%s:%s: qmmf_alg_process %p", TAG, __func__,
-               stitch_lib_.process);
+        stitch_lib_.process);
     QMMF_ERROR("%s:%s: qmmf_alg_get_debug_info_log %p", TAG, __func__,
-               stitch_lib_.get_debug_info_log);
+        stitch_lib_.get_debug_info_log);
     ret = NAME_NOT_FOUND;
     goto FAIL;
   }
@@ -1071,7 +1230,7 @@ status_t StitchingBase::InitLibrary() {
 
   if (QMMF_ALG_SUCCESS != ret) {
     QMMF_ERROR("%s:%s: Failed to initialize library, ret(%d)", TAG,
-               __func__, ret);
+        __func__, ret);
     goto FAIL;
   }
   return ret;
@@ -1091,7 +1250,7 @@ status_t StitchingBase::DeInitLibrary() {
     ret = dlclose(stitch_lib_.handle);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to close %s, error: %s", TAG, __func__,
-                 kStitchLib, dlerror());
+          kStitchLib, dlerror());
     }
     memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
   }
@@ -1118,7 +1277,7 @@ status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
 
   if (nullptr == config.input.fmts) {
     QMMF_ERROR("%s:%s: Failed to allocate memory for input format list",
-               TAG, __func__);
+        TAG, __func__);
     ret = NO_MEMORY;
     goto EXIT;
   }
@@ -1128,7 +1287,7 @@ status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
 
   if (nullptr == config.output.fmts) {
     QMMF_ERROR("%s:%s: Failed to allocate memory for output format list",
-               TAG, __func__);
+        TAG, __func__);
     ret = NO_MEMORY;
     goto EXIT;
   }
@@ -1154,7 +1313,7 @@ status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
   ret = stitch_lib_.config(stitch_lib_.context, &config);
   if (QMMF_ALG_SUCCESS != ret) {
     QMMF_ERROR("%s:%s: Failed to configure algo library, error(%d)",
-               TAG, __func__, ret);
+        TAG, __func__, ret);
   }
 
 EXIT:
@@ -1238,14 +1397,14 @@ status_t StitchingBase::ParseCalibFile(void **data, uint32_t &size) {
   status_t ret = stat(kStitchCalibFile, &st);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Get file status failed (%s)", TAG, __func__,
-               strerror(errno));
+        strerror(errno));
     return ret;
   }
 
   void *calibration_blob = calloc(1, st.st_size + 1);
   if (nullptr == calibration_blob) {
     QMMF_ERROR("%s:%s: Failed to allocate memory with size %ld", TAG,
-               __func__, (long int) st.st_size);
+        __func__, (long int) st.st_size);
     return NO_MEMORY;
   }
 
@@ -1302,7 +1461,7 @@ status_t StitchingBase::PopulateImageFormat(qmmf_alg_format_t &fmt,
       break;
     default:
       QMMF_ERROR("%s:%s: Unsupported format: 0x%x", TAG, __func__,
-                 priv_handle->format);
+          priv_handle->format);
       return NAME_NOT_FOUND;
   }
   fmt.width      = priv_handle->width;
@@ -1379,9 +1538,9 @@ GrallocMemory::GrallocMemory(alloc_device_t *gralloc_device)
 
   if (nullptr != gralloc_device_) {
     QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s", __func__,
-              gralloc_device_->common.module->author,
-              gralloc_device_->common.module->hal_api_version,
-              gralloc_device_->common.module->name);
+        gralloc_device_->common.module->author,
+        gralloc_device_->common.module->hal_api_version,
+        gralloc_device_->common.module->name);
   }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
@@ -1426,15 +1585,15 @@ status_t GrallocMemory::Initialize() {
                               (struct hw_device_t **)&gralloc_device_);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Could not open Gralloc module: %s (%d)", __func__,
-               strerror(-ret), ret);
+        strerror(-ret), ret);
     dlclose(module->dso);
     return ret;
   }
 
   QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s", __func__,
-            gralloc_device_->common.module->author,
-            gralloc_device_->common.module->hal_api_version,
-            gralloc_device_->common.module->name);
+      gralloc_device_->common.module->author,
+      gralloc_device_->common.module->hal_api_version,
+      gralloc_device_->common.module->name);
 
   return ret;
 }
@@ -1493,7 +1652,7 @@ status_t GrallocMemory::GetBuffer(buffer_handle_t &buffer) {
 status_t GrallocMemory::ReturnBuffer(const buffer_handle_t &buffer) {
 
   Mutex::Autolock lock(buffer_lock_);
-  QMMF_VERBOSE("%s: Buffer(%p) returned to memory pool", __func__, buffer);
+  QMMF_DEBUG("%s: Buffer(%p) returned to memory pool", __func__, buffer);
 
   status_t ret = ReturnBufferLocked(buffer);
   if (ret == NO_ERROR) {
@@ -1559,7 +1718,7 @@ status_t GrallocMemory::ReturnBufferLocked(const buffer_handle_t &buffer) {
   int32_t idx = gralloc_buffers_.indexOfKey(buffer);
   if (NAME_NOT_FOUND == idx) {
     QMMF_ERROR("%s: Buffer %p returned that wasn't allocated by this"
-        " gralloc device!", __func__, buffer);
+        " Memory Pool!", __func__, buffer);
     return BAD_VALUE;
   }
 
@@ -1588,7 +1747,7 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
     }
     if (!is_valid_handle) {
       QMMF_ERROR("%s: Buffer handle wasn't allocated by this Gralloc"
-          " Memory Pool", __func__);
+          " Memory Pool!", __func__);
       return BAD_VALUE;
     }
   }
@@ -1671,7 +1830,7 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
-                 priv_handle->format);
+          priv_handle->format);
       return NAME_NOT_FOUND;
   }
 

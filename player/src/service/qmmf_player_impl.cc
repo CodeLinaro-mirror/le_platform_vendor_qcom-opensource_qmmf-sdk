@@ -53,7 +53,9 @@ PlayerImpl* PlayerImpl::CreatePlayer() {
 PlayerImpl::PlayerImpl()
     : audio_decoder_core_(nullptr), video_decoder_core_(nullptr),
       audio_sink_(nullptr), video_sink_(nullptr),
-      current_state_(PlayerState::QPLAYER_STATE_IDLE)
+      current_state_(PlayerState::QPLAYER_STATE_IDLE),
+      trick_mode_speed_(TrickModeSpeed::kSpeed_1x),
+      trick_mode_dir_(TrickModeDirection::kNormalForward)
 {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -416,7 +418,7 @@ status_t PlayerImpl::Start() {
     for(size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
-      } else if (tracks_[i].type == TrackType::kAudio) {
+      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
       }
     }
@@ -469,7 +471,7 @@ status_t PlayerImpl::Stop(bool do_flush) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
            do_flush);
-      } else if (tracks_[i].type == TrackType::kAudio) {
+      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
            do_flush);
       }
@@ -519,7 +521,7 @@ status_t PlayerImpl::Pause() {
     for(size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
-      } else if (tracks_[i].type == TrackType::kAudio) {
+      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
       }
     }
@@ -568,7 +570,7 @@ status_t PlayerImpl::Resume() {
     for(size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
-      } else if (tracks_[i].type == TrackType::kAudio) {
+      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
       }
     }
@@ -617,10 +619,14 @@ status_t PlayerImpl::SetPosition(int64_t seek_time) {
   return NO_ERROR;
 }
 
-status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
+status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  Mutex::Autolock lock(trick_mode_change_lock_);
 
   status_t ret = NO_ERROR;
+
+  trick_mode_speed_ = speed;
+  trick_mode_dir_ = dir;
 
   size_t num_tracks = tracks_.size();
   assert(num_tracks != 0);
@@ -628,23 +634,21 @@ status_t PlayerImpl::SetTrickMode(uint32_t speed, uint32_t direction) {
   for(size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kVideo) {
       ret = video_decoder_core_->SetTrackTrickMode(tracks_[i].track_id,
-          static_cast<TrickModeSpeed> (speed),
-          static_cast<TrickModeDirection> (direction));
+          speed, dir);
     }
   }
 
-  // In reverse mode audio will always be paused
-  if (speed != static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) ||
-      (direction == static_cast<uint32_t>(TrickModeDirection::kReverse))) {
+  // normal playback
+  if ((speed == TrickModeSpeed::kSpeed_1x) &&
+      (dir == TrickModeDirection::kNormalForward)) {
     for(size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+        ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
     }
-  } else if (speed == static_cast<uint32_t>(TrickModeSpeed::kSpeed_1x) &&
-      (direction == static_cast<uint32_t>(TrickModeDirection::kForward))) {
+  } else { // other than normal playback audio will always be stopped
     for(size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+        ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id, false);
     }
   }
 
@@ -720,6 +724,16 @@ bool PlayerImpl::IsTrackValid(const uint32_t track_id) {
 
 void PlayerImpl::setCurrentState(PlayerState state) {
   current_state_ = state;
+}
+
+bool PlayerImpl::IsTrickModeEnabled() {
+  Mutex::Autolock lock(trick_mode_change_lock_);
+  if ((trick_mode_speed_ == TrickModeSpeed::kSpeed_1x) &&
+      (trick_mode_dir_ == TrickModeDirection::kNormalForward)) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 void PlayerImpl::NotifyPlayerEventCallback(EventType event_type,

@@ -132,8 +132,12 @@ enum class TrickModeSpeed {
 };
 
 enum class TrickModeDirection {
-  kReverse = 0,
-  kForward = 1,
+  kNormalForward  = 1,    // normal forward means 1x forward i.e. normal playback
+  kFastForward    = 2,
+  kSlowForward    = 3,
+  kNormalRewind   = 4,    // normal rewind means 1x rewind
+  kFastRewind     = 5,
+  kSlowRewind     = 6,
 };
 
 typedef struct PlayerCb {

@@ -44,11 +44,13 @@ struct snapshot_info
 {
     uint8_t *img_data[3];
     uint8_t *out_data[3];
+    CameraBufferMetaData source_info;
 };
 
 class JpegEncoder {
 
 private:
+  void FillImgData(const CameraBufferMetaData& source_info);
 
   void *cfg_;
   void *job_result_ptr_;
@@ -60,13 +62,13 @@ private:
 
 public:
 
-  JpegEncoder(CameraBufferMetaData *source_info);
+  JpegEncoder();
 
   ~JpegEncoder();
 
-  void *Encode(snapshot_info in_buffer, size_t *jpeg_size);
+  void *Encode(const snapshot_info& in_buffer, size_t *jpeg_size);
 
-  static JpegEncoder *getInstance(CameraBufferMetaData *meta_info);
+  static JpegEncoder *getInstance();
 
   static void releaseInstance();
 

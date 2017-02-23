@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <map>
+#include <mutex>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -43,9 +44,23 @@ using namespace qmmf;
 using namespace recorder;
 using namespace android;
 
+template<class T>
+struct Rect {
+  T left;
+  T top;
+  T width;
+  T height;
+};
+
+struct FaceInfo {
+  uint32_t fd_stream_height;
+  uint32_t fd_stream_width;
+  std::vector<Rect<uint32_t>> face_rect;
+};
+
 class RecorderGtest : public ::testing::Test {
  public:
-  RecorderGtest() : recorder_() {};
+  RecorderGtest() : recorder_(), face_bbox_active_(false) {};
 
   ~RecorderGtest() {};
 
@@ -115,5 +130,14 @@ class RecorderGtest : public ::testing::Test {
   int32_t               track2_bitstream_filefd_;
   int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
+
+  void ParseFaceInfo(const android::CameraMetadata &res,
+                     struct FaceInfo &info);
+  void ApplyFaceOveralyOnStream(struct FaceInfo &info);
+  std::vector<uint32_t> face_bbox_id_;
+  bool face_bbox_active_;
+  uint32_t face_track_id_;
+  struct FaceInfo face_info_;
+  std::mutex face_overlay_lock_;
 };
 
