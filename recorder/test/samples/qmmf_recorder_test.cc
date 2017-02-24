@@ -2816,6 +2816,64 @@ READ_FAILED:
   return -1;
 }
 
+int32_t RecorderTest::RunAutoMode() {
+  ALOGD("%s: Enter ",__func__);
+
+  auto ret = Connect();
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Connect Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = StartCamera();
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = Session4KEncTrack(TrackType::kVideoAVC);
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = StartSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  // Record video for 5 sec
+  sleep(5);
+
+  ret = StopSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s StopSession Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = DeleteSession();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s DeleteSession Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = StopCamera();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ret = Disconnect();
+  if (NO_ERROR  != ret) {
+      ALOGE("%s:%s Disconnect Failed!!", TAG, __func__);
+      return ret;
+  }
+
+  ALOGD("%s: Exit ",__func__);
+  return ret;
+}
+
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : file_fd_(-1), recorder_test_(recorder_test), num_yuv_frames_(0),
       display_started_(0) {
@@ -2873,21 +2931,21 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
       video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
       video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kVariableSkipFrames;
+          VideoRateControlType::kMaxBitrate;
       video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 27;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 28;
+      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 28;
       video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
       video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 10;
       video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
       video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
       video_track_param.codec_param.avc.ltr_count = 4;
       video_track_param.codec_param.avc.insert_aud_delimiter = true;
@@ -2902,21 +2960,21 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
       video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
       video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kVariableSkipFrames;
+          VideoRateControlType::kMaxBitrate;
       video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 51;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 27;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 28;
+      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 28;
       video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
       video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
       video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 26;
+      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
       video_track_param.codec_param.hevc.ltr_count = 4;
       break;
@@ -3587,7 +3645,10 @@ int main(int argc,char *argv[]) {
   RecorderTest test_context;
 
   if(argc > 1) {
-	  return test_context.RunFromConfig(argc, argv);
+    if(strcmp(argv[1], "--auto") == 0) {
+      return test_context.RunAutoMode();
+    }
+    return test_context.RunFromConfig(argc, argv);
   }
 
   CmdMenu cmd_menu(test_context);
@@ -3720,6 +3781,7 @@ int main(int argc,char *argv[]) {
       case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMG711Track();
       }
+      break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {
           test_context.SessionRDITrack();
       }
@@ -3779,6 +3841,7 @@ int main(int argc,char *argv[]) {
       case CmdMenu::IR_MODE_CMD: {
         test_context.ToggleIR();
       }
+      break;
       case CmdMenu::CHOOSE_CAMERA_CMD: {
         test_context.ChooseCamera();
       }

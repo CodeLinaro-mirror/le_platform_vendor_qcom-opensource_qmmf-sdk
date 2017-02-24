@@ -104,7 +104,7 @@ class Player
   status_t SetPosition(int64_t seek_time);
 
   // set playback rate and direction of playback.
-  status_t SetTrickMode(uint32_t speed, uint32_t direction);
+  status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   //This API can be called only in pause state. This would grab the last
   //video frame rendered to display and do a jpeg encode and returns

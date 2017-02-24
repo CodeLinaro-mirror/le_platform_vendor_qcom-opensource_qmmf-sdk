@@ -14,6 +14,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
+LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 
 LOCAL_SRC_FILES := qmmf_camera3_device_client.cc
 LOCAL_SRC_FILES += qmmf_camera3_monitor.cc
