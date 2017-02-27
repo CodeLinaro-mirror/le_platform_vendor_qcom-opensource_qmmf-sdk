@@ -198,7 +198,6 @@ class AVCodec : public IAVCodec {
 
   TSQueue<OMX_BUFFERHEADERTYPE*>  free_input_buffhdr_list_;
   TSQueue<OMX_BUFFERHEADERTYPE*>  used_input_buffhdr_list_;
-  ::std::mutex                    lock_;
   ::std::condition_variable       wait_for_header_;
   ::std::mutex                    queue_lock_;
 
