@@ -2060,6 +2060,7 @@ status_t AVCodec::StartCodec() {
       mediaBuffer->buffer_type =
           MetadataBufferType::kMetadataBufferTypeGrallocSource;
       mediaBuffer->meta_handle = nullptr;
+      std::lock_guard<std::mutex> lock(queue_lock_);
       free_input_buffhdr_list_.PushBack(in_buff_hdr_[i]);
     }
   } else if (format_type_ == CodecType::kVideoDecoder) {
@@ -2120,7 +2121,8 @@ status_t AVCodec::StartCodec() {
           return ret;
       }
 
-      struct VideoDecoderOutputMetaData* pParam = (struct VideoDecoderOutputMetaData*)out_buff_hdr_[i]->pBuffer;
+      struct VideoDecoderOutputMetaData* pParam =
+          (struct VideoDecoderOutputMetaData*)out_buff_hdr_[i]->pBuffer;
       assert(pParam != nullptr);
       free_output_buffhdr_list_.PushBack(out_buff_hdr_[i]);
     }
@@ -2614,7 +2616,8 @@ void* AVCodec::DeliverInput(void *arg) {
                    stream_buffer.data, stream_buffer.fd,
                    stream_buffer.timestamp);
     else
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld) filled_length(%d) frame_length(%d)",
+      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld) "
+                   "filled_length(%d) frame_length(%d)",
                    TAG, __func__, stream_buffer.data, stream_buffer.fd,
                    stream_buffer.timestamp, stream_buffer.size,
                    stream_buffer.capacity);
@@ -2684,7 +2687,8 @@ void* AVCodec::DeliverOutput(void *arg) {
       break;
     }
 
-    if(avcodec->format_type_ == CodecType::kVideoDecoder && avcodec->IsPortReconfig()) {
+    if (avcodec->format_type_ == CodecType::kVideoDecoder
+          && avcodec->IsPortReconfig()) {
       avcodec->UpdateBufferHeaderList(buf_header);
       codec_buffer.size = 0;
       avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
@@ -2714,10 +2718,10 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
   bool found = false;
   if (format_type_ == CodecType::kVideoEncoder) {
     bool timeout = false;
+    std::unique_lock<std::mutex> queue_lock(queue_lock_);
     if (free_input_buffhdr_list_.Size() == 0) {
       QMMF_WARN("%s:%s: Wait for free header at input port!!", TAG, __func__);
-      std::unique_lock<std::mutex> lock(lock_);
-      auto ret = wait_for_header_.wait_for(lock,
+      auto ret = wait_for_header_.wait_for(queue_lock,
           std::chrono::nanoseconds(kWaitDelay));
       if (ret == std::cv_status::timeout) {
         QMMF_ERROR("%s:%s: No free buffer header at input port!,"
@@ -2727,20 +2731,19 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
     }
     assert(timeout == false);
     OMX_BUFFERHEADERTYPE* header = nullptr;
-    std::lock_guard<std::mutex> lock(queue_lock_);
-    {
-      header = *free_input_buffhdr_list_.Begin();
-      encoder_media_buffer_type* media_buffer =
-            (encoder_media_buffer_type*)header->pBuffer;
-      media_buffer->meta_handle =
-          reinterpret_cast<buffer_handle_t>(buffer.data);
-      used_input_buffhdr_list_.PushBack(header);
-      free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());
-      QMMF_VERBOSE("%s:%s free_input_buffhdr_list_.Size = %d", TAG, __func__,
-          free_input_buffhdr_list_.Size());
-      QMMF_VERBOSE("%s:%s used_input_buffhdr_list_.Size = %d", TAG, __func__,
-          used_input_buffhdr_list_.Size());
-    }
+
+    header = *free_input_buffhdr_list_.Begin();
+    encoder_media_buffer_type* media_buffer =
+        (encoder_media_buffer_type*)header->pBuffer;
+    media_buffer->meta_handle =
+        reinterpret_cast<buffer_handle_t>(buffer.data);
+    used_input_buffhdr_list_.PushBack(header);
+    free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());
+    QMMF_VERBOSE("%s:%s free_input_buffhdr_list_.Size = %d", TAG, __func__,
+        free_input_buffhdr_list_.Size());
+    QMMF_VERBOSE("%s:%s used_input_buffhdr_list_.Size = %d", TAG, __func__,
+        used_input_buffhdr_list_.Size());
+
     assert(header != nullptr);
     return header;
   } else {
@@ -2792,11 +2795,12 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetOutputBufferHdr(BufferDescriptor& buffer) {
     std::lock_guard<std::mutex> lock(queue_lock_output_);
     {
       header = *free_output_buffhdr_list_.Begin();
-      struct VideoDecoderOutputMetaData* pParam = reinterpret_cast<struct VideoDecoderOutputMetaData*>(header->pBuffer);
-      private_handle_t *handle = const_cast<private_handle_t*>(static_cast<const private_handle_t*>(pParam->pHandle));
+      struct VideoDecoderOutputMetaData* pParam =
+          reinterpret_cast<struct VideoDecoderOutputMetaData*>(header->pBuffer);
+      private_handle_t *handle = const_cast<private_handle_t*>
+          (static_cast<const private_handle_t*>(pParam->pHandle));
       handle->fd = buffer.fd;
       handle->size = buffer.capacity;
-      // handle->flags = 0x0;
       handle->flags = private_handle_t::PRIV_FLAGS_DISP_CONSUMER;
       used_output_buffhdr_list_.PushBack(header);
       free_output_buffhdr_list_.Erase(free_output_buffhdr_list_.Begin());
@@ -2837,7 +2841,8 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetOutputBufferHdr(BufferDescriptor& buffer) {
       }
     }
   }
-  QMMF_ERROR("%s:%s No Output Buffer header found for (%p)",TAG,__func__,buffer.data);
+  QMMF_ERROR("%s:%s No Output Buffer header found for (%p)", TAG, __func__
+      , buffer.data);
   assert(found == true);
 
   return nullptr;
@@ -3147,7 +3152,8 @@ status_t AVCodec::HandleOutputPortSettingsChange(OMX_U32 data2) {
     InitOMXParams(&rect);
     PortreconfigData reconfig_data;
     memset(&reconfig_data, 0x0, sizeof(reconfig_data));
-    if (data2 == OMX_IndexConfigCommonOutputCrop || data2 == OMX_IndexConfigCommonScale) {
+    if (data2 == OMX_IndexConfigCommonOutputCrop
+        || data2 == OMX_IndexConfigCommonScale) {
       rect.nPortIndex = kPortIndexOutput;
       ret = omx_client_->GetConfig(
                 (OMX_INDEXTYPE)OMX_IndexConfigCommonOutputCrop,
@@ -3273,7 +3279,8 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
     assert(mediaBuffer->meta_handle != nullptr);
 
     stream_buffer.data =
-        const_cast<void*>(reinterpret_cast<const void*>(mediaBuffer->meta_handle));
+        const_cast<void*>(reinterpret_cast<const void*>
+        (mediaBuffer->meta_handle));
     avcodec->UpdateBufferHeaderList(buf_header);
 
     QMMF_DEBUG("%s:%s EBD fd(%d), ts(%lld)", TAG, __func__,
@@ -3288,8 +3295,8 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
     stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
-    QMMF_DEBUG("%s:%s EBD data(%p), ts(%lld)", TAG, __func__, stream_buffer.data,
-              buf_header->nTimeStamp);
+    QMMF_DEBUG("%s:%s EBD data(%p), ts(%lld)", TAG, __func__,
+        stream_buffer.data, buf_header->nTimeStamp);
   }
 
   avcodec->getInputBufferSource()->ReturnBuffer(stream_buffer, nullptr);
@@ -3342,7 +3349,8 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   }
 
   if (avcodec->format_type_ == CodecType::kAudioEncoder) {
-    BufferDescriptor* buf = reinterpret_cast<BufferDescriptor*>(buf_header->pAppPrivate);
+    BufferDescriptor* buf = reinterpret_cast<BufferDescriptor*>
+        (buf_header->pAppPrivate);
     codec_buffer.data = buf->data;
     codec_buffer.fd = buf->fd;
     codec_buffer.size = 0;
