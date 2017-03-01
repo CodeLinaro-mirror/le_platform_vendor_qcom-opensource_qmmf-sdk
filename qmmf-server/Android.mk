@@ -21,8 +21,11 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display
 
 LOCAL_SRC_FILES := qmmf_server_main.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_display_service libqmmf_audio_service
-LOCAL_SHARED_LIBRARIES += libqmmf_recorder_service libqmmf_player_service
+LOCAL_SHARED_LIBRARIES += libqmmf_system_service
+LOCAL_SHARED_LIBRARIES += libqmmf_display_service
+LOCAL_SHARED_LIBRARIES += libqmmf_audio_service
+LOCAL_SHARED_LIBRARIES += libqmmf_recorder_service
+LOCAL_SHARED_LIBRARIES += libqmmf_player_service
 LOCAL_SHARED_LIBRARIES += libbinder
 
 LOCAL_MODULE = qmmf-server

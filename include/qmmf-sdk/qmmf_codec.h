@@ -84,6 +84,7 @@ enum class CodecParamType {
   kUseLtrType,
   kAudioEffectsParamType,
   kAudioVolumeParamType,
+  kDecodeOperatingRate,
 };
 
 enum class AVCProfileType {

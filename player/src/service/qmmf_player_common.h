@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <chrono>
 #include "qmmf-sdk/qmmf_player_params.h"
 
 // Enable this define to dump audio bitstream from demuxer
@@ -46,6 +47,11 @@
 
 namespace qmmf {
 namespace player {
+
+using ::std::chrono::high_resolution_clock;
+using ::std::chrono::microseconds;
+using ::std::chrono::time_point;
+using ::std::chrono::duration_cast;
 
 enum class TrackType {
   kVideo,
@@ -107,6 +113,7 @@ extern "C" void DebugAudioSinkParam (const char* _func_,
 extern "C" void DebugQueueInputBuffer(const char* _func_,
                                       std::vector<AVCodecBuffer>& buffers);
 
+extern "C" uint32_t GetPlayerDecodeProfileProperty();
 
 };  // namespace player
 };  // namespace qmmf

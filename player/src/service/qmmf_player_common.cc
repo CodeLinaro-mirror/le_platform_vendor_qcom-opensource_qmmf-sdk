@@ -29,6 +29,9 @@
 
 #define TAG "PlayerCommon"
 
+#include <string.h>
+#include <cutils/properties.h>
+
 #include "common/qmmf_log.h"
 #include "player/src/service/qmmf_player_common.h"
 
@@ -77,6 +80,13 @@ extern "C" void DebugQueueInputBuffer(const char* _func_,
   }
 }
 
+extern "C" uint32_t GetPlayerDecodeProfileProperty()
+{
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.player.decode.profile", prop, "0");
+  return (uint32_t) atoi(prop);
+}
 
 };  // namespace player
 };  // namespace qmmf

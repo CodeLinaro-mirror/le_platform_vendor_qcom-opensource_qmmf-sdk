@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,66 +29,22 @@
 
 #pragma once
 
-#include <cstdint>
 #include <functional>
-#include <sstream>
-#include <string>
-
-#include <sys/types.h>
-
-#include "qmmf-sdk/qmmf_codec.h"
-#include "qmmf-sdk/qmmf_device.h"
 
 namespace qmmf {
 namespace system {
 
-typedef int32_t status_t;
+// handle to a specific system client/service connection
+typedef int32_t SystemHandle;
 
-// System Class specific callbacks
-
-// System errors
-typedef ::std::function<void(const int32_t error)> SystemCb;
-
-// SoundTrigger recognized utterance, or error occurred
-typedef ::std::function<void(const int32_t error)> TriggerCb;
-
-// device was unplugged or plugged
-typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
-
-// tone has finished playing, with possible error
-typedef ::std::function<void(const int32_t error)> ToneCb;
-
-struct SoundModel {
-  DeviceId device;
-  uint32_t keywords;
-  uint32_t size;
-  void*    data;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "device[" << device << "] ";
-    stream << "keywords[" << keywords << "] ";
-    stream << "size[" << size << "] ";
-    stream << "data[" << data << "]";
-    return stream.str();
-  }
-};
-
-struct Tone {
-  uint32_t delay;  // milliseconds
-  uint32_t loop_num;
-  uint32_t size;
-  void*    buffer;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "delay[" << delay << "] ";
-    stream << "loop_num[" << loop_num << "] ";
-    stream << "size[" << size << "] ";
-    stream << "buffer[" << buffer << "]";
-    return stream.str();
-  }
-};
+typedef ::std::function<void(const SystemHandle system_handle,
+                             const int32_t error)> SystemErrorHandler;
+typedef ::std::function<void(const SystemHandle system_handle,
+                             const int32_t error)> SystemTriggerHandler;
+typedef ::std::function<void(const SystemHandle system_handle,
+                             const DeviceInfo& device)> SystemDeviceHandler;
+typedef ::std::function<void(const SystemHandle system_handle,
+                             const int32_t error)> SystemToneHandler;
 
 }; // namespace system
 }; // namespace qmmf
