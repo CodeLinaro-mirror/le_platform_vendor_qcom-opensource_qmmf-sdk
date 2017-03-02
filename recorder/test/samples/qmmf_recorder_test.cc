@@ -749,13 +749,47 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
               image_param.width,image_param.height,snapshot_info.count);
     ret = recorder_.CaptureImage(camera_id_, image_param, snapshot_info.count,
                                  meta_array, cb);
-    if(ret != 0) {
-      ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
+    if (NO_ERROR == ret) {
+      std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
+      burst_snapshot_count_ = snapshot_info.count;
+      take_snashot_done_ = false;
+      const int32_t wait_time = 10000;
+
+      while (take_snashot_done_ == false) {
+        if (snapshot_wait_signal_.wait_for(lock,
+           std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+           if ( take_snashot_done_ == false ) {
+             TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
+             break;
+           }
+        }
+      }
+    } else {
+      TEST_ERROR("%s:%s Capture Image Failed", TAG, __func__);
+    }
+
+    ret = CancelTakeSnapshot();
+    if (NO_ERROR != ret) {
+      TEST_ERROR("%s:%s CancelTakeSnapshot Failed", TAG, __func__);
     }
   }
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
+}
+
+status_t RecorderTest::CancelTakeSnapshot() {
+
+   TEST_INFO("%s:%s:enter", TAG, __func__);
+   int32_t ret = 0;
+
+   ret = recorder_.CancelCaptureImage(camera_id_);
+   if (NO_ERROR != ret) {
+      TEST_ERROR("%s:%s CancelTakeSnapshot Failed", TAG, __func__);
+   }
+
+   TEST_INFO("%s:%s:exit", TAG, __func__);
+   return ret;
 }
 
 status_t RecorderTest::TakeSnapshot() {
@@ -883,9 +917,30 @@ status_t RecorderTest::TakeSnapshot() {
         meta_array.push_back(meta);
       }
       ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array, cb);
-      if(ret != 0) {
-        ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
+      if (NO_ERROR == ret) {
+        std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
+        burst_snapshot_count_ = num_images;
+        take_snashot_done_ = false;
+        const int32_t wait_time = 10000;
+
+        while (take_snashot_done_ == false) {
+          if (snapshot_wait_signal_.wait_for(lock,
+             std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+            if ( take_snashot_done_ == false ) {
+              TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
+              break;
+            }
+          }
+        }
+      } else {
+        TEST_ERROR("%s:%s Capture Image Failed", TAG, __func__);
       }
+
+      ret = CancelTakeSnapshot();
+      if (NO_ERROR != ret) {
+        TEST_ERROR("%s:%s CancelTakeSnapshot Failed", TAG, __func__);
+      }
+
       input = 0;
     }
 
@@ -2276,6 +2331,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
+  if( image_sequence_count == burst_snapshot_count_ ) {
+     take_snashot_done_ = true;
+  }
 
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }

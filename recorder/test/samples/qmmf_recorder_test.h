@@ -41,6 +41,7 @@
 #include <camera/CameraMetadata.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
+#include <condition_variable>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
@@ -169,6 +170,7 @@ class RecorderTest {
   status_t TakeSnapshot();
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
+  status_t CancelTakeSnapshot();
 
   status_t Session4KAnd1080pYUVTracks();
 
@@ -310,6 +312,11 @@ class RecorderTest {
   ir_modes_map supported_ir_modes_;
   bc_modes_map supported_bc_modes_;
   bool use_display;
+
+  std::mutex               snapshot_wait_lock_;
+  std::condition_variable  snapshot_wait_signal_;
+  uint32_t                 burst_snapshot_count_;
+  bool                     take_snashot_done_;
 
 };
 
