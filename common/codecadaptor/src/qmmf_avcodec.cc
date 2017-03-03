@@ -2206,10 +2206,10 @@ status_t AVCodec::StartCodec() {
     output_stop_ = false;
   }
 
-  pthread_create(&read_thread_, nullptr, DeliverInput, (void*)this);
-  pthread_create(&read_thread_, nullptr, DeliverOutput, (void*)this);
+  pthread_create(&deliver_input_thread_id_, nullptr, DeliverInput, (void*)this);
+  pthread_create(&deliver_output_thread_id_, nullptr, DeliverOutput, (void*)this);
   if (format_type_ == CodecType::kVideoDecoder) {
-    pthread_create(&read_thread_, nullptr, ThreadRun, (void*)this);
+    pthread_create(&port_reconfig_thread_id_, nullptr, ThreadRun, (void*)this);
   }
 
   QMMF_INFO("%s:%s current state(%s), pending state(%s)", TAG, __func__,
@@ -2231,6 +2231,23 @@ status_t AVCodec::StopCodec() {
   {
     Mutex::Autolock autoLock(input_stop_lock_);
     input_stop_ = true;
+  }
+
+  ret = pthread_join(deliver_input_thread_id_, nullptr);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to join DeliverInput Thread", TAG, __func__);
+  }
+
+  ret = pthread_join(deliver_output_thread_id_, nullptr);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to join DeliverOutput Thread", TAG, __func__);
+  }
+
+  if (format_type_ == CodecType::kVideoDecoder) {
+    ret = pthread_join(port_reconfig_thread_id_, nullptr);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to join ThreadRun Thread", TAG, __func__);
+    }
   }
 
   CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
