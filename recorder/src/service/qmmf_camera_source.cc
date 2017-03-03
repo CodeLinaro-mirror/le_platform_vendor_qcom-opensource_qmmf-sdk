@@ -1045,55 +1045,56 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 #ifdef ENABLE_FRAME_DUMP
   DumpYUV(buffer);
 #endif
-  if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-    PushFrameToDisplay(buffer);
-    ReturnBufferToProducer(buffer);
-  } else {
-    // If format type is YUV or BAYER then give callback from this point, do not
-    // feed buffer to Encoder.
-    if (track_params_.params.format_type == VideoFormat::kYUV ||
-        track_params_.params.format_type == VideoFormat::kBayerRDI ||
-        track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-      if (IsStop()) {
-        QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
-            " to client!", TAG, __func__, TrackId());
-        ReturnBufferToProducer(buffer);
-        return;
-      }
+  // If format type is YUV or BAYER then give callback from this point, do not
+  // feed buffer to Encoder.
+  if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerIdeal ||
+      track_params_.camera_stream_type == CameraStreamType::kPreview) {
 
-      BnBuffer bn_buffer;
-      memset(&bn_buffer, 0x0, sizeof bn_buffer);
-      bn_buffer.ion_fd         = buffer.fd;
-      bn_buffer.size           = buffer.size;
-      bn_buffer.timestamp      = buffer.timestamp;
-      bn_buffer.width          = buffer.info.plane_info[0].width;
-      bn_buffer.height         = buffer.info.plane_info[0].height;
-      bn_buffer.buffer_id      = buffer.fd;
-      bn_buffer.flag           = 0x10;
-      bn_buffer.capacity       = buffer.size;
-
-      // Buffers from this list used for YUV callback.
-      {
-        Mutex::Autolock autoLock(buffer_list_lock_);
-        buffer_list_.add(buffer.fd, buffer);
-      }
-      std::vector<BnBuffer> bn_buffers;
-      bn_buffers.push_back(bn_buffer);
-
-      MetaData meta_data;
-      memset(&meta_data, 0x0, sizeof meta_data);
-      meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-      meta_data.cam_buffer_meta_data = buffer.info;
-
-      std::vector<MetaData> meta_buffers;
-      meta_buffers.push_back(meta_data);
-
-      track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
-    } else {
-      // Push buffers into encoder queue.
-      PushFrameToQueue(buffer);
+    if (IsStop()) {
+      QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
+          " to client!", TAG, __func__, TrackId());
+      ReturnBufferToProducer(buffer);
+      return;
     }
+
+    if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
+      PushFrameToDisplay(buffer);
+    }
+
+    BnBuffer bn_buffer;
+    memset(&bn_buffer, 0x0, sizeof bn_buffer);
+    bn_buffer.ion_fd         = buffer.fd;
+    bn_buffer.size           = buffer.size;
+    bn_buffer.timestamp      = buffer.timestamp;
+    bn_buffer.width          = buffer.info.plane_info[0].width;
+    bn_buffer.height         = buffer.info.plane_info[0].height;
+    bn_buffer.buffer_id      = buffer.fd;
+    bn_buffer.flag           = 0x10;
+    bn_buffer.capacity       = buffer.size;
+
+    // Buffers from this list used for YUV callback.
+    {
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      buffer_list_.add(buffer.fd, buffer);
+    }
+    std::vector<BnBuffer> bn_buffers;
+    bn_buffers.push_back(bn_buffer);
+
+    MetaData meta_data;
+    memset(&meta_data, 0x0, sizeof meta_data);
+    meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
+    meta_data.cam_buffer_meta_data = buffer.info;
+
+    std::vector<MetaData> meta_buffers;
+    meta_buffers.push_back(meta_data);
+
+    track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
+  } else {
+    // Push buffers into encoder queue.
+    PushFrameToQueue(buffer);
   }
 }
 
