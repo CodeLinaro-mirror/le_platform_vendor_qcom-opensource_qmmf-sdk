@@ -8712,7 +8712,7 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.IsEnabled()) {
+  if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(1);
     dump_bitstream_.Dump(buffers, file_fd);
   }
@@ -8730,7 +8730,7 @@ void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
                                           std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.IsEnabled()) {
+  if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(2);
     dump_bitstream_.Dump(buffers, file_fd);
   }
@@ -8749,7 +8749,7 @@ void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
                                              meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (dump_bitstream_.IsEnabled()) {
+  if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(3);
     dump_bitstream_.Dump(buffers, file_fd);
   }
