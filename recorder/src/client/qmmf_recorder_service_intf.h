@@ -52,7 +52,7 @@ using ::std::string;
 using ::std::stringstream;
 using namespace overlay;
 
-#define QMMF_RECORDER_SERVICE_NAME "recorder.service"
+#define QMMF_RECORDER_SERVICE_NAME "qmmf_recorder.service"
 
 enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_CONNECT = IBinder::FIRST_CALL_TRANSACTION,

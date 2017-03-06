@@ -65,7 +65,7 @@ enum class SystemServiceCallbackCommand {
   kSystemNotifyTone,
 };
 
-#define QMMF_SYSTEM_SERVICE_NAME "system.service"
+#define QMMF_SYSTEM_SERVICE_NAME "qmmf_system.service"
 
 // Binder interface for callbacks from SystemService to SystemClient
 class ISystemServiceCallback : public ::android::IInterface {

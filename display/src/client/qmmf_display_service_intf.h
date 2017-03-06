@@ -43,7 +43,7 @@ namespace display {
 
 using namespace android;
 
-#define QMMF_DISPLAY_SERVICE_NAME "display.service"
+#define QMMF_DISPLAY_SERVICE_NAME "qmmf_display.service"
 
 enum QMMF_DISPLAY_SERVICE_CMDS {
   DISPLAY_CONNECT = IBinder::FIRST_CALL_TRANSACTION,
