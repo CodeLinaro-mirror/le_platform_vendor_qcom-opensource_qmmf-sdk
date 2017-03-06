@@ -29,15 +29,18 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
 #include <unistd.h>
-#include <mutex>
 
-#include "player/src/service/qmmf_player_common.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
+#include <memory>
+#include <mutex>
+#include <vector>
+
+#include <utils/KeyedVector.h>
+
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "player/src/service/qmmf_player_common.h"
 
 using ::qmmf::common::audio::AudioEndPoint;
 using ::qmmf::common::audio::AudioEndPointType;
@@ -76,12 +79,12 @@ class AudioSink {
   static AudioSink* instance_;
 
   // Map of track id and TrackSink.
-  DefaultKeyedVector<uint32_t, ::std::shared_ptr<AudioTrackSink>> audio_track_sinks;
+  ::android::DefaultKeyedVector<uint32_t, ::std::shared_ptr<AudioTrackSink>>
+      audio_track_sinks;
 };
 
 class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
  public:
-
   AudioTrackSink();
 
   ~AudioTrackSink();
@@ -98,7 +101,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t DeleteSink();
 
-  void AddBufferList(Vector<::qmmf::avcodec::CodecBuffer>& list);
+  void AddBufferList(::android::Vector<::qmmf::avcodec::CodecBuffer>& list);
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
@@ -108,7 +111,6 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
                            void* event_data) override;
 
  private:
-
   int32_t TrackId() { return track_params_.track_id; }
 
   status_t ConfigureSink(AudioTrackParams& track_param);
@@ -127,31 +129,31 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   AudioEndPoint*         end_point_;
 
   // For decoded frame
-  Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
-  TSQueue<::qmmf::avcodec::CodecBuffer> output_free_buffer_queue_;
-  TSQueue<::qmmf::avcodec::CodecBuffer> output_occupy_buffer_queue_;
+  ::android::Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
+  TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
+  TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  Mutex                  wait_for_frame_lock_;
-  Condition              wait_for_frame_;
-  int32_t                ion_device_;
-  Mutex                  queue_lock_;
+  ::android::Mutex                  wait_for_frame_lock_;
+  ::android::Condition              wait_for_frame_;
+  int32_t                           ion_device_;
+  ::android::Mutex                  queue_lock_;
 
   // For Sink
   int32_t sink_buffer_size_;
   int32_t number_of_sink_buffer = NUMBER_OF_SINK_BUFFERS;
 
-  Vector<AudioBuffer>    audio_sink_buffer_list_;
+  ::android::Vector<AudioBuffer>    audio_sink_buffer_list_;
 
   typedef  struct ion_allocation_data IonHandleData;
-  Vector<IonHandleData>  ion_handle_data;
+  ::android::Vector<IonHandleData>  ion_handle_data;
 
-  TSQueue<AudioBuffer>   sink_buffer_queue_;
-  Mutex                  sink_queue_lock_;
-  Mutex                  wait_for_sink_queue_lock_;
-  Condition              wait_for_sink_frame_;
-  bool                   stopplayback_;
-  bool                   paused_;
-  uint32_t               decoded_frame_number_;
+  TSQueue<AudioBuffer>              sink_buffer_queue_;
+  ::android::Mutex                  sink_queue_lock_;
+  ::android::Mutex                  wait_for_sink_queue_lock_;
+  ::android::Condition              wait_for_sink_frame_;
+  bool                              stopplayback_;
+  bool                              paused_;
+  uint32_t                          decoded_frame_number_;
 
   enum class AudioMessageType {
     kMessageStop,
