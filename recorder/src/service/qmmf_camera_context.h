@@ -33,6 +33,7 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 #include <condition_variable>
+#include <utils/Condition.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
