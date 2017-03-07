@@ -48,7 +48,7 @@ namespace qmmf {
 
 using namespace android;
 
-const nsecs_t kWaitDelay = 500000000; // 0.5s
+const nsecs_t kWaitDelay = 2000000000; // 2 sec.
 
 struct StreamBuffer {
   CameraBufferMetaData info;
