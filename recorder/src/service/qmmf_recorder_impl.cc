@@ -1267,6 +1267,17 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
       return ret;
     }
   }
+
+  if (type == CodecParamType::kEnableFrameRepeat) {
+    bool* enable_frame_repeat = static_cast<bool*>(param);
+    ret = camera_source_->EnableFrameRepeat(track_info.track_id,
+                                            *enable_frame_repeat);
+    if(ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: client_id(%d) Failed to set "
+          "FrameRepeat to TrackSource", TAG, __func__, client_id);
+      return ret;
+    }
+  }
   QMMF_DEBUG("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
   return ret;
