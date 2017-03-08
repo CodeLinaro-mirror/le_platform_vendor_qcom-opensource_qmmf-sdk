@@ -184,11 +184,11 @@ struct DeviceCapsInternal : public DeviceCaps {
     switch (type) {
       case DeviceType::kVideoIn:
       case DeviceType::kVideoOut:
-        VideoCapsInternal(caps.video).ToParcel(parcel);
+        VideoCapsInternal(video).ToParcel(parcel);
         break;
       case DeviceType::kAudioIn:
       case DeviceType::kAudioOut:
-        AudioCapsInternal(caps.audio).ToParcel(parcel);
+        AudioCapsInternal(audio).ToParcel(parcel);
         break;
     }
   }
@@ -198,11 +198,11 @@ struct DeviceCapsInternal : public DeviceCaps {
     switch (type) {
       case DeviceType::kVideoIn:
       case DeviceType::kVideoOut:
-        caps.video = VideoCapsInternal().FromParcel(parcel);
+        video = VideoCapsInternal().FromParcel(parcel);
         break;
       case DeviceType::kAudioIn:
       case DeviceType::kAudioOut:
-        caps.audio = AudioCapsInternal().FromParcel(parcel);
+        audio = AudioCapsInternal().FromParcel(parcel);
         break;
     }
     return *this;

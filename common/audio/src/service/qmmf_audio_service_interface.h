@@ -65,7 +65,7 @@ enum class AudioServiceCallbackCommand {
   kAudioNotifyBuffer,
 };
 
-#define QMMF_AUDIO_SERVICE_NAME "audio.service"
+#define QMMF_AUDIO_SERVICE_NAME "qmmf_audio.service"
 
 // Binder interface for callbacks from AudioService to AudioEndPointClient
 class IAudioServiceCallback : public ::android::IInterface {

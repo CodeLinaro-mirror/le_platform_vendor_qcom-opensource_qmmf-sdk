@@ -136,6 +136,7 @@ public:
   // map <session id, vector<track id> >
   DefaultKeyedVector<uint32_t, Vector<uint32_t> >  sessions_;
 
+  bool context_;
 };
 
 class ServiceCallbackHandler : public BnDisplayServiceCallback {

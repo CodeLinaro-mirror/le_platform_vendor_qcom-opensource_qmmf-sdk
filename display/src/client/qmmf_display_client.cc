@@ -86,19 +86,21 @@ DisplayClient::~DisplayClient()
       QMMF_ERROR("%s:%s DestroyDisplay failed!", TAG, __func__);
     }
 
-    buf_info_map::iterator it;
-    for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-        ++it) {
-      if (it->second) {
-        ret = munmap( it->second->pointer, it->second->frame_len);
-        if(ret != 0) {
-          QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+    if (context_ == 0) {
+      buf_info_map::iterator it;
+      for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
+          ++it) {
+        if (it->second) {
+          ret = munmap( it->second->pointer, it->second->frame_len);
+          if(ret != 0) {
+            QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+          }
+          delete (it->second);
         }
-        delete (it->second);
+        buf_info_map_.erase(it);
       }
-      buf_info_map_.erase(it);
+      buf_info_map_.clear();
     }
-    buf_info_map_.clear();
     Disconnect();
   }
   if (display_service_ != nullptr) {
@@ -227,20 +229,21 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
     }
   }
 
-  buf_info_map::iterator it;
-  for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-      ++it) {
-    if (it->second) {
-      ret = munmap( it->second->pointer, it->second->frame_len);
-      if(ret != 0) {
-        QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+  if (context_ == 0) {
+    buf_info_map::iterator it;
+    for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
+        ++it) {
+      if (it->second) {
+        ret = munmap( it->second->pointer, it->second->frame_len);
+        if(ret != 0) {
+          QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+        }
+        delete (it->second);
       }
-      delete (it->second);
+      buf_info_map_.erase(it);
     }
-    buf_info_map_.erase(it);
+    buf_info_map_.clear();
   }
-  buf_info_map_.clear();
-
   display_handle_=-1;
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -261,6 +264,9 @@ status_t DisplayClient::CreateSurface(SurfaceConfig &surface_config,
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s:%s CreateSurface failed!", TAG, __func__);
   }
+
+  context_ = surface_config.context;
+
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
   return ret;
 }
@@ -298,36 +304,37 @@ status_t DisplayClient::DequeueSurfaceBuffer(const uint32_t surface_id,
       QMMF_ERROR("%s:%s DequeueSurfaceBuffer failed!", TAG, __func__);
   }
 
-  surface_buffer.plane_info[0].buf = NULL;
-  if(surface_buffer.buf_id != -1) {
-    auto buf_info_map = buf_info_map_.find(surface_buffer.plane_info[0].ion_fd);
-    if (buf_info_map == buf_info_map_.end()) {
-      BufInfo *buf_info = new BufInfo();
-      buf_info->pointer = nullptr;
-      buf_info->frame_len = surface_buffer.plane_info[0].size;
-      buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, buf_info});
-    }
-
-    buf_info_map = buf_info_map_.find(surface_buffer.plane_info[0].ion_fd);
-    if (buf_info_map != buf_info_map_.end()) {
-      if (buf_info_map->second->pointer == NULL) {
-        struct ion_fd_data ion_info_fd;
-        memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
-        ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
-        ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
-        if(ret != NO_ERROR) {
-          QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
-              TAG, __func__, ion_info_fd.fd, ret, errno);
-        }
-        void* vaddr = mmap(NULL, (size_t)surface_buffer.capacity,
-            PROT_READ | PROT_WRITE, MAP_SHARED, ion_info_fd.fd, 0);
-        assert(vaddr != NULL);
-        buf_info_map->second->pointer = vaddr;
+  if (context_ == 0) {
+    surface_buffer.plane_info[0].buf = NULL;
+    if(surface_buffer.buf_id != -1) {
+      auto buf_info_map = buf_info_map_.find(surface_buffer.plane_info[0].ion_fd);
+      if (buf_info_map == buf_info_map_.end()) {
+        BufInfo *buf_info = new BufInfo();
+        buf_info->pointer = nullptr;
+        buf_info->frame_len = surface_buffer.plane_info[0].size;
+        buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, buf_info});
       }
-    }
-    surface_buffer.plane_info[0].buf = buf_info_map->second->pointer;
-  }
 
+      buf_info_map = buf_info_map_.find(surface_buffer.plane_info[0].ion_fd);
+      if (buf_info_map != buf_info_map_.end()) {
+        if (buf_info_map->second->pointer == NULL) {
+          struct ion_fd_data ion_info_fd;
+          memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
+          ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
+          ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+          if(ret != NO_ERROR) {
+            QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
+                TAG, __func__, ion_info_fd.fd, ret, errno);
+          }
+          void* vaddr = mmap(NULL, (size_t)surface_buffer.capacity,
+              PROT_READ | PROT_WRITE, MAP_SHARED, ion_info_fd.fd, 0);
+          assert(vaddr != NULL);
+          buf_info_map->second->pointer = vaddr;
+        }
+      }
+      surface_buffer.plane_info[0].buf = buf_info_map->second->pointer;
+    }
+  }
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
   return ret;
 }
@@ -340,20 +347,23 @@ status_t DisplayClient::QueueSurfaceBuffer(const uint32_t surface_id,
   if (!checkServiceStatus()) {
     return NO_INIT;
   }
-  buf_info_map::iterator it;
-  for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-      ++it) {
-    if (it->second->pointer == surface_buffer.plane_info[0].buf) {
-      surface_buffer.plane_info[0].ion_fd = it->first;
-      break;
-    }
-  }
 
-  if (it == buf_info_map_.end()) {
-    BufInfo *buf_info = new BufInfo();
-    buf_info->pointer = surface_buffer.plane_info[0].buf;
-    buf_info->frame_len = surface_buffer.plane_info[0].size;
-    buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, buf_info});
+  if (context_ == 0) {
+    buf_info_map::iterator it;
+    for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
+        ++it) {
+      if (it->second->pointer == surface_buffer.plane_info[0].buf) {
+        surface_buffer.plane_info[0].ion_fd = it->first;
+        break;
+      }
+    }
+
+    if (it == buf_info_map_.end()) {
+      BufInfo *buf_info = new BufInfo();
+      buf_info->pointer = surface_buffer.plane_info[0].buf;
+      buf_info->frame_len = surface_buffer.plane_info[0].size;
+      buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, buf_info});
+    }
   }
 
   auto ret = display_service_->QueueSurfaceBuffer(display_handle_, surface_id,

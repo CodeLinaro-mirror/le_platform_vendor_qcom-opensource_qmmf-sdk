@@ -175,8 +175,8 @@ enum class AudioEndPointType {
   kSink,
 };
 
-enum class AudioFlagBitPosition {
-  kLowLatencyBit = 0,
+enum class AudioFlag {
+  kFlagLowLatency = ( 1 << 1),
 };
 
 struct AudioMetadata {

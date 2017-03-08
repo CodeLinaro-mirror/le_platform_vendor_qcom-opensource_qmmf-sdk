@@ -12,6 +12,9 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
+LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
+LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+
 LOCAL_SRC_FILES := qmmf_recorder_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue

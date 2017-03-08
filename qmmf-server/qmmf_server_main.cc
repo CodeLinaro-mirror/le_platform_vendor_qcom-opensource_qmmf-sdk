@@ -40,6 +40,7 @@
 #include "recorder/src/service/qmmf_recorder_service.h"
 #include "display/src/service/qmmf_display_service.h"
 #include "player/src/service/qmmf_player_service.h"
+#include "system/src/service/qmmf_system_service.h"
 
 using namespace android;
 using namespace qmmf;
@@ -47,6 +48,7 @@ using namespace qmmf::common::audio;
 using namespace recorder;
 using namespace display;
 using namespace player;
+using namespace system;
 
 #define INFO(...) \
   do { \
@@ -56,6 +58,11 @@ using namespace player;
 } while(0)
 
 int32_t main(int32_t argc, char **argv) {
+
+  //Add System service.
+  defaultServiceManager()->addService(String16(QMMF_SYSTEM_SERVICE_NAME),
+                  new qmmf::system::SystemService(), false);
+  INFO("Service(%s) Added successfully!", QMMF_SYSTEM_SERVICE_NAME);
 
   // Add audio service.
   defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),

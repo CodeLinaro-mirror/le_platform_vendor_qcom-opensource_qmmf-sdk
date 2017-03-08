@@ -52,6 +52,8 @@ using ::std::make_shared;
 using ::std::shared_ptr;
 
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
+static const int32_t kDebugTrackFps = 1<<0;
+static const int32_t kDebugSourceTrackFps = 1<<1;
 
 CameraSource* CameraSource::instance_ = nullptr;
 
@@ -666,7 +668,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_stop_(false),
       eos_acked_(false),
       enable_overlay_(false),
-      display_started_(0) {
+      display_started_(0),
+      input_count_(0),
+      count_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -674,8 +678,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(camera_intf.get() != nullptr);
   camera_interface_ = camera_intf;
 
-  input_frame_rate_ = camera_intf->GetCameraStartParam().frame_rate;
-  QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, input_frame_rate_);
+  source_frame_rate_ = camera_intf->GetCameraStartParam().frame_rate;
+  QMMF_INFO("%s:%s camera_frame_rate =%f", TAG, __func__, source_frame_rate_);
+  input_frame_rate_ = source_frame_rate_;
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
   remaining_frame_skip_time_ = output_frame_interval_;
@@ -683,7 +688,14 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
 
-  count_ = 0;
+  // TODO: There are issues related to how recorder service
+  // treats the adb properties at runtime. Once it gets resolved,
+  // the following lines for prop querying may be moved to
+  // OnFrameAvailable.
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DEBUG_FPS, prop_val, "1");
+  debug_fps_ = atoi(prop_val);
+
   QMMF_INFO("%s:%s: TrackSource (0x%p)", TAG, __func__, this);
 }
 
@@ -963,25 +975,15 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     }
   }
 
-  // Return buffer back to camera if frameskip is valid for this frame
-  // and is NOT a stop condition. In STOP condition, frame skip logic
-  // is bypassed as the buffer consumer may wait for the last buffer
-  // as part of stop processing. Skipping frames may result in timeouts
-  // in the consumer.
-  if ((!IsStop()) && IsFrameSkip()) {
-    // Skip frame to adjust fps.
-    ReturnBufferToProducer(buffer);
-    return;
-  }
-
-  // Dynamic FPS measurement
+  // Dynamic FPS measurement of source (Camera)
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-                       (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
-  count_++;
+                       (input_prevtv_.tv_sec * 1000000 +
+                       input_prevtv_.tv_usec));
+  input_count_++;
   if (time_diff >= FPS_TIME_INTERVAL) {
-    float framerate = (count_ * 1000000) / (float)time_diff;
+    float framerate = (input_count_ * 1000000) / (float)time_diff;
     bool is_first_time = (framerate <= 1.0);
 
     // Re-calculate input and output frame intervals if input framerate
@@ -998,14 +1000,24 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         output_frame_interval_ = 1000000.0 / input_frame_rate_;
       else
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-      remaining_frame_skip_time_ = output_frame_interval_;
     }
-#ifdef DEBUG_TRACK_FPS
-    QMMF_INFO("%s:%s: track_id(%d):fps: = %0.2f", TAG, __func__,
-              TrackId(), framerate);
-#endif
-    prevtv_ = tv;
-    count_ = 0;
+    if (debug_fps_ & kDebugSourceTrackFps) {
+      QMMF_INFO("%s:%s: track_id(%d): source fps: = %0.2f", TAG, __func__,
+                TrackId(), framerate);
+    }
+    input_prevtv_ = tv;
+    input_count_ = 0;
+  }
+
+  // Return buffer back to camera if frameskip is valid for this frame
+  // and is NOT a stop condition. In STOP condition, frame skip logic
+  // is bypassed as the buffer consumer may wait for the last buffer
+  // as part of stop processing. Skipping frames may result in timeouts
+  // in the consumer.
+  if ((!IsStop()) && IsFrameSkip()) {
+    // Skip frame to adjust fps.
+    ReturnBufferToProducer(buffer);
+    return;
   }
 
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
@@ -1033,55 +1045,56 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 #ifdef ENABLE_FRAME_DUMP
   DumpYUV(buffer);
 #endif
-  if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-    PushFrameToDisplay(buffer);
-    ReturnBufferToProducer(buffer);
-  } else {
-    // If format type is YUV or BAYER then give callback from this point, do not
-    // feed buffer to Encoder.
-    if (track_params_.params.format_type == VideoFormat::kYUV ||
-        track_params_.params.format_type == VideoFormat::kBayerRDI ||
-        track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-      if (IsStop()) {
-        QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
-            " to client!", TAG, __func__, TrackId());
-        ReturnBufferToProducer(buffer);
-        return;
-      }
+  // If format type is YUV or BAYER then give callback from this point, do not
+  // feed buffer to Encoder.
+  if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerIdeal ||
+      track_params_.camera_stream_type == CameraStreamType::kPreview) {
 
-      BnBuffer bn_buffer;
-      memset(&bn_buffer, 0x0, sizeof bn_buffer);
-      bn_buffer.ion_fd         = buffer.fd;
-      bn_buffer.size           = buffer.size;
-      bn_buffer.timestamp      = buffer.timestamp;
-      bn_buffer.width          = buffer.info.plane_info[0].width;
-      bn_buffer.height         = buffer.info.plane_info[0].height;
-      bn_buffer.buffer_id      = buffer.fd;
-      bn_buffer.flag           = 0x10;
-      bn_buffer.capacity       = buffer.size;
-
-      // Buffers from this list used for YUV callback.
-      {
-        Mutex::Autolock autoLock(buffer_list_lock_);
-        buffer_list_.add(buffer.fd, buffer);
-      }
-      std::vector<BnBuffer> bn_buffers;
-      bn_buffers.push_back(bn_buffer);
-
-      MetaData meta_data;
-      memset(&meta_data, 0x0, sizeof meta_data);
-      meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-      meta_data.cam_buffer_meta_data = buffer.info;
-
-      std::vector<MetaData> meta_buffers;
-      meta_buffers.push_back(meta_data);
-
-      track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
-    } else {
-      // Push buffers into encoder queue.
-      PushFrameToQueue(buffer);
+    if (IsStop()) {
+      QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
+          " to client!", TAG, __func__, TrackId());
+      ReturnBufferToProducer(buffer);
+      return;
     }
+
+    if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
+      PushFrameToDisplay(buffer);
+    }
+
+    BnBuffer bn_buffer;
+    memset(&bn_buffer, 0x0, sizeof bn_buffer);
+    bn_buffer.ion_fd         = buffer.fd;
+    bn_buffer.size           = buffer.size;
+    bn_buffer.timestamp      = buffer.timestamp;
+    bn_buffer.width          = buffer.info.plane_info[0].width;
+    bn_buffer.height         = buffer.info.plane_info[0].height;
+    bn_buffer.buffer_id      = buffer.fd;
+    bn_buffer.flag           = 0x10;
+    bn_buffer.capacity       = buffer.size;
+
+    // Buffers from this list used for YUV callback.
+    {
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      buffer_list_.add(buffer.fd, buffer);
+    }
+    std::vector<BnBuffer> bn_buffers;
+    bn_buffers.push_back(bn_buffer);
+
+    MetaData meta_data;
+    memset(&meta_data, 0x0, sizeof meta_data);
+    meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
+    meta_data.cam_buffer_meta_data = buffer.info;
+
+    std::vector<MetaData> meta_buffers;
+    meta_buffers.push_back(meta_data);
+
+    track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
+  } else {
+    // Push buffers into encoder queue.
+    PushFrameToQueue(buffer);
   }
 }
 
@@ -1125,6 +1138,22 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
 void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  // Dynamic FPS measurement of Track
+  if (debug_fps_ & kDebugTrackFps) {
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
+                         (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
+    count_++;
+    if (time_diff >= FPS_TIME_INTERVAL) {
+      float framerate = (count_ * 1000000) / (float)time_diff;
+      QMMF_INFO("%s:%s: track_id(%d): track fps: = %0.2f", TAG, __func__,
+                TrackId(), framerate);
+      prevtv_ = tv;
+      count_ = 0;
+    }
+  }
 
   Mutex::Autolock lock(lock_);
   frames_received_.PushBack(buffer);
@@ -1251,9 +1280,6 @@ void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
-    remaining_frame_skip_time_ = output_frame_interval_;
-    QMMF_INFO("%s:%s: remaining_frame_skip_time_(%f)", TAG, __func__,
-        remaining_frame_skip_time_);
   }
 }
 
@@ -1312,6 +1338,7 @@ status_t TrackSource::CreateDisplayPreview(display::DisplayType display_type,
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
+  surface_config.context = 1;
   res = display_->CreateSurface(surface_config, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
@@ -1386,7 +1413,7 @@ status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
 
   if (display_started_) {
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = static_cast<int32_t>(buffer.fd);
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = buffer.info.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.frame_length;
