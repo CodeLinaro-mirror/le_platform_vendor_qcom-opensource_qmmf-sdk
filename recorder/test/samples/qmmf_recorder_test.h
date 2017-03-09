@@ -58,6 +58,7 @@
 //Logging related defines
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...)  ALOGW(fmt, ##args)
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
@@ -204,6 +205,23 @@ private:
   bool                     mark_first_frame_time_;
 };
 
+enum class DynamicCameraParamsCmd {
+  kExit                = 'X',
+  kSharpness           = '1',
+  kAEGain              = '2',
+  kExposureTime        = '3',
+  kWNRStrength         = '4',
+  kTNRTuning           = '5',
+  kDumpHistogramStats  = '6',
+  kDumpAECAWBStats     = '7'
+};
+
+enum class TNRTuningCmd {
+  kExit                        = 'X',
+  kTNRIntensity                = '1',
+  kMotionDetectionSensitivity  = '2'
+};
+
 class TestTrack;
 class CmdMenu;
 
@@ -319,6 +337,8 @@ class RecorderTest {
 
   status_t SetParams();
 
+  status_t SetDynamicCameraParam();
+
   status_t PauseSession();
 
   status_t ResumeSession();
@@ -349,6 +369,21 @@ class RecorderTest {
   std::string GetCurrentIRMode();
   std::string GetCurrentBinningCorrectionMode();
   status_t GetCurrentAFMode(int32_t& mode);
+  status_t GetSharpnessStrength(int32_t *strength);
+  status_t SetSharpnessStrength(const int32_t& val);
+  status_t GetSensorSensitivity(int32_t *sensitivity);
+  status_t SetSensorSensitivity(const int32_t& val);
+  status_t GetExposureTime(int64_t *time_ns);
+  status_t SetExposureTime(const int64_t& val);
+  status_t GetWNRStrength(int32_t *wnr_strength);
+  status_t SetWNRStrength(const int32_t& val);
+  status_t SetTNRLevel();
+  status_t GetTNRIntensity(float *intensity);
+  status_t SetTNRIntensity(const float& intensity);
+  status_t GetTNRMotionDetectionSensitivity(float *sensitivity);
+  status_t SetTNRMotionDetectionSensitivity(const float& sensitivity);
+  status_t GetRawHistogramStatistic(const CameraMetadata& meta);
+  status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
 
   // Auto Mode
   int32_t RunAutoMode();
@@ -367,13 +402,13 @@ class RecorderTest {
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
 
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
+
   status_t DumpFrameToFile(BufferDescriptor& buffer,
                            CameraBufferMetaData& meta_data, String8& file_name);
 
   Recorder& GetRecorder() { return recorder_; }
-
-  void CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result);
 
  private:
   Recorder recorder_;
@@ -408,6 +443,8 @@ class RecorderTest {
   SnapshotType snapshot_choice_;
 
   bool use_display;
+  bool dump_aec_awb_stats_;
+  bool dump_histogram_stats_;
 
   CheckKPITime kpi_marker_;
   ::std::condition_variable signal_;
@@ -531,6 +568,7 @@ public:
         STOP_SESSION_CMD                        = 'B',
         TAKE_SNAPSHOT_CMD                       = 'S',
         SET_PARAM_CMD                           = 'T',
+        SET_DYNAMIC_CAMERA_PARAM_CMD            = '~',
         PAUSE_SESSION_CMD                       = 'P',
         RESUME_SESSION_CMD                      = 'R',
         ENABLE_OVERLAY_CMD                      = 'O',
