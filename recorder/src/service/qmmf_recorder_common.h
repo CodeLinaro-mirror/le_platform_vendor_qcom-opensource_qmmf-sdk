@@ -69,11 +69,6 @@ enum class TrackType {
   kAudio
 };
 
-enum class CameraStreamType {
-  kPreview,
-  kVideo,
-};
-
 enum class CameraStreamFormat {
   kNV12,
   kNV21,
@@ -100,7 +95,6 @@ typedef std::function<void(uint32_t camera_id,
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
   uint32_t               track_id;
-  CameraStreamType       camera_stream_type;
   buffer_callback        data_cb;
 };
 
@@ -120,7 +114,6 @@ struct AudioTrackParams {
 struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
   CameraStreamFormat cam_stream_format;
-  CameraStreamType   cam_stream_type;
   float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;

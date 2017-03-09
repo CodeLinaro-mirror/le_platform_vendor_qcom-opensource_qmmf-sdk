@@ -763,17 +763,6 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
       std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers)
       { VideoTrackBufferCallback(track_id, buffers, meta_buffers);
       };
-  // TODO: define VideoOutDevices, and have switch case, for now assuming
-  // 1 is encode, 2 is preview
-  if(params.out_device == 1) {
-    video_track_params.camera_stream_type = CameraStreamType::kVideo;
-  } else if (params.out_device == 2) {
-    video_track_params.camera_stream_type = CameraStreamType::kPreview;
-  } else {
-    QMMF_ERROR("%s:%s: out_device(%d) is not supported!", TAG, __func__,
-               params.out_device);
-    return BAD_VALUE;
-  }
 
   // Create Camera track first.
   assert(camera_source_ != NULL);

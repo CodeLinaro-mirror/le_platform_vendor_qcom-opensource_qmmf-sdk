@@ -304,7 +304,6 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   video_track_param.height        = stream_height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = VideoFormat::kYUV;
-  video_track_param.out_device    = 0x01;
   video_track_param.low_power_mode = true;
   uint32_t video_track_id = 1;
 
@@ -433,7 +432,6 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   video_track_param.height = stream_height;
   video_track_param.frame_rate = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -643,13 +641,12 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
-  video_track_param.width         = camera_start_params_.zsl_width;
-  video_track_param.height        = camera_start_params_.zsl_height;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = VideoFormat::kAVC;
-  video_track_param.out_device    = 0x01;
-  uint32_t video_track_id = 1;
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = camera_start_params_.zsl_width;
+  video_track_param.height      = camera_start_params_.zsl_height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kAVC;
+  uint32_t video_track_id       = 1;
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
@@ -790,9 +787,8 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   preview_track_param.height         = 1080;
   preview_track_param.frame_rate     = camera_start_params_.frame_rate;
   preview_track_param.format_type    = VideoFormat::kYUV;
-  preview_track_param.out_device     = 0x01;
   preview_track_param.low_power_mode = true;
-  uint32_t preview_track_id = 1;
+  uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
@@ -916,14 +912,13 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   VideoTrackCreateParam preview_track_param;
   memset(&preview_track_param, 0x0, sizeof preview_track_param);
 
-  preview_track_param.camera_id     = 0;
-  preview_track_param.width         = 1920;
-  preview_track_param.height        = 1080;
-  preview_track_param.frame_rate    = camera_start_params_.frame_rate;
-  preview_track_param.format_type   = VideoFormat::kYUV;
-  preview_track_param.out_device    = 0x01;
+  preview_track_param.camera_id      = 0;
+  preview_track_param.width          = 1920;
+  preview_track_param.height         = 1080;
+  preview_track_param.frame_rate     = camera_start_params_.frame_rate;
+  preview_track_param.format_type    = VideoFormat::kYUV;
   preview_track_param.low_power_mode = true;
-  uint32_t preview_track_id = 1;
+  uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
@@ -1053,13 +1048,12 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   assert(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param;
-  video_track_param.camera_id     = 0;
-  video_track_param.width         = 1920;
-  video_track_param.height        = 1080;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = VideoFormat::kAVC;
-  video_track_param.out_device    = 0x01;
-  uint32_t video_track_id_1 = 1;
+  video_track_param.camera_id   = 0;
+  video_track_param.width       = 1920;
+  video_track_param.height      = 1080;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kAVC;
+  uint32_t video_track_id_1      = 1;
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
@@ -1736,13 +1730,12 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id     = 0;
-    video_track_param.width         = 1920;
-    video_track_param.height        = 1080;
-    video_track_param.frame_rate    = 30;
-    video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
-    uint32_t video_track_id = 1;
+    video_track_param.camera_id   = 0;
+    video_track_param.width       = 1920;
+    video_track_param.height      = 1080;
+    video_track_param.frame_rate  = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+    uint32_t video_track_id       = 1;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1846,7 +1839,6 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -2001,7 +1993,6 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     video_track_param.height        = height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
@@ -2111,7 +2102,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -2223,7 +2213,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_param.codec_param.avc.idr_interval = 1;
   video_track_param.codec_param.avc.bitrate      = 10000000;
@@ -2435,7 +2424,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_param.codec_param.avc.idr_interval = 1;
   video_track_param.codec_param.avc.bitrate      = 10000000;
@@ -2682,7 +2670,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -2794,7 +2781,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -2961,7 +2947,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3013,7 +2998,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = true;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3159,7 +3143,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3211,7 +3194,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = true;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3311,7 +3293,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3421,7 +3402,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3530,7 +3510,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3581,7 +3560,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {
@@ -3679,7 +3657,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3730,7 +3707,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3842,7 +3818,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -3894,7 +3869,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3994,7 +3968,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -4046,7 +4019,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4157,7 +4129,6 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -4208,7 +4179,6 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4307,7 +4277,6 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -4359,7 +4328,6 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4460,7 +4428,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -4512,7 +4479,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4659,7 +4625,6 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -4776,7 +4741,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     video_track_param.height      = height;
     video_track_param.frame_rate  = 30;
     video_track_param.format_type = format_type;
-    video_track_param.out_device  = 0x01;
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
@@ -4891,7 +4855,6 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -5034,7 +4997,6 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
     video_track_param.height      = 2160;
     video_track_param.frame_rate  = 30;
     video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.out_device  = 0x01;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5197,12 +5159,11 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     VideoTrackCreateParam s1_video_t1_param;
     memset(&s1_video_t1_param, 0x0, sizeof s1_video_t1_param);
 
-    s1_video_t1_param.camera_id     = 0;
-    s1_video_t1_param.width         = 1920;
-    s1_video_t1_param.height        = 1080;
-    s1_video_t1_param.frame_rate    = 30;
-    s1_video_t1_param.format_type   = VideoFormat::kYUV;
-    s1_video_t1_param.out_device    = 0x01;
+    s1_video_t1_param.camera_id      = 0;
+    s1_video_t1_param.width          = 1920;
+    s1_video_t1_param.height         = 1080;
+    s1_video_t1_param.frame_rate     = 30;
+    s1_video_t1_param.format_type    = VideoFormat::kYUV;
     s1_video_t1_param.low_power_mode = true;  // LPM Stream
 
     uint32_t s1_video_t1_id = 1;
@@ -5260,7 +5221,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     s2_video_t1_param.height         = 1080;
     s2_video_t1_param.frame_rate     = 30;
     s2_video_t1_param.format_type    = VideoFormat::kAVC;
-    s2_video_t1_param.out_device     = 0x01;
     s2_video_t1_param.low_power_mode = false;
 
     uint32_t s2_video_t1_id = 1;
@@ -5413,7 +5373,6 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -5583,7 +5542,6 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -5770,7 +5728,6 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -5940,7 +5897,6 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -6110,7 +6066,6 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -6296,7 +6251,6 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -6462,7 +6416,6 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -6578,7 +6531,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -6694,7 +6646,6 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   video_track_param.height      = 2160;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6812,7 +6763,6 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -6945,7 +6895,6 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   video_track_param.height      = 1080;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
@@ -7070,7 +7019,6 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
   video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -7349,7 +7297,6 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
 
@@ -7522,7 +7469,6 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
 
@@ -7690,12 +7636,11 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
-  video_track_param.width         = width;
-  video_track_param.height        = height;
-  video_track_param.frame_rate    = 30;
-  video_track_param.format_type   = format_type;
-  video_track_param.out_device    = 0x01;
+  video_track_param.camera_id      = 0;
+  video_track_param.width          = width;
+  video_track_param.height         = height;
+  video_track_param.frame_rate     = 30;
+  video_track_param.format_type    = format_type;
   video_track_param.low_power_mode = false;
 
   TrackCb video_track_cb;
@@ -7915,7 +7860,6 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
   StreamDumpInfo dumpinfo = {
@@ -8111,7 +8055,6 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   video_track1.height         = h1;
   video_track1.frame_rate     = fps1;
   video_track1.format_type    = VideoFormat::kAVC;
-  video_track1.out_device     = 0x01;
   video_track1.low_power_mode = false;
 
   TrackCb video_track1_cb;
@@ -8194,7 +8137,6 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   video_track2.height         = h2;
   video_track2.frame_rate     = fps2;
   video_track2.format_type    = VideoFormat::kAVC;
-  video_track2.out_device     = 0x01;
   video_track2.low_power_mode = false;
 
   TrackCb video_track2_cb;
@@ -8384,7 +8326,6 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     video_track_param.height      = height;
     video_track_param.frame_rate  = 30.0;
     video_track_param.format_type = format_type;
-    video_track_param.out_device  = 0x01;
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {

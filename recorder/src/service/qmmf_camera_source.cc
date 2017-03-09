@@ -684,7 +684,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_stop_(false),
       eos_acked_(false),
       enable_overlay_(false),
-      display_started_(0),
       input_count_(0),
       count_(0) {
 
@@ -735,7 +734,6 @@ status_t TrackSource::Init() {
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
-  stream_param.cam_stream_type  = track_params_.camera_stream_type;
   stream_param.frame_rate       = track_params_.params.frame_rate;
   stream_param.id               = track_params_.track_id;
   stream_param.low_power_mode   = track_params_.params.low_power_mode;
@@ -754,15 +752,6 @@ status_t TrackSource::Init() {
   ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
   assert(ret == NO_ERROR);
 
-  if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-    ret = CreateDisplayPreview(display::DisplayType::kPrimary,
-        track_params_);
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s CreateDisplayPreview Failed!!", TAG, __func__);
-      return ret;
-    }
-  }
-
   QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
 }
@@ -772,10 +761,7 @@ status_t TrackSource::DeInit() {
   QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
   assert(camera_interface_.get() != nullptr);
 
-  auto ret = DeleteDisplayPreview(display::DisplayType::kPrimary);
-  assert(ret == NO_ERROR);
-
-  ret = camera_interface_->DeleteStream(TrackId());
+  auto ret = camera_interface_->DeleteStream(TrackId());
   assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
@@ -1066,18 +1052,13 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
       track_params_.params.format_type == VideoFormat::kBayerRDI ||
-      track_params_.params.format_type == VideoFormat::kBayerIdeal ||
-      track_params_.camera_stream_type == CameraStreamType::kPreview) {
+      track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (IsStop()) {
       QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
           " to client!", TAG, __func__, TrackId());
       ReturnBufferToProducer(buffer);
       return;
-    }
-
-    if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-      PushFrameToDisplay(buffer);
     }
 
     BnBuffer bn_buffer;
@@ -1311,151 +1292,6 @@ bool TrackSource::IsFrameSkip() {
     skip = true;
   }
   return skip;
-}
-
-status_t TrackSource::CreateDisplayPreview(display::DisplayType display_type,
-    const VideoTrackParams& track_param) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  int32_t res = 0;
-  DisplayCb  display_status_cb;
-  SurfaceConfig surface_config;
-
-  display_= new Display();
-  assert(display_ != nullptr);
-  res = display_->Connect();
-  if (res != 0) {
-    QMMF_ERROR("%s:%s Display Connect Failed!!", TAG, __func__);
-    delete display_;
-    display_ = nullptr;
-    return res;
-  }
-
-  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
-      void *event_data, size_t event_data_size) { DisplayCallbackHandler
-      (event_type, event_data, event_data_size); };
-
-  display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
-      { DisplayVSyncHandler(time_stamp); };
-
-  res = display_->CreateDisplay(display_type, display_status_cb);
-  if (res != 0) {
-    QMMF_ERROR("%s:%s CreateDisplay Failed!!", TAG, __func__);
-    display_->Disconnect();
-    delete display_;
-    display_ = nullptr;
-    return res;
-  }
-
-  memset(&surface_config, 0x0, sizeof surface_config);
-
-  surface_config.width = track_param.params.width;
-  surface_config.height = track_param.params.height;
-  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config.buffer_count = 1;
-  surface_config.cache = 0;
-  surface_config.use_buffer = 1;
-  surface_config.context = 1;
-  res = display_->CreateSurface(surface_config, &surface_id_);
-  if (res != 0) {
-    QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
-    DeleteDisplayPreview(display_type);
-    return res;
-  }
-  display_started_ = 1;
-
-  surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
-  surface_param_.dst_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
-  surface_param_.surface_blending =
-      SurfaceBlending::kBlendingCoverage;
-  surface_param_.surface_flags.cursor = 0;
-  surface_param_.frame_rate = track_param.params.frame_rate;
-  surface_param_.z_order = 0;
-  surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
-
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return res;
-
-}
-
-status_t TrackSource::DeleteDisplayPreview(display::DisplayType display_type) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  int32_t res = 0;
-  if (display_started_ == 1) {
-    display_started_ = 0;
-    res = display_->DestroySurface(surface_id_);
-    if (res != 0) {
-      QMMF_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
-    }
-
-    res = display_->DestroyDisplay(display_type);
-    if (res != 0) {
-      QMMF_ERROR("%s:%s DestroyDisplay Failed!!", TAG, __func__);
-    }
-
-    res = display_->Disconnect();
-
-    if (display_ != nullptr) {
-      QMMF_INFO("%s:%s: DELETE display_:%p", TAG, __func__, display_);
-      delete display_;
-      display_ = nullptr;
-    }
-  }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return res;
-}
-
-void TrackSource::DisplayCallbackHandler(DisplayEventType event_type,
-    void *event_data, size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void TrackSource::DisplayVSyncHandler(int64_t time_stamp)
-{
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-}
-
-status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
-  int32_t ret = 0;
-  void *buf_vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
-                          MAP_SHARED, buffer.fd, 0);
-  assert(buf_vaaddr != nullptr);
-
-  if (display_started_) {
-    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = static_cast<int32_t>(buffer.fd);
-    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-    surface_buffer_.plane_info[0].stride = buffer.info.plane_info[0].stride;
-    surface_buffer_.plane_info[0].size = buffer.frame_length;
-    surface_buffer_.plane_info[0].width = buffer.info.plane_info[0].width;
-    surface_buffer_.plane_info[0].height = buffer.info.plane_info[0].height;
-    surface_buffer_.plane_info[0].offset = 0;
-    surface_buffer_.plane_info[0].buf = (void*)buf_vaaddr;
-
-    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
-        surface_param_);
-    if (buf_vaaddr != nullptr) {
-      munmap(buf_vaaddr, buffer.size);
-      buf_vaaddr = nullptr;
-    }
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
-      return ret;
-    }
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
-      return ret;
-    }
-  }
-  return ret;
 }
 
 void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
