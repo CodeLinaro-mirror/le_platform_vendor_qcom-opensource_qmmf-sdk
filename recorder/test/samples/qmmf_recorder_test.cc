@@ -2079,6 +2079,8 @@ status_t RecorderTest::SetParams() {
 
   uint32_t input;
   uint32_t value;
+  float fps;
+
   do {
     printf("\n");
     printf("****** Set Dynamic Codec Param *******\n" );
@@ -2105,10 +2107,10 @@ status_t RecorderTest::SetParams() {
         break;
       case 2:
         printf("Enter fps value\n");
-        scanf("%d", &value);
+        scanf("%f", &fps);
         param_type = CodecParamType::kFrameRateType;
-        ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
-                                              sizeof(value));
+        ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &fps,
+                                              sizeof(fps));
         break;
       case 3:
         printf("Insert idr frame\n");
@@ -2646,7 +2648,7 @@ void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
   printf("initParams.af_mode = %d\n", initParams.af_mode);
   printf("TrackInfo.track_type = %d\n", track_info.track_type);
   printf("TrackInfo.camera_id = %d\n", track_info.camera_id);
-  printf("TrackInfo.fps = %d\n", track_info.fps);
+  printf("TrackInfo.fps = %5.2f\n", track_info.fps);
   printf("TrackInfo.width = %d\n", track_info.width);
   printf("TrackInfo.height = %d\n\n", track_info.height);
 }
@@ -2713,7 +2715,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     if(!strncmp("CameraID", key, strlen("CameraID"))) {
       initParams->camera_id = atoi(value);
     } else if(!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
-      initParams->camera_fps = atoi(value);
+      initParams->camera_fps = atof(value);
     } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
       if(!strncmp("None", value, strlen("None"))) {
         initParams->snapshot_info.type= SnapshotType::kNone;
@@ -2770,7 +2772,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     } else if(!strncmp("Height", key, strlen("Height"))) {
       track_info.height = atoi(value);
     } else if(!strncmp("FPS", key, strlen("FPS"))) {
-      track_info.fps = atoi(value);
+      track_info.fps = atof(value);
     } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
       track_info.bitrate = atoi(value);
     } else if(!strncmp("TrackType", key, strlen("TrackType"))) {
@@ -2901,7 +2903,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       || (track_info.track_type == TrackType::kVideoRDI)
       || (track_info.track_type == TrackType::kVideoYUV)
       || (track_info.track_type == TrackType::kVideoPreview) ) {
-    uint32_t fps = track_info.fps;
+    float fps = track_info.fps;
     uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
     VideoTrackCreateParam video_track_param;

@@ -104,6 +104,8 @@ class DumpBitStream {
 
   bool IsEnabled() {return is_enabled_;}
 
+  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
+
   int32_t GetFileFd(const uint32_t count)
                    {assert(count > 0);
                     assert(count <= file_fds_.size());
