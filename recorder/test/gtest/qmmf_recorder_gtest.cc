@@ -41,6 +41,7 @@
 #include <system/graphics.h>
 #include <random>
 #include <QCamera3VendorTags.h>
+#include <sys/time.h>
 
 #include "common/avqueue/qmmf_queue.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
@@ -8639,8 +8640,11 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         break;
       }
 
-      file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
-          ext_str);
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+      file_path.appendFormat("/data/snapshot_%u_%llu.%s", image_sequence_count,
+          tv_ms, ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
