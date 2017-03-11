@@ -56,7 +56,11 @@ class RecorderService : public BnInterface<IRecorderService> {
     void binderDied(const wp<IBinder>&) override {
       QMMF_WARN("RecorderSerive:%s: Client Exited or Died!", __func__);
       assert(parent_.get() != nullptr);
-      parent_->Disconnect();
+      //TODO:
+      //1. Identify the exact client who died in battle.
+      //2. Revisit this logic to clean up the resoutrces belongs to client If
+      //   It dies for some reason.
+      //parent_->Disconnect();
     }
     sp<RecorderService> parent_;
   };
@@ -68,111 +72,146 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t onTransact(uint32_t code, const Parcel& data,
                                Parcel* reply, uint32_t flags = 0) override;
 
-  status_t Connect(const sp<IRecorderServiceCallback>& service_cb) override;
+  status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
+                   uint32_t* client_id) override;
 
-  status_t Disconnect() override;
+  status_t Disconnect(const uint32_t client_id) override;
 
-  status_t StartCamera(const uint32_t camera_id,
+  status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
                        const CameraStartParam &param,
                        bool enable_result_cb = false) override;
 
-  status_t StopCamera(const uint32_t camera_id) override;
+  status_t StopCamera(const uint32_t client_id,
+                      const uint32_t camera_id) override;
 
-  status_t CreateSession(uint32_t *session_id) override;
+  status_t CreateSession(const uint32_t client_id,
+                         uint32_t *session_id) override;
 
-  status_t DeleteSession(const uint32_t session_id) override;
+  status_t DeleteSession(const uint32_t client_id,
+                         const uint32_t session_id) override;
 
-  status_t StartSession(const uint32_t session_id) override;
+  status_t StartSession(const uint32_t client_id,
+                        const uint32_t session_id) override;
 
-  status_t StopSession(const uint32_t session_id, bool do_flush) override;
+  status_t StopSession(const uint32_t client_id,
+                       const uint32_t session_id, bool do_flush) override;
 
-  status_t PauseSession(const uint32_t session_id) override;
+  status_t PauseSession(const uint32_t client_id,
+                        const uint32_t session_id) override;
 
-  status_t ResumeSession(const uint32_t session_id) override;
+  status_t ResumeSession(const uint32_t client_id,
+                         const uint32_t session_id) override;
 
-  status_t CreateAudioTrack(const uint32_t session_id,
+  status_t CreateAudioTrack(const uint32_t client_id,
+                            const uint32_t session_id,
                             const uint32_t track_id,
                             const AudioTrackCreateParam& param) override;
 
-  status_t CreateVideoTrack(const uint32_t session_id,
+  status_t CreateVideoTrack(const uint32_t client_id,
+                            const uint32_t session_id,
                             const uint32_t track_id,
                             const VideoTrackCreateParam& param) override;
 
-  status_t DeleteAudioTrack(const uint32_t session_id,
+  status_t DeleteAudioTrack(const uint32_t client_id,
+                            const uint32_t session_id,
                             const uint32_t track_id) override;
 
-  status_t DeleteVideoTrack(const uint32_t session_id,
+  status_t DeleteVideoTrack(const uint32_t client_id,
+                            const uint32_t session_id,
                             const uint32_t track_id) override;
 
-  status_t ReturnTrackBuffer(const uint32_t session_id,
+  status_t ReturnTrackBuffer(const uint32_t client_id,
+                             const uint32_t session_id,
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers) override;
 
-  status_t SetAudioTrackParam(const uint32_t session_id,
+  status_t SetAudioTrackParam(const uint32_t client_id,
+                              const uint32_t session_id,
                               const uint32_t track_id,
                               CodecParamType type,
                               void *param,
                               size_t param_size) override;
 
-  status_t SetVideoTrackParam(const uint32_t session_id,
+  status_t SetVideoTrackParam(const uint32_t client_id,
+                              const uint32_t session_id,
                               const uint32_t track_id,
                               CodecParamType type,
                               void *param,
                               size_t param_size) override;
 
-  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+  status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+                        const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta) override;
 
-  status_t ConfigImageCapture(const uint32_t camera_id,
+  status_t ConfigImageCapture(const uint32_t client_id,
+                              const uint32_t camera_id,
                               const ImageCaptureConfig &config) override;
 
-  status_t CancelCaptureImage(const uint32_t camera_id) override;
+  status_t CancelCaptureImage(const uint32_t client_id,
+                              const uint32_t camera_id) override;
 
-  status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+  status_t ReturnImageCaptureBuffer(const uint32_t client_id,
+                                    const uint32_t camera_id,
                                     const int32_t  buffer_id) override;
 
-  status_t SetCameraParam(const uint32_t camera_id,
+  status_t SetCameraParam(const uint32_t client_id,
+                          const uint32_t camera_id,
                           const CameraMetadata &meta) override;
 
-  status_t GetCameraParam(const uint32_t camera_id,
+  status_t GetCameraParam(const uint32_t client_id,
+                          const uint32_t camera_id,
                           CameraMetadata &meta) override;
 
-  status_t GetDefaultCaptureParam(const uint32_t camera_id,
+  status_t GetDefaultCaptureParam(const uint32_t client_id,
+                                  const uint32_t camera_id,
                                   CameraMetadata &meta);
 
-  status_t CreateOverlayObject(const uint32_t track_id, OverlayParam *param,
+  status_t CreateOverlayObject(const uint32_t client_id,
+                               const uint32_t track_id, OverlayParam *param,
                                uint32_t *overlay_id) override;
 
-  status_t DeleteOverlayObject(const uint32_t track_id,
+  status_t DeleteOverlayObject(const uint32_t client_id,
+                               const uint32_t track_id,
                                const uint32_t overlay_id) override;
 
-  status_t GetOverlayObjectParams(const uint32_t track_id,
+  status_t GetOverlayObjectParams(const uint32_t client_id,
+                                  const uint32_t track_id,
                                   const uint32_t overlay_id,
                                   OverlayParam &param) override;
 
-  status_t UpdateOverlayObjectParams(const uint32_t track_id,
+  status_t UpdateOverlayObjectParams(const uint32_t client_id,
+                                     const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      OverlayParam *param) override;
 
-  status_t SetOverlayObject(const uint32_t track_id,
+  status_t SetOverlayObject(const uint32_t client_id,
+                            const uint32_t track_id,
                             const uint32_t overlay_id) override;
 
-  status_t RemoveOverlayObject(const uint32_t track_id,
+  status_t RemoveOverlayObject(const uint32_t client_id,
+                               const uint32_t track_id,
                                const uint32_t overlay_id) override;
 
-  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+  status_t CreateMultiCamera(const uint32_t client_id,
+                             const std::vector<uint32_t> camera_ids,
                              uint32_t *virtual_camera_id) override;
 
-  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+  status_t ConfigureMultiCamera(const uint32_t client_id,
+                                const uint32_t virtual_camera_id,
                                 const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size) override;
 
-  RecorderImpl*                recorder_;
-  sp<DeathNotifier>            death_notifier_;
-  bool                         connected_;
-  sp<RemoteCallBack>           remote_callback_;
+  bool IsClientValid(const uint32_t client_id);
+
+  RecorderImpl*       recorder_;
+  // Map of client ids and their death notifiers.
+  DefaultKeyedVector<uint32_t, sp<DeathNotifier> > death_notifier_list_;
+  // Map of client ids and their callback handlers.
+  DefaultKeyedVector<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
+  uint32_t  unique_client_id_;
+  Mutex     lock_;
 };
 
 }; //namespace qmmf
