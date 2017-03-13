@@ -219,6 +219,8 @@ status_t RecorderClient::Disconnect() {
   if (!sessions_.isEmpty()) {
     sessions_.clear();
   }
+  close(ion_device_);
+
   QMMF_KPI_END();
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
