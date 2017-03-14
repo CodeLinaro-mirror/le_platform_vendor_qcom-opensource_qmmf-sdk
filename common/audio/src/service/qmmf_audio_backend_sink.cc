@@ -137,33 +137,42 @@ int32_t AudioBackendSink::Open(const vector<DeviceId>& devices,
   audio_config_t config = AUDIO_CONFIG_INITIALIZER;
   switch (metadata.sample_size) {
     case 16:
-      config.offload_info.format = AUDIO_FORMAT_PCM_16_BIT;
+      config.format = AUDIO_FORMAT_PCM_16_BIT;
       break;
     case 32:
-      config.offload_info.format = AUDIO_FORMAT_PCM_32_BIT;
+      config.format = AUDIO_FORMAT_PCM_32_BIT;
       break;
     default:
       QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
                  metadata.sample_size);
       return -EINVAL;
   }
-
+  config.sample_rate = metadata.sample_rate;
   config.channel_mask = audio_channel_out_mask_from_count(metadata.num_channels);
-  config.offload_info.version = AUDIO_OFFLOAD_INFO_VERSION_CURRENT;
-  config.offload_info.size = sizeof(audio_offload_info_t);
-  config.offload_info.channel_mask = config.channel_mask;
-  config.offload_info.sample_rate = metadata.sample_rate;
   config.frame_count = 0;
+
+  if ((metadata.flags & static_cast<uint32_t>(AudioFlag::kFlagLowLatency)) == 0) {
+    config.offload_info.version = AUDIO_OFFLOAD_INFO_VERSION_CURRENT;
+    config.offload_info.size = sizeof(audio_offload_info_t);
+    config.offload_info.sample_rate = config.sample_rate;
+    config.offload_info.channel_mask = config.channel_mask;
+    config.offload_info.format = config.format;
+  }
 
   // use the next available io_handle
   if (current_io_handle_ + 1 > kIOHandleMax)
     current_io_handle_ = kIOHandleMin;
   ++current_io_handle_;
 
+  audio_output_flags_t flags;
+  if ((metadata.flags & static_cast<uint32_t>(AudioFlag::kFlagLowLatency)) != 0)
+    flags = AUDIO_OUTPUT_FLAG_FAST;
+  else
+    flags = AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD;
+
   result = qahw_open_output_stream(qahw_module_, current_io_handle_,
-                                   AUDIO_DEVICE_OUT_SPEAKER,
-                                   AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD,
-                                   &config, &qahw_stream_, "output_stream");
+                                   AUDIO_DEVICE_OUT_SPEAKER, flags, &config,
+                                   &qahw_stream_, "output_stream");
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to open output stream: %d[%s]", TAG, __func__,
                result, strerror(result));
@@ -206,13 +215,6 @@ int32_t AudioBackendSink::Close() {
   }
 
 #ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  result = qahw_out_standby(qahw_stream_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to put output stream in standby: %d[%s]",
-               TAG, __func__, result, strerror(result));
-    return result;
-  }
-
   result = qahw_close_output_stream(qahw_stream_);
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to close output stream: %d[%s]",
@@ -593,6 +595,7 @@ void AudioBackendSink::Thread() {
   queue<AudioBuffer> buffers;
   bool paused = false;
   bool flushing = false;
+  int result;
 
   bool keep_running = true;
   while (keep_running) {
@@ -656,7 +659,7 @@ void AudioBackendSink::Thread() {
         qahw_buffer.buffer = buffer.data;
         qahw_buffer.bytes = buffer.size;
 
-        int result = qahw_out_write(qahw_stream_, &qahw_buffer);
+        result = qahw_out_write(qahw_stream_, &qahw_buffer);
         if (result < 0) {
           QMMF_ERROR("%s: %s() failed to write output stream: %d[%s]", TAG,
                      __func__, result, strerror(result));
@@ -689,6 +692,15 @@ void AudioBackendSink::Thread() {
         flushing = false;
     } while (flushing == true);
   }
+
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+  result = qahw_out_standby(qahw_stream_);
+  if (result != 0) {
+    QMMF_ERROR("%s: %s() failed to put output stream in standby: %d[%s]",
+               TAG, __func__, result, strerror(result));
+    error_handler_(audio_handle_, result);
+  }
+#endif
 }
 
 }; // namespace audio

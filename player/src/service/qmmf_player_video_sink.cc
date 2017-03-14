@@ -169,8 +169,7 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false), paused_(false),
       decoded_frame_number_(0), display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
-      playback_dir_(TrickModeDirection::kForward),
-      current_time_(0), prev_time_(0),
+      playback_dir_(TrickModeDirection::kNormalForward),
       displayed_frames_(0), grab_picture_(false),
       ion_device_(-1), grabpicture_file_fd_(-1), snapshot_dumps_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
@@ -187,6 +186,8 @@ VideoTrackSink::VideoTrackSink()
     QMMF_ERROR("%s: %s() error opening ion device: %d[%s]", TAG, __func__,
         errno, strerror(errno));
   }
+
+  player_decode_profile_ = GetPlayerDecodeProfileProperty();
 
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
 }
@@ -275,8 +276,6 @@ status_t VideoTrackSink::StopSink() {
 
   decoded_frame_number_ = 0;
   displayed_frames_ = 0;
-  current_time_ = 0;
-  prev_time_ = 0;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return ret;
@@ -320,13 +319,13 @@ status_t VideoTrackSink::DeleteSink() {
 }
 
 status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
-                                      TrickModeDirection direction) {
+                                      TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
-  QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
-      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+  QMMF_DEBUG("%s:%s: Speed (%u) Type (%u)", TAG, __func__,
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(dir));
 
   playback_speed_ = speed;
-  playback_dir_ = direction;
+  playback_dir_ = dir;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
@@ -398,6 +397,16 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   status_t ret = 0;
 
+  if (player_decode_profile_) {
+    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
+    uint64_t time_diff = duration_cast<microseconds>
+                             (curr_time - prev_time_).count();
+
+    QMMF_INFO("%s:%s: FBD profile for Video Decoding :: %llu", TAG,__func__,
+        time_diff);
+    prev_time_ = curr_time;
+  }
+
   assert(codec_buffer.data != NULL);
 
   QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
@@ -409,7 +418,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded video frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), decoded_frame_number_,
         codec_buffer.timestamp);
-      current_time_ = codec_buffer.timestamp;
 
  #ifdef DUMP_YUV_FRAMES
     DumpYUVData(codec_buffer);
@@ -418,7 +426,6 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     if (SkipFrame()) {
       QMMF_DEBUG("%s:%s:Skipping frame number %d to display", TAG, __func__,
            decoded_frame_number_);
-      prev_time_ = current_time_;
       ReturnBufferToCodec(codec_buffer);
       return NO_ERROR;
     } else {
@@ -426,17 +433,31 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       ret = PushFrameToDisplay(codec_buffer);
       if (ret != 0) {
         QMMF_ERROR("%s:%s PushFrameToDisplay Failed!!", TAG, __func__);
+        return ret;
       }
 
-      QMMF_VERBOSE("%s:%s Sleeping for %0.2f ms", TAG, __func__,
-          (float)((current_time_ - prev_time_)/(float)1000));
-      usleep(current_time_ - prev_time_);
+      int64_t sleep = 1000000/(track_params_.params.frame_rate);
+
+      if (playback_dir_ == TrickModeDirection::kSlowForward) {
+        QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Slow Forward", TAG, __func__,
+            (float)(sleep*static_cast<uint32_t>(playback_speed_))/(float)1000);
+        usleep(sleep*(static_cast<uint32_t>(playback_speed_)));
+
+      } else if (playback_dir_ == TrickModeDirection::kNormalRewind){
+        QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Rewind", TAG, __func__,
+            (float)(sleep*6)/(float)1000);
+        usleep(sleep*6);
+
+      } else {
+        QMMF_DEBUG("%s:%s Sleeping for %0.2f ms in Normal Playback", TAG, __func__,
+            (float)sleep/(float)1000);
+        usleep(sleep);
+      }
 
       ++displayed_frames_;
       QMMF_DEBUG("%s:%s: track_id(%d) displayed video frame number %d",
           TAG, __func__, TrackId(), decoded_frame_number_);
     }
-    prev_time_ = current_time_;
   }
 
   ReturnBufferToCodec(codec_buffer);
@@ -472,7 +493,8 @@ status_t VideoTrackSink::ReturnBufferToCodec(
 status_t VideoTrackSink::SkipFrame() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  if (playback_speed_ == TrickModeSpeed::kSpeed_1x) {
+  if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
+      playback_dir_ == TrickModeDirection::kSlowForward ) {
     return false;
 
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_2x) {
@@ -568,6 +590,7 @@ status_t VideoTrackSink::CreateDisplay(
   surface_config.buffer_count = track_param.params.num_buffers;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
+  surface_config.context = 1;
   res = display_->CreateSurface(surface_config, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
@@ -645,7 +668,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
    uint8_t*vaddr = (uint8_t*)bufinfo.vaddr;
    if (display_started_) {
      surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
-     surface_buffer_.buf_id =0;
+     surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
      surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
      surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config.width, 128);
      surface_buffer_.plane_info[0].size = codec_buffer.size;

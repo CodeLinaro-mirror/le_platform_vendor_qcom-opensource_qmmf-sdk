@@ -21,6 +21,9 @@ BUILD_COMPONENTS += player/src/service
 BUILD_COMPONENTS += player/test/demuxer
 BUILD_COMPONENTS += player/test/samples
 BUILD_COMPONENTS += player/test/gtest
+BUILD_COMPONENTS += system/src/client
+BUILD_COMPONENTS += system/src/service
+BUILD_COMPONENTS += system/test/samples
 BUILD_COMPONENTS += qmmf-server
 
 

@@ -332,10 +332,11 @@ namespace player {
 
     case PLAYER_SET_TRICKMODE:
     {
-      uint32_t speed, direction;
+      uint32_t speed, dir;
       speed = data.readUint32();
-      direction = data.readUint32();
-      ret = SetTrickMode(speed,direction);
+      dir = data.readUint32();
+      ret = SetTrickMode(static_cast<TrickModeSpeed>(speed),
+          static_cast<TrickModeDirection>(dir));
       reply->writeInt32(ret);
       return NO_ERROR;
     }
@@ -641,14 +642,14 @@ status_t PlayerService::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-status_t PlayerService::SetTrickMode(uint32_t speed, uint32_t direction) {
+status_t PlayerService::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
 
   assert(player_ != NULL);
 
-  auto ret = player_->SetTrickMode(speed, direction);
+  auto ret = player_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: SetTrickMode failed!", TAG, __func__);
     return BAD_VALUE;

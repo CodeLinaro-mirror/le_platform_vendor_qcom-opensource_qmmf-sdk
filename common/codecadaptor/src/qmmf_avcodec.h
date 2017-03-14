@@ -188,7 +188,9 @@ class AVCodec : public IAVCodec {
   bool                            port_status_; // for both ports
   ::android::Mutex                input_stop_lock_;
   ::android::Mutex                output_stop_lock_;
-  pthread_t                       read_thread_;
+  pthread_t                       deliver_input_thread_id_;
+  pthread_t                       deliver_output_thread_id_;
+  pthread_t                       port_reconfig_thread_id_;
   ::std::shared_ptr<ICodecSource> input_source_;
   ::std::shared_ptr<ICodecSource> output_source_;
   OMX_BUFFERHEADERTYPE**          in_buff_hdr_;
@@ -225,6 +227,7 @@ class AVCodec : public IAVCodec {
   ::android::Mutex          port_reconfig_lock_;
   ::android::Mutex          threadrun_port_reconfig_lock_;
   ::android::Condition      wait_for_threadrun;
+  CodecParam                codec_params_;
 };
 
 }; // namespace avcodec

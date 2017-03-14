@@ -51,7 +51,7 @@ using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
 
-#define QMMF_PLAYER_SERVICE_NAME "player.service"
+#define QMMF_PLAYER_SERVICE_NAME "qmmf_player.service"
 
 enum QMMF_PLAYER_SERVICE_CMDS {
   PLAYER_CONNECT = IBinder::FIRST_CALL_TRANSACTION,
@@ -172,7 +172,7 @@ class IPlayerService : public IInterface {
 
   virtual status_t SetPosition(int64_t seek_time) = 0;
 
-  virtual status_t SetTrickMode(uint32_t speed, uint32_t direction) = 0;
+  virtual status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) = 0;
 
   virtual status_t GrabPicture(PictureParam param) = 0;
 

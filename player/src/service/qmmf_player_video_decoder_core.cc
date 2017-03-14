@@ -365,7 +365,7 @@ status_t VideoDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
 
 status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
                                              TrickModeSpeed speed,
-                                             TrickModeDirection direction) {
+                                             TrickModeDirection dir) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -377,7 +377,7 @@ status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret =  track_decoder->SetTrickMode(speed, direction);
+  auto ret =  track_decoder->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) SetTrackTrickMode failed!", TAG, __func__,
      track_id);
@@ -410,6 +410,8 @@ VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
    file_fd_video_ = open("/data/video_track.bitstream",
        O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
+
+  player_decode_profile_ = GetPlayerDecodeProfileProperty();
 
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -757,13 +759,11 @@ status_t VideoTrackDecoder::SetVideoDecoderParams(
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->SetParameters(param_type,param,param_size);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
+  auto ret = avcodec_->SetParameters(param_type, param, param_size);
   if (ret != NO_ERROR) {
-   QMMF_ERROR("%s:%s: track_id(%d) ResumeCodec failed!", TAG, __func__,
-       TrackId());
-   return ret;
+    QMMF_ERROR("%s:%s: track_id(%d) SetParameters failed!", TAG, __func__,
+        TrackId());
+    return ret;
   }
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -784,15 +784,30 @@ status_t VideoTrackDecoder::DeleteDecoder()
 }
 
 status_t VideoTrackDecoder::SetTrickMode(TrickModeSpeed speed,
-                                         TrickModeDirection direction) {
+                                         TrickModeDirection dir) {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   QMMF_DEBUG("%s:%s: Speed (%u) Dir (%u)", TAG, __func__,
-      static_cast<uint32_t>(speed), static_cast<uint32_t>(direction));
+      static_cast<uint32_t>(speed), static_cast<uint32_t>(dir));
 
-  auto ret = video_track_sink_->SetTrickMode(speed, direction);
+  auto ret = video_track_sink_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) SetTrickMode failed!", TAG, __func__,
         TrackId());
+    return ret;
+  }
+
+  uint32_t value = video_track_params_.params.frame_rate;
+
+  if (dir == TrickModeDirection::kFastForward
+      || dir == TrickModeDirection::kFastRewind) {
+    value = video_track_params_.params.frame_rate * static_cast<uint32_t>(speed);
+  }
+
+  ret = SetVideoDecoderParams(CodecParamType::kDecodeOperatingRate, &value,
+      sizeof(value));
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: track_id(%d) SetVideoDecoderParams failed!", TAG,
+        __func__, TrackId());
     return ret;
   }
 
@@ -851,6 +866,16 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
   QMMF_VERBOSE("%s:%s: track_id(%d) frames_being_decoded_.size(%d)", TAG,
       __func__, TrackId(), frames_being_decoded_.Size());
+
+  if (player_decode_profile_) {
+    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
+    uint64_t time_diff = duration_cast<microseconds>
+                             (curr_time - prev_time_).count();
+
+    QMMF_INFO("%s:%s: EBD profile for Video Decoding :: %llu", TAG,__func__,
+        time_diff);
+    prev_time_ = curr_time;
+  }
 
   bool found = false;
 

@@ -35,6 +35,7 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <condition_variable>
 
 #include <qmmf-sdk/qmmf_player.h>
 #include <qmmf-sdk/qmmf_player_params.h>
@@ -42,6 +43,9 @@
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
 #include "qmmf-sdk/qmmf_buffer.h"
+
+#define EOS_FLAG 1
+#define EOS_BUFFER_SIZE 0
 
 using namespace qmmf;
 using namespace player;
@@ -119,7 +123,11 @@ class PlayerTest {
 
   static void* StartPlayingVideo(void* ptr);
 
-  int32_t StopPlaying();
+  static void* StopPlaying(void* ptr);
+
+  bool IsStopPlaying();
+
+  int32_t StopPlayback();
 
   uint32_t CreateDataSource();
 
@@ -139,16 +147,26 @@ class PlayerTest {
   int32_t ParseFile(AudioTrackCreateParam& audio_track_param_,
                     VideoTrackCreateParam& video_track_param_);
 
+  uint32_t UpdateCurrentPlaybackTime(uint64_t current_time);
+
+  uint32_t GetCurrentPlaybackTime();
+
+  bool IsPlayerStopped();
+
+  bool IsTrickModeEnabled();
+
   Player player_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
 
   std::mutex                      state_change_lock_;
+  std::condition_variable         wait_for_state_change_;
   bool                            stopped_;
   bool                            stop_playing_;
   bool                            start_again_;
   pthread_t                       audio_thread_id_;
   pthread_t                       video_thread_id_;
+  pthread_t                       stop_thread_;
 
   MM_TRACK_INFOTYPE               m_sTrackInfo_;
   CMM_MediaSourcePort*            m_pIStreamPort_;
@@ -173,6 +191,10 @@ class PlayerTest {
   TrickModeSpeed                  playback_speed_;
   TrickModeDirection              playback_dir_;
   int32_t                         grabpicture_file_fd_;
+  std::mutex                      time_lock_;
+  bool                            trick_mode_enabled_;
+  uint64_t                        current_playback_time_;
+  bool                            intermediate_stop_;
 };
 
 class CmdMenu {
@@ -186,8 +208,9 @@ class CmdMenu {
       PAUSE_CMD                         = '6',
       RESUME_CMD                        = '7',
       DELETE_CMD                        = '8',
-      TRICK_MODE_CMD                    = '9',
+      TRICK_MODE_CMD                    = 'T',
       GRAB_PICTURE                      = 'P',
+      SEEK_CMD                          = 'S',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'

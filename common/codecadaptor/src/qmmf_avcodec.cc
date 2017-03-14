@@ -954,6 +954,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       (uint32_t)output_port.format.video.nFrameWidth,
       (uint32_t)output_port.format.video.nFrameHeight);
 
+  codec_params_ = codec_param;
+
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
@@ -2019,6 +2021,10 @@ status_t AVCodec::StartCodec() {
             PORT_NAME(kPortIndexOutput));
         return ret;
     }
+
+    if (format_type_ == CodecType::kVideoDecoder) {
+      ConfigureVideoDecoder(codec_params_);
+    }
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
@@ -2200,10 +2206,10 @@ status_t AVCodec::StartCodec() {
     output_stop_ = false;
   }
 
-  pthread_create(&read_thread_, nullptr, DeliverInput, (void*)this);
-  pthread_create(&read_thread_, nullptr, DeliverOutput, (void*)this);
+  pthread_create(&deliver_input_thread_id_, nullptr, DeliverInput, (void*)this);
+  pthread_create(&deliver_output_thread_id_, nullptr, DeliverOutput, (void*)this);
   if (format_type_ == CodecType::kVideoDecoder) {
-    pthread_create(&read_thread_, nullptr, ThreadRun, (void*)this);
+    pthread_create(&port_reconfig_thread_id_, nullptr, ThreadRun, (void*)this);
   }
 
   QMMF_INFO("%s:%s current state(%s), pending state(%s)", TAG, __func__,
@@ -2225,6 +2231,23 @@ status_t AVCodec::StopCodec() {
   {
     Mutex::Autolock autoLock(input_stop_lock_);
     input_stop_ = true;
+  }
+
+  ret = pthread_join(deliver_input_thread_id_, nullptr);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to join DeliverInput Thread", TAG, __func__);
+  }
+
+  ret = pthread_join(deliver_output_thread_id_, nullptr);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to join DeliverOutput Thread", TAG, __func__);
+  }
+
+  if (format_type_ == CodecType::kVideoDecoder) {
+    ret = pthread_join(port_reconfig_thread_id_, nullptr);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to join ThreadRun Thread", TAG, __func__);
+    }
   }
 
   CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
@@ -2376,6 +2399,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
   VideoEncIdrInterval *idr_interval;
   VideoEncLtrUse *ltr_use;
   OMX_INDEXTYPE index;
+  OMX_PARAM_U32TYPE operating_rate_params;
 
   switch (param_type) {
     case CodecParamType::kBitRateType:
@@ -2441,6 +2465,15 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
       useltr_params.nFrames = ltr_use->frame;
       index = (OMX_INDEXTYPE)QOMX_IndexConfigVideoLTRUse;
       ret = omx_client_->SetConfig(index, &useltr_params);
+      break;
+    case CodecParamType::kDecodeOperatingRate:
+      value = static_cast<uint32_t*>(codec_param);
+      InitOMXParams(&operating_rate_params);
+      operating_rate_params.nPortIndex = kPortIndexOutput;
+      FractionToQ16(operating_rate_params.nU32,
+          (int32_t)((*value)* 2), 2);
+      ret = omx_client_->SetConfig((OMX_INDEXTYPE)OMX_IndexConfigOperatingRate,
+          static_cast<OMX_PTR>(&operating_rate_params));
       break;
     default:
       QMMF_ERROR("%s:%s Unknown param type", TAG, __func__);

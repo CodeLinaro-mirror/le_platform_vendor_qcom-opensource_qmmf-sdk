@@ -232,11 +232,11 @@ status_t Player::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-status_t Player::SetTrickMode(uint32_t speed, uint32_t direction) {
+status_t Player::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
-  auto ret = player_client_->SetTrickMode(speed, direction);
+  auto ret = player_client_->SetTrickMode(speed, dir);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: SetTrickMode failed!", __func__);
   }
