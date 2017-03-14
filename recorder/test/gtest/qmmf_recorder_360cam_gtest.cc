@@ -357,6 +357,130 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
 }
 
 /*
+* Stitched4KAndFullHDYUVTrack: This case will test a MultiCamera session with
+*                              one 4K and one Full HD YUV tracks, configured
+*                              to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  loop Start {
+*   ------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   ------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  uint32_t track_4k_id = 1;
+  uint32_t track_fullhd_id = 2;
+  std::vector<uint32_t> track_ids;
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = 3840;
+    video_track_param.height        = 1920;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = VideoFormat::kYUV;
+    video_track_param.out_device    = 0x01;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(track_4k_id);
+
+    video_track_param.width  = 1920;
+    video_track_param.height = 960;
+
+    ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(track_fullhd_id);
+
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for time kRecordDuration, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_4k_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_fullhd_id);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
 * Stitched4KEncTrack: This case will test a MultiCamera session with 3840x1920
 *                     h264 encodded track and configured to produce stitched
 *                     frames.
@@ -657,6 +781,132 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
 
     ClearSessions();
   }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* SideBySide4KAndFullHDYUVTrack: This case will test a MultiCamera session with
+*                                one 4K and one Full HD YUV tracks, configured
+*                                to produce side-by-side frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  loop Start {
+*   ------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   ------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  multicam_type_ = MultiCameraConfigType::kSideBySide;
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  uint32_t track_4k_id = 1;
+  uint32_t track_fullhd_id = 2;
+  std::vector<uint32_t> track_ids;
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = 3840;
+    video_track_param.height        = 1920;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = VideoFormat::kYUV;
+    video_track_param.out_device    = 0x01;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(track_4k_id);
+
+    video_track_param.width  = 1920;
+    video_track_param.height = 960;
+
+    ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(track_fullhd_id);
+
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for time kRecordDuration, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_4k_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_fullhd_id);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
