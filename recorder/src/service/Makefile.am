@@ -59,3 +59,4 @@ libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/came
 libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/jpeg-encoder/libqmmf_camera_jpeg.la
 libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/simple/libqmmf_camera_simple.la
 libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/copy/libqmmf_camera_copy.la
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/haze-buster/libqmmf_camera_haze_buster.la

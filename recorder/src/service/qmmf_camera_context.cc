@@ -1581,7 +1581,8 @@ status_t CameraPort::Init() {
   }
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;
-  cam_stream_params_.grallocFlags = GRALLOC_USAGE_HW_FB;
+  cam_stream_params_.grallocFlags =
+      GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
   if (params_.low_power_mode) {
       cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;

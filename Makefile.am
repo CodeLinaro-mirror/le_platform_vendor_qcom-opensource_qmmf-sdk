@@ -12,6 +12,7 @@ BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/copy
 BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/simple
 BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/camera-hal
 BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/jpeg-encoder
+BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/haze-buster
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest

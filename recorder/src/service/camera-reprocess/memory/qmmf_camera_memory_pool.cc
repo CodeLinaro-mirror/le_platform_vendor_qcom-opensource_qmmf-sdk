@@ -338,6 +338,7 @@ status_t MemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
 
   // Filter out any usage bits that shouldn't be passed to the gralloc module.
   usage &= GRALLOC_USAGE_ALLOC_MASK;
+  usage |= GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_OFTEN;
 
   if (!width || !height) {
     width = height = 1;

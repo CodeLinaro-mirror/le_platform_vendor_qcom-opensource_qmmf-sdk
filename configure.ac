@@ -176,6 +176,7 @@ AC_CONFIG_FILES([ \
     recorder/src/service/camera-reprocess/modules/simple/Makefile \
     recorder/src/service/camera-reprocess/modules/camera-hal/Makefile \
     recorder/src/service/camera-reprocess/modules/jpeg-encoder/Makefile \
+    recorder/src/service/camera-reprocess/modules/haze-buster/Makefile \
     recorder/src/service/Makefile \
     player/src/client/Makefile \
     player/src/service/Makefile \

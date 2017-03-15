@@ -33,6 +33,7 @@
 #include "../modules/jpeg-encoder/qmmf_camera_jpeg.h"
 #include "../modules/simple/qmmf_camera_simple.h"
 #include "../modules/copy/qmmf_camera_copy.h"
+#include "../modules/haze-buster/qmmf_camera_haze_buster.h"
 
 #include "qmmf_camera_factory.h"
 
@@ -82,6 +83,8 @@ ReprocessFactory::getReprocEngine(String8 name,
     instance = new CameraSimple(GetId());
   } else if (name == "Copy") {
     instance = new CameraCopy(GetId());
+  } else if (name == "HazeBuster") {
+    instance = new CameraHazeBuster(GetId());
   } else {
     QMMF_ERROR("%s: Invalid reprocess engine!", __func__);
   }
