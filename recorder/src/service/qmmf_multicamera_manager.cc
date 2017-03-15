@@ -1677,14 +1677,15 @@ status_t StitchingBase::PopulateImageFormat(qmmf_alg_format_t &fmt,
           priv_handle->format);
       return NAME_NOT_FOUND;
   }
-  fmt.width      = priv_handle->width;
-  fmt.height     = priv_handle->height;
+  fmt.width      = priv_handle->unaligned_width;
+  fmt.height     = priv_handle->unaligned_height;
   fmt.num_planes = buffer->info.num_planes;
 
   for (uint32_t i = 0; i < buffer->info.num_planes; ++i) {
     fmt.plane[i].stride = buffer->info.plane_info[i].stride;
     fmt.plane[i].offset = 0;
-    fmt.plane[i].length = buffer->info.plane_info[i].scanline;
+    fmt.plane[i].length = buffer->info.plane_info[i].scanline *
+      buffer->info.plane_info[i].stride;
   }
 
   return NO_ERROR;
