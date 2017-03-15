@@ -40,6 +40,10 @@
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 
+#include "camera-reprocess/pipe/qmmf_camera_pipe.h"
+#include "camera-reprocess/plugin/qmmf_camera_plugin.h"
+#include "camera-reprocess/interface/qmmf_camera_reprocess.h"
+
 namespace qmmf {
 
 using namespace cameraadaptor;
@@ -55,7 +59,6 @@ using namespace cameraadaptor;
 namespace recorder {
 
 class CameraPort;
-class CameraReprocess;
 class IBufferConsumer;
 class IBufferProducer;
 
@@ -105,6 +108,28 @@ class CameraContext : public CameraInterface,
 
   Vector<int32_t>& GetSupportedFps() override;
 
+  status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
+
+  status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
+                                   int32_t* stream_id);
+
+  status_t CreateDeviceStream(CameraStreamParameters& params,
+                              uint32_t frame_rate, int32_t* stream_id);
+
+  int32_t SubmitRequest(Camera3Request request,
+                        bool is_streaming,
+                        int64_t *lastFrameNumber);
+
+  status_t DeleteDeviceStream(int32_t stream_id, bool cache);
+
+  void OnFrameAvailable(StreamBuffer& buffer);
+
+  void NotifyBufferReturned(StreamBuffer& buffer);
+
+  void AddConsumer(sp<IBufferConsumer>& consumer) {AttachConsumer(consumer);};
+
+  void RemoveConsumer(sp<IBufferConsumer>& consumer) {DetachConsumer(consumer);};
+
  private:
 
   struct HFRMode_t {
@@ -120,7 +145,6 @@ class CameraContext : public CameraInterface,
   };
 
   friend class CameraPort;
-  friend class CameraReprocess;
   friend class ZslPort;
 
   void InitSupportedFPS(const CameraMetadata &static_meta);
@@ -131,26 +155,12 @@ class CameraContext : public CameraInterface,
 
   status_t CreateSnapshotStream(const ImageParam &param);
 
-  status_t CreateDeviceStream(CameraStreamParameters& params,
-                              uint32_t frame_rate, int32_t* stream_id);
-
-  status_t DeleteDeviceStream(int32_t stream_id, bool cache);
-
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
-
-  status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                   int32_t* stream_id);
-
-  int32_t SubmitRequest(Camera3Request request,
-                        bool is_streaming,
-                        int64_t *lastFrameNumber);
 
   status_t UpdateRequest(bool is_streaming);
 
   status_t CancelRequest();
-
-  status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
 
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
@@ -183,6 +193,13 @@ class CameraContext : public CameraInterface,
   CameraPort* GetPort(const uint32_t track_id);
 
   void DeletePort(const uint32_t track_id);
+
+  status_t ReprocCreate(CameraStreamParameters &stream_param,
+                        int32_t stream_id);
+
+  status_t ReprocDelete();
+
+  status_t ReprocAddResult(const CaptureResult &result);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -227,7 +244,8 @@ class CameraContext : public CameraInterface,
   Vector<Camera3Request>   streaming_active_requests_;
 
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
-  sp<CameraReprocess>      camera_reprocess_;
+  int32_t                  input_stream_id_;
+  sp<ReprocessPipe>        reproc_pipe_;
   SyncFrame                sync_frame_;
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
@@ -365,79 +383,6 @@ class ZslPort : public CameraPort {
   ZSLEntry        zsl_input_buffer_ = {};
   bool            zsl_running_ = false;
   uint32_t        zsl_queue_depth_ = 0;
-};
-
-struct ReprocParam {
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
-};
-
-typedef std::function
-    <void(int32_t stream_id, StreamBuffer buffer)>  ReprocessCb;
-
-class CameraReprocess : public RefBase {
- public:
-  CameraReprocess(CameraContext *context);
-
-  ~CameraReprocess();
-
-  status_t Create(const int32_t stream_id,
-                  const ReprocParam& input,
-                  const ReprocParam& output,
-                  const uint32_t frame_rate,
-                  const uint32_t num_images,
-                  const CameraMetadata& static_meta,
-                  const ReprocessCb& cb);
-  status_t Delete();
-
-  void AddBuff(int32_t stream_id, StreamBuffer buffer);
-
-  void AddResult(const CaptureResult &result);
-
- private:
-
-  struct BurstData {
-    StreamBuffer   buffer;
-    CameraMetadata result;
-    int64_t        timestamp;
-  };
-
-  status_t Start();
-
-  void ReturnAllInputBuffers();
-
-  void ReturnInputBuffer(StreamBuffer &buffer);
-
-  void GetInputBuffer(StreamBuffer &buffer);
-
-  void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
-
-  void ReprocessCallback(int32_t stream_id, StreamBuffer buffer);
-
-  status_t ValidateInput(const CameraMetadata& meta,
-                         const ReprocParam& input,
-                         const ReprocParam& output);
-
-  CameraContext*         context_;
-
-  List<StreamBuffer>     input_buffer_;
-  List<StreamBuffer>     input_buffer_done_;
-
-  int32_t                input_stream_id_;
-  Camera3Request         reprocess_request_;
-
-  Mutex                  reprocess_lock_;
-  bool                   reprocess_flag_;
-  bool                   ready_to_start_;
-
-  uint32_t               num_images_;
-  ReprocessCb            capture_client_cb_;
-
-  List<BurstData>        burst_queue_;
-  List<BurstData>        input_burst_queue_;
-  Mutex                  burst_queue_lock_;
-  uint32_t               burst_cnt_;
 };
 
 }; //namespace recorder
