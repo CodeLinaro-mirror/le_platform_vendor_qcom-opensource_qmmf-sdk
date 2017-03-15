@@ -29,51 +29,54 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
+#include <utils/KeyedVector.h>
+#include <utils/Log.h>
 
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include "common/qmmf_common_utils.h"
+
+#include "../../interface/qmmf_camera_module.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
-};
-
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
-
-class ICameraPostProcess : public virtual RefBase {
+class CameraCopy : public Callbacks,
+                   public ICameraModule {
 
  public:
 
-  virtual ~ICameraPostProcess() {};
+   CameraCopy(int32_t Id);
 
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
+   ~CameraCopy();
 
-  virtual status_t Delete() = 0;
+   status_t Create(const int32_t stream_id,
+                   const ReprocParam& input,
+                   const ReprocParam& output,
+                   const uint32_t frame_rate,
+                   const uint32_t num_images,
+                   const void* static_meta,
+                   const void* context) override;
 
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
+   status_t Delete() override;
 
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
+   bool Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) override;
 
-  virtual void AddResult(const void* result) = 0;
+   void AddResult(const void* result) override;
 
-  virtual status_t Start() = 0;
+   status_t ReturnBuff(StreamBuffer buffer) override;
 
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
+   status_t GetCapabilities(ReprocCaps *caps) override;
+
+   status_t Start() override;
+
+   status_t Stop() override;
+
+ private:
+
+   int32_t                id_;
+
+   bool                   reprocess_flag_;
+   bool                   ready_to_start_;
 
 };
 

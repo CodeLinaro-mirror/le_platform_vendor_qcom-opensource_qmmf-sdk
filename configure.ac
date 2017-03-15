@@ -172,6 +172,9 @@ AC_CONFIG_FILES([ \
     display/src/client/Makefile \
     display/src/service/Makefile \
     recorder/src/client/Makefile \
+    recorder/src/service/camera-reprocess/modules/copy/Makefile \
+    recorder/src/service/camera-reprocess/modules/simple/Makefile \
+    recorder/src/service/camera-reprocess/modules/camera-hal/Makefile \
     recorder/src/service/camera-reprocess/modules/jpeg-encoder/Makefile \
     recorder/src/service/Makefile \
     player/src/client/Makefile \

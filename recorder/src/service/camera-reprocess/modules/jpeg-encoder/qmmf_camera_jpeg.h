@@ -31,13 +31,8 @@
 
 #include <utils/Condition.h>
 #include <utils/KeyedVector.h>
-#include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/service/qmmf_recorder_common.h"
-#include "../../interface/qmmf_camera_reprocess.h"
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "../../interface/qmmf_camera_module.h"
 
 #include "qmmf_camera_jpeg_core.h"
 
@@ -47,7 +42,8 @@ namespace recorder {
 
 using namespace jpegencoder;
 
-class CameraJpeg : public Camera3Thread , public ICameraReprocess {
+class CameraJpeg : public Callbacks,
+                   public ICameraModule {
 
  public:
 
@@ -61,14 +57,11 @@ class CameraJpeg : public Camera3Thread , public ICameraReprocess {
                   const uint32_t frame_rate,
                   const uint32_t num_images,
                   const void* static_meta,
-                  const ReprocessNodeCb& cb,
                   const void* context) override;
 
   status_t Delete() override;
 
-  void Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer);
-
-  void AddBuff(StreamBuffer in_buffer) override;
+  bool Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) override;
 
   void AddResult(const void* result) override;
 
@@ -82,30 +75,13 @@ class CameraJpeg : public Camera3Thread , public ICameraReprocess {
 
  private:
 
-  struct map_data_t {
-    void* addr;
-    size_t size;
-  };
-
-  void* MapBuff(StreamBuffer& buffer);
-
-  bool ThreadLoop() override;
-
   int32_t                id_;
 
   bool                   reprocess_flag_;
   bool                   ready_to_start_;
 
   JpegEncoder*           jpeg_encoder_;
-  ReprocessResultCb      capture_client_cb_;
-  ReprocessBufferCb      get_empty_buff_cb_;
-  Condition              wait_for_buffer_;
-  Mutex                  wait_lock_;
-  List<StreamBuffer>     input_buffer_;
 
-  KeyedVector<uint32_t, map_data_t> mapped_buffs_;
-
-  static const nsecs_t kFrameTimeout  = 50000000;  // 50 ms.
 };
 
 }; //namespace recorder

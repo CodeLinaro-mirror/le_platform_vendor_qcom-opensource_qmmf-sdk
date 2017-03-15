@@ -29,22 +29,15 @@
 
 #pragma once
 
-#include <mutex>
-#include <utils/Log.h>
-#include <utils/KeyedVector.h>
-#include <utils/Errors.h>
-
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
 namespace jpegencoder {
 
-
-
 class JpegEncoder {
 
-private:
+ private:
 
   void FillImgData(const CameraBufferMetaData& source_info);
 
@@ -56,7 +49,7 @@ private:
   static uint8_t DEFAULT_QTABLE_1[];
   static JpegEncoder *encoder_instance_;
 
-public:
+ public:
 
   struct snapshot_info {
     uint8_t *img_data[3];
@@ -70,16 +63,16 @@ public:
 
   void *Encode(size_t *jpeg_size);
 
+  void EncodeCb(void *p_output, void *userData);
+
   static JpegEncoder *getInstance();
 
   static void releaseInstance();
-
-  static void EncodeCb(void *p_output, void *userData);
 
   snapshot_info in_buffer_;
 
 };
 
 }; //namespace jpegencoder ends here
-}; //namespace qmmf ends here
 
+}; //namespace qmmf ends here

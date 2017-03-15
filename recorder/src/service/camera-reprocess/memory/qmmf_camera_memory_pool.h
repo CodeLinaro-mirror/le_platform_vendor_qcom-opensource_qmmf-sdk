@@ -29,52 +29,67 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
+#include <libgralloc/gralloc_priv.h>
+#include <utils/Condition.h>
+#include <utils/KeyedVector.h>
+#include <utils/Mutex.h>
+#include <memory>
 
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include "common/qmmf_common_utils.h"
+
+#include "../plugin/qmmf_camera_plugin.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
-  uint32_t stride;
-  uint32_t scanline;
+struct MemPoolParams {
   uint32_t width;
   uint32_t height;
-  int32_t format;
+  int32_t  format;
+  int32_t  gralloc_flags;
+  uint32_t max_buffer_count;
+  uint32_t max_size;
 };
 
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
-
-class ICameraPostProcess : public virtual RefBase {
+class MemPool : public RefBase {
 
  public:
 
-  virtual ~ICameraPostProcess() {};
+   MemPool();
 
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
+   ~MemPool();
 
-  virtual status_t Delete() = 0;
+   int32_t Initialize(uint32_t width, uint32_t height, int32_t  format,
+                      int32_t  gralloc_flags, uint32_t max_buffer_count,
+                      uint32_t max_size);
 
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
+   status_t ReturnBufferLocked(const StreamBuffer &buffer);
 
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
+   status_t GetBuffer(StreamBuffer* buffer);
 
-  virtual void AddResult(const void* result) = 0;
+ private:
 
-  virtual status_t Start() = 0;
+   status_t GetBufferLocked(StreamBuffer* buffer);
 
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
+   status_t PopulateMetaInfo(CameraBufferMetaData &info,
+                             struct private_handle_t *priv_handle);
 
+   status_t AllocGrallocBuffer(buffer_handle_t *buf);
+
+   status_t FreeGrallocBuffer(buffer_handle_t buf);
+
+   alloc_device_t               *gralloc_device_;
+   buffer_handle_t              *gralloc_slots_;
+   uint32_t                      buffers_allocated_;
+   uint32_t                      pending_buffer_count_;
+   KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
+
+   MemPoolParams                 init_params_;
+   Mutex                         buffer_lock_;
+   Condition                     wait_for_buffer_;
+
+   static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
 };
 
 }; //namespace recorder

@@ -29,48 +29,38 @@
 
 #pragma once
 
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include <functional>
+#include <utils/RefBase.h>
+#include "common/qmmf_common_utils.h"
+#include "common/cameraadaptor/qmmf_camera3_types.h"
+
+#include "recorder/src/service/camera-reprocess/common/qmmf_camera_base_types.h"
+#include "recorder/src/service/camera-reprocess/interface/qmmf_camera_callback.h"
 
 namespace qmmf {
+
+using namespace cameraadaptor;
+
 namespace recorder {
 
-struct ReprocParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
+class IPostProcCameraContext {
+public:
+  virtual status_t ReturnStreamBuffer(int stream_id,
+                                      qmmf::StreamBuffer buffer) = 0;
+  virtual status_t CreateDeviceStream(CameraStreamParameters& params,
+                                      uint32_t frame_rate,
+                                      int32_t* stream_id) = 0;
+  virtual status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
+                                           int32_t* stream_id) = 0;
+  virtual status_t SubmitRequest(Camera3Request request,
+                                 bool is_streaming,
+                                 int64_t *lastFrameNumber) = 0;
+  virtual status_t DeleteDeviceStream(int32_t stream_id, bool cache) = 0;
+  virtual ~IPostProcCameraContext() {};
 };
 
-struct ReprocCaps {
-  /* 0 - number of internal buffers */
-  uint32_t internal_buff;
-  /* todo add supported in/out formats */
-  /* HAL format */
-  int32_t  format;
-  /* image scale capability flag */
-  int32_t  scale_en;
-  /* max supported frame whidth dimention */
-  uint32_t max_w;
-  /* max supported frame height dimention */
-  uint32_t max_h;
-  /* specific for allocator usage flags */
-  uint32_t usage;
-// TODO
-};
-
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  ReprocessResultCb;
-
-typedef std::function
-    <int32_t(StreamBuffer* in_buffer)>  ReprocessBufferCb;
-
-struct ReprocessNodeCb {
-  ReprocessResultCb resultCb;
-  ReprocessBufferCb bufferCb;
-};
-
-class ICameraReprocess : public virtual RefBase {
+class ICameraReprocess : public virtual IReprocessCallbacks,
+                         public virtual RefBase {
 
  public:
 
@@ -82,7 +72,6 @@ class ICameraReprocess : public virtual RefBase {
                          const uint32_t frame_rate,
                          const uint32_t num_images,
                          const void* static_data,
-                         const ReprocessNodeCb& cb,
                          const void* context) = 0;
 
   virtual status_t Delete() = 0;
@@ -97,7 +86,6 @@ class ICameraReprocess : public virtual RefBase {
 
   virtual status_t Stop() = 0;
 
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
 };
 
 }; //namespace recorder

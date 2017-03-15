@@ -29,82 +29,85 @@
 
 #pragma once
 
+#include <utils/Condition.h>
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
-#include <utils/Condition.h>
-#include <libgralloc/gralloc_priv.h>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/service/camera-reprocess/common/qmmf_camera_base_types.h"
-#include "recorder/src/service/qmmf_camera_reprocess.h"
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "common/qmmf_common_utils.h"
 
-#include "qmmf_jpeg_encoder.h"
-
+#include "../interface/qmmf_camera_module.h"
+#include "../interface/qmmf_camera_reprocess.h"
+#include "../common/qmmf_camera_thread.h"
+#include "../factory/qmmf_camera_factory.h"
+#include "../interface/qmmf_camera_module.h"
+#include "../interface/qmmf_camera_reprocess.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-using namespace jpegencoder;
-
-class CameraJpeg : public Camera3Thread , public ICameraPostProcess {
+class CameraModule : public Callbacks,
+                     public CameraThread,
+                     public ICameraReprocess {
 
  public:
 
-  CameraJpeg();
+  CameraModule(String8 name, IPostProcCameraContext* context);
 
-  ~CameraJpeg();
+  ~CameraModule();
 
   status_t Create(const int32_t stream_id,
-                  const PostProcParam& input,
-                  const PostProcParam& output,
+                  const ReprocParam& input,
+                  const ReprocParam& output,
                   const uint32_t frame_rate,
                   const uint32_t num_images,
                   const void* static_meta,
-                  const PostProcCb& cb,
                   const void* context) override;
+
   status_t Delete() override;
 
-  void Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer);
-
-  void AddBuff(StreamBuffer in_buffer, StreamBuffer out_buff) override;
+  void AddBuff(StreamBuffer in_buffer) override;
 
   void AddResult(const void* result) override;
 
   status_t ReturnBuff(StreamBuffer buffer) override;
 
-  status_t GetCapabilities(ReprocCaps *caps) override;
-
   status_t Start() override;
 
-  status_t Stop();
+  status_t Stop() override;
+
+  void GetCapabilities(ReprocCaps *caps) {*caps = caps_;}
 
  private:
 
-  struct Buff {
-    StreamBuffer in;
-    StreamBuffer out;
+  struct map_data_t {
+    void* addr;
+    size_t size;
   };
 
-  status_t FillMetaInfo(const PostProcParam& input, CameraBufferMetaData* info);
+  void* MapBuff(StreamBuffer& buffer);
 
   bool ThreadLoop() override;
 
-  int32_t                input_stream_id_;
+  String8                name_;
+  int32_t                id_;
 
   bool                   reprocess_flag_;
   bool                   ready_to_start_;
-  uint32_t               num_images_;
-
-  JpegEncoder*           jpeg_encoder_;
-  PostProcCb             capture_client_cb_;
 
   Condition              wait_for_buffer_;
   Mutex                  wait_lock_;
-  List<Buff>             input_buffer_;
+  List<StreamBuffer>     input_buffer_;
 
   static const nsecs_t kFrameTimeout  = 50000000;  // 50 ms.
+
+  KeyedVector<uint32_t, map_data_t> mapped_buffs_;
+
+  sp<ICameraModule>             camera_reprocess_;
+  sp<ReprocessFactory>          reprocess_factory_;
+
+  ReprocCaps                    caps_;
+
 };
 
 }; //namespace recorder

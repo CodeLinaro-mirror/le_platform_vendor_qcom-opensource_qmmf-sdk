@@ -29,15 +29,11 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
-
-#include "recorder/src/service/qmmf_recorder_common.h"
-
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
+struct ReprocParam {
   uint32_t stride;
   uint32_t scanline;
   uint32_t width;
@@ -45,36 +41,23 @@ struct PostProcParam {
   int32_t format;
 };
 
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
-
-class ICameraPostProcess : public virtual RefBase {
-
- public:
-
-  virtual ~ICameraPostProcess() {};
-
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
-
-  virtual status_t Delete() = 0;
-
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
-
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
-
-  virtual void AddResult(const void* result) = 0;
-
-  virtual status_t Start() = 0;
-
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
-
+struct ReprocCaps {
+  /* 0 - number of internal buffers */
+  uint32_t internal_buff;
+  /* todo add supported in/out formats */
+  /* HAL format */
+  int32_t  format;
+  /* image crop capability flag */
+  int32_t  crop_en;
+  /* image scale capability flag */
+  int32_t  scale_en;
+  /* max supported frame width dimension */
+  uint32_t max_w;
+  /* max supported frame height dimension */
+  uint32_t max_h;
+  /* specific for allocator usage flags */
+  uint32_t usage;
+// TODO
 };
 
 }; //namespace recorder

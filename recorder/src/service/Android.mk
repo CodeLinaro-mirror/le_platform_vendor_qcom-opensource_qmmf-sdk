@@ -38,9 +38,18 @@ LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
+LOCAL_SRC_FILES += qmmf_camera_reprocess_impl.cc
+LOCAL_SRC_FILES += camera-reprocess/factory/qmmf_camera_factory.cc
+LOCAL_SRC_FILES += camera-reprocess/node/qmmf_camera_node.cc
+LOCAL_SRC_FILES += camera-reprocess/memory/qmmf_camera_memory_pool.cc
+LOCAL_SRC_FILES += camera-reprocess/pipe/qmmf_camera_pipe.cc
+LOCAL_SRC_FILES += camera-reprocess/common/qmmf_camera_thread.cc
+LOCAL_SRC_FILES += camera-reprocess/common/qmmf_camera_module.cc
 
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_haze_buster
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_jpeg libqmmf_camera_hal
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_copy libqmmf_camera_simple
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
@@ -48,5 +57,7 @@ LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_MODULE = libqmmf_recorder_service
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(LOCAL_PATH)/camera-reprocess/modules/Android.mk
 
 endif # BUILD_QMMMF

@@ -41,7 +41,7 @@ namespace recorder {
 
 class IBufferConsumer;
 
-class CameraInterface : public RefBase {
+class CameraInterface : public virtual RefBase {
  public:
 
   virtual status_t OpenCamera(const uint32_t camera_id,
