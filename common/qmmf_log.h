@@ -68,7 +68,7 @@ extern volatile uint32_t kpi_debug_mask;
 
 #define QMMF_KPI_GET_MASK() ({\
 char prop[PROPERTY_VALUE_MAX];\
-property_get("persist.camera.kpi.debug", prop, "0"); \
+property_get("persist.qmmf.kpi.debug", prop, "0"); \
 kpi_debug_mask = atoi (prop);})
 
 #define QMMF_KPI_BEGIN(name) ({\
