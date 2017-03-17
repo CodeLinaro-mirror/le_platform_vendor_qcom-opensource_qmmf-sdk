@@ -407,7 +407,7 @@ VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
 
 #ifdef DUMP_VIDEO_BITSTREAM
-   file_fd_video_ = open("/data/video_track.bitstream",
+   file_fd_video_ = open("/data/misc/qmmf/video_track.bitstream",
        O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 

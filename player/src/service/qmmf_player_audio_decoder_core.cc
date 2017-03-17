@@ -378,7 +378,7 @@ AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
   memset(&audio_track_params_, 0x0, sizeof audio_track_params_);
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  file_fd_audio_ = open("/data/audio_track.bitstream",
+  file_fd_audio_ = open("/data/misc/qmmf/audio_track.bitstream",
       O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
