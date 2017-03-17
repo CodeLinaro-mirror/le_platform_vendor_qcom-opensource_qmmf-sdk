@@ -29,21 +29,27 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
+#include <mutex>
+#include <vector>
 
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_aac.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
-#include <qmmf-sdk/qmmf_recorder.h>
-#include <qmmf-sdk/qmmf_recorder_params.h>
-#include <qmmf-sdk/qmmf_codec.h>
 #include <camera/CameraMetadata.h>
+#include <qmmf-sdk/qmmf_buffer.h>
+#include <qmmf-sdk/qmmf_codec.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
+
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+
+#include <qmmf-sdk/qmmf_recorder.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
@@ -130,7 +136,8 @@ enum class SnapshotType {
    kNone,
    kJpeg,
    kRawYuv,
-   kRawRdi
+   kRawRdi,
+   kJpegBurst
 };
 
 struct SnapshotInfo {
@@ -343,7 +350,13 @@ class RecorderTest {
 
   void printInitParameterAndTtrackInfo(const TestInitParams&
                            initParams,const TrackInfo& track_info);
-
+  status_t AddPreviewTrack();
+  status_t RemovePreviewTrack();
+  void PreviewTrackHandler(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
@@ -389,50 +402,54 @@ class RecorderTest {
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
 
-  void CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result);
-
   status_t DumpFrameToFile(BufferDescriptor& buffer,
                            CameraBufferMetaData& meta_data, String8& file_name);
 
   Recorder& GetRecorder() { return recorder_; }
 
- private:
+  private:
   Recorder recorder_;
 
   friend class CmdMenu;
 
-  typedef std::map <uint8_t, std::string> nr_modes_map;
-  typedef std::map <uint8_t, std::string>::iterator nr_modes_iter;
-  typedef std::map <int32_t, std::string> vhdr_modes_map;
-  typedef std::map <int32_t, std::string>::iterator vhdr_modes_iter;
-  typedef std::map <int32_t, std::string> ir_modes_map;
-  typedef std::map <int32_t, std::string>::iterator ir_modes_iter;
-  typedef std::map <int32_t, std::string> bc_modes_map;
-  typedef std::map <int32_t, std::string>::iterator bc_modes_iter;
+  typedef std::map<uint8_t, std::string> nr_modes_map;
+  typedef std::map<uint8_t, std::string>::iterator nr_modes_iter;
+  typedef std::map<int32_t, std::string> vhdr_modes_map;
+  typedef std::map<int32_t, std::string>::iterator vhdr_modes_iter;
+  typedef std::map<int32_t, std::string> ir_modes_map;
+  typedef std::map<int32_t, std::string>::iterator ir_modes_iter;
+  typedef std::map<int32_t, std::string> bc_modes_map;
+  typedef std::map<int32_t, std::string>::iterator bc_modes_iter;
   void InitSupportedNRModes();
   void InitSupportedVHDRModes();
   void InitSupportedIRModes();
   void InitSupportedBinningCorrectionModes();
-
   int32_t SetBinningCorrectionMode(const bool& mode);
 
-  // <session_id, vector<TestTrack*> >
-  std::map <uint32_t , std::vector<TestTrack*> > sessions_;
-  typedef std::map <uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
-
-  uint32_t camera_id_;
-  bool session_enabled_;
-  CameraMetadata static_info_;
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
   bc_modes_map supported_bc_modes_;
+
+  std::map<uint32_t, std::vector<TestTrack*> > sessions_;
+  typedef std::map<uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
+  uint32_t camera_id_;
+  bool session_enabled_;
+  CameraMetadata static_info_;
+  uint32_t preview_session_id_;
+  SnapshotType snapshot_choice_;
+
   bool use_display;
   bool dump_aec_awb_stats_;
   bool dump_histogram_stats_;
 
   CheckKPITime kpi_marker_;
+  ::std::condition_variable signal_;
+  ::std::mutex message_lock_;
+  ::std::condition_variable signal_cb_;
+  ::std::mutex callback_lock_;
+  uint32_t num_images_;
+  bool aec_converged_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating

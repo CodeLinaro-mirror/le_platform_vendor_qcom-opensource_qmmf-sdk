@@ -55,6 +55,11 @@ volatile uint32_t kpi_debug_mask = KPI_DISABLE;
 
 using namespace qcamera;
 
+using ::std::mutex;
+using ::std::unique_lock;
+using ::std::vector;
+
+
 static const char* kDefaultAudioFilenamePrefix =
     "/data/misc/qmmf/recorder_test_audio";
 
@@ -70,7 +75,11 @@ static const int32_t kHistogramColorChannels = 4;
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
-            session_enabled_(false) {
+            session_enabled_(false),
+            preview_session_id_(0),
+            snapshot_choice_(SnapshotType::kNone),
+            num_images_(0),
+            aec_converged_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
@@ -106,6 +115,77 @@ status_t RecorderTest::Disconnect() {
   return ret;
 }
 
+void RecorderTest::PreviewTrackHandler(uint32_t session_id, uint32_t track_id,
+                                       vector<BufferDescriptor> buffers,
+                                       vector<MetaData> meta_buffers) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+status_t RecorderTest::AddPreviewTrack() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  SessionCb session_status_cb;
+  uint32_t session_id;
+  uint32_t track_id = 1;
+  session_status_cb.event_cb = [] (EventType event_type, void *event_data,
+    size_t event_data_size) {};
+  status_t ret = recorder_.CreateSession(session_status_cb, &session_id);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s:Error in Create Session", TAG, __func__);
+    return ret;
+  }
+  preview_session_id_ = session_id;
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof(video_track_param));
+  video_track_param.camera_id = camera_id_;
+  video_track_param.width = 640;
+  video_track_param.height = 480;
+  video_track_param.frame_rate = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.low_power_mode = 1;
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    vector <BufferDescriptor> buffers,
+    vector <MetaData> meta_buffers) {
+    PreviewTrackHandler(session_id,track_id, buffers, meta_buffers);};
+  video_track_cb.event_cb = [] (uint32_t track_id, EventType event_type,
+    void *event_data, size_t event_data_size) {};
+  ret = recorder_.CreateVideoTrack(preview_session_id_, track_id,
+                                   video_track_param, video_track_cb);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s:Error in Create Video Track", TAG, __func__);
+    return ret;
+  }
+  ret = recorder_.StartSession(preview_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s:Error in Start Session", TAG, __func__);
+    return ret;
+  }
+  TEST_DBG("%s:%s:%d : Exit", TAG, __func__, preview_session_id_);
+  return ret;
+}
+
+status_t RecorderTest::RemovePreviewTrack() {
+  TEST_DBG("%s:%s: %d :Enter", TAG, __func__, preview_session_id_);
+  status_t ret = recorder_.StopSession(preview_session_id_, true);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s: Failed in stopping the session : ", TAG, __func__);
+    return ret;
+  }
+  ret = recorder_.DeleteVideoTrack(preview_session_id_, 1);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s: Failed in deleting the video track : ", TAG, __func__);
+    return ret;
+  }
+  ret = recorder_.DeleteSession(preview_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s: Failed in deleting the session : ", TAG, __func__);
+    return ret;
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
 
 status_t RecorderTest::GetCurrentAFMode(int32_t& mode) {
   CameraMetadata meta;
@@ -1206,14 +1286,12 @@ status_t RecorderTest::StartCamera() {
   camera_params.zsl_height          = 2160;
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
-
   CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
             CameraResultCallbackHandler(camera_id, result); };
   if (kpi_debug_mask) {
     kpi_marker_.SetUp();
   }
-
   auto ret = recorder_.StartCamera(camera_id_, camera_params, result_cb);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
@@ -1373,138 +1451,164 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
 }
 
 status_t RecorderTest::TakeSnapshot() {
-
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
-  int32_t input;
+  char input;
   camera_metadata_entry_t entry;
+  bool flag_exit = false;
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   assert(ret == 0);
-  uint32_t num_images = 1;
-
+  snapshot_choice_ = SnapshotType::kNone;
   do {
-    printf("\n");
-    printf("****** Take Snapshot *******\n" );
-    printf("  1. JPEG - 4K\n" );
-    printf("  2. RAW:YUV - 1080p \n" );
-    printf("  3. RAW:BAYER \n" );
-    printf("  4. JPEG Burst (3 frames) - 1080p \n" );
-    printf("  0. exit \n");
-    printf("\n");
-    printf("Enter option:\n");
-    scanf("%d", &input);
-
+    num_images_ = 1;
+    std::cout << std::endl;
+    std::cout << "****** Take Snapshot *******" << std::endl;
+    std::cout << "  1. JPEG - 4K " << std::endl;
+    std::cout << "  2. RAW:YUV - 1080p " << std::endl;
+    std::cout << "  3. RAW:BAYER " << std::endl;
+    std::cout << "  4. JPEG Burst (30 frames) - 1080p " << std::endl;
+    std::cout << "  0. exit " << std::endl;
+    std::cout << "  Enter option:" << std::endl;
+    std::cin >> input;
     uint32_t w, h;
     ImageParam image_param;
     memset(&image_param, 0x0, sizeof image_param);
-    switch(input) {
-      case 0:
+    switch (input) {
+      case '0':
+        flag_exit = true;
         break;
-      case 1:
-        image_param.width         = 3840;
-        image_param.height        = 2160;
-        image_param.image_format  = ImageFormat::kJPEG;
+      case '1':
+        snapshot_choice_ = SnapshotType::kJpeg;
+        if (session_enabled_ == false) {
+          ret = AddPreviewTrack();
+          if (ret != 0) {
+            TEST_ERROR("%s:%s:Error in AddPreview Track", TAG, __func__);
+            return ret;
+          }
+        }
+        image_param.width = 3840;
+        image_param.height = 2160;
+        image_param.image_format = ImageFormat::kJPEG;
         image_param.image_quality = 95;
         break;
-      case 2:
-        // Check available raw YUV resolutions.
+      case '2':
+        snapshot_choice_ = SnapshotType::kRawYuv;
+        if (session_enabled_ == false) {
+          ret = AddPreviewTrack();
+          if (ret != 0) {
+            TEST_ERROR("%s:%s:Error in AddPreview Track", TAG, __func__);
+            return ret;
+          }
+        }
         if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
           entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-          for (uint32_t i = 0 ; i < entry.count; i += 4) {
+          for (uint32_t i = 0; i < entry.count; i += 4) {
             if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-                  entry.data.i32[i+3]) {
+              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
+                  == entry.data.i32[i + 3]) {
                 TEST_INFO("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)", TAG,
                     __func__, i, entry.data.i32[i+1], entry.data.i32[i+2]);
               }
             }
           }
         }
-        image_param.width        = 1920;
-        image_param.height       = 1080;
+        image_param.width = 1920;
+        image_param.height = 1080;
         image_param.image_format = ImageFormat::kNV12;
         break;
-      case 3:
+      case '3':
+        snapshot_choice_ = SnapshotType::kRawRdi;
         if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
           entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
           if (entry.count < 2) {
             printf("ANDROID_SCALER_AVAILABLE_RAW_SIZES count is wrong\n");
-            input = 0;
+            flag_exit = true;
             break;
           }
-          for (uint32_t i = 0 ; i < entry.count; i += 2) {
-            w = entry.data.i32[i+0];
-            h = entry.data.i32[i+1];
+          for (uint32_t i = 0; i < entry.count; i += 2) {
+            w = entry.data.i32[i + 0];
+            h = entry.data.i32[i + 1];
             TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG,
                 __func__, i, w, h);
           }
         } else {
           printf("ANDROID_SCALER_AVAILABLE_RAW_SIZES not found\n");
-          input = 0;
+          flag_exit = true;
           break;
         }
-        image_param.width        = w; // 5344
-        image_param.height       = h; // 4016
+        image_param.width = w; // 5344
+        image_param.height = h; // 4016
         image_param.image_format = ImageFormat::kBayerRDI;
         break;
-      default:
-         printf("Wrong value entered(%d)\n", input);
-         input = 0;
-         break;
-      case 4:
+      case '4':
+        snapshot_choice_ = SnapshotType::kJpegBurst;
+        if (session_enabled_ == false) {
+          ret = AddPreviewTrack();
+          if (ret != 0) {
+            TEST_ERROR("%s:%s:Error in AddPreview Track", TAG, __func__);
+            return ret;
+          }
+        }
         // Check available raw YUV resolutions.
         if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
           entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-          for (uint32_t i = 0 ; i < entry.count; i += 4) {
+          for (uint32_t i = 0; i < entry.count; i += 4) {
             if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-                  entry.data.i32[i+3]) {
+              if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
+                  == entry.data.i32[i + 3]) {
                 TEST_INFO("%s:%s:(%d) Supported Raw YUV:(%d)x(%d)", TAG,
                     __func__, i, entry.data.i32[i+1], entry.data.i32[i+2]);
               }
             }
           }
         }
-        image_param.width        = 1920;
-        image_param.height       = 1080;
+        image_param.width = 1920;
+        image_param.height = 1080;
         image_param.image_format = ImageFormat::kJPEG;
-        num_images = 30;
+        num_images_ = 30;
         break;
+      default:
+        printf("Wrong value entered(%c)\n", input);
+        flag_exit = true;
     }
-
-    if (input != 0) {
+    if (snapshot_choice_ != SnapshotType::kRawRdi && (flag_exit != true)
+        && (session_enabled_ == false)) {
+      TEST_INFO("%s:%s: Checking For AEC Convergence ", TAG, __func__);
+      unique_lock < mutex > lk(message_lock_);
+      signal_.wait(lk);
+      TEST_INFO("%s:%s: AEC Convergence Done ", TAG, __func__);
+    }
+    if (flag_exit != true) {
       ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
-                               BufferDescriptor buffer, MetaData meta_data)
-          { SnapshotCb(camera_id_, image_count, buffer, meta_data); };
-
+          BufferDescriptor buffer, MetaData meta_data)
+      { SnapshotCb(camera_id_, image_count, buffer, meta_data);};
       assert(ret == NO_ERROR);
-
       uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       assert(ret == NO_ERROR);
-
       if (!sessions_.size()) {
         /* we have only capture stream which will by default disable WB and lead
-           to broken picture */
+         to broken picture */
         uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
         ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
         assert(ret == NO_ERROR);
       }
-
-      std::vector<CameraMetadata> meta_array;
-      for (uint32_t i = 0; i < num_images; i++) {
+      std::vector < CameraMetadata > meta_array;
+      for (uint32_t i = 0; i < num_images_; i++) {
         meta_array.push_back(meta);
       }
-      ret = recorder_.CaptureImage(camera_id_,
-                                   image_param, num_images, meta_array, cb);
-      if(ret != 0) {
+      ret = recorder_.CaptureImage(camera_id_, image_param, num_images_,
+                                   meta_array, cb);
+      if (ret != 0) {
         ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
       }
-      input = 0;
+      TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
+      unique_lock < mutex > lock(callback_lock_);
+      signal_cb_.wait(lock);
+      TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
     }
-
-  } while(input);
+  } while ((input != '0'));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -3237,9 +3341,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Enter ", TAG, __func__);
   String8 file_path;
   const char* ext_str;
-
-  if (meta_data.meta_flag  &
-      static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+  if (meta_data.meta_flag
+      & static_cast<uint32_t> (MetaParamType::kCamBufMetaData)) {
     CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
     TEST_DBG("%s:%s: format(0x%x)", TAG, __func__, cam_buf_meta.format);
     TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, cam_buf_meta.num_planes);
@@ -3256,23 +3359,23 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
 
     switch (cam_buf_meta.format) {
       case BufferFormat::kNV12:
-      ext_str = "nv12";
-      break;
+        ext_str = "nv12";
+        break;
       case BufferFormat::kNV21:
-      ext_str = "nv21";
-      break;
+        ext_str = "nv21";
+        break;
       case BufferFormat::kBLOB:
-      ext_str = "jpg";
-      break;
+        ext_str = "jpg";
+        break;
       case BufferFormat::kRAW10:
-      ext_str = "raw10";
-      break;
+        ext_str = "raw10";
+        break;
       case BufferFormat::kRAW16:
-      ext_str = "raw16";
-      break;
+        ext_str = "raw16";
+        break;
       default:
-      assert(0);
-      break;
+        assert(0);
+        break;
     }
     file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
         ext_str);
@@ -3280,7 +3383,14 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-
+  if (image_sequence_count == num_images_ - 1) {
+    if (snapshot_choice_ != SnapshotType::kRawRdi
+        && (session_enabled_ == false)) {
+      RemovePreviewTrack();
+      aec_converged_ = false;
+    }
+    signal_cb_.notify_one();
+  }
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
@@ -3306,7 +3416,21 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
   if(kpi_debug_mask) {
      kpi_marker_.CheckSwicthTime(result);
   }
-
+  if (snapshot_choice_ != SnapshotType::kRawRdi) {
+    if (aec_converged_ == false) {
+      camera_metadata_ro_entry aec_stat;
+      aec_stat = result.find(ANDROID_CONTROL_AE_STATE);
+      if ((aec_stat.count > 0) && ((aec_stat.data.u8[0]
+          == ANDROID_CONTROL_AE_STATE_CONVERGED) || (aec_stat.data.u8[0]
+          == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+        TEST_DBG("%s:%s: AEC Value Converged", TAG, __func__);
+        aec_converged_ = true;
+        signal_.notify_one();
+      } else {
+        TEST_DBG("%s:%s: AEC Value Still Not Converged", TAG, __func__);
+      }
+    }
+  }
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);
   camera_metadata_ro_entry histogram_stats =
