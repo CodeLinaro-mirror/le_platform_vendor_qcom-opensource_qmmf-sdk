@@ -446,9 +446,9 @@ void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/aec_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%03" PRIo64 "_%d.yuv",
                       streamId, buffer.frame_number, aec_lock_);
-    mkdir("/data/aec_lock", S_IRWXU);
+    mkdir("/data/misc/qmmf/aec_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
   }
   device_client_->ReturnStreamBuffer(streamId, buffer);
@@ -463,9 +463,9 @@ void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/awb_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%03" PRIo64 "_%d.yuv",
                       streamId, buffer.frame_number, awb_lock_);
-    mkdir("/data/awb_lock", S_IRWXU);
+    mkdir("/data/misc/qmmf/awb_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
   }
   device_client_->ReturnStreamBuffer(streamId, buffer);

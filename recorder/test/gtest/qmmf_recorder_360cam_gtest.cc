@@ -42,7 +42,7 @@
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
 
-#define DUMP_META_PATH "/data/param.dump"
+#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
 #define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -514,7 +514,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
   const char* type_string = (format_type ==  VideoFormat::kAVC) ?
       "h264": "h265";
   String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
       extn.string());
   track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
       O_TRUNC, 0655);
@@ -671,7 +671,7 @@ TEST_F(Recorder360Gtest, Stitched4KEnc720pTrack) {
   const char* type_string = (format_type ==  VideoFormat::kAVC) ?
       "h264": "h265";
   String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
       video_track_id_4k, width, height, extn.string());
   track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
       O_TRUNC, 0655);
@@ -713,7 +713,7 @@ TEST_F(Recorder360Gtest, Stitched4KEnc720pTrack) {
     close(track2_bitstream_filefd_);
   }
   bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
       video_track_id_720p, width, height, extn.string());
   track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
       O_WRONLY | O_TRUNC, 0655);
@@ -1120,7 +1120,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
   const char* type_string = (format_type ==  VideoFormat::kAVC) ?
       "h264": "h265";
   String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
       extn.string());
   track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
       O_TRUNC, 0655);
@@ -1279,7 +1279,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEnc720pTrack) {
   const char* type_string = (format_type ==  VideoFormat::kAVC) ?
       "h264": "h265";
   String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
       video_track_id_4k, width, height, extn.string());
   track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
       O_TRUNC, 0655);
@@ -1321,7 +1321,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEnc720pTrack) {
     close(track2_bitstream_filefd_);
   }
   bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
       video_track_id_720p, width, height, extn.string());
   track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
       O_WRONLY | O_TRUNC, 0655);
@@ -1430,7 +1430,7 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t track_id,
   if (id == kYUVDumpFreq) {
     String8 file_path;
     size_t written_len;
-    file_path.appendFormat("/data/gtest_track_%d_%lld.yuv", track_id,
+    file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv", track_id,
         buffers[0].timestamp);
 
     FILE *file = fopen(file_path.string(), "w+");
@@ -1616,7 +1616,7 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
         break;
       }
 
-      file_path.appendFormat("/data/snapshot_%u.%s", snapshot_count, ext_str);
+      file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", snapshot_count, ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,

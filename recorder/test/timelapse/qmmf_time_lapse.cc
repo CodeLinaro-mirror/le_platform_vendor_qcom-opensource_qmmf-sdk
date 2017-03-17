@@ -327,7 +327,7 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
   size_t written_len;
   Mutex::Autolock l(snapshot_lock_);
 
-  file_path.appendFormat("/data/time_lapse_%llu.jpg", snapshot_count_);
+  file_path.appendFormat("/data/misc/qmmf/time_lapse_%llu.jpg", snapshot_count_);
   FILE *file = fopen(file_path.string(), "w+");
   if (!file) {
     printf("%s: Unable to open file(%s)", __func__,

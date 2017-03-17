@@ -179,7 +179,7 @@ VideoTrackSink::VideoTrackSink()
       ion_device_(-1), grabpicture_file_fd_(-1), snapshot_dumps_(0) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 #ifdef DUMP_YUV_FRAMES
-  file_fd_ = open("/data/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  file_fd_ = open("/data/misc/qmmf/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if(file_fd_ < 0) {
     QMMF_ERROR("%s:%s Failed to open o/p yuv dump file ", TAG, __func__);
   }
@@ -901,7 +901,7 @@ status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
     struct timeval tv;
     gettimeofday(&tv, NULL);
 
-    snapshot_filepath.appendFormat("/data/player_service_snapshot_%dx%d_%lu.%s",
+    snapshot_filepath.appendFormat("/data/misc/qmmf/player_service_snapshot_%dx%d_%lu.%s",
         surface_config.width, surface_config.height, tv.tv_sec, "yuv");
 
     grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
