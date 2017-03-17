@@ -181,9 +181,21 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
 status_t RecorderImpl::DeRegisterClient(const uint32_t client_id) {
   QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
 
-  // Update map - remove the client entry and also clean up its recources if
-  // it calls Service->Disconnect->Deregister without freeing up it resources
-  // by its own.
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s:%s client_id(%d) is not valid!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  auto session_track_map = client_session_map_[client_id];
+  if (session_track_map.size() > 0) {
+    QMMF_WARN("%s:%s Resource belogs to client(%d) are not released!", TAG,
+        __func__, client_id);
+    return INVALID_OPERATION;
+    // TODO: clean up clients recources if it calls Service->Disconnect->Deregister
+    // Without freeing up resources by its own?
+  }
+  client_session_map_.erase(client_id);
+  QMMF_INFO("%s:%s: Number of connected clients=%d", TAG, __func__,
+      client_cameraid_map_.size());
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
   return NO_ERROR;
 }
@@ -969,13 +981,11 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   auto track_tuple = std::make_tuple(track_id, service_track_id, track_info);
   tracks_in_session.push_back(track_tuple);
 
-  auto session_track_map_test = client_session_map_[client_id];
-  auto tracks_in_session_test = session_track_map[session_id];
-  QMMF_INFO("%s:%s: client_id=%d, session_id=%d, num sessions=%d", TAG, __func__,
-    client_id, session_id, session_track_map_test.size());
+  QMMF_INFO("%s:%s: client_id(%d), session_id(%d), num sessions=%d", TAG,
+      __func__, client_id, session_id, session_track_map.size());
   QMMF_INFO("%s:%s: num of tracks=%d", TAG, __func__,
-      tracks_in_session_test.size());
-  for (auto test : tracks_in_session_test) {
+      tracks_in_session.size());
+  for (auto test : tracks_in_session) {
     QMMF_INFO("%s:%s: client_track_id(%d):service_track_id(%x):track_type(%d)",
         TAG, __func__, std::get<0>(test), std::get<1>(test),
         std::get<2>(test).type);
