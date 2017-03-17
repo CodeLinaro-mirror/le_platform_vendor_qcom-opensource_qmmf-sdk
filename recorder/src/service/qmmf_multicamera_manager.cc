@@ -286,15 +286,40 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-    ret = camera_context->CaptureImage(cam_param, num_images, meta, stream_cb);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
-      return ret;
+
+  if (reconfigure_needed) {
+    // Make sure that every time after reconfiguration
+    // we are linking the related cameras.
+    std::vector<CameraMetadata>linkDaulCamMeta = meta;
+    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+      sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+      //  LinkDualCam only should be sent only on first capture in burst
+      ret = fillDualCamLinkMetadataTags(linkDaulCamMeta[0], i);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: DualCamLink capture metadata failed!", TAG, __func__);
+        return ret;
+      }
+      ret = camera_context->CaptureImage(cam_param, num_images,
+                                         linkDaulCamMeta, stream_cb);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
+        return ret;
+      }
+    }
+  } else {
+    // Use normal capture if reconfiguration is not needed
+    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+      sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+      ret = camera_context->CaptureImage(cam_param, num_images,
+                                         meta, stream_cb);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
+        return ret;
+      }
     }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::CancelCaptureImage() {
@@ -333,6 +358,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   CameraStreamParam context_param (param);
   ReCalculateWidth(context_param.cam_stream_dim.width);
 
+  CameraMetadata meta;
   for (ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
     assert(camera_context.get() != nullptr);
@@ -341,15 +367,32 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
       QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
       goto FAIL;
     }
-  }
 
-  // On CreateStream, camera context most probably will
-  // reconfigure the camera. So make sure that every time
-  // after reconfiguration we are linking the related cameras.
-  ret = LinkRelatedCameras();
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to link related cameras", TAG, __func__);
-    goto FAIL;
+    // On CreateStream, camera context most probably will
+    // reconfigure the camera. So make sure that every time
+    // after reconfiguration we are linking the related cameras.
+    ret = camera_context->GetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: GetCameraParam for camera %d failed!",
+          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
+      goto FAIL;
+    }
+
+    ret = fillDualCamLinkMetadataTags(meta, ctx_idx);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: FillDualCamera link for camera %d failed!",
+          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
+      goto FAIL;
+    }
+
+    ret = camera_context->SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: SetCameraParam for camera %d failed!",
+          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
+      goto FAIL;
+    }
+    //Clear metadata for next iteration
+    meta.clear();
   }
 
   ret = CreateStreamStitching(param);
@@ -726,70 +769,57 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::LinkRelatedCameras() {
+status_t MultiCameraManager::fillDualCamLinkMetadataTags(CameraMetadata &meta,
+                                                         const uint32_t cam_idx) {
+
+  int32_t related_id;
+  uint8_t is_main;
+
+  if (cam_idx >= camera_contexts_.size()) {
+    QMMF_ERROR("%s:%s: Invalid camera index %d number of cameras %d!",
+        TAG, __func__, cam_idx, camera_contexts_.size());
+    return BAD_VALUE;
+  }
 
   if (camera_contexts_.size() < 2) {
       QMMF_INFO("%s:%s: No need to link one camera skip!", TAG, __func__);
       return NO_ERROR;
   }
 
-  // Ensure that we have even number of cameras to link.
-  size_t elements_to_link = camera_contexts_.size();
-  if (elements_to_link & 1) {
-      elements_to_link -= 1;
-      QMMF_WARN("%s:%s: Last camera id %d will not be linked, No pair!",
-          TAG, __func__, camera_contexts_.keyAt(elements_to_link));
+  // If we dont have even cameras to link dont link the last camera
+  if ((cam_idx == camera_contexts_.size() - 1) &&
+      (camera_contexts_.size() & 1)) {
+    QMMF_WARN("%s:%s: Last camera id %d will not be linked, No pair!",
+        TAG, __func__, camera_contexts_.keyAt(cam_idx));
+    return NO_ERROR;
   }
 
-  int32_t related_id;
-  uint8_t is_main;
-  CameraMetadata meta;
-  for (size_t i = 0; i < elements_to_link; i++) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-
-    // Link First with Second, Second with first etc...
-    if (i & 1) {
-      related_id = camera_contexts_.keyAt(i - 1);
-      is_main = 0;
-    } else {
-      is_main = 1;
-      related_id = camera_contexts_.keyAt(i + 1);
-    }
-
-    status_t ret = camera_context->GetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: GetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(i));
-      return ret;
-    }
-
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
-
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
-
-    const uint8_t sync = 1;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
-
-    const uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
-
-    const uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
-
-    ret = camera_context->SetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: SetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(i));
-      return ret;
-    }
-    /* Clear the metadata for next iteration */
-    meta.clear();
+  // Link First with Second, Second with first etc...
+  if (cam_idx & 1) {
+    related_id = camera_contexts_.keyAt(cam_idx - 1);
+    is_main = 0;
+  } else {
+    is_main = 1;
+    related_id = camera_contexts_.keyAt(cam_idx + 1);
   }
+
+  const_cast<CameraMetadata&>(meta).update(
+      qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+
+  const_cast<CameraMetadata&>(meta).update(
+      qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
+
+  const uint8_t sync = 1;
+  const_cast<CameraMetadata&>(meta).update(
+      qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
+
+  const uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
+  const_cast<CameraMetadata&>(meta).update(
+      qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
+
+  const uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
+  const_cast<CameraMetadata&>(meta).update(
+      qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
 
   return NO_ERROR;
 }
