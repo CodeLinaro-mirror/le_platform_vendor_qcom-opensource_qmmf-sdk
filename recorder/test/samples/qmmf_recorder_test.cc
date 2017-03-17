@@ -54,7 +54,7 @@
 using namespace qcamera;
 
 static const char* kDefaultAudioFilenamePrefix =
-    "/data/qmmf_recorder_test_audio";
+    "/data/misc/qmmf/recorder_test_audio";
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
@@ -2270,7 +2270,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       assert(0);
       break;
     }
-    file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
+    file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
         ext_str);
     DumpFrameToFile(buffer, cam_buf_meta, file_path);
   }
@@ -3102,7 +3102,7 @@ status_t TestTrack::Prepare() {
     String8 extn(type_string);
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    bitstream_filepath.appendFormat("/data/track_%d_%dx%d_%lu.%s",
+    bitstream_filepath.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lu.%s",
         track_info_.track_id, track_info_.width, track_info_.height,
         tv.tv_sec, extn.string());
     file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
@@ -3350,7 +3350,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
             const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
                 "raw" : "yuv";
             String8 file_path;
-            file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
+            file_path.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lld.%s",
                 track_info_.track_id, cam_buf_meta.plane_info[0].width,
                 cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
             recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,

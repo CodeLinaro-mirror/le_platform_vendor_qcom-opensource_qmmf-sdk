@@ -74,7 +74,7 @@ using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
 
-static const char* kDefaultFilePrefix = "/data/qmmf_system_test";
+static const char* kDefaultFilePrefix = "/data/misc/qmmf/system_test";
 
 SystemTest::SystemTest()
     : filename_prefix_(kDefaultFilePrefix),
@@ -141,14 +141,14 @@ void SystemTest::EnableSoundTrigger() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   status_t result;
 
-  FILE *fp = fopen("/data/qmmf_system_trigger.uim", "rb");
+  FILE *fp = fopen("/data/misc/qmmf/system_trigger.uim", "rb");
   assert(fp != nullptr);
 
   fseek(fp, 0, SEEK_END);
   long size = ftell(fp);
   fseek(fp, 0, SEEK_SET);
   QMMF_DEBUG("%s: %s() size[%ld]", TAG, __func__, size);
- 
+
   SoundModel sound_model;
   sound_model.device = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
   sound_model.keywords = 1;
