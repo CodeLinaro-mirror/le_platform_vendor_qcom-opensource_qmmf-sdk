@@ -107,10 +107,12 @@ class MultiCameraManager : public CameraInterface {
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
-  void SetPostProcess(const ImageParam &param, const ImageFormat &image,
-                      uint32_t frame_rate);
-  void PostprocessCaptureCallback(StreamBuffer buffer);
-  void ClientCaptureCallback(StreamBuffer in_buffer, StreamBuffer out_buffer);
+  status_t CreateJpegEncoder(const ImageParam &param, const ImageFormat &image,
+                             const uint32_t num_images);
+  void EncodeJpegImage(const StreamBuffer &buffer);
+  void OnStitchedFrameAvailable(StreamBuffer buffer);
+  void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
+  status_t ReturnJpegBuffer(const int32_t buffer_id);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
@@ -119,12 +121,12 @@ class MultiCameraManager : public CameraInterface {
   //Non zsl capture request.
   ImageParam               snapshot_param_;
   uint32_t                 sequence_cnt_;
-  bool                     postprocess_enable_;
+  bool                     jpeg_encoding_enabled_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
-  sp<ICameraPostProcess>   multi_camera_pproc_;
+  sp<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  GrallocMemory            *pproc_memory_pool_;
+  GrallocMemory            *jpeg_memory_pool_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -137,10 +139,10 @@ class MultiCameraManager : public CameraInterface {
   KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
 
   // Map of output_buffer's fd to StreamBuffer
-  KeyedVector<uint32_t, StreamBuffer> pproc_buffer_list_;
+  KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_;
 
   Mutex                    lock_;
-  Mutex                    pproc_lock_;
+  Mutex                    jpeg_lock_;
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
