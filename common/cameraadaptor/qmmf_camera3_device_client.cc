@@ -533,10 +533,19 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       }
       InternalResumeLocked();
     } else {
+      // In this scenario stream will be cached and will not trigger stream
+      // reconfiguration. reconfiguration will be triggered in next round of
+      // updating streaming capture request - creating a brand new stream or
+      // deleting an existing stream without caching.
+      if (state_ != STATE_RUNNING) {
+        // Avoid reconfiguration if any existing stream is running, otherwise
+        // updating capture request for setting parameters will try to
+        // reconfigure it.
+        reconfig_ = true;
+      }
       deleted_streams_.push_back(stream);
     }
   }
-  reconfig_ = true;
 
 exit:
 
