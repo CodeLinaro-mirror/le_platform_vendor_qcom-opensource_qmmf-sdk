@@ -34,6 +34,7 @@
 #include <sys/mman.h>
 #include <QCamera3VendorTags.h>
 #include <chrono>
+#include <math.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
