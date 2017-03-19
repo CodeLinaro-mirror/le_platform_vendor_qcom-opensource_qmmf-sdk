@@ -183,7 +183,7 @@ int32_t DisplayTest::QueueSurfaceBuffer() {
   surface_param.dst_rect = { 0.0, 0.0, 352.0, 288.0 };
   surface_param.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param.surface_flags.cursor=0;
-  surface_param.frame_rate=30;
+  surface_param.frame_rate = 30;
   surface_param.z_order = 0;
   surface_param.solid_fill_color=0;
 

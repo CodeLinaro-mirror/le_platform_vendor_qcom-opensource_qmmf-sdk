@@ -214,8 +214,8 @@ class CameraContext : public CameraInterface {
   // User define value for sensor mode
   int32_t sensor_vendor_mode_;
 
-  static uint32_t          kConstrainedModeThreshold;
-  static uint32_t          kHFRBatchModeThreshold;
+  static float             kConstrainedModeThreshold;
+  static float             kHFRBatchModeThreshold;
   bool                     hfr_supported_;
   Vector<HFRMode_t>        hfr_batch_modes_list_;
   Vector<Camera3Request>   streaming_active_requests_;
@@ -282,7 +282,7 @@ class CameraPort : public RefBase {
 
   PortState& getPortState();
 
-  uint32_t GetPortFramerate() { return params_.frame_rate; }
+  float GetPortFramerate() { return params_.frame_rate; }
 
   size_t GetPortBatchSize() { return batch_size_; }
 
