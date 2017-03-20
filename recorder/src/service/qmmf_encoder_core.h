@@ -122,6 +122,12 @@ class TrackEncoder : public ICodecSource {
 
   status_t AllocOutputPortBufs();
 
+  // Value of flag can be ION_IOC_CLEAN_CACHES to clean cache or
+  // ION_IOC_CLEAN_INV_CACHES to invalidate cache
+  status_t SynchronizeCache(const struct ion_handle_data& ion_handle,
+                            const BufferDescriptor& buffer,
+                            const unsigned int flag);
+
   // This methos Notifies bitstream buffer to remote client.
   void NotifyBufferToClient(BufferDescriptor& codec_buffer);
 
@@ -153,6 +159,9 @@ class TrackEncoder : public ICodecSource {
   uint32_t                   num_bytes_;
   struct timeval             prevtv_;
   uint32_t                   count_;
+
+  // FD and IonHandle map
+  ::std::map<int32_t, struct ion_handle_data> fd_ion_handle_map_;
 };
 
 }; // namespace recorder
