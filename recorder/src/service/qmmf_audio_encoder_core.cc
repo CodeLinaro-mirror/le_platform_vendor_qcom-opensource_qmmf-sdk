@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -81,10 +81,13 @@ AudioEncoderCore* AudioEncoderCore::CreateAudioEncoderCore() {
 
 AudioEncoderCore::AudioEncoderCore() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_KPI_GET_MASK();
+  QMMF_KPI_DETAIL();
 }
 
 AudioEncoderCore::~AudioEncoderCore() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   if (!track_encoder_map_.empty())
     track_encoder_map_.clear();
@@ -136,6 +139,7 @@ status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id,
                                              const shared_ptr<IAudioTrackSource>&
                                              track_source) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_KPI_BASE();
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
 
   AudioTrackEncoderMap::iterator track_encoder_iterator =
@@ -161,6 +165,7 @@ status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id,
 status_t AudioEncoderCore::StopTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_BASE();
 
   AudioTrackEncoderMap::iterator track_encoder_iterator =
       track_encoder_map_.find(track_id);
@@ -183,6 +188,7 @@ status_t AudioEncoderCore::StopTrackEncoder(const uint32_t track_id) {
 status_t AudioEncoderCore::PauseTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   AudioTrackEncoderMap::iterator track_encoder_iterator =
       track_encoder_map_.find(track_id);
@@ -205,6 +211,7 @@ status_t AudioEncoderCore::PauseTrackEncoder(const uint32_t track_id) {
 status_t AudioEncoderCore::ResumeTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   AudioTrackEncoderMap::iterator track_encoder_iterator =
       track_encoder_map_.find(track_id);

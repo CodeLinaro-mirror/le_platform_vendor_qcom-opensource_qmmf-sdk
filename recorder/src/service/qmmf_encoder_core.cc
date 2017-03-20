@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -66,6 +66,8 @@ EncoderCore* EncoderCore::CreateEncoderCore() {
 
 EncoderCore::EncoderCore() : ion_device_(-1) {
 
+  QMMF_KPI_GET_MASK();
+  QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -73,6 +75,7 @@ EncoderCore::EncoderCore() : ion_device_(-1) {
 EncoderCore::~EncoderCore() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
   if (!track_encoders_.isEmpty()) {
     track_encoders_.clear();
   }
@@ -122,6 +125,7 @@ status_t EncoderCore::AddSource(const shared_ptr<TrackSource>& track_source,
 status_t EncoderCore::StartTrackEncoder(uint32_t track_id) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   if (!isTrackValid(track_id)) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
@@ -149,6 +153,7 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id,
                                        bool is_force_cleanup) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   if (!isTrackValid(track_id)) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
@@ -201,6 +206,7 @@ status_t EncoderCore::SetTrackEncoderParams(uint32_t track_id,
 status_t EncoderCore::DeleteTrackEncoder(uint32_t track_id) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   if (!isTrackValid(track_id)) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);

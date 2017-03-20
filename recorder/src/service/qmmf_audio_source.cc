@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -61,10 +61,13 @@ AudioSource* AudioSource::CreateAudioSource() {
 
 AudioSource::AudioSource() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_KPI_GET_MASK();
+  QMMF_KPI_DETAIL();
 }
 
 AudioSource::~AudioSource() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   if (!track_source_map_.empty())
     track_source_map_.clear();
@@ -155,6 +158,7 @@ status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
 
 status_t AudioSource::StartTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s(): TRACE", TAG, __func__);
+  QMMF_KPI_BASE();
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
 
   AudioTrackSourceMap::iterator track_source_iterator =
@@ -178,6 +182,7 @@ status_t AudioSource::StartTrackSource(const uint32_t track_id) {
 status_t AudioSource::StopTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s(): TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_BASE();
 
   AudioTrackSourceMap::iterator track_source_iterator =
       track_source_map_.find(track_id);
@@ -200,6 +205,7 @@ status_t AudioSource::StopTrackSource(const uint32_t track_id) {
 status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s(): TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   AudioTrackSourceMap::iterator track_source_iterator =
       track_source_map_.find(track_id);
@@ -222,6 +228,7 @@ status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
 status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s: %s(): TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_KPI_DETAIL();
 
   AudioTrackSourceMap::iterator track_source_iterator =
       track_source_map_.find(track_id);

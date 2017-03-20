@@ -32,6 +32,10 @@
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_impl.h"
 
+#ifdef LOG_LEVEL_KPI
+volatile uint32_t kpi_debug_level = BASE_KPI_FLAG;
+#endif
+
 namespace qmmf {
 
 namespace recorder {
@@ -61,12 +65,15 @@ RecorderImpl::RecorderImpl()
     audio_source_(nullptr),
     audio_encoder_core_(nullptr) {
 
+    QMMF_KPI_GET_MASK();
+    QMMF_KPI_DETAIL();
     QMMF_INFO("%s:%s: Enter", TAG, __func__);
     QMMF_INFO("%s:%s: Exit", TAG, __func__);
   }
 
 RecorderImpl::~RecorderImpl() {
 
+  QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (camera_source_) {
@@ -92,6 +99,7 @@ RecorderImpl::~RecorderImpl() {
 status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   assert(remote_cb_handle != nullptr);
   remote_cb_handle_ = remote_cb_handle;
@@ -135,6 +143,7 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
 status_t RecorderImpl::DeInit() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   if (camera_source_) {
     delete camera_source_;
@@ -267,6 +276,7 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
                                    bool enable_result_cb) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
   if (!IsClientValid(client_id)) {
     QMMF_WARN("%s:%s: Invalid client, Not in connected client list!", TAG,
         __func__);
@@ -321,6 +331,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
                                   const uint32_t camera_id) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
   if (!IsClientValid(client_id)) {
     QMMF_WARN("%s:%s: Invalid client, Not in connected client list!", TAG,
         __func__);
@@ -332,8 +343,8 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
         client_id, camera_id);
     return INVALID_OPERATION;
   }
-
   assert(camera_source_ != nullptr);
+
   auto ret = camera_source_->StopCamera(camera_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StopCamera Failed!!", TAG, __func__);
@@ -354,6 +365,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
 status_t RecorderImpl::CreateSession(const uint32_t client_id,
                                      uint32_t *session_id) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
     QMMF_WARN("%s:%s: Invalid client, Not in connected client list!", TAG,
@@ -383,6 +395,7 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
 status_t RecorderImpl::DeleteSession(const uint32_t client_id,
                                      const uint32_t session_id) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   int32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -428,6 +441,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
                                     const uint32_t session_id) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -556,6 +570,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
 
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -671,6 +686,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
                                     const uint32_t session_id) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -767,6 +783,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
                                      const uint32_t session_id) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -860,6 +877,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
                                         const AudioTrackCreateParam& param) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -934,6 +952,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
                                         const uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -1006,6 +1025,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
 
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
     QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
@@ -1190,6 +1210,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
                                         const uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
+  QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
     QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
