@@ -185,6 +185,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id) {
     QMMF_ERROR("%s:%s client_id(%d) is not valid!", TAG, __func__);
     return BAD_VALUE;
   }
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   auto session_track_map = client_session_map_[client_id];
   if (session_track_map.size() > 0) {
     QMMF_WARN("%s:%s Resource belogs to client(%d) are not released!", TAG,
@@ -194,8 +195,9 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id) {
     // Without freeing up resources by its own?
   }
   client_session_map_.erase(client_id);
+  client_cameraid_map_.erase(client_id);
   QMMF_INFO("%s:%s: Number of connected clients=%d", TAG, __func__,
-      client_cameraid_map_.size());
+      client_session_map_.size());
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
   return NO_ERROR;
 }
@@ -211,22 +213,24 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
         __func__);
     return BAD_VALUE;
   }
-  // Check if camera is owned by other client.
-  for (auto iter : client_cameraid_map_) {
-    std::vector<uint32_t> camera_ids = iter.second;
-    for (auto idx : camera_ids) {
-      if (camera_id == idx) {
-        QMMF_ERROR("%s:%s client_id(%d) Camera (%d) is already "
-              "owned by other client, Not allowed!", TAG, __func__, client_id,
-              camera_id);
-        return INVALID_OPERATION;
+  {
+    std::lock_guard<std::mutex> lock(camera_map_lock_);
+    // Check if camera is owned by other client.
+    for (auto iter : client_cameraid_map_) {
+      std::vector<uint32_t> camera_ids = iter.second;
+      for (auto idx : camera_ids) {
+        if (camera_id == idx) {
+          QMMF_ERROR("%s:%s client_id(%d) Camera (%d) is already "
+                "owned by other client, Not allowed!", TAG, __func__, client_id,
+                camera_id);
+          return INVALID_OPERATION;
+        }
       }
     }
+    std::vector<uint32_t> camera_ids;
+    camera_ids.push_back(camera_id);
+    client_cameraid_map_.insert( {client_id, camera_ids} );
   }
-  std::vector<uint32_t> camera_ids;
-  camera_ids.push_back(camera_id);
-  client_cameraid_map_.insert( {client_id, camera_ids} );
-
   assert(camera_source_ != nullptr);
   ResultCb cb = [ this, client_id ] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -268,6 +272,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
     QMMF_ERROR("%s:%s: StopCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
   }
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
   auto& camera_id_vector = client_cameraid_map_[client_id];
   auto camera_id_iter = std::find(camera_id_vector.begin(),
       camera_id_vector.end(), camera_id);

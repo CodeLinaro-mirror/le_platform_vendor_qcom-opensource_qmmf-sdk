@@ -623,6 +623,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     recorder_->DeInit();
     delete recorder_;
     recorder_ = nullptr;
+    unique_client_id_ = 0;
   }
 
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
