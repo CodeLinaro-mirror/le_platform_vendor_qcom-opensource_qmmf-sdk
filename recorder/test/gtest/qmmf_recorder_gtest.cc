@@ -46,7 +46,7 @@
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
 
-#define DUMP_META_PATH "/data/param.dump"
+#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -8670,7 +8670,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
     if (id == dump_yuv_freq_) {
       String8 file_path;
       size_t written_len;
-      file_path.appendFormat("/data/gtest_track_%d_%lld.yuv", track_id,
+      file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv", track_id,
           buffers[0].timestamp);
 
       FILE *file = fopen(file_path.string(), "w+");
@@ -8827,7 +8827,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
       struct timeval tv;
       gettimeofday(&tv, NULL);
       uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-      file_path.appendFormat("/data/snapshot_%u_%llu.%s", image_sequence_count,
+      file_path.appendFormat("/data/misc/qmmf/snapshot_%u_%llu.%s", image_sequence_count,
           tv_ms, ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
@@ -8983,7 +8983,7 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   }
   String8 extn(type_string);
   String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
                                   dumpinfo.track_id, dumpinfo.width,
                                   dumpinfo.height, extn.string());
   int32_t file_fd = open(bitstream_filepath.string(),

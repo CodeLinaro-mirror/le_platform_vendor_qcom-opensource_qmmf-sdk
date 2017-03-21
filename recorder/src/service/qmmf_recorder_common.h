@@ -39,7 +39,7 @@
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
-#define FRAME_DUMP_PATH        "/data"
+#define FRAME_DUMP_PATH        "/data/misc/qmmf"
 
 // Enable ENABLE_FRAME_DUMP to dump YUV frame at TrackSource level. it will
 // Start dumping every 100th frame for all active tracks, and file name

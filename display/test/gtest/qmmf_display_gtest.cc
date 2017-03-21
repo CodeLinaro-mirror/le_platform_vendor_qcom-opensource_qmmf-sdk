@@ -192,7 +192,7 @@ TEST_F(DisplayGtest, Test1YUV) {
     surface_data->surface_id = surface_id;
     ret = display_->DequeueSurfaceBuffer(surface_id,
         surface_data->surface_buffer);
-    surface_data->file = fopen("/data/YUV/1080p_1.nv12.yuv", "r");
+    surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
     if (!surface_data->file) {
       TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
@@ -328,7 +328,7 @@ TEST_F(DisplayGtest, Test1RGB) {
     ret = display_->DequeueSurfaceBuffer(surface_id,
         surface_data->surface_buffer);
 
-    surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+    surface_data->file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb",
         "r");
     if (!surface_data->file) {
       TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
@@ -453,7 +453,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       surface_data->surface_id = surface_id;
       ret = display_->DequeueSurfaceBuffer(surface_id,
           surface_data->surface_buffer);
-      surface_data->file = fopen("/data/YUV/1080p_1.nv12.yuv", "r");
+      surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
         TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
@@ -526,7 +526,7 @@ next:
       ret = display_->DequeueSurfaceBuffer(surface_id,
           surface_data->surface_buffer);
 
-      surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+      surface_data->file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb",
           "r");
       if (!surface_data->file) {
         TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
@@ -690,7 +690,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
       }
       buf_info.insert({surface_id, buffers});
 
-      surface_data->file = fopen("/data/YUV/1080p_1.nv12.yuv", "r");
+      surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
         TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
@@ -924,7 +924,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
 
       buf_info.insert({surface_id, buffers});
 
-      surface_data->file = fopen("/data/YUV/1080p_1.nv12.yuv", "r");
+      surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
         TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
@@ -1032,7 +1032,7 @@ next:
         ret = display_->DequeueSurfaceBuffer(surface_id,
             surface_data->surface_buffer);
 
-        surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+        surface_data->file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb",
             "r");
         if (!surface_data->file) {
           TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
@@ -1258,7 +1258,7 @@ void* DisplayGtest::DisplayVSync(void *userdata) {
         else if((surface_data->surface_buffer.format ==
             (SurfaceFormat)kFormatBGRA8888)|| (surface_data->surface_buffer.format
             == (SurfaceFormat)kFormatRGBA8888)){
-          surface_data->file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb",
+          surface_data->file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb",
                 "r");
           if (!surface_data->file) {
             TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
