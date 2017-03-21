@@ -119,7 +119,8 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateStreamStitching(const CameraStreamParam &param);
   status_t DeleteStreamStitching(const uint32_t id);
 
-  status_t LinkRelatedCameras();
+  status_t fillDualCamLinkMetadataTags(CameraMetadata &meta,
+                                       const uint32_t cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
