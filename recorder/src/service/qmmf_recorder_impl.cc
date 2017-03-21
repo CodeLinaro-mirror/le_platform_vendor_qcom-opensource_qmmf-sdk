@@ -227,9 +227,6 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
         }
       }
     }
-    std::vector<uint32_t> camera_ids;
-    camera_ids.push_back(camera_id);
-    client_cameraid_map_.insert( {client_id, camera_ids} );
   }
   assert(camera_source_ != nullptr);
   ResultCb cb = [ this, client_id ] (uint32_t camera_id,
@@ -242,6 +239,10 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
     QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
   }
+  std::vector<uint32_t> camera_ids;
+  camera_ids.push_back(camera_id);
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+  client_cameraid_map_.insert( {client_id, camera_ids} );
   QMMF_INFO("%s:%s: StartCamera is successful for client_id(%d)", TAG, __func__,
       client_id);
 
@@ -296,7 +297,6 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
         " Calling CreateSession", TAG, __func__);
     return NO_INIT;
   }
-  //TODO: double check on lock.
   std::lock_guard<std::mutex> lock(client_session_lock_);
   ++unique_session_id_;
   *session_id = unique_session_id_;
@@ -326,6 +326,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
     QMMF_ERROR("%s:%s: session_id is not valid!", TAG, __func__);
     return BAD_VALUE;
   }
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];
   std::vector<TrackTuple>& tracks = session_track_map[session_id];
   if (tracks.size() > 0) {
@@ -368,9 +369,10 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
         session_id);
     return NO_ERROR;
   }
-
+  client_session_lock_.lock();
   auto session_track_map = client_session_map_[client_id];
   auto tracks_in_session = session_track_map[session_id];
+  client_session_lock_.unlock();
 
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       TAG, __func__, client_id, session_id, tracks_in_session.size());
@@ -495,9 +497,10 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
               session_id);
     return NO_ERROR;
   }
-
+  client_session_lock_.lock();
   auto session_track_map = client_session_map_[client_id];
   auto tracks_in_session = session_track_map[session_id];
+  client_session_lock_.unlock();
 
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d),number of tracks(%d) to stop",
       TAG, __func__, client_id, session_id, tracks_in_session.size());
@@ -608,9 +611,10 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
               session_id);
     return INVALID_OPERATION;
   }
-
+  client_session_lock_.lock();
   auto session_track_map = client_session_map_[client_id];
   auto tracks_in_session = session_track_map[session_id];
+  client_session_lock_.unlock();
 
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d),number of tracks(%d) to Pause",
       TAG, __func__, client_id, session_id, tracks_in_session.size());
@@ -698,9 +702,10 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
         " with it", TAG, __func__, session_id);
     return BAD_VALUE;
   }
-
+  client_session_lock_.lock();
   auto session_track_map = client_session_map_[client_id];
   auto tracks_in_session = session_track_map[session_id];
+  client_session_lock_.unlock();
 
   QMMF_INFO("%s:%s:client_id(%d):session_id(%d),number of tracks(%d) to Resume",
       TAG, __func__, client_id, session_id, tracks_in_session.size());
@@ -831,7 +836,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
   track_info.type         = TrackType::kAudio;
   track_info.audio_params = audio_track_params;
 
-  //TODO: put lock.
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   auto track_tuple = std::make_tuple(track_id, service_track_id, track_info);
@@ -859,7 +864,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-
+  client_session_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   uint32_t service_track_id = 0;
@@ -877,6 +882,8 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
       break;
     }
   }
+  client_session_lock_.unlock();
+
   assert(track_info.type == TrackType::kAudio);
   assert(audio_source_ != nullptr);
   assert(service_track_id > 0);
@@ -897,9 +904,9 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
       return ret;
     }
   }
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   assert(track_to_remove != tracks_in_session.end());
   tracks_in_session.erase(track_to_remove);
-
   QMMF_INFO("%s:%s: client_track_id(%d):service_track_id(%x) Deleted "
       "Successfully", TAG, __func__, track_id, service_track_id);
   QMMF_INFO("%s:%s: Number of tracks(%d) left in session(%d)", TAG, __func__,
@@ -981,6 +988,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   track_info.type         = TrackType::kVideo;
   track_info.video_params = video_track_params;
 
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   auto track_tuple = std::make_tuple(track_id, service_track_id, track_info);
@@ -1016,7 +1024,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-
+  client_session_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   uint32_t service_track_id = 0;
@@ -1034,6 +1042,8 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
       break;
     }
   }
+  client_session_lock_.unlock();
+
   assert(track_info.type == TrackType::kVideo);
   assert(camera_source_ != nullptr);
   assert(service_track_id > 0);
@@ -1057,8 +1067,11 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
       return ret;
     }
   }
-  assert(track_to_remove != tracks_in_session.end());
-  tracks_in_session.erase(track_to_remove);
+  {
+    std::lock_guard<std::mutex> lock(client_session_lock_);
+    assert(track_to_remove != tracks_in_session.end());
+    tracks_in_session.erase(track_to_remove);
+  }
 
   QMMF_INFO("%s:%s: client_track_id(%d):service_track_id(%x) Deleted "
       "Successfully", TAG, __func__, track_id, service_track_id);
@@ -1091,18 +1104,21 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
   uint32_t service_track_id = 0;
   TrackInfo track_info {};
-  for (auto track : tracks_in_session) {
-    if (track_id == std::get<0>(track)) {
-      service_track_id = std::get<1>(track);
-      track_info       = std::get<2>(track);
-      QMMF_VERBOSE("%s:%s: client_id(%d):session_id(%d), "
-          "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
-          session_id, track_id, service_track_id);
-      break;
+  {
+    std::lock_guard<std::mutex> lock(client_session_lock_);
+    auto session_track_map = client_session_map_[client_id];
+    auto tracks_in_session = session_track_map[session_id];
+    for (auto track : tracks_in_session) {
+      if (track_id == std::get<0>(track)) {
+        service_track_id = std::get<1>(track);
+        track_info       = std::get<2>(track);
+        QMMF_VERBOSE("%s:%s: client_id(%d):session_id(%d), "
+            "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
+            session_id, track_id, service_track_id);
+        break;
+      }
     }
   }
   assert(service_track_id > 0);
@@ -1133,7 +1149,6 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
       assert(ret == NO_ERROR);
     }
   }
-
   QMMF_VERBOSE("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
   return ret;
@@ -1162,16 +1177,19 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
   uint32_t service_track_id = 0;
-  for (auto track : tracks_in_session) {
-    if (track_id == std::get<0>(track)) {
-      service_track_id = std::get<1>(track);
-      QMMF_INFO("%s:%s: client_id(%d):session_id(%d), "
-          "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
-          session_id, track_id, service_track_id);
-      break;
+  {
+    std::lock_guard<std::mutex> lock(client_session_lock_);
+    auto session_track_map = client_session_map_[client_id];
+    auto tracks_in_session = session_track_map[session_id];
+    for (auto track : tracks_in_session) {
+      if (track_id == std::get<0>(track)) {
+        service_track_id = std::get<1>(track);
+        QMMF_INFO("%s:%s: client_id(%d):session_id(%d), "
+            "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
+            session_id, track_id, service_track_id);
+        break;
+      }
     }
   }
   assert(service_track_id > 0);
