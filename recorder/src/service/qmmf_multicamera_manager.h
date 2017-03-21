@@ -65,9 +65,9 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                              uint32_t* virtual_camera_id);
 
-  status_t ConfigureMultiCamera(uint32_t virtual_camera_id,
-                                /*MultiCameraConfigTypes*/ uint32_t type,
-                                void *param, size_t param_size);
+  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+                                const MultiCameraConfigType type,
+                                const void *param, const size_t param_size);
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
                       const ResultCb &cb = nullptr) override;
@@ -107,24 +107,32 @@ class MultiCameraManager : public CameraInterface {
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
-  void SetPostProcess(const ImageParam &param, const ImageFormat &image,
-                      uint32_t frame_rate);
-  void PostprocessCaptureCallback(StreamBuffer buffer);
-  void ClientCaptureCallback(StreamBuffer in_buffer, StreamBuffer out_buffer);
+  status_t CreateJpegEncoder(const ImageParam &param, const ImageFormat &image,
+                             const uint32_t num_images);
+  void EncodeJpegImage(const StreamBuffer &buffer);
+  void OnStitchedFrameAvailable(StreamBuffer buffer);
+  void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
+  status_t ReturnJpegBuffer(const int32_t buffer_id);
+
+  // Create Stitching stream is identified with param.id, make sure
+  // that same id is passed on DeleteStreamStitching
+  status_t CreateStreamStitching(const CameraStreamParam &param);
+  status_t DeleteStreamStitching(const uint32_t id);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
+  MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
 
   //Non zsl capture request.
   ImageParam               snapshot_param_;
   uint32_t                 sequence_cnt_;
-  bool                     postprocess_enable_;
+  bool                     jpeg_encoding_enabled_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
-  sp<ICameraPostProcess>   multi_camera_pproc_;
+  sp<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  GrallocMemory            *pproc_memory_pool_;
+  GrallocMemory            *jpeg_memory_pool_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -137,10 +145,14 @@ class MultiCameraManager : public CameraInterface {
   KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
 
   // Map of output_buffer's fd to StreamBuffer
-  KeyedVector<uint32_t, StreamBuffer> pproc_buffer_list_;
+  KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_map_;
+
+  Mutex                    jpeg_lock_;
+  Condition                wait_for_jpeg_;
 
   Mutex                    lock_;
-  Mutex                    pproc_lock_;
+
+  static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
@@ -196,8 +208,9 @@ class GrallocMemory : public RefBase {
 class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
-    uint32_t         virtual_camera_id;
-    Vector<uint32_t> camera_ids;
+    uint32_t               virtual_camera_id;
+    Vector<uint32_t>       camera_ids;
+    MultiCameraConfigType  multicam_type;
   };
 
   StitchingBase(InitParams &param);
@@ -240,7 +253,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     bool        configured;
     qmmf_alg_status_t (*init)(void **handle,
                               qmmf_alg_blob_t *calibration_data);
-    void        (*deinit)(void *handle);
+    void              (*deinit)(void *handle);
     qmmf_alg_status_t (*get_caps)(void *handle, qmmf_alg_caps_t *caps);
     qmmf_alg_status_t (*set_tuning)(void *handle, qmmf_alg_blob_t *blob);
     qmmf_alg_status_t (*config)(void *handle, qmmf_alg_config_t *config);
@@ -253,10 +266,11 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     qmmf_alg_status_t (*get_debug_info_log)(void *handle, char **log);
   };
 
-  void StopFrameSync();
+  status_t StopFrameSync();
 
-  status_t ReturnProcessedBuffer(buffer_handle_t &handle);
   status_t ReturnUnsyncedBuffers(uint32_t camera_id);
+  status_t ReturnProcessedBuffer(buffer_handle_t &handle,
+                                 qmmf_alg_status_t status);
 
   status_t InitLibrary();
   status_t DeInitLibrary();
@@ -291,13 +305,15 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // by the library.
   std::set<buffer_handle_t> registered_buffers_;
 
-  Mutex                    process_buffers_lock_;
+  Mutex                    buffers_lock_;
+  Condition                wait_for_buffers_;
 
   Mutex                    sync_lock_;
   Condition                wait_for_sync_frames_;
 
-  static const nsecs_t kFrameSyncTimeout  = 50000000;  // 50 ms
-  static const int32_t kTimestampMaxDelta = 140000000; // 140 ms.
+  static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
+  static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
+  static const int32_t kTimestampMaxDelta  = 150000000; // 150 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
