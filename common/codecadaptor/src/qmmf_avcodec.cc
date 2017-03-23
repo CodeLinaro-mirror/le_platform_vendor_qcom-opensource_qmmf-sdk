@@ -45,6 +45,7 @@
 #include <OMX_IndexExt.h>
 #include <media/hardware/HardwareAPI.h>
 #include <gralloc_priv.h>
+#include <math.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_omx_client.h"
@@ -1528,7 +1529,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
-  uint32_t frame_rate = param.video_enc_param.frame_rate;
+  uint32_t frame_rate = ceil(param.video_enc_param.frame_rate);
   uint32_t iframe_interval = param.video_enc_param.codec_param.avc.idr_interval;
 
   OMX_VIDEO_PARAM_AVCTYPE h264_type;
@@ -1609,7 +1610,7 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
 
-  uint32_t frame_rate = param.video_enc_param.frame_rate;
+  uint32_t frame_rate = ceil(param.video_enc_param.frame_rate);
   uint32_t iframe_interval = param.video_enc_param.codec_param.hevc.idr_interval;
 
   OMX_VIDEO_PARAM_HEVCTYPE hevc_type;
@@ -2574,7 +2575,6 @@ void* AVCodec::DeliverInput(void *arg) {
   while(1) {
     memset(&stream_buffer, 0x0, sizeof(stream_buffer));
     ret = avcodec->getInputBufferSource()->GetBuffer(stream_buffer, nullptr);
-
     buffer_handle_t native_handle;
     memset(&native_handle, 0x0, sizeof native_handle);
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
