@@ -104,8 +104,8 @@ void RecorderGtest::SetUp() {
   dump_yuv_freq_ = atoi(prop_val);
   property_get(PROP_N_ITERATIONS, prop_val, DEFAULT_ITERATIONS);
   iteration_count_ = atoi(prop_val);
-
-  camera_id_ = 0;
+  property_get(PROP_CAMERA_ID, prop_val, "0");
+  camera_id_ = atoi(prop_val);
 
   memset(&camera_start_params_, 0x0, sizeof camera_start_params_);
   camera_start_params_.zsl_mode         = false;
@@ -299,7 +299,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = stream_width;
   video_track_param.height        = stream_height;
   video_track_param.frame_rate    = 30;
@@ -427,7 +427,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id  = 0;
+  video_track_param.camera_id  = camera_id_;
   video_track_param.width = stream_width;
   video_track_param.height = stream_height;
   video_track_param.frame_rate = 30;
@@ -641,7 +641,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = camera_start_params_.zsl_width;
   video_track_param.height      = camera_start_params_.zsl_height;
   video_track_param.frame_rate  = 30;
@@ -782,7 +782,7 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   VideoTrackCreateParam preview_track_param;
   memset(&preview_track_param, 0x0, sizeof preview_track_param);
 
-  preview_track_param.camera_id      = 0;
+  preview_track_param.camera_id      = camera_id_;
   preview_track_param.width          = 1920;
   preview_track_param.height         = 1080;
   preview_track_param.frame_rate     = camera_start_params_.frame_rate;
@@ -912,7 +912,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   VideoTrackCreateParam preview_track_param;
   memset(&preview_track_param, 0x0, sizeof preview_track_param);
 
-  preview_track_param.camera_id      = 0;
+  preview_track_param.camera_id      = camera_id_;
   preview_track_param.width          = 1920;
   preview_track_param.height         = 1080;
   preview_track_param.frame_rate     = camera_start_params_.frame_rate;
@@ -1048,7 +1048,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   assert(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param;
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = 1920;
   video_track_param.height      = 1080;
   video_track_param.frame_rate  = 30;
@@ -1730,7 +1730,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id   = 0;
+    video_track_param.camera_id   = camera_id_;
     video_track_param.width       = 1920;
     video_track_param.height      = 1080;
     video_track_param.frame_rate  = 30;
@@ -1834,7 +1834,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = width;
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
@@ -1988,7 +1988,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id     = 0;
+    video_track_param.camera_id     = camera_id_;
     video_track_param.width         = width;
     video_track_param.height        = height;
     video_track_param.frame_rate    = 30;
@@ -2097,7 +2097,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2208,7 +2208,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2419,7 +2419,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2665,7 +2665,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2776,7 +2776,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2942,7 +2942,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -2993,7 +2993,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3138,7 +3138,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3189,7 +3189,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3288,7 +3288,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3397,7 +3397,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3505,7 +3505,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3555,7 +3555,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3652,7 +3652,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3702,7 +3702,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3813,7 +3813,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3864,7 +3864,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -3963,7 +3963,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4014,7 +4014,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4124,7 +4124,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4174,7 +4174,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4272,7 +4272,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4323,7 +4323,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4423,7 +4423,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4474,7 +4474,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4620,7 +4620,7 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -4736,7 +4736,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id   = 0;
+    video_track_param.camera_id   = camera_id_;
     video_track_param.width       = width;
     video_track_param.height      = height;
     video_track_param.frame_rate  = 30;
@@ -4850,7 +4850,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = width;
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
@@ -4992,7 +4992,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id   = 0;
+    video_track_param.camera_id   = camera_id_;
     video_track_param.width       = 3840;
     video_track_param.height      = 2160;
     video_track_param.frame_rate  = 30;
@@ -5159,7 +5159,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     VideoTrackCreateParam s1_video_t1_param;
     memset(&s1_video_t1_param, 0x0, sizeof s1_video_t1_param);
 
-    s1_video_t1_param.camera_id      = 0;
+    s1_video_t1_param.camera_id      = camera_id_;
     s1_video_t1_param.width          = 1920;
     s1_video_t1_param.height         = 1080;
     s1_video_t1_param.frame_rate     = 30;
@@ -5216,7 +5216,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     VideoTrackCreateParam s2_video_t1_param;
     memset(&s2_video_t1_param, 0x0, sizeof s2_video_t1_param);
 
-    s2_video_t1_param.camera_id      = 0;
+    s2_video_t1_param.camera_id      = camera_id_;
     s2_video_t1_param.width          = 1920;
     s2_video_t1_param.height         = 1080;
     s2_video_t1_param.frame_rate     = 30;
@@ -5368,7 +5368,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -5537,7 +5537,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -5723,7 +5723,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -5892,7 +5892,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -6061,7 +6061,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -6246,7 +6246,7 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -6411,7 +6411,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = width;
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
@@ -6526,7 +6526,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = 30;
@@ -6641,7 +6641,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = 3840;
   video_track_param.height      = 2160;
   video_track_param.frame_rate  = 30;
@@ -6758,7 +6758,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = width;
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
@@ -6890,7 +6890,7 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = 1920;
   video_track_param.height      = 1080;
   video_track_param.frame_rate  = 30;
@@ -7014,7 +7014,7 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id     = 0;
+  video_track_param.camera_id     = camera_id_;
   video_track_param.width         = width;
   video_track_param.height        = height;
   video_track_param.frame_rate    = 30;
@@ -7292,7 +7292,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -7464,7 +7464,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -7636,7 +7636,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id      = 0;
+  video_track_param.camera_id      = camera_id_;
   video_track_param.width          = width;
   video_track_param.height         = height;
   video_track_param.frame_rate     = 30;
@@ -7855,7 +7855,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   VideoTrackCreateParam video_track_param;
   memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_param.camera_id   = 0;
+  video_track_param.camera_id   = camera_id_;
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
@@ -8050,7 +8050,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   VideoTrackCreateParam video_track1;
   memset(&video_track1, 0x0, sizeof video_track1);
 
-  video_track1.camera_id      = 0;
+  video_track1.camera_id      = camera_id_;
   video_track1.width          = w1;
   video_track1.height         = h1;
   video_track1.frame_rate     = fps1;
@@ -8132,7 +8132,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   VideoTrackCreateParam video_track2;
   memset(&video_track2, 0x0, sizeof video_track2);
 
-  video_track2.camera_id      = 0;
+  video_track2.camera_id      = camera_id_;
   video_track2.width          = w2;
   video_track2.height         = h2;
   video_track2.frame_rate     = fps2;
@@ -8321,7 +8321,7 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     VideoTrackCreateParam video_track_param;
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
-    video_track_param.camera_id   = 0;
+    video_track_param.camera_id   = camera_id_;
     video_track_param.width       = width;
     video_track_param.height      = height;
     video_track_param.frame_rate  = 30.0;
