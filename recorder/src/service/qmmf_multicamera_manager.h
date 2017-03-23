@@ -214,6 +214,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     uint32_t               virtual_camera_id;
     Vector<uint32_t>       camera_ids;
     MultiCameraConfigType  multicam_type;
+    uint32_t               frame_rate;
   };
 
   StitchingBase(InitParams &param);
@@ -308,6 +309,10 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // by the library.
   std::set<buffer_handle_t> registered_buffers_;
 
+  // The maximum interval in which two frames are thought of as syncable.
+  // It is calculated, based on the frame rate.
+  int32_t timestamp_max_delta_;
+
   Mutex                    buffers_lock_;
   Condition                wait_for_buffers_;
 
@@ -316,7 +321,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
   static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
-  static const int32_t kTimestampMaxDelta  = 15000000;  // 15 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
