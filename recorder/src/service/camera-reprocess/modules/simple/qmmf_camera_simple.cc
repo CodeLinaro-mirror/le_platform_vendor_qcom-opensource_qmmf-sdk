@@ -79,7 +79,8 @@ int32_t CameraSimple::Create(const int32_t stream_id,
 
 status_t CameraSimple::GetCapabilities(ReprocCaps *caps) {
   caps->internal_buff = 0;
-  caps->format = -1; /* in == out format */
+  caps->out_format = -1; /* in == out format */
+  caps->in_format = -1; /* out == in format */
   caps->scale_en = 0;
   caps->usage = 0;
   // TODO

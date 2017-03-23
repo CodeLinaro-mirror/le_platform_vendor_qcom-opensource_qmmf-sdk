@@ -184,7 +184,8 @@ int32_t CameraHal::Create(const int32_t stream_id,
 
 status_t CameraHal::GetCapabilities(ReprocCaps *caps) {
   caps->internal_buff = 0;
-  caps->format = HAL_PIXEL_FORMAT_BLOB;
+  caps->out_format = HAL_PIXEL_FORMAT_BLOB;
+  caps->in_format = HAL_PIXEL_FORMAT_YCbCr_420_888;
   caps->scale_en = 0;
   caps->usage = 0;
 

@@ -116,8 +116,8 @@ void ReprocessNode::getDefaultParam(ReprocessNodeParams& reproc_node_param,
     reproc_node_param.out.gralloc_flags = caps_.usage;
   }
 
-  if (caps_.format > 0) {
-    reproc_node_param.out.format = caps_.format;
+  if (caps_.out_format > 0) {
+    reproc_node_param.out.format = caps_.out_format;
   }
 
   if (reproc_node_param.out.format == HAL_PIXEL_FORMAT_BLOB) {

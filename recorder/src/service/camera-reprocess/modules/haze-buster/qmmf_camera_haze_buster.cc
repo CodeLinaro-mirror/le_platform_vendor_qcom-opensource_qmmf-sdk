@@ -148,7 +148,8 @@ FAIL:
 
 status_t CameraHazeBuster::GetCapabilities(ReprocCaps *caps) {
   caps->internal_buff = 10;
-  caps->format = -1;
+  caps->out_format = -1; /* out == in */
+  caps->in_format = HAL_PIXEL_FORMAT_YCbCr_420_888;
   caps->scale_en = 0;
   caps->usage = 0;
   // TODO

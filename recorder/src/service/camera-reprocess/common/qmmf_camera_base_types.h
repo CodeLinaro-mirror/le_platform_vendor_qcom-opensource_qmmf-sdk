@@ -45,8 +45,10 @@ struct ReprocCaps {
   /* 0 - number of internal buffers */
   uint32_t internal_buff;
   /* todo add supported in/out formats */
-  /* HAL format */
-  int32_t  format;
+  /* output HAL format */
+  int32_t  out_format;
+  /* input HAL format */
+  int32_t  in_format;
   /* image crop capability flag */
   int32_t  crop_en;
   /* image scale capability flag */

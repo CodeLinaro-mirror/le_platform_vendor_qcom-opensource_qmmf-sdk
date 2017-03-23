@@ -93,6 +93,8 @@ class ReprocessNode : public CameraThread,
 
    ~ReprocessNode();
 
+   ReprocCaps GetCapabilities() {return caps_;};
+
    int32_t Initialize(int32_t input_stream_id,
                       ReprocessNodeParams& reproc_node_param,
                       void* static_meta);

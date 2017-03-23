@@ -77,7 +77,8 @@ int32_t CameraCopy::Create(const int32_t stream_id,
 
 status_t CameraCopy::GetCapabilities(ReprocCaps *caps) {
   caps->internal_buff = 10;
-  caps->format = -1;
+  caps->out_format = -1;
+  caps->in_format = -1;
   caps->scale_en = 0;
   caps->usage = 0;
   // TODO
