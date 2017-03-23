@@ -353,13 +353,16 @@ status_t MultiCameraManager::CancelCaptureImage() {
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
 
   status_t ret;
-  size_t ctx_idx;
+  ssize_t ctx_idx;
 
   CameraStreamParam context_param (param);
   ReCalculateWidth(context_param.cam_stream_dim.width);
 
+  // Start streams in reverse order. This is needed becouse camera
+  // context is cahcing our streams and streams will be destroyed only
+  // when new stream is created, and not on delete stream as expected.
   CameraMetadata meta;
-  for (ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
+  for (ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
     assert(camera_context.get() != nullptr);
     ret = camera_context->CreateStream(context_param);
@@ -404,7 +407,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   return NO_ERROR;
 
 FAIL:
-  for (ssize_t i = ctx_idx - 1; i >= 0; --i) {
+  for (size_t i = ctx_idx + 1; i < camera_contexts_.size(); ++i) {
     camera_contexts_.valueAt(i)->DeleteStream(context_param.id);
   }
   return ret;
@@ -413,7 +416,10 @@ FAIL:
 status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
 
   status_t ret = NO_ERROR;
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+
+  // Delete the streams backwards since first camera is master camera
+  // and need to be stopped last.
+  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
     ret = camera_context->DeleteStream(track_id);
@@ -468,7 +474,9 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
   stitching_algo->RequestExitAndWait();
   stitching_algo->RemoveConsumer();
 
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+  // Stop the streams backwards since first camera is master camera
+  // and need to be stopped last.
+  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
     assert(camera_context.get() != nullptr);
 
