@@ -667,7 +667,7 @@ status_t RecorderService::StopCamera(const uint32_t client_id,
     QMMF_ERROR("%s:%s: Can't Stop Camera!!", TAG, __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
   return NO_ERROR;
 }
 

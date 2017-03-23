@@ -167,6 +167,7 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
     return NO_ERROR;
   }
   client_session_map_.insert( {client_id, SessionTrackMap()} );
+  client_cameraid_map_.insert( {client_id, std::vector<uint32_t>()} );
 
   QMMF_INFO("%s:%s:client_session_map_.size(%d)", TAG, __func__,
       client_session_map_.size());
@@ -239,13 +240,21 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
     QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
   }
-  std::vector<uint32_t> camera_ids;
-  camera_ids.push_back(camera_id);
   std::lock_guard<std::mutex> lock(camera_map_lock_);
-  client_cameraid_map_.insert( {client_id, camera_ids} );
-  QMMF_INFO("%s:%s: StartCamera is successful for client_id(%d)", TAG, __func__,
-      client_id);
+  auto& camera_ids = client_cameraid_map_[client_id];
+  camera_ids.push_back(camera_id);
 
+  QMMF_INFO("%s:%s: number of clients connected(%d)", TAG, __func__,
+      client_cameraid_map_.size());
+  for (auto iter : client_cameraid_map_) {
+    auto camera_ids = iter.second;
+    QMMF_INFO("%s:%s client_id(%d): number of cameras(%d) owned", TAG, __func__,
+      client_id, camera_ids.size());
+    for (auto idx : camera_ids) {
+      QMMF_INFO("%s:%s \t client_id(%d): camera_id(%d)", TAG, __func__,
+          client_id, idx);
+    }
+  }
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -278,6 +287,8 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   auto camera_id_iter = std::find(camera_id_vector.begin(),
       camera_id_vector.end(), camera_id);
   camera_id_vector.erase(camera_id_iter, camera_id_vector.end());
+  QMMF_INFO("%s:%s client_id(%d): number of cameras(%d)", TAG, __func__,
+      client_id, camera_id_vector.size());
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
