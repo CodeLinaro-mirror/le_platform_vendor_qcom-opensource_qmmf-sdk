@@ -341,6 +341,10 @@ class CameraPort : public RefBase {
 
   // map of <consumer id, IBufferConsumer>
   DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
+
+  sp<ReprocessPipe>      reproc_pipe_;
+  sp<IBufferConsumer>    consumer_;
+  Mutex                  stop_lock_;
 };
 
 class ZslPort : public CameraPort {

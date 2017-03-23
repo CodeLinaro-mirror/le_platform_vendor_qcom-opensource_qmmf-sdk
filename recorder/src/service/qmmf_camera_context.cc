@@ -1648,6 +1648,23 @@ status_t CameraPort::Init() {
   }
   camera_stream_id_ = stream_id;
 
+  // Get pipe nodes
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmfalg.HazeBuster.en", prop, "0");
+  uint32_t haze_buster_en = atoi(prop);
+
+  if (haze_buster_en) {
+    const char* pipe[] = {"HazeBuster"};
+    uint32_t pipe_size = sizeof(pipe)/sizeof(pipe[0]);
+
+    reproc_pipe_ = new ReprocessPipe(context_);
+    assert(reproc_pipe_.get() != nullptr);
+    CameraMetadata static_meta; // TODO
+    auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,
+                                          cam_stream_params_, &static_meta);
+    assert(reproc_id >= 0);
+  }
+
   port_state_ = PortState::PORT_CREATED;
 
   QMMF_INFO("%s:%s: Camera Device Stream(%d) is created Succussfully!", TAG,
@@ -1662,6 +1679,10 @@ status_t CameraPort::DeInit() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(ready_to_start_ == false);
   assert(context_ != nullptr);
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_.clear();
+  }
 
   auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);
   if(ret != NO_ERROR) {
@@ -1683,7 +1704,15 @@ status_t CameraPort::Start(const uint32_t consumer_id,
     assert(consumer.get() != nullptr);
     // Establish buffer communication link between consumer (TrackSource) and
     // Buffer Producer interface of camera port.
-    AddConsumer(consumer_id, consumer);
+
+    if (reproc_pipe_.get() != nullptr) {
+      consumer_ = consumer;
+      reproc_pipe_->AddConsumer(consumer_);
+      AddConsumer(consumer_id, reproc_pipe_->GetConsumerIntf());
+      reproc_pipe_->Start();
+    } else {
+      AddConsumer(consumer_id, consumer);
+    }
   }
 
   //TODO: protect it with lock.
@@ -1714,7 +1743,14 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
     }
 
     // Break buffer communication link between consumer and camera port.
-    RemoveConsumer(consumer_id);
+    if (reproc_pipe_.get() != nullptr) {
+      Mutex::Autolock lock(stop_lock_);
+      RemoveConsumer(consumer_id);
+      reproc_pipe_->RemoveConsumer(consumer_);
+      reproc_pipe_->Stop();
+    } else {
+      RemoveConsumer(consumer_id);
+    }
 
     size_t size = consumer_map_.size();
     QMMF_INFO("%s:%s: Number of Consumer left = %d", TAG, __func__, size);
@@ -1822,6 +1858,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
   QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
       __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
 
+  Mutex::Autolock lock(stop_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
     stream_buffer.camera_id = context_->camera_id_;
     buffer_producer_impl_->NotifyBuffer(stream_buffer);
