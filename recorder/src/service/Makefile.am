@@ -24,6 +24,7 @@ source_files += camera-reprocess/memory/qmmf_camera_memory_pool.cc
 source_files += camera-reprocess/pipe/qmmf_camera_pipe.cc
 source_files += camera-reprocess/common/qmmf_camera_thread.cc
 source_files += camera-reprocess/common/qmmf_camera_module.cc
+source_files += camera-reprocess/common/qmmf_camera_alg.cc
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so

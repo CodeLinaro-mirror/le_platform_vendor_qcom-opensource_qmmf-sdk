@@ -37,13 +37,15 @@
 #include "common/qmmf_common_utils.h"
 
 #include "../../interface/qmmf_camera_module.h"
+#include "../../common/qmmf_camera_alg.h"
 
 namespace qmmf {
 
 namespace recorder {
 
 class CameraHazeBuster : public Callbacks,
-                         public ICameraModule {
+                         public ICameraModule,
+                         public CameraAlg {
 
  public:
 
@@ -75,31 +77,10 @@ class CameraHazeBuster : public Callbacks,
 
  private:
 
-  struct HazeBusterLibInterface {
-    void        *handle;
-    void        *context;
-    bool        configured;
-    qmmf_alg_status_t (*init)(void **handle,
-                              qmmf_alg_blob_t *calibration_data);
-    void              (*deinit)(void *handle);
-    qmmf_alg_status_t (*get_caps)(void *handle, qmmf_alg_caps_t *caps);
-    qmmf_alg_status_t (*set_tuning)(void *handle, qmmf_alg_blob_t *blob);
-    qmmf_alg_status_t (*config)(void *handle, qmmf_alg_config_t *config);
-    qmmf_alg_status_t (*register_bufs)(void *handle, qmmf_alg_buf_list_t bufs);
-    qmmf_alg_status_t (*unregister_bufs)(void *handle,
-                                         qmmf_alg_buf_list_t bufs);
-    qmmf_alg_status_t (*flush)(void *handle);
-    qmmf_alg_status_t (*process)(void *handle,
-                                 qmmf_alg_process_data_t *proc_data);
-    qmmf_alg_status_t (*get_debug_info_log)(void *handle, char **log);
-  };
-
+  void                   *context_;
   int32_t                id_;
-
   bool                   reprocess_flag_;
   bool                   ready_to_start_;
-
-  HazeBusterLibInterface hazebuster_lib_;
 
 };
 

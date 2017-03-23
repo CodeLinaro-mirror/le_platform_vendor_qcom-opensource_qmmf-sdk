@@ -29,14 +29,8 @@
 
 #define TAG "CameraHazeBuster"
 
-#include <algorithm>
-#include <cstdlib>
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "qmmf_camera_haze_buster.h"
@@ -48,11 +42,11 @@ namespace recorder {
 static const char *kHazeBusterLib = "libqmmf_alg_hazebuster.so";
 
 CameraHazeBuster::CameraHazeBuster(int32_t Id)
-    : id_(Id),
+    : CameraAlg(kHazeBusterLib),
+      id_(Id),
       reprocess_flag_(false),
       ready_to_start_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  memset(&hazebuster_lib_, 0x0, sizeof(hazebuster_lib_));
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -80,70 +74,15 @@ int32_t CameraHazeBuster::Create(const int32_t stream_id,
     return BAD_VALUE;
   }
 
-  if (nullptr != hazebuster_lib_.handle) {
-    QMMF_ERROR("%s:%s: Haze Buster library already initialized", TAG, __func__);
+  if (Init(&context_, nullptr) != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Alg Init error", TAG, __func__);
     return BAD_VALUE;
   }
-
-  void* handle = dlopen(kHazeBusterLib, RTLD_NOW);
-  if (nullptr == handle) {
-    QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-        kHazeBusterLib, dlerror());
-    return BAD_VALUE;
-  }
-
-  hazebuster_lib_.handle = handle;
-
-  *(void **) &hazebuster_lib_.init       = dlsym(handle, "qmmf_alg_init");
-  *(void **) &hazebuster_lib_.deinit     = dlsym(handle, "qmmf_alg_deinit");
-  *(void **) &hazebuster_lib_.get_caps   = dlsym(handle, "qmmf_alg_get_caps");
-  *(void **) &hazebuster_lib_.set_tuning = dlsym(handle, "qmmf_alg_set_tuning");
-  *(void **) &hazebuster_lib_.config     = dlsym(handle, "qmmf_alg_config");
-  *(void **) &hazebuster_lib_.flush      = dlsym(handle, "qmmf_alg_flush");
-  *(void **) &hazebuster_lib_.process    = dlsym(handle, "qmmf_alg_process");
-  *(void **) &hazebuster_lib_.register_bufs =
-      dlsym(handle, "qmmf_alg_register_bufs");
-  *(void **) &hazebuster_lib_.unregister_bufs =
-      dlsym(handle, "qmmf_alg_unregister_bufs");
-  *(void **) &hazebuster_lib_.get_debug_info_log =
-      dlsym(handle, "qmmf_alg_get_debug_info_log");
-
-  if (!hazebuster_lib_.init || !hazebuster_lib_.deinit ||
-      !hazebuster_lib_.get_caps || !hazebuster_lib_.set_tuning ||
-      !hazebuster_lib_.get_debug_info_log || !hazebuster_lib_.register_bufs ||
-      !hazebuster_lib_.unregister_bufs || !hazebuster_lib_.flush ||
-      !hazebuster_lib_.process || !hazebuster_lib_.config) {
-    QMMF_ERROR("%s:%s: Unable to link all symbols", TAG, __func__);
-    QMMF_ERROR("%s:%s: qmmf_alg_init %p", TAG, __func__, hazebuster_lib_.init);
-    QMMF_ERROR("%s:%s: qmmf_alg_deinit %p", TAG, __func__, hazebuster_lib_.deinit);
-    QMMF_ERROR("%s:%s: qmmf_alg_get_caps %p", TAG, __func__,
-        hazebuster_lib_.get_caps);
-    QMMF_ERROR("%s:%s: qmmf_alg_set_tuning %p", TAG, __func__,
-        hazebuster_lib_.set_tuning);
-    QMMF_ERROR("%s:%s: qmmf_alg_config %p", TAG, __func__, hazebuster_lib_.config);
-    QMMF_ERROR("%s:%s: qmmf_alg_register_bufs %p", TAG, __func__,
-        hazebuster_lib_.register_bufs);
-    QMMF_ERROR("%s:%s: qmmf_alg_unregister_bufs %p", TAG, __func__,
-        hazebuster_lib_.unregister_bufs);
-    QMMF_ERROR("%s:%s: qmmf_alg_flush %p", TAG, __func__, hazebuster_lib_.flush);
-    QMMF_ERROR("%s:%s: qmmf_alg_process %p", TAG, __func__,
-        hazebuster_lib_.process);
-    QMMF_ERROR("%s:%s: qmmf_alg_get_debug_info_log %p", TAG, __func__,
-        hazebuster_lib_.get_debug_info_log);
-    goto FAIL;
-  }
-
-  hazebuster_lib_.init(&hazebuster_lib_.context, nullptr);
 
   ready_to_start_ = true;
 
   QMMF_INFO("%s:%s: Exit reproc_ID: %d", TAG, __func__, id_);
   return id_;
-
-FAIL:
-  dlclose(handle);
-  memset(&hazebuster_lib_, 0x0, sizeof(hazebuster_lib_));
-  return BAD_VALUE;
 }
 
 status_t CameraHazeBuster::GetCapabilities(ReprocCaps *caps) {
@@ -182,15 +121,7 @@ status_t CameraHazeBuster::Stop() {
 status_t CameraHazeBuster::Delete() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
-  if (nullptr != hazebuster_lib_.handle) {
-    hazebuster_lib_.deinit(hazebuster_lib_.context);
-    auto ret = dlclose(hazebuster_lib_.handle);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Failed to close %s, error: %s", TAG, __func__,
-          kHazeBusterLib, dlerror());
-    }
-    memset(&hazebuster_lib_, 0x0, sizeof(hazebuster_lib_));
-  }
+  Deinit(context_);
 
   reprocess_flag_ = false;
   ready_to_start_ = false;
@@ -276,8 +207,8 @@ bool CameraHazeBuster::Process(StreamBuffer& in_buff, StreamBuffer& out_buff) {
     proc_data.output.bufs[0].fmt.plane[1].length =
         out_buff.info.plane_info[1].scanline * out_buff.info.plane_info[1].stride;
 
-    auto status = hazebuster_lib_.process(hazebuster_lib_.context, &proc_data);
-    if (QMMF_ALG_SUCCESS != status) {
+    auto status = AlgProcess(context_, &proc_data);
+    if (NO_ERROR != status) {
       QMMF_ERROR("%s:%s: Failed to process images, status(%d)", TAG, __func__,
           status);
     }
