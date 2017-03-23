@@ -140,6 +140,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   algo_param.virtual_camera_id = virtual_camera_id_;
   algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
   algo_param.multicam_type = multicam_type_;
+  algo_param.frame_rate = 1;
 
   snapshot_stitch_algo_ = new SnapshotStitching(algo_param, camera_contexts_);
   ret = snapshot_stitch_algo_->Initialize();
@@ -724,6 +725,7 @@ status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam &para
   algo_param.virtual_camera_id = virtual_camera_id_;
   algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
   algo_param.multicam_type = multicam_type_;
+  algo_param.frame_rate = multicam_start_params_.frame_rate;
 
   GrallocMemory::BufferParams buf_param {};
   if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
@@ -1048,6 +1050,10 @@ StitchingBase::StitchingBase(InitParams &param)
     Vector<StreamBuffer> empty_buffers;
     unsynced_buffer_map_.add(camera_id, empty_buffers);
   }
+
+  // We need half the time for one frame 0.5sec/fps, but in nanoseconds.
+  timestamp_max_delta_ = (500000000 / params_.frame_rate);
+
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -1226,7 +1232,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
       const StreamBuffer &unsynced_frame = unsynced_buffers->itemAt(idx);
       timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
 
-      if (std::abs(timestamp_delta) < kTimestampMaxDelta) {
+      if (std::abs(timestamp_delta) < timestamp_max_delta_) {
         synced_frames.add(camera_id, unsynced_frame);
         matched_buffers.add(camera_id, idx);
         ++num_matched_frames;
