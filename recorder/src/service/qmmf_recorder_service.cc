@@ -529,7 +529,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
                                   service_cb, uint32_t* client_id) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
   if (!recorder_) {
@@ -567,12 +567,17 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   remote_cb_list_.add(*client_id, remote_callback);
 
   sp<DeathNotifier> death_notifier;
-  death_notifier = new DeathNotifier(this);
+  death_notifier = new DeathNotifier();
   if (!death_notifier.get()) {
       QMMF_ERROR("%s:%s: Unable to allocate death notifier!", TAG, __func__);
     remote_cb_list_.removeItem(*client_id);
     return NO_INIT;
   }
+  NotifyClientDeath notify_death = [this, capture_client_id = *client_id] {
+      ClientDeathHandler(capture_client_id);
+  };
+  death_notifier->SetDeathNotifyCB(notify_death);
+
   // Link death notifier to remote handle.
   IInterface::asBinder(remote_callback->getRemoteClient())
       ->linkToDeath(death_notifier);
@@ -591,7 +596,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
 status_t RecorderService::Disconnect(uint32_t client_id) {
 
   QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   int32_t ret = NO_ERROR;
   ssize_t idx = death_notifier_list_.indexOfKey(client_id);
@@ -794,8 +799,13 @@ status_t RecorderService::CreateAudioTrack(const uint32_t client_id,
     QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
     return BAD_VALUE;
   }
-  assert(recorder_ != nullptr);
+  uint32_t id = track_id & 0xffff0000;
+  if (id > 0) {
+    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    return BAD_VALUE;
+  }
 
+  assert(recorder_ != nullptr);
   auto ret = recorder_->CreateAudioTrack(client_id, session_id, track_id,
                                          param);
   if (ret != NO_ERROR) {
@@ -816,6 +826,12 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
     QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
     return BAD_VALUE;
   }
+  uint32_t id = track_id & 0xffff0000;
+  if (id > 0) {
+    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
   assert(recorder_ != nullptr);
   auto ret = recorder_->CreateVideoTrack(client_id, session_id, track_id,
                                          param);
@@ -1209,9 +1225,16 @@ status_t RecorderService::ConfigureMultiCamera(const uint32_t client_id,
   return ret;
 }
 
+void RecorderService::ClientDeathHandler(const uint32_t client_id) {
+  QMMF_INFO("%s:%s: client_id(%d) died in battle!", TAG, __func__, client_id);
+  // Internal disconnect, it would trigger resource cleanup belongs to died
+  // client.
+  Disconnect(client_id);
+}
+
 bool RecorderService::IsClientValid(const uint32_t client_id) {
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   ssize_t idx = remote_cb_list_.indexOfKey(client_id);
   return idx < 0 ? false : true;
 }

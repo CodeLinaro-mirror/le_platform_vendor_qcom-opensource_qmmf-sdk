@@ -248,8 +248,8 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
       client_cameraid_map_.size());
   for (auto iter : client_cameraid_map_) {
     auto camera_ids = iter.second;
-    QMMF_INFO("%s:%s client_id(%d): number of cameras(%d) owned", TAG, __func__,
-      client_id, camera_ids.size());
+    QMMF_INFO("%s:%s client_id(%d): number of cameras(%d) owned!", TAG,
+        __func__, client_id, camera_ids.size());
     for (auto idx : camera_ids) {
       QMMF_INFO("%s:%s \t client_id(%d): camera_id(%d)", TAG, __func__,
           client_id, idx);
@@ -268,7 +268,6 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
         __func__);
     return BAD_VALUE;
   }
-
   if (!IsCameraOwned(client_id, camera_id)) {
     QMMF_ERROR("%s:%s client_id(%d) Camera (%d) is already "
         "owned by other client, operation not allowed!", TAG, __func__,
@@ -347,10 +346,22 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
     return INVALID_OPERATION;
   }
   session_track_map.erase(session_id);
-  QMMF_INFO("%s:%s: session_track_map.size()=%d", TAG, __func__,
-      session_track_map.size());
-
+  QMMF_INFO("%s:%s: Number of sessions(%d) left in client_id(%d)", TAG,
+      __func__, session_track_map.size(), client_id);
   sessions_state_.erase(session_id);
+
+  if (session_track_map.size() == 0) {
+    uint32_t num_sessions = 0;
+    for (auto client_iter : client_session_map_) {
+        QMMF_INFO("%s:%s: client_id(%d):num_sessions(%d)", TAG, __func__,
+            client_iter.first, client_iter.second.size());
+        num_sessions += client_iter.second.size();
+    }
+    if (num_sessions == 0) {
+      QMMF_INFO("%s:%s: Reseting unique session id to 0!", TAG, __func__);
+      unique_session_id_ = 0;
+    }
+  }
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }

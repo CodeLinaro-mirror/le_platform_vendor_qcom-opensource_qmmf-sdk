@@ -64,7 +64,7 @@ fi
 
 AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
 
-[CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
+[CPPFLAGS="$CPPFLAGS -std=c++14 -Wall -Wextra -Werror"]
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
 # TODO this warning suppress issue in lib gralloc private

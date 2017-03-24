@@ -49,20 +49,19 @@ class RecorderService : public BnInterface<IRecorderService> {
 
  private:
 
+  typedef std::function <void(void)> NotifyClientDeath;
   class DeathNotifier : public IBinder::DeathRecipient {
    public:
-    DeathNotifier(sp<RecorderService> parent) : parent_(parent) {}
+    DeathNotifier() {}
 
+    void SetDeathNotifyCB(NotifyClientDeath& cb) {
+      notify_client_death_ = cb;
+    }
     void binderDied(const wp<IBinder>&) override {
       QMMF_WARN("RecorderSerive:%s: Client Exited or Died!", __func__);
-      assert(parent_.get() != nullptr);
-      //TODO:
-      //1. Identify the exact client who died in battle.
-      //2. Revisit this logic to clean up the resoutrces belongs to client If
-      //   It dies for some reason.
-      //parent_->Disconnect();
+      notify_client_death_();
     }
-    sp<RecorderService> parent_;
+    NotifyClientDeath notify_client_death_;
   };
 
   friend class DeathNotifier;
@@ -203,6 +202,8 @@ class RecorderService : public BnInterface<IRecorderService> {
                                 const void *param,
                                 const uint32_t param_size) override;
 
+  void ClientDeathHandler(const uint32_t client_id);
+
   bool IsClientValid(const uint32_t client_id);
 
   RecorderImpl*       recorder_;
@@ -210,8 +211,8 @@ class RecorderService : public BnInterface<IRecorderService> {
   DefaultKeyedVector<uint32_t, sp<DeathNotifier> > death_notifier_list_;
   // Map of client ids and their callback handlers.
   DefaultKeyedVector<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
-  uint32_t  unique_client_id_;
-  Mutex     lock_;
+  uint32_t    unique_client_id_;
+  std::mutex  lock_;
 };
 
 }; //namespace qmmf
