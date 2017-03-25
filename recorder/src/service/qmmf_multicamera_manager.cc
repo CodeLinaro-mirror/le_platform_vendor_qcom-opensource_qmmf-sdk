@@ -51,16 +51,9 @@ namespace qmmf {
 
 namespace recorder {
 
-#ifdef LE_BUILD
-static const char *kDefaultLibLocation = "/usr/lib/";
-static const char *k360StitchLib = "libEngine_QmmfAlgPolaris.so.0";
-#else
-static const char *kDefaultLibLocation = "/vendor/lib/";
-static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
-#endif
-
 static const char *kStitchCalibFile = "/data/misc/qmmf/calibfile";
 static const char *kSideBySideLib = "libqmmf_alg_side_by_side.so";
+static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
@@ -1393,30 +1386,27 @@ status_t StitchingBase::InitLibrary() {
     return ret;
   }
 
-  String8 lib_path(kDefaultLibLocation);
+  String8 lib_name;
   switch (params_.multicam_type) {
     case MultiCameraConfigType::k360Stitch:
-      lib_path.append(k360StitchLib);
+      lib_name.append(k360StitchLib);
       break;
     case MultiCameraConfigType::kSideBySide:
-      lib_path.append(kSideBySideLib);
+      lib_name.append(kSideBySideLib);
       break;
     default:
       QMMF_ERROR("%s:%s MultiCamera type (%d) is not supported!", TAG,
           __func__, params_.multicam_type);
-      lib_path.clear();
       return BAD_VALUE;
   }
 
-  void* handle = dlopen(lib_path, RTLD_NOW);
+  void* handle = dlopen(lib_name, RTLD_NOW);
   if (nullptr == handle) {
     QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-        lib_path.string(), dlerror());
-    lib_path.clear();
+        lib_name.string(), dlerror());
     return BAD_VALUE;
   }
 
-  lib_path.clear();
   stitch_lib_.handle = handle;
 
   *(void **) &stitch_lib_.init       = dlsym(handle, "qmmf_alg_init");
