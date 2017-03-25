@@ -34,7 +34,6 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAINTERFACE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(EXIF_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -DLE_BUILD
 if ENABLE_360
 libqmmf_recorder_service_la_CPPFLAGS += -DENABLE_360
 endif
