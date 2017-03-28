@@ -224,7 +224,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t Configure(GrallocMemory::BufferParams &param);
 
   int32_t Run();
-  void RequestExit() override;
   void RequestExitAndWait() override;
 
  protected:
