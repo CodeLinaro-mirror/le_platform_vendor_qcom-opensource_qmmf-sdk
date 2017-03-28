@@ -1106,18 +1106,9 @@ int32_t StitchingBase::Run() {
   return Camera3Thread::Run(work_thread_name_->string());
 }
 
-void StitchingBase::RequestExit() {
-
-  Mutex::Autolock lock(frame_lock_);
-  Camera3Thread::RequestExit();
-  status_t ret = StopFrameSync();
-  assert(NO_ERROR == ret);
-}
-
 void StitchingBase::RequestExitAndWait() {
 
   Mutex::Autolock lock(frame_lock_);
-  Camera3Thread::RequestExitAndWait();
   status_t ret = StopFrameSync();
   assert(NO_ERROR == ret);
 }
@@ -1131,7 +1122,7 @@ bool StitchingBase::ThreadLoop() {
     Mutex::Autolock lock(sync_lock_);
     // If there aren't any pending synchronized buffers waiting to go through
     // stitch processing, wait until such buffer becomes available.
-    if (synced_buffer_queue_.empty()) {
+    if (synced_buffer_queue_.empty() && !stop_frame_sync_) {
       if (use_frame_sync_timeout) {
         ret = wait_for_sync_frames_.waitRelative(sync_lock_, kFrameSyncTimeout);
       } else {
@@ -1142,6 +1133,12 @@ bool StitchingBase::ThreadLoop() {
             __func__, ret);
         return true;
       }
+    }
+
+   // Exit from thread loop if frame sync is stopped
+   if (stop_frame_sync_) {
+      // Exit from thread loop if frame sync is stopped
+      return false;
     }
 
     for (auto const& id : params_.camera_ids) {
@@ -1315,6 +1312,15 @@ status_t StitchingBase::ReturnBufferToBufferPool(const StreamBuffer &buffer) {
 status_t StitchingBase::StopFrameSync() {
 
   status_t ret = NO_ERROR;
+  {
+    //First signal the thread to not wait on frames
+    Mutex::Autolock sync_lock(sync_lock_);
+    stop_frame_sync_ = true;
+    wait_for_sync_frames_.signal();
+  }
+  // We need to wait thread to exit to avoid ace between
+  // flush and ongoing processing in the thread
+  Camera3Thread::RequestExitAndWait();
 
   // Return all unsynced buffers back to the camera contexts.
   for (auto const& camera_id : params_.camera_ids) {
@@ -1337,7 +1343,6 @@ status_t StitchingBase::StopFrameSync() {
       break;
     }
   }
-  stop_frame_sync_ = true;
   return ret;
 }
 
