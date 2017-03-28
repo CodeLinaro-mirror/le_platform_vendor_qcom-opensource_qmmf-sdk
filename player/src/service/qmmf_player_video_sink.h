@@ -201,8 +201,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   TrickModeSpeed           playback_speed_;
   TrickModeDirection       playback_dir_;
-  uint64_t                 current_time_;
-  uint64_t                 prev_time_;
   uint32_t                 displayed_frames_;
   std::mutex               state_change_lock_;
   bool                     grab_picture_;
@@ -215,6 +213,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   Condition                              wait_for_grab_picture_buffer_copy_;
   uint32_t                               snapshot_dumps_;
   std::mutex                             grab_picture_lock;
+  time_point<high_resolution_clock>      prev_time_;
+  uint32_t                               player_decode_profile_;
 };
 
 };  // namespace player

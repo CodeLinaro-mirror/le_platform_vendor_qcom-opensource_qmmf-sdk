@@ -930,7 +930,7 @@ status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
 }
 
 status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                              const uint32_t type,
+                                              const MultiCameraConfigType type,
                                               const void *param,
                                               const uint32_t param_size) {
 
@@ -1077,6 +1077,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
           buf_info = buf_map.valueFor(bn_buffers[i].buffer_id);
           assert(buf_info.pointer != NULL);
           assert(buf_info.ion_fd > 0);
+          bn_buffers[i].ion_fd = buf_info.ion_fd;
           is_mapped = true;
           QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
             "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
@@ -1685,13 +1686,13 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const uint32_t type,
+                                const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(virtual_camera_id);
-    data.writeUint32(type);
+    data.writeUint32(static_cast<uint32_t>(type));
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);

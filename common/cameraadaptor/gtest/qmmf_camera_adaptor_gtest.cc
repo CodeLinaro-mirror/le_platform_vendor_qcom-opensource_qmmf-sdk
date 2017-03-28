@@ -627,6 +627,130 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
   return ret;
 }
 
+TEST_F(Camera3Gtest, Video1080pManualExposure) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest;
+  CameraMetadata staticInfo;
+  int64_t lastFrameNumber;
+  int32_t repeatingStreamId, videoRequestId;
+  int64_t exposureTime = 10000000;
+  int32_t sensitivity = 100;
+
+  auto ret = device_client_->BeginConfigure();
+  ASSERT_EQ(0, ret);
+
+  memset(&streamParams, 0, sizeof(streamParams));
+  streamParams.bufferCount = STREAM_BUFFER_COUNT;
+  streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+  streamParams.width = 1920;
+  streamParams.height = 1080;
+  streamParams.grallocFlags =
+    GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  streamParams.cb = [&](int32_t streamId,
+            StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+  // 1080p Stream1
+  repeatingStreamId = device_client_->CreateStream(streamParams);
+  ASSERT_GE(repeatingStreamId, 0);
+  videoRequest.streamIds.add(repeatingStreamId);
+
+  ret = device_client_->EndConfigure();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                      &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                      &videoRequest.metadata);
+  ASSERT_EQ(0, ret);
+
+  uint8_t aeMode =  ANDROID_CONTROL_AE_MODE_OFF;
+  videoRequest.metadata.update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
+
+  printf("Manual Exposure Time: %lld\n", exposureTime);
+  videoRequest.metadata.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  exposureTime = 30000000;
+  printf("Manual Exposure Time: %lld\n", exposureTime);
+  videoRequest.metadata.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  ASSERT_TRUE(staticInfo.exists(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE));
+
+  camera_metadata_entry metaEntry =
+      staticInfo.find(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE);
+  int32_t minSens = metaEntry.data.i32[0];
+  int32_t maxSens = metaEntry.data.i32[1];
+
+//  ANDROID_SENSOR_SENSITIVITY
+  printf("%s: sensor sensitivity range: min[%" PRId32 "], max[%" PRId32 "]\n",
+     __func__, minSens, maxSens);
+
+  sensitivity = minSens;
+
+  videoRequest.metadata.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  sensitivity = maxSens;
+
+  videoRequest.metadata.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
+
+  ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+  ASSERT_GE(ret, 0);
+  videoRequestId = ret;
+
+  // Run video for some time
+  sleep(5);
+
+  dump_yuv_ = true;
+
+  ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+  ASSERT_EQ(0, ret);
+
+  printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+     __func__, lastFrameNumber);
+
+  ret = device_client_->WaitUntilIdle();
+  ASSERT_EQ(0, ret);
+
+  ret = device_client_->DeleteStream(repeatingStreamId, true);
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
 TEST_F(Camera3Gtest, Video1080pSceneControl) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
@@ -878,6 +1002,107 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
     ret = device_client_->DeleteStream(repeatingStreamId, true);
     ASSERT_EQ(0, ret);
     ASSERT_FALSE(camera_error_);
+  }
+}
+
+TEST_F(Camera3Gtest, Video1080pSnapshotHDR) {
+  CameraStreamParameters streamParams;
+  Camera3Request previewRequest, snapshotRequest;
+  int64_t lastFrameNumber;
+  int32_t previewStreamId, snapshotStreamId;
+  int32_t previewRequestId;
+  CameraMetadata staticInfo;
+  uint8_t sceneMode = ANDROID_CONTROL_MODE_USE_SCENE_MODE;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  if (staticInfo.exists(ANDROID_CONTROL_AVAILABLE_SCENE_MODES)) {
+    camera_metadata_entry metaEntry =
+        staticInfo.find(ANDROID_CONTROL_AVAILABLE_SCENE_MODES);
+
+    ret = device_client_->BeginConfigure();
+    ASSERT_EQ(0, ret);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = STREAM_BUFFER_COUNT;
+    streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    streamParams.width = 1920;
+    streamParams.height = 1080;
+    streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
+    streamParams.cb = [&](int32_t streamId,
+              StreamBuffer buffer) { StreamCb(streamId, buffer); };
+
+    // 1080p Stream1
+    previewStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(previewStreamId, 0);
+    previewRequest.streamIds.add(previewStreamId);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = 3;
+    streamParams.format = HAL_PIXEL_FORMAT_BLOB;
+    streamParams.width = 4000;
+    streamParams.height = 3000;
+    streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+    streamParams.cb = [&](int32_t streamId,
+               StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+
+    snapshotStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(snapshotStreamId, 0);
+    snapshotRequest.streamIds.add(snapshotStreamId);
+
+    ret = device_client_->EndConfigure();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
+                        &previewRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_STILL_CAPTURE,
+                        &snapshotRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->SubmitRequest(previewRequest, true, &lastFrameNumber);
+    ASSERT_GE(ret, 0);
+    previewRequestId = ret;
+
+    sleep(2);
+
+    for ( uint8_t i = 0; i < metaEntry.count; i++) {
+        if (metaEntry.data.u8[i] == ANDROID_CONTROL_SCENE_MODE_HDR) {
+            snapshotRequest.metadata.update(ANDROID_CONTROL_MODE, &sceneMode, 1);
+            snapshotRequest.metadata.update(ANDROID_CONTROL_SCENE_MODE,
+                                    &metaEntry.data.u8[i],
+                                    1);
+            ret = device_client_->SubmitRequest(snapshotRequest, false, &lastFrameNumber);
+            ASSERT_GE(ret, 0);
+            break;
+        }
+    }
+
+    // Run preview for some time
+    sleep(2);
+
+    ret = device_client_->CancelRequest(previewRequestId, &lastFrameNumber);
+    ASSERT_EQ(0, ret);
+
+    printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+       __func__, lastFrameNumber);
+
+    ret = device_client_->WaitUntilIdle();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(snapshotStreamId, true);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(previewRequestId, true);
+    ASSERT_EQ(0, ret);
+    ASSERT_FALSE(camera_error_);
+  } else {
+    printf("%s: Snapshot HDR is not supported by the Camera.\n",
+       __func__);
+   ret = 0;
+   ASSERT_EQ(0, ret);
   }
 }
 

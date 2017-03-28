@@ -94,6 +94,9 @@ AC_CONFIG_FILES([ \
     recorder/src/service/Makefile \
     player/src/client/Makefile \
     player/src/service/Makefile \
+    system/src/client/Makefile \
+    system/src/service/Makefile \
+    system/test/samples/Makefile \
     qmmf-server/Makefile \
     qmmf-sdk.pc \
     recorder/test/samples/Makefile \

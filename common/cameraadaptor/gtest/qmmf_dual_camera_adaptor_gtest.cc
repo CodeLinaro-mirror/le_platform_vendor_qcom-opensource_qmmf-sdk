@@ -353,6 +353,25 @@ TEST_F(DualCamera3Gtest, StereoPreviewVGA) {
   ASSERT_FALSE(camera_error_);
 }
 
+TEST_F(DualCamera3Gtest, DualCamerasPreviewVGA) {
+  auto ret = StartStreaming(ctx2_, 640, 480, HAL_PIXEL_FORMAT_RAW10);
+  ASSERT_EQ(0, ret);
+
+  sleep(5);
+
+  ret = StartStreaming(ctx3_, 1280, 480, HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+  ASSERT_EQ(0, ret);
+
+  // Let streaming run for a while
+  sleep(100);
+
+  ret = StopStreamingAndClose(ctx2_);
+  ASSERT_EQ(0, ret);
+  ret = StopStreamingAndClose(ctx3_);
+  ASSERT_EQ(0, ret);
+  ASSERT_FALSE(camera_error_);
+}
+
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here

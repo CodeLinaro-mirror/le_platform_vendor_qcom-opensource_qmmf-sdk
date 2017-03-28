@@ -120,7 +120,7 @@ class AVCodec : public IAVCodec {
   status_t ConfigureBitrate(CodecParam& codec_param);
   OMX_ERRORTYPE ConfigureSAR(uint32_t width, uint32_t height);
   status_t SetPortParams(OMX_U32 ePortIndex,OMX_U32 nWidth, OMX_U32 nHeight,
-                         OMX_U32 nFrameRate);
+                         float nFrameRate);
   status_t GetVideoProfile(CodecParam& codec_param);
   status_t GetVideoLevel(CodecParam& codec_param);
   OMX_ERRORTYPE prepareForAdaptivePlayback(OMX_U32 portIndex, OMX_BOOL enable,
@@ -188,7 +188,9 @@ class AVCodec : public IAVCodec {
   bool                            port_status_; // for both ports
   ::android::Mutex                input_stop_lock_;
   ::android::Mutex                output_stop_lock_;
-  pthread_t                       read_thread_;
+  pthread_t                       deliver_input_thread_id_;
+  pthread_t                       deliver_output_thread_id_;
+  pthread_t                       port_reconfig_thread_id_;
   ::std::shared_ptr<ICodecSource> input_source_;
   ::std::shared_ptr<ICodecSource> output_source_;
   OMX_BUFFERHEADERTYPE**          in_buff_hdr_;
@@ -196,7 +198,6 @@ class AVCodec : public IAVCodec {
 
   TSQueue<OMX_BUFFERHEADERTYPE*>  free_input_buffhdr_list_;
   TSQueue<OMX_BUFFERHEADERTYPE*>  used_input_buffhdr_list_;
-  ::std::mutex                    lock_;
   ::std::condition_variable       wait_for_header_;
   ::std::mutex                    queue_lock_;
 

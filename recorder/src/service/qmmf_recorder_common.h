@@ -46,15 +46,17 @@
 // Would be track_(track_id)_(timestamp).yuv
 //#define ENABLE_FRAME_DUMP
 
-// Enable DEBUG_TRACK_FPS to print fps of all active video tracks.
-#define DEBUG_TRACK_FPS
 #define FPS_TIME_INTERVAL 3000000
+
 //#define NO_FRAME_PROCESS
 
 #define BUFFER_WAIT_TIMEOUT 500000000  // 500 ms
 
 // Enable DUMP_BITSTREAM to enable encoded data at TrackEncoder layer.
 //#define DUMP_BITSTREAM
+
+// Prop to enable debugging FPS
+#define PROP_DEBUG_FPS        "persist.qmmf.rec.debug.fps"
 
 namespace qmmf {
 
@@ -119,7 +121,7 @@ struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
   CameraStreamFormat cam_stream_format;
   CameraStreamType   cam_stream_type;
-  uint32_t           frame_rate;
+  float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;
 };

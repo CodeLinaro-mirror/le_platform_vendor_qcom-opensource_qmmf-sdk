@@ -188,6 +188,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 #ifdef DUMP_VIDEO_BITSTREAM
   int32_t                 file_fd_video_;
 #endif
+  time_point<high_resolution_clock>   prev_time_;
+  uint32_t                            player_decode_profile_;
 };
 
 };  // namespace player

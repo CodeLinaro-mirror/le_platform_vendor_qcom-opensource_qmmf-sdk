@@ -36,6 +36,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <cutils/properties.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -58,6 +59,73 @@ struct FaceInfo {
   std::vector<Rect<uint32_t>> face_rect;
 };
 
+#define DEFAULT_YUV_DUMP_FREQ       "200"
+#define DEFAULT_ITERATIONS          "50"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_YUV_FRAMES        "persist.qmmf.rec.gtest.dumpyuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_BITSTREAM         "persist.qmmf.rec.gtest.dumpstrm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_JPEG              "persist.qmmf.rec.gtest.dumpjpeg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_RAW               "persist.qmmf.rec.gtest.dumpraw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_YUV_FREQ          "persist.qmmf.rec.gtest.dumpfreq"
+// Prop to set no of iterations
+#define PROP_N_ITERATIONS           "persist.qmmf.rec.gtest.iter"
+
+// Prop to set Track Resolutions and FPS
+#define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
+#define PROP_TRACK1_HEIGHT          "persist.qmmf.rec.gtest.t1.h"
+#define PROP_TRACK1_FPS             "persist.qmmf.rec.gtest.t1.fps"
+#define PROP_TRACK2_WIDTH           "persist.qmmf.rec.gtest.t2.w"
+#define PROP_TRACK2_HEIGHT          "persist.qmmf.rec.gtest.t2.h"
+#define PROP_TRACK2_FPS             "persist.qmmf.rec.gtest.t2.fps"
+// Prop to update Camera Parameters: SHDR and TNR
+#define PROP_CAM_PARAMS1            "persist.qmmf.rec.gtest.cam.par1"
+#define PROP_CAM_PARAMS2            "persist.qmmf.rec.gtest.cam.par2"
+// Prop to determine whether to create or delete session
+#define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
+#define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
+
+typedef struct StreamDumpInfo {
+  VideoFormat   format;
+  uint32_t      track_id;
+  int32_t       width;
+  int32_t       height;
+} StreamDumpInfo;
+
+class DumpBitStream {
+ public:
+  DumpBitStream() : is_enabled_(false) {};
+
+  ~DumpBitStream() {file_fds_.clear();}
+
+  bool IsEnabled() {return is_enabled_;}
+
+  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
+
+  int32_t GetFileFd(const uint32_t count)
+                   {assert(count > 0);
+                    assert(count <= file_fds_.size());
+                    return file_fds_[count-1];}
+
+  void Enable(const bool enable) {is_enabled_ = enable;}
+
+  status_t SetUp(const StreamDumpInfo& dumpinfo);
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers,
+                const int32_t file_fd);
+
+  void Close(int32_t file_fd);
+
+  void CloseAll();
+ private:
+  bool is_enabled_;
+  std::vector<int32_t> file_fds_;
+};
+
 class RecorderGtest : public ::testing::Test {
  public:
   RecorderGtest() : recorder_(), face_bbox_active_(false) {};
@@ -74,6 +142,11 @@ class RecorderGtest : public ::testing::Test {
   int32_t Init();
 
   int32_t DeInit();
+
+  void InitSupportedVHDRModes();
+  bool IsVHDRSupported();
+  void InitSupportedNRModes();
+  bool IsNRSupported();
 
   void ClearSessions();
 
@@ -105,9 +178,6 @@ class RecorderGtest : public ::testing::Test {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                     int32_t file_fd);
-
   status_t QueueVideoFrame(VideoFormat format_type,
                            const uint8_t *buffer, size_t size,
                            int64_t timestamp, AVQueue *que);
@@ -126,9 +196,6 @@ class RecorderGtest : public ::testing::Test {
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
-  int32_t               track1_bitstream_filefd_;
-  int32_t               track2_bitstream_filefd_;
-  int32_t               track3_bitstream_filefd_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
   void ParseFaceInfo(const android::CameraMetadata &res,
@@ -139,5 +206,17 @@ class RecorderGtest : public ::testing::Test {
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
   std::mutex face_overlay_lock_;
+
+  typedef std::vector<uint8_t> nr_modes_;
+  typedef std::vector<int32_t> vhdr_modes_;
+  CameraMetadata       static_info_;
+  nr_modes_            supported_nr_modes_;
+  vhdr_modes_          supported_hdr_modes_;
+
+  DumpBitStream         dump_bitstream_;
+  bool                  is_dump_jpeg_enabled_;
+  bool                  is_dump_raw_enabled_;
+  bool                  is_dump_yuv_enabled_;
+  uint32_t              dump_yuv_freq_;
 };
 

@@ -49,13 +49,10 @@ extern "C" void DebugCameraStartParams (const char* _func_,
 extern "C" void DebugVideoTrackCreateParam (const char* _func_,
                                             VideoTrackCreateParam* params)
 {
-  QMMF_INFO("%s: num_cameras = %d", _func_, params->num_cameras);
-  for(uint8_t i = 0; i < params->num_cameras; i++) {
-    QMMF_INFO("%s: camera_id[%d]", _func_, params->camera_ids[i]);
-  }
+  QMMF_INFO("%s: camera_id = %d", _func_, params->camera_id);
   QMMF_INFO("%s: width = %d", _func_, params->width);
   QMMF_INFO("%s: height = %d", _func_, params->height);
-  QMMF_INFO("%s: frame_rate = %d", _func_, params->frame_rate);
+  QMMF_INFO("%s: frame_rate = %5.2f", _func_, params->frame_rate);
   QMMF_INFO("%s: format_type = %d", _func_, params->format_type);
   QMMF_INFO("%s: out_device = %d", _func_, params->out_device);
 }
@@ -64,14 +61,10 @@ extern "C" void DebugVideoTrackParams (const char* _func_,
                                        VideoTrackParams* params)
 {
   QMMF_INFO("%s: track_id = %d", _func_, params->track_id);
-  QMMF_INFO("%s: num_cameras = %d", _func_, params->camera_ids.size());
-  for(uint32_t i; i < params->camera_ids.size(); i++) {
-    QMMF_INFO("%s: camera_id[%d]", _func_, params->camera_ids[i]);
-  }
-  QMMF_INFO("%s: width = %d", _func_, params->width);
-  QMMF_INFO("%s: height = %d", _func_, params->height);
-  QMMF_INFO("%s: frame_rate = %d", _func_, params->frame_rate);
-  QMMF_INFO("%s: format_type = %d", _func_, params->format_type);
+  QMMF_INFO("%s: width = %d", _func_, params->params.width);
+  QMMF_INFO("%s: height = %d", _func_, params->params.height);
+  QMMF_INFO("%s: frame_rate = %5.2f", _func_, params->params.frame_rate);
+  QMMF_INFO("%s: format_type = %d", _func_, params->params.format_type);
   QMMF_INFO("%s: camera_stream_type = %d", _func_, params->camera_stream_type);
 }
 

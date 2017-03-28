@@ -95,6 +95,13 @@ enum class VideoFrameTypeInfo {
   kPFrame,
 };
 
+/// \brief MultiCameraConfigType is used to determine the type and purpose
+/// of created MultiCamera.
+enum class MultiCameraConfigType {
+  k360Stitch,
+  kSideBySide,
+};
+
 /// \brief This struct is used to report different types of meta data associated
 /// with BufferDescriptor.
 struct MetaData {
@@ -175,7 +182,7 @@ struct VideoTrackCreateParam {
   uint32_t         camera_id;
   uint32_t         width;
   uint32_t         height;
-  uint32_t         frame_rate;
+  float            frame_rate;
   VideoFormat      format_type;
   VideoCodecParams codec_param;
   uint32_t         out_device;

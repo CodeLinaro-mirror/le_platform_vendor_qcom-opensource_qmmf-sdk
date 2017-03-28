@@ -52,7 +52,7 @@ using ::std::string;
 using ::std::stringstream;
 using namespace overlay;
 
-#define QMMF_RECORDER_SERVICE_NAME "recorder.service"
+#define QMMF_RECORDER_SERVICE_NAME "qmmf_recorder.service"
 
 enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_CONNECT = IBinder::FIRST_CALL_TRANSACTION,
@@ -245,7 +245,8 @@ class IRecorderService : public IInterface {
                                      uint32_t *virtual_camera_id) = 0;
 
   virtual status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                        const uint32_t type, const void *param,
+                                        const MultiCameraConfigType type,
+                                        const void *param,
                                         const uint32_t param_size) = 0;
 };
 

@@ -211,7 +211,7 @@ struct AudioCaps {
     for (AudioFormat format : formats)
       stream << static_cast<::std::underlying_type<AudioFormat>::type>(format)
              << ", ";
-    stream << "SIZE[" << formats.size() << "]]";
+    stream << "SIZE[" << formats.size() << "]], ";
     stream << "sample_rates[";
     for (int32_t sample_rate : sample_rates)
       stream << sample_rate << ", ";
@@ -223,18 +223,22 @@ struct AudioCaps {
     stream << "bit_depths[";
     for (int32_t bit_depth : bit_depths)
       stream << bit_depth << ", ";
-    stream << "SIZE[" << bit_depths.size() << "]], ";
+    stream << "SIZE[" << bit_depths.size() << "]]";
     return stream.str();
   }
 };
 
-union DeviceSpecificCaps{
-  VideoCaps video;
+struct DeviceCaps {
+  DeviceType type;
   AudioCaps audio;
+  VideoCaps video;
 
-  ::std::string ToString(const DeviceType key) const {
+  ::std::string ToString() const {
     ::std::stringstream stream;
-    switch (key) {
+    stream << "type["
+           << static_cast<::std::underlying_type<DeviceType>::type>(type)
+           << "] ";
+    switch (type) {
       case DeviceType::kVideoIn:
       case DeviceType::kVideoOut:
         stream << "video[" << video.ToString() << "]";
@@ -245,32 +249,10 @@ union DeviceSpecificCaps{
         break;
       default:
         stream << "Invalid Key["
-               << static_cast<::std::underlying_type<DeviceType>::type>(key)
+               << static_cast<::std::underlying_type<DeviceType>::type>(type)
                << "]";
         break;
     }
-    return stream.str();
-  }
-
-  // needed for unions with non-trivial members
-  DeviceSpecificCaps() : video(VideoCaps()) {}
-  DeviceSpecificCaps(DeviceSpecificCaps& caps) : video(caps.video) {}
-  DeviceSpecificCaps(const DeviceSpecificCaps& caps) : video(caps.video) {}
-  DeviceSpecificCaps(VideoCaps _video) : video(_video) {}
-  DeviceSpecificCaps(AudioCaps _audio) : audio(_audio) {}
-  ~DeviceSpecificCaps() {}
-};
-
-struct DeviceCaps {
-  DeviceType type;
-  DeviceSpecificCaps caps;
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "type["
-           << static_cast<::std::underlying_type<DeviceType>::type>(type)
-           << "] ";
-    stream << "caps[" << caps.ToString(type) << "]";
     return stream.str();
   }
 };

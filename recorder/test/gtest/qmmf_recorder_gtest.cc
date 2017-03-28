@@ -40,6 +40,8 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
+#include <QCamera3VendorTags.h>
+#include <sys/time.h>
 
 #include "common/avqueue/qmmf_queue.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
@@ -49,19 +51,13 @@
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
 #define TEST_DBG(...) ((void)0)
 #endif
 
-// Enable this define to dump YUV data from YUV track
-//#define DUMP_YUV_FRAMES
-
-// Enable this define to dump encoded bit stream data.
-//#define DUMP_BITSTREAM
-
-static const int32_t kIterationCount = 50;
 static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
@@ -79,6 +75,8 @@ static const int32_t kDefaultJpegQuality = 85;
 #define FHD_1080p_STREAM_WIDTH 1920
 #define FHD_1080p_STREAM_HEIGHT 1080
 
+using namespace qcamera;
+
 void RecorderGtest::SetUp() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
@@ -89,15 +87,32 @@ void RecorderGtest::SetUp() {
                                          size_t event_data_size) -> void
       { RecorderCallbackHandler(event_type, event_data, event_data_size); };
 
-  iteration_count_ = kIterationCount;
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DUMP_BITSTREAM, prop_val, "0");
+  if (atoi(prop_val) == 0) {
+    dump_bitstream_.Enable(false);
+  } else {
+    dump_bitstream_.Enable(true);
+  }
+  property_get(PROP_DUMP_JPEG, prop_val, "0");
+  is_dump_jpeg_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_RAW, prop_val, "0");
+  is_dump_raw_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_YUV_FRAMES, prop_val, "0");
+  is_dump_yuv_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_YUV_FREQ, prop_val, DEFAULT_YUV_DUMP_FREQ);
+  dump_yuv_freq_ = atoi(prop_val);
+  property_get(PROP_N_ITERATIONS, prop_val, DEFAULT_ITERATIONS);
+  iteration_count_ = atoi(prop_val);
+
   camera_id_ = 0;
 
   memset(&camera_start_params_, 0x0, sizeof camera_start_params_);
   camera_start_params_.zsl_mode         = false;
-  camera_start_params_.zsl_queue_depth  = 10;
+  camera_start_params_.zsl_queue_depth  = kZslQDepth;
   camera_start_params_.zsl_width        = kZslWidth;
   camera_start_params_.zsl_height       = kZslHeight;
-  camera_start_params_.frame_rate       = kZslQDepth;
+  camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
   TEST_INFO("%s:%s Exit ", TAG, __func__);
@@ -121,6 +136,50 @@ int32_t RecorderGtest::DeInit() {
   auto ret = recorder_.Disconnect();
   assert(ret == NO_ERROR);
   return ret;
+}
+
+void RecorderGtest::InitSupportedVHDRModes() {
+  camera_metadata_entry_t entry;
+  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
+    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      supported_hdr_modes_.push_back(entry.data.i32[i]);
+    }
+  }
+}
+
+bool RecorderGtest::IsVHDRSupported() {
+  bool is_supported = false;
+  for (const auto& mode : supported_hdr_modes_) {
+    if (QCAMERA3_VIDEO_HDR_MODE_ON == mode) {
+      is_supported = true;
+      break;
+    }
+  }
+  return is_supported;
+}
+
+void RecorderGtest::InitSupportedNRModes() {
+  camera_metadata_entry_t entry;
+  if (static_info_.exists(
+      ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)) {
+    entry = static_info_.find(
+        ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      supported_nr_modes_.push_back(entry.data.u8[i]);
+    }
+  }
+}
+
+bool RecorderGtest::IsNRSupported() {
+  bool is_supported = false;
+  for (const auto& mode : supported_nr_modes_) {
+    if (ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY == mode) {
+      is_supported = true;
+      break;
+    }
+  }
+  return is_supported;
 }
 
 /*
@@ -346,17 +405,6 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   int32_t stream_width  = FHD_1080p_STREAM_WIDTH;
   int32_t stream_height = FHD_1080p_STREAM_HEIGHT;
 
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_FaceDetectionFor1080pAVCVideo_track_%dx%d.%s",
-      stream_width, stream_height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
   face_info_.fd_stream_width = stream_width;
   face_info_.fd_stream_height = stream_height;
   CameraResultCb result_cb = [this] (uint32_t camera_id,
@@ -387,6 +435,16 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   video_track_param.format_type = format_type;
   video_track_param.out_device = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id,
+      stream_width,
+      stream_height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -449,10 +507,8 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   assert(ret == NO_ERROR);
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -535,10 +591,6 @@ TEST_F(RecorderGtest, 1080pZSLCapture) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -599,15 +651,15 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
 
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.h264",
-                                  camera_start_params_.zsl_height,
-                                  camera_start_params_.zsl_width);
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id,
+      static_cast<int32_t>(video_track_param.width),
+      static_cast<int32_t>(video_track_param.height) };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
@@ -679,10 +731,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -1012,18 +1061,15 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id_1 = 1;
 
-#ifdef DUMP_BITSTREAM
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id_1,
+      static_cast<int32_t>(video_track_param.width),
+      static_cast<int32_t>(video_track_param.height) };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
   }
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-      video_track_id_1, video_track_param.width, video_track_param.height,
-      "h264");
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-     O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ > 0);
-#endif
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
@@ -1042,18 +1088,15 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   track_ids.push_back(video_track_id_1);
 
   uint32_t video_track_id_2 = 2;
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-        video_track_id_2, video_track_param.width, video_track_param.height,
-        "h264");
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-        O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id_2,
+      static_cast<int32_t>(video_track_param.width),
+      static_cast<int32_t>(video_track_param.height) };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+  }
 
   video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
       buffers, std::vector<MetaData> meta_buffers) {
@@ -1121,6 +1164,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -1781,18 +1825,6 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
-
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -1816,6 +1848,16 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   video_track_param.format_type   = format_type;
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1900,9 +1942,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1934,17 +1974,6 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -1974,6 +2003,16 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2017,9 +2056,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -2049,17 +2086,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -2087,6 +2113,16 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2131,9 +2167,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2161,17 +2198,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -2224,6 +2250,15 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
   uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2245,18 +2280,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   track_ids.push_back(video_track_id);
 
   uint32_t video_track4K1fps_id = 2;
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track4K1fps_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track4K1fps_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.frame_rate  = 1;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2347,9 +2378,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2378,17 +2410,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -2441,6 +2462,15 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
   uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2462,18 +2492,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   track_ids.push_back(video_track_id);
 
   uint32_t video_track4K1fps_id = 2;
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track4K1fps_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track4K1fps_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.frame_rate  = 1;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2496,18 +2522,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   uint32_t video_track240p_id = 3;
   width = 432;
   height = 240;
-#ifdef DUMP_BITSTREAM
-  if (track3_bitstream_filefd_ > 0) {
-    close(track3_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track240p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track240p_id, width, height,
-                                  extn.string());
-  track3_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track3_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.width = width;
   video_track_param.height = height;
@@ -2604,9 +2626,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2633,17 +2656,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   int32_t width  = 2704;
   int32_t height = 1520;
   uint32_t fps = 60;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -2672,6 +2684,16 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2716,10 +2738,12 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
+
 /*
  * SessionWith1080p120fpsSnapshotVSTABEncTrack: This test will test session with one 1080p
  * 120fps h264 track.
@@ -2745,17 +2769,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 120;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -2783,6 +2796,16 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2882,9 +2905,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -2912,17 +2936,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 120;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -2951,6 +2964,16 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -2976,18 +2999,14 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -3085,9 +3104,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3114,17 +3134,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 120;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -3153,6 +3162,16 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3178,18 +3197,14 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -3241,9 +3256,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3270,17 +3286,6 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 120;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -3308,6 +3313,16 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3350,9 +3365,10 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3379,17 +3395,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 60;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -3418,6 +3423,16 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3460,9 +3475,10 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3489,17 +3505,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -3528,6 +3533,16 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3552,18 +3567,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -3613,9 +3624,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3642,17 +3654,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -3681,6 +3682,16 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3705,18 +3716,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -3779,9 +3786,10 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3808,17 +3816,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   int32_t width  = 2704;
   int32_t height = 1520;
   uint32_t fps = 60;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -3848,6 +3845,16 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -3873,18 +3880,14 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -3935,9 +3938,10 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -3964,17 +3968,6 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   int32_t width  = 2704;
   int32_t height = 1520;
   uint32_t fps = 60;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -4004,6 +3997,16 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4029,18 +4032,14 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -4103,9 +4102,10 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4132,17 +4132,6 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   int32_t width  = 2704;
   int32_t height = 1520;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -4171,6 +4160,16 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4195,18 +4194,14 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   height = 480;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -4257,9 +4252,10 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4286,17 +4282,6 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 90;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -4325,6 +4310,16 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4350,18 +4345,14 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -4413,13 +4404,10 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
 
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4446,17 +4434,6 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 60;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -4486,6 +4463,16 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4511,18 +4498,14 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   fps = 30;
   uint32_t video_track480p_id = 2;
 
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track480p_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-                                  video_track480p_id, width, height,
-                                  extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   video_track_param.camera_id   = 0;
   video_track_param.width       = width;
@@ -4620,13 +4603,10 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
 
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4653,17 +4633,6 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   int32_t width  = 720;
   int32_t height = 480;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   camera_start_params_.frame_rate = fps;
   camera_start_params_.setSensorVendorMode(6);
@@ -4692,6 +4661,16 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4736,9 +4715,10 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4767,17 +4747,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 3840;
   int32_t height = 2160;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -4809,6 +4778,16 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4853,9 +4832,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4936,20 +4914,15 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id1,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
     }
-    String8 bitstream_filepath;
-    const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-    String8 extn(type_string);
-    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-      video_track_id1, width, height, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-       O_WRONLY | O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ > 0);
-#endif
     track_ids.push_back(video_track_id1);
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4961,19 +4934,16 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id2,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
     }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-      video_track_id2, width, height, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-       O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
 
-    track_ids.push_back(video_track_id1);
+    track_ids.push_back(video_track_id2);
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
@@ -5004,9 +4974,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5421,17 +5389,6 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -5458,6 +5415,16 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5552,9 +5519,8 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5593,17 +5559,6 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -5630,6 +5585,16 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5741,9 +5706,8 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5782,17 +5746,6 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -5819,6 +5772,16 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5915,9 +5878,8 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5955,18 +5917,6 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 3840;
   int32_t height = 2160;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
-
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
@@ -5992,6 +5942,16 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6088,9 +6048,8 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6127,17 +6086,6 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -6164,6 +6112,16 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6275,9 +6233,8 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6315,17 +6272,6 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -6352,6 +6298,16 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6451,9 +6407,8 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6485,17 +6440,6 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 1920;
   int32_t height = 1080;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -6520,6 +6464,16 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   video_track_param.format_type   = format_type;
   video_track_param.out_device    = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6568,16 +6522,11 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   assert(ret == NO_ERROR);
 
   ret = DeInit();
-
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
-
 }
 
 /*
@@ -6607,17 +6556,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   VideoFormat format_type = VideoFormat::kAVC;
   int32_t width  = 3840;
   int32_t height = 2160;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
@@ -6642,6 +6580,16 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6691,9 +6639,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6883,20 +6829,15 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
-    }
-    String8 bitstream_filepath;
-    const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-    String8 extn(type_string);
-    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-      video_track_id1, width, height, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-       O_WRONLY | O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ > 0);
-#endif
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id1,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
   track_ids.push_back(video_track_id1);
 
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6908,17 +6849,15 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-      video_track_id2, width, height, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-       O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id2,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+  }
   track_ids.push_back(video_track_id1);
 
   sessions_.insert(std::make_pair(session_id, track_ids));
@@ -6956,15 +6895,13 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
 
 /*
-* CameraParamTest: This test will test camera parameter setting.
+* SingleSessionCameraParamTest: This test will test camera parameter setting.
 * Api test sequence:
 *  - StartCamera
 *  - CreateSession
@@ -6977,7 +6914,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(RecorderGtest, CameraParamTest) {
+TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -7073,6 +7010,189 @@ TEST_F(RecorderGtest, CameraParamTest) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* MultiSessionCameraParamTest: This testcase will verify camera parameter
+* setting in multi session senarios.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack - 1080p
+*   - StartSession
+*   - SetCameraParameter - TNR
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - SetCameraParameter - TNR
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id1;
+  ret = recorder_.CreateSession(session_status_cb, &session_id1);
+  assert(session_id1 > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id     = 0;
+  video_track_param.width         = width;
+  video_track_param.height        = height;
+  video_track_param.frame_rate    = 30;
+  video_track_param.format_type   = format_type;
+  video_track_param.out_device    = 0x01;
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+                            std::vector<BufferDescriptor> buffers,
+                            std::vector<MetaData> meta_buffers) {
+  VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id1, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id1, track_ids));
+
+  ret = recorder_.StartSession(session_id1);
+  assert(ret == NO_ERROR);
+
+  //Enable TNR - Fast mode.
+  CameraMetadata meta;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_FAST;
+      TEST_INFO("%s:%s Enable TNR mode(%d)", TAG, __func__, tnr_mode);
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+      status = recorder_.SetCameraParam(camera_id_, meta);
+      assert(ret == NO_ERROR);
+    }
+  }
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    uint32_t session_id2;
+    ret = recorder_.CreateSession(session_status_cb, &session_id2);
+    assert(session_id2 > 0);
+    assert(ret == NO_ERROR);
+
+    uint32_t video_track_id2 = 2;
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+     auto ret = recorder_.ReturnTrackBuffer(session_id2, track_id, buffers);
+     assert(ret == NO_ERROR); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id2, video_track_id2,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id2);
+    assert(ret == NO_ERROR);
+
+    // Let session run for kRecordDuration, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id2, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id2, video_track_id2);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id2);
+    assert(ret == NO_ERROR);
+
+    //Enable TNR - High quality mode.
+    CameraMetadata meta;
+    auto status = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == status) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s:%s Enable TNR mode(%d)", TAG, __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        status = recorder_.SetCameraParam(camera_id_, meta);
+        assert(ret == NO_ERROR);
+      }
+    }
+  }
+
+  sleep(kRecordDuration);
+
+  ret = recorder_.StopSession(session_id1, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id1, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id1);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -7210,17 +7330,6 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   int32_t width  = 3840;
   int32_t height = 2160;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] (EventType event_type, void *event_data,
@@ -7243,6 +7352,16 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -7344,6 +7463,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7383,17 +7503,6 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   int32_t width  = 1920;
   int32_t height = 1080;
   uint32_t fps = 30;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-      O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [&] (EventType event_type, void *event_data,
@@ -7416,6 +7525,16 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   video_track_param.out_device  = 0x01;
   video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -7517,6 +7636,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7594,21 +7714,18 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   // Create 4K encode track.
   ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
                                      video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id1,
+      static_cast<int32_t>(video_track_param.width),
+      static_cast<int32_t>(video_track_param.height) };
+    ret = dump_bitstream_.SetUp(dumpinfo);
     assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
   }
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-    "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-    video_track_id1, width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-     O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ > 0);
-#endif
+
   track_ids.push_back(video_track_id1);
 
   uint32_t video_track_id2 = 2;
@@ -7625,17 +7742,15 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
                                    video_track_param, video_track_cb);
   assert(ret == NO_ERROR);
-#ifdef DUMP_BITSTREAM
-  if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id2,
+      static_cast<int32_t>(video_track_param.width),
+      static_cast<int32_t>(video_track_param.height) };
+    ret = dump_bitstream_.SetUp(dumpinfo);
   }
-  bitstream_filepath.clear();
-  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
-    video_track_id2, width, height, extn.string());
-  track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-     O_WRONLY | O_TRUNC, 0655);
-  assert(track2_bitstream_filefd_ > 0);
-#endif
 
   track_ids.push_back(video_track_id2);
 
@@ -7724,12 +7839,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
-    if (track2_bitstream_filefd_ > 0) {
-    close(track2_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -7767,13 +7877,6 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   size_t queue_size = (history_length_ms / frame_duration_ms) * 2;
 
   assert(0 < AVQueueInit(&av_queue, REALTIME, queue_size + 1, queue_size));
-
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/gtest_prebuffer_track_%dx%d.h264",
-                                  width, height);
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-                                  O_WRONLY | O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
 
   camera_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
@@ -7814,6 +7917,14 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
   uint32_t video_track_id = 1;
+
+  StreamDumpInfo dumpinfo = {
+    format_type,
+    video_track_id,
+    width,
+    height };
+  ret = dump_bitstream_.SetUp(dumpinfo);
+  assert(ret == NO_ERROR);
 
   TrackCb video_track_cb;
   video_track_cb.data_cb =
@@ -7864,19 +7975,502 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
 
-  ret = DumpQueue(av_queue, track1_bitstream_filefd_);
+  ret = DumpQueue(av_queue, dump_bitstream_.GetFileFd(1));
   assert(ret == NO_ERROR);
 
   ret = DeInit();
   assert(ret == NO_ERROR);
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+
+  dump_bitstream_.CloseAll();
 
   if (NULL != av_queue) {
     AVQueueFree(&av_queue, AVFreePacket);
     av_queue = NULL;
   }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* DynamicSessionAndTracksUpdateWithCamParams: This is a usecase which will test
+*                                    adding or deleting tracks and sessions,
+*                                    along with changing camera parameters such as
+*                                    TNR and SHDR.
+*   Properties              : [Default Values]
+*   -------------------------------------------
+*   PROP_TRACK1_WIDTH       : [3840]
+*   PROP_TRACK1_HEIGHT      : [2160]
+*   PROP_TRACK1_FPS         : [30]
+*   PROP_TRACK2_WIDTH       : [1920]
+*   PROP_TRACK2_HEIGHT      : [1080]
+*   PROP_TRACK2_FPS         : [24]
+*   PROP_CAM_PARAMS1        : bit 0: SHDR [0], bit 1: TNR [0]
+*   PROP_CAM_PARAMS2        : bit 0: SHDR [0], bit 1: TNR [0]
+*   PROP_TRACK1_DELETE      : [0]
+*   PROP_SESSION2_CREATE    : [0]
+*
+* Api test sequence:
+*  - StartCamera
+*   ------------------
+*   - StartSession - 4k AVC
+*   - [Enable/Disable SHDR, TNR]
+*   - [StartSession - 1080p AVC]
+*   - [Enable/Disable SHDR, TNR]
+*   - [StopSession  - 1080p]
+*   - StopSession - 4k
+*   ------------------
+*   - Stop Camera
+*/
+TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  // Init
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  // Fetch Properties
+  uint32_t w1, h1, w2, h2;
+  uint32_t fps1, fps2;
+  bool shdr1, shdr2, is_shdr_supported;
+  bool tnr1, tnr2, is_tnr_supported;
+  bool is_t1_delete, is_s2_create;
+  char prop_val[PROPERTY_VALUE_MAX];
+
+  property_get(PROP_TRACK1_WIDTH, prop_val, "3840");
+  w1 = atoi(prop_val);
+  assert(0 != w1);
+  property_get(PROP_TRACK1_HEIGHT, prop_val, "2160");
+  h1 = atoi(prop_val);
+  assert(0 != h1);
+  property_get(PROP_TRACK2_WIDTH, prop_val, "1920");
+  w2 = atoi(prop_val);
+  assert(0 != w2);
+  property_get(PROP_TRACK2_HEIGHT, prop_val, "1080");
+  h2 = atoi(prop_val);
+  assert(0 != h2);
+
+  property_get(PROP_TRACK1_FPS, prop_val, "30");
+  fps1 = atoi(prop_val);
+  assert(0 != fps1);
+  property_get(PROP_TRACK2_FPS, prop_val, "24");
+  fps2 = atoi(prop_val);
+  assert(0 != fps2);
+
+  property_get(PROP_CAM_PARAMS1, prop_val, "0");
+  shdr1 = atoi(prop_val) & 0x1;
+  tnr1 = atoi(prop_val) & 0x2;
+  property_get(PROP_CAM_PARAMS2, prop_val, "0");
+  shdr2 = atoi(prop_val) & 0x1;
+  tnr2 = atoi(prop_val) & 0x2;
+
+  property_get(PROP_TRACK1_DELETE, prop_val, "0");
+  is_t1_delete = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SESSION2_CREATE, prop_val, "0");
+  is_s2_create = (atoi(prop_val) == 0) ? false : true;
+
+  fprintf(stderr, "\nw1:%d h1:%d fps1:%d w2:%d h2:%d fps2:%d "
+          "shdr1:%d tnr1:%d shdr2:%d tnr2:%d\n",
+          w1, h1, fps1, w2, h2, fps2, shdr1, tnr1, shdr2, tnr2);
+
+  bool is_allowed = (!(is_t1_delete && is_s2_create));
+  assert(true == is_allowed);
+
+  // Start
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  assert(ret == NO_ERROR);
+
+  InitSupportedVHDRModes();
+  is_shdr_supported = IsVHDRSupported();
+  InitSupportedNRModes();
+  is_tnr_supported = IsNRSupported();
+
+  fprintf(stderr, "\nis_shdr_supported:%d is_tnr_supported:%d\n",
+          is_shdr_supported, is_tnr_supported);
+
+  // Create Session1
+  SessionCb s1_status_cb;
+  s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t s1_id;
+  ret = recorder_.CreateSession(s1_status_cb, &s1_id);
+  assert(s1_id > 0);
+  assert(ret == NO_ERROR);
+
+  // Create 4k AVC Stream
+  VideoTrackCreateParam video_track1;
+  memset(&video_track1, 0x0, sizeof video_track1);
+
+  video_track1.camera_id      = 0;
+  video_track1.width          = w1;
+  video_track1.height         = h1;
+  video_track1.frame_rate     = fps1;
+  video_track1.format_type    = VideoFormat::kAVC;
+  video_track1.out_device     = 0x01;
+  video_track1.low_power_mode = false;
+
+  TrackCb video_track1_cb;
+  video_track1_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  video_track1_cb.data_cb = [&] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+  uint32_t video_track1_id = 1;
+  ret = recorder_.CreateVideoTrack(s1_id, video_track1_id,
+                                   video_track1, video_track1_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> s1_track_ids;
+  s1_track_ids.push_back(video_track1_id);
+  sessions_.insert(std::make_pair(s1_id, s1_track_ids));
+
+  // Start Session1
+  ret = recorder_.StartSession(s1_id);
+  assert(ret == NO_ERROR);
+  sleep(5);
+
+  // Camera Params
+  CameraMetadata meta;
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  // SHDR
+  if (is_shdr_supported) {
+    if (shdr1) {
+      fprintf(stderr, "\nSetting shdr1 ON..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting shdr1 OFF..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    }
+  }
+
+  // TNR
+  if (is_tnr_supported) {
+    if (tnr1) {
+      fprintf(stderr, "\nSetting TNR1 ON..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting TNR1 OFF..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    }
+  }
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  sleep(15);
+
+  if (!is_s2_create) {
+    ret = recorder_.StopSession(s1_id, false);
+    assert(ret == NO_ERROR);
+  }
+
+  if (is_t1_delete) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Create 1080p AVC Stream
+  VideoTrackCreateParam video_track2;
+  memset(&video_track2, 0x0, sizeof video_track2);
+
+  video_track2.camera_id      = 0;
+  video_track2.width          = w2;
+  video_track2.height         = h2;
+  video_track2.frame_rate     = fps2;
+  video_track2.format_type    = VideoFormat::kAVC;
+  video_track2.out_device     = 0x01;
+  video_track2.low_power_mode = false;
+
+  TrackCb video_track2_cb;
+  video_track2_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  video_track2_cb.data_cb = [&] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  uint32_t video_track2_id = 2;
+
+  // Create Session2
+  uint32_t s2_id;
+  if (is_s2_create) {
+    SessionCb s2_status_cb;
+    s2_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateSession(s2_status_cb, &s2_id);
+    assert(s2_id > 0);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.CreateVideoTrack(s2_id, video_track2_id,
+                                     video_track2, video_track2_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> s2_track_ids;
+    s2_track_ids.push_back(video_track2_id);
+    sessions_.insert(std::make_pair(s2_id, s2_track_ids));
+
+    ret = recorder_.StartSession(s2_id);
+    assert(ret == NO_ERROR);
+
+  } else {
+    // Add T2 to the existing Session and restart Session
+    ret = recorder_.CreateVideoTrack(s1_id, video_track2_id,
+                                     video_track2, video_track2_cb);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+    std::vector<uint32_t> tracks;
+    if (!is_t1_delete) {
+      tracks.push_back(video_track1_id);
+    }
+    tracks.push_back(video_track2_id);
+    sessions_.insert(std::make_pair(s1_id, tracks));
+
+    ret = recorder_.StartSession(s1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Camera Params
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+
+  // SHDR
+  if (is_shdr_supported) {
+    if (shdr2) {
+      fprintf(stderr, "\nSetting shdr2 ON..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting shdr2 OFF..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_OFF;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+    }
+  }
+
+  // TNR
+  if (is_tnr_supported) {
+    if (tnr2) {
+      fprintf(stderr, "\nSetting TNR2 ON..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    } else {
+      fprintf(stderr, "\nSetting TNR2 OFF..\n");
+      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
+    }
+  }
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  assert(NO_ERROR == ret);
+  sleep(15);
+
+  // Stop Session-2
+  if (is_s2_create) {
+    ret = recorder_.StopSession(s2_id, false);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(s2_id, video_track2_id);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteSession(s2_id);
+    assert(ret == NO_ERROR);
+  }
+
+  // Stop Session-1
+  ret = recorder_.StopSession(s1_id, false);
+  assert(ret == NO_ERROR);
+
+  if (!is_t1_delete) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track1_id);
+    assert(ret == NO_ERROR);
+  }
+
+  if (!is_s2_create) {
+    ret = recorder_.DeleteVideoTrack(s1_id, video_track2_id);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteSession(s1_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  // Deinit and Stop
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* DynamicFloatingFrameRate: This test will test session with one 4K h264 track
+* with dynaminc change of frame rate .
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - SetVideoTrackParam (change frame rate)
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 2160;
+  CodecParamType param_type = CodecParamType::kFrameRateType;
+  float fps = 30.0;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb =
+        [this] (EventType event_type, void *event_data,
+                size_t event_data_size) -> void {
+        SessionCallbackHandler(event_type,
+        event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id   = 0;
+    video_track_param.width       = width;
+    video_track_param.height      = height;
+    video_track_param.frame_rate  = 30.0;
+    video_track_param.format_type = format_type;
+    video_track_param.out_device  = 0x01;
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for 10s, than change frame rate.
+    // During this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(10);
+
+    fps = 12.5;
+    ret = recorder_.SetVideoTrackParam(session_id, video_track_id, param_type,
+      &fps, sizeof(fps));
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+    fps = 14.99;
+    ret = recorder_.SetVideoTrackParam(session_id, video_track_id, param_type,
+      &fps, sizeof(fps));
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+    fps = 23.98;
+    ret = recorder_.SetVideoTrackParam(session_id, video_track_id, param_type,
+      &fps, sizeof(fps));
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+    fps = 29.97;
+    ret = recorder_.SetVideoTrackParam(session_id, video_track_id, param_type,
+      &fps, sizeof(fps));
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+     ClearSessions();
+  }
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
 }
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
@@ -7990,7 +8584,7 @@ void RecorderGtest::VideoCachedDataCb(uint32_t track_id,
 }
 
 status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
-  if ((NULL == queue) || (0 > file_fd)) {
+  if ((NULL == queue) || (0 >= file_fd)) {
     return BAD_VALUE;
   }
 
@@ -8069,40 +8663,42 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_YUV_FRAMES
-  static uint32_t id = 0;
-  ++id;
-  if (id == kYUVDumpFreq) {
-    String8 file_path;
-    size_t written_len;
-    file_path.appendFormat("/data/gtest_track_%d_%lld.yuv", track_id,
-        buffers[0].timestamp);
 
-    FILE *file = fopen(file_path.string(), "w+");
-    if (!file) {
-      ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-          file_path.string());
-      goto FAIL;
-    }
+  if (is_dump_yuv_enabled_) {
+    static uint32_t id = 0;
+    ++id;
+    if (id == dump_yuv_freq_) {
+      String8 file_path;
+      size_t written_len;
+      file_path.appendFormat("/data/gtest_track_%d_%lld.yuv", track_id,
+          buffers[0].timestamp);
 
-    written_len = fwrite(buffers[0].data, sizeof(uint8_t),
-                         buffers[0].size, file);
-    TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
-    if (buffers[0].size != written_len) {
-      TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-          strerror(errno));
-      goto FAIL;
-    }
-    TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-      buffers[0].data, written_len, file_path.string());
+      FILE *file = fopen(file_path.string(), "w+");
+      if (!file) {
+        ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
+            file_path.string());
+        goto FAIL;
+      }
 
-FAIL:
-    if (file != NULL) {
-      fclose(file);
+      written_len = fwrite(buffers[0].data, sizeof(uint8_t),
+                           buffers[0].size, file);
+      TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
+      if (buffers[0].size != written_len) {
+        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+            strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+        buffers[0].data, written_len, file_path.string());
+
+  FAIL:
+      if (file != NULL) {
+        fclose(file);
+      }
+      id = 0;
     }
-    id = 0;
   }
-#endif
+
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -8116,10 +8712,10 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track1_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track1_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(1);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -8134,10 +8730,10 @@ void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
                                           std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track2_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track2_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(2);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -8153,10 +8749,10 @@ void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
                                              meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track3_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track3_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(3);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -8165,40 +8761,6 @@ void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
-
-#ifdef DUMP_BITSTREAM
-status_t RecorderGtest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                                     int32_t file_fd) {
-
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
-  for (auto& iter : buffers) {
-    if(file_fd > 0) {
-      uint32_t exp_size = iter.size;
-      TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
-        ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
-         iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
-
-      uint32_t written_length = write(file_fd, iter.data, iter.size);
-      TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
-      if (written_length != exp_size) {
-        TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
-        strerror(errno));
-        return -1;
-      }
-    } else {
-      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd);
-      assert(0);
-    }
-    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
-      close(file_fd);
-      file_fd = -1;
-    }
-  }
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
-  return 0;
-}
-#endif
 
 void RecorderGtest::VideoTrackEventCb(uint32_t track_id, EventType event_type,
                                       void *event_data, size_t data_size) {
@@ -8213,7 +8775,6 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
-  const char* ext_str;
 
   if (meta_data.meta_flag  &
       static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
@@ -8231,15 +8792,17 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
           cam_buf_meta.plane_info[i].height);
     }
 
-    bool dump_file = true;
-    if (cam_buf_meta.format != BufferFormat::kBLOB) {
-      // Don't save Raw YUV and Bayer data into file, data is big in size, it can
-      // fill up the disk space very soon, if you want to save then make dump_file
-      // variable true.
-      dump_file = false;
+    bool dump_file;
+    if (cam_buf_meta.format == BufferFormat::kBLOB) {
+      dump_file = (is_dump_jpeg_enabled_) ? true : false;
+    } else {
+      dump_file = (is_dump_raw_enabled_) ? true : false;
+      fprintf(stderr, "\nRaw snapshot dumping enabled; "
+              "keep track of free storage space.\n");
     }
 
     if (dump_file) {
+      const char* ext_str;
       switch (cam_buf_meta.format) {
         case BufferFormat::kNV12:
         ext_str = "nv12";
@@ -8257,11 +8820,15 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         ext_str = "raw16";
         break;
         default:
+        ext_str = "bin";
         break;
       }
 
-      file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
-          ext_str);
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+      file_path.appendFormat("/data/snapshot_%u_%llu.%s", image_sequence_count,
+          tv_ms, ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
@@ -8394,4 +8961,95 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
   }
   face_overlay_lock_.unlock();
   info.face_rect.clear();
+}
+
+status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(dumpinfo.width > 0);
+  assert(dumpinfo.height > 0);
+
+  const char* type_string;
+  switch (dumpinfo.format) {
+    case VideoFormat::kAVC:
+      type_string = "h264";
+      break;
+    case VideoFormat::kHEVC:
+      type_string = "h265";
+      break;
+    default:
+      type_string = "bin";
+      break;
+  }
+  String8 extn(type_string);
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/gtest_track_%d_%dx%d.%s",
+                                  dumpinfo.track_id, dumpinfo.width,
+                                  dumpinfo.height, extn.string());
+  int32_t file_fd = open(bitstream_filepath.string(),
+                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd <= 0) {
+    TEST_ERROR("%s:%s File open failed!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  file_fds_.push_back(file_fd);
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
+                             const int32_t file_fd) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(file_fd > 0);
+
+  for (auto& iter : buffers) {
+    uint32_t exp_size = iter.size;
+    TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
+      ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
+       iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
+
+    uint32_t written_length = write(file_fd, iter.data, iter.size);
+    TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
+    if (written_length != exp_size) {
+      TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+      strerror(errno));
+      return BAD_VALUE;
+    }
+
+    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
+      break;
+    }
+  }
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+void DumpBitStream::Close(int32_t file_fd) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (file_fd > 0) {
+    auto iter = std::find(file_fds_.begin(), file_fds_.end(), file_fd);
+    if(iter != file_fds_.end()) {
+      close(file_fd);
+      file_fds_.erase(iter);
+    } else {
+      TEST_WARN("%s:%s: file_fd does not exist!", TAG, __func__);
+    }
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+void DumpBitStream::CloseAll() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  for (auto& iter : file_fds_) {
+    if (iter > 0) {
+      close(iter);
+    }
+  }
+  file_fds_.clear();
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }

@@ -34,6 +34,7 @@
 #include <sys/mman.h>
 #include <QCamera3VendorTags.h>
 #include <chrono>
+#include <math.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -45,9 +46,9 @@ namespace qmmf {
 namespace recorder {
 
 //Framerate after which we need to run in constrained mode.
-uint32_t CameraContext::kConstrainedModeThreshold = 30;
+float CameraContext::kConstrainedModeThreshold = 30.0f;
 //Framerate at which batch requests are needed.
-uint32_t CameraContext::kHFRBatchModeThreshold = 120;
+float CameraContext::kHFRBatchModeThreshold = 120.0f;
 
 const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
@@ -605,7 +606,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     for (size_t i = 0; i < hfr_batch_modes_list_.size(); i++) {
       if ((param.cam_stream_dim.width == hfr_batch_modes_list_[i].width) &&
           (param.cam_stream_dim.height == hfr_batch_modes_list_[i].height) &&
-          (param.frame_rate == hfr_batch_modes_list_[i].framerate)) {
+          fabs(param.frame_rate - hfr_batch_modes_list_[i].framerate) < 0.1f) {
         batch = hfr_batch_modes_list_[i].batch_size;
         supported = true;
         break;
@@ -613,7 +614,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     }
 
     if (!supported) {
-      QMMF_ERROR("%s:%s: HFR stream with size %dx%d fps: %d is not supported!",
+      QMMF_ERROR("%s:%s: HFR stream with size %dx%d fps: %5.2f is not supported!",
                  TAG, __func__, param.cam_stream_dim.width,
                  param.cam_stream_dim.height,
                  param.frame_rate);
@@ -1016,7 +1017,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
-  uint32_t max_fps = 0;
+  float max_fps = 0;
   Vector<int32_t> removed_streams;
 
   //Get all camera stream ids from all active ports which are ready to start.
@@ -1128,8 +1129,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     Mutex::Autolock lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
-      fpsRange[0] = max_fps;
-      fpsRange[1] = max_fps;
+      fpsRange[0] = ceil(max_fps);
+      fpsRange[1] = ceil(max_fps);
 
       for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
         streaming_active_requests_.editItemAt(i).metadata.update(

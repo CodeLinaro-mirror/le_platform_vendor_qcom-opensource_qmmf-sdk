@@ -63,7 +63,7 @@ using namespace avcodec;
 
 namespace recorder {
 
-#define FPS_CHANGE_THRESHOLD  (0.5)
+#define FPS_CHANGE_THRESHOLD  (0.005)
 
 class TrackSource;
 
@@ -83,7 +83,7 @@ class CameraSource {
                              uint32_t *virtual_camera_id);
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const uint32_t type,
+                                const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
 
@@ -121,7 +121,7 @@ class CameraSource {
                                   CameraMetadata &meta);
 
   status_t UpdateTrackFrameRate(const uint32_t track_id,
-                                const uint32_t frame_rate);
+                                const float frame_rate);
 
   status_t CreateOverlayObject(const uint32_t track_id,
                                OverlayParam *param,
@@ -226,7 +226,7 @@ class TrackSource : public ICodecSource {
 
   status_t RemoveOverlayObject(const uint32_t overlay_id);
 
-  void UpdateFrameRate(const uint32_t frame_rate);
+  void UpdateFrameRate(const float frame_rate);
 
   void DisplayCallbackHandler(display::DisplayEventType event_type,
       void *event_data, size_t event_data_size);
@@ -286,6 +286,7 @@ class TrackSource : public ICodecSource {
   Overlay  overlay_;
   bool     enable_overlay_;
 
+  float   source_frame_rate_;
   float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;
@@ -298,10 +299,11 @@ class TrackSource : public ICodecSource {
   SurfaceBuffer surface_buffer_;
   bool display_started_;
 
-#ifdef DEBUG_TRACK_FPS
+  uint32_t debug_fps_;
+  struct timeval input_prevtv_;
+  uint32_t input_count_;
   struct timeval prevtv_;
   uint32_t count_;
-#endif
 };
 
 }; //namespace recorder
