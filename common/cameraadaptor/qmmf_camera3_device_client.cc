@@ -87,7 +87,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
 
 Camera3DeviceClient::~Camera3DeviceClient() {
   if (!request_handler_.ExitPending()) {
-    request_handler_.RequestExit();
+    request_handler_.RequestExitAndWait();
   }
 
   if (NULL != device_) {
