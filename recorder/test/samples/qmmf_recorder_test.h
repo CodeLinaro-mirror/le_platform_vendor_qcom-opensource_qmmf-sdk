@@ -41,9 +41,56 @@
 #include <camera/CameraMetadata.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
+#include <QCamera3VendorTags.h>
+#include <cutils/properties.h>
+#include <cutils/trace.h>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
+
+//#define DEBUG
+//Logging related defines
+#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#ifdef DEBUG
+#define TEST_DBG  TEST_INFO
+#else
+#define TEST_DBG(...) ((void)0)
+#endif
+
+
+#define KPI_DISABLE 0
+#define KPI_ONLY 1
+extern volatile uint32_t kpi_debug_mask;
+
+#define TEST_KPI_GET_MASK() ({\
+char prop[PROPERTY_VALUE_MAX];\
+property_get("persist.qmmf.kpi.debug", prop, "0"); \
+kpi_debug_mask = atoi (prop);})
+
+#define TEST_KPI_BEGIN(name) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_begin(ATRACE_TAG_ALWAYS, name); \
+}\
+})
+
+#define TEST_KPI_END() ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_end(ATRACE_TAG_ALWAYS); \
+}\
+})
+
+#define TEST_KPI_ASYNC_BEGIN(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_async_begin(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
+
+#define TEST_KPI_ASYNC_END(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_async_end(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
 
 // Enable this define to dump encoded bit stream data.
 #define DUMP_BITSTREAM
@@ -56,7 +103,7 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
-
+using namespace qcamera;
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;
 using ::qmmf::display::Display;
@@ -117,6 +164,37 @@ struct TrackInfo {
   uint32_t  camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+};
+
+class CameraMetaDataParser {
+public:
+  CameraMetaDataParser();
+  ~CameraMetaDataParser();
+  bool IsIREnabled(const CameraMetadata& metadata);
+  bool IsTNREnabled(const CameraMetadata& metadata);
+  bool IsSVHDREnabled(const CameraMetadata& metadata);
+  int64_t ParseFrameTime(const CameraMetadata& metadata);
+};
+
+class CheckKPITime {
+public:
+  CheckKPITime();
+  ~CheckKPITime();
+  void SetUp();
+  void CheckSwicthTime(const CameraMetadata& metadata);
+  void ParseCameraMetaData(const CameraMetadata& metadata);
+
+private:
+  CameraMetaDataParser     cam_metadata_parser_;
+  bool                     prev_nr_mode_;
+  bool                     prev_ir_mode_;
+  bool                     prev_svhdr_mode_;
+  bool                     new_nr_mode_;
+  bool                     new_ir_mode_;
+  bool                     new_svhdr_mode_;
+  int64_t                  last_frame_time_;
+  int64_t                  new_frame_time_;
+  bool                     mark_first_frame_time_;
 };
 
 class TestTrack;
@@ -282,6 +360,9 @@ class RecorderTest {
 
   Recorder& GetRecorder() { return recorder_; }
 
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
+
  private:
   Recorder recorder_;
 
@@ -315,6 +396,7 @@ class RecorderTest {
   bc_modes_map supported_bc_modes_;
   bool use_display;
 
+  CheckKPITime kpi_marker_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
