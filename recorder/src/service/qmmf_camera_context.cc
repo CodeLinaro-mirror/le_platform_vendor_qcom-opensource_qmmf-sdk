@@ -556,9 +556,9 @@ status_t CameraContext::CancelCaptureImage() {
       }
       assert(sequence_cnt_ == 0);
     }
-
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], reprocess_enable_ ?
-                             true : false);
+    auto cache = (reprocess_enable_ || streaming_request_id_ == -1) ?
+                 true : false;
+    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
           __func__, ret);
