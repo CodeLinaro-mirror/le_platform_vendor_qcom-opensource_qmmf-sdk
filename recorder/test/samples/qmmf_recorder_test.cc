@@ -2526,7 +2526,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-  if( image_sequence_count == burst_snapshot_count_ ) {
+  if ((1 + image_sequence_count) == burst_snapshot_count_) {
      take_snashot_done_ = true;
   }
 
