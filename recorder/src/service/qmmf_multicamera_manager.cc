@@ -1330,6 +1330,21 @@ status_t StitchingBase::StopFrameSync() {
           " for camera %d!", TAG, __func__, camera_id);
     }
   }
+  {
+    Mutex::Autolock lock(sync_lock_);
+    // Return all synced but unconsumed buffers back to the camera contexts.
+    while (!synced_buffer_queue_.empty()) {
+      for (auto const& id : params_.camera_ids) {
+        StreamBuffer &buffer = synced_buffer_queue_.front().editValueFor(id);
+        ret = ReturnBufferToCamera(buffer);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s:%s: Failed to return buffer %p for camera %d", TAG,
+              __func__, buffer.handle, id);
+        }
+      }
+      synced_buffer_queue_.pop();
+    }
+  }
   // Flush all pending buffers from the library.
   if (nullptr != stitch_lib_.handle) {
     stitch_lib_.flush(stitch_lib_.context);
