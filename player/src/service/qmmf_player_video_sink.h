@@ -43,6 +43,7 @@
 #include <media/msm_media_info.h>
 #include <cutils/properties.h>
 #include <mutex>
+#include <thread>
 
 #include "qmmf-sdk/qmmf_display.h"
 #include "qmmf-sdk/qmmf_display_params.h"
@@ -143,6 +144,12 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t GrabPicture(PictureParam param, BufferDescriptor& buffer);
 
+  status_t Dispatcher(const BufferDescriptor& codec_buffer);
+
+  static void RendererThread(VideoTrackSink* video_sink);
+
+  void Renderer();
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
@@ -193,18 +200,22 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t ReturnBufferToCodec(BufferDescriptor& codec_buffer);
 
+  static void DisplayedBufferThread(VideoTrackSink* video_sink);
+
+  void DisplayedBuffer();
+
   int32_t AllocateGrabPictureBuffer(const uint32_t size);
 
   status_t CopyGrabPictureBuffer(SurfaceBuffer& buffer, uint32_t size);
 
   void GetSnapShotDumpsProperty();
 
-  TrickModeSpeed           playback_speed_;
-  TrickModeDirection       playback_dir_;
-  uint32_t                 displayed_frames_;
-  std::mutex               state_change_lock_;
-  bool                     grab_picture_;
-  int32_t                  ion_device_;
+  TrickModeSpeed                         playback_speed_;
+  TrickModeDirection                     playback_dir_;
+  uint32_t                               displayed_frames_;
+  std::mutex                             state_change_lock_;
+  bool                                   grab_picture_;
+  int32_t                                ion_device_;
 
   int32_t                                grabpicture_file_fd_;
   BufferDescriptor                       grab_picture_buffer_;
@@ -213,8 +224,14 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   Condition                              wait_for_grab_picture_buffer_copy_;
   uint32_t                               snapshot_dumps_;
   std::mutex                             grab_picture_lock;
+
   time_point<high_resolution_clock>      prev_time_;
   uint32_t                               player_decode_profile_;
+
+  ::std::thread*                         renderer_thread_;
+  TSQueue<BufferDescriptor>              decoded_buffer_queue_;
+  ::std::thread*                         displayed_buffer_thread_;
+  TSQueue<BufferDescriptor>              displayed_buffer_queue_;
 };
 
 };  // namespace player
