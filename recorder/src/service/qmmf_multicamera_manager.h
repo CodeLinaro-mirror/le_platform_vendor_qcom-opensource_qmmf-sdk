@@ -119,6 +119,8 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateStreamStitching(const CameraStreamParam &param);
   status_t DeleteStreamStitching(const uint32_t id);
 
+  status_t LinkRelatedCameras();
+
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
   MultiCameraConfigType    multicam_type_;
@@ -313,7 +315,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
   static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
-  static const int32_t kTimestampMaxDelta  = 150000000; // 150 ms.
+  static const int32_t kTimestampMaxDelta  = 15000000;  // 15 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
