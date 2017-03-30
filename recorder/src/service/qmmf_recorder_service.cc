@@ -1229,7 +1229,7 @@ void RecorderService::ClientDeathHandler(const uint32_t client_id) {
   QMMF_INFO("%s:%s: client_id(%d) died in battle!", TAG, __func__, client_id);
   // Internal disconnect, it would trigger resource cleanup belongs to died
   // client.
-  Disconnect(client_id);
+  DisconnectInternal(client_id);
 }
 
 bool RecorderService::IsClientValid(const uint32_t client_id) {
@@ -1237,6 +1237,48 @@ bool RecorderService::IsClientValid(const uint32_t client_id) {
   std::lock_guard<std::mutex> lock(lock_);
   ssize_t idx = remote_cb_list_.indexOfKey(client_id);
   return idx < 0 ? false : true;
+}
+
+status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
+
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  std::lock_guard<std::mutex> lock(lock_);
+
+  int32_t ret = NO_ERROR;
+  ssize_t idx = death_notifier_list_.indexOfKey(client_id);
+  if (idx < 0) {
+    QMMF_ERROR("%s:%s: Client doesn't exist! Wrong id", TAG, __func__);
+    return BAD_VALUE;
+  }
+  // Forceful cleanup.
+  assert(recorder_ != nullptr);
+  recorder_->DeRegisterClient(client_id, true);
+
+  sp<DeathNotifier> death_notifier = death_notifier_list_.valueFor(client_id);
+  assert(death_notifier.get() != nullptr);
+
+  sp<RemoteCallBack> remote_callback = remote_cb_list_.valueFor(client_id);
+  assert(remote_callback.get() != nullptr);
+
+  IInterface::asBinder(remote_callback->getRemoteClient())
+      ->unlinkToDeath(death_notifier);
+
+  death_notifier_list_.removeItem(client_id);
+
+  remote_cb_list_.removeItem(client_id);
+
+  if ( (death_notifier_list_.size() == 0) &&
+       (remote_cb_list_.size() == 0) ) {
+    QMMF_INFO("%s:%s: No client is connected! de-initialize the recorder!", TAG,
+        __func__);
+    recorder_->DeInit();
+    delete recorder_;
+    recorder_ = nullptr;
+    unique_client_id_ = 0;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return ret;
 }
 
 }; //namespace recorder

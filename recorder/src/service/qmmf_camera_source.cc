@@ -386,7 +386,8 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
   return ret;
 }
 
-status_t CameraSource::StopTrackSource(const uint32_t track_id) {
+status_t CameraSource::StopTrackSource(const uint32_t track_id,
+                                       bool is_force_cleanup) {
 
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
@@ -395,7 +396,7 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
-  auto ret = track->StopTrack();
+  auto ret = track->StopTrack(is_force_cleanup);
   assert(ret == NO_ERROR);
 
   QMMF_VERBOSE("%s:%s: TrackSource id(%x) Stopped Succesffuly!", TAG, __func__,
@@ -789,7 +790,7 @@ status_t TrackSource::StartTrack() {
   return NO_ERROR;
 }
 
-status_t TrackSource::StopTrack() {
+status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
 
 
@@ -820,13 +821,22 @@ status_t TrackSource::StopTrack() {
       track_params_.params.format_type == VideoFormat::kBayerRDI ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-    //Encoder is not involved in this case.
+    if (is_force_cleanup) {
+      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__);
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
+        StreamBuffer buffer = buffer_list_.valueAt(i);
+        ReturnBufferToProducer(buffer);
+      }
+      buffer_list_.clear();
+      wait = false;
+    }
+    // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
     auto ret = camera_interface_->StopStream(TrackId());
     assert(ret == NO_ERROR);
-
-    Mutex::Autolock autoLock(buffer_list_lock_);
     {
+      Mutex::Autolock autoLock(buffer_list_lock_);
       QMMF_DEBUG("%s:%s: track_id(%x) buffer_list_.size(%d)", TAG, __func__,
           TrackId(), buffer_list_.size());
       if (buffer_list_.size() == 0) {
@@ -864,6 +874,8 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       Mutex::Autolock lock(eos_lock_);
       eos_acked_ = true;
     } else if (status == CodecPortStatus::kPortIdle) {
+      QMMF_INFO("%s:%s: track_id(%x) PortIdle acknowledged by Encoder!!", TAG,
+          __func__, TrackId());
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
       auto ret = camera_interface_->StopStream(TrackId());

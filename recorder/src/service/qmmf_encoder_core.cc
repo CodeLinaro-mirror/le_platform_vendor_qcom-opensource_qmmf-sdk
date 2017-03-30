@@ -145,7 +145,8 @@ status_t EncoderCore::StartTrackEncoder(uint32_t track_id) {
   return ret;
 }
 
-status_t EncoderCore::StopTrackEncoder(uint32_t track_id) {
+status_t EncoderCore::StopTrackEncoder(uint32_t track_id,
+                                       bool is_force_cleanup) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, track_id);
 
@@ -156,7 +157,7 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id) {
   shared_ptr<TrackEncoder> track_encoder = track_encoders_.valueFor(track_id);
   assert(track_encoder.get() != NULL);
 
-  auto ret = track_encoder->Stop();
+  auto ret = track_encoder->Stop(is_force_cleanup);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -250,6 +251,7 @@ bool EncoderCore::isTrackValid(uint32_t track_id) {
 TrackEncoder::TrackEncoder(int32_t ion_device)
     : ion_device_(ion_device),
       eos_atoutput_(false),
+      is_force_cleanup_(false),
       num_bytes_(0),
       prevtv_{0, 0},
       count_(0) {
@@ -408,10 +410,20 @@ status_t TrackEncoder::Start() {
   return ret;
 }
 
-status_t TrackEncoder::Stop() {
+status_t TrackEncoder::Stop(bool is_force_cleanup) {
 
   QMMF_INFO("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
-
+  if (is_force_cleanup) {
+    QMMF_INFO("%s:%s track_id(%x) Force cleanup", TAG, __func__, TrackId());
+    Mutex::Autolock lock(queue_lock_);
+    is_force_cleanup_ = true;
+    List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+    for (; it != output_occupy_buffer_queue_.End(); ++it) {
+      output_free_buffer_queue_.PushBack(*it);
+      output_occupy_buffer_queue_.Erase(it);
+      wait_for_frame_.signal();
+    }
+  }
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->StopCodec();
   // Initial debug purpose.
@@ -488,8 +500,8 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
                                  void* client_data) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
-  // Give available free buffer to encoder to use on output port.
 
+  // Give available free buffer to encoder to use on output port.
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_DEBUG("%s:%s track_id(%x) No buffer available to notify,"
       " Wait for new buffer", TAG, __func__, TrackId());
@@ -669,11 +681,17 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
     flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
     eos_atoutput_ = true;
+    QMMF_INFO("%s:%s: EOS is received for track(%x)", TAG, __func__, TrackId());
   }
   //TODO: Add CodecConfig flag too.
 
   {
     Mutex::Autolock lock(queue_lock_);
+    if (is_force_cleanup_) {
+      QMMF_WARN("%s:%s: Force cleanup is triggered! client may not exist!",
+        TAG, __func__);
+      return;
+    }
     List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
       QMMF_VERBOSE("%s:%s track_id(%x) Checking match (0x%p) vs (0x%p) ", TAG,

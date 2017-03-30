@@ -91,7 +91,8 @@ class CameraSource {
 
   status_t StartTrackSource(const uint32_t track_id);
 
-  status_t StopTrackSource(const uint32_t track_id);
+  status_t StopTrackSource(const uint32_t track_id,
+                           bool is_force_cleanup = false);
 
   status_t PauseTrackSource(const uint32_t track_id);
 
@@ -170,7 +171,7 @@ class TrackSource : public ICodecSource {
 
   status_t StartTrack();
 
-  status_t StopTrack();
+  status_t StopTrack(bool is_force_cleanup = false);
 
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.

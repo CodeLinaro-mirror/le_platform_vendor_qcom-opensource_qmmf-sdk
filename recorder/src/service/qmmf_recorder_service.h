@@ -206,6 +206,8 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   bool IsClientValid(const uint32_t client_id);
 
+  status_t DisconnectInternal(const uint32_t client_id);
+
   RecorderImpl*       recorder_;
   // Map of client ids and their death notifiers.
   DefaultKeyedVector<uint32_t, sp<DeathNotifier> > death_notifier_list_;

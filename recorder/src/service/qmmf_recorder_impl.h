@@ -63,7 +63,8 @@ class RecorderImpl {
 
   status_t RegisterClient(const uint32_t client_id);
 
-  status_t DeRegisterClient(const uint32_t client_id);
+  status_t DeRegisterClient(const uint32_t client_id,
+                            bool force_cleanup = false);
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
                        const CameraStartParam& param,
@@ -78,7 +79,7 @@ class RecorderImpl {
   status_t StartSession(const uint32_t client_id, const uint32_t session_id);
 
   status_t StopSession(const uint32_t client_id, const uint32_t session_id,
-                       bool do_flush);
+                       bool do_flush, bool force_cleanup = false);
 
   status_t PauseSession(const uint32_t client_id, const uint32_t session_id);
 
