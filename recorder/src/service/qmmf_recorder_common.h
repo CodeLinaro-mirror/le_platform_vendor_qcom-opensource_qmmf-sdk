@@ -38,6 +38,7 @@
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "recorder/src/service/qmmf_remote_cb.h"
 
 #define FRAME_DUMP_PATH        "/data"
 
@@ -69,11 +70,6 @@ enum class TrackType {
   kAudio
 };
 
-enum class CameraStreamType {
-  kPreview,
-  kVideo,
-};
-
 enum class CameraStreamFormat {
   kNV12,
   kNV21,
@@ -85,22 +81,24 @@ struct CameraStreamDim {
     uint32_t height;
 };
 
-typedef std::function<void(uint32_t track_id, std::vector<BnBuffer>& buffers,
+typedef std::function<void(std::vector<BnBuffer>& buffers,
     std::vector<MetaData>& meta_buffers)> buffer_callback;
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
     BnBuffer& buffer, MetaData& meta_data)>  SnapshotCb;
 
 typedef std::function<void(uint32_t image_sequence_count,
-                           StreamBuffer& buffer)> StreamSnapshotCb;
+    StreamBuffer& buffer)> StreamSnapshotCb;
 
 typedef std::function<void(uint32_t camera_id,
-                           const CameraMetadata &result)> ResultCb;
+    const CameraMetadata &result)> ResultCb;
+
+typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
+    RemoteCallbackHandle;
 
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
   uint32_t               track_id;
-  CameraStreamType       camera_stream_type;
   buffer_callback        data_cb;
 };
 
@@ -120,7 +118,6 @@ struct AudioTrackParams {
 struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
   CameraStreamFormat cam_stream_format;
-  CameraStreamType   cam_stream_type;
   float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;

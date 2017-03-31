@@ -305,7 +305,6 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     video_track_param.height        = 1920;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -744,7 +743,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     video_track_param.height        = height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;

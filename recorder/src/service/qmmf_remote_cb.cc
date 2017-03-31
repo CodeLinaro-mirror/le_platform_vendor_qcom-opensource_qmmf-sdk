@@ -36,12 +36,14 @@ namespace qmmf {
 
 namespace recorder {
 
-RemoteCallBack::RemoteCallBack(const sp<IRecorderServiceCallback>&
-                               remote_client)
-    : client_cb_handle_(remote_client) {
+RemoteCallBack::RemoteCallBack(const uint32_t client_id,
+                               const sp<IRecorderServiceCallback>&
+                                  remote_client)
+    : client_cb_handle_(remote_client)
+    , client_id_(client_id) {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit client_id(%d) (0x%p)", TAG, __func__, client_id, this);
 }
 
 RemoteCallBack::~RemoteCallBack() {

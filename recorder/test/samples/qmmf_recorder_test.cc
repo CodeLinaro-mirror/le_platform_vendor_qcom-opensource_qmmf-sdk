@@ -3111,10 +3111,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.frame_rate  = fps;
     else
       video_track_param.frame_rate  = 30;
-    if(track_info.track_type == TrackType::kVideoPreview)
-      video_track_param.out_device  = 0x02;
-    else
-      video_track_param.out_device  = 0x01;
     video_track_param.low_power_mode  = track_info.low_power_mode;
 
     switch (track_info.track_type) {
@@ -3208,7 +3204,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
-    audio_track_params.out_device  = 0;
     audio_track_params.flags       = 0;
 
     switch (track_info.track_type) {
