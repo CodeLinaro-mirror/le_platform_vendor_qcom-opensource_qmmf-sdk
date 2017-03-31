@@ -510,6 +510,20 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
                                           1);
         requests.push_back(snapshot_request_);
       }
+
+      {
+        std::unique_lock<std::mutex> lock(aec_lock_);
+        if (streaming_request_id_ != -1) {
+          aec_done_ = true;
+          int32_t wait_time = kSyncFrameWaitDuration/1000000;
+          if (aec_signal_.wait_for(lock,
+              std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+            QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
+          }
+          aec_done_ = false;
+        }
+      }
+
       auto request_id = camera_device_->SubmitRequestList(requests,
                                               false,
                                               &last_frame_mumber);
@@ -1447,6 +1461,19 @@ void CameraContext::CameraPreparedCb(int32_t) {
 }
 
 void CameraContext::CameraResultCb(const CaptureResult &result) {
+
+  {
+    std::lock_guard<std::mutex> lock(aec_lock_);
+    if (aec_done_) {
+      if (result.metadata.exists(ANDROID_CONTROL_AE_STATE)) {
+        uint8_t aec = result.metadata.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+        if ((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
+            (aec == ANDROID_CONTROL_AE_STATE_LOCKED)) {
+          aec_signal_.notify_one();
+        }
+      }
+    }
+  }
 
   if (((streaming_request_id_ == result.resultExtras.requestId) ||
       (previous_streaming_request_id_ == result.resultExtras.requestId)) &&

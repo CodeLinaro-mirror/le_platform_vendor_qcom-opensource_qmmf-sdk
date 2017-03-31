@@ -227,6 +227,9 @@ class CameraContext : public CameraInterface {
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
   static const nsecs_t     kSyncFrameWaitDuration;
+  std::mutex               aec_lock_;
+  std::condition_variable  aec_signal_;
+  bool                     aec_done_ = false;
 };
 
 enum class CameraPortType {
