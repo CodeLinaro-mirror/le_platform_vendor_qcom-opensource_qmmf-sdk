@@ -41,6 +41,7 @@
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
+#include "QCamera3VendorTags.h"
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
@@ -58,6 +59,8 @@
 
 // Enable this define to dump encoded bit stream data.
 #define DUMP_BITSTREAM
+
+using namespace qcamera;
 
 static const int32_t kIterationCount     = 50;
 static const int32_t kRecordDuration     = 2*60;   // 2 min for each iteration.
@@ -2800,6 +2803,3224 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
+}
+
+/*
+* Stitched4KEncAllAWbModes: This case will test a MultiCamera session with 3840x1920
+*                 h264 encoded track, during which in 10 sec interval time AWB modes
+*                 will change. This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  uint8_t WbModes[] = {
+    ANDROID_CONTROL_AWB_MODE_AUTO,
+    ANDROID_CONTROL_AWB_MODE_INCANDESCENT,
+    ANDROID_CONTROL_AWB_MODE_FLUORESCENT,
+    ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT,
+    ANDROID_CONTROL_AWB_MODE_DAYLIGHT,
+    ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
+    ANDROID_CONTROL_AWB_MODE_TWILIGHT,
+    ANDROID_CONTROL_AWB_MODE_SHADE,
+  };
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_modes_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    for (auto p : WbModes) {
+      uint8_t awb_mode;
+      switch (p) {
+        case ANDROID_CONTROL_AWB_MODE_AUTO:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_AUTO\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_INCANDESCENT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_INCANDESCENT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_FLUORESCENT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_FLUORESCENT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_FLUORESCENT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_DAYLIGHT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_DAYLIGHT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_DAYLIGHT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_TWILIGHT:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_TWILIGHT;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_TWILIGHT\n");
+          break;
+        case ANDROID_CONTROL_AWB_MODE_SHADE:
+          awb_mode = ANDROID_CONTROL_AWB_MODE_SHADE;
+          ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "WB mode switched to "
+              "ANDROID_CONTROL_AWB_MODE_SHADE\n");
+          break;
+        default:
+          assert(0);
+      }
+
+      ret = recorder_.SetCameraParam(multicam_id_, meta);
+      assert(ret == NO_ERROR);
+      sleep(kDelayAfterSnapshot);
+    }
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeAuto: This case will test a MultiCamera session with
+*                  3840x1920 h264 encoded track with AWB_MODE_AUTO. This test is
+*                  configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_auto_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_AUTO\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeIncandescent: This case will test a MultiCamera session with
+*                          3840x1920 h264 encoded track with AWB_MODE_INCANDESCENT.
+*                          This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_incandescent_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_INCANDESCENT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeFluorescent: This case will test a MultiCamera session with
+*                         3840x1920 h264 encoded track with AWB_MODE_FLUORESCENT.
+*                         This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_fluorescent_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_FLUORESCENT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_FLUORESCENT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeWarmFluorescent: This case will test a MultiCamera session with
+*                             3840x1920 h264 encoded track with AWB_MODE_WARM_FLUORESCENT.
+*                             This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_warm_fluorescent_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeDaylight: This case will test a MultiCamera session with
+*                      3840x1920 h264 encoded track with AWB_MODE_DAYLIGHT. This
+*                      test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_daylight_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_DAYLIGHT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_DAYLIGHT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeCloudyDaylight: This case will test a MultiCamera session with
+*                            3840x1920 h264 encoded track with AWB_MODE_CLOUDY_DAYLIGHT.
+*                            This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_cloudy_daylight_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeTwilight: This case will test a MultiCamera session with
+*                      3840x1920 h264 encoded track with AWB_MODE_TWILIGHT. This
+*                      test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_twilight_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_TWILIGHT;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_TWILIGHT\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAWBModeShade: This case will test a MultiCamera session with
+*                   3840x1920 h264 encoded track with AWB_MODE_SHADE. This test
+*                   is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AWB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_shade_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t awb_mode;
+    awb_mode = ANDROID_CONTROL_AWB_MODE_SHADE;
+    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "WB mode switched to "
+        "ANDROID_CONTROL_AWB_MODE_SHADE\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAllAEAntiBandingModes: This case will test a MultiCamera session
+*                           with 3840x1920 h264 encoded track, during which in 10
+*                           sec interval time AE anti-banding modes will change.
+*                           This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AE anti-banding mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  uint8_t AEAntiBandingModes[] = {
+      ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF,
+      ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ,
+      ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ,
+      ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO,
+  };
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_modes_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    for (auto p : AEAntiBandingModes) {
+      uint8_t ae_mode;
+      switch (p) {
+        case ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF:
+          ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+          ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "AE mode switched to "
+              "ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF\n");
+          break;
+        case ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ:
+          ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ;
+          ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "AE mode switched to "
+              "ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ\n");
+          break;
+        case ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ:
+          ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ;
+          ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "AE mode switched to "
+              "ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ\n");
+          break;
+        case ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO:
+          ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+          ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "AE mode switched to "
+              "ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO\n");
+          break;
+        default:
+          assert(0);
+      }
+
+      ret = recorder_.SetCameraParam(multicam_id_, meta);
+      assert(ret == NO_ERROR);
+      sleep(kDelayAfterSnapshot);
+    }
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAEAntiBandingModeOff: This case will test a MultiCamera session with
+*                            3840x1920 h264 encoded track ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF.
+*                            This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AE anti-banding mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_off_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+ ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t ae_mode;
+    ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+    ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "AE mode switched to "
+        "ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAEAntiBandingMode50Hz: This case will test a MultiCamera session with
+*                            3840x1920 h264 encoded track withAE_ANTIBANDING_MODE_50HZ.
+*                            This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AE anti-banding mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_50Hz_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+ ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t ae_mode;
+    ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ;
+    ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "AE mode switched to "
+        "ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAEAntiBandingMode60Hz: This case will test a MultiCamera session with
+*                            3840x1920 h264 encoded track with AE_ANTIBANDING_MODE_60HZ.
+*                            This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AE anti-banding mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_60Hz_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t ae_mode;
+    ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ;
+    ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "AE mode switched to "
+        "ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAEAntiBandingModeAuto: This case will test a MultiCamera session with
+*                            3840x1920 h264 encoded track with AE_ANTIBANDING_MODE_AUTO.
+*                            This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set AE anti-banding mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_auto_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    uint8_t ae_mode;
+    ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+    ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "AE mode switched to "
+        "ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO\n");
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncAllISOModes: This case will test a MultiCamera session with 3840x1920
+*                 h264 encoded track, during which in 10 sec interval time ISO modes
+*                 will change. This test is configured to produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  uint8_t Qcam3ISOModes[] = {
+      QCAMERA3_ISO_MODE_AUTO,
+      QCAMERA3_ISO_MODE_100,
+      QCAMERA3_ISO_MODE_200,
+      QCAMERA3_ISO_MODE_400,
+      QCAMERA3_ISO_MODE_800,
+      QCAMERA3_ISO_MODE_1600,
+      QCAMERA3_ISO_MODE_3200,
+  };
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_modes_%dx%d.%s", width, height,
+      extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    for (auto p : Qcam3ISOModes) {
+      int64_t iso_mode;
+      switch (p) {
+        case QCAMERA3_ISO_MODE_AUTO:
+          iso_mode = QCAMERA3_ISO_MODE_AUTO;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_AUTO\n");
+          break;
+        case QCAMERA3_ISO_MODE_100:
+          iso_mode = QCAMERA3_ISO_MODE_100;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_100\n");
+          break;
+        case QCAMERA3_ISO_MODE_200:
+          iso_mode = QCAMERA3_ISO_MODE_200;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_200\n");
+          break;
+        case QCAMERA3_ISO_MODE_400:
+          iso_mode = QCAMERA3_ISO_MODE_400;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_400\n");
+          break;
+        case QCAMERA3_ISO_MODE_800:
+          iso_mode = QCAMERA3_ISO_MODE_800;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_800\n");
+          break;
+        case QCAMERA3_ISO_MODE_1600:
+          iso_mode = QCAMERA3_ISO_MODE_1600;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_1600\n");
+          break;
+        case QCAMERA3_ISO_MODE_3200:
+          iso_mode = QCAMERA3_ISO_MODE_3200;
+          ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+          assert(ret == NO_ERROR);
+          fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_3200\n");
+          break;
+        default:
+          assert(0);
+      }
+
+      ret = recorder_.SetCameraParam(multicam_id_, meta);
+      assert(ret == NO_ERROR);
+      sleep(kDelayAfterSnapshot);
+    }
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOModeAuto: This case will test a MultiCamera session with 3840x1920 h264
+*                  encoded track with ISO_MODE_AUTO. This test is configured to
+*                  produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOModeAuto) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_auto_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_AUTO;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_AUTO\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode100: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_100. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode100) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_100_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_100;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_100\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode200: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_200. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode200) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_200_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_200;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_200\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode400: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_400. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode400) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_400_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_400;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_400\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode800: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_800. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode800) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_800_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_800;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_800\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode1600: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_1600. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode1600) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_1600_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_1600;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_1600\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* TestISOMode3200: This case will test a MultiCamera session with 3840x1920 h264
+*                 encoded track with ISO_MODE_3200. This test is configured to
+*                 produce stitched frames.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, TestISOMode3200) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 3840;
+  int32_t height = 1920;
+#ifdef DUMP_BITSTREAM
+  String8 bitstream_filepath;
+  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
+      "h264": "h265";
+  String8 extn(type_string);
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_3200_%dx%d.%s",
+                                  width, height, extn.string());
+  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
+      O_TRUNC, 0655);
+  assert(track1_bitstream_filefd_ >= 0);
+#endif
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    video_track_param.out_device    = 0x01;
+
+    uint32_t video_track_id = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+
+    int32_t use_exp_priority = 0;
+    ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
+
+    int64_t iso_mode;
+    iso_mode = QCAMERA3_ISO_MODE_3200;
+    ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+    fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_3200\n");
+
+    sleep(kRecordDuration);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
 }
 
 void Recorder360Gtest::ClearSessions() {
