@@ -1586,15 +1586,14 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   proc_data.user_data  = this;
 
   qmmf_alg_buffer_t input_buffer_list[proc_data.input.cnt];
-  memset(&input_buffer_list, 0x0, sizeof(input_buffer_list));
   qmmf_alg_buffer_t output_buffer_list[proc_data.output.cnt];
-  memset(&output_buffer_list, 0x0, sizeof(output_buffer_list));
 
   proc_data.input.bufs = input_buffer_list;
   proc_data.output.bufs = output_buffer_list;
 
   for (uint32_t idx = 0; idx < proc_data.input.cnt; ++idx) {
     buffer = &input_buffers.itemAt(idx);
+    memset(&proc_data.input.bufs[idx], 0x0, sizeof(proc_data.input.bufs[idx]));
     ret = PrepareBuffer(reg_buf_list, proc_data.input.bufs[idx], buffer);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare input buffer", TAG, __func__);
@@ -1604,6 +1603,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
 
   for (uint32_t idx = 0; idx < proc_data.output.cnt; ++idx) {
     buffer = &output_buffers.itemAt(idx);
+    memset(&proc_data.output.bufs[idx], 0x0, sizeof(proc_data.output.bufs[idx]));
     ret = PrepareBuffer(reg_buf_list, proc_data.output.bufs[idx], buffer);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare output buffer", TAG, __func__);
