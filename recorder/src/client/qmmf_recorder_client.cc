@@ -68,7 +68,7 @@ using namespace android;
 using ::std::underlying_type;
 
 RecorderClient::RecorderClient()
-                : camera_module_(NULL)
+                : camera_module_(nullptr)
                 , recorder_service_(nullptr)
                 , death_notifier_(nullptr)
                 , ion_device_(-1)
@@ -89,10 +89,10 @@ RecorderClient::~RecorderClient() {
     recorder_service_ = nullptr;
   }
 
-  if (NULL != camera_module_) {
+  if (nullptr != camera_module_) {
     dlclose(camera_module_->common.dso);
   }
-  camera_module_ = NULL;
+  camera_module_ = nullptr;
 
   QMMF_INFO("%s:%s Exit 0x%p", TAG, __func__, this);
 }
@@ -158,13 +158,13 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     track_cb_list_.clear();
   }
 
-  if (NULL == camera_module_) {
+  if (nullptr == camera_module_) {
     //TODO: Instead of quering vendor tag ops directly from HAL module
     //      devise a mechanism to share them from service side.
     auto res = Camera3DeviceClient::LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                                          (const hw_module_t **)&camera_module_);
 
-    if ((0 != res) || (NULL == camera_module_)) {
+    if ((0 != res) || (nullptr == camera_module_)) {
       QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
       return res;
     }
@@ -208,10 +208,10 @@ status_t RecorderClient::Disconnect() {
       unlinkToDeath(death_notifier_);
 
   recorder_service_.clear();
-  recorder_service_ = NULL;
+  recorder_service_ = nullptr;
 
   death_notifier_.clear();
-  death_notifier_ = NULL;
+  death_notifier_ = nullptr;
 
   if (!session_cb_list_.isEmpty()) {
     session_cb_list_.clear();
@@ -651,7 +651,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
           __func__, track_id, buf_info.ion_fd);
       QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
           TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
-      if (buf_info.pointer != NULL) {
+      if (buf_info.pointer != nullptr) {
         struct ion_handle_data ion_handle;
         memset(&ion_handle, 0, sizeof(ion_handle));
         ion_handle.handle = buf_info.ion_handle;
@@ -664,7 +664,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
           QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
                      buf_info.pointer, -errno);
         }
-        buf_info.pointer = NULL;
+        buf_info.pointer = nullptr;
       }
 
       if (buf_info.ion_fd > 0) {
@@ -768,12 +768,36 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
+
   // Unmap buffer from client process, and close duped ION fd.
-  if (buffer.data) {
-    munmap(buffer.data, buffer.capacity);
-    close(buffer.fd);
-    QMMF_DEBUG("%s:%s fd(%d) closed!", TAG, __func__, buffer.fd);
+  if (snapshot_buffers_.indexOfKey(buffer.fd) < 0) {
+    QMMF_ERROR("%s:%s: Invalid buffer!", TAG, __func__);
+    return BAD_VALUE;
   }
+  auto buf_info = snapshot_buffers_.valueFor(buffer.fd);
+
+  if (buf_info.pointer != nullptr) {
+    struct ion_handle_data ion_handle;
+    memset(&ion_handle, 0, sizeof(ion_handle));
+    ion_handle.handle = buf_info.ion_handle;
+    if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+      QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+    }
+    auto stat = munmap(buf_info.pointer, buf_info.frame_len);
+    if (0 != stat) {
+      QMMF_ERROR("%s:%s Failed to unmap buffer: %p:%d", TAG, __func__,
+          buf_info.pointer, -errno);
+    }
+    buf_info.pointer = nullptr;
+  }
+  if (buf_info.ion_fd > 0) {
+    auto stat = close(buf_info.ion_fd);
+    if (0 != stat) {
+      QMMF_ERROR("%s:%s Failed to close ION fd: %d:%d", TAG, __func__,
+          buf_info.ion_fd, -errno);
+    }
+  }
+  snapshot_buffers_.removeItem(buffer.fd);
   QMMF_DEBUG("%s:%s Returning buf_id(%d) back to service!", TAG, __func__,
       buffer.buf_id);
   assert(client_id_ > 0);
@@ -1016,7 +1040,7 @@ bool RecorderClient::CheckServiceStatus() {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   bool connected = true;
-  if (NULL == recorder_service_.get()) {
+  if (nullptr == recorder_service_.get()) {
     QMMF_WARN("%s:%s Not connected to Recorder service!", TAG, __func__);
     connected = false;
   }
@@ -1087,9 +1111,15 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
     return;
   }
   QMMF_VERBOSE("%s:%s: ion_fd(%d)", TAG, __func__, ion_info_fd.fd);
-  void* vaddr = mmap(NULL, buffer.capacity, PROT_READ | PROT_WRITE,
+  void* vaddr = mmap(nullptr, buffer.capacity, PROT_READ | PROT_WRITE,
                      MAP_SHARED, ion_info_fd.fd, 0);
-  assert(vaddr != NULL);
+  assert(vaddr != nullptr);
+  BufInfo buf_info{};
+  buf_info.ion_fd     = ion_info_fd.fd;
+  buf_info.ion_handle = ion_info_fd.handle;
+  buf_info.pointer    = vaddr;
+  buf_info.frame_len  = buffer.capacity;
+  snapshot_buffers_.add(buffer.ion_fd, buf_info);
 
   BufferDescriptor snapshot_buf;
   memset(&snapshot_buf, 0x0, sizeof snapshot_buf);
@@ -1138,7 +1168,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
         if (buf_idx >= 0) {
           buf_info = buf_map.valueFor(bn_buffers[i].buffer_id);
-          assert(buf_info.pointer != NULL);
+          assert(buf_info.pointer != nullptr);
           assert(buf_info.ion_fd > 0);
           bn_buffers[i].ion_fd = buf_info.ion_fd;
           is_mapped = true;
@@ -1168,9 +1198,9 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
             ion_info_fd.fd);
       }
       QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
-      void* vaddr = mmap(NULL, bn_buffers[i].capacity, PROT_READ | PROT_WRITE,
+      void* vaddr = mmap(nullptr, bn_buffers[i].capacity, PROT_READ | PROT_WRITE,
                         MAP_SHARED, ion_info_fd.fd, 0);
-      assert(vaddr != NULL);
+      assert(vaddr != nullptr);
 
       buf_info.pointer   = vaddr;
       buf_info.ion_fd    = ion_info_fd.fd;
@@ -1860,7 +1890,7 @@ void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
                                                 uint32_t image_sequence_count,
                                                 BnBuffer& buffer,
                                                 MetaData& meta_data) {
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifySnapshotData(camera_id, image_sequence_count, buffer,
                               meta_data);
 }
@@ -1873,7 +1903,7 @@ void ServiceCallbackHandler::NotifyVideoTrackData(uint32_t track_id,
                                                   meta_buffers) {
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyVideoTrackData(track_id, bn_buffers, meta_buffers);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1896,7 +1926,7 @@ void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
   for (const BnBuffer& bn_buffer : bn_buffers)
     QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
                  bn_buffer.ToString().c_str());
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
 
   client_->NotifyAudioTrackData(track_id, bn_buffers, meta_buffers);
 
@@ -1911,7 +1941,7 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
                static_cast<underlying_type<EventType>::type>(event_type));
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
 
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
                                  event_data_size);
@@ -1921,7 +1951,7 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
 
 void ServiceCallbackHandler::NotifyCameraResult(uint32_t camera_id,
                                                 const CameraMetadata &result) {
-  assert(client_ != NULL);
+  assert(client_ != nullptr);
   client_->NotifyCameraResult(camera_id, result);
 }
 
@@ -2266,18 +2296,18 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
     }
     break;
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_CAMERA_RESULT: {
-      camera_metadata *meta = NULL;
+      camera_metadata *meta = nullptr;
       uint32_t camera_id = data.readUint32();
       auto ret = CameraMetadata::readFromParcel(data, &meta);
-      if ((NO_ERROR == ret) && (NULL != meta)) {
+      if ((NO_ERROR == ret) && (nullptr != meta)) {
         CameraMetadata result(meta);
         NotifyCameraResult(camera_id, result);
       } else {
         QMMF_ERROR("%s:%s Failed to read camera result from parcel: %d\n",
                      TAG, __func__, ret);
-        if (NULL != meta) {
+        if (nullptr != meta) {
           free_camera_metadata(meta);
-          meta = NULL;
+          meta = nullptr;
         }
       }
 

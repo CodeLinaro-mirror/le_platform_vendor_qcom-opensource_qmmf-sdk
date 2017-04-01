@@ -245,6 +245,7 @@ class RecorderClient {
   // map <track_id, map <buffer index, buffer_info> >
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
 
+  DefaultKeyedVector<uint32_t, BufInfo> snapshot_buffers_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {
