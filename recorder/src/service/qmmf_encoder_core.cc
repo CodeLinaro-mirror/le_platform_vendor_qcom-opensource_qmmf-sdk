@@ -452,6 +452,37 @@ status_t TrackEncoder::ReleaseHeaders() {
   return ret;
 }
 
+status_t TrackEncoder::SynchronizeCache(
+    const struct ion_handle_data& ion_handle,
+    const BufferDescriptor& buffer,
+    const unsigned int flag) {
+  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+
+  struct ion_flush_data flush_data;
+  struct ion_custom_data custom_data;
+
+  memset(&flush_data, 0x0, sizeof(flush_data));
+  memset(&custom_data, 0x0, sizeof(custom_data));
+
+  flush_data.vaddr = buffer.data;
+  flush_data.fd = buffer.fd;
+  flush_data.handle = ion_handle.handle;
+  flush_data.length = buffer.capacity;
+  custom_data.cmd = flag;
+  custom_data.arg = reinterpret_cast<unsigned long>(&flush_data);
+  QMMF_DEBUG("Cache %s: fd=%d handle=%d va=%p size=%d",
+      (flag == ION_IOC_CLEAN_CACHES) ? "Clean" : "Invalidate", flush_data.fd,
+      flush_data.handle, flush_data.vaddr, flush_data.length);
+  auto ret = ioctl(ion_device_, ION_IOC_CUSTOM, &custom_data);
+  if (ret < 0) {
+    QMMF_ERROR("%s:%s Cache %s failed", TAG, __func__,
+        (flag == ION_IOC_CLEAN_CACHES) ? "Clean" : "Invalidate");
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  return NO_ERROR;
+}
+
 status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
                                  void* client_data) {
 
@@ -467,8 +498,18 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
   }
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
+
+  auto ret = SynchronizeCache(fd_ion_handle_map_[iter.fd], iter,
+                              ION_IOC_CLEAN_CACHES);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s Cache Synchronization Failed with error %d", TAG,
+        __func__, ret);
+    return ret;
+  }
+
   codec_buffer.fd = (iter).fd;
   codec_buffer.data = (iter).data;
+
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
     Mutex::Autolock lock(queue_lock_);
@@ -749,6 +790,7 @@ status_t TrackEncoder::AllocOutputPortBufs() {
     QMMF_INFO("%s:%s buffer.vaddr(%p)", TAG, __func__, buffer.data);
 
     output_buffer_list_.push_back(buffer);
+    fd_ion_handle_map_.insert(::std::make_pair(buffer.fd, ionHandleData));
   }
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
