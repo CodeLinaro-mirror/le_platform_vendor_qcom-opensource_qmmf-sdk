@@ -1467,8 +1467,10 @@ int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
 
   List<const CameraMetadata> metadataRequestList;
   int32_t requestId = next_request_id_;
+  int32_t temp_request_id = requestId;
 
   pthread_mutex_lock(&lock_);
+  current_request_ids_.clear();
 
   switch (state_) {
     case STATE_ERROR:
@@ -1545,11 +1547,12 @@ int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
     metadata.update(ANDROID_REQUEST_OUTPUT_STREAMS, &request_stream_id[0],
                     request_stream_id.size());
 
-    metadata.update(ANDROID_REQUEST_ID, &requestId, 1);
-
+    metadata.update(ANDROID_REQUEST_ID, &temp_request_id, 1);
     metadataRequestList.push_back(metadata);
+    current_request_ids_.push_back(temp_request_id);
+    temp_request_id++;
   }
-  next_request_id_++;
+  next_request_id_ = temp_request_id;
 
   res = AddRequestListLocked(metadataRequestList, streaming, lastFrameNumber);
   if (0 != res) {
