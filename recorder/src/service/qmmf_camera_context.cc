@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <fcntl.h>
+#include <math.h>
 #include <sys/mman.h>
 #include <QCamera3VendorTags.h>
 #include <chrono>

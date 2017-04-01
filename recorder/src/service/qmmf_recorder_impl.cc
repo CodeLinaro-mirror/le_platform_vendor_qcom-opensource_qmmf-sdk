@@ -185,7 +185,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
   status_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s client_id(%d) is not valid!", TAG, __func__);
+    QMMF_ERROR("%s:%s client_id(%d) is not valid!", TAG, __func__, client_id);
     return BAD_VALUE;
   }
   client_session_lock_.lock();
@@ -1290,7 +1290,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
                                           cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: client_id(%d):camera_id(%d) CaptureImage failed!", TAG,
-        __func__, camera_id);
+        __func__, client_id, camera_id);
     return ret;
   }
   QMMF_DEBUG("%s:%s: Exit client_id(%d):camera_id(%d)", TAG, __func__,
