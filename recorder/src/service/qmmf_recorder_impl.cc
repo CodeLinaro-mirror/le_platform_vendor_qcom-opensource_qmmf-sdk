@@ -1126,23 +1126,9 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-  uint32_t service_track_id = 0;
   TrackInfo track_info {};
-  {
-    std::lock_guard<std::mutex> lock(client_session_lock_);
-    auto session_track_map = client_session_map_[client_id];
-    auto tracks_in_session = session_track_map[session_id];
-    for (auto track : tracks_in_session) {
-      if (track_id == std::get<0>(track)) {
-        service_track_id = std::get<1>(track);
-        track_info       = std::get<2>(track);
-        QMMF_VERBOSE("%s:%s: client_id(%d):session_id(%d), "
-            "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
-            session_id, track_id, service_track_id);
-        break;
-      }
-    }
-  }
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
   assert(service_track_id > 0);
   if (track_info.type == TrackType::kVideo) {
 
@@ -1199,21 +1185,9 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
         TAG, __func__, client_id, session_id, track_id);
     return BAD_VALUE;
   }
-  uint32_t service_track_id = 0;
-  {
-    std::lock_guard<std::mutex> lock(client_session_lock_);
-    auto session_track_map = client_session_map_[client_id];
-    auto tracks_in_session = session_track_map[session_id];
-    for (auto track : tracks_in_session) {
-      if (track_id == std::get<0>(track)) {
-        service_track_id = std::get<1>(track);
-        QMMF_INFO("%s:%s: client_id(%d):session_id(%d), "
-            "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
-            session_id, track_id, service_track_id);
-        break;
-      }
-    }
-  }
+  TrackInfo track_info {};
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
   assert(service_track_id > 0);
   assert(encoder_core_ != nullptr);
   auto ret = encoder_core_->SetTrackEncoderParams(service_track_id, type, param,
@@ -1376,7 +1350,13 @@ status_t RecorderImpl::CreateOverlayObject(const uint32_t client_id,
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->CreateOverlayObject(track_id, param, overlay_id);
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->CreateOverlayObject(service_track_id,
+                                                 param, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateOverlayObject failed!", TAG, __func__);
     return ret;
@@ -1391,7 +1371,13 @@ status_t RecorderImpl::DeleteOverlayObject(const uint32_t client_id,
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->DeleteOverlayObject(track_id, overlay_id);
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->DeleteOverlayObject(service_track_id,
+                                                 overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteOverlayObject failed!", TAG, __func__);
     return ret;
@@ -1407,7 +1393,13 @@ status_t RecorderImpl::GetOverlayObjectParams(const uint32_t client_id,
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->GetOverlayObjectParams(track_id, overlay_id,
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->GetOverlayObjectParams(service_track_id,
+                                                    overlay_id,
                                                     param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: GetOverlayObjectParams failed!", TAG, __func__);
@@ -1424,7 +1416,13 @@ status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t client_id,
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->UpdateOverlayObjectParams(track_id, overlay_id,
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->UpdateOverlayObjectParams(service_track_id,
+                                                       overlay_id,
                                                        param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: UpdateOverlayObjectParams failed!", TAG, __func__);
@@ -1440,7 +1438,13 @@ status_t RecorderImpl::SetOverlayObject(const uint32_t client_id,
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->SetOverlayObject(track_id, overlay_id);
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->SetOverlayObject(service_track_id,
+                                              overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: SetOverlayObject failed!", TAG, __func__);
     return ret;
@@ -1454,7 +1458,13 @@ status_t RecorderImpl::RemoveOverlayObject(const uint32_t client_id,
                                            const uint32_t overlay_id) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   assert(camera_source_ != NULL);
-  auto ret = camera_source_->RemoveOverlayObject(track_id, overlay_id);
+  TrackInfo track_info {};
+  //TODO: To decide whether API to include session_id
+  const uint32_t session_id = unique_session_id_;
+  uint32_t service_track_id = GetUniqueTrackIdFromClientTrackId(client_id,
+                                  session_id, track_id, &track_info);
+  auto ret = camera_source_->RemoveOverlayObject(service_track_id,
+                                                 overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: RemoveOverlayObject failed!", TAG, __func__);
     return ret;
@@ -1636,6 +1646,28 @@ uint32_t RecorderImpl::GetUniqueServiceTrackId(const uint32_t client_id,
   uint32_t service_track_id = client_id << 24;
   service_track_id |= session_id << 16;
   service_track_id |= track_id;
+  return service_track_id;
+}
+
+uint32_t RecorderImpl::GetUniqueTrackIdFromClientTrackId(
+    const uint32_t client_id,
+    const uint32_t session_id,
+    const uint32_t track_id,
+    TrackInfo* track_info) {
+  std::lock_guard<std::mutex> lock(client_session_lock_);
+  uint32_t service_track_id = 0;
+  auto session_track_map = client_session_map_[client_id];
+  auto tracks_in_session = session_track_map[session_id];
+  for (auto track : tracks_in_session) {
+    if (track_id == std::get<0>(track)) {
+      service_track_id = std::get<1>(track);
+      *track_info      = std::get<2>(track);
+      QMMF_VERBOSE("%s:%s: client_id(%d):session_id(%d), "
+          "track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
+          session_id, track_id, service_track_id);
+      break;
+    }
+  }
   return service_track_id;
 }
 

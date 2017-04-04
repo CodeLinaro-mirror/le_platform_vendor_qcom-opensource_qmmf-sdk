@@ -221,6 +221,11 @@ class RecorderImpl {
     AudioTrackParams audio_params;
     //TODO: Add union and pack AudioTrack params.
   } TrackInfo;
+  uint32_t GetUniqueTrackIdFromClientTrackId(
+                                    const uint32_t client_id,
+                                    const uint32_t session_id,
+                                    const uint32_t track_id,
+                                    TrackInfo* track_info);
 
   uint32_t              unique_session_id_;
   CameraSource*         camera_source_;
