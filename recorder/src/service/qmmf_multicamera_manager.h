@@ -37,7 +37,7 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 
-#include <qmmf_alg_intf.h>
+#include <qmmf-alg/qmmf_alg_intf.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
