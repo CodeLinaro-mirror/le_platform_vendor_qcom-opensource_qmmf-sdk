@@ -209,11 +209,13 @@ class RecorderImpl {
   bool IsSessionStarted(const uint32_t session_id);
   bool IsTrackValid(const uint32_t client_id, const uint32_t session_id,
                     const uint32_t track_id);
+  bool IsTrackValid(const uint32_t client_id, const uint32_t track_id);
   bool IsCameraOwned(const uint32_t client_id, const uint32_t camera_id);
 
   uint32_t GetUniqueServiceTrackId(const uint32_t client_id,
                                    const uint32_t session_id,
                                    const uint32_t track_id);
+
   typedef struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
@@ -221,11 +223,15 @@ class RecorderImpl {
     AudioTrackParams audio_params;
     //TODO: Add union and pack AudioTrack params.
   } TrackInfo;
-  uint32_t GetUniqueTrackIdFromClientTrackId(
-                                    const uint32_t client_id,
-                                    const uint32_t session_id,
-                                    const uint32_t track_id,
-                                    TrackInfo* track_info);
+
+  status_t GetServiceTrackInfo(const uint32_t client_id,
+                               const uint32_t session_id,
+                               const uint32_t client_track_id,
+                               TrackInfo* track_info);
+
+  status_t GetServiceTrackInfo(const uint32_t client_id,
+                               const uint32_t client_track_id,
+                               TrackInfo* track_info);
 
   uint32_t              unique_session_id_;
   CameraSource*         camera_source_;
