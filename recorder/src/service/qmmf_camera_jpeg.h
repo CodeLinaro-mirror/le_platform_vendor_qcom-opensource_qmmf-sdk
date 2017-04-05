@@ -31,6 +31,7 @@
 
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
+#include <utils/Condition.h>
 #include <libgralloc/gralloc_priv.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
