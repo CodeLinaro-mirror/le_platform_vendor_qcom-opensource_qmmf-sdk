@@ -193,11 +193,27 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 }
 
 status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const uint32_t type,
+                                            const MultiCameraConfigType type,
                                             const void *param,
                                             const uint32_t param_size) {
-  // TODO:
-  return NO_ERROR;
+
+  status_t ret = NO_ERROR;
+#ifdef ENABLE_360
+  if ((kVirtualCameraIdOffset > virtual_camera_id) ||
+      (NAME_NOT_FOUND == camera_map_.indexOfKey(virtual_camera_id))) {
+    QMMF_ERROR("%s:%s: Invalid Virtual Camera Id(%u)!", TAG, __func__,
+        virtual_camera_id);
+    return BAD_VALUE;
+  }
+
+  sp<CameraInterface> multi_camera = camera_map_.valueFor(virtual_camera_id);
+  MultiCameraManager *camera_mgr =
+      static_cast<MultiCameraManager*>(multi_camera.get());
+
+  ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
+                                         param, param_size);
+#endif
+  return ret;
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
@@ -440,7 +456,7 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
-                                            const uint32_t frame_rate) {
+                                            const float frame_rate) {
 
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
@@ -592,7 +608,7 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
   if (width > blob_size) {
-    size_t offset = width - blob_size;
+    size_t offset = width - blob_size - 1;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
@@ -1270,14 +1286,14 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
   return ret;
 }
 
-void TrackSource::UpdateFrameRate(const uint32_t frame_rate) {
+void TrackSource::UpdateFrameRate(const float frame_rate) {
 
   Mutex::Autolock autoLock(frame_skip_lock_);
-  assert(frame_rate > 0);
+  assert(frame_rate > 0.0f);
 
-  if (track_params_.params.frame_rate != frame_rate) {
-      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%d) to (%d)", TAG,
-          __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
+  if (fabs(track_params_.params.frame_rate - frame_rate) > 0.1f) {
+      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%5.2f) to (%5.2f)",
+          TAG, __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
   }

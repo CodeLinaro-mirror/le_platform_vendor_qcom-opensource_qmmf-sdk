@@ -191,7 +191,8 @@ class CameraContext : public CameraInterface {
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  int32_t                  snapshot_request_id_;
+  Vector<int32_t>          snapshot_request_id_;
+  int32_t                  current_snapshot_request_id_index_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
@@ -214,8 +215,8 @@ class CameraContext : public CameraInterface {
   // User define value for sensor mode
   int32_t sensor_vendor_mode_;
 
-  static uint32_t          kConstrainedModeThreshold;
-  static uint32_t          kHFRBatchModeThreshold;
+  static float             kConstrainedModeThreshold;
+  static float             kHFRBatchModeThreshold;
   bool                     hfr_supported_;
   Vector<HFRMode_t>        hfr_batch_modes_list_;
   Vector<Camera3Request>   streaming_active_requests_;
@@ -282,7 +283,7 @@ class CameraPort : public RefBase {
 
   PortState& getPortState();
 
-  uint32_t GetPortFramerate() { return params_.frame_rate; }
+  float GetPortFramerate() { return params_.frame_rate; }
 
   size_t GetPortBatchSize() { return batch_size_; }
 

@@ -754,6 +754,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t session_id,
       }
     }
   }
+
   VideoTrackParams video_track_params;
   memset(&video_track_params, 0x0, sizeof video_track_params);
   video_track_params.track_id    = track_id;
@@ -972,7 +973,7 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t session_id,
     return ret;
   }
   if (ret == NO_ERROR && type == CodecParamType::kFrameRateType) {
-    uint32_t* fps = static_cast<uint32_t*>(param);
+    float* fps = static_cast<float*>(param);
     ret = camera_source_->UpdateTrackFrameRate(track_id, *fps);
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s:Failed to set FrameRate to TrackSource", TAG, __func__);
@@ -1185,7 +1186,7 @@ status_t RecorderImpl::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 }
 
 status_t RecorderImpl::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const uint32_t type,
+                                            const MultiCameraConfigType type,
                                             const void *param,
                                             const uint32_t param_size) {
 

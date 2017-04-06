@@ -63,7 +63,7 @@ using namespace avcodec;
 
 namespace recorder {
 
-#define FPS_CHANGE_THRESHOLD  (0.5)
+#define FPS_CHANGE_THRESHOLD  (0.005)
 
 class TrackSource;
 
@@ -83,7 +83,7 @@ class CameraSource {
                              uint32_t *virtual_camera_id);
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const uint32_t type,
+                                const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
 
@@ -121,7 +121,7 @@ class CameraSource {
                                   CameraMetadata &meta);
 
   status_t UpdateTrackFrameRate(const uint32_t track_id,
-                                const uint32_t frame_rate);
+                                const float frame_rate);
 
   status_t CreateOverlayObject(const uint32_t track_id,
                                OverlayParam *param,
@@ -226,7 +226,7 @@ class TrackSource : public ICodecSource {
 
   status_t RemoveOverlayObject(const uint32_t overlay_id);
 
-  void UpdateFrameRate(const uint32_t frame_rate);
+  void UpdateFrameRate(const float frame_rate);
 
   void DisplayCallbackHandler(display::DisplayEventType event_type,
       void *event_data, size_t event_data_size);

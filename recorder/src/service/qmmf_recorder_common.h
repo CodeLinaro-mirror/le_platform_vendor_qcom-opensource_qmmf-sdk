@@ -121,7 +121,7 @@ struct CameraStreamParam {
   CameraStreamDim    cam_stream_dim;
   CameraStreamFormat cam_stream_format;
   CameraStreamType   cam_stream_type;
-  uint32_t           frame_rate;
+  float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;
 };
