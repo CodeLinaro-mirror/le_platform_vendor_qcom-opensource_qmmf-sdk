@@ -193,11 +193,27 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 }
 
 status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const uint32_t type,
+                                            const MultiCameraConfigType type,
                                             const void *param,
                                             const uint32_t param_size) {
-  // TODO:
-  return NO_ERROR;
+
+  status_t ret = NO_ERROR;
+#ifdef ENABLE_360
+  if ((kVirtualCameraIdOffset > virtual_camera_id) ||
+      (NAME_NOT_FOUND == camera_map_.indexOfKey(virtual_camera_id))) {
+    QMMF_ERROR("%s:%s: Invalid Virtual Camera Id(%u)!", TAG, __func__,
+        virtual_camera_id);
+    return BAD_VALUE;
+  }
+
+  sp<CameraInterface> multi_camera = camera_map_.valueFor(virtual_camera_id);
+  MultiCameraManager *camera_mgr =
+      static_cast<MultiCameraManager*>(multi_camera.get());
+
+  ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
+                                         param, param_size);
+#endif
+  return ret;
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
