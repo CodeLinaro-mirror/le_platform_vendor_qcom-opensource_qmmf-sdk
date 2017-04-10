@@ -57,7 +57,7 @@ class EncoderCore {
 
   status_t StartTrackEncoder(uint32_t track_id);
 
-  status_t StopTrackEncoder(uint32_t track_id);
+  status_t StopTrackEncoder(uint32_t track_id, bool is_force_cleanup = false);
 
   status_t SetTrackEncoderParams(uint32_t track_id,
                                  CodecParamType param_type, void* param,
@@ -96,7 +96,7 @@ class TrackEncoder : public ICodecSource {
 
   status_t Start();
 
-  status_t Stop();
+  status_t Stop(bool is_force_cleanup = false);
 
   status_t SetParams(CodecParamType param_type, void* param,
                      uint32_t param_size);
@@ -121,6 +121,12 @@ class TrackEncoder : public ICodecSource {
  private:
 
   status_t AllocOutputPortBufs();
+
+  // Value of flag can be ION_IOC_CLEAN_CACHES to clean cache or
+  // ION_IOC_CLEAN_INV_CACHES to invalidate cache
+  status_t SynchronizeCache(const struct ion_handle_data& ion_handle,
+                            const BufferDescriptor& buffer,
+                            const unsigned int flag);
 
   // This methos Notifies bitstream buffer to remote client.
   void NotifyBufferToClient(BufferDescriptor& codec_buffer);
@@ -147,12 +153,16 @@ class TrackEncoder : public ICodecSource {
 #ifdef DUMP_BITSTREAM
   int32_t                    file_fd_;
 #endif
+  bool                       is_force_cleanup_;
 
   // Encoded stream Dynamic FPS measurement
   uint32_t                   debug_fps_;
   uint32_t                   num_bytes_;
   struct timeval             prevtv_;
   uint32_t                   count_;
+
+  // FD and IonHandle map
+  ::std::map<int32_t, struct ion_handle_data> fd_ion_handle_map_;
 };
 
 }; // namespace recorder
