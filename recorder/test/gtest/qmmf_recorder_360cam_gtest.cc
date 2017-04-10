@@ -34,41 +34,33 @@
 #include <utils/Errors.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
+#include <QCamera3VendorTags.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
-#include "QCamera3VendorTags.h"
-
-#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
 #define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
 #define TEST_DBG(...) ((void)0)
 #endif
 
-// Enable this define to dump YUV data from YUV track
-#define DUMP_YUV_FRAMES
-
-// Enable this define to dump encoded bit stream data.
-#define DUMP_BITSTREAM
-
-using namespace qcamera;
-
-static const int32_t kIterationCount     = 50;
 static const int32_t kRecordDuration     = 2*60;   // 2 min for each iteration.
 static const int32_t kDelayAfterSnapshot = 5;
 static const uint32_t kZslWidth          = 1920;
-static const uint32_t kZslHeight         = 1080;
+static const uint32_t kZslHeight         = 960;
 static const uint32_t kZslQDepth         = 10;
-static const uint32_t kYUVDumpFreq       = 100;
+
+using namespace qcamera;
 
 void Recorder360Gtest::SetUp() {
 
@@ -80,7 +72,23 @@ void Recorder360Gtest::SetUp() {
                                          size_t event_data_size) -> void
       { RecorderCallbackHandler(event_type, event_data, event_data_size); };
 
-  iteration_count_ = kIterationCount;
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DUMP_360_BITSTREAM, prop_val, "0");
+  if (atoi(prop_val) == 0) {
+    dump_bitstream_.Enable(false);
+  } else {
+    dump_bitstream_.Enable(true);
+  }
+  property_get(PROP_DUMP_360_JPEG, prop_val, "0");
+  is_dump_jpeg_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_360_RAW, prop_val, "0");
+  is_dump_raw_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_360_YUV_FRAMES, prop_val, "0");
+  is_dump_yuv_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_360_YUV_FREQ, prop_val, DEFAULT_360_YUV_DUMP_FREQ);
+  dump_yuv_freq_ = atoi(prop_val);
+  property_get(PROP_360_N_ITERATIONS, prop_val, DEFAULT_360_ITERATIONS_COUNT);
+  iteration_count_ = atoi(prop_val);
 
   camera_ids_.push_back(0);
   camera_ids_.push_back(1);
@@ -944,19 +952,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s",
-      width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -986,11 +983,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1034,9 +1041,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1070,19 +1075,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1920;
-  int32_t height = 960;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 1920;
+  int32_t stream_height = 960;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -1112,11 +1106,21 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1160,9 +1164,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1196,19 +1198,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1440;
-  int32_t height = 720;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 1440;
+  int32_t stream_height = 720;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -1238,11 +1229,21 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1286,9 +1287,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1323,19 +1322,15 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  int32_t width;
-  int32_t height;
-  String8 bitstream_filepath;
+  int32_t stream_width;
+  int32_t stream_height;
   std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
-  uint32_t fps = 30;
+  uint32_t stream_fps = 30;
   uint32_t video_track_id_4k = 1;
   uint32_t video_track_id_720p = 2;
   VideoFormat format_type = VideoFormat::kAVC;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -1343,7 +1338,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   assert(ret == NO_ERROR);
 
-  multicam_start_params_.frame_rate = fps;
+  multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
@@ -1364,27 +1359,25 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
-    width  = 3840;
-    height = 1920;
-
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_4k, width, height, i, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-        O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ >= 0);
-#endif
+    stream_width  = 3840;
+    stream_height = 1920;
 
     memset(&video_track_param, 0x0, sizeof video_track_param);
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
-    video_track_param.frame_rate  = fps;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1403,27 +1396,25 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 1440x720 h264 encodded track.
-    width  = 1440;
-    height = 720;
-
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_720p, width, height, i, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-        O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+    stream_width  = 1440;
+    stream_height = 720;
 
     memset(&video_track_param, 0x0, sizeof video_track_param);
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
-    video_track_param.frame_rate  = fps;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_720p,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -1468,6 +1459,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
@@ -1502,9 +1494,8 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  int32_t width;
-  int32_t height;
-  String8 bitstream_filepath;
+  int32_t stream_width;
+  int32_t stream_height;
   std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
@@ -1512,9 +1503,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
   uint32_t video_track_id_4k = 1;
   uint32_t video_track_id_480p = 2;
   VideoFormat format_type = VideoFormat::kAVC;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -1543,27 +1531,25 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
-    width  = 3840;
-    height = 1920;
-
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_4k, width, height, i, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-        O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ >= 0);
-#endif
+    stream_width  = 3840;
+    stream_height = 1920;
 
     video_track_param = {};
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1582,27 +1568,25 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 960x480 h264 encodded track.
-    width  = 960;
-    height = 480;
-
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_480p, width, height, i, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-        O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+    stream_width  = 960;
+    stream_height = 480;
 
     video_track_param = {};
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_480p,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -1681,9 +1665,8 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  int32_t width;
-  int32_t height;
-  String8 bitstream_filepath;
+  int32_t stream_width;
+  int32_t stream_height;
   std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
@@ -1691,9 +1674,6 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
   uint32_t video_track_id_HD = 1;
   uint32_t video_track_id_480p = 2;
   VideoFormat format_type = VideoFormat::kAVC;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -1722,27 +1702,25 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
         test_info_->name(), i);
 
     // Set parameters for and create 1920x960 h264 encodded track.
-    width  = 1920;
-    height = 960;
-
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_HD, width, height, i, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-        O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ >= 0);
-#endif
+    stream_width  = 1920;
+    stream_height = 960;
 
     video_track_param = {};
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_HD,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1761,27 +1739,25 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     track_ids.push_back(video_track_id_HD);
 
     // Set parameters for and create 960x480 h264 encodded track.
-    width  = 960;
-    height = 480;
-
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_480p, width, height, i, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-        O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+    stream_width  = 960;
+    stream_height = 480;
 
     video_track_param = {};
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_480p,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -2612,19 +2588,8 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -2656,11 +2621,21 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2704,9 +2679,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -2739,19 +2712,8 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1920;
-  int32_t height = 960;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 1920;
+  int32_t stream_height = 960;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -2783,11 +2745,21 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2831,9 +2803,7 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -2866,19 +2836,8 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 1440;
-  int32_t height = 720;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 1440;
+  int32_t stream_height = 720;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -2910,11 +2869,21 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2958,9 +2927,7 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  if (track1_bitstream_filefd_ > 0) {
-    close(track1_bitstream_filefd_);
-  }
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -2995,19 +2962,15 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  int32_t width;
-  int32_t height;
-  String8 bitstream_filepath;
+  int32_t stream_width;
+  int32_t stream_height;
   std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
-  uint32_t fps = 30;
+  uint32_t stream_fps = 30;
   uint32_t video_track_id_4k = 1;
   uint32_t video_track_id_720p = 2;
   VideoFormat format_type = VideoFormat::kAVC;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3016,7 +2979,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   assert(ret == NO_ERROR);
 
-  multicam_start_params_.frame_rate = fps;
+  multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
@@ -3037,27 +3000,25 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
-    width  = 3840;
-    height = 1920;
-
-#ifdef DUMP_BITSTREAM
-    if (track1_bitstream_filefd_ > 0) {
-      close(track1_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_idx_%d.%s",
-        video_track_id_4k, width, height, i, extn.string());
-    track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-        O_TRUNC, 0655);
-    assert(track1_bitstream_filefd_ >= 0);
-#endif
+    stream_width  = 3840;
+    stream_height = 1920;
 
     memset(&video_track_param, 0x0, sizeof video_track_param);
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
-    video_track_param.frame_rate  = fps;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3076,27 +3037,25 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 1440x720 h264 encodded track.
-    width  = 1440;
-    height = 720;
-
-#ifdef DUMP_BITSTREAM
-    if (track2_bitstream_filefd_ > 0) {
-      close(track2_bitstream_filefd_);
-    }
-    bitstream_filepath.clear();
-    bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d_iter_%d.%s",
-        video_track_id_720p, width, height, i, extn.string());
-    track2_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT |
-        O_WRONLY | O_TRUNC, 0655);
-    assert(track2_bitstream_filefd_ > 0);
-#endif
+    stream_width  = 1440;
+    stream_height = 720;
 
     memset(&video_track_param, 0x0, sizeof video_track_param);
     video_track_param.camera_id   = multicam_id_;
-    video_track_param.width       = width;
-    video_track_param.height      = height;
-    video_track_param.frame_rate  = fps;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_720p,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -3141,13 +3100,14 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
 }
 
 /*
-* Stitched4KEncAllAWbModes: This case will test a MultiCamera session with 3840x1920
+* Stitched4KEncAllAWBModes: This case will test a MultiCamera session with 3840x1920
 *                 h264 encoded track, during which in 10 sec interval time AWB modes
 *                 will change. This test is configured to produce stitched frames.
 * Api test sequence:
@@ -3167,7 +3127,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 *   } loop End
 *  - StopCamera
 */
-TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
+TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -3185,19 +3145,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_modes_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3228,11 +3177,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3344,6 +3303,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -3377,19 +3337,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_auto_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3420,11 +3369,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3481,6 +3440,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -3514,19 +3474,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_incandescent_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3557,11 +3506,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3618,6 +3577,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -3651,19 +3611,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_fluorescent_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3694,11 +3643,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3755,6 +3714,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -3788,19 +3748,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_warm_fluorescent_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3831,11 +3780,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3892,6 +3851,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -3925,19 +3885,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_daylight_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -3968,11 +3917,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4029,6 +3988,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4062,19 +4022,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_cloudy_daylight_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4105,11 +4054,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4166,6 +4125,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4199,19 +4159,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_twilight_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4242,11 +4191,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4303,6 +4262,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4336,19 +4296,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_awb_mode_shade_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4379,11 +4328,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4440,6 +4399,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4481,19 +4441,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_modes_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4524,11 +4473,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4612,6 +4571,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4645,19 +4605,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_off_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4688,11 +4637,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -4749,6 +4708,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4782,19 +4742,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_50Hz_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4825,8 +4774,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
@@ -4886,6 +4835,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4919,19 +4869,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_60Hz_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -4962,11 +4901,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5023,6 +4972,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5056,19 +5006,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_ae_mode_auto_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5099,11 +5038,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5203,19 +5152,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_modes_%dx%d.%s", width, height,
-      extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5245,11 +5183,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5350,6 +5298,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5383,19 +5332,8 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_auto_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5426,11 +5364,21 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5488,6 +5436,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5521,19 +5470,8 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_100_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5564,11 +5502,21 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5626,6 +5574,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5659,19 +5608,8 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_200_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5702,11 +5640,21 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5764,6 +5712,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5797,19 +5746,8 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_400_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5840,11 +5778,21 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -5902,6 +5850,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5935,19 +5884,8 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_800_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -5978,11 +5916,21 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6040,6 +5988,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6073,19 +6022,8 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_1600_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -6116,11 +6054,21 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6178,6 +6126,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6211,19 +6160,8 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  int32_t width  = 3840;
-  int32_t height = 1920;
-#ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
-  const char* type_string = (format_type ==  VideoFormat::kAVC) ?
-      "h264": "h265";
-  String8 extn(type_string);
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_iso_mode_3200_%dx%d.%s",
-                                  width, height, extn.string());
-  track1_bitstream_filefd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY |
-      O_TRUNC, 0655);
-  assert(track1_bitstream_filefd_ >= 0);
-#endif
+  int32_t stream_width  = 3840;
+  int32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
   assert(ret == NO_ERROR);
@@ -6254,11 +6192,21 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     memset(&video_track_param, 0x0, sizeof video_track_param);
 
     video_track_param.camera_id     = multicam_id_;
-    video_track_param.width         = width;
-    video_track_param.height        = height;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6316,6 +6264,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
+  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6362,40 +6311,42 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_YUV_FRAMES
-  static uint32_t id = 0;
-  ++id;
-  if (id == kYUVDumpFreq) {
-    String8 file_path;
-    size_t written_len;
-    file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv", track_id,
-        buffers[0].timestamp);
 
-    FILE *file = fopen(file_path.string(), "w+");
-    if (!file) {
-      ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-          file_path.string());
-      goto FAIL;
-    }
+  if (is_dump_yuv_enabled_) {
+    static uint32_t id = 0;
+    ++id;
+    if (id == dump_yuv_freq_) {
+      String8 file_path;
+      size_t written_len;
+      file_path.appendFormat("/data/misc/qmmf/gtest_360_track_%d_%lld.yuv",
+          track_id, buffers[0].timestamp);
 
-    written_len = fwrite(buffers[0].data, sizeof(uint8_t),
-                         buffers[0].size, file);
-    TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
-    if (buffers[0].size != written_len) {
-      TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-          strerror(errno));
-      goto FAIL;
-    }
-    TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-      buffers[0].data, written_len, file_path.string());
+      FILE *file = fopen(file_path.string(), "w+");
+      if (!file) {
+        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
+            file_path.string());
+        goto FAIL;
+      }
 
-FAIL:
-    if (file != nullptr) {
-      fclose(file);
+      written_len = fwrite(buffers[0].data, sizeof(uint8_t),
+                           buffers[0].size, file);
+      TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
+      if (buffers[0].size != written_len) {
+        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+            strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+          buffers[0].data, written_len, file_path.string());
+
+  FAIL:
+      if (file != NULL) {
+        fclose(file);
+      }
+      id = 0;
     }
-    id = 0;
   }
-#endif
+
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -6409,10 +6360,10 @@ void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t track_id,
                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track1_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track1_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(1);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -6427,10 +6378,10 @@ void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t track_id,
                                           std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track2_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track2_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(2);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -6446,10 +6397,10 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t track_id,
                                              meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-#ifdef DUMP_BITSTREAM
-  assert(track3_bitstream_filefd_ > 0);
-  DumpBitStream(buffers, track3_bitstream_filefd_);
-#endif
+  if (dump_bitstream_.IsUsed()) {
+    int32_t file_fd = dump_bitstream_.GetFileFd(3);
+    dump_bitstream_.Dump(buffers, file_fd);
+  }
   // Return buffers back to service.
   std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
   uint32_t session_id = it->first;
@@ -6458,40 +6409,6 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t track_id,
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
-
-#ifdef DUMP_BITSTREAM
-status_t Recorder360Gtest::DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                                     int32_t file_fd) {
-
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
-  for (auto& iter : buffers) {
-    if(file_fd > 0) {
-      uint32_t exp_size = iter.size;
-      TEST_DBG("%s:%s BitStream buffer data(0x%p):size(%d):ts(%lld):flag(0x%x)"
-        ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
-         iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
-
-      uint32_t written_length = write(file_fd, iter.data, iter.size);
-      TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
-      if (written_length != exp_size) {
-        TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
-        strerror(errno));
-        return -1;
-      }
-    } else {
-      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd);
-      assert(0);
-    }
-    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
-      close(file_fd);
-      file_fd = -1;
-    }
-  }
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
-  return 0;
-}
-#endif
 
 void Recorder360Gtest::VideoTrackEventCb(uint32_t track_id, EventType event_type,
                                       void *event_data, size_t data_size) {
@@ -6506,7 +6423,6 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Enter", TAG, __func__);
   String8 file_path;
   size_t written_len;
-  static uint32_t snapshot_count = 0;
   const char* ext_str;
 
   if (meta_data.meta_flag  &
@@ -6526,11 +6442,12 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
     }
 
     bool dump_file = true;
-    if (cam_buf_meta.format != BufferFormat::kBLOB) {
-      // Don't save Raw YUV and Bayer data into file, data is big in size, it can
-      // fill up the disk space very soon, if you want to save then make dump_file
-      // variable true.
-      dump_file = false;
+    if (cam_buf_meta.format == BufferFormat::kBLOB) {
+      dump_file = (is_dump_jpeg_enabled_) ? true : false;
+    } else {
+      dump_file = (is_dump_raw_enabled_) ? true : false;
+      fprintf(stderr, "\nRaw snapshot dumping enabled; "
+              "keep track of free storage space.\n");
     }
 
     if (dump_file) {
@@ -6551,13 +6468,18 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
         ext_str = "raw16";
         break;
         default:
+        ext_str = "bin";
         break;
       }
 
-      file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", snapshot_count, ext_str);
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+      file_path.appendFormat("/data/misc/qmmf/snapshot_360_%u_%llu.%s",
+          image_sequence_count, tv_ms, ext_str);
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
-        ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
+        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
             file_path.string());
         goto FAIL;
       }
@@ -6565,14 +6487,12 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
       written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
       TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
       if (buffer.size != written_len) {
-        ALOGE("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
-              strerror(errno));
+        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+            strerror(errno));
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
                 buffer.data, written_len, file_path.string());
-
-      snapshot_count++;
 
     FAIL:
       if (file != nullptr) {
@@ -6583,4 +6503,95 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   TEST_INFO("%s:%s Exit", TAG, __func__);
+}
+
+status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(dumpinfo.width > 0);
+  assert(dumpinfo.height > 0);
+
+  const char* type_string;
+  switch (dumpinfo.format) {
+    case VideoFormat::kAVC:
+      type_string = "h264";
+      break;
+    case VideoFormat::kHEVC:
+      type_string = "h265";
+      break;
+    default:
+      type_string = "bin";
+      break;
+  }
+  String8 extn(type_string);
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_360_track_%d_%dx%d.%s",
+                                  dumpinfo.track_id, dumpinfo.width,
+                                  dumpinfo.height, extn.string());
+  int32_t file_fd = open(bitstream_filepath.string(),
+                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd <= 0) {
+    TEST_ERROR("%s:%s File open failed!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  file_fds_.push_back(file_fd);
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t Dump360BitStream::Dump(const std::vector<BufferDescriptor>& buffers,
+                                const int32_t file_fd) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(file_fd > 0);
+
+  for (auto& iter : buffers) {
+    uint32_t exp_size = iter.size;
+    TEST_DBG("%s:%s BitStream buffer data(%p):size(%d):ts(%lld):flag(0x%x)"
+      ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
+       iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
+
+    uint32_t written_length = write(file_fd, iter.data, iter.size);
+    TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
+    if (written_length != exp_size) {
+      TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+      strerror(errno));
+      return BAD_VALUE;
+    }
+
+    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
+      break;
+    }
+  }
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+void Dump360BitStream::Close(int32_t file_fd) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (file_fd > 0) {
+    auto iter = std::find(file_fds_.begin(), file_fds_.end(), file_fd);
+    if(iter != file_fds_.end()) {
+      close(file_fd);
+      file_fds_.erase(iter);
+    } else {
+      TEST_WARN("%s:%s: file_fd does not exist!", TAG, __func__);
+    }
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+void Dump360BitStream::CloseAll() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  for (auto& iter : file_fds_) {
+    if (iter > 0) {
+      close(iter);
+    }
+  }
+  file_fds_.clear();
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
