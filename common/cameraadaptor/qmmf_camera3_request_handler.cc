@@ -41,7 +41,8 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       current_frame_number_(0),
       streaming_last_frame_number_(NO_IN_FLIGHT_REPEATING_FRAMES),
       monitor_(monitor),
-      monitor_id_(Camera3Monitor::INVALID_ID) {
+      monitor_id_(Camera3Monitor::INVALID_ID),
+      batch_size_(1) {
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&requests_signal_, NULL);
   pthread_mutex_init(&pause_lock_, NULL);
@@ -82,9 +83,10 @@ int32_t Camera3RequestHandler::Initialize(camera3_device_t *device,
   return monitor_id_;
 }
 
-void Camera3RequestHandler::FinishConfiguration() {
+void Camera3RequestHandler::FinishConfiguration(uint32_t batch_size) {
   pthread_mutex_lock(&lock_);
   configuration_update_ = true;
+  batch_size_ = batch_size;
   pthread_mutex_unlock(&lock_);
 }
 
@@ -407,6 +409,11 @@ void Camera3RequestHandler::ClearCaptureRequest(CaptureRequest &request) {
 bool Camera3RequestHandler::WaitOnPause() {
   int32_t res;
   pthread_mutex_lock(&pause_lock_);
+  /* the full batch request packet should be send before wait */
+  if (current_frame_number_ % batch_size_) {
+    res = false;
+    goto exit;
+  }
   while (toggle_pause_state_) {
     if (paused_state_ == false) {
       paused_state_ = true;

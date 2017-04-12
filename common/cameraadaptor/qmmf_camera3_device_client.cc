@@ -338,7 +338,8 @@ exit:
 }
 
 int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
-                                          bool isRawOnly) {
+                                          bool isRawOnly,
+                                          uint32_t batch_size) {
   if (NULL == camera_module_) {
     return -ENODEV;
   }
@@ -348,15 +349,17 @@ int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
     return -EINVAL;
   }
 
-  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly);
+  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly, batch_size);
 }
 
 int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
-                                              bool isRawOnly) {
+                                              bool isRawOnly,
+                                              uint32_t batch_size) {
   pthread_mutex_lock(&lock_);
 
   hfr_mode_enabled_ = isConstrainedHighSpeed;
   is_raw_only_ = isRawOnly;
+  batch_size_ = batch_size;
   bool res = ConfigureStreamsLocked();
 
   pthread_mutex_unlock(&lock_);
@@ -447,7 +450,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
     }
   }
 
-  request_handler_.FinishConfiguration();
+  request_handler_.FinishConfiguration(batch_size_);
   reconfig_ = false;
   frame_number_ = 0;
   InternalUpdateStatusLocked(STATE_CONFIGURED);

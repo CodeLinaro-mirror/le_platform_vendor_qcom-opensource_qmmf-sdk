@@ -147,6 +147,12 @@ class CameraContext : public CameraInterface,
   friend class CameraPort;
   friend class ZslPort;
 
+  void StoreBatchStreamId(sp<CameraPort>& port);
+
+  void RestoreBatchStreamId(CameraPort* port);
+
+  status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
+
   void InitSupportedFPS(const CameraMetadata &static_meta);
 
   bool IsInputSupported(const CameraMetadata &static_meta);
@@ -253,6 +259,8 @@ class CameraContext : public CameraInterface,
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
   bool                     aec_done_ = false;
+  uint32_t                 batch_size_;
+  int32_t                  batch_stream_id_;
 };
 
 enum class CameraPortType {
