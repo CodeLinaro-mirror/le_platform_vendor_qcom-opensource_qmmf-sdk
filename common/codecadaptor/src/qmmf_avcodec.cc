@@ -46,7 +46,7 @@
 #include <OMX_VideoExt.h>
 #include <OMX_IndexExt.h>
 #include <media/hardware/HardwareAPI.h>
-#include <gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 #include <math.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
