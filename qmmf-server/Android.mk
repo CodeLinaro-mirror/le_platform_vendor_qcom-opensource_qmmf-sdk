@@ -15,9 +15,8 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display/sdm/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display/sdm
 
 LOCAL_SRC_FILES := qmmf_server_main.cc
 

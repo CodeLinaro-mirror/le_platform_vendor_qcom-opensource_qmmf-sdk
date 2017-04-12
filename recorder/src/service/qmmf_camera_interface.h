@@ -30,7 +30,6 @@
 #pragma once
 
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 

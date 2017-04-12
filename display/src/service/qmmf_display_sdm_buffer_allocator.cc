@@ -28,15 +28,19 @@
 */
 #define TAG "DisplayBufferAllocator"
 
-#include "libgralloc/gralloc_priv.h"
-#include "libgralloc/memalloc.h"
-#include "libgralloc/gr.h"
-#include "libgralloc/alloc_controller.h"
-#include "sdm/include/utils/constants.h"
-#include "sdm/include/utils/debug.h"
+#include <stdint.h>
+
+#include <memalloc.h>
+#include <alloc_controller.h>
+#include <qcom/display/gr.h>
+#include <qcom/display/gralloc_priv.h>
+#include <sdm/utils/constants.h>
+#include <sdm/utils/debug.h>
+
 #include "display/src/service/qmmf_display_sdm_debugger.h"
 #include "display/src/service/qmmf_display_sdm_buffer_allocator.h"
 #include "display/src/service/qmmf_display_common.h"
+
 namespace qmmf {
 
 namespace display {

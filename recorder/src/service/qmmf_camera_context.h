@@ -32,8 +32,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
-#include <condition_variable>
+#include <qcom/display/gralloc_priv.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"

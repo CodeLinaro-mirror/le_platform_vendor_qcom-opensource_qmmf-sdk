@@ -27,11 +27,11 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "sync/sync.h"
-#include "sdm/include/utils/constants.h"
-#include "utils/Errors.h"
-#include "sdm/include/utils/debug.h"
-#include "string.h"
+#include <cstring>
+#include <sync/sync.h>
+#include <utils/Errors.h>
+#include <sdm/utils/constants.h>
+#include <sdm/utils/debug.h>
 
 #include "display/src/service/qmmf_display_common.h"
 #include "display/src/service/qmmf_display_sdm_debugger.h"

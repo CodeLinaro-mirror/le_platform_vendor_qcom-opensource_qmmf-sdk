@@ -37,7 +37,7 @@
 #include <condition_variable>
 
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "include/qmmf-plugin/qmmf_alg_intf.h"
 
