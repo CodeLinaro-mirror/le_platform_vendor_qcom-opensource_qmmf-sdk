@@ -114,8 +114,6 @@ class Recorder360Gtest : public ::testing::Test {
 
   int32_t DeInit();
 
-  void ClearSessions();
-
   void RecorderCallbackHandler(EventType event_type, void *event_data,
                                size_t event_data_size);
 
@@ -126,17 +124,21 @@ class Recorder360Gtest : public ::testing::Test {
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
-  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                                buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
@@ -151,7 +153,6 @@ class Recorder360Gtest : public ::testing::Test {
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      multicam_start_params_;
   RecorderCb            recorder_status_cb_;
-  std::map <uint32_t , std::vector<uint32_t> > sessions_;
 
   Dump360BitStream      dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;

@@ -536,10 +536,10 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -548,10 +548,6 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -568,8 +564,6 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -645,10 +639,10 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -657,10 +651,6 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -677,8 +667,6 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -754,10 +742,10 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -766,10 +754,6 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -786,8 +770,6 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -850,7 +832,6 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
   assert(ret == NO_ERROR);
   uint32_t track_4k_id = 1;
   uint32_t track_fullhd_id = 2;
-  std::vector<uint32_t> track_ids;
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -867,10 +848,10 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     video_track_param.format_type   = VideoFormat::kYUV;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -879,7 +860,6 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(track_4k_id);
 
     video_track_param.width  = 1920;
     video_track_param.height = 960;
@@ -887,9 +867,6 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(track_fullhd_id);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -910,8 +887,6 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1000,10 +975,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1012,10 +987,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1032,8 +1003,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1123,10 +1092,10 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1135,10 +1104,6 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1155,8 +1120,6 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1246,10 +1209,10 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1258,10 +1221,6 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1278,8 +1237,6 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1324,7 +1281,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
   int32_t stream_width;
   int32_t stream_height;
-  std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
   uint32_t stream_fps = 30;
@@ -1380,10 +1336,10 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1393,7 +1349,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 1440x720 h264 encodded track.
     stream_width  = 1440;
@@ -1416,10 +1371,10 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
       assert(ret == NO_ERROR);
     }
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1429,9 +1384,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_720p);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1450,8 +1402,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1496,7 +1446,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
   int32_t stream_width;
   int32_t stream_height;
-  std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
   uint32_t fps = 30;
@@ -1552,10 +1501,10 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1565,7 +1514,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 960x480 h264 encodded track.
     stream_width  = 960;
@@ -1588,10 +1536,10 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
       assert(ret == NO_ERROR);
     }
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1601,9 +1549,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_480p);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1622,8 +1567,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1667,7 +1610,6 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
   int32_t stream_width;
   int32_t stream_height;
-  std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
   uint32_t fps = 30;
@@ -1723,10 +1665,10 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1736,7 +1678,6 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_HD,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_HD);
 
     // Set parameters for and create 960x480 h264 encodded track.
     stream_width  = 960;
@@ -1759,10 +1700,10 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
       assert(ret == NO_ERROR);
     }
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -1772,9 +1713,6 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_480p);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -1793,8 +1731,6 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2167,22 +2103,18 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                      video_track_param, video_track_cb);
+                                     video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2199,8 +2131,6 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -2278,10 +2208,10 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2290,10 +2220,6 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2310,8 +2236,6 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -2389,10 +2313,10 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2401,10 +2325,6 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2421,8 +2341,6 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -2487,7 +2405,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
   assert(ret == NO_ERROR);
   uint32_t track_4k_id = 1;
   uint32_t track_fullhd_id = 2;
-  std::vector<uint32_t> track_ids;
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -2504,10 +2421,10 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     video_track_param.format_type   = VideoFormat::kYUV;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2516,7 +2433,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(track_4k_id);
 
     video_track_param.width  = 1920;
     video_track_param.height = 960;
@@ -2524,9 +2440,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(track_fullhd_id);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2547,8 +2460,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2638,10 +2549,10 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2650,10 +2561,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2670,8 +2577,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2762,10 +2667,10 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2774,10 +2679,6 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2794,8 +2695,6 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2886,10 +2785,10 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2898,10 +2797,6 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -2918,8 +2813,6 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2964,7 +2857,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
   int32_t stream_width;
   int32_t stream_height;
-  std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param;
 
   uint32_t stream_fps = 30;
@@ -3021,10 +2913,10 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -3034,7 +2926,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_4k);
 
     // Set parameters for and create 1440x720 h264 encodded track.
     stream_width  = 1440;
@@ -3057,10 +2948,10 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
       assert(ret == NO_ERROR);
     }
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
                                   std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -3070,9 +2961,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-    track_ids.push_back(video_track_id_720p);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3091,8 +2979,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   assert(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -3194,10 +3080,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3206,10 +3092,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3293,8 +3175,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3386,10 +3266,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3398,10 +3278,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3430,8 +3306,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3523,10 +3397,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3535,10 +3409,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3567,8 +3437,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3660,10 +3528,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3672,10 +3540,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3704,8 +3568,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3797,10 +3659,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3809,10 +3671,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3841,8 +3699,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3934,10 +3790,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -3946,10 +3802,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -3978,8 +3830,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4071,10 +3921,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4083,10 +3933,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4115,8 +3961,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4208,10 +4052,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4220,10 +4064,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4252,8 +4092,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4345,10 +4183,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4357,10 +4195,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4389,8 +4223,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4490,10 +4322,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4502,10 +4334,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4561,8 +4389,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4654,10 +4480,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4666,10 +4492,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4698,8 +4520,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4781,10 +4601,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4793,10 +4613,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4825,8 +4641,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4918,10 +4732,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -4930,10 +4744,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -4962,8 +4772,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5055,10 +4863,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5067,10 +4875,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5099,8 +4903,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5200,10 +5002,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5212,10 +5014,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5288,8 +5086,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5381,10 +5177,10 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5393,10 +5189,6 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5426,8 +5218,6 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5519,10 +5309,10 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5531,10 +5321,6 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5564,8 +5350,6 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5657,10 +5441,10 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5669,10 +5453,6 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5702,8 +5482,6 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5795,10 +5573,10 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5807,10 +5585,6 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5840,8 +5614,6 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5933,10 +5705,10 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5945,10 +5717,6 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -5978,8 +5746,6 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6071,10 +5837,10 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -6083,10 +5849,6 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -6116,8 +5878,6 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6209,10 +5969,10 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -6221,10 +5981,6 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
@@ -6254,8 +6010,6 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6267,17 +6021,6 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
-}
-
-void Recorder360Gtest::ClearSessions() {
-
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  for (; it != sessions_.end(); ++it) {
-    it->second.clear();
-  }
-  sessions_.clear();
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
 }
 
 void Recorder360Gtest::RecorderCallbackHandler(EventType event_type,
@@ -6306,7 +6049,8 @@ void Recorder360Gtest::CameraResultCallbackHandler(uint32_t camera_id,
   }
 }
 
-void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t track_id,
+void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
+                                        uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
 
@@ -6348,16 +6092,15 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t track_id,
   }
 
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t track_id,
-                                        std::vector<BufferDescriptor> buffers,
-                                        std::vector<MetaData> meta_buffers) {
+void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t session_id,
+                                         uint32_t track_id,
+                                         std::vector<BufferDescriptor> buffers,
+                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   if (dump_bitstream_.IsUsed()) {
@@ -6365,17 +6108,16 @@ void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t track_id,
     dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t track_id,
-                                          std::vector<BufferDescriptor> buffers,
-                                          std::vector<MetaData> meta_buffers) {
+void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t session_id,
+                                         uint32_t track_id,
+                                         std::vector<BufferDescriptor> buffers,
+                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   if (dump_bitstream_.IsUsed()) {
@@ -6383,18 +6125,16 @@ void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t track_id,
     dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t track_id,
-                                             std::vector<BufferDescriptor>
-                                             buffers, std::vector<MetaData>
-                                             meta_buffers) {
+void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t session_id,
+                                         uint32_t track_id,
+                                         std::vector<BufferDescriptor> buffers,
+                                         std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   if (dump_bitstream_.IsUsed()) {
@@ -6402,8 +6142,6 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t track_id,
     dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
