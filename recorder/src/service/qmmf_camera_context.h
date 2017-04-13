@@ -87,6 +87,10 @@ class CameraContext : public CameraInterface {
 
   status_t StopStream(const uint32_t track_id) override;
 
+  status_t ResumeStream(const uint32_t track_id) override;
+
+  status_t PauseStream(const uint32_t track_id) override;
+
   status_t SetCameraParam(const CameraMetadata &meta) override;
 
   status_t GetCameraParam(CameraMetadata &meta) override;
@@ -240,6 +244,8 @@ enum class PortState {
   PORT_STARTED,
   PORT_READYTOSTOP,
   PORT_STOPPED,
+  PORT_READYTOPAUSE,
+  PORT_PAUSED,
 };
 
 struct ZSLEntry {
@@ -267,6 +273,10 @@ class CameraPort : public RefBase {
                  const sp<IBufferConsumer>& consumer);
 
   status_t Stop(const uint32_t consumer_id);
+
+  status_t Resume(const uint32_t consumer_id);
+
+  status_t Pause(const uint32_t consumer_id);
 
   // Apis to Add/Remove consumer at run time.
   status_t AddConsumer(const uint32_t consumer_id,

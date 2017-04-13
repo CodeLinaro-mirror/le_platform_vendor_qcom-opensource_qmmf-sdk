@@ -66,6 +66,10 @@ class CameraInterface : public RefBase {
 
   virtual status_t StopStream(const uint32_t track_id) = 0;
 
+  virtual status_t ResumeStream(const uint32_t track_id) = 0;
+
+  virtual status_t PauseStream(const uint32_t track_id) = 0;
+
   virtual status_t SetCameraParam(const CameraMetadata &meta) = 0;
 
   virtual status_t GetCameraParam(CameraMetadata &meta) = 0;

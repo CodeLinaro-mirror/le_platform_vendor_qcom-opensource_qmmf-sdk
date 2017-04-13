@@ -714,6 +714,40 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
 
   auto ret = port->Stop(track_id);
   assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: track_id(%d) stopped on port(0x%p)", TAG, __func__,
+      track_id, port);
+  return ret;
+}
+
+status_t CameraContext::ResumeStream(const uint32_t track_id) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->Resume(track_id);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: track_id(%d) resumed on port(0x%p)", TAG, __func__,
+      track_id, port);
+  return ret;
+}
+
+status_t CameraContext::PauseStream(const uint32_t track_id) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->Pause(track_id);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: track_id(%d) paused on port(0x%p)", TAG, __func__,
+      track_id, port);
   return ret;
 }
 
@@ -1049,10 +1083,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
               streaming_active_requests_[0].metadata);
         }
       }
-    } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
+    } else if (port->getPortState() == PortState::PORT_READYTOSTOP ||
+               port->getPortState() == PortState::PORT_READYTOPAUSE) {
 
-      QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
-          TAG, __func__, port.get(), cam_stream_id);
+      if (port->getPortState() == PortState::PORT_READYTOPAUSE) {
+        QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is paused ",
+            TAG, __func__, port.get(), cam_stream_id);
+      } else {
+        QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
+            TAG, __func__, port.get(), cam_stream_id);
+      }
       // Check if camera stream is already part of request, if yes then remove
       // it from request list. if not then it means stream is created but its
       // corresponding port is not started yet.
@@ -1659,6 +1699,52 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
   port_state_ = PortState::PORT_STOPPED;
 
   return ret;
+}
+
+status_t CameraPort::Resume(const uint32_t consumer_id) {
+
+  if (port_state_ != PortState::PORT_PAUSED) {
+    QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Not in paused state!", TAG,
+          __func__, consumer_id, this);
+    return NO_ERROR;
+  }
+  assert(context_ != nullptr);
+  port_state_ = PortState::PORT_READYTOSTART;
+
+  auto ret = context_->UpdateRequest(true);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
+        , TAG, __func__, consumer_id);
+    return ret;
+  }
+  QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Resumed Successfully!", TAG,
+      __func__, consumer_id, this);
+
+  port_state_ = PortState::PORT_STARTED;
+  return NO_ERROR;
+}
+
+status_t CameraPort::Pause(const uint32_t consumer_id) {
+
+  if (port_state_ != PortState::PORT_STARTED) {
+    QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Not in running state!", TAG,
+          __func__, consumer_id, this);
+    return NO_ERROR;
+  }
+  assert(context_ != nullptr);
+  port_state_ = PortState::PORT_READYTOPAUSE;
+
+  auto ret = context_->UpdateRequest(true);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
+        , TAG, __func__, consumer_id);
+    return ret;
+  }
+  QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Paused Successfully!", TAG,
+      __func__, consumer_id, this);
+
+  port_state_ = PortState::PORT_PAUSED;
+  return NO_ERROR;
 }
 
 status_t CameraPort::AddConsumer(const uint32_t consumer_id,

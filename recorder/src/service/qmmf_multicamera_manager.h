@@ -89,6 +89,10 @@ class MultiCameraManager : public CameraInterface {
 
   status_t StopStream(const uint32_t track_id) override;
 
+  status_t ResumeStream(const uint32_t track_id) override;
+
+  status_t PauseStream(const uint32_t track_id) override;
+
   status_t SetCameraParam(const CameraMetadata &meta) override;
 
   status_t GetCameraParam(CameraMetadata &meta) override;
@@ -119,8 +123,12 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateStreamStitching(const CameraStreamParam &param);
   status_t DeleteStreamStitching(const uint32_t id);
 
-  status_t fillDualCamLinkMetadataTags(CameraMetadata &meta,
-                                       const uint32_t cam_idx);
+  status_t CreateCameraStream(const uint32_t cam_idx,
+                              const CameraStreamParam& param);
+  status_t DeleteCameraStream(const uint32_t cam_idx, const uint32_t track_id);
+
+  status_t FillDualCamMetadataTags(CameraMetadata &meta,
+                                   const uint32_t cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;

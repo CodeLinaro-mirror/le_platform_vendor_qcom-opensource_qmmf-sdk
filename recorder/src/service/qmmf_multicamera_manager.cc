@@ -290,20 +290,20 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   };
 
   if (reconfigure_needed) {
-    // Make sure that every time after reconfiguration
-    // we are linking the related cameras.
-    std::vector<CameraMetadata>linkDaulCamMeta = meta;
+    // Make sure that every time after reconfiguration we are linking the
+    // related cameras.
+    std::vector<CameraMetadata> dual_cam_meta = meta;
     for (size_t i = 0; i < camera_contexts_.size(); ++i) {
       sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
-      //  LinkDualCam only should be sent only on first capture in burst
-      ret = fillDualCamLinkMetadataTags(linkDaulCamMeta[0], i);
+      //  Dual cam meta should only be sent only on first capture in burst.
+      ret = FillDualCamMetadataTags(dual_cam_meta[0], i);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s:%s: DualCamLink capture metadata failed!", TAG, __func__);
         return ret;
       }
-      ret = camera_context->CaptureImage(cam_param, num_images,
-                                         linkDaulCamMeta, stream_cb);
+      ret = camera_context->CaptureImage(cam_param, num_images, dual_cam_meta,
+                                         stream_cb);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
         return ret;
@@ -357,47 +357,15 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   status_t ret;
   ssize_t ctx_idx;
 
-  CameraStreamParam context_param (param);
-  ReCalculateWidth(context_param.cam_stream_dim.width);
-
   // Start streams in reverse order. This is needed becouse camera
   // context is cahcing our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
-  CameraMetadata meta;
   for (ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
-    assert(camera_context.get() != nullptr);
-    ret = camera_context->CreateStream(context_param);
+    ret = CreateCameraStream(ctx_idx, param);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: CreateCameraStream Failed!", TAG, __func__);
       goto FAIL;
     }
-
-    // On CreateStream, camera context most probably will
-    // reconfigure the camera. So make sure that every time
-    // after reconfiguration we are linking the related cameras.
-    ret = camera_context->GetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: GetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
-    }
-
-    ret = fillDualCamLinkMetadataTags(meta, ctx_idx);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: FillDualCamera link for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
-    }
-
-    ret = camera_context->SetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: SetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
-    }
-    //Clear metadata for next iteration
-    meta.clear();
   }
 
   ret = CreateStreamStitching(param);
@@ -410,7 +378,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
 
 FAIL:
   for (size_t i = ctx_idx + 1; i < camera_contexts_.size(); ++i) {
-    camera_contexts_.valueAt(i)->DeleteStream(context_param.id);
+    DeleteCameraStream(i, param.id);
   }
   return ret;
 }
@@ -421,12 +389,10 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
 
   // Delete the streams backwards since first camera is master camera
   // and need to be stopped last.
-  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-    assert(camera_context.get() != nullptr);
-    ret = camera_context->DeleteStream(track_id);
+  for (ssize_t idx = camera_contexts_.size() - 1; idx >= 0; --idx) {
+    ret = DeleteCameraStream(idx, track_id);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: DeleteStream Failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: DeleteCameraStream Failed!", TAG, __func__);
       return ret;
     }
   }
@@ -489,6 +455,46 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
     }
   }
   return ret;
+}
+
+status_t MultiCameraManager::ResumeStream(const uint32_t track_id) {
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->Run();
+
+  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    status_t ret = camera_context->ResumeStream(track_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: PauseStream Failed!", TAG, __func__,
+          camera_contexts_.keyAt(i));
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::PauseStream(const uint32_t track_id) {
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->RequestExitAndWait();
+
+  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    status_t ret = camera_context->PauseStream(track_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: PauseStream Failed!", TAG, __func__,
+          camera_contexts_.keyAt(i));
+      return ret;
+    }
+  }
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::SetCameraParam(const CameraMetadata &meta) {
@@ -780,8 +786,65 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::fillDualCamLinkMetadataTags(CameraMetadata &meta,
-                                                         const uint32_t cam_idx) {
+status_t MultiCameraManager::CreateCameraStream(const uint32_t cam_idx,
+                                                const CameraStreamParam& param) {
+
+  CameraStreamParam stream_param (param);
+  ReCalculateWidth(stream_param.cam_stream_dim.width);
+
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
+  uint32_t camera_id = camera_contexts_.keyAt(cam_idx);
+
+  // On CreateStream, camera context most probably will
+  // reconfigure the camera. So make sure that every time
+  // after reconfiguration we are linking the related cameras.
+  status_t ret = camera_context->CreateStream(stream_param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: CreateStream Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+
+  CameraMetadata meta;
+  ret = camera_context->GetCameraParam(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: GetCameraParam Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+  ret = FillDualCamMetadataTags(meta, cam_idx);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: FillDualCamMetadata Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+  ret = camera_context->SetCameraParam(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::DeleteCameraStream(const uint32_t cam_idx,
+                                                const uint32_t track_id) {
+
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
+  uint32_t camera_id = camera_contexts_.keyAt(cam_idx);
+
+  status_t ret = camera_context->DeleteStream(track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: DeleteStream Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::FillDualCamMetadataTags(CameraMetadata &meta,
+                                                     const uint32_t cam_idx) {
 
   int32_t related_id;
   uint8_t is_main;
@@ -857,8 +920,8 @@ void SnapshotStitching::FrameAvailableCb(uint32_t count,
                                          StreamBuffer &buffer) {
 
   Mutex::Autolock lock(frame_lock_);
-  QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %" PRId64 " is available", TAG,
-      __func__, buffer.camera_id, buffer.frame_number);
+  QMMF_VERBOSE("%s:%s: Camera %u: Snapshot Frame %" PRId64 " available",
+      TAG, __func__, buffer.camera_id, buffer.frame_number);
 
   // Handling input buffers from camera contexts.
   if (stop_frame_sync_) {
@@ -998,7 +1061,7 @@ sp<IBufferConsumer>& StreamStitching::GetConsumerIntf(uint32_t camera_id) {
 void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
 
   Mutex::Autolock lock(frame_lock_);
-  QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
+  QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
   if (stop_frame_sync_) {
@@ -1133,7 +1196,7 @@ bool StitchingBase::ThreadLoop() {
         ret = wait_for_sync_frames_.wait(sync_lock_);
       }
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s: Wait for frame available failed, ret(%d)", TAG,
+        QMMF_VERBOSE("%s:%s: Wait for frame available failed, ret(%d)", TAG,
             __func__, ret);
         return true;
       }
