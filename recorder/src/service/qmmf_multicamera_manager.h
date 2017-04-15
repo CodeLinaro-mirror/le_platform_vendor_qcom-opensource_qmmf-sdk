@@ -127,6 +127,9 @@ class MultiCameraManager : public CameraInterface {
                               const CameraStreamParam& param);
   status_t DeleteCameraStream(const uint32_t cam_idx, const uint32_t track_id);
 
+  status_t PauseCameraStreams();
+  status_t ResumeCameraStreams();
+
   status_t FillDualCamMetadataTags(CameraMetadata &meta,
                                    const uint32_t cam_idx);
 

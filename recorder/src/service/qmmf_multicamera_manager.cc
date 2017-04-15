@@ -291,7 +291,13 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
 
   if (reconfigure_needed) {
     // Make sure that every time after reconfiguration we are linking the
-    // related cameras.
+    // related cameras. And to do that we need to pause all Camera streams.
+    ret = PauseCameraStreams();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:PauseCameraStreams failed!", TAG, __func__);
+      return ret;
+    }
+
     std::vector<CameraMetadata> dual_cam_meta = meta;
     for (size_t i = 0; i < camera_contexts_.size(); ++i) {
       sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
@@ -308,6 +314,13 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
         QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
         return ret;
       }
+    }
+    // Ideally is capture fails we should resume camera streams and continue.
+    // But in our case dual camera will be broken and no need of that logic.
+    ret = ResumeCameraStreams();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:ResumeCameraStreams failed!", TAG, __func__);
+      return ret;
     }
   } else {
     // Use normal capture if reconfiguration is not needed
@@ -357,6 +370,13 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   status_t ret;
   ssize_t ctx_idx;
 
+  // Pause camera streams in order to reconfigure the streams.
+  ret = PauseCameraStreams();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: PauseCameraStreams Failed!", TAG, __func__);
+    return ret;
+  }
+
   // Start streams in reverse order. This is needed becouse camera
   // context is cahcing our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
@@ -366,6 +386,13 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
       QMMF_ERROR("%s:%s: CreateCameraStream Failed!", TAG, __func__);
       goto FAIL;
     }
+  }
+
+  // Resume paused streams
+  ret = ResumeCameraStreams();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: PauseCameraStreams Failed!", TAG, __func__);
+    goto FAIL;
   }
 
   ret = CreateStreamStitching(param);
@@ -840,6 +867,37 @@ status_t MultiCameraManager::DeleteCameraStream(const uint32_t cam_idx,
         camera_id);
     return ret;
   }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::PauseCameraStreams() {
+
+  status_t ret;
+
+  for (size_t idx = 0; idx < stream_stitch_algos_.size(); ++idx) {
+    ret = PauseStream(stream_stitch_algos_.keyAt(idx));
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: PauseStream Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::ResumeCameraStreams() {
+
+  status_t ret;
+
+  // Resume all tracks that were running.
+  for (size_t idx = 0; idx < stream_stitch_algos_.size(); ++idx) {
+    ret = ResumeStream(stream_stitch_algos_.keyAt(idx));
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: ResumeStream Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+
   return NO_ERROR;
 }
 
