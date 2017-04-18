@@ -686,7 +686,7 @@ void RecorderTest::InitSupportedIRModes() {
   }
 }
 
-status_t RecorderTest::GetSharpnessStrength(int32_t *strength) {
+status_t RecorderTest::GetSharpnessStrength(int32_t &strength) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   CameraMetadata meta;
 
@@ -715,14 +715,14 @@ status_t RecorderTest::GetSharpnessStrength(int32_t *strength) {
   }
 
   if (meta.exists(QCAMERA3_SHARPNESS_STRENGTH)) {
-    *strength = meta.find(QCAMERA3_SHARPNESS_STRENGTH).data.i32[0];
+    strength = meta.find(QCAMERA3_SHARPNESS_STRENGTH).data.i32[0];
   }  else {
     // In case camera didn't set default.
     // Setting the value to MIN possible by default.
-    *strength = static_info_.find(QCAMERA3_SHARPNESS_RANGE).data.i32[0];
-    ret = SetSharpnessStrength(*strength);
+    strength = static_info_.find(QCAMERA3_SHARPNESS_RANGE).data.i32[0];
+    ret = SetSharpnessStrength(strength);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Exit - Failed to apply sharpness strength %d: %s\n",
+      TEST_ERROR("%s:%s Exit - Failed to apply sharpness strength:%d\n",
                  TAG, __func__, strength);
       return ret;
     }
@@ -3090,7 +3090,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
           range_min = entry.data.i32[0];
           range_max = entry.data.i32[1];
           int32_t sharpness_strength;
-          ret = GetSharpnessStrength(&sharpness_strength);
+          ret = GetSharpnessStrength(sharpness_strength);
           if (ret != 0) {
             TEST_ERROR("%s:%s: failed to get sharpness strength",
                        TAG, __func__);
