@@ -369,7 +369,7 @@ class RecorderTest {
   std::string GetCurrentIRMode();
   std::string GetCurrentBinningCorrectionMode();
   status_t GetCurrentAFMode(int32_t& mode);
-  status_t GetSharpnessStrength(int32_t *strength);
+  status_t GetSharpnessStrength(int32_t &strength);
   status_t SetSharpnessStrength(const int32_t& val);
   status_t GetSensorSensitivity(int32_t *sensitivity);
   status_t SetSensorSensitivity(const int32_t& val);
