@@ -59,9 +59,9 @@ MultiCameraManager::MultiCameraManager()
     multicam_start_params_{},
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
-    jpeg_encoding_enabled_(false),
+    postprocess_enable_(false),
     client_snapshot_cb_(nullptr),
-    jpeg_memory_pool_(nullptr) {}
+    pproc_memory_pool_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
@@ -147,18 +147,17 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return ret;
   }
 
-  jpeg_encoder_ = new CameraJpeg();
-  jpeg_memory_pool_ = new GrallocMemory();
-  ret = jpeg_memory_pool_->Initialize();
+  multi_camera_pproc_ = new CameraJpeg();
+  pproc_memory_pool_ = new GrallocMemory();
+  ret = pproc_memory_pool_->Initialize();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Jpeg encoder's memory pool initialization failed!",
-        TAG, __func__);
-    jpeg_encoder_.clear();
+    QMMF_ERROR("%s:%s: Post-processing memory pool initialization failed!",
+               TAG, __func__);
     return NO_INIT;
   }
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
@@ -192,11 +191,9 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     camera_contexts_.removeItem(cam_id);
   }
 
-  if (jpeg_encoding_enabled_) {
-    jpeg_encoder_->Delete();
-    jpeg_encoding_enabled_ = false;
-  }
-  delete jpeg_memory_pool_;
+  multi_camera_pproc_->Delete();
+
+  delete pproc_memory_pool_;
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
@@ -214,11 +211,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     return BAD_VALUE;
   }
 
-  bool need_jpeg_encoding = false;
+  postprocess_enable_ = false;
   client_snapshot_cb_ = nullptr;
   ImageFormat image_format = param.image_format;
   if (param.image_format == ImageFormat::kJPEG) {
-    need_jpeg_encoding = true;
+    postprocess_enable_ = true;
     image_format = ImageFormat::kNV12;
   }
 
@@ -229,18 +226,9 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   if (reconfigure_needed) {
     snapshot_stitch_algo_->RequestExitAndWait();
 
-    if (jpeg_encoding_enabled_) {
-      jpeg_encoder_->Delete();
-      jpeg_encoding_enabled_ = false;
-    }
-
-    if (need_jpeg_encoding) {
-      ret = CreateJpegEncoder(param, image_format, num_images);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
-        return ret;
-      }
-      jpeg_encoding_enabled_ = true;
+    if (postprocess_enable_) {
+      multi_camera_pproc_->Delete();
+      SetPostProcess(param, image_format, multicam_start_params_.frame_rate);
     }
 
     // Set buffer params for stitching.
@@ -260,6 +248,22 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
       return ret;
     }
 
+    // Set buffer params for post-processing.
+    GrallocMemory::BufferParams gbuffer_param{};
+    gbuffer_param.format           = HAL_PIXEL_FORMAT_BLOB;
+    gbuffer_param.width            = param.width;
+    gbuffer_param.height           = param.height;
+    gbuffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
+    // TODO: Need to revisit the calculation of max_size.
+    //       Width and height need to be extracted from metadata.
+    gbuffer_param.max_size         = (param.width * param.height) * 2;
+    gbuffer_param.max_buffer_count = num_images;
+    ret = pproc_memory_pool_->Configure(gbuffer_param);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
+      return ret;
+    }
+
     snapshot_param_ = param;
     sequence_cnt_   = num_images;
     snapshot_stitch_algo_->Run();
@@ -269,11 +273,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   cam_param.image_format = image_format;
   ReCalculateWidth(cam_param.width);
 
-  if (need_jpeg_encoding) {
-    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buf) {
-      OnStitchedFrameAvailable(buf);
+  if (postprocess_enable_) {
+    StreamSnapshotCb pproc_cb = [&] (uint32_t count, StreamBuffer& buf) {
+      PostprocessCaptureCallback(buf);
     };
-    snapshot_stitch_algo_->SetClientCallback(encoder_cb);
+    snapshot_stitch_algo_->SetClientCallback(pproc_cb);
     client_snapshot_cb_ = cb;
   } else {
     snapshot_stitch_algo_->SetClientCallback(cb);
@@ -464,27 +468,34 @@ status_t MultiCameraManager::GetDefaultCaptureParam(CameraMetadata &meta) {
 status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       const int32_t buffer_id) {
 
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  Mutex::Autolock lock(pproc_lock_);
   ssize_t idx = virtual_camera_map_.indexOfKey(camera_id);
   if (idx == NAME_NOT_FOUND) {
     QMMF_ERROR("%s:%s: Invalid virtual camera ID!", TAG, __func__);
     return BAD_VALUE;
   }
 
-  // Check if the returned buffer is one of the JPEG buffers. If it's not,
-  // it's most likely a YUV buffer; return it to the SnapshotStitching class.
-  // If buffer_id is invalid, the SnapshotStitching class will take care of it.
-  idx = jpeg_buffers_.indexOfKey(buffer_id);
+  // Return the post-processed buffer back to gralloc memory pool.
+  idx = pproc_buffer_list_.indexOfKey(buffer_id);
   if (idx == NAME_NOT_FOUND) {
-    status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer_id);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Unable to return stitched buffer!", TAG, __func__);
-      return ret;
-    }
-  } else {
-    // Return the JPEG buffer back to its memory pool.
-    ReturnJpegBuffer(buffer_id);
+    QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!", TAG, __func__, buffer_id);
+    return BAD_VALUE;
   }
-  return NO_ERROR;
+
+  StreamBuffer buffer = pproc_buffer_list_.valueFor(buffer_id);
+  QMMF_VERBOSE("%s:%s: Post processed buffer(handle %p, fd %d) returned", TAG,
+               __func__, buffer.handle, buffer.fd);
+  status_t ret = pproc_memory_pool_->ReturnBuffer(buffer.handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Unable to return post-processed buffer!", TAG, __func__);
+    return ret;
+  }
+
+  pproc_buffer_list_.removeItem(buffer_id);
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
 }
 
 CameraStartParam& MultiCameraManager::GetCameraStartParam() {
@@ -529,14 +540,13 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
   return format;
 }
 
-status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param,
-                                               const ImageFormat &input_format,
-                                               const uint32_t num_images) {
-
-  PostProcParam in {}, out {};
-  PostProcCb jpeg_cb =
+void MultiCameraManager::SetPostProcess(const ImageParam &param,
+                                        const ImageFormat &input_format,
+                                        uint32_t frame_rate) {
+  PostProcParam in, out;
+  PostProcCb cb_reprocess =
       [this] (StreamBuffer in_buffer, StreamBuffer out_buffer) -> void
-      { OnJpegImageAvailable(in_buffer, out_buffer);};
+      { ClientCaptureCallback(in_buffer, out_buffer); };
 
   in.width = param.width;
   in.height = param.height;
@@ -545,116 +555,68 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param,
   out.height = param.height;
   out.format = ImageToHalFormat(param.image_format);
 
-  status_t ret = jpeg_encoder_->Create(0, in, out,
-                                       multicam_start_params_.frame_rate, 1,
-                                       nullptr, jpeg_cb, nullptr);
+  status_t ret = multi_camera_pproc_->Create(0, in, out, frame_rate, 1,
+                                             nullptr, cb_reprocess, nullptr);
+  assert(ret >= NO_ERROR);
   if (ret < NO_ERROR) {
-    QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
-    return ret;
+    QMMF_ERROR("%s: Error with creating reporcess: %d\n", __func__, ret);
   }
-  jpeg_encoder_->Start();
-
-  // Set buffer params for jpeg encoding.
-  GrallocMemory::BufferParams buffer_param{};
-  buffer_param.format           = HAL_PIXEL_FORMAT_BLOB;
-  buffer_param.width            = param.width;
-  buffer_param.height           = param.height;
-  buffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
-  // TODO: Need to revisit the calculation of max_size.
-  //       Width and height need to be extracted from metadata.
-  buffer_param.max_size         = (param.width * param.height) * 2;
-  buffer_param.max_buffer_count = num_images;
-  ret = jpeg_memory_pool_->Configure(buffer_param);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
-    return ret;
-  }
-  return NO_ERROR;
 }
 
-void MultiCameraManager::EncodeJpegImage(const StreamBuffer &buffer) {
+void MultiCameraManager::PostprocessCaptureCallback(StreamBuffer buffer) {
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
   StreamBuffer output_buffer {};
 
-  status_t ret = jpeg_memory_pool_->GetBuffer(output_buffer.handle);
+  status_t ret = pproc_memory_pool_->GetBuffer(output_buffer.handle);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Unable to retrieve gralloc buffer", TAG, __func__);
-    status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer.fd);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Unable to return stitched buffer!", TAG, __func__);
-    }
     return;
   }
 
-  ret = jpeg_memory_pool_->PopulateMetaInfo(output_buffer.info,
-                                            output_buffer.handle);
+  ret = pproc_memory_pool_->PopulateMetaInfo(output_buffer.info,
+                                               output_buffer.handle);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to populate buffer meta info", TAG, __func__);
-    status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer.fd);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Unable to return stitched buffer!", TAG, __func__);
-    }
     return;
   }
-  const struct private_handle_t *priv_handle =
-      static_cast<const private_handle_t *>(output_buffer.handle);
+  struct private_handle_t *priv_handle =
+      (struct private_handle_t *) output_buffer.handle;
   output_buffer.fd           = priv_handle->fd;
   output_buffer.size         = priv_handle->size;
   output_buffer.frame_number = buffer.frame_number;
   output_buffer.timestamp    = buffer.timestamp;
   output_buffer.camera_id    = buffer.camera_id;
 
-  jpeg_encoder_->AddBuff(buffer, output_buffer);
+  multi_camera_pproc_->AddBuff(buffer, output_buffer);
+  QMMF_INFO("%s:%s Exit ", TAG, __func__);
 }
 
-void MultiCameraManager::OnStitchedFrameAvailable(StreamBuffer buffer) {
-
-  EncodeJpegImage(buffer);
-}
-
-void MultiCameraManager::OnJpegImageAvailable(StreamBuffer in_buffer,
-                                              StreamBuffer out_buffer) {
+void MultiCameraManager::ClientCaptureCallback(StreamBuffer in_buffer,
+                                               StreamBuffer out_buffer) {
 
   // Return input(stitched) buffer back to SnapshotStitching.
   status_t ret = snapshot_stitch_algo_->ImageBufferReturned(in_buffer.fd);
   if (NO_ERROR != ret) {
-    // Only send an error notification. Don't return, since there
-    // is a valid jpeg image that needs to be returned to client.
     QMMF_ERROR("%s:%s: Unable to return stitch image buffer!", TAG, __func__);
+    return;
   }
-  // Map output(encoded) buffer's fd to StreamBuffer. This is needed to
-  // return encoded buffers to their owners on ReturnImageCaptureBuffer.
+  // Map output(post-processed) buffer's fd to StreamBuffer. This is needed to
+  // return post-processed buffers to their owners on ReturnImageCaptureBuffer.
   {
-    Mutex::Autolock lock(jpeg_lock_);
-    jpeg_buffers_.add(out_buffer.fd, out_buffer);
+    Mutex::Autolock lock(pproc_lock_);
+    pproc_buffer_list_.add(out_buffer.fd, out_buffer);
   }
 
-  // Send the encoded buffer to the client.
-  if (client_snapshot_cb_ == nullptr) {
-    QMMF_ERROR("%s:%s: Unable to send encoded image buffer to client!",
-        TAG, __func__);
-    ReturnJpegBuffer(out_buffer.fd);
+  // Send the post-processed buffer to the client.
+  assert(client_snapshot_cb_ != nullptr);
+  if(client_snapshot_cb_ == nullptr) {
+    QMMF_ERROR("%s:%s: Unable to send post-processed image buffer to client!",
+               TAG, __func__);
     return;
   }
   client_snapshot_cb_(1, out_buffer);
-}
-
-status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
-
-  StreamBuffer buffer = jpeg_buffers_.valueFor(buffer_id);
-  QMMF_DEBUG("%s:%s: Post processed buffer(handle %p, fd %d) returned",
-      TAG, __func__, buffer.handle, buffer.fd);
-  status_t ret = jpeg_memory_pool_->ReturnBuffer(buffer.handle);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Unable to return encoded buffer!", TAG,
-               __func__);
-    return ret;
-  }
-  {
-    Mutex::Autolock lock(jpeg_lock_);
-    jpeg_buffers_.removeItem(buffer_id);
-  }
-  return NO_ERROR;
+  return;
 }
 
 SnapshotStitching::SnapshotStitching(
