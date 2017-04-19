@@ -43,7 +43,7 @@
 #include <QCamera3VendorTags.h>
 #include <sys/time.h>
 
-#include <qmmf-sdk/qmmf_queue.h>
+#include "common/avqueue/qmmf_queue.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
 
 #define DUMP_META_PATH "/data/param.dump"

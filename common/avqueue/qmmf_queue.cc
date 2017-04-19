@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <malloc.h>
-#include <qmmf-sdk/qmmf_queue.h>
+#include "qmmf_queue.h"
 #include <utils/Timers.h>
 #include <sys/time.h>
 #include <string.h>
