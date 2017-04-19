@@ -1077,7 +1077,6 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
           buf_info = buf_map.valueFor(bn_buffers[i].buffer_id);
           assert(buf_info.pointer != NULL);
           assert(buf_info.ion_fd > 0);
-          bn_buffers[i].ion_fd = buf_info.ion_fd;
           is_mapped = true;
           QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
             "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
