@@ -343,15 +343,6 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
     }
   }
 
-  // On CreateStream, camera context most probably will
-  // reconfigure the camera. So make sure that every time
-  // after reconfiguration we are linking the related cameras.
-  ret = LinkRelatedCameras();
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to link related cameras", TAG, __func__);
-    goto FAIL;
-  }
-
   ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
@@ -722,74 +713,6 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
 
   stream_stitch_algos_.editValueAt(index).clear();
   stream_stitch_algos_.removeItemsAt(index);
-
-  return NO_ERROR;
-}
-
-status_t MultiCameraManager::LinkRelatedCameras() {
-
-  if (camera_contexts_.size() < 2) {
-      QMMF_INFO("%s:%s: No need to link one camera skip!", TAG, __func__);
-      return NO_ERROR;
-  }
-
-  // Ensure that we have even number of cameras to link.
-  size_t elements_to_link = camera_contexts_.size();
-  if (elements_to_link & 1) {
-      elements_to_link -= 1;
-      QMMF_WARN("%s:%s: Last camera id %d will not be linked, No pair!",
-          TAG, __func__, camera_contexts_.keyAt(elements_to_link));
-  }
-
-  int32_t related_id;
-  uint8_t is_main;
-  CameraMetadata meta;
-  for (size_t i = 0; i < elements_to_link; i++) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-
-    // Link First with Second, Second with first etc...
-    if (i & 1) {
-      related_id = camera_contexts_.keyAt(i - 1);
-      is_main = 0;
-    } else {
-      is_main = 1;
-      related_id = camera_contexts_.keyAt(i + 1);
-    }
-
-    status_t ret = camera_context->GetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: GetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(i));
-      return ret;
-    }
-
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
-
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
-
-    const uint8_t sync = 1;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
-
-    const uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
-
-    const uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
-    const_cast<CameraMetadata&>(meta).update(
-        qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
-
-    ret = camera_context->SetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: SetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(i));
-      return ret;
-    }
-    /* Clear the metadata for next iteration */
-    meta.clear();
-  }
 
   return NO_ERROR;
 }
