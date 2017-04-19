@@ -56,7 +56,7 @@ CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
-      current_snapshot_request_id_index_(0),
+      snapshot_request_id_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -515,9 +515,10 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
                                               false,
                                               &last_frame_mumber);
       assert(request_id >= 0);
-      snapshot_request_id_ = camera_device_->GetRequestIds();
+      snapshot_request_id_ = request_id;
     }
-    QMMF_INFO("%s:%s: Request for non-zsl submitted successfully", TAG, __func__);
+    QMMF_INFO("%s:%s: Request for non-zsl submitted successfully"
+      " request_id(%d)", TAG, __func__, snapshot_request_id_);
   } else {
     ret = CaptureZSLImage(param);
     if (ret != NO_ERROR) {
@@ -534,7 +535,7 @@ status_t CameraContext::CancelCaptureImage() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
-  if (!snapshot_request_.streamIds.isEmpty() && snapshot_request_id_.size() > 0) {
+  if (!snapshot_request_.streamIds.isEmpty() && snapshot_request_id_ > -1) {
 
     std::unique_lock<std::mutex> lock(capture_count_lock_);
     {
@@ -1455,20 +1456,10 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
     zsl_port->HandleZSLCaptureResult(result);
   }
-
-  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    if ( snapshot_request_id_.size() > 0 ) {
-       if ( snapshot_request_id_[current_snapshot_request_id_index_]
-            == result.resultExtras.requestId ) {
-         if(camera_reprocess_.get() != nullptr) {
-           ++current_snapshot_request_id_index_;
-           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
-             current_snapshot_request_id_index_ = 0;
-           }
-
-           camera_reprocess_->AddResult(result);
-         }
-      }
+  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ &&
+      snapshot_request_id_ == result.resultExtras.requestId) {
+    if(camera_reprocess_.get() != nullptr) {
+      camera_reprocess_->AddResult(result);
     }
   }
 }

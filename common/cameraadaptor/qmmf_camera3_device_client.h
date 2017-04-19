@@ -86,7 +86,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t GetCameraInfo(uint32_t idx, CameraMetadata *info);
   int32_t GetNumberOfCameras() { return number_of_cameras_; }
-  const Vector<int32_t> GetRequestIds(){ return current_request_ids_; }
+
   int32_t WaitUntilIdle();
 
   int32_t Flush(int64_t *lastFrameNumber = NULL);
@@ -97,7 +97,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
                               const struct hw_module_t **pHmi);
 
  private:
-  Vector<int32_t> current_request_ids_;
   typedef enum State_t {
     STATE_ERROR,
     STATE_NOT_INITIALIZED,

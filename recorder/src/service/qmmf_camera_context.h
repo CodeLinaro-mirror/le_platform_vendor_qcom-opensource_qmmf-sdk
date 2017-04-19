@@ -191,8 +191,7 @@ class CameraContext : public CameraInterface {
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  Vector<int32_t>          snapshot_request_id_;
-  int32_t                  current_snapshot_request_id_index_;
+  int32_t                  snapshot_request_id_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
