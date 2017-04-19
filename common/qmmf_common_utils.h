@@ -54,8 +54,8 @@ const int64_t kWaitDelay = 2000000000;  // 2 sec
 
 struct StreamBuffer {
   CameraBufferMetaData info;
-  int64_t timestamp;
-  int64_t frame_number;
+  int64_t  timestamp;
+  uint32_t frame_number;
   uint32_t camera_id;
   uint32_t stream_id;
   android_dataspace data_space;

@@ -1473,6 +1473,10 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
       }
     }
   }
+  if (result.metadata.exists(ANDROID_REQUEST_FRAME_COUNT)) {
+    QMMF_VERBOSE("%s:%s: MetaData FrameNumber=%d", TAG, __func__,
+        result.metadata.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
+  }
 
   if (((streaming_request_id_ == result.resultExtras.requestId) ||
       (previous_streaming_request_id_ == result.resultExtras.requestId)) &&
@@ -1861,8 +1865,9 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
   assert(stream_id == camera_stream_id_);
   assert(buffer_producer_impl_.get() != nullptr);
 
-  QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
-      __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
+  QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld "
+      "frame_number: %d\n", TAG, __func__, stream_id, stream_buffer.handle,
+      stream_buffer.timestamp, stream_buffer.frame_number);
 
   Mutex::Autolock lock(stop_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
