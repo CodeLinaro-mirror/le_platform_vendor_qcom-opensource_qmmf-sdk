@@ -83,7 +83,7 @@ class CameraSource {
                              uint32_t *virtual_camera_id);
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
+                                const uint32_t type,
                                 const void *param,
                                 const uint32_t param_size);
 

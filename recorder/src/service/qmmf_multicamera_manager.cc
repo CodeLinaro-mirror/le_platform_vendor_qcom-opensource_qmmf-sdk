@@ -51,17 +51,12 @@ namespace qmmf {
 
 namespace recorder {
 
-static const char *kDefaultLibLocation = "/vendor/lib/";
-
-static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
+static const char *kStitchLib = "/vendor/lib/libqmmf_alg_polaris_stitch.so";
 static const char *kStitchCalibFile = "";
-
-static const char *kSideBySideLib = "libqmmf_alg_side_by_side.so";
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
     multicam_start_params_{},
-    multicam_type_(MultiCameraConfigType::k360Stitch),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
@@ -94,11 +89,13 @@ status_t MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t>
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::ConfigureMultiCamera(
-    const uint32_t virtual_camera_id, const MultiCameraConfigType type,
-    const void *param, const size_t param_size) {
-
-  multicam_type_ = type;
+// TODO: define MultiCameraConfigTypes in qmmf_recorder_param.h
+status_t MultiCameraManager::ConfigureMultiCamera(uint32_t virtual_camera_id,
+                                                  /*MultiCameraConfigTypes*/
+                                                  uint32_t type,
+                                                  void *param,
+                                                  size_t param_size) {
+  //TODO:
   return NO_ERROR;
 }
 
@@ -142,7 +139,6 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   StitchingBase::InitParams algo_param {};
   algo_param.virtual_camera_id = virtual_camera_id_;
   algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
 
   snapshot_stitch_algo_ = new SnapshotStitching(algo_param, camera_contexts_);
   ret = snapshot_stitch_algo_->Initialize();
@@ -321,7 +317,6 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   StitchingBase::InitParams algo_param {};
   algo_param.virtual_camera_id = virtual_camera_id_;
   algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
 
   GrallocMemory::BufferParams buf_param {};
   if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
@@ -1206,30 +1201,13 @@ status_t StitchingBase::InitLibrary() {
     return ret;
   }
 
-  String8 lib_path(kDefaultLibLocation);
-  switch (params_.multicam_type) {
-    case MultiCameraConfigType::k360Stitch:
-      lib_path.append(k360StitchLib);
-      break;
-    case MultiCameraConfigType::kSideBySide:
-      lib_path.append(kSideBySideLib);
-      break;
-    default:
-      QMMF_ERROR("%s:%s MultiCamera type (%d) is not supported!", TAG,
-          __func__, params_.multicam_type);
-      lib_path.clear();
-      return BAD_VALUE;
-  }
-
-  void* handle = dlopen(lib_path, RTLD_NOW);
+  void* handle = dlopen(kStitchLib, RTLD_NOW);
   if (nullptr == handle) {
     QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-        lib_path.string(), dlerror());
-    lib_path.clear();
+        kStitchLib, dlerror());
     return BAD_VALUE;
   }
 
-  lib_path.clear();
   stitch_lib_.handle = handle;
 
   *(void **) &stitch_lib_.init       = dlsym(handle, "qmmf_alg_init");
@@ -1309,8 +1287,8 @@ status_t StitchingBase::DeInitLibrary() {
     stitch_lib_.deinit(stitch_lib_.context);
     ret = dlclose(stitch_lib_.handle);
     if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Failed to close library, error: %s", TAG, __func__,
-          dlerror());
+      QMMF_ERROR("%s:%s: Failed to close %s, error: %s", TAG, __func__,
+          kStitchLib, dlerror());
     }
     memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
   }

@@ -930,7 +930,7 @@ status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
 }
 
 status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                              const MultiCameraConfigType type,
+                                              const uint32_t type,
                                               const void *param,
                                               const uint32_t param_size) {
 
@@ -1686,13 +1686,13 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
+                                const uint32_t type,
                                 const void *param,
                                 const uint32_t param_size) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(virtual_camera_id);
-    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(type);
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);

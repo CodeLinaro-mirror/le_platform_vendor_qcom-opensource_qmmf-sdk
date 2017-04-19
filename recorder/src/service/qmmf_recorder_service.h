@@ -165,7 +165,7 @@ class RecorderService : public BnInterface<IRecorderService> {
                              uint32_t *virtual_camera_id) override;
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
+                                const uint32_t type,
                                 const void *param,
                                 const uint32_t param_size) override;
 

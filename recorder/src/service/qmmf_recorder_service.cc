@@ -460,14 +460,13 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       break;
       case RECORDER_CONFIGURE_MULTICAMERA: {
         uint32_t virtual_camera_id = data.readUint32();
-        uint32_t type = data.readUint32();
+        uint32_t config_type = data.readUint32();
         uint32_t param_size = data.readUint32();
         android::Parcel::ReadableBlob blob;
         data.readBlob(param_size, &blob);
         void* param = const_cast<void*>(blob.data());
-        ret = ConfigureMultiCamera(virtual_camera_id,
-                                   static_cast<MultiCameraConfigType>(type),
-                                   param, param_size);
+        ret = ConfigureMultiCamera(virtual_camera_id, config_type, param,
+                                   param_size);
         blob.release();
         reply->writeUint32(ret);
         return NO_ERROR;
@@ -981,7 +980,7 @@ status_t RecorderService::CreateMultiCamera(const std::vector<uint32_t>
 }
 
 status_t RecorderService::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                               const MultiCameraConfigType type,
+                                               const uint32_t type,
                                                const void *param,
                                                const uint32_t param_size) {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
