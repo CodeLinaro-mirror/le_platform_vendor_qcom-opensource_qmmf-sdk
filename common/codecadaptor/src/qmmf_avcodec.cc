@@ -1636,11 +1636,10 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
   }
 
   QOMX_VIDEO_INTRAPERIODTYPE intra;
-  InitOMXParams(&intra);
   intra.nPortIndex = kPortIndexOutput;
-  ret = omx_client_->GetConfig(
-      static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
-      reinterpret_cast<OMX_PTR>(&intra));
+  omx_client_->GetConfig(
+          (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
+          (OMX_PTR)&intra);
   if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get video intra period", TAG, __func__);
     return ret;
