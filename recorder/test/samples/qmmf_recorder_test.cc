@@ -42,14 +42,7 @@
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
-//#define DEBUG
-#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#ifdef DEBUG
-#define TEST_DBG  TEST_INFO
-#else
-#define TEST_DBG(...) ((void)0)
-#endif
+volatile uint32_t kpi_debug_mask = KPI_DISABLE;
 
 using namespace qcamera;
 
@@ -62,7 +55,8 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_KPI_GET_MASK();
+  TEST_INFO("%s:%s: Exit kpi_debug_mask=%d", TAG, __func__, kpi_debug_mask);
 }
 
 RecorderTest::~RecorderTest() {
@@ -185,6 +179,14 @@ int32_t RecorderTest::ToggleNR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(ANDROID_NOISE_REDUCTION_MODE)
+                                               .data.u8[0];
+              if (current_mode == ANDROID_NOISE_REDUCTION_MODE_OFF ||
+                  current_mode == ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY) {
+                  TEST_KPI_ASYNC_BEGIN("TnrToggle",
+                                       static_cast<int32_t>(current_mode));
+              }
           }
           break;
         } else {
@@ -271,6 +273,10 @@ int32_t RecorderTest::ToggleVHDR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.u8[0];
+              TEST_KPI_ASYNC_BEGIN("ShdrToggle",
+                                   static_cast<int32_t>(current_mode));
           }
           break;
         } else {
@@ -359,6 +365,10 @@ int32_t RecorderTest::ToggleIR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(QCAMERA3_IR_MODE).data.u8[0];
+              TEST_KPI_ASYNC_BEGIN("IrToggle",
+                                   static_cast<int32_t>(current_mode));
           }
           break;
         } else {
@@ -600,7 +610,14 @@ status_t RecorderTest::StartCamera() {
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
 
-  auto ret = recorder_.StartCamera(camera_id_, camera_params);
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+            const CameraMetadata &result) {
+            CameraResultCallbackHandler(camera_id, result); };
+  if (kpi_debug_mask) {
+    kpi_marker_.SetUp();
+  }
+
+  auto ret = recorder_.StartCamera(camera_id_, camera_params, result_cb);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
@@ -882,7 +899,8 @@ status_t RecorderTest::TakeSnapshot() {
       for (uint32_t i = 0; i < num_images; i++) {
         meta_array.push_back(meta);
       }
-      ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_,
+                                   image_param, num_images, meta_array, cb);
       if(ret != 0) {
         ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
       }
@@ -2587,7 +2605,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
   // StopSession - End
-  printf("%s DeleteSession\n",__func__);
+  printf("%s DeleteSession\n", __func__);
 
   // DeleteSession - Begin
   // Delete all the tracks associated to session.
@@ -2608,7 +2626,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   ret = recorder_.DeleteSession(session_id);
 
   // DeleteSession - End
-  printf("%s StopCamera\n",__func__);
+  printf("%s StopCamera\n", __func__);
 
   // StopCamera - Begin
   ret = recorder_.StopCamera(camera_id_);
@@ -2630,6 +2648,15 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   ALOGD("%s: Exit ",__func__);
   return ret;
+}
+
+void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
+                                               const CameraMetadata &result) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  if(kpi_debug_mask) {
+     kpi_marker_.CheckSwicthTime(result);
+  }
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
 }
 
 void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
@@ -2874,6 +2901,158 @@ int32_t RecorderTest::RunAutoMode() {
 
   ALOGD("%s: Exit ",__func__);
   return ret;
+}
+
+CameraMetaDataParser::CameraMetaDataParser() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+CameraMetaDataParser::~CameraMetaDataParser() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+bool CameraMetaDataParser::IsIREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(QCAMERA3_IR_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(QCAMERA3_IR_MODE);
+    uint8_t ir_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: ir_camera_mode = %d", __func__,
+             static_cast<uint32_t>(ir_camera_mode));
+    if (QCAMERA3_IR_MODE_ON == ir_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+bool CameraMetaDataParser::IsTNREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(
+       ANDROID_NOISE_REDUCTION_MODE);
+    uint8_t nr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: nr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(nr_camera_mode));
+    if (ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY == nr_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(QCAMERA3_VIDEO_HDR_MODE);
+    uint8_t vhdr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: vhdr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(vhdr_camera_mode));
+    if (QCAMERA3_VIDEO_HDR_MODE_ON == vhdr_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+int64_t CameraMetaDataParser::ParseFrameTime(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  int64_t ret = -1;
+  if (metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
+    camera_metadata_ro_entry entry = metadata.find(ANDROID_SENSOR_TIMESTAMP);
+    ret = entry.data.i64[0];
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+CheckKPITime::CheckKPITime() :
+             prev_nr_mode_(false),
+             prev_ir_mode_(false),
+             prev_svhdr_mode_(false),
+             new_nr_mode_(false),
+             new_ir_mode_(false),
+             new_svhdr_mode_(false),
+             last_frame_time_(0),
+             new_frame_time_(0),
+             mark_first_frame_time_(0) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+CheckKPITime::~CheckKPITime() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::SetUp() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  mark_first_frame_time_ = true;
+  last_frame_time_ = 0;
+  prev_nr_mode_ = false;
+  prev_ir_mode_ = false;
+  prev_svhdr_mode_ = false;
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::CheckSwicthTime(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  int64_t time_diff;
+  ParseCameraMetaData(metadata);
+
+  if (mark_first_frame_time_) {
+    TEST_DBG("%s:%s: First frame time = %lld us", __func__, TAG,
+        new_frame_time_ / 1000);
+    last_frame_time_ = 0;
+    mark_first_frame_time_ = false;
+  }
+
+  time_diff = (new_frame_time_ - last_frame_time_) / 1000;
+
+  if (new_nr_mode_ != prev_nr_mode_) {
+    TEST_DBG("%s: NR Mode changed!", __func__);
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("TnrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_nr_mode_ = new_nr_mode_;
+  }
+
+  if (new_ir_mode_ != prev_ir_mode_) {
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("IrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_ir_mode_ = new_ir_mode_;
+  }
+
+  if (new_svhdr_mode_ != prev_svhdr_mode_) {
+    TEST_DBG("%s: SHDR Mode changed!", __func__);
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("ShdrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_svhdr_mode_ = new_svhdr_mode_;
+  }
+
+  last_frame_time_ = new_frame_time_;
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  new_frame_time_ = cam_metadata_parser_.ParseFrameTime(metadata);
+  new_nr_mode_ = cam_metadata_parser_.IsTNREnabled(metadata);
+  new_ir_mode_ = cam_metadata_parser_.IsIREnabled(metadata);
+  new_svhdr_mode_ = cam_metadata_parser_.IsSVHDREnabled(metadata);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
 }
 
 TestTrack::TestTrack(RecorderTest* recorder_test)
