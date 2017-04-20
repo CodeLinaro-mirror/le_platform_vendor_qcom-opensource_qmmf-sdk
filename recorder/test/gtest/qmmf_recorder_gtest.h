@@ -194,6 +194,13 @@ class RecorderGtest : public ::testing::Test {
                          VideoFormat format_type,
                          AVQueue *que);
 
+  void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
+                                       const CameraMetadata &result);
+
+  void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
+                                       std::vector<BufferDescriptor> buffers,
+                                       std::vector<MetaData> meta_buffers);
+
   status_t DumpQueue(AVQueue *queue, int32_t file_fd);
 
   Recorder              recorder_;
@@ -218,6 +225,11 @@ class RecorderGtest : public ::testing::Test {
   CameraMetadata       static_info_;
   nr_modes_            supported_nr_modes_;
   vhdr_modes_          supported_hdr_modes_;
+
+  typedef std::tuple<BufferDescriptor, CameraMetadata, uint32_t, uint32_t>
+      BufferMetaDataTuple;
+  std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
+  std::mutex buffer_metadata_lock_;
 
   DumpBitStream         dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;
