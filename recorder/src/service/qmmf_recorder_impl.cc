@@ -343,7 +343,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   auto& camera_id_vector = client_cameraid_map_[client_id];
   auto camera_id_iter = std::find(camera_id_vector.begin(),
       camera_id_vector.end(), camera_id);
-  camera_id_vector.erase(camera_id_iter, camera_id_vector.end());
+  camera_id_vector.erase(camera_id_iter);
   QMMF_INFO("%s:%s client_id(%d): number of cameras(%d)", TAG, __func__,
       client_id, camera_id_vector.size());
 
