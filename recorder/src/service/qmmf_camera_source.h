@@ -40,19 +40,6 @@
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "qmmf-sdk/qmmf_overlay.h"
-#include "qmmf-sdk/qmmf_display.h"
-#include "qmmf-sdk/qmmf_display_params.h"
-
-using ::qmmf::display::DisplayEventType;
-using ::qmmf::display::DisplayType;
-using ::qmmf::display::Display;
-using ::qmmf::display::DisplayCb;
-using ::qmmf::display::SurfaceBuffer;
-using ::qmmf::display::SurfaceParam;
-using ::qmmf::display::SurfaceConfig;
-using ::qmmf::display::SurfaceBlending;
-using ::qmmf::display::SurfaceFormat;
 
 namespace qmmf {
 
@@ -83,7 +70,7 @@ class CameraSource {
                              uint32_t *virtual_camera_id);
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const uint32_t type,
+                                const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
 
@@ -104,7 +91,8 @@ class CameraSource {
 
   status_t StartTrackSource(const uint32_t track_id);
 
-  status_t StopTrackSource(const uint32_t track_id);
+  status_t StopTrackSource(const uint32_t track_id,
+                           bool is_force_cleanup = false);
 
   status_t PauseTrackSource(const uint32_t track_id);
 
@@ -183,7 +171,7 @@ class TrackSource : public ICodecSource {
 
   status_t StartTrack();
 
-  status_t StopTrack();
+  status_t StopTrack(bool is_force_cleanup = false);
 
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.
@@ -228,21 +216,11 @@ class TrackSource : public ICodecSource {
 
   void UpdateFrameRate(const float frame_rate);
 
-  void DisplayCallbackHandler(display::DisplayEventType event_type,
-      void *event_data, size_t event_data_size);
-
-  void DisplayVSyncHandler(int64_t time_stamp);
-
  private:
 
   // Method to provide consumer interface, it would be used by producer to
   // post buffers.
   sp<IBufferConsumer>& GetConsumerIntf() { return buffer_consumer_impl_; }
-
-  status_t CreateDisplayPreview(display::DisplayType display_type,
-      const VideoTrackParams& track_param);
-
-  status_t DeleteDisplayPreview(display::DisplayType display_type);
 
   void PushFrameToQueue(StreamBuffer& buffer);
 
@@ -253,7 +231,6 @@ class TrackSource : public ICodecSource {
 #ifdef ENABLE_FRAME_DUMP
   status_t DumpYUV(StreamBuffer& buffer);
 #endif
-  status_t PushFrameToDisplay(StreamBuffer& buffer);
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
 
@@ -292,12 +269,6 @@ class TrackSource : public ICodecSource {
   double  output_frame_interval_;
   double  remaining_frame_skip_time_;
   Mutex   frame_skip_lock_;
-
-  Display*   display_;
-  uint32_t   surface_id_;
-  SurfaceParam surface_param_;
-  SurfaceBuffer surface_buffer_;
-  bool display_started_;
 
   uint32_t debug_fps_;
   struct timeval input_prevtv_;

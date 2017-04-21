@@ -154,7 +154,7 @@ int32_t DisplayTest::DequeueSurfaceBuffer() {
   if(ret != 0) {
     TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
   }
-  file = fopen("/data/Images/fasimo_352x288_bgra_8888.rgb", "r");
+  file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
   if (!file) {
     TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
   }

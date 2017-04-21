@@ -38,6 +38,7 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
+#include <utils/Condition.h>
 
 #include <libstagefrighthw/QComOMXMetadata.h>
 #include <media/hardware/HardwareAPI.h>
@@ -97,8 +98,10 @@ class AVCodec : public IAVCodec {
   status_t StopCodec() override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
-  status_t RegisterOutputBuffers(::std::vector<BufferDescriptor>& list) override;
-  status_t RegisterInputBuffers(::std::vector<BufferDescriptor>& list) override;
+  status_t RegisterOutputBuffers(
+      ::std::vector<BufferDescriptor>& list) override;
+  status_t RegisterInputBuffers(
+      ::std::vector<BufferDescriptor>& list) override;
   status_t Flush(uint32_t port_type) override;
 
  private:
@@ -119,13 +122,14 @@ class AVCodec : public IAVCodec {
   status_t SetupHEVCEncoderParameters(CodecParam& codec_param);
   status_t ConfigureBitrate(CodecParam& codec_param);
   OMX_ERRORTYPE ConfigureSAR(uint32_t width, uint32_t height);
-  status_t SetPortParams(OMX_U32 ePortIndex,OMX_U32 nWidth, OMX_U32 nHeight,
+  status_t SetPortParams(OMX_U32 ePortIndex, OMX_U32 nWidth, OMX_U32 nHeight,
                          float nFrameRate);
   status_t GetVideoProfile(CodecParam& codec_param);
   status_t GetVideoLevel(CodecParam& codec_param);
   OMX_ERRORTYPE prepareForAdaptivePlayback(OMX_U32 portIndex, OMX_BOOL enable,
                                            OMX_U32 maxFrameWidth,
                                            OMX_U32 maxFrameHeight);
+
 
   status_t SetState(OMX_STATETYPE eState, OMX_BOOL bSynchronous);
   status_t WaitState(OMX_STATETYPE state);
@@ -147,8 +151,12 @@ class AVCodec : public IAVCodec {
 
   status_t FreeBufferPool();
 
-  ::std::shared_ptr<ICodecSource>& getInputBufferSource() {return input_source_;}
-  ::std::shared_ptr<ICodecSource>& getOutputBufferSource() {return output_source_;}
+  ::std::shared_ptr<ICodecSource>& getInputBufferSource() {
+    return input_source_;
+  }
+  ::std::shared_ptr<ICodecSource>& getOutputBufferSource() {
+    return output_source_;
+  }
 
   // DeliverInput thread will pull data to be encoded
   static void* DeliverInput(void *ptr);
@@ -156,7 +164,7 @@ class AVCodec : public IAVCodec {
   // DeliverOutput thread will pull bitstream encoded data from Encoder
   static void* DeliverOutput(void *ptr);
 
-  //Will check for PortReconfig Event
+  // Will check for PortReconfig Event
   static void* ThreadRun(void *arg);
 
   status_t HandleOutputPortSettingsChange(OMX_U32 nData2);
@@ -185,7 +193,7 @@ class AVCodec : public IAVCodec {
   OMX_STATETYPE                   state_pending_;
   bool                            input_stop_;
   bool                            output_stop_;
-  bool                            port_status_; // for both ports
+  bool                            port_status_;  // for both ports
   ::android::Mutex                input_stop_lock_;
   ::android::Mutex                output_stop_lock_;
   pthread_t                       deliver_input_thread_id_;
@@ -207,21 +215,19 @@ class AVCodec : public IAVCodec {
   ::std::condition_variable       wait_for_header_output_;
   ::std::mutex                    queue_lock_output_;
 
-  uint32_t                 in_buff_hdr_size_;
-  uint32_t                 out_buff_hdr_size_;
-  CodecCmdType             cmd_buffer_[CMD_BUF_MAX_COUNT];
-  uint32_t                 cmd_buffer_index_;
-  SignalQueue<void *>      signal_queue_;
+  uint32_t                        in_buff_hdr_size_;
+  uint32_t                        out_buff_hdr_size_;
+  SignalQueue<CodecCmdType>       signal_queue_;
   static OMX_CALLBACKTYPE  callbacks_;
   CodecType                format_type_;
   // to handle the two EOS callbacks from Audio OMX component
   bool                     isEOSonOutput_;
-  //For registration of Buffers
+  // For registration of Buffers
   ::std::vector<BufferDescriptor> output_buffer_list_;
   ::std::vector<BufferDescriptor> input_buffer_list_;
   ::std::vector<OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO> outputpParam_enc_;
-  ::std::vector<struct VideoDecoderOutputMetaData> outputpParam_dec_;
-  //For Port Reconfig
+  ::std::vector<::android::VideoDecoderOutputMetaData> outputpParam_dec_;
+  // For Port Reconfig
   bool                      bPortReconfig_;
   ::android::Mutex          port_reconfig_lock_;
   ::android::Mutex          threadrun_port_reconfig_lock_;
@@ -229,5 +235,5 @@ class AVCodec : public IAVCodec {
   CodecParam                codec_params_;
 };
 
-}; // namespace avcodec
-}; // namespace qmmf
+};  // namespace avcodec
+};  // namespace qmmf

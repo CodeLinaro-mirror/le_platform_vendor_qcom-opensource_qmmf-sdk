@@ -71,7 +71,7 @@ using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
 
-static const char* kDefaultFilePrefix = "/data/qmmf_audio_test";
+static const char* kDefaultFilePrefix = "/data/misc/qmmf/audio_test";
 static const int kDefaultNumberOfBuffers = 4;
 
 AudioTest::AudioTest()

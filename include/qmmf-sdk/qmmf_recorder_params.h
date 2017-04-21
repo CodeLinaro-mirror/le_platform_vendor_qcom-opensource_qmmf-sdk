@@ -95,6 +95,13 @@ enum class VideoFrameTypeInfo {
   kPFrame,
 };
 
+/// \brief MultiCameraConfigType is used to determine the type and purpose
+/// of created MultiCamera.
+enum class MultiCameraConfigType {
+  k360Stitch,
+  kSideBySide,
+};
+
 /// \brief This struct is used to report different types of meta data associated
 /// with BufferDescriptor.
 struct MetaData {
@@ -178,7 +185,6 @@ struct VideoTrackCreateParam {
   float            frame_rate;
   VideoFormat      format_type;
   VideoCodecParams codec_param;
-  uint32_t         out_device;
   bool             low_power_mode;
 
   ::std::string ToString() const {
@@ -192,7 +198,6 @@ struct VideoTrackCreateParam {
                          (format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
-    stream << "out_device[" << out_device << "]";
     return stream.str();
   }
 };

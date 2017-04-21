@@ -147,7 +147,7 @@ class RecorderClient {
                              uint32_t *virtual_camera_id);
 
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const uint32_t type,
+                                const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
 
@@ -216,6 +216,7 @@ class RecorderClient {
   RecorderCb           recorder_cb_;
   int32_t              ion_device_;
   RecorderClientIon    buffer_ion_;
+  uint32_t             client_id_;
 
   // List of session callbacks.
   DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;
@@ -244,6 +245,7 @@ class RecorderClient {
   // map <track_id, map <buffer index, buffer_info> >
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
 
+  DefaultKeyedVector<uint32_t, BufInfo> snapshot_buffers_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {
