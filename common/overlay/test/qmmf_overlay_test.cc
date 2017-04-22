@@ -236,7 +236,7 @@ int32_t OverlayTest::applyOverlay()
 
     //Dump output.
     //TODO: take out file from config file.
-    outputFile = fopen("/data/output.yuv", "wb");
+    outputFile = fopen("/data/misc/qmmf/output.yuv", "wb");
     if(outputFile) {
         bytes = fwrite(pixels, 1, mSize, outputFile);
         fclose(outputFile);

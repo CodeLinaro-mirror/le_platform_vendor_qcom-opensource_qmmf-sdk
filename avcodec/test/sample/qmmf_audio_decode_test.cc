@@ -711,7 +711,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
   TestInitParams params;
   memset(&params, 0x0, sizeof(params));
   strncpy(params.input_file,argv[2],strlen(argv[2]));
-  strncpy(params.output_file,"/data/pcm.wav",strlen("/data/pcm.wav"));
+  strncpy(params.output_file,"/data/misc/qmmf/pcm.wav",strlen("/data/misc/qmmf/pcm.wav"));
 
   if (!strncmp("aac",argv[4],strlen("aac"))) {
     audiofiletype = AudioFileType::kAAC;

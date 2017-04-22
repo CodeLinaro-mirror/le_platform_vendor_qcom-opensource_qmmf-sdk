@@ -29,26 +29,28 @@
 
 #pragma once
 
+#include <chrono>
+#include <condition_variable>
 #include <iomanip>
-#include <string>
+#include <list>
+#include <map>
+#include <mutex>
+#include <queue>
 #include <sstream>
+#include <string>
 
-#include <utils/List.h>
-#include <utils/Mutex.h>
-#include <utils/KeyedVector.h>
-#include <utils/Condition.h>
-#include <utils/Log.h>
 #include <system/graphics.h>
 #include <system/window.h>
+#include <utils/List.h>
 
 #include "common/qmmf_log.h"
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
-using namespace android;
+typedef int32_t status_t;
 
-const nsecs_t kWaitDelay = 2000000000; // 2 sec.
+const int64_t kWaitDelay = 2000000000;  // 2 sec
 
 struct StreamBuffer {
   CameraBufferMetaData info;
@@ -83,160 +85,168 @@ struct StreamBuffer {
 template <class T>
 class TSQueue {
  public:
-  typedef typename List<T>::iterator iterator;
+  typedef typename ::android::List<T>::iterator iterator;
 
   iterator Begin() {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     return queue_.begin();
   }
 
   void PushBack(const T& item) {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     queue_.push_back(item);
   }
 
   int32_t Size() {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     return queue_.size();
   }
 
   bool Empty() {
-   Mutex::Autolock autoLock(lock_);
-   return queue_.empty();
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    return queue_.empty();
   }
 
   iterator End() {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     return queue_.end();
   }
 
   void Erase(iterator it) {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     queue_.erase(it);
   }
 
   void Clear() {
-    Mutex::Autolock autoLock(lock_);
+    ::std::lock_guard<::std::mutex> lg(lock_);
     queue_.clear();
   }
 
  private:
-  List<T> queue_;
-  Mutex lock_;
+  ::android::List<T> queue_;
+  ::std::mutex lock_;
 };
 
 template <class T>
 class SignalQueue {
  public:
-  SignalQueue(uint32_t size):cmd_queue_size(size) {
-    QMMF_DEBUG("%s: Enter",__func__);
-    QMMF_DEBUG("%s: Exit",__func__);
+  explicit SignalQueue(uint32_t size) : max_size_(size) {
+    QMMF_DEBUG("%s: Enter", __func__);
+    QMMF_DEBUG("%s: Exit", __func__);
   }
 
   ~SignalQueue() {
-    QMMF_DEBUG("%s: Enter",__func__);
-    cmd_queue_size = -1;
-    QMMF_DEBUG("%s: Exit",__func__);
+    QMMF_DEBUG("%s: Enter", __func__);
+    QMMF_DEBUG("%s: Exit", __func__);
   }
 
-  T Pop() {
-    void* item = nullptr;
-    status_t ret = NO_ERROR;
-    uint32_t size;
-
-    {
-      Mutex::Autolock l(cmd_queue_mutex_);
-      size = cmd_queue_.size();
-      while (size == 0) {
-        // wait for signal or for data to come into queue
-        ret = wait_for_cmd_.waitRelative(cmd_queue_mutex_, kWaitDelay);
-        if (TIMED_OUT == ret) {
-            QMMF_WARN("%s: Wait for cmd.. timed out", __func__);
-            size = cmd_queue_.size();
-            continue;
-        } else {
-            break;
-        }
-      }
-      if (NO_ERROR == ret) {
-        item = *cmd_queue_.begin();
-        cmd_queue_.erase(cmd_queue_.begin());
-      }
-    }
-    return item;
+  uint32_t Size() {
+    QMMF_DEBUG("%s: Enter", __func__);
+    ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
+    QMMF_DEBUG("%s: Exit", __func__);
+    return cmd_queue_.size();
   }
 
-  status_t Push(void* item) {
-    uint32_t size;
-    Mutex::Autolock l(cmd_queue_mutex_);
-    size = cmd_queue_.size();
-    if (cmd_queue_size < size) {
-      QMMF_ERROR("%s: command queue size full", __func__);
+  status_t Pop(T* item) {
+    QMMF_DEBUG("%s: Enter", __func__);
+    if (!item) {
+      QMMF_ERROR("%s: Invalid Parameters", __func__);
       return -1;
     }
-    cmd_queue_.push_back(item);
-    wait_for_cmd_.signal();
-    return NO_ERROR;
+    {
+      ::std::unique_lock<::std::mutex> lock(cmd_queue_mutex_);
+      auto ret = wait_for_cmd_.wait_for(lock,
+          ::std::chrono::nanoseconds(kWaitDelay),
+          [this]{return (cmd_queue_.size() > 0);});
+      if (!ret) {
+        QMMF_ERROR("%s: Wait for cmd.. timed out", __func__);
+        return -1;
+      } else {
+        *item  = cmd_queue_.front();
+        cmd_queue_.pop();
+        QMMF_DEBUG("%s: Updated SignalQueue Size = %u", __func__,
+            cmd_queue_.size());
+      }
+    }
+    QMMF_DEBUG("%s: Exit", __func__);
+    return 0;
+  }
+
+  status_t Push(const T& item) {
+    QMMF_DEBUG("%s: Enter", __func__);
+    {
+      ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
+      uint32_t size = cmd_queue_.size();
+      if (max_size_ <= size) {
+        QMMF_ERROR("%s: command queue size full", __func__);
+        return -1;
+      }
+      cmd_queue_.push(item);
+      QMMF_DEBUG("%s: Updated SignalQueue Size = %u", __func__,
+          cmd_queue_.size());
+    }
+    wait_for_cmd_.notify_one();
+    QMMF_DEBUG("%s: Exit", __func__);
+    return 0;
   }
 
   void Clear() {
-    QMMF_INFO("%s: Enter",__func__);
-    Mutex::Autolock l(cmd_queue_mutex_);
-    cmd_queue_.clear();
-    QMMF_INFO("%s: Exit",__func__);
+    QMMF_INFO("%s: Enter", __func__);
+    ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
+    while(!cmd_queue_.empty())
+      cmd_queue_.pop();
+    QMMF_INFO("%s: Exit", __func__);
   }
 
  private:
-  Mutex      lock_;
-  Condition  wait_for_cmd_;
-  Mutex      cmd_queue_mutex_;
-  List<T>    cmd_queue_;
-  uint32_t   cmd_queue_size;
-
-}; //SignalQueue
+  ::std::condition_variable  wait_for_cmd_;
+  ::std::mutex               cmd_queue_mutex_;
+  ::std::queue<T>            cmd_queue_;
+  uint32_t                   max_size_;
+};  // SignalQueue
 
 // Thread safe KeyedVector
 template <class T1, class T2>
 class TSKeyedVector {
  public:
   void Add(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      map_.add(buffer.handle, 1);
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    map_.insert(std::make_pair(buffer.handle, 1));
   }
 
   uint32_t ValueFor(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      return map_.valueFor(buffer.handle);
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    return map_.at(buffer.handle);
   }
 
   void RemoveItem(StreamBuffer& buffer) {
-      Mutex::Autolock autoLock(lock_);
-      map_.removeItem(buffer.handle);
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    map_.erase(buffer.handle);
   }
 
   int32_t Size() {
-      Mutex::Autolock autoLock(lock_);
-      return map_.size();
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    return map_.size();
   }
 
   bool IsEmpty() {
-       Mutex::Autolock autoLock(lock_);
-       return map_.isEmpty();
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    return map_.empty();
   }
 
   void ReplaceValueFor(StreamBuffer& buffer, uint32_t value) {
-      Mutex::Autolock autoLock(lock_);
-      map_.replaceValueFor(buffer.handle, value);
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    map_[buffer.handle] = value;
   }
 
   void Clear() {
-      Mutex::Autolock autoLock(lock_);
-      map_.clear();
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    map_.clear();
   }
 
  private:
-  DefaultKeyedVector<T1, T2> map_;
-  Mutex lock_;
+  ::std::map<T1, T2> map_;
+  ::std::mutex lock_;
 };
 
-}; //namespace qmmf.
+};  // namespace qmmf.

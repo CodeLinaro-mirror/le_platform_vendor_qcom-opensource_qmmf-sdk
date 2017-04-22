@@ -33,6 +33,7 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 #include <condition_variable>
+#include <utils/Condition.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
@@ -227,6 +228,9 @@ class CameraContext : public CameraInterface {
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
   static const nsecs_t     kSyncFrameWaitDuration;
+  std::mutex               aec_lock_;
+  std::condition_variable  aec_signal_;
+  bool                     aec_done_ = false;
 };
 
 enum class CameraPortType {
