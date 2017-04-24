@@ -158,7 +158,7 @@ class DisplayImpl : public DisplayEventHandler
   }DisplayInfo;
 
   DisplayHandle current_handle_;
-
+  bool vsync_state_;
   std::map<DisplayHandle, DisplayInfo*> displayinfo_;
 };
 

@@ -42,19 +42,12 @@
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
-//#define DEBUG
-#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#ifdef DEBUG
-#define TEST_DBG  TEST_INFO
-#else
-#define TEST_DBG(...) ((void)0)
-#endif
+volatile uint32_t kpi_debug_mask = KPI_DISABLE;
 
 using namespace qcamera;
 
 static const char* kDefaultAudioFilenamePrefix =
-    "/data/qmmf_recorder_test_audio";
+    "/data/misc/qmmf/recorder_test_audio";
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
@@ -62,7 +55,8 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_KPI_GET_MASK();
+  TEST_INFO("%s:%s: Exit kpi_debug_mask=%d", TAG, __func__, kpi_debug_mask);
 }
 
 RecorderTest::~RecorderTest() {
@@ -185,6 +179,14 @@ int32_t RecorderTest::ToggleNR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(ANDROID_NOISE_REDUCTION_MODE)
+                                               .data.u8[0];
+              if (current_mode == ANDROID_NOISE_REDUCTION_MODE_OFF ||
+                  current_mode == ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY) {
+                  TEST_KPI_ASYNC_BEGIN("TnrToggle",
+                                       static_cast<int32_t>(current_mode));
+              }
           }
           break;
         } else {
@@ -271,6 +273,10 @@ int32_t RecorderTest::ToggleVHDR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.u8[0];
+              TEST_KPI_ASYNC_BEGIN("ShdrToggle",
+                                   static_cast<int32_t>(current_mode));
           }
           break;
         } else {
@@ -359,6 +365,10 @@ int32_t RecorderTest::ToggleIR() {
           if (NO_ERROR != status) {
             ALOGE("%s:%s Failed to apply: %s\n",
                   TAG, __func__, next->second.c_str());
+          } else {
+              uint8_t current_mode = meta.find(QCAMERA3_IR_MODE).data.u8[0];
+              TEST_KPI_ASYNC_BEGIN("IrToggle",
+                                   static_cast<int32_t>(current_mode));
           }
           break;
         } else {
@@ -600,7 +610,14 @@ status_t RecorderTest::StartCamera() {
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
 
-  auto ret = recorder_.StartCamera(camera_id_, camera_params);
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+            const CameraMetadata &result) {
+            CameraResultCallbackHandler(camera_id, result); };
+  if (kpi_debug_mask) {
+    kpi_marker_.SetUp();
+  }
+
+  auto ret = recorder_.StartCamera(camera_id_, camera_params, result_cb);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
@@ -882,7 +899,8 @@ status_t RecorderTest::TakeSnapshot() {
       for (uint32_t i = 0; i < num_images; i++) {
         meta_array.push_back(meta);
       }
-      ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_,
+                                   image_param, num_images, meta_array, cb);
       if(ret != 0) {
         ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
       }
@@ -893,6 +911,201 @@ status_t RecorderTest::TakeSnapshot() {
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
+}
+
+status_t RecorderTest::StartMultiCameraMode() {
+
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  CameraStartParam camera_params;
+  memset(&camera_params, 0x0, sizeof camera_params);
+  camera_params.zsl_mode            = false;
+  camera_params.zsl_queue_depth     = 10;
+  camera_params.zsl_width           = 3840;
+  camera_params.zsl_height          = 2160;
+  camera_params.frame_rate          = 30;
+  camera_params.flags               = 0x0;
+
+  camera_id_ = 1;
+
+  auto ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id, raw_width = 0, raw_height = 0;
+
+  CameraMetadata meta;
+  camera_metadata_entry_t entry;
+  recorder_.GetDefaultCaptureParam(camera_id_, meta);
+
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      raw_width = entry.data.i32[i+0];
+      raw_height = entry.data.i32[i+1];
+      break;
+    }
+  }
+  assert(raw_width != 0 && raw_height != 0);
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session0_tracks;
+
+  TestTrack *rdi_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.width      = raw_width;
+  info.height     = raw_height;
+  info.track_id   = 1;
+  info.track_type = TrackType::kVideoRDI;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.low_power_mode = false;
+
+  ret = rdi_track->SetUp(info);
+  assert(ret == 0);
+  session0_tracks.push_back(rdi_track);
+
+  sessions_.insert(std::make_pair(session_id, session0_tracks));
+
+  rdi_track->Prepare();
+  auto result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+
+  sleep(1);
+  camera_id_ = 0;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  } else {
+    InitSupportedNRModes();
+    InitSupportedVHDRModes();
+    InitSupportedIRModes();
+  }
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session2_tracks;
+
+  TestTrack *yuv_1080p_track = new TestTrack(this);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 3840;
+  info.height     = 2160;
+  info.track_id   = 2;
+  info.track_type = TrackType::kVideoAVC;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+
+  ret = yuv_1080p_track->SetUp(info);
+  assert(ret == 0);
+  session2_tracks.push_back(yuv_1080p_track);
+
+  sessions_.insert(std::make_pair(session_id, session2_tracks));
+
+  yuv_1080p_track->Prepare();
+  result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+  session_enabled_ = true;
+
+  sleep(1);
+  camera_id_ = 2;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+  }
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  if (NO_ERROR != ret) {
+    ALOGE("%s:%s Unable to query default capture parameters!\n",
+          TAG, __func__);
+  }
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> session3_tracks;
+
+  TestTrack *yuv_stereo_track = new TestTrack(this);
+  memset(&info, 0x0, sizeof info);
+  info.width      = 1280;
+  info.height     = 480;
+  info.track_id   = 3;
+  info.track_type = TrackType::kVideoYUV;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.low_power_mode = true;
+
+  ret = yuv_stereo_track->SetUp(info);
+  assert(ret == 0);
+  session3_tracks.push_back(yuv_stereo_track);
+
+  sessions_.insert(std::make_pair(session_id, session3_tracks));
+
+  yuv_stereo_track->Prepare();
+  result = recorder_.StartSession(session_id);
+  assert(result == NO_ERROR);
+
+  camera_id_ = 0;
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t RecorderTest::StopMultiCameraMode() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  for (session_iter_ it = sessions_.begin(); it != sessions_.end(); ++it) {
+
+    uint32_t session_id = it->first;
+    auto result = recorder_.StopSession(session_id, true /*flush buffers*/);
+    assert(result == NO_ERROR);
+
+    for (auto track : it->second) {
+      track->CleanUp();
+    }
+  }
+  session_enabled_ = false;
+
+  camera_id_ = 1;
+
+  auto ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 1 Failed!!", TAG, __func__);
+  }
+
+  camera_id_ = 2;
+
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 2 Failed!!", TAG, __func__);
+  }
+
+  camera_id_ = 0;
+
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera 0 Failed!!", TAG, __func__);
+  }
+
+  static_info_.clear();
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return 0;
+
 }
 
 // This session has two YUV video tracks 4K and 1080p.
@@ -2270,7 +2483,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
       assert(0);
       break;
     }
-    file_path.appendFormat("/data/snapshot_%u.%s", image_sequence_count,
+    file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
         ext_str);
     DumpFrameToFile(buffer, cam_buf_meta, file_path);
   }
@@ -2587,7 +2800,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
   // StopSession - End
-  printf("%s DeleteSession\n",__func__);
+  printf("%s DeleteSession\n", __func__);
 
   // DeleteSession - Begin
   // Delete all the tracks associated to session.
@@ -2608,7 +2821,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   ret = recorder_.DeleteSession(session_id);
 
   // DeleteSession - End
-  printf("%s StopCamera\n",__func__);
+  printf("%s StopCamera\n", __func__);
 
   // StopCamera - Begin
   ret = recorder_.StopCamera(camera_id_);
@@ -2630,6 +2843,15 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
   ALOGD("%s: Exit ",__func__);
   return ret;
+}
+
+void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
+                                               const CameraMetadata &result) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  if(kpi_debug_mask) {
+     kpi_marker_.CheckSwicthTime(result);
+  }
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
 }
 
 void RecorderTest::printInitParameterAndTtrackInfo(const TestInitParams&
@@ -2876,6 +3098,158 @@ int32_t RecorderTest::RunAutoMode() {
   return ret;
 }
 
+CameraMetaDataParser::CameraMetaDataParser() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+CameraMetaDataParser::~CameraMetaDataParser() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+bool CameraMetaDataParser::IsIREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(QCAMERA3_IR_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(QCAMERA3_IR_MODE);
+    uint8_t ir_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: ir_camera_mode = %d", __func__,
+             static_cast<uint32_t>(ir_camera_mode));
+    if (QCAMERA3_IR_MODE_ON == ir_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+bool CameraMetaDataParser::IsTNREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(
+       ANDROID_NOISE_REDUCTION_MODE);
+    uint8_t nr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: nr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(nr_camera_mode));
+    if (ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY == nr_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  bool ret = false;
+  if (metadata.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(QCAMERA3_VIDEO_HDR_MODE);
+    uint8_t vhdr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: vhdr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(vhdr_camera_mode));
+    if (QCAMERA3_VIDEO_HDR_MODE_ON == vhdr_camera_mode) {
+      ret = true;
+    }
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+int64_t CameraMetaDataParser::ParseFrameTime(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  int64_t ret = -1;
+  if (metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
+    camera_metadata_ro_entry entry = metadata.find(ANDROID_SENSOR_TIMESTAMP);
+    ret = entry.data.i64[0];
+  }
+  TEST_DBG("%s:%s: Exit ret=%d", __func__, TAG, static_cast<uint32_t>(ret));
+  return ret;
+}
+
+CheckKPITime::CheckKPITime() :
+             prev_nr_mode_(false),
+             prev_ir_mode_(false),
+             prev_svhdr_mode_(false),
+             new_nr_mode_(false),
+             new_ir_mode_(false),
+             new_svhdr_mode_(false),
+             last_frame_time_(0),
+             new_frame_time_(0),
+             mark_first_frame_time_(0) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+CheckKPITime::~CheckKPITime() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::SetUp() {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  mark_first_frame_time_ = true;
+  last_frame_time_ = 0;
+  prev_nr_mode_ = false;
+  prev_ir_mode_ = false;
+  prev_svhdr_mode_ = false;
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::CheckSwicthTime(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  int64_t time_diff;
+  ParseCameraMetaData(metadata);
+
+  if (mark_first_frame_time_) {
+    TEST_DBG("%s:%s: First frame time = %lld us", __func__, TAG,
+        new_frame_time_ / 1000);
+    last_frame_time_ = 0;
+    mark_first_frame_time_ = false;
+  }
+
+  time_diff = (new_frame_time_ - last_frame_time_) / 1000;
+
+  if (new_nr_mode_ != prev_nr_mode_) {
+    TEST_DBG("%s: NR Mode changed!", __func__);
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("TnrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_nr_mode_ = new_nr_mode_;
+  }
+
+  if (new_ir_mode_ != prev_ir_mode_) {
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("IrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_ir_mode_ = new_ir_mode_;
+  }
+
+  if (new_svhdr_mode_ != prev_svhdr_mode_) {
+    TEST_DBG("%s: SHDR Mode changed!", __func__);
+    if (last_frame_time_) {
+      TEST_KPI_ASYNC_END("ShdrToggle", static_cast<int32_t>(time_diff));
+    }
+    prev_svhdr_mode_ = new_svhdr_mode_;
+  }
+
+  last_frame_time_ = new_frame_time_;
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
+void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
+  TEST_DBG("%s:%s: Enter", __func__, TAG);
+  new_frame_time_ = cam_metadata_parser_.ParseFrameTime(metadata);
+  new_nr_mode_ = cam_metadata_parser_.IsTNREnabled(metadata);
+  new_ir_mode_ = cam_metadata_parser_.IsIREnabled(metadata);
+  new_svhdr_mode_ = cam_metadata_parser_.IsSVHDREnabled(metadata);
+  TEST_DBG("%s:%s: Exit", __func__, TAG);
+}
+
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : file_fd_(-1), recorder_test_(recorder_test), num_yuv_frames_(0),
       display_started_(0) {
@@ -2916,10 +3290,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.frame_rate  = fps;
     else
       video_track_param.frame_rate  = 30;
-    if(track_info.track_type == TrackType::kVideoPreview)
-      video_track_param.out_device  = 0x02;
-    else
-      video_track_param.out_device  = 0x01;
     video_track_param.low_power_mode  = track_info.low_power_mode;
 
     switch (track_info.track_type) {
@@ -3013,7 +3383,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
-    audio_track_params.out_device  = 0;
     audio_track_params.flags       = 0;
 
     switch (track_info.track_type) {
@@ -3102,7 +3471,7 @@ status_t TestTrack::Prepare() {
     String8 extn(type_string);
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    bitstream_filepath.appendFormat("/data/track_%d_%dx%d_%lu.%s",
+    bitstream_filepath.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lu.%s",
         track_info_.track_id, track_info_.width, track_info_.height,
         tv.tv_sec, extn.string());
     file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
@@ -3350,7 +3719,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
             const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
                 "raw" : "yuv";
             String8 file_path;
-            file_path.appendFormat("/data/track_%d_%dx%d_%lld.%s",
+            file_path.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lld.%s",
                 track_info_.track_id, cam_buf_meta.plane_info[0].width,
                 cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
             recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
@@ -3550,6 +3919,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Choose camera\n", CmdMenu::CHOOSE_CAMERA_CMD);
   printf("   %c. Start Camera\n", CmdMenu::START_CAMERA_CMD);
   printf("   %c. Stop Camera\n", CmdMenu::STOP_CAMERA_CMD);
+  printf("   %c. Start Multi Camera Mode \n", CmdMenu::START_MULTICAMERA_CMD);
+  printf("   %c. Stop Multi Camera Mode \n", CmdMenu::STOP_MULTICAMERA_CMD);
   printf("   %c. Create Session: (4K YUV + 1080 YUV)\n",
       CmdMenu::CREATE_YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc AVC)\n",
@@ -3677,6 +4048,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::STOP_CAMERA_CMD: {
         test_context.StopCamera();
+      }
+      break;
+      case CmdMenu::START_MULTICAMERA_CMD: {
+        test_context.StartMultiCameraMode();
+      }
+      break;
+      case CmdMenu::STOP_MULTICAMERA_CMD: {
+        test_context.StopMultiCameraMode();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_CMD: {

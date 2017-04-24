@@ -27,14 +27,14 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
 #define TAG "AudioSink"
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
 #include <memory>
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
 #include <linux/msm_ion.h>
 
 #include "player/src/service/qmmf_player_audio_sink.h"
@@ -42,10 +42,14 @@
 namespace qmmf {
 namespace player {
 
+using ::android::List;
+using ::android::Mutex;
+using ::android::NO_ERROR;
+using ::android::Vector;
 using ::qmmf::avcodec::CodecBuffer;
 using ::qmmf::avcodec::CodecPortStatus;
-using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::PortEventType;
+using ::qmmf::avcodec::PortreconfigData;
 using ::std::make_shared;
 using ::std::shared_ptr;
 
@@ -231,7 +235,7 @@ status_t AudioTrackSink::Init(AudioTrackParams& track_param) {
   ConfigureSink(track_param);
 
 #ifdef DUMP_PCM_DATA
-  file_fd_ = open("/data/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  file_fd_ = open("/data/misc/qmmf/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -320,7 +324,7 @@ status_t AudioTrackSink::StartSink() {
 
 #ifdef DUMP_PCM_DATA
  if (file_fd_ == -1)
-    file_fd_ = open("/data/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+    file_fd_ = open("/data/misc/qmmf/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
   auto ret = end_point_->Start();

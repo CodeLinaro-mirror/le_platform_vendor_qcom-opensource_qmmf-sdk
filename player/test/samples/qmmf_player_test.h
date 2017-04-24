@@ -29,20 +29,21 @@
 
 #pragma once
 
-#include <map>
-#include <string>
 #include <pthread.h>
+
+#include <condition_variable>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <mutex>
-#include <condition_variable>
+#include <string>
 
-#include <qmmf-sdk/qmmf_player.h>
-#include <qmmf-sdk/qmmf_player_params.h>
-#include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
+#include "player/test/demuxer/qmmf_demuxer_mediadata_def.h"
 #include "player/test/demuxer/qmmf_demuxer_sourceport.h"
 #include "qmmf-sdk/qmmf_buffer.h"
+#include <qmmf-sdk/qmmf_player.h>
+#include <qmmf-sdk/qmmf_player_params.h>
 
 #define EOS_FLAG 1
 #define EOS_BUFFER_SIZE 0
