@@ -38,6 +38,10 @@
 
 #include "recorder/src/service/qmmf_encoder_core.h"
 
+// Enable this to perform cache clean operation on output port buffer
+// before sending them for FTB
+//#define DO_CACHE_CLEAN
+
 namespace qmmf {
 
 namespace recorder {
@@ -499,6 +503,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
 
+#ifdef DO_CACHE_CLEAN
   auto ret = SynchronizeCache(fd_ion_handle_map_[iter.fd], iter,
                               ION_IOC_CLEAN_CACHES);
   if (ret != NO_ERROR) {
@@ -506,6 +511,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
         __func__, ret);
     return ret;
   }
+#endif
 
   codec_buffer.fd = (iter).fd;
   codec_buffer.data = (iter).data;
@@ -753,7 +759,6 @@ status_t TrackEncoder::AllocOutputPortBufs() {
     alloc.len = size;
     alloc.len = (alloc.len + 4095) & (~4095);
     alloc.align = 4096;
-    alloc.flags = ION_FLAG_CACHED;
     alloc.heap_id_mask = ion_type;
 
     ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
