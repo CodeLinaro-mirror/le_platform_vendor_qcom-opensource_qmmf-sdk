@@ -78,10 +78,10 @@ void DualCamera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
 
   if (!(buffer.frame_number % 10)) {
     if (buffer.info.format < BufferFormat::kBLOB ) {
-       path.appendFormat("/data/frame_%" PRId64 "_dim_%dx%d.yuv", buffer.frame_number,
+       path.appendFormat("/data/misc/qmmf/frame_%" PRId64 "_dim_%dx%d.yuv", buffer.frame_number,
           buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
     } else if (buffer.info.format > BufferFormat::kBLOB ) {
-       path.appendFormat("/data/frame_%" PRId64 "_dim_%dx%d.raw", buffer.frame_number,
+       path.appendFormat("/data/misc/qmmf/frame_%" PRId64 "_dim_%dx%d.raw", buffer.frame_number,
           buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
     }
     FILE *f = fopen(path.string(), "w+");

@@ -102,7 +102,8 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
   return instance_;
 }
 DisplayImpl::DisplayImpl()
-  : current_handle_(0) {
+  : current_handle_(0),
+    vsync_state_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if(!core_intf_) {
@@ -203,7 +204,7 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
   displayinfo_.insert({current_handle_, nullptr});
 
   *display_handle = current_handle_;
-
+  vsync_state_= true;
   auto displayinfo = displayinfo_.find(*display_handle);
 
   displayinfo->second = new DisplayInfo();
@@ -920,8 +921,11 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
 DisplayError DisplayImpl::VSync(const DisplayEventVSync &vsync) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  SCOPE_LOCK(vsync_callback_locker_);
-  vsync_callback_locker_.Signal();
+  if (vsync_state_) {
+    SCOPE_LOCK(vsync_callback_locker_);
+    vsync_callback_locker_.Signal();
+    vsync_state_ = false;
+  }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return kErrorNone;
 }
