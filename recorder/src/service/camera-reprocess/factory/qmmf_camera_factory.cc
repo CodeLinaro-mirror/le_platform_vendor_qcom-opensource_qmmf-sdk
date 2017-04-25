@@ -27,56 +27,72 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#define TAG "ReprocessFactory"
 
-#include <utils/RefBase.h>
+#include "../modules/camera-hal/qmmf_camera_hal.h"
+#include "../modules/jpeg-encoder/qmmf_camera_jpeg.h"
+#include "../modules/simple/qmmf_camera_simple.h"
+#include "../modules/copy/qmmf_camera_copy.h"
 
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include "qmmf_camera_factory.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
-};
+sp<ReprocessFactory> ReprocessFactory::instance_ = NULL;
+int32_t ReprocessFactory::ids_ = 0x00f00000;
 
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
+sp<ReprocessFactory> ReprocessFactory::getInstance() {
+  if (instance_.get() == NULL) {
+    instance_ = new ReprocessFactory();
+  }
+  return instance_;
+}
 
-class ICameraPostProcess : public virtual RefBase {
+void ReprocessFactory::releaseInstance() {
+  QMMF_INFO("%s: destroying instance object.", __func__);
+  if (instance_.get() == NULL) {
+    QMMF_INFO("%s: Reset reprocess Ids.", __func__);
+    ids_ = 0x00f00000;
+  }
+  instance_.clear();
+}
 
- public:
+ReprocessFactory::ReprocessFactory() {
+}
 
-  virtual ~ICameraPostProcess() {};
+ReprocessFactory::~ReprocessFactory() {
+}
 
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
+int32_t ReprocessFactory::GetId() {
+  return ids_++;
+}
 
-  virtual status_t Delete() = 0;
+sp<ICameraModule>
+ReprocessFactory::getReprocEngine(String8 name,
+                                  IPostProcCameraContext* context) {
+  ICameraModule* instance = nullptr;
 
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
+  if (name == "JpegEncode") {
+    instance = new CameraJpeg(GetId());
+  } else if (name == "HALJpegEncode") {
+    instance = new CameraHal(context);
+  } else if (name == "Simple") {
+    instance = new CameraSimple(GetId());
+  } else if (name == "Copy") {
+    instance = new CameraCopy(GetId());
+  } else {
+    QMMF_ERROR("%s: Invalid reprocess engine!", __func__);
+  }
 
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
+  if (instance != nullptr) {
+    return sp<ICameraModule>(instance);
+  } else {
+    return nullptr;
+  }
+}
 
-  virtual void AddResult(const void* result) = 0;
+}; // namespace recoder
 
-  virtual status_t Start() = 0;
-
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
-
-};
-
-}; //namespace recorder
-
-}; //namespace qmmf
+}; // namespace qmmf

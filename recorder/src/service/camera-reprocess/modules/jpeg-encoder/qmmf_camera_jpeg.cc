@@ -29,12 +29,7 @@
 
 #define TAG "CameraJpeg"
 
-#include <utils/KeyedVector.h>
-#include <algorithm>
-#include <fcntl.h>
 #include <sys/mman.h>
-
-#include "recorder/src/service/qmmf_recorder_utils.h"
 
 #include "qmmf_camera_jpeg.h"
 
@@ -65,7 +60,6 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
                            const uint32_t frame_rate,
                            const uint32_t num_images,
                            const void* static_meta,
-                           const ReprocessNodeCb& cb,
                            const void* context) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
@@ -78,9 +72,6 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
     QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
     return BAD_VALUE;
   }
-
-  capture_client_cb_ = cb.resultCb;
-  get_empty_buff_cb_ = cb.bufferCb;
 
   ready_to_start_ = true;
 
@@ -104,30 +95,14 @@ status_t CameraJpeg::Start() {
   }
 
   reprocess_flag_ = true;
-  Run("Camera Jpeg");
 
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t CameraJpeg::Stop() {
-
-  RequestExitAndWait();
   QMMF_INFO("%s:%s: The Jpeg thread is stopped Id_: %d", TAG, __func__, id_);
   ready_to_start_ = false;
-
-  StreamBuffer buffer, b;
-  memset(&b, 0x0, sizeof(b));
-  b.fd = -1;
-
-  Mutex::Autolock lock(wait_lock_);
-  auto iter = input_buffer_.begin();
-  while (iter != input_buffer_.end()) {
-    buffer = *iter;
-    iter = input_buffer_.erase(iter);
-    QMMF_INFO("%s:%s: back to client node: FD: %d", TAG, __func__, buffer.fd);
-    capture_client_cb_(b, buffer);
-  }
 
   reprocess_flag_ = false;
 
@@ -138,17 +113,6 @@ status_t CameraJpeg::Stop() {
 status_t CameraJpeg::Delete() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
 
-  //unmap
-  for (uint32_t i = 0; i < mapped_buffs_.size(); i++) {
-    if (mapped_buffs_.valueAt(i).addr) {
-      auto map = mapped_buffs_.valueAt(i);
-      QMMF_VERBOSE("%s:%s: Unmap %p", TAG, __func__, map.addr);
-      munmap(map.addr, map.size);
-    }
-  }
-
-  mapped_buffs_.clear();
-
   reprocess_flag_ = false;
   ready_to_start_ = false;
 
@@ -156,29 +120,37 @@ status_t CameraJpeg::Delete() {
   return NO_ERROR;
 }
 
-void* CameraJpeg::MapBuff(StreamBuffer& buffer) {
-  void *vaaddr;
-  if (mapped_buffs_.indexOfKey(buffer.fd) < 0 || mapped_buffs_.isEmpty()) {
-    vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
-        MAP_SHARED, buffer.fd, 0);
-    map_data_t map;
-    map.addr = vaaddr;
-    map.size = buffer.size;
-    mapped_buffs_.add(buffer.fd, map);
-  } else {
-    vaaddr = mapped_buffs_.valueFor(buffer.fd).addr;
-  }
-  return vaaddr;
-}
-
-void CameraJpeg::Process(StreamBuffer& in_buffer,
+bool CameraJpeg::Process(StreamBuffer& in_buffer,
                          StreamBuffer& out_buffer) {
   QMMF_VERBOSE("%s:%s: %d: Enter in FD: %d out FD: %d ", TAG,
       __func__, __LINE__, in_buffer.fd, out_buffer.fd);
 
-  void *buf_vaaddr = mmap(nullptr, in_buffer.size, PROT_READ,
-      MAP_SHARED, in_buffer.fd, 0);
-  void *out_vaaddr = MapBuff(out_buffer);
+  void *buf_vaaddr = nullptr;
+  if (in_buffer.data == nullptr) {
+    buf_vaaddr = mmap(nullptr, in_buffer.size, PROT_READ  | PROT_WRITE,
+        MAP_SHARED, in_buffer.fd, 0);
+  } else {
+    buf_vaaddr = in_buffer.data;
+  }
+
+  if (buf_vaaddr == MAP_FAILED) {
+      QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
+          strerror(errno), errno);
+  }
+
+  void *out_vaaddr = nullptr;
+  if (out_buffer.data == nullptr) {
+    out_vaaddr = mmap(nullptr, out_buffer.size, PROT_READ  | PROT_WRITE,
+        MAP_SHARED, out_buffer.fd, 0);
+  } else {
+    out_vaaddr = out_buffer.data;
+  }
+
+  if (out_vaaddr == MAP_FAILED) {
+      QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
+          strerror(errno), errno);
+  }
+
   if (buf_vaaddr != MAP_FAILED && out_vaaddr != MAP_FAILED) {
     size_t jpeg_size = 0;
     jpeg_encoder_->in_buffer_.img_data[0] = (uint8_t*)buf_vaaddr;
@@ -188,7 +160,14 @@ void CameraJpeg::Process(StreamBuffer& in_buffer,
     if (!buf_vaddr) {
       QMMF_VERBOSE("%s:%s: Jpeg out buffer is NULL", TAG, __func__);
     }
-    munmap(buf_vaaddr, in_buffer.size);
+
+    if (in_buffer.data == nullptr) {
+      munmap(buf_vaaddr, in_buffer.size);
+    }
+    if (out_buffer.data == nullptr) {
+      munmap(out_vaaddr, out_buffer.size);
+    }
+
     out_buffer.info.plane_info[0].width = jpeg_size;
     out_buffer.data = nullptr;
     out_buffer.filled_length = jpeg_size;
@@ -198,13 +177,9 @@ void CameraJpeg::Process(StreamBuffer& in_buffer,
     QMMF_VERBOSE("%s:%s: SKIPP JPEG", TAG, __func__);
   }
 
+  ReprocessLibCallback(in_buffer, out_buffer);
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
-}
-
-void CameraJpeg::AddBuff(StreamBuffer in_buff) {
-  Mutex::Autolock lock(wait_lock_);
-  input_buffer_.push_back(in_buff);
-  wait_for_buffer_.signal();
+  return true;
 }
 
 void CameraJpeg::AddResult(const void* result) {
@@ -214,32 +189,6 @@ status_t CameraJpeg::ReturnBuff(StreamBuffer buffer) {
   QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) ts: %lld, streamId: %d", TAG,
        __func__, buffer.handle, buffer.timestamp, buffer.stream_id);
   return NO_ERROR;
-}
-
-bool CameraJpeg::ThreadLoop() {
-  status_t ret = NO_ERROR;
-  StreamBuffer buffer;
-  {
-    Mutex::Autolock lock(wait_lock_);
-    if (input_buffer_.empty()) {
-      ret = wait_for_buffer_.waitRelative(wait_lock_, kFrameTimeout);
-      if (ret == TIMED_OUT) {
-        QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
-        return true;
-      }
-    }
-    auto iter = input_buffer_.begin();
-    buffer = *iter;
-    input_buffer_.erase(iter);
-  }
-
-  StreamBuffer b;
-  memset(&b, 0x0, sizeof(b));
-  get_empty_buff_cb_(&b);
-  b.stream_id = id_;
-  Process(buffer, b);
-  capture_client_cb_(buffer, b);
-  return true;
 }
 
 }; // namespace recoder

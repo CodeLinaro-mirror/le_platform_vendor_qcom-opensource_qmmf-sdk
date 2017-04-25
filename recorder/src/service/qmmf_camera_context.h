@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
@@ -62,7 +63,10 @@ class IBufferProducer;
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
 // to camera device stream.
-class CameraContext : public CameraInterface {
+class CameraContext : public CameraInterface,
+                      public ReprocessPlugin<CameraContext>,
+                      public virtual IPostProcCameraContext,
+                      public virtual RefBase {
  public:
   CameraContext();
 

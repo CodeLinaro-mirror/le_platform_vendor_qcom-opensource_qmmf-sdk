@@ -29,51 +29,56 @@
 
 #pragma once
 
+#include <functional>
 #include <utils/RefBase.h>
-
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include "common/qmmf_common_utils.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
-};
+using android::RefBase;
+using android::sp;
+using android::BAD_VALUE;
 
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
-
-class ICameraPostProcess : public virtual RefBase {
+class IReprocessCallbacks : public virtual RefBase {
 
  public:
 
-  virtual ~ICameraPostProcess() {};
+   virtual void ReprocessLibCallback(StreamBuffer in_buff,
+                                     StreamBuffer out_buff) = 0;
 
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
+   virtual status_t GetBuffer(StreamBuffer* buffer) = 0;
 
-  virtual status_t Delete() = 0;
+   virtual void SetCallBacks(sp<IReprocessCallbacks>& cb) = 0;
+};
 
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
+class Callbacks : public virtual IReprocessCallbacks {
+ public:
 
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
+   Callbacks() : cb_(nullptr) {}
 
-  virtual void AddResult(const void* result) = 0;
+   ~Callbacks() {}
 
-  virtual status_t Start() = 0;
+   void SetCallBacks(sp<IReprocessCallbacks>& cb) override { cb_ = cb; }
 
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
+   void ReprocessLibCallback(StreamBuffer in_buff,
+                             StreamBuffer out_buff) override {
+     if (cb_.get() != nullptr) {
+       cb_->ReprocessLibCallback(in_buff, out_buff);
+     }
+   }
+
+   status_t GetBuffer(StreamBuffer* buffer) override {
+     if (cb_.get() != nullptr) {
+       return cb_->GetBuffer(buffer);
+     }
+     return BAD_VALUE;
+   }
+
+ private:
+
+   sp<IReprocessCallbacks> cb_;
 
 };
 

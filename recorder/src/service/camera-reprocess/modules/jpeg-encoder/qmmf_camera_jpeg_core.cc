@@ -27,12 +27,15 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <qmmf_camera_jpeg_core.h>
-#include <dlfcn.h>
-#include <mutex>
 #include <condition_variable>
-#include <mm_jpeg_interface.h>
+#include <dlfcn.h>
 #include <hardware/camera3.h>
+#include <mm_jpeg_interface.h>
+#include <mutex>
+#include <qmmf_camera_jpeg_core.h>
+#include <utils/Log.h>
+
+
 
 typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
                                      mm_jpeg_mpo_ops_t *,
@@ -88,7 +91,10 @@ void EncodeCbGlobal(jpeg_job_status_t status, uint32_t /*client_hdl*/,
   if (status == JPEG_JOB_STATUS_ERROR) {
     ALOGE("%s: Encoder ran into an error", __func__);
   } else {
-    JpegEncoder::EncodeCb(p_output, userData);
+    JpegEncoder *enc = (JpegEncoder *)userData;
+    if (enc != nullptr) {
+      enc->EncodeCb(p_output, userData);
+    }
   }
 }
 

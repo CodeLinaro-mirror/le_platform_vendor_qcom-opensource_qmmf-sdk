@@ -29,54 +29,35 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
-
-#include "recorder/src/service/qmmf_recorder_common.h"
+#include <pthread.h>
+#include <string>
 
 namespace qmmf {
 
 namespace recorder {
 
-struct PostProcParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t format;
-};
-
-typedef std::function
-    <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
-
-class ICameraPostProcess : public virtual RefBase {
-
+class CameraThread {
  public:
+  CameraThread();
+  virtual ~CameraThread();
 
-  virtual ~ICameraPostProcess() {};
+  int32_t Run(const char *name);
+  virtual void RequestExit();
+  virtual void RequestExitAndWait();
+  bool ExitPending();
 
-  virtual int32_t Create(const int32_t stream_id,
-                         const PostProcParam& input,
-                         const PostProcParam& output,
-                         const uint32_t frame_rate,
-                         const uint32_t num_images,
-                         const void* static_data,
-                         const PostProcCb& cb,
-                         const void* context) = 0;
+ protected:
+  virtual bool ThreadLoop() = 0;
 
-  virtual status_t Delete() = 0;
+ private:
+  static void *MainLoop(void *userdata);
 
-  virtual void AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) = 0;
-
-  virtual status_t ReturnBuff(StreamBuffer buffer) = 0;
-
-  virtual void AddResult(const void* result) = 0;
-
-  virtual status_t Start() = 0;
-
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
-
+  pthread_mutex_t thread_lock_;
+  pthread_t pid_;
+  bool running_;
+  ::std::string name_;
 };
 
-}; //namespace recorder
+}  // namespace recorder ends here
 
-}; //namespace qmmf
+}  // namespace qmmf ends here
