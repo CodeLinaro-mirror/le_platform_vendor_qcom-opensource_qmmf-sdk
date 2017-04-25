@@ -822,7 +822,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (is_force_cleanup) {
-      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__);
+      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__,
+          TrackId());
       Mutex::Autolock autoLock(buffer_list_lock_);
       for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
         StreamBuffer buffer = buffer_list_.valueAt(i);
