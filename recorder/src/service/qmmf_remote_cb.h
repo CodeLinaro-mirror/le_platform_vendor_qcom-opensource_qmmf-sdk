@@ -26,6 +26,7 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#pragma once
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
@@ -35,7 +36,8 @@ namespace recorder {
 
 class RemoteCallBack : public RefBase {
    public:
-    RemoteCallBack(const sp<IRecorderServiceCallback>& remote_cb);
+    RemoteCallBack(const uint32_t client_id,
+                   const sp<IRecorderServiceCallback>& remote_cb);
 
     ~RemoteCallBack();
 
@@ -70,8 +72,11 @@ class RemoteCallBack : public RefBase {
 
     void NotifyDeleteVideoTrack(uint32_t track_id);
 
+    uint32_t GetClientId() { return client_id_; }
+
    private:
     sp<IRecorderServiceCallback> client_cb_handle_;
+    uint32_t client_id_;
   };
 
 }; // namespace recorder

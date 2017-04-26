@@ -37,7 +37,7 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 
-#include <qmmf_alg_intf.h>
+#include <qmmf-alg/qmmf_alg_intf.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -119,7 +119,8 @@ class MultiCameraManager : public CameraInterface {
   status_t CreateStreamStitching(const CameraStreamParam &param);
   status_t DeleteStreamStitching(const uint32_t id);
 
-  status_t LinkRelatedCameras();
+  status_t fillDualCamLinkMetadataTags(CameraMetadata &meta,
+                                       const uint32_t cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
@@ -213,6 +214,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
     uint32_t               virtual_camera_id;
     Vector<uint32_t>       camera_ids;
     MultiCameraConfigType  multicam_type;
+    uint32_t               frame_rate;
   };
 
   StitchingBase(InitParams &param);
@@ -222,7 +224,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t Configure(GrallocMemory::BufferParams &param);
 
   int32_t Run();
-  void RequestExit() override;
   void RequestExitAndWait() override;
 
  protected:
@@ -307,6 +308,10 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // by the library.
   std::set<buffer_handle_t> registered_buffers_;
 
+  // The maximum interval in which two frames are thought of as syncable.
+  // It is calculated, based on the frame rate.
+  int32_t timestamp_max_delta_;
+
   Mutex                    buffers_lock_;
   Condition                wait_for_buffers_;
 
@@ -315,7 +320,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
   static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
-  static const int32_t kTimestampMaxDelta  = 15000000;  // 15 ms.
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
