@@ -134,7 +134,7 @@ status_t RecorderTest::AddPreviewTrack() {
   video_track_param.height = 480;
   video_track_param.frame_rate = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.low_power_mode = 1;
+  video_track_param.out_device = 1;
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
     vector <BufferDescriptor> buffers,
