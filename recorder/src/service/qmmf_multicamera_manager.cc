@@ -574,8 +574,11 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
     case ImageFormat::kNV12:
       format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
+      break;
+    case ImageFormat::kBayerRDI12BIT:
+      format = HAL_PIXEL_FORMAT_RAW12;
       break;
     case ImageFormat::kBayerIdeal:
       // Not supported.

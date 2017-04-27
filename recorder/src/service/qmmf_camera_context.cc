@@ -409,8 +409,11 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
     case ImageFormat::kNV12:
       format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
+      break;
+    case ImageFormat::kBayerRDI12BIT:
+      format = HAL_PIXEL_FORMAT_RAW12;
       break;
     case ImageFormat::kBayerIdeal:
       // Not supported.
@@ -1340,7 +1343,8 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
       }
     }
     break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
+    case ImageFormat::kBayerRDI12BIT:
     if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       entry = static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
       for (uint32_t i = 0 ; i < entry.count; i += 2) {
@@ -1613,10 +1617,12 @@ CameraPort::~CameraPort() {
 status_t CameraPort::Init() {
 
   memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
-  if (params_.cam_stream_format != CameraStreamFormat::kRAW10) {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-  } else {
+  if (params_.cam_stream_format == CameraStreamFormat::kRAW10) {
     cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
+  } else if (params_.cam_stream_format == CameraStreamFormat::kRAW12) {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW12;
+  } else {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   }
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;

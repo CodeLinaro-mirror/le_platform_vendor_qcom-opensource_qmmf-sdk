@@ -125,7 +125,8 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         AVCParamsInternal(codec_param.avc).ToParcel(parcel);
         break;
       case VideoFormat::kYUV:
-      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerRDI10BIT:
+      case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to write
         break;
@@ -146,7 +147,8 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         codec_param.avc = AVCParamsInternal().FromParcel(parcel);
         break;
       case VideoFormat::kYUV:
-      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerRDI10BIT:
+      case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to read
         break;
