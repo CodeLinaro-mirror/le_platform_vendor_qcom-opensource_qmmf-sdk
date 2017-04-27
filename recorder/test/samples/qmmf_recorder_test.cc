@@ -3182,6 +3182,8 @@ status_t RecorderTest::SetDynamicCameraParam() {
       case DynamicCameraParamsCmd::kWNRStrength: {
         if (static_info_.exists(QCAMERA3_WNR_RANGE)) {
           entry = static_info_.find(QCAMERA3_WNR_RANGE);
+          range_min = static_cast<int32_t>(entry.data.u8[0]);
+          range_max = static_cast<int32_t>(entry.data.u8[1]);
           int32_t wnr_strength;
           ret = GetWNRStrength(&wnr_strength);
           if (ret != 0) {
@@ -3190,8 +3192,8 @@ status_t RecorderTest::SetDynamicCameraParam() {
             break;
           }
           std::cout << "Enter WNR strength value (Current:" << wnr_strength;
-          std::cout << ")[" << entry.data.u8[0] << '-';
-          std::cout << entry.data.u8[1] <<"]: ";
+          std::cout << ")[" << range_min << '-';
+          std::cout << range_max <<"]: ";
           std::cin >> wnr_strength;
           ret = SetWNRStrength(wnr_strength);
           if (ret != 0) {
