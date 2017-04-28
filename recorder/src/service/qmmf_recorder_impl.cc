@@ -240,7 +240,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
       for (auto iter : client_cameraid_map_) {
         std::vector<uint32_t> camera_ids = iter.second;
         QMMF_INFO("%s:%s: client(%d) owning num cameras(%d)", TAG, __func__,
-            camera_ids.size());
+            client_id, camera_ids.size());
         for (auto camera : camera_ids) {
           ret = StopCamera(client_id, camera);
           if (ret != NO_ERROR) {

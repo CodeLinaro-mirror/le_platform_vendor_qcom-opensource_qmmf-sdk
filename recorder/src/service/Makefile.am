@@ -17,6 +17,14 @@ source_files += qmmf_jpeg_encoder.cc
 source_files += qmmf_camera_jpeg.cc
 endif
 
+source_files += qmmf_camera_reprocess_impl.cc
+source_files += camera-reprocess/factory/qmmf_camera_factory.cc
+source_files += camera-reprocess/node/qmmf_camera_node.cc
+source_files += camera-reprocess/memory/qmmf_camera_memory_pool.cc
+source_files += camera-reprocess/pipe/qmmf_camera_pipe.cc
+source_files += camera-reprocess/common/qmmf_camera_thread.cc
+source_files += camera-reprocess/common/qmmf_camera_module.cc
+source_files += camera-reprocess/common/qmmf_camera_alg.cc
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so
@@ -48,4 +56,8 @@ libqmmf_recorder_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_ad
 libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/overlay/liboverlay.la
 libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
-
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/camera-hal/libqmmf_camera_hal.la
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/jpeg-encoder/libqmmf_camera_jpeg.la
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/simple/libqmmf_camera_simple.la
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/copy/libqmmf_camera_copy.la
+libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/haze-buster/libqmmf_camera_haze_buster.la

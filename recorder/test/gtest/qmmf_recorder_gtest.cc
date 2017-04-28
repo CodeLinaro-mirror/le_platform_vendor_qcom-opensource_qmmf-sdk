@@ -308,10 +308,10 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
     std::vector<BufferDescriptor> buffers,
     std::vector<MetaData> meta_buffers) {
-    VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
     void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -445,9 +445,11 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-     std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    std::vector<BufferDescriptor> buffers,
+    std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
 
   video_track_cb.event_cb =
     [this] (uint32_t track_id, EventType event_type,void *event_data,
@@ -659,9 +661,11 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -791,9 +795,9 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta_buffers)
+      { VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -921,9 +925,9 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta_buffers)
+      { VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1066,9 +1070,11 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1092,9 +1098,11 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
-  video_track_cb.data_cb = [&] (uint32_t track_id, std::vector<BufferDescriptor>
-      buffers, std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_2,
                                    video_track_param, video_track_cb);
@@ -1654,7 +1662,7 @@ TEST_F(RecorderGtest, RawBayerRDI10Snapshot) {
   memset(&image_param, 0x0, sizeof image_param);
   image_param.width        = w; // 5344
   image_param.height       = h; // 4016
-  image_param.image_format = ImageFormat::kBayerRDI;
+  image_param.image_format = ImageFormat::kBayerRDI10BIT;
 
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
@@ -1684,6 +1692,77 @@ TEST_F(RecorderGtest, RawBayerRDI10Snapshot) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
+}
+
+/*
+* RawBayerRDI12Snapshot: This test will test BayerRDI (12 bits packed) snapshot.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - BayerRDI 12 bits
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, RawBayerRDI12Snapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+  int32_t w = 0, h = 0;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  // Check Supported bayer snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      w = entry.data.i32[i+0];
+      h = entry.data.i32[i+1];
+      TEST_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG,
+          __func__, i, w, h);
+    }
+  }
+  assert(w > 0 && h > 0);
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width        = w;
+  image_param.height       = h;
+  image_param.image_format = ImageFormat::kBayerRDI12BIT;
+
+  std::vector<CameraMetadata> meta_array;
+  meta_array.push_back(meta);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -1738,10 +1817,11 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
     uint32_t video_track_id       = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -1852,10 +1932,11 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                            std::vector<BufferDescriptor> buffers,
-                            std::vector<MetaData> meta_buffers) {
-  VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2006,10 +2087,11 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                              std::vector<BufferDescriptor> buffers,
-                              std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -2115,10 +2197,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -2250,10 +2333,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -2279,10 +2363,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   }
 
   video_track_param.frame_rate  = 1;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -2411,204 +2496,212 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
       SessionCallbackHandler(event_type,
       event_data, event_data_size); };
 
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
-
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-
-  video_track_param.camera_id   = camera_id_;
-  video_track_param.width       = width;
-  video_track_param.height      = height;
-  video_track_param.frame_rate  = fps;
-  video_track_param.format_type = format_type;
-
-  video_track_param.codec_param.avc.idr_interval = 1;
-  video_track_param.codec_param.avc.bitrate      = 10000000;
-  video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
-  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-  video_track_param.codec_param.avc.ratecontrol_type =
-      VideoRateControlType::kVariableSkipFrames;
-  video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-  video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-  video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
-  video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-  video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-  video_track_param.codec_param.avc.ltr_count = 4;
-  video_track_param.codec_param.avc.insert_aud_delimiter = true;
-
-  uint32_t video_track_id = 1;
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      format_type,
-      video_track_id,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo);
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
     assert(ret == NO_ERROR);
-  }
 
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
 
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void
-      { VideoTrackEventCb(track_id,
-      event_type, event_data, event_data_size); };
+    video_track_param.camera_id   = camera_id_;
+    video_track_param.width       = width;
+    video_track_param.height      = height;
+    video_track_param.frame_rate  = fps;
+    video_track_param.format_type = format_type;
 
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate      = 10000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariableSkipFrames;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 4;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
+    uint32_t video_track_id = 1;
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
 
-  uint32_t video_track4K1fps_id = 2;
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      format_type,
-      video_track4K1fps_id,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-  }
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+
+    uint32_t video_track4K1fps_id = 2;
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track4K1fps_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+    }
 
   video_track_param.frame_rate  = 1;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void
-      { VideoTrackEventCb(track_id,
-      event_type, event_data, event_data_size); };
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
 
-  ret = recorder_.CreateVideoTrack(session_id, video_track4K1fps_id,
-                                   video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+    ret = recorder_.CreateVideoTrack(session_id, video_track4K1fps_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
 
-  track_ids.push_back(video_track4K1fps_id);
+    track_ids.push_back(video_track4K1fps_id);
 
-  uint32_t video_track240p_id = 3;
-  width = 432;
-  height = 240;
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      format_type,
-      video_track240p_id,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-  }
+    uint32_t video_track240p_id = 3;
+    width = 480;
+    height = 320;
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track240p_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+    }
 
-  video_track_param.width = width;
-  video_track_param.height = height;
-  video_track_param.frame_rate  = fps;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackThreeEncDataCb(track_id, buffers, meta_buffers); };
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.frame_rate  = fps;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackThreeEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
 
-  video_track_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void
-      { VideoTrackEventCb(track_id,
-      event_type, event_data, event_data_size); };
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
 
-  ret = recorder_.CreateVideoTrack(session_id, video_track240p_id,
-                                   video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+    ret = recorder_.CreateVideoTrack(session_id, video_track240p_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
 
-  track_ids.push_back(video_track240p_id);
+    track_ids.push_back(video_track240p_id);
 
-  sessions_.insert(std::make_pair(session_id, track_ids));
+    sessions_.insert(std::make_pair(session_id, track_ids));
 
-  ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
 
-  sleep(30);
+    sleep(30);
 
-  //Take snapshot
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
-  image_param.width         = 1920;
-  image_param.height        = 1080;
-  image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+    //Take snapshot
+    ImageParam image_param;
+    memset(&image_param, 0x0, sizeof image_param);
+    image_param.width         = 1920;
+    image_param.height        = 1080;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = 95;
 
-  std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
-  CameraMetadata meta;
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
 
-  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  assert(ret == NO_ERROR);
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    assert(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
+    bool res_supported = false;
+    // Check Supported JPEG snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true;
+            }
           }
         }
       }
     }
-  }
-  assert (res_supported != false);
+    assert (res_supported != false);
 
-  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
-                              BufferDescriptor buffer,
-                              MetaData meta_data) -> void
-      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-  meta_array.push_back(meta);
-  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                               cb);
-  assert(ret == NO_ERROR);
+    meta_array.push_back(meta);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
 
-  sleep(5);
+    sleep(5);
 
-  ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track4K1fps_id);
-  assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track4K1fps_id);
+    assert(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track240p_id);
-  assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track240p_id);
+    assert(ret == NO_ERROR);
 
-  ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
 
-  ClearSessions();
+    ClearSessions();
 
+  } // End iteration count loop.
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
 
@@ -2683,10 +2776,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -2794,10 +2888,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -2960,10 +3055,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3000,10 +3096,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.low_power_mode = true;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3156,10 +3253,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3196,10 +3294,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.format_type = format_type;
   video_track_param.low_power_mode = true;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3306,10 +3405,11 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3415,10 +3515,11 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3523,10 +3624,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3560,10 +3662,12 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3670,10 +3774,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3708,10 +3813,11 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3831,10 +3937,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3870,10 +3977,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -3981,10 +4089,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4020,10 +4129,11 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4142,10 +4252,11 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4180,10 +4291,11 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4290,10 +4402,11 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4329,10 +4442,11 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4441,10 +4555,11 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4480,10 +4595,11 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4638,10 +4754,11 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -4753,11 +4870,12 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
       assert(ret == NO_ERROR);
     }
 
-    TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -4868,10 +4986,12 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
 
     // Create 1080p encode track.
     ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
@@ -4888,10 +5008,11 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     }
     track_ids.push_back(video_track_id1);
 
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
     // Create another 1080p encode track.
     ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
@@ -4999,10 +5120,10 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
     video_track_param.format_type = VideoFormat::kYUV;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -5092,7 +5213,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
         test_info_->name(), i);
 
     // Take Snapshot
-    fprintf(stderr, "Taking Snapshot\n");
     TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
 
     ImageParam image_param;
@@ -5132,10 +5252,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
-
     meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
@@ -5143,7 +5259,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(1);
 
     // Start 1080p YUV LPM Stream
-    fprintf(stderr, "Starting LPM Stream\n");
     TEST_INFO("%s:%s: Starting LPM Stream", TAG, __func__);
 
     SessionCb s1_status_cb;
@@ -5169,17 +5284,18 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     uint32_t s1_video_t1_id = 1;
 
     TrackCb s1_video_t1_cb;
-    s1_video_t1_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+    s1_video_t1_cb.data_cb = [&, s1_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(s1_id, track_id, buffers, meta_buffers);
+        };
 
     s1_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(s1_id, s1_video_t1_id,
-                                      s1_video_t1_param, s1_video_t1_cb);
+    ret = recorder_.CreateVideoTrack(s1_id, s1_video_t1_id, s1_video_t1_param,
+                                     s1_video_t1_cb);
     assert(ret == NO_ERROR);
 
     std::vector<uint32_t> s1_track_ids;
@@ -5191,7 +5307,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(5);
 
     // Take Snapshot
-    fprintf(stderr, "Taking Snapshot\n");
     TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
 
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
@@ -5200,7 +5315,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(1);
 
     // Start 1080p AVC Stream
-    fprintf(stderr, "Starting Enc Stream\n");
     TEST_INFO("%s:%s: Starting Enc Stream", TAG, __func__);
 
     SessionCb s2_status_cb;
@@ -5223,13 +5337,14 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     s2_video_t1_param.format_type    = VideoFormat::kAVC;
     s2_video_t1_param.low_power_mode = false;
 
-    uint32_t s2_video_t1_id = 1;
+    uint32_t s2_video_t1_id = 2;
 
     TrackCb s2_video_t1_cb;
-    s2_video_t1_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+    s2_video_t1_cb.data_cb = [&, s2_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(s2_id, track_id, buffers, meta_buffers);
+        };
 
     s2_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -5248,18 +5363,12 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(5);
 
     // Take Snapshot
-    fprintf(stderr, "Taking Snapshot\n");
-    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
-
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                    cb);
     assert(ret == NO_ERROR);
     sleep(1);
 
     // Delete 1080p AVC Stream
-    fprintf(stderr, "Stopping Enc Stream\n");
-    TEST_INFO("%s:%s: Stopping Enc Stream", TAG, __func__);
-
     ret = recorder_.StopSession(s2_id, false);
     assert(ret == NO_ERROR);
 
@@ -5271,16 +5380,12 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(1);
 
     // Take Snapshot
-    fprintf(stderr, "Taking Snapshot\n");
-    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
-
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                    cb);
     assert(ret == NO_ERROR);
     sleep(1);
 
     // Delete 1080p YUV LPM Stream
-    fprintf(stderr, "Stopping LPM Stream\n");
     TEST_INFO("%s:%s: Starting LPM Stream", TAG, __func__);
 
     ret = recorder_.StopSession(s1_id, false);
@@ -5294,9 +5399,6 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     sleep(1);
 
     // Take Snapshot
-    fprintf(stderr, "Taking Snapshot\n");
-    TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
-
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                    cb);
     assert(ret == NO_ERROR);
@@ -5386,10 +5488,11 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -5555,10 +5658,11 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -5741,10 +5845,11 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -5910,10 +6015,11 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6079,10 +6185,11 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6264,10 +6371,11 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6429,10 +6537,11 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6544,10 +6653,11 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6648,10 +6758,11 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   video_track_param.format_type = VideoFormat::kYUV;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -6770,10 +6881,11 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
               void *event_data, size_t event_data_size) -> void {
       VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   // Create 1080p encode track.
   ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
@@ -6790,10 +6902,11 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   }
   track_ids.push_back(video_track_id1);
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   // Create another 1080p encode track.
   ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
@@ -6898,10 +7011,11 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -7032,10 +7146,11 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                            std::vector<BufferDescriptor> buffers,
-                            std::vector<MetaData> meta_buffers) {
-  VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -7311,10 +7426,11 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
                                  void *event_data, size_t event_data_size) {
@@ -7483,10 +7599,11 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   }
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
                                  void *event_data, size_t event_data_size) {
@@ -7649,12 +7766,12 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
               void *event_data, size_t event_data_size) -> void {
       VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
   std::vector<uint32_t> track_ids;
-
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
 
   // Create 4K encode track.
   ret = recorder_.CreateVideoTrack(session_id, video_track_id1,
@@ -7678,10 +7795,11 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   video_track_param.height        = 480;
   video_track_param.low_power_mode = false;
 
-  video_track_cb.data_cb = [&] (uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
 
   // Create 480p encode track.
   ret = recorder_.CreateVideoTrack(session_id, video_track_id2,
@@ -7871,11 +7989,12 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   assert(ret == NO_ERROR);
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb =
-      [&] (uint32_t track_id, std::vector<BufferDescriptor>
-             buffers, std::vector<MetaData> meta_buffers) ->
-             void { VideoCachedDataCb(track_id, buffers, meta_buffers,
-                                      format_type, av_queue); };
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoCachedDataCb(session_id, track_id, buffers, meta_buffers,
+                          format_type, av_queue);
+        };
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -7938,8 +8057,8 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
 /*
 * DynamicSessionAndTracksUpdateWithCamParams: This is a usecase which will test
 *                                    adding or deleting tracks and sessions,
-*                                    along with changing camera parameters such as
-*                                    TNR and SHDR.
+*                                    along with changing camera parameters such
+                                     as TNR and SHDR.
 *   Properties              : [Default Values]
 *   -------------------------------------------
 *   PROP_TRACK1_WIDTH       : [3840]
@@ -8063,10 +8182,10 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
               void *event_data, size_t event_data_size) -> void {
       VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-  video_track1_cb.data_cb = [&] (uint32_t track_id,
+  video_track1_cb.data_cb = [&, s1_id] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+      VideoTrackOneEncDataCb(s1_id, track_id, buffers, meta_buffers); };
 
   uint32_t video_track1_id = 1;
   ret = recorder_.CreateVideoTrack(s1_id, video_track1_id,
@@ -8140,17 +8259,11 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   video_track2.low_power_mode = false;
 
   TrackCb video_track2_cb;
-  video_track2_cb.event_cb =
-      [this] (uint32_t track_id, EventType event_type,
-              void *event_data, size_t event_data_size) -> void {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
-
-  video_track2_cb.data_cb = [&] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(track_id, buffers, meta_buffers); };
-
   uint32_t video_track2_id = 2;
+  video_track2_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) {
+          VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+      };
 
   // Create Session2
   uint32_t s2_id;
@@ -8164,6 +8277,11 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
     assert(s2_id > 0);
     assert(ret == NO_ERROR);
 
+    video_track2_cb.data_cb = [&, s2_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(s2_id, track_id, buffers, meta_buffers); };
+
     ret = recorder_.CreateVideoTrack(s2_id, video_track2_id,
                                      video_track2, video_track2_cb);
     assert(ret == NO_ERROR);
@@ -8176,6 +8294,13 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
     assert(ret == NO_ERROR);
 
   } else {
+
+    video_track2_cb.data_cb = [&, s1_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+          VideoTrackTwoEncDataCb(s1_id, track_id, buffers, meta_buffers);
+      };
+
     // Add T2 to the existing Session and restart Session
     ret = recorder_.CreateVideoTrack(s1_id, video_track2_id,
                                      video_track2, video_track2_cb);
@@ -8339,10 +8464,11 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     }
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&] (uint32_t track_id,
-                                  std::vector<BufferDescriptor> buffers,
-                                  std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(track_id, buffers, meta_buffers); };
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
 
     video_track_cb.event_cb =
         [this] (uint32_t track_id, EventType event_type,
@@ -8499,7 +8625,7 @@ status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
   return NO_ERROR;
 }
 
-void RecorderGtest::VideoCachedDataCb(uint32_t track_id,
+void RecorderGtest::VideoCachedDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
                                       std::vector<MetaData> meta_buffers,
                                       VideoFormat format_type,
@@ -8516,10 +8642,6 @@ void RecorderGtest::VideoCachedDataCb(uint32_t track_id,
       TEST_ERROR("%s: Failed to cache video frame: %d\n", __func__, ret);
     }
   }
-
-  // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 }
@@ -8599,7 +8721,7 @@ void RecorderGtest::CameraResultCallbackHandler(uint32_t camera_id,
   }
 }
 
-void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
+void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
 
@@ -8639,18 +8761,15 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t track_id,
       id = 0;
     }
   }
-
-  // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
-                                        std::vector<BufferDescriptor> buffers,
-                                        std::vector<MetaData> meta_buffers) {
+void RecorderGtest::VideoTrackOneEncDataCb(uint32_t session_id,
+                                           uint32_t track_id,
+                                          std::vector<BufferDescriptor> buffers,
+                                          std::vector<MetaData> meta_buffers) {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   if (dump_bitstream_.IsUsed()) {
@@ -8658,15 +8777,14 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t track_id,
     dump_bitstream_.Dump(buffers, file_fd);
   }
   // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
+void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t session_id,
+                                           uint32_t track_id,
                                           std::vector<BufferDescriptor> buffers,
                                           std::vector<MetaData> meta_buffers) {
 
@@ -8675,16 +8793,14 @@ void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t track_id,
     int32_t file_fd = dump_bitstream_.GetFileFd(2);
     dump_bitstream_.Dump(buffers, file_fd);
   }
-  // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
+void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t session_id,
+                                             uint32_t track_id,
                                              std::vector<BufferDescriptor>
                                              buffers, std::vector<MetaData>
                                              meta_buffers) {
@@ -8694,9 +8810,6 @@ void RecorderGtest::VideoTrackThreeEncDataCb(uint32_t track_id,
     int32_t file_fd = dump_bitstream_.GetFileFd(3);
     dump_bitstream_.Dump(buffers, file_fd);
   }
-  // Return buffers back to service.
-  std::map <uint32_t , std::vector<uint32_t> >::iterator it = sessions_.begin();
-  uint32_t session_id = it->first;
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
@@ -8756,6 +8869,9 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";
+        break;
+        case BufferFormat::kRAW12:
+        ext_str = "raw12";
         break;
         case BufferFormat::kRAW16:
         ext_str = "raw16";
