@@ -33,6 +33,7 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 #include <condition_variable>
+#include <utils/Condition.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
@@ -191,7 +192,8 @@ class CameraContext : public CameraInterface {
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  int32_t                  snapshot_request_id_;
+  Vector<int32_t>          snapshot_request_id_;
+  int32_t                  current_snapshot_request_id_index_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
@@ -226,6 +228,9 @@ class CameraContext : public CameraInterface {
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
   static const nsecs_t     kSyncFrameWaitDuration;
+  std::mutex               aec_lock_;
+  std::condition_variable  aec_signal_;
+  bool                     aec_done_ = false;
 };
 
 enum class CameraPortType {

@@ -305,7 +305,6 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     video_track_param.height        = 1920;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -420,7 +419,6 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     video_track_param.height        = 1920;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -554,7 +552,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     video_track_param.height        = height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -684,7 +681,6 @@ TEST_F(Recorder360Gtest, Stitched4KEnc720pTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -726,7 +722,7 @@ TEST_F(Recorder360Gtest, Stitched4KEnc720pTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
+
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {
@@ -910,7 +906,6 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
     video_track_param.height        = 1920;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -1027,7 +1022,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     video_track_param.height        = 1920;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
-    video_track_param.out_device    = 0x01;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1162,7 +1156,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     video_track_param.height        = height;
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
-    video_track_param.out_device    = 0x01;
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -1293,7 +1286,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEnc720pTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1335,7 +1327,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEnc720pTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.out_device  = 0x01;
+
   video_track_cb.data_cb = [&] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {

@@ -52,6 +52,16 @@ if test "x$with_mm_core_library" != "xno"; then
    AC_SUBST([MMCORE_CFLAGS], "${mm_core_libdir}")
 fi
 
+AC_ARG_WITH([drone-target],
+      AC_HELP_STRING([with-drone-target=@<:@dir@:>@],
+         [Specify drone target]),
+      [drone_target=$withval],
+      drone_target=false)
+
+if test "x$drone_target" == "xtrue" ; then
+[CPPFLAGS="$CPPFLAGS -D_DRONE_"]
+fi
+
 AC_ARG_WITH([camerahal],
       AC_HELP_STRING([with-camerahal=@<:@dir@:>@],
          [Specify the location of CameraHal]),
@@ -62,7 +72,7 @@ if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
 
-[CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
+[CPPFLAGS="$CPPFLAGS -std=c++14 -Wall -Wextra -Werror"]
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
 # TODO this warning suppress issue in lib gralloc private

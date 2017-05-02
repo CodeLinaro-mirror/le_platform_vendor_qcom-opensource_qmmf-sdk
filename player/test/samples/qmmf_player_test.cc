@@ -31,6 +31,7 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <assert.h>

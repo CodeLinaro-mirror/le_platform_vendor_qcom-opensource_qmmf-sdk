@@ -119,7 +119,6 @@ AVCodec::AVCodec()
       input_stop_(false),
       output_stop_(false),
       port_status_(true),
-      cmd_buffer_index_(0),
       signal_queue_(CMD_BUF_MAX_COUNT),
       bPortReconfig_(false) {
 
@@ -155,7 +154,7 @@ AVCodec::~AVCodec() {
     delete []out_buff_hdr_;
     out_buff_hdr_ = nullptr;
   }
-  cmd_buffer_index_ = 0;
+
   signal_queue_.Clear();
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -2000,7 +1999,8 @@ status_t AVCodec::ReleaseBuffer() {
   delete []out_buff_hdr_;
   out_buff_hdr_ = nullptr;
 
-  assert(cmd_buffer_index_ == 0);
+  assert(signal_queue_.Size() == 0);
+
   signal_queue_.Clear();
 
   for (auto& iter: outputpParam_dec_) {
@@ -2179,32 +2179,41 @@ status_t AVCodec::StartCodec() {
   }
 
   if(port_status_ == false) {
-    CodecCmdType* cmd = (CodecCmdType *)signal_queue_.Pop();
-    assert(cmd != nullptr);
-    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-        __func__, cmd, cmd_buffer_index_);
-    cmd_buffer_index_--;
-
-    if((cmd->event_result != OMX_ErrorNone) ||
-        (cmd->event_type != OMX_EventCmdComplete) ||
-        (cmd->event_cmd != OMX_CommandPortEnable)) {
-      QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-          __func__, cmd->event_cmd);
-      return cmd->event_result;
+    CodecCmdType cmd;
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
     }
 
-    cmd = (CodecCmdType *)signal_queue_.Pop();
-    assert(cmd != nullptr);
-    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-        __func__, cmd, cmd_buffer_index_);
-    cmd_buffer_index_--;
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
 
-    if((cmd->event_result != OMX_ErrorNone) ||
-       (cmd->event_type != OMX_EventCmdComplete) ||
-       (cmd->event_cmd != OMX_CommandPortEnable)) {
+    if((cmd.event_result != OMX_ErrorNone) ||
+        (cmd.event_type != OMX_EventCmdComplete) ||
+        (cmd.event_cmd != OMX_CommandPortEnable)) {
       QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-          __func__, cmd->event_cmd);
-      return cmd->event_result;
+          __func__, cmd.event_cmd);
+      return cmd.event_result;
+    }
+
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
+
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
+
+    if((cmd.event_result != OMX_ErrorNone) ||
+       (cmd.event_type != OMX_EventCmdComplete) ||
+       (cmd.event_cmd != OMX_CommandPortEnable)) {
+      QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
+          __func__, cmd.event_cmd);
+      return cmd.event_result;
     }
 
     port_status_ = true;
@@ -2275,16 +2284,21 @@ status_t AVCodec::StopCodec() {
     }
   }
 
-  CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
-  assert(cmd != nullptr);
-  QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-      __func__, cmd, cmd_buffer_index_);
-  cmd_buffer_index_--;
+  CodecCmdType cmd;
+  ret = signal_queue_.Pop(&cmd);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+        TAG, __func__, signal_queue_.Size());
+    return ret;
+  }
 
-  if((cmd->event_result != OMX_ErrorNone) ||
-     (cmd->event_flags != OMX_BUFFERFLAG_EOS)) {
+  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+      __func__, signal_queue_.Size());
+
+  if((cmd.event_result != OMX_ErrorNone) ||
+     (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
       QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
-          cmd->event_flags);
+          cmd.event_flags);
       return OMX_ErrorUndefined;
   }
 
@@ -2343,32 +2357,40 @@ status_t AVCodec::StopCodec() {
     }
   }
 
-  cmd = (CodecCmdType *)signal_queue_.Pop();
-  assert(cmd != nullptr);
-  QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-      __func__, cmd, cmd_buffer_index_);
-  cmd_buffer_index_--;
-
-  if((cmd->event_result != OMX_ErrorNone) ||
-      (cmd->event_type != OMX_EventCmdComplete) ||
-      (cmd->event_cmd != OMX_CommandPortDisable)) {
-    QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-        __func__, cmd->event_cmd);
-    return cmd->event_result;
+  ret = signal_queue_.Pop(&cmd);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+        TAG, __func__, signal_queue_.Size());
+    return ret;
   }
 
-  cmd = (CodecCmdType *)signal_queue_.Pop();
-  assert(cmd != nullptr);
-  QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-      __func__, cmd, cmd_buffer_index_);
-  cmd_buffer_index_--;
+  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+      __func__, signal_queue_.Size());
 
-  if((cmd->event_result != OMX_ErrorNone) ||
-     (cmd->event_type != OMX_EventCmdComplete) ||
-     (cmd->event_cmd != OMX_CommandPortDisable)) {
+  if((cmd.event_result != OMX_ErrorNone) ||
+      (cmd.event_type != OMX_EventCmdComplete) ||
+      (cmd.event_cmd != OMX_CommandPortDisable)) {
     QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-        __func__, cmd->event_cmd);
-    return cmd->event_result;
+        __func__, cmd.event_cmd);
+    return cmd.event_result;
+  }
+
+  ret = signal_queue_.Pop(&cmd);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+        TAG, __func__, signal_queue_.Size());
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+      __func__, signal_queue_.Size());
+
+  if((cmd.event_result != OMX_ErrorNone) ||
+     (cmd.event_type != OMX_EventCmdComplete) ||
+     (cmd.event_cmd != OMX_CommandPortDisable)) {
+    QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
+        __func__, cmd.event_cmd);
+    return cmd.event_result;
   }
 
   QMMF_INFO("%s:%s current state(%s), pending state(%s)", TAG, __func__,
@@ -2546,34 +2568,43 @@ status_t AVCodec::Flush(uint32_t index) {
     return ret;
   }
 
-  CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
-  assert(cmd != nullptr);
-  QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-       __func__, cmd, cmd_buffer_index_);
-  cmd_buffer_index_--;
+  CodecCmdType cmd;
+  ret = signal_queue_.Pop(&cmd);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+        TAG, __func__, signal_queue_.Size());
+    return ret;
+  }
 
-  if((cmd->event_result != OMX_ErrorNone) ||
-     (cmd->event_type != OMX_EventCmdComplete) ||
-     (cmd->event_cmd != OMX_CommandFlush)) {
+  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+      __func__, signal_queue_.Size());
+
+  if((cmd.event_result != OMX_ErrorNone) ||
+     (cmd.event_type != OMX_EventCmdComplete) ||
+     (cmd.event_cmd != OMX_CommandFlush)) {
     QMMF_ERROR("%s:%s Expecting Cmd complete for flush vs command found(%d)",
-        TAG, __func__, cmd->event_cmd);
-    return cmd->event_result;
+        TAG, __func__, cmd.event_cmd);
+    return cmd.event_result;
   }
 
   /* Wait for flush complete for both ports */
   if (index == OMX_ALL) {
-    cmd = (CodecCmdType *)signal_queue_.Pop();
-    assert(cmd != nullptr);
-    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-        __func__, cmd, cmd_buffer_index_);
-    cmd_buffer_index_--;
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
 
-    if((cmd->event_result != OMX_ErrorNone) ||
-       (cmd->event_type != OMX_EventCmdComplete) ||
-       (cmd->event_cmd != OMX_CommandFlush)) {
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
+
+    if((cmd.event_result != OMX_ErrorNone) ||
+       (cmd.event_type != OMX_EventCmdComplete) ||
+       (cmd.event_cmd != OMX_CommandFlush)) {
       QMMF_ERROR("%s:%s Expecting Cmd complete for flush vs command found(%d)",
-        TAG, __func__, cmd->event_cmd);
-      return cmd->event_result;
+        TAG, __func__, cmd.event_cmd);
+      return cmd.event_result;
     }
   }
 
@@ -2874,21 +2905,21 @@ status_t AVCodec::PushEventCommand(OMX_EVENTTYPE event, OMX_COMMANDTYPE command,
 
   status_t ret = 0;
 
-  cmd_buffer_[cmd_buffer_index_].event_type = event;
-  cmd_buffer_[cmd_buffer_index_].event_cmd = command;
-  cmd_buffer_[cmd_buffer_index_].event_data= data;
-  cmd_buffer_[cmd_buffer_index_].event_flags = flag;
-  cmd_buffer_[cmd_buffer_index_].event_result = OMX_ErrorNone;
+  CodecCmdType cmd_buffer_val;
 
-  QMMF_INFO("%s:%s Pushing cmd buffer(%p)", TAG, __func__,
-      &cmd_buffer_[cmd_buffer_index_]);
-  ret = signal_queue_.Push(&cmd_buffer_[cmd_buffer_index_]);
-  if(ret != OK) {
-    QMMF_ERROR("%s:%s Failed to push cmd buffer(%p)", TAG, __func__,
-        &cmd_buffer_[cmd_buffer_index_]);
+  cmd_buffer_val.event_type = event;
+  cmd_buffer_val.event_cmd = command;
+  cmd_buffer_val.event_data= data;
+  cmd_buffer_val.event_flags = flag;
+  cmd_buffer_val.event_result = OMX_ErrorNone;
+
+  QMMF_INFO("%s:%s Pushing cmd buffer", TAG, __func__);
+  ret = signal_queue_.Push(cmd_buffer_val);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Failed to push cmd buffer, size(%u)", TAG, __func__,
+        signal_queue_.Size());
     return ret;
   }
-  cmd_buffer_index_++;
 
   return ret;
 }
@@ -2965,27 +2996,32 @@ status_t AVCodec::WaitState(OMX_STATETYPE state) {
     return ret;
   }
 
-  CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
-  assert(cmd != nullptr);
-  QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-      __func__, cmd, cmd_buffer_index_);
-  cmd_buffer_index_--;
+  CodecCmdType cmd;
+  ret = signal_queue_.Pop(&cmd);
+  if (ret != OK) {
+    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+        TAG, __func__, signal_queue_.Size());
+    return ret;
+  }
 
-  ret = cmd->event_result;
+  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+      __func__, signal_queue_.Size());
 
-  if((cmd->event_type != OMX_EventCmdComplete) ||
-      (cmd->event_cmd != OMX_CommandStateSet)) {
+  ret = cmd.event_result;
+
+  if((cmd.event_type != OMX_EventCmdComplete) ||
+      (cmd.event_cmd != OMX_CommandStateSet)) {
      QMMF_ERROR("%s:%s Expecting state change", TAG, __func__);
     return ret;
   }
 
-  if((OMX_STATETYPE)cmd->event_data != state) {
+  if((OMX_STATETYPE)cmd.event_data != state) {
     QMMF_ERROR("%s:%s Wrong state found(%s)", TAG, __func__,
-        OMX_STATE_NAME((OMX_STATETYPE)cmd->event_data));
+        OMX_STATE_NAME((OMX_STATETYPE)cmd.event_data));
     return OMX_ErrorUndefined;
   }
 
-  state_ = (OMX_STATETYPE)cmd->event_data;
+  state_ = (OMX_STATETYPE)cmd.event_data;
   QMMF_INFO("%s:%s Reached state(%s)", TAG, __func__, OMX_STATE_NAME(state));
 
   return ret;
@@ -3032,19 +3068,24 @@ status_t AVCodec::PortReconfigOutput() {
 
     // wait for OMX_comp to respond OMX_CommandPortDisable
     // this only happens once all buffers are freed
-    CodecCmdType *cmd = (CodecCmdType *)signal_queue_.Pop();
-    assert(cmd != nullptr);
-    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-        __func__, cmd, cmd_buffer_index_);
-    cmd_buffer_index_--;
+    CodecCmdType cmd;
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
 
-    if((cmd->event_result != OMX_ErrorNone) ||
-        (cmd->event_type != OMX_EventCmdComplete) ||
-        (cmd->event_cmd != OMX_CommandPortDisable)) {
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
+
+    if((cmd.event_result != OMX_ErrorNone) ||
+        (cmd.event_type != OMX_EventCmdComplete) ||
+        (cmd.event_cmd != OMX_CommandPortDisable)) {
       QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-          __func__, cmd->event_cmd);
+          __func__, cmd.event_cmd);
       assert(0);
-      return cmd->event_result;
+      return cmd.event_result;
     }
 
     // ask OMX_comp for new settings
@@ -3142,19 +3183,23 @@ status_t AVCodec::PortReconfigOutput() {
 
     // wait for OMX_comp to respond OMX_CommandPortEnabled
     // this only happens once all buffers are allocated
-    cmd = (CodecCmdType *)signal_queue_.Pop();
-    assert(cmd != nullptr);
-    QMMF_INFO("%s:%s Popped buffer from cmd queue(%p) for index(%d)", TAG,
-        __func__, cmd, cmd_buffer_index_);
-    cmd_buffer_index_--;
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
 
-    if((cmd->event_result != OMX_ErrorNone) ||
-        (cmd->event_type != OMX_EventCmdComplete) ||
-        (cmd->event_cmd != OMX_CommandPortEnable)) {
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
+
+    if((cmd.event_result != OMX_ErrorNone) ||
+        (cmd.event_type != OMX_EventCmdComplete) ||
+        (cmd.event_cmd != OMX_CommandPortEnable)) {
       QMMF_ERROR("%s:%s Expecting Cmd complete vs command found(%d)", TAG,
-          __func__, cmd->event_cmd);
+          __func__, cmd.event_cmd);
       assert(0);
-      return cmd->event_result;
+      return cmd.event_result;
     }
 
     {

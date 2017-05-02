@@ -216,6 +216,7 @@ class RecorderClient {
   RecorderCb           recorder_cb_;
   int32_t              ion_device_;
   RecorderClientIon    buffer_ion_;
+  uint32_t             client_id_;
 
   // List of session callbacks.
   DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;

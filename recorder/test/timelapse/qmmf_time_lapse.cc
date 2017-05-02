@@ -271,7 +271,6 @@ int32_t TimeLapse::AddPreviewTrack() {
   video_track_param.height      = params_.preview_height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.out_device  = 0x02;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = { [&] (uint32_t track_id,

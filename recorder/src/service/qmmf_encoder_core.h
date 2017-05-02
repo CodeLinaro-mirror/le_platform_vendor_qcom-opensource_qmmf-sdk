@@ -57,7 +57,7 @@ class EncoderCore {
 
   status_t StartTrackEncoder(uint32_t track_id);
 
-  status_t StopTrackEncoder(uint32_t track_id);
+  status_t StopTrackEncoder(uint32_t track_id, bool is_force_cleanup = false);
 
   status_t SetTrackEncoderParams(uint32_t track_id,
                                  CodecParamType param_type, void* param,
@@ -96,7 +96,7 @@ class TrackEncoder : public ICodecSource {
 
   status_t Start();
 
-  status_t Stop();
+  status_t Stop(bool is_force_cleanup = false);
 
   status_t SetParams(CodecParamType param_type, void* param,
                      uint32_t param_size);
@@ -153,6 +153,7 @@ class TrackEncoder : public ICodecSource {
 #ifdef DUMP_BITSTREAM
   int32_t                    file_fd_;
 #endif
+  bool                       is_force_cleanup_;
 
   // Encoded stream Dynamic FPS measurement
   uint32_t                   debug_fps_;

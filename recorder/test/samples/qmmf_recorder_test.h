@@ -43,6 +43,9 @@
 #include <qmmf-sdk/qmmf_codec.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
+#include <QCamera3VendorTags.h>
+#include <cutils/properties.h>
+#include <cutils/trace.h>
 
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
@@ -59,6 +62,7 @@
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #define TEST_WARN(fmt,args...)   ALOGW(fmt, ##args)
+
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
@@ -273,6 +277,10 @@ class RecorderTest {
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
 
+  status_t StartMultiCameraMode();
+
+  status_t StopMultiCameraMode();
+
   status_t Session4KAnd1080pYUVTracks();
 
   status_t Session4KEncTrack(const TrackType& type);
@@ -404,7 +412,7 @@ class RecorderTest {
 
   Recorder& GetRecorder() { return recorder_; }
 
-  private:
+ private:
   Recorder recorder_;
 
   friend class CmdMenu;
@@ -527,6 +535,8 @@ public:
         DISCONNECT_CMD                          = '2',
         START_CAMERA_CMD                        = '3',
         STOP_CAMERA_CMD                         = '4',
+        START_MULTICAMERA_CMD                   = 's',
+        STOP_MULTICAMERA_CMD                    = 't',
         CREATE_YUV_SESSION_CMD                  = '5',
         CREATE_4KENC_AVC_SESSION_CMD            = '6',
         CREATE_4KENC_HEVC_SESSION_CMD           = '7',
