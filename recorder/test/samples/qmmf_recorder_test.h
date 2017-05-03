@@ -396,8 +396,8 @@ class RecorderTest {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  void RecorderCallbackHandler(EventType event_type, void *event_data,
-                               size_t event_data_size);
+  void RecorderEventCallbackHandler(EventType event_type, void *event_data,
+                                    size_t event_data_size);
 
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
