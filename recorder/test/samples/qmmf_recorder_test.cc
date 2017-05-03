@@ -97,9 +97,9 @@ status_t RecorderTest::Connect() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   RecorderCb recorder_status_cb;
-  recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
-      event_data_size); };
+  recorder_status_cb.event_cb = [&] (EventType event_type, void *event_data,
+      size_t event_data_size) { RecorderEventCallbackHandler(event_type,
+      event_data, event_data_size); };
 
   auto ret = recorder_.Connect(recorder_status_cb);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -3433,10 +3433,16 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
-void RecorderTest::RecorderCallbackHandler(EventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size) {
+void RecorderTest::RecorderEventCallbackHandler(EventType event_type,
+                                                void *event_data,
+                                                size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  if (event_type == EventType::kServerDied) {
+    // qmmf-server died, reason could be non recoverable FATAL error,
+    // qmmf-server runs as a daemon and gets restarted automatically, on death
+    // event application can cleanup all its resources and connect again.
+    TEST_WARN("%s:%s: Recorder Service died!", TAG, __func__);
+  }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -3564,8 +3570,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   // Connect - Start
   RecorderCb recorder_status_cb;
   recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
-      event_data_size); };
+      size_t event_data_size) { RecorderEventCallbackHandler(event_type,
+      event_data, event_data_size); };
 
   ret = recorder_.Connect(recorder_status_cb);
 
