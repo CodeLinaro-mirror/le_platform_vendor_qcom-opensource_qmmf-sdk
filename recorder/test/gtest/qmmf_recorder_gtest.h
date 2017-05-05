@@ -162,17 +162,21 @@ class RecorderGtest : public ::testing::Test {
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
-  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                                buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
@@ -184,7 +188,7 @@ class RecorderGtest : public ::testing::Test {
                            const uint8_t *buffer, size_t size,
                            int64_t timestamp, AVQueue *que);
 
-  void VideoCachedDataCb(uint32_t track_id,
+  void VideoCachedDataCb(uint32_t session_id, uint32_t track_id,
                          std::vector<BufferDescriptor> buffers,
                          std::vector<MetaData> meta_buffers,
                          VideoFormat format_type,

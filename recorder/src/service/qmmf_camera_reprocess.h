@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <utils/RefBase.h>
+
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
@@ -41,11 +43,6 @@ struct PostProcParam {
   uint32_t width;
   uint32_t height;
   int32_t format;
-};
-
-struct ReprocCaps {
-  uint32_t internal_buff; // 0 - not need extra output buffer
-// TODO
 };
 
 typedef std::function

@@ -74,6 +74,7 @@ enum class CameraStreamFormat {
   kNV12,
   kNV21,
   kRAW10,
+  kRAW12,
 };
 
 struct CameraStreamDim {

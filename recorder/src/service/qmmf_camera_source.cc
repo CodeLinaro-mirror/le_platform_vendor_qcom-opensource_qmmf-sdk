@@ -634,6 +634,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
     case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
       width  = buffer.info.plane_info[0].width;
       height = buffer.info.plane_info[0].height;
@@ -730,8 +731,10 @@ status_t TrackSource::Init() {
   memset(&stream_param, 0x0, sizeof stream_param);
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
-  if (track_params_.params.format_type == VideoFormat::kBayerRDI) {
+  if (track_params_.params.format_type == VideoFormat::kBayerRDI10BIT) {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
+  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
@@ -818,11 +821,13 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
   bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (is_force_cleanup) {
-      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__);
+      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__,
+          TrackId());
       Mutex::Autolock autoLock(buffer_list_lock_);
       for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
         StreamBuffer buffer = buffer_list_.valueAt(i);
@@ -1065,7 +1070,8 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (IsStop()) {

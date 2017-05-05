@@ -57,7 +57,8 @@ float CameraContext::kHFRBatchModeThreshold = 120.0f;
 const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
 CameraContext::CameraContext()
-    : camera_id_(-1),
+    : ReprocessPlugin<CameraContext>(this),
+      camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
       current_snapshot_request_id_index_(0),
@@ -129,9 +130,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     }
     snapshot_request_.streamIds.clear();
 
-    if(camera_reprocess_.get() != nullptr) {
-      camera_reprocess_->Delete();
-    }
+    ReprocDelete();
   }
 
   CameraStreamParameters stream_param;
@@ -171,23 +170,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_request_.streamIds.add(stream_id);
 
   if (reprocess_enable_) {
-    CameraMetadata static_meta;
-    ReprocParam in, out;
-    ReprocessCb cb = [this] (int32_t stream_id, StreamBuffer buffer) -> void
-        {SnapshotCaptureCallback(stream_id, buffer);};
-
-    ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
-    assert(ret == NO_ERROR);
-
-    in.width = param.width;
-    in.height = param.height;
-    in.format = stream_param.format;
-    out.width = param.width;
-    out.height = param.height;
-    out.format = ImageToHalFormat(param.image_format);
-    ret = camera_reprocess_->Create(stream_id, in, out,
-                                    camera_start_params_.frame_rate,
-                                    sequence_cnt_, static_meta, cb);
+    ret = ReprocCreate(stream_param, stream_id);
     assert(ret == NO_ERROR);
   }
   return ret;
@@ -223,9 +206,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     return NO_MEMORY;
   }
   camera_start_params_ = param;
-
-  camera_reprocess_ = new CameraReprocess(this);
-  assert(camera_reprocess_.get() != nullptr);
 
   ret = camera_device_->Initialize();
   if(ret != NO_ERROR) {
@@ -402,9 +382,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
       return ret;
     }
   }
-  if(camera_reprocess_.get() != nullptr) {
-    camera_reprocess_->Delete();
-  }
+  ReprocDelete();
 
   if (streaming_request_id_ > 0) {
     QMMF_ERROR("%s:%s: Streaming Request still running! delete all tracks "
@@ -431,8 +409,11 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
     case ImageFormat::kNV12:
       format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
+      break;
+    case ImageFormat::kBayerRDI12BIT:
+      format = HAL_PIXEL_FORMAT_RAW12;
       break;
     case ImageFormat::kBayerIdeal:
       // Not supported.
@@ -454,7 +435,12 @@ bool CameraContext::IsReprocessNeed(const ImageParam &param) {
 void CameraContext::ReprocessCaptureCallback(int32_t stream_id,
                                           StreamBuffer buffer) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  camera_reprocess_->AddBuff(stream_id, buffer);
+  if (GetNumConsumer() > 0) {
+    NotifyBuffer(buffer);
+  } else {
+    // Return the buffer back to the camera.
+    ReturnStreamBuffer(stream_id, buffer);
+  }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -571,9 +557,9 @@ status_t CameraContext::CancelCaptureImage() {
       }
       assert(sequence_cnt_ == 0);
     }
-
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], reprocess_enable_ ?
-                             true : false);
+    auto cache = (reprocess_enable_ || streaming_request_id_ == -1) ?
+                 true : false;
+    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
           __func__, ret);
@@ -581,8 +567,8 @@ status_t CameraContext::CancelCaptureImage() {
     }
     snapshot_request_.streamIds.clear();
 
-    if (camera_reprocess_.get() != nullptr) {
-      camera_reprocess_->Delete();
+    if (reproc_pipe_.get() != nullptr) {
+      reproc_pipe_.clear();
     }
   }
   cancel_capture_ = false;
@@ -826,7 +812,14 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: stream_id(%d):stream_buffer(0x%p):ion_fd(%d)"
       " returned back!", TAG, __func__, stream_id, buffer.handle, buffer_id);
 
-  auto ret = ReturnStreamBuffer(stream_id, buffer);
+  status_t ret = NO_ERROR;
+  if (stream_id != snapshot_request_.streamIds[0]) {
+    if (reproc_pipe_.get() != nullptr) {
+      reproc_pipe_->PipeNotifyBufferReturn(buffer);
+    }
+  } else {
+    ret = ReturnStreamBuffer(stream_id, buffer);
+  }
 
   QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
   assert(ret == NO_ERROR);
@@ -1350,7 +1343,8 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
       }
     }
     break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
+    case ImageFormat::kBayerRDI12BIT:
     if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       entry = static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
       for (uint32_t i = 0 ; i < entry.count; i += 2) {
@@ -1491,21 +1485,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     zsl_port->HandleZSLCaptureResult(result);
   }
 
-  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    if ( snapshot_request_id_.size() > 0 ) {
-       if ( snapshot_request_id_[current_snapshot_request_id_index_]
-            == result.resultExtras.requestId ) {
-         if(camera_reprocess_.get() != nullptr) {
-           ++current_snapshot_request_id_index_;
-           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
-             current_snapshot_request_id_index_ = 0;
-           }
-
-           camera_reprocess_->AddResult(result);
-         }
-      }
-    }
-  }
+  ReprocAddResult(result);
 }
 
 CameraPort* CameraContext::GetPort(const uint32_t track_id) {
@@ -1544,6 +1524,69 @@ void CameraContext::DeletePort(const uint32_t track_id) {
   QMMF_DEBUG("%s:%s: Exit track_id(0%x)", TAG, __func__, track_id);
 }
 
+void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
+  SnapshotCaptureCallback(buffer.stream_id, buffer);
+}
+
+void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
+
+  QMMF_DEBUG("%s:%s: %d: StreamBuffer(0x%p) Cameback to CameraPort", TAG,
+       __func__, __LINE__, buffer.handle);
+  ReturnStreamBuffer(snapshot_request_.streamIds[0], buffer);
+}
+
+status_t CameraContext::ReprocCreate(CameraStreamParameters &stream_param,
+                                     int32_t stream_id) {
+
+  reproc_pipe_ = new ReprocessPipe(this);
+  assert(reproc_pipe_.get() != nullptr);
+
+  CameraMetadata static_meta;
+  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
+  assert(ret == NO_ERROR);
+
+  const char* pipe_1_[] = {"JpegEncode"};
+  const uint32_t pipe_size = sizeof(pipe_1_)/sizeof(pipe_1_[0]);
+  auto reproc_id = reproc_pipe_->Create(stream_id, pipe_1_, pipe_size,
+                                        stream_param, &static_meta);
+  assert(reproc_id >= 0);
+
+  reproc_pipe_->AddConsumer(GetConsumerIntf());
+  AddConsumer(reproc_pipe_->GetConsumerIntf());
+  reproc_pipe_->Start();
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::ReprocDelete() {
+  if (reproc_pipe_.get() != nullptr) {
+    RemoveConsumer(reproc_pipe_->GetConsumerIntf());
+    reproc_pipe_->RemoveConsumer(GetConsumerIntf());
+    reproc_pipe_->Stop();
+    reproc_pipe_.clear();
+  }
+  return NO_ERROR;
+}
+
+status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
+  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
+    if ( snapshot_request_id_.size() > 0 ) {
+      if ( snapshot_request_id_[current_snapshot_request_id_index_]
+          == result.resultExtras.requestId ) {
+        if(reproc_pipe_.get() != nullptr) {
+           ++current_snapshot_request_id_index_;
+           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
+             current_snapshot_request_id_index_ = 0;
+           }
+          reproc_pipe_->AddResult(const_cast<void*>
+                                 (static_cast<void const*>(&result)));
+        }
+      }
+    }
+  }
+  return NO_ERROR;
+}
+
 CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
                        CameraPortType port_type, CameraContext* context)
     : port_type_(port_type),
@@ -1574,14 +1617,17 @@ CameraPort::~CameraPort() {
 status_t CameraPort::Init() {
 
   memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
-  if (params_.cam_stream_format != CameraStreamFormat::kRAW10) {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-  } else {
+  if (params_.cam_stream_format == CameraStreamFormat::kRAW10) {
     cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
+  } else if (params_.cam_stream_format == CameraStreamFormat::kRAW12) {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW12;
+  } else {
+    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   }
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;
-  cam_stream_params_.grallocFlags = GRALLOC_USAGE_HW_FB;
+  cam_stream_params_.grallocFlags =
+      GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
   if (params_.low_power_mode) {
       cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
@@ -1608,6 +1654,23 @@ status_t CameraPort::Init() {
   }
   camera_stream_id_ = stream_id;
 
+  // Get pipe nodes
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmfalg.HazeBuster.en", prop, "0");
+  uint32_t haze_buster_en = atoi(prop);
+
+  if (haze_buster_en) {
+    const char* pipe[] = {"HazeBuster"};
+    uint32_t pipe_size = sizeof(pipe)/sizeof(pipe[0]);
+
+    reproc_pipe_ = new ReprocessPipe(context_);
+    assert(reproc_pipe_.get() != nullptr);
+    CameraMetadata static_meta; // TODO
+    auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,
+                                          cam_stream_params_, &static_meta);
+    assert(reproc_id >= 0);
+  }
+
   port_state_ = PortState::PORT_CREATED;
 
   QMMF_INFO("%s:%s: Camera Device Stream(%d) is created Succussfully!", TAG,
@@ -1622,6 +1685,10 @@ status_t CameraPort::DeInit() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(ready_to_start_ == false);
   assert(context_ != nullptr);
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_.clear();
+  }
 
   auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);
   if(ret != NO_ERROR) {
@@ -1643,7 +1710,15 @@ status_t CameraPort::Start(const uint32_t consumer_id,
     assert(consumer.get() != nullptr);
     // Establish buffer communication link between consumer (TrackSource) and
     // Buffer Producer interface of camera port.
-    AddConsumer(consumer_id, consumer);
+
+    if (reproc_pipe_.get() != nullptr) {
+      consumer_ = consumer;
+      reproc_pipe_->AddConsumer(consumer_);
+      AddConsumer(consumer_id, reproc_pipe_->GetConsumerIntf());
+      reproc_pipe_->Start();
+    } else {
+      AddConsumer(consumer_id, consumer);
+    }
   }
 
   //TODO: protect it with lock.
@@ -1674,7 +1749,14 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
     }
 
     // Break buffer communication link between consumer and camera port.
-    RemoveConsumer(consumer_id);
+    if (reproc_pipe_.get() != nullptr) {
+      Mutex::Autolock lock(stop_lock_);
+      RemoveConsumer(consumer_id);
+      reproc_pipe_->RemoveConsumer(consumer_);
+      reproc_pipe_->Stop();
+    } else {
+      RemoveConsumer(consumer_id);
+    }
 
     size_t size = consumer_map_.size();
     QMMF_INFO("%s:%s: Number of Consumer left = %d", TAG, __func__, size);
@@ -1782,6 +1864,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
   QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
       __func__, stream_id, stream_buffer.handle, stream_buffer.timestamp);
 
+  Mutex::Autolock lock(stop_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
     stream_buffer.camera_id = context_->camera_id_;
     buffer_producer_impl_->NotifyBuffer(stream_buffer);
@@ -2145,319 +2228,6 @@ void ZslPort::ReturnZSLInputBuffer(StreamBuffer& buffer) {
         zsl_input_buffer_.buffer.handle);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-CameraReprocess::CameraReprocess(CameraContext* context)
-    : context_(context),
-      reprocess_flag_(false),
-      ready_to_start_(false),
-      burst_cnt_(0) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
-}
-
-CameraReprocess::~CameraReprocess() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
-}
-
-
-void CameraReprocess::GetInputBuffer(StreamBuffer &buffer) {
-  Mutex::Autolock lock(burst_queue_lock_);
-  auto iter = input_buffer_.begin();
-  input_buffer_done_.push_back((*iter));
-  buffer = (*iter);
-  input_buffer_.erase(iter);
-}
-
-void CameraReprocess::ReturnInputBuffer(StreamBuffer &buffer) {
-  Mutex::Autolock lock(burst_queue_lock_);
-  auto iter = input_buffer_done_.begin();
-  for (; iter != input_buffer_done_.end(); iter++) {
-    if ((*iter).handle ==  buffer.handle) {
-      auto ret = context_->ReturnStreamBuffer(input_stream_id_, (*iter));
-      if (NO_ERROR != ret) {
-        QMMF_ERROR("%s: Failed to return input buffer: %d\n", __func__, ret);
-      }
-      input_buffer_done_.erase(iter);
-      break;
-    }
-  }
-}
-
-void CameraReprocess::ReturnAllInputBuffers() {
-  Mutex::Autolock lock(burst_queue_lock_);
-  auto iter = input_buffer_done_.begin();
-  for (; iter != input_buffer_done_.end(); iter++) {
-    auto ret = context_->ReturnStreamBuffer(input_stream_id_, (*iter));
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s: Failed to return input buffer: %d\n", __func__, ret);
-    }
-  }
-  input_buffer_done_.clear();
-  input_buffer_.clear();
-  burst_queue_.clear();
-  input_burst_queue_.clear();
-}
-
-void CameraReprocess::ReprocessCallback(int32_t stream_id,
-                                        StreamBuffer buffer) {
-  capture_client_cb_(stream_id, buffer);
-  //start next frame reprocess
-  if (Start() != NO_ERROR) {
-    QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
-        __func__);
-  }
-
-  // last frame
-  if (++burst_cnt_ == num_images_) {
-    ReturnAllInputBuffers();
-    burst_cnt_= 0;
-    reprocess_flag_ = false;
-  }
-}
-
-status_t CameraReprocess::Create(const int32_t stream_id,
-                                 const ReprocParam& input,
-                                 const ReprocParam& output,
-                                 const uint32_t frame_rate,
-                                 const uint32_t num_images,
-                                 const CameraMetadata& static_meta,
-                                 const ReprocessCb& cb) {
-  int32_t ret = NO_ERROR;
-  CameraInputStreamParameters inputStreamParams;
-  CameraStreamParameters streamParams;
-  int32_t stream_id_p;
-
-  assert(context_ != nullptr);
-
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (reprocess_flag_) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (NO_ERROR != ValidateInput(static_meta, input, output)){
-    QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  Mutex::Autolock lock(reprocess_lock_);
-
-  input_stream_id_ = stream_id;
-  num_images_ = num_images;
-  burst_cnt_ = 0;
-  capture_client_cb_ = cb;
-
-  memset(&inputStreamParams, 0, sizeof(inputStreamParams));
-  inputStreamParams.format = input.format;
-  inputStreamParams.width = input.width;
-  inputStreamParams.height = input.height;
-  inputStreamParams.get_input_buffer = [&] (StreamBuffer &buffer)
-      { GetInputBuffer(buffer); };
-  inputStreamParams.return_input_buffer  = [&] (StreamBuffer &buffer)
-      { ReturnInputBuffer(buffer); };
-  ret = context_->CreateDeviceInputStream(inputStreamParams, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-  memset(&streamParams, 0, sizeof(streamParams));
-  streamParams.bufferCount = num_images;
-  streamParams.format = output.format;
-  streamParams.width = output.width;
-  streamParams.height = output.height;
-  streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer)
-                        { ReprocessCallback(streamId, buffer); };
-  ret = context_->CreateDeviceStream(streamParams, frame_rate, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-  ready_to_start_ = true;
-  return NO_ERROR;
-}
-
-status_t CameraReprocess::Start() {
-  if (!ready_to_start_) {
-    return BAD_VALUE;
-  }
-
-  assert(context_ != nullptr);
-
-  Mutex::Autolock lock(burst_queue_lock_);
-
-  reprocess_flag_ = true;
-
-  if (!input_burst_queue_.empty()) {
-    List<BurstData>::iterator it = input_burst_queue_.begin();
-    input_buffer_.push_back(it->buffer);
-    reprocess_request_.metadata.clear();
-    reprocess_request_.metadata.append(it->result);
-    input_burst_queue_.erase(it);
-  } else {
-    QMMF_ERROR("%s:%s: Buffer is not ready or no more buffers", TAG, __func__);
-    return NO_ERROR;
-  }
-  int64_t last_frame_mumber;
-  auto ret = context_->SubmitRequest(reprocess_request_,
-                                     false,
-                                     &last_frame_mumber);
-  if (ret < 0) {
-    QMMF_ERROR("%s:%s: Failed to submit reprocess request.", TAG, __func__);
-    return BAD_VALUE;
-  }
-  return NO_ERROR;
-}
-
-status_t CameraReprocess::Delete() {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
-
-  assert(context_ != nullptr);
-
-  Mutex::Autolock lock(reprocess_lock_);
-
-  ReturnAllInputBuffers();
-
-  if (!reprocess_request_.streamIds.isEmpty()) {
-    for (auto streamId : reprocess_request_.streamIds) {
-      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
-        QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream",
-                   __func__);
-        return BAD_VALUE;
-      }
-    }
-    reprocess_request_.streamIds.clear();
-  }
-  reprocess_flag_ = false;
-  ready_to_start_ = false;
-  return NO_ERROR;
-}
-
-void CameraReprocess::AddBuff(int32_t streamId, StreamBuffer buffer) {
-  {
-    Mutex::Autolock lock(burst_queue_lock_);
-    bool append = true;
-    if (!burst_queue_.empty()) {
-      List<BurstData>::iterator it = burst_queue_.begin();
-      List<BurstData>::iterator end = burst_queue_.end();
-      while (it != end) {
-        if (it->timestamp == buffer.timestamp) {
-          it->buffer = buffer;
-          input_burst_queue_.push_back(*it);
-          burst_queue_.erase(it);
-          append = false;
-          break;
-        }
-        it++;
-      }
-    }
-
-    if (append) {
-      //Result is missing append to queue directly
-      BurstData new_entry;
-      new_entry.buffer = buffer;
-      new_entry.timestamp = buffer.timestamp;
-      new_entry.result.clear();
-      burst_queue_.push_back(new_entry);
-    }
-  }
-
-  if (input_burst_queue_.size() >= num_images_) {
-    if (Start() != NO_ERROR) {
-      QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
-          __func__);
-    }
-  }
-}
-
-void CameraReprocess::AddResult(const CaptureResult &result) {
-  int64_t timestamp;
-  if (result.metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
-    timestamp = result.metadata.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
-  } else {
-    QMMF_ERROR("%s:%s Sensor timestamp tag missing in result!\n",
-        TAG, __func__);
-    return;
-  }
-
-  {
-    Mutex::Autolock lock(burst_queue_lock_);
-    bool append = true;
-    if (!burst_queue_.empty()) {
-      List<BurstData>::iterator it = burst_queue_.begin();
-      List<BurstData>::iterator end = burst_queue_.end();
-      while (it != end) {
-        if (it->timestamp == timestamp) {
-          it->result.append(result.metadata);
-          input_burst_queue_.push_back(*it);
-          burst_queue_.erase(it);
-          append = false;
-          break;
-        }
-        it++;
-      }
-    }
-
-    if (append) {
-      //Buffer is missing append to queue directly
-      BurstData new_entry;
-      new_entry.result.append(result.metadata);
-      new_entry.timestamp = timestamp;
-      memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
-      burst_queue_.push_back(new_entry);
-    }
-  }
-
-  if (input_burst_queue_.size() >= num_images_) {
-    if (Start() != NO_ERROR) {
-      QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
-          __func__);
-    }
-  }
-}
-
-status_t CameraReprocess::ValidateInput(const CameraMetadata& static_meta,
-                                        const ReprocParam& input,
-                                        const ReprocParam& output) {
-  camera_metadata_ro_entry_t entry;
-  int32_t in_format, num_output_formats;
-
-  if (static_meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
-    entry = static_meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
-    for (uint32_t i = 0 ; i < entry.count; i++) {
-      in_format = entry.data.i32[i++];
-      num_output_formats = entry.data.i32[i++];
-      if (in_format != input.format) {
-        i +=  (num_output_formats - 1);
-        continue;
-      }
-      for (int32_t f = 0; f < num_output_formats; f++) {
-        i += f;
-        if (output.format == entry.data.i32[i])
-          return NO_ERROR;
-      }
-    }
-  } else {
-    QMMF_ERROR("%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
-        __func__);
-  }
-
-  QMMF_ERROR("%s: Failed: input format: 0x%x out format 0x%x\n",  __func__,
-      input.format, output.format);
-
-  return BAD_VALUE;
 }
 
 }; // namespace recoder
