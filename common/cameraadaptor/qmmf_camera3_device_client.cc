@@ -1049,7 +1049,7 @@ void Camera3DeviceClient::HandleCaptureResult(
   }
   PendingRequest &request = pending_requests_vector_.editValueAt(idx);
   QMMF_DEBUG(
-      "%s: Received PendingRequest requestId = %d, frameNumber = %lld,"
+      "%s: Received PendingRequest requestId = %d, frameNumber = %d,"
       "burstId = %d, partialResultCount = %d\n",
       __func__, request.resultExtras.requestId,
       request.resultExtras.frameNumber, request.resultExtras.burstId,

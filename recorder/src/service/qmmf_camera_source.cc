@@ -1083,14 +1083,14 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     BnBuffer bn_buffer;
     memset(&bn_buffer, 0x0, sizeof bn_buffer);
-    bn_buffer.ion_fd         = buffer.fd;
-    bn_buffer.size           = buffer.size;
-    bn_buffer.timestamp      = buffer.timestamp;
-    bn_buffer.width          = buffer.info.plane_info[0].width;
-    bn_buffer.height         = buffer.info.plane_info[0].height;
-    bn_buffer.buffer_id      = buffer.fd;
-    bn_buffer.flag           = 0x10;
-    bn_buffer.capacity       = buffer.size;
+    bn_buffer.ion_fd            = buffer.fd;
+    bn_buffer.size              = buffer.size;
+    bn_buffer.timestamp         = buffer.timestamp;
+    bn_buffer.width             = buffer.info.plane_info[0].width;
+    bn_buffer.height            = buffer.info.plane_info[0].height;
+    bn_buffer.buffer_id         = buffer.fd;
+    bn_buffer.flag              = 0x10;
+    bn_buffer.capacity          = buffer.size;
 
     // Buffers from this list used for YUV callback.
     {
@@ -1100,10 +1100,12 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
 
-    MetaData meta_data;
-    memset(&meta_data, 0x0, sizeof meta_data);
+    MetaData meta_data {};
     meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-    meta_data.cam_buffer_meta_data = buffer.info;
+    meta_data.meta_flag |= static_cast<uint32_t>
+        (MetaParamType::kCamMetaFrameNumber);
+    meta_data.cam_buffer_meta_data  = buffer.info;
+    meta_data.cam_meta_frame_number = buffer.frame_number;
 
     std::vector<MetaData> meta_buffers;
     meta_buffers.push_back(meta_data);

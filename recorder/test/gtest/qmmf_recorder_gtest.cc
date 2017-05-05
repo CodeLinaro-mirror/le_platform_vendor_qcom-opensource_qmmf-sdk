@@ -1828,7 +1828,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
         event_type, event_data, event_data_size); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                      video_track_param, video_track_cb);
+                                     video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
@@ -8540,6 +8540,111 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* 1080pYUVTrackMatchCameraMetaData: This test demonstrates how track buffer can
+* be matched exactly with it's corresponding CameraMetaData using meta frame
+* number.
+* can b session with one 1080p YUV track.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pYUVTrackMatchCameraMetaData) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+      const CameraMetadata &result) {
+        ResultCallbackHandlerMatchCameraMeta(camera_id, result);
+      };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = camera_id_;
+  video_track_param.width       = 1920;
+  video_track_param.height      = 1080;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = VideoFormat::kYUV;
+  uint32_t video_track_id       = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackDataCbMatchCameraMeta(session_id, track_id, buffers,
+                                        meta_buffers);
+      };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Let session run for time kRecordDuration, during this time buffer with
+  // valid data would be received in track callback
+  // (VideoTrackDataCbMatchCameraMeta).
+  sleep(kRecordDuration*2);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  buffer_metadata_map_.clear();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {
@@ -8711,13 +8816,16 @@ void RecorderGtest::SessionCallbackHandler(EventType event_type,
 
 void RecorderGtest::CameraResultCallbackHandler(uint32_t camera_id,
                                                 const CameraMetadata &result) {
-  fprintf(stderr,"%s: camera_id: %d\n", __func__, camera_id);
+  TEST_DBG(stderr,"%s: camera_id: %d\n", __func__, camera_id);
   camera_metadata_ro_entry entry;
   entry = result.find(ANDROID_CONTROL_AWB_MODE);
   if (0 < entry.count) {
-    fprintf(stderr,"%s: AWB mode: %d\n", __func__, *entry.data.u8);
+    TEST_DBG(stderr,"%s: AWB mode: %d\n", __func__, *entry.data.u8);
   } else {
-    fprintf(stderr,"%s: No AWB mode tag\n", __func__);
+    TEST_DBG(stderr,"%s: No AWB mode tag\n", __func__);
+  }
+  if (!result.exists(ANDROID_REQUEST_FRAME_COUNT)) {
+    return;
   }
 }
 
@@ -8763,6 +8871,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
   }
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
+
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
@@ -8912,6 +9021,92 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   TEST_INFO("%s:%s Exit", TAG, __func__);
+}
+
+void RecorderGtest::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
+                                                const CameraMetadata &result) {
+  uint32_t meta_frame_number =
+      result.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0];
+  TEST_INFO("%s:%s meta frame number =%d", TAG, __func__, meta_frame_number);
+  std::lock_guard<std::mutex> lock(buffer_metadata_lock_);
+  bool append = false;
+  auto iter = buffer_metadata_map_.find(meta_frame_number);
+  if (iter == buffer_metadata_map_.end()) {
+    append = true;
+  }
+  if (append) {
+    // New entry, camera meta arrived first.
+    auto buffer_meta_tuple = std::make_tuple(BufferDescriptor(),
+     CameraMetadata(result), 0, 0);
+    buffer_metadata_map_.insert( { meta_frame_number, buffer_meta_tuple} );
+  } else {
+    // Buffer already arrived for this meta.
+    auto& tuple  = buffer_metadata_map_[meta_frame_number];
+    std::get<1>(tuple).append(result);
+    // Buffer is exactly matched with it's camera meta data buffer. This test
+    // code is demonstarting how buffer descriptor can be matched exactly with
+    // its corresponding camera meta data. once buffer & meta data matched
+    // application can take appropriate actions. this test app is doing
+    // nothing it is just returning buffer back to service on match.
+    std::vector<BufferDescriptor> buffers;
+    buffers.push_back(std::get<0>(tuple));
+    auto ret = recorder_.ReturnTrackBuffer(std::get<2>(tuple),
+        std::get<3>(tuple), buffers);
+    assert(ret == NO_ERROR);
+    std::get<1>(tuple).clear();
+    buffer_metadata_map_.erase(meta_frame_number);
+    TEST_INFO("%s:%s size of the map=%d", TAG, __func__,
+        buffer_metadata_map_.size());
+  }
+}
+
+void RecorderGtest::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
+    uint32_t track_id, std::vector<BufferDescriptor> buffers,
+    std::vector<MetaData> meta_buffers) {
+
+  uint32_t meta_frame_number = 0;
+  for (uint32_t i = 0; i < meta_buffers.size(); ++i) {
+    MetaData meta_data = meta_buffers[i];
+    if (meta_data.meta_flag &
+        static_cast<uint32_t>(MetaParamType::kCamMetaFrameNumber)) {
+      meta_frame_number = meta_buffers[i].cam_meta_frame_number;
+    }
+  }
+  TEST_INFO("%s:%s meta frame number =%d", TAG, __func__, meta_frame_number);
+
+  bool append = false;
+  std::lock_guard<std::mutex> lock(buffer_metadata_lock_);
+  auto iter = buffer_metadata_map_.find(meta_frame_number);
+  if (iter == buffer_metadata_map_.end()) {
+    append = true;
+  }
+  if (append) {
+    // New entry, buffer arrived first.
+    auto buffer_meta_tuple = std::make_tuple(BufferDescriptor(buffers[0]),
+        CameraMetadata(), session_id, track_id);
+    buffer_metadata_map_.insert( {meta_frame_number, buffer_meta_tuple} );
+  } else {
+    // MetaData already arrived for this buffer.
+    auto& tuple  = buffer_metadata_map_[meta_frame_number];
+    std::get<0>(tuple) = buffers[0];
+    // Double check the meta frame number.
+    uint32_t frame_number =
+        std::get<1>(tuple).find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0];
+    assert(frame_number == meta_frame_number);
+    // Buffer is exactly matched with it's camera meta data buffer. This test
+    // code is demonstarting how buffer descriptor can be matched exactly with
+    // its corresponding camera meta data. once buffer & meta data matched
+    // application can take appropriate actions. this test app is doing
+    // nothing it is just returning buffer back to service on match.
+    auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+    assert(ret == NO_ERROR);
+    std::get<1>(tuple).clear();
+    buffer_metadata_map_.erase(meta_frame_number);
+
+    TEST_INFO("%s:%s size of the map=%d", TAG, __func__,
+        buffer_metadata_map_.size());
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
 void RecorderGtest::ParseFaceInfo(const android::CameraMetadata &res,

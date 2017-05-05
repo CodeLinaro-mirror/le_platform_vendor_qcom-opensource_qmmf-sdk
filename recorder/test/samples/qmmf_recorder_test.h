@@ -44,6 +44,7 @@
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 
+#include <condition_variable>
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
@@ -272,6 +273,8 @@ class RecorderTest {
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
 
+  status_t CancelTakeSnapshot();
+
   status_t StartMultiCameraMode();
 
   status_t StopMultiCameraMode();
@@ -385,6 +388,18 @@ class RecorderTest {
   status_t GetRawHistogramStatistic(const CameraMetadata& meta);
   status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
 
+  uint32_t get_snapshot_cb_wait_time() {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.rec.test.snaptime",prop,"10");
+    return atoi (prop);
+  }
+
+  bool is_test_cancel_snapshot() {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.rec.test.canclsnap", prop, "0");
+    return atoi (prop);
+  }
+
   // Auto Mode
   int32_t RunAutoMode();
   // Config file related.
@@ -450,6 +465,10 @@ class RecorderTest {
   ::std::mutex callback_lock_;
   uint32_t num_images_;
   bool aec_converged_;
+
+  std::mutex               snapshot_wait_lock_;
+  std::condition_variable  snapshot_wait_signal_;
+  uint32_t                 burst_snapshot_count_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
