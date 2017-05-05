@@ -48,6 +48,7 @@
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+#include <cairo/cairo.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -106,6 +107,8 @@ if (kpi_debug_mask & KPI_ONLY) { \
 #define PARAMETER_SETTLE_INTERVAL(x) sleep(x)
 
 #define FEATURE_NOT_AVAILABLE  "Not available"
+
+#define TEXT_SIZE                   40
 
 using namespace qmmf;
 using namespace recorder;
@@ -187,6 +190,13 @@ struct TrackInfo {
   int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+};
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
 };
 
 class CameraMetaDataParser {
@@ -562,6 +572,10 @@ class TestTrack {
 
   status_t DisableOverlay();
 
+  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
+
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -602,6 +616,8 @@ class TestTrack {
   bool display_started_;
 
   DumpBitStream dump_bitstream_;
+  cairo_surface_t*       cr_surface_;
+  cairo_t*               cr_context_;
 };
 
 class CmdMenu

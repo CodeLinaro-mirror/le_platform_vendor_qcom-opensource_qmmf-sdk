@@ -1817,18 +1817,32 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                                const uint32_t track_id, OverlayParam *params,
                                uint32_t *overlay_id) {
     Parcel data, reply;
+    android::Parcel::WritableBlob image_blob;
+
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(track_id);
     uint32_t param_size = sizeof(OverlayParam);
+
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
     memset(blob.data(), 0x0, param_size);
     memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
+
+    if (params->type ==  OverlayType::kStaticImage &&
+        params->image_info.image_type == OverlayImageType::kBlobType) {
+      data.writeUint32(params->image_info.image_size);
+      data.writeBlob(params->image_info.image_size, false, &image_blob);
+      memset(image_blob.data(), 0x0, params->image_info.image_size);
+      memcpy(image_blob.data(), reinterpret_cast<void*>
+          (params->image_info.image_buffer), params->image_info.image_size);
+    }
+
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_CREATE_OVERLAYOBJECT), data, &reply);
     blob.release();
+    image_blob.release();
     *overlay_id = reply.readUint32();
     return reply.readInt32();;
   }
@@ -1874,6 +1888,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                                      const uint32_t overlay_id,
                                      OverlayParam *params) {
     Parcel data, reply;
+    android::Parcel::WritableBlob image_blob;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(track_id);
@@ -1884,9 +1899,21 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeBlob(param_size, false, &blob);
     memset(blob.data(), 0x0, param_size);
     memcpy(blob.data(), reinterpret_cast<void*>(params), param_size);
+
+    if (params->type ==  OverlayType::kStaticImage &&
+        params->image_info.image_type == OverlayImageType::kBlobType &&
+        params->image_info.buffer_updated == true) {
+      data.writeUint32(params->image_info.image_size);
+      data.writeBlob(params->image_info.image_size, false, &image_blob);
+      memset(image_blob.data(), 0x0, params->image_info.image_size);
+      memcpy(image_blob.data(), reinterpret_cast<void*>
+          (params->image_info.image_buffer), params->image_info.image_size);
+    }
+
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_UPDATE_OVERLAYOBJECT_PARAMS), data, &reply);
     blob.release();
+    image_blob.release();
     return reply.readInt32();
   }
 
