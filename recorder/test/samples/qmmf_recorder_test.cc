@@ -1307,7 +1307,6 @@ status_t RecorderTest::StartCamera() {
     InitSupportedIRModes();
     InitSupportedBinningCorrectionModes();
   }
-
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -3450,7 +3449,7 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
 
 void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
                                                const CameraMetadata &result) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
   status_t ret;
 
   if(kpi_debug_mask) {
@@ -3502,7 +3501,7 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
     }
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
 // This function dumps YUV, JPEG and RAW frames to file.
