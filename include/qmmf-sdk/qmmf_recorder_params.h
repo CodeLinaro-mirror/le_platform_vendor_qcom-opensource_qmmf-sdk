@@ -58,7 +58,9 @@ namespace recorder {
 
 typedef int32_t status_t;
 
-enum class EventType { kError, kStateChanged };
+enum class EventType {
+  kServerDied = 1,
+};
 
 typedef std::function<void(EventType event_type, void *event_data,
                            size_t event_data_size)> EventCb;
