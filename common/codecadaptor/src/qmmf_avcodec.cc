@@ -2503,6 +2503,8 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
       ret = omx_client_->SetConfig((OMX_INDEXTYPE)OMX_IndexConfigOperatingRate,
           static_cast<OMX_PTR>(&operating_rate_params));
       break;
+    case CodecParamType::kEnableFrameRepeat:
+      break;
     default:
       QMMF_ERROR("%s:%s Unknown param type", TAG, __func__);
       return -1;
