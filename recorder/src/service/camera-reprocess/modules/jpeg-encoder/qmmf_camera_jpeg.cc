@@ -169,6 +169,7 @@ bool CameraJpeg::Process(StreamBuffer& in_buffer,
       munmap(out_vaaddr, out_buffer.size);
     }
 
+    out_buffer.info.format = BufferFormat::kBLOB;
     out_buffer.info.plane_info[0].width = jpeg_size;
     out_buffer.data = nullptr;
     out_buffer.filled_length = jpeg_size;
