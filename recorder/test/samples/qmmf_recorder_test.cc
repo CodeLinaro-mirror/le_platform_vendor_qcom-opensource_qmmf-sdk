@@ -97,9 +97,9 @@ status_t RecorderTest::Connect() {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   RecorderCb recorder_status_cb;
-  recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
-      event_data_size); };
+  recorder_status_cb.event_cb = [&] (EventType event_type, void *event_data,
+      size_t event_data_size) { RecorderEventCallbackHandler(event_type,
+      event_data, event_data_size); };
 
   auto ret = recorder_.Connect(recorder_status_cb);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -1307,7 +1307,6 @@ status_t RecorderTest::StartCamera() {
     InitSupportedIRModes();
     InitSupportedBinningCorrectionModes();
   }
-
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
 }
@@ -3434,10 +3433,16 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s:%s Exit", TAG, __func__);
 }
 
-void RecorderTest::RecorderCallbackHandler(EventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size) {
+void RecorderTest::RecorderEventCallbackHandler(EventType event_type,
+                                                void *event_data,
+                                                size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  if (event_type == EventType::kServerDied) {
+    // qmmf-server died, reason could be non recoverable FATAL error,
+    // qmmf-server runs as a daemon and gets restarted automatically, on death
+    // event application can cleanup all its resources and connect again.
+    TEST_WARN("%s:%s: Recorder Service died!", TAG, __func__);
+  }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -3450,7 +3455,7 @@ void RecorderTest::SessionCallbackHandler(EventType event_type,
 
 void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
                                                const CameraMetadata &result) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
   status_t ret;
 
   if(kpi_debug_mask) {
@@ -3502,7 +3507,7 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
     }
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
 // This function dumps YUV, JPEG and RAW frames to file.
@@ -3565,8 +3570,8 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   // Connect - Start
   RecorderCb recorder_status_cb;
   recorder_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { RecorderCallbackHandler(event_type, event_data,
-      event_data_size); };
+      size_t event_data_size) { RecorderEventCallbackHandler(event_type,
+      event_data, event_data_size); };
 
   ret = recorder_.Connect(recorder_status_cb);
 
