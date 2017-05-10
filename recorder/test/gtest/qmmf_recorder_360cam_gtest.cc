@@ -526,6 +526,10 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -636,6 +640,10 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -746,6 +754,10 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -861,6 +873,9 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -995,6 +1010,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -1122,6 +1141,10 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -1249,6 +1272,10 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -1393,6 +1420,9 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1432,6 +1462,9 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -1573,7 +1606,9 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
-
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1614,6 +1649,9 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -1755,6 +1793,9 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -1795,6 +1836,9 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -2202,6 +2246,10 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -2314,6 +2362,10 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -2426,6 +2478,10 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -2543,6 +2599,9 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = VideoFormat::kYUV;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -2678,6 +2737,10 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -2806,6 +2869,10 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -2934,6 +3001,10 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -3079,6 +3150,9 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -3119,6 +3193,9 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     video_track_param.frame_rate  = fps;
     video_track_param.format_type = format_type;
     video_track_param.out_device  = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     video_track_cb.data_cb = [&] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -3255,6 +3332,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWbModes) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -3449,6 +3529,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -3588,6 +3671,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -3727,6 +3813,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -3866,6 +3955,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4005,6 +4097,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4144,6 +4239,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4283,6 +4381,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4422,6 +4523,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4569,6 +4673,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4735,6 +4842,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -4874,6 +4984,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5013,6 +5126,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5152,6 +5268,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5300,6 +5419,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5483,6 +5605,9 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5623,6 +5748,9 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5763,6 +5891,9 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -5903,6 +6034,9 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -6043,6 +6177,9 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -6183,6 +6320,9 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -6323,6 +6463,9 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     video_track_param.frame_rate    = 30;
     video_track_param.format_type   = format_type;
     video_track_param.out_device    = 0x01;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
     uint32_t video_track_id = 1;
 
@@ -6471,6 +6614,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6633,6 +6779,9 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6795,6 +6944,9 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
@@ -6956,6 +7108,9 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
   video_track_param.out_device  = 0x01;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
