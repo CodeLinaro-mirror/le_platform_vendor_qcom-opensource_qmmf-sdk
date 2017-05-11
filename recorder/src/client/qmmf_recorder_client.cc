@@ -506,6 +506,43 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
   return ret;
 }
 
+status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
+                                          const uint32_t track_id,
+                                          const VideoTrackCreateParam& param,
+                                          const VideoTrackExtraParam&
+                                          extra_param, const TrackCb& cb) {
+
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_KPI_BEGIN("CreateVideoTrackWithExtraParam");
+  Mutex::Autolock lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  assert(session_id != 0);
+  assert(track_id != 0);
+
+  if (sessions_.indexOfKey(session_id) < 0) {
+    QMMF_ERROR("%s:%s: session_id(%d) is not valid!", TAG, __func__,
+        session_id);
+    return BAD_VALUE;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->CreateVideoTrack(client_id_, session_id,
+                                                 track_id, param, extra_param);
+  if (NO_ERROR != ret) {
+     QMMF_ERROR("%s:%s CreateVideoTrackWithExtraParam failed!", TAG, __func__);
+  }
+
+  track_cb_list_.add(track_id, cb);
+
+  UpdateSessionTopology(session_id, track_id, true /*add*/);
+
+  QMMF_KPI_END();
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  return ret;
+}
+
 status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
                                            const uint32_t track_id,
                                            std::vector<BufferDescriptor>
@@ -1586,6 +1623,37 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
         RECORDER_CREATE_VIDEOTRACK), data, &reply);
     blob.release();
+    return reply.readInt32();
+  }
+
+  status_t CreateVideoTrack(const uint32_t client_id,
+                            const uint32_t session_id,
+                            const uint32_t track_id,
+                            const VideoTrackCreateParam& params,
+                            const VideoTrackExtraParam& extra_param) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(session_id);
+    data.writeUint32(track_id);
+    uint32_t param_size = sizeof params;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(), &params, param_size);
+    uint32_t extra_param_size = extra_param.Size();
+    data.writeUint32(extra_param_size);
+    const void *extra_data = extra_param.GetAndLock();
+    android::Parcel::WritableBlob extra_blob;
+    data.writeBlob(extra_param_size, false, &extra_blob);
+    memset(extra_blob.data(), 0x0, extra_param_size);
+    memcpy(extra_blob.data(), extra_data, extra_param_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS), data, &reply);
+    extra_param.ReturnAndUnlock(extra_data);
+    blob.release();
+    extra_blob.release();
     return reply.readInt32();
   }
 

@@ -763,7 +763,8 @@ status_t TrackSource::Init() {
   stream_param.low_power_mode   = track_params_.params.low_power_mode;
 
   assert(camera_interface_.get() != nullptr);
-  auto ret = camera_interface_->CreateStream(stream_param);
+  auto ret = camera_interface_->CreateStream(stream_param,
+                                             track_params_.extra_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
     return BAD_VALUE;

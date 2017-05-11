@@ -57,7 +57,8 @@ class CameraInterface : public virtual RefBase {
 
   virtual status_t CancelCaptureImage() = 0;
 
-  virtual status_t CreateStream(const CameraStreamParam& param) = 0;
+  virtual status_t CreateStream(const CameraStreamParam& param,
+                                const VideoTrackExtraParam& extra_param) = 0;
 
   virtual status_t DeleteStream(const uint32_t track_id) = 0;
 

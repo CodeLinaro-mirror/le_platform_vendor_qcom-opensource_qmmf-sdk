@@ -86,7 +86,8 @@ class CameraContext : public CameraInterface,
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param) override;
+  status_t CreateStream(const CameraStreamParam& param,
+                        const VideoTrackExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 

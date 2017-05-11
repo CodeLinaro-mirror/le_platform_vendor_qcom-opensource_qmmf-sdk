@@ -99,6 +99,7 @@ typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
 
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
+  VideoTrackExtraParam   extra_param;
   uint32_t               track_id;
   buffer_callback        data_cb;
 };

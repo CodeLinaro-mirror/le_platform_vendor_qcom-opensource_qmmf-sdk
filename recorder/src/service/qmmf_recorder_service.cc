@@ -193,6 +193,30 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS: {
+        uint32_t client_id, session_id, track_id;
+        uint32_t blob_size, extra_blob_size;
+        data.readUint32(&client_id);
+        data.readUint32(&session_id);
+        data.readUint32(&track_id);
+        android::Parcel::ReadableBlob blob;
+        data.readUint32(&blob_size);
+        data.readBlob(blob_size, &blob);
+        android::Parcel::ReadableBlob extra_blob;
+        data.readUint32(&extra_blob_size);
+        data.readBlob(extra_blob_size, &extra_blob);
+        VideoTrackCreateParam video_track_param;
+        memset(&video_track_param, 0x0, sizeof video_track_param);
+        memcpy(&video_track_param, blob.data(), blob_size);
+        VideoTrackExtraParam extra_param(extra_blob.data(), extra_blob_size);
+        ret = CreateVideoTrack(client_id, session_id, track_id,
+                               video_track_param, extra_param);
+        blob.release();
+        extra_blob.release();
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_DELETE_AUDIOTRACK: {
         uint32_t client_id, session_id, track_id;
         data.readUint32(&client_id);
@@ -876,6 +900,36 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                          param);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: CreateVideoTrack failed!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return ret;
+}
+
+status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
+                                           const uint32_t session_id,
+                                           const uint32_t track_id,
+                                           const VideoTrackCreateParam& param,
+                                           const VideoTrackExtraParam&
+                                           extra_param) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  uint32_t id = track_id & 0xffff0000;
+  if (id > 0) {
+    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->CreateVideoTrack(client_id, session_id, track_id,
+                                         param, extra_param);
+
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s:%s: CreateVideoTrackWithExtraParam failed!", TAG, __func__);
     return BAD_VALUE;
   }
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);

@@ -349,7 +349,9 @@ status_t MultiCameraManager::CancelCaptureImage() {
   return ret;
 }
 
-status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
+status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
+                                          const VideoTrackExtraParam&
+                                          extra_param) {
 
   status_t ret;
   ssize_t ctx_idx;
@@ -364,7 +366,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
   for (ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
     assert(camera_context.get() != nullptr);
-    ret = camera_context->CreateStream(context_param);
+    ret = camera_context->CreateStream(context_param, extra_param);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
       goto FAIL;

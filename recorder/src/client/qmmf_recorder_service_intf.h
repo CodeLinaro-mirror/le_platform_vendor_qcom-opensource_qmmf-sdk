@@ -40,6 +40,7 @@
 #include <binder/Parcel.h>
 #include <camera/CameraMetadata.h>
 
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 
@@ -67,6 +68,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RESUME_SESSION,
   RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
+  RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS,
   RECORDER_DELETE_AUDIOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
   RECORDER_RETURN_TRACKBUFFER,
@@ -186,6 +188,13 @@ class IRecorderService : public IInterface {
                                     const uint32_t session_id,
                                     const uint32_t track_id,
                                     const VideoTrackCreateParam& param) = 0;
+
+  virtual status_t CreateVideoTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
+                                    const uint32_t track_id,
+                                    const VideoTrackCreateParam& param,
+                                    const VideoTrackExtraParam&
+                                    extra_param) = 0;
 
   virtual status_t DeleteAudioTrack(const uint32_t client_id,
                                     const uint32_t session_id,
