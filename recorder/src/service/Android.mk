@@ -40,7 +40,6 @@ LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware

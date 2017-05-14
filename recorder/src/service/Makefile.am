@@ -48,4 +48,4 @@ libqmmf_recorder_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_ad
 libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/overlay/liboverlay.la
 libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
-libqmmf_recorder_service_la_LIBADD   += ../service/camera-reprocess/modules/jpeg-encoder/libqmmf_camera_jpeg.la
+

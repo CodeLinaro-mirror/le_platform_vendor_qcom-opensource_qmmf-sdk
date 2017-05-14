@@ -8,7 +8,6 @@ BUILD_COMPONENTS += common/codecadaptor
 BUILD_COMPONENTS += common/avqueue
 BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += display/src/client
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/jpeg-encoder
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest
