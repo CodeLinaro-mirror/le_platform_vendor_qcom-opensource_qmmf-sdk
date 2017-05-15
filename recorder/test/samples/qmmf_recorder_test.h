@@ -259,6 +259,7 @@ public:
               SnapshotType::kNone,
               0,
               0,
+              0,
               0
             } {};
 
