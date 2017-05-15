@@ -120,7 +120,8 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
 
   recorder_cb_ = cb;
 
-  death_notifier_ = new DeathNotifier(this);
+  NotifyServerDeathCB death_cb = [&] { ServiceDeathHandler(); };
+  death_notifier_ = new DeathNotifier(death_cb);
   if (nullptr == death_notifier_.get()) {
     QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
     return NO_MEMORY;
@@ -1075,6 +1076,101 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
     }
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+}
+
+void RecorderClient::ServiceDeathHandler() {
+  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+
+  int32_t ret = NO_ERROR;
+  //Clear all pending buffers.
+  for (size_t i = 0; i < track_buf_map_.size(); ++i) {
+
+    buf_info_map info_map = track_buf_map_.valueAt(i);
+    for (size_t j = 0; j < info_map.size(); ++j) {
+
+      BufInfo buf_info = info_map.valueAt(j);
+      if (buf_info.pointer != nullptr) {
+        struct ion_handle_data ion_handle;
+        memset(&ion_handle, 0, sizeof(ion_handle));
+        ion_handle.handle = buf_info.ion_handle;
+        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        }
+        ret = munmap(buf_info.pointer, buf_info.frame_len);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
+              buf_info.pointer, -errno);
+        }
+        buf_info.pointer = nullptr;
+      }
+      if (buf_info.ion_fd > 0) {
+        ret = close(buf_info.ion_fd);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+              buf_info.ion_fd, -errno);
+        }
+      }
+    }
+  }
+  track_buf_map_.clear();
+
+  for (size_t i = 0; i < snapshot_buffers_.size(); ++i) {
+    auto buf_info = snapshot_buffers_.valueAt(i);
+    if (buf_info.pointer != nullptr) {
+      struct ion_handle_data ion_handle;
+      memset(&ion_handle, 0, sizeof(ion_handle));
+      ion_handle.handle = buf_info.ion_handle;
+      if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+        QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+      }
+      ret = munmap(buf_info.pointer, buf_info.frame_len);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed to unmap buffer: %p:%d", TAG, __func__,
+            buf_info.pointer, -errno);
+      }
+      buf_info.pointer = nullptr;
+    }
+    if (buf_info.ion_fd > 0) {
+      ret = close(buf_info.ion_fd);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed to close ION fd: %d:%d", TAG, __func__,
+            buf_info.ion_fd, -errno);
+      }
+    }
+  }
+  snapshot_buffers_.clear();
+
+  recorder_service_->asBinder(recorder_service_)->
+      unlinkToDeath(death_notifier_);
+
+  recorder_service_.clear();
+  recorder_service_ = nullptr;
+
+  death_notifier_.clear();
+  death_notifier_ = nullptr;
+
+  if (!session_cb_list_.isEmpty()) {
+    session_cb_list_.clear();
+  }
+  if (!track_cb_list_.isEmpty()) {
+    track_cb_list_.clear();
+  }
+  if (!sessions_.isEmpty()) {
+    sessions_.clear();
+  }
+  image_capture_cb_ = nullptr;
+  metadata_cb_ = nullptr;
+
+  if (ion_device_ > 0) {
+    close(ion_device_);
+    ion_device_ = -1;
+  }
+  client_id_ = 0;
+
+  if (recorder_cb_.event_cb != nullptr) {
+    recorder_cb_.event_cb(EventType::kServerDied, nullptr, 0);
+  }
+  QMMF_INFO("%s:%s Exit ", TAG, __func__);
 }
 
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
