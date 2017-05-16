@@ -137,10 +137,10 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
 
   StitchingBase::InitParams algo_param {};
-  algo_param.virtual_camera_id = virtual_camera_id_;
-  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
-  algo_param.frame_rate = 1;
+  algo_param.multicam_id = virtual_camera_id_;
+  algo_param.camera_ids  = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.stitch_mode = multicam_type_;
+  algo_param.frame_rate  = 1;
 
   snapshot_stitch_algo_ = new SnapshotStitching(algo_param, camera_contexts_);
   ret = snapshot_stitch_algo_->Initialize();
@@ -270,7 +270,7 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
 
   ImageParam cam_param (param);
   cam_param.image_format = image_format;
-  ReCalculateWidth(cam_param.width);
+  SetDefaultSurfaceDim(cam_param.width, cam_param.height);
 
   if (need_jpeg_encoding) {
     StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buf) {
@@ -352,19 +352,67 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
                                           const VideoTrackExtraParam&
                                           extra_param) {
 
+  SourceSurfaceParam surface;
+  std::map<int32_t, SourceSurfaceParam> source_surface;
+
+  if (extra_param.Exists(QMMF_SOURCE_SURFACE_PARAM)) {
+    // Source surface entry count should be equal to the number of cameras.
+    size_t entry_count = extra_param.EntryCount(QMMF_SOURCE_SURFACE_PARAM);
+    if (entry_count < camera_contexts_.size()) {
+      QMMF_ERROR("%s:%s: Not enough QMMF_SOURCE_SURFACE_PARAM entries! "
+          "Required entries: %d!", TAG, __func__, camera_contexts_.size());
+      return NOT_ENOUGH_DATA;
+    } else if (entry_count > camera_contexts_.size()) {
+      QMMF_ERROR("%s:%s: QMMF_SOURCE_SURFACE_PARAM entries count exceeds "
+          "camera count (%d)!", TAG, __func__, camera_contexts_.size());
+      return BAD_INDEX;
+    }
+    // Fetch source surface dimensions data from the container.
+    for (size_t i = 0; i < entry_count; ++i) {
+      extra_param.Fetch(QMMF_SOURCE_SURFACE_PARAM, surface, i);
+      if (source_surface.find(surface.camera_id) != source_surface.end()) {
+        QMMF_ERROR("%s:%s: Found more than one QMMF_SOURCE_SURFACE_PARAM "
+            "entry for camera %d!", TAG, __func__, surface.camera_id);
+        return ALREADY_EXISTS;
+      }
+      source_surface.emplace(surface.camera_id, surface);
+    }
+    // Verify that surface dimensions are set for every camera.
+    auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+    for (auto const& cam_id : camera_ids) {
+      if (source_surface.find(cam_id) == source_surface.end()) {
+        QMMF_ERROR("%s:%s: QMMF_SOURCE_SURFACE_PARAM for camera %d missing!",
+            TAG, __func__, cam_id);
+        return NAME_NOT_FOUND;
+      }
+    }
+  } else {
+    surface.width = param.cam_stream_dim.width;
+    surface.height = param.cam_stream_dim.height;
+    // Fill the source camera surfaces with default values.
+    SetDefaultSurfaceDim(surface.width, surface.height);
+    auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+    for (auto const& cam_id : camera_ids) {
+      surface.camera_id = cam_id;
+      source_surface.emplace(cam_id, surface);
+    }
+  }
+
   auto ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
     return ret;
   }
 
-  CameraStreamParam stream_param(param);
-  ReCalculateWidth(stream_param.cam_stream_dim.width);
-
   // Start streams in reverse order. This is needed because camera
   // context is caching our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
+  CameraStreamParam stream_param(param);
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
+    auto &camera_surface = source_surface.at(camera_contexts_.keyAt(ctx_idx));
+    stream_param.cam_stream_dim.width = camera_surface.width;
+    stream_param.cam_stream_dim.height = camera_surface.height;
+
     ret = CreateCameraStream(ctx_idx, stream_param, extra_param);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: CreateCameraStream Failed!", TAG, __func__);
@@ -523,10 +571,20 @@ Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
   return supported_fps_;
 }
 
-void MultiCameraManager::ReCalculateWidth(uint32_t &width) {
+status_t MultiCameraManager::SetDefaultSurfaceDim(uint32_t& w, uint32_t& h) {
 
-  // Divide the width of the stitched output on the number of cameras.
-  width /= camera_contexts_.size();
+  switch (multicam_type_) {
+    case MultiCameraConfigType::k360Stitch:
+    case MultiCameraConfigType::kSideBySide:
+      // Divide the width of the stitched output on the number of cameras.
+      w /= camera_contexts_.size();
+      break;
+    default:
+      QMMF_ERROR("%s:%s: Unsupported MultiCamera mode: 0x%x", TAG, __func__,
+          multicam_type_);
+      return NAME_NOT_FOUND;
+  }
+  return NO_ERROR;
 }
 
 int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
@@ -687,13 +745,13 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam &param) {
+status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam& param) {
 
   StitchingBase::InitParams algo_param {};
-  algo_param.virtual_camera_id = virtual_camera_id_;
-  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
-  algo_param.frame_rate = param.frame_rate;
+  algo_param.multicam_id = virtual_camera_id_;
+  algo_param.camera_ids  = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.stitch_mode = multicam_type_;
+  algo_param.frame_rate  = param.frame_rate;
 
   GrallocMemory::BufferParams buffer_param {};
   if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
@@ -1190,7 +1248,7 @@ bool StitchingBase::ThreadLoop() {
   b.size         = priv_handle->size;
   b.frame_number = input_buffers.itemAt(0).frame_number;
   b.timestamp    = input_buffers.itemAt(0).timestamp;
-  b.camera_id    = params_.virtual_camera_id;
+  b.camera_id    = params_.multicam_id;
   output_buffers.push_back(b);
 
   if (!stitch_lib_.configured) {
@@ -1399,7 +1457,7 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
   QMMF_DEBUG("%s:%s: Got buffer(%p), camera id %d", TAG, __func__, handle,
       buffer.camera_id);
 
-  if (buffer.camera_id == params_.virtual_camera_id) {
+  if (buffer.camera_id == params_.multicam_id) {
     if (QMMF_ALG_SUCCESS == status) {
       ret = NotifyBufferToClient(buffer);
     } else {
@@ -1445,7 +1503,7 @@ status_t StitchingBase::InitLibrary() {
   }
 
   String8 lib_name;
-  switch (params_.multicam_type) {
+  switch (params_.stitch_mode) {
     case MultiCameraConfigType::k360Stitch:
       lib_name.append(k360StitchLib);
       break;
@@ -1454,7 +1512,7 @@ status_t StitchingBase::InitLibrary() {
       break;
     default:
       QMMF_ERROR("%s:%s MultiCamera type (%d) is not supported!", TAG,
-          __func__, params_.multicam_type);
+          __func__, params_.stitch_mode);
       return BAD_VALUE;
   }
 

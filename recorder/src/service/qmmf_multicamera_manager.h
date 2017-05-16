@@ -39,6 +39,8 @@
 
 #include <qmmf-alg/qmmf_alg_intf.h>
 
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
+#include "qmmf-sdk/qmmf_video_track_extra_param_tags.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -104,7 +106,7 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
-  void ReCalculateWidth(uint32_t &width);
+  status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
@@ -117,7 +119,7 @@ class MultiCameraManager : public CameraInterface {
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
-  status_t CreateStreamStitching(const CameraStreamParam &param);
+  status_t CreateStreamStitching(const CameraStreamParam& param);
   status_t DeleteStreamStitching(const uint32_t id);
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
@@ -217,10 +219,10 @@ class GrallocMemory : public RefBase {
 class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
-    uint32_t               virtual_camera_id;
-    Vector<uint32_t>       camera_ids;
-    MultiCameraConfigType  multicam_type;
-    uint32_t               frame_rate;
+    uint32_t              multicam_id;
+    Vector<uint32_t>      camera_ids;
+    MultiCameraConfigType stitch_mode;
+    uint32_t              frame_rate;
   };
 
   StitchingBase(InitParams &param);
