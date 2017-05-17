@@ -111,6 +111,9 @@ class CameraSource {
   status_t UpdateTrackFrameRate(const uint32_t track_id,
                                 const float frame_rate);
 
+  status_t EnableFrameRepeat(const uint32_t track_id,
+                             const bool enable_frame_repeat);
+
   status_t CreateOverlayObject(const uint32_t track_id,
                                OverlayParam *param,
                                uint32_t *overlay_id);
@@ -216,6 +219,8 @@ class TrackSource : public ICodecSource {
 
   void UpdateFrameRate(const float frame_rate);
 
+  void EnableFrameRepeat(const bool enable_frame_repeat);
+
  private:
 
   // Method to provide consumer interface, it would be used by producer to
@@ -227,6 +232,8 @@ class TrackSource : public ICodecSource {
   uint32_t TrackId() { return track_params_.track_id; }
 
   bool IsFrameSkip();
+
+  uint32_t CalculateEncodesPerFrame();
 
 #ifdef ENABLE_FRAME_DUMP
   status_t DumpYUV(StreamBuffer& buffer);
@@ -275,6 +282,12 @@ class TrackSource : public ICodecSource {
   uint32_t input_count_;
   struct timeval prevtv_;
   uint32_t count_;
+
+  float      pending_encodes_per_frame_ratio_;
+  uint64_t   frame_repeat_ts_prev_;
+  uint64_t   frame_repeat_ts_curr_;
+  bool       enable_frame_repeat_;
+  std::mutex frame_repeat_lock_;
 };
 
 }; //namespace recorder

@@ -189,24 +189,19 @@ class RecorderClient {
 
   bool CheckServiceStatus();
 
+  void ServiceDeathHandler();
+
+  typedef std::function <void(void)> NotifyServerDeathCB;
   class DeathNotifier : public IBinder::DeathRecipient {
    public:
-    DeathNotifier(RecorderClient* parent) : parent_(parent) {}
+    DeathNotifier(NotifyServerDeathCB& cb) : notify_server_death_(cb) {}
 
     void binderDied(const wp<IBinder>&) override {
-          ALOGD("RecorderClient:%s: Recorder service died", __func__);
-
-          Mutex::Autolock l(parent_->lock_);
-          parent_->recorder_service_.clear();
-          parent_->recorder_service_ = nullptr;
-          // If server dies for somereason then crash client process to reset
-          // the state, in this case application can reconnect to the camera
-          // without reboot.
-          assert(0);
+      ALOGD("RecorderClient:%s: Recorder service died", __func__);
+      notify_server_death_();
     }
-    RecorderClient* parent_;
+    NotifyServerDeathCB notify_server_death_;
   };
-  friend class DeathNotifier;
 
   vendor_tag_ops_t     vendor_tag_ops_;
   camera_module_t      *camera_module_;

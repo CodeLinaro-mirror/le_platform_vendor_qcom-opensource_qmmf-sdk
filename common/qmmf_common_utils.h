@@ -66,6 +66,9 @@ struct StreamBuffer {
   uint32_t flags;
   uint32_t filled_length;
   uint32_t frame_length;
+  uint32_t pending_encodes_per_frame;
+  uint32_t encodes_per_frame_count;
+  bool needs_return;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -77,6 +80,10 @@ struct StreamBuffer {
     stream << "timestamp[" << timestamp << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
+    stream << "pending_encodes_per_frame[" << pending_encodes_per_frame << "] ";
+    stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
+    stream << "needs_return[" << ::std::boolalpha << needs_return
+           << ::std::noboolalpha << "] ";
     return stream.str();
   }
 };
