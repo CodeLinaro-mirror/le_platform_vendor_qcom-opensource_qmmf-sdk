@@ -1204,7 +1204,7 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
         resultExtras.frameNumber = msg.frame_number;
         QMMF_ERROR(
             "%s: Camera %d: cannot find pending request for "
-            "frame %lld error\n",
+            "frame %u error\n",
             __func__, id_, resultExtras.frameNumber);
       }
       pthread_mutex_unlock(&pending_requests_lock_);
