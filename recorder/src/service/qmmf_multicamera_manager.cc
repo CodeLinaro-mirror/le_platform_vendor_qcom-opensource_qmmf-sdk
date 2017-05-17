@@ -354,6 +354,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
 
   SourceSurfaceParam surface;
   std::map<int32_t, SourceSurfaceParam> source_surface;
+  std::map<int32_t, SurfaceCrop> surface_crop;
 
   if (extra_param.Exists(QMMF_SOURCE_SURFACE_PARAM)) {
     // Source surface entry count should be equal to the number of cameras.
@@ -398,7 +399,33 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
-  auto ret = CreateStreamStitching(param);
+  if (extra_param.Exists(QMMF_SURFACE_CROP)) {
+    SurfaceCrop crop;
+    // Fetch crop rectangle data from the container.
+    for (size_t i = 0; i < extra_param.EntryCount(QMMF_SURFACE_CROP); ++i) {
+      extra_param.Fetch(QMMF_SURFACE_CROP, crop, i);
+      if (surface_crop.find(crop.camera_id) != surface_crop.end()) {
+        QMMF_ERROR("%s:%s: Found more than one QMMF_SURFACE_CROP entry "
+            "for camera %d!", TAG, __func__, crop.camera_id);
+        return ALREADY_EXISTS;
+      }
+      // Verify the camera ID.
+      if (NAME_NOT_FOUND == camera_contexts_.indexOfKey(crop.camera_id)) {
+        QMMF_ERROR("%s:%s: Camera ID %d for QMMF_SURFACE_CROP entry %d "
+            "does not exist!", TAG, __func__, crop.camera_id, i);
+        return NAME_NOT_FOUND;
+      }
+      auto surface = source_surface.at(crop.camera_id);
+      if (surface.width < crop.width || surface.height < crop.height) {
+        QMMF_ERROR("%s:%s: Invalid QMMF_SURFACE_CROP entry dimensions for "
+            "camera %d!", TAG, __func__, crop.camera_id);
+        return BAD_VALUE;
+      }
+      surface_crop.emplace(crop.camera_id, crop);
+    }
+  }
+
+  auto ret = CreateStreamStitching(surface_crop, param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
     return ret;
@@ -409,7 +436,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
   // when new stream is created, and not on delete stream as expected.
   CameraStreamParam stream_param(param);
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    auto &camera_surface = source_surface.at(camera_contexts_.keyAt(ctx_idx));
+    auto camera_id = camera_contexts_.keyAt(ctx_idx);
+    auto &camera_surface = source_surface.at(camera_id);
     stream_param.cam_stream_dim.width = camera_surface.width;
     stream_param.cam_stream_dim.height = camera_surface.height;
 
@@ -745,13 +773,16 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam& param) {
+status_t MultiCameraManager::CreateStreamStitching(const std::map<int32_t,
+                                                   SurfaceCrop>& crop, const
+                                                   CameraStreamParam& param) {
 
   StitchingBase::InitParams algo_param {};
-  algo_param.multicam_id = virtual_camera_id_;
-  algo_param.camera_ids  = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.stitch_mode = multicam_type_;
-  algo_param.frame_rate  = param.frame_rate;
+  algo_param.multicam_id  = virtual_camera_id_;
+  algo_param.camera_ids   = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.stitch_mode  = multicam_type_;
+  algo_param.surface_crop = crop;
+  algo_param.frame_rate   = param.frame_rate;
 
   GrallocMemory::BufferParams buffer_param {};
   if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
@@ -1699,6 +1730,23 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   proc_data.input.bufs = input_buffer_list;
   proc_data.output.bufs = output_buffer_list;
 
+  if (!params_.surface_crop.empty()) {
+    for (auto const& cam_id : params_.camera_ids) {
+      if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
+        proc_data.input.crop_cnt++;
+      }
+    }
+    if (params_.surface_crop.find(params_.multicam_id) !=
+        params_.surface_crop.end()) {
+      proc_data.output.crop_cnt++;
+    }
+  }
+  qmmf_alg_crop_t input_crop[proc_data.input.crop_cnt];
+  qmmf_alg_crop_t output_crop[proc_data.output.crop_cnt];
+
+  proc_data.input.crop = input_crop;
+  proc_data.output.crop = output_crop;
+
   for (uint32_t idx = 0; idx < proc_data.input.cnt; ++idx) {
     buffer = &input_buffers.itemAt(idx);
     memset(&proc_data.input.bufs[idx], 0x0, sizeof(proc_data.input.bufs[idx]));
@@ -1706,6 +1754,13 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare input buffer", TAG, __func__);
       goto EXIT;
+    }
+    auto it = params_.surface_crop.find(buffer->camera_id);
+    if (it != params_.surface_crop.end()) {
+      proc_data.input.crop[idx].x = it->second.x;
+      proc_data.input.crop[idx].y = it->second.y;
+      proc_data.input.crop[idx].width = it->second.width;
+      proc_data.input.crop[idx].height = it->second.height;
     }
   }
 
@@ -1716,6 +1771,13 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare output buffer", TAG, __func__);
       goto EXIT;
+    }
+    auto it = params_.surface_crop.find(buffer->camera_id);
+    if (it != params_.surface_crop.end()) {
+      proc_data.output.crop[idx].x = it->second.x;
+      proc_data.output.crop[idx].y = it->second.y;
+      proc_data.output.crop[idx].width = it->second.width;
+      proc_data.output.crop[idx].height = it->second.height;
     }
   }
 

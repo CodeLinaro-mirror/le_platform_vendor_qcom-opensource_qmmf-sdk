@@ -119,7 +119,8 @@ class MultiCameraManager : public CameraInterface {
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
-  status_t CreateStreamStitching(const CameraStreamParam& param);
+  status_t CreateStreamStitching(const std::map<int32_t, SurfaceCrop>& crop,
+                                 const CameraStreamParam& param);
   status_t DeleteStreamStitching(const uint32_t id);
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
@@ -219,10 +220,11 @@ class GrallocMemory : public RefBase {
 class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
-    uint32_t              multicam_id;
-    Vector<uint32_t>      camera_ids;
-    MultiCameraConfigType stitch_mode;
-    uint32_t              frame_rate;
+    uint32_t                       multicam_id;
+    Vector<uint32_t>               camera_ids;
+    MultiCameraConfigType          stitch_mode;
+    std::map<int32_t, SurfaceCrop> surface_crop;
+    uint32_t                       frame_rate;
   };
 
   StitchingBase(InitParams &param);
