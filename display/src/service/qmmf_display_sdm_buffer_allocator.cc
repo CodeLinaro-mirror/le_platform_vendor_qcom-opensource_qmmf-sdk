@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2015 - 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2015 - 2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -281,8 +281,42 @@ int DisplayBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
 
 DisplayError DisplayBufferAllocator::GetAllocatedBufferInfo(const BufferConfig &buffer_config,
                                      AllocatedBufferInfo *allocated_buffer_info) {
-  QMMF_ERROR("NotSupported");
-  return kErrorNotSupported;
+  int width = INT(buffer_config.width);
+  int height = INT(buffer_config.height);
+  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
+
+  if (buffer_config.secure) {
+    alloc_flags = INT(GRALLOC_USAGE_PRIVATE_MM_HEAP);
+    alloc_flags |= INT(GRALLOC_USAGE_PROTECTED);
+  }
+
+  if (buffer_config.cache == false) {
+    // Allocate uncached buffers
+    alloc_flags |= GRALLOC_USAGE_PRIVATE_UNCACHED;
+  }
+
+  int format = 0;
+  int error = SetBufferInfo(buffer_config.format, &format, &alloc_flags);
+  if (error) {
+    QMMF_ERROR("Failed: invalid format = %d", buffer_config.format);
+    return kErrorNotSupported;
+  }
+
+  int width_aligned = 0, height_aligned = 0;
+  uint32_t buffer_size = getBufferSizeAndDimensions(width, height, format,
+      alloc_flags, width_aligned, height_aligned);
+
+  if (buffer_size == 0) {
+    QMMF_ERROR("Failed: invalid buffer size = %u", buffer_size);
+    return kErrorNotSupported;
+  }
+
+  allocated_buffer_info->stride = UINT32(width_aligned);
+  allocated_buffer_info->aligned_width = UINT32(width_aligned);
+  allocated_buffer_info->aligned_height = UINT32(height_aligned);
+  allocated_buffer_info->size = UINT32(buffer_size);
+
+  return kErrorNone;
 }
 
 }; // namespace display
