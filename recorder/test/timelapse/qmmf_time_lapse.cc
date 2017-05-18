@@ -150,6 +150,12 @@ int32_t TimeLapse::Init() {
     return ret;
   }
 
+  ret = StartDisplay(DisplayType::kPrimary);
+  if (NO_ERROR != ret) {
+    printf("%s StartDisplay Failed: %d!!", __func__, ret);
+    return ret;
+  }
+
   ret = recorder_.GetDefaultCaptureParam(params_.camera_id, static_info_);
   if (NO_ERROR != ret) {
     printf("%s Unable to query default capture parameters!\n", __func__);
@@ -213,6 +219,12 @@ int32_t TimeLapse::DeInit() {
     return ret;
   }
 
+  ret = StopDisplay(DisplayType::kPrimary);
+  if (NO_ERROR != ret) {
+    printf("%s StopDisplay failed: %d!!", __func__, ret);
+    return ret;
+  }
+
   return recorder_.Disconnect();
 }
 
@@ -220,6 +232,10 @@ void TimeLapse::PreviewTrackHandler(uint32_t track_id,
                                     vector<BufferDescriptor> buffers,
                                     vector<MetaData> meta_buffers) {
   if (!buffers.empty()) {
+    MetaData meta_data = meta_buffers[0];
+    CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
+    PushFrameToDisplay(buffers[0],cam_buf_meta);
+
     if (0 < last_capture_ts_) {
       uint64_t delta = buffers[0].timestamp - last_capture_ts_;
       assert(0 < delta);
@@ -352,6 +368,119 @@ FAIL:
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
 }
+
+void TimeLapse::DisplayCallbackHandler(DisplayEventType event_type,
+    void *event_data, size_t event_data_size) {
+}
+
+void TimeLapse::DisplayVSyncHandler(int64_t time_stamp) {
+}
+
+status_t TimeLapse::StartDisplay(DisplayType display_type) {
+  int32_t res = 0;
+  SurfaceConfig surface_config;
+  DisplayCb  display_status_cb;
+
+  display_= new Display();
+  assert(display_ != nullptr);
+
+  res = display_->Connect();
+  assert(res == 0);
+
+  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
+      void *event_data, size_t event_data_size) { DisplayCallbackHandler
+      (event_type, event_data, event_data_size); };
+
+  display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
+      { DisplayVSyncHandler(time_stamp); };
+
+  res = display_->CreateDisplay(display_type, display_status_cb);
+  assert(res == 0);
+
+  memset(&surface_config, 0x0, sizeof surface_config);
+
+  surface_config.width = params_.preview_width;
+  surface_config.height = params_.preview_height;
+  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+  surface_config.buffer_count = 1;
+  surface_config.cache = 0;
+  surface_config.use_buffer = 1;
+  surface_config.context = 0;
+  res = display_->CreateSurface(surface_config, &surface_id_);
+  assert(res == 0);
+
+  display_started_ = 1;
+
+  surface_param_.src_rect = { 0.0, 0.0, (float)params_.preview_width,
+      (float)params_.preview_height};
+  surface_param_.dst_rect = { 0.0, 0.0, (float)params_.preview_width,
+      (float)params_.preview_height};
+  surface_param_.surface_blending =
+      SurfaceBlending::kBlendingCoverage;
+  surface_param_.surface_flags.cursor = 0;
+  surface_param_.frame_rate = 30;
+  surface_param_.z_order = 0;
+  surface_param_.solid_fill_color = 0;
+  surface_param_.surface_transform.rotation = 0.0f;
+  surface_param_.surface_transform.flip_horizontal = 0;
+  surface_param_.surface_transform.flip_vertical = 0;
+
+  return res;
+}
+
+status_t TimeLapse::StopDisplay(DisplayType display_type) {
+  int32_t res = 0;
+
+  if (display_started_ == 1) {
+    display_started_ = 0;
+    res = display_->DestroySurface(surface_id_);
+    if (res != 0) {
+      printf("%s DestroySurface Failed!!", __func__);
+    }
+
+    res = display_->DestroyDisplay(display_type);
+    if (res != 0) {
+      printf("%s DestroyDisplay Failed!!", __func__);
+    }
+    res = display_->Disconnect();
+
+    if (display_ != nullptr) {
+      delete display_;
+      display_ = nullptr;
+    }
+  }
+  return res;
+}
+
+status_t TimeLapse::PushFrameToDisplay(BufferDescriptor& buffer,
+    CameraBufferMetaData& meta_data) {
+  if (display_started_ == 1) {
+    int32_t ret;
+    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
+    surface_buffer_.buf_id = 0;
+    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
+    surface_buffer_.plane_info[0].size = buffer.size;
+    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
+    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
+    surface_buffer_.plane_info[0].offset = 0;
+    surface_buffer_.plane_info[0].buf = buffer.data;
+
+    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
+        surface_param_);
+    if (ret != 0) {
+      printf("%s: QueueSurfaceBuffer Failed", __func__);
+      return ret;
+    }
+
+    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
+    if (ret != 0) {
+      printf("%s: DequeueSurfaceBuffer Failed", __func__);
+    }
+  }
+  return NO_ERROR;
+}
+
 
 } //namespace timelapse ends here
 } //namespace qmmf ends here
