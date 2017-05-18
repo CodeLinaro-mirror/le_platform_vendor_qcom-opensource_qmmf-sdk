@@ -124,6 +124,19 @@ using ::qmmf::display::SurfaceFormat;
 #define AEC_SETTLE_INTERVAL 2
 #define MAX_NUM_CAMERAS 3
 
+#define DEFAULT_DUMP_FRAME_FREQ  "200"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_YUV          "persist.qmmf.rec.test.dumpyuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_BITSTREAM    "persist.qmmf.rec.test.dumpstrm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_JPEG         "persist.qmmf.rec.gtest.dumpjpeg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_RAW          "persist.qmmf.rec.gtest.dumpraw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_FRAME_FREQ   "persist.qmmf.rec.test.dumpfreq"
+
 enum class AfMode {
   kNone,
   kOff,
@@ -259,6 +272,7 @@ public:
               SnapshotType::kNone,
               0,
               0,
+              0,
               0
             } {};
 
@@ -272,6 +286,27 @@ public:
     }
 };
 
+typedef struct StreamDumpInfo {
+  VideoFormat   format;
+  uint32_t      track_id;
+  int32_t       width;
+  int32_t       height;
+} StreamDumpInfo;
+
+class DumpBitStream {
+ public:
+  DumpBitStream() : file_fd_(-1) {};
+
+  ~DumpBitStream() {};
+
+  status_t SetUp(const StreamDumpInfo& dumpinfo);
+
+  void Close();
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers);
+
+  int32_t file_fd_;
+};
 
 class RecorderTest {
  public:
@@ -444,7 +479,13 @@ class RecorderTest {
 
   Recorder& GetRecorder() { return recorder_; }
 
-  private:
+  bool is_dump_yuv_enabled_;
+  bool is_dump_raw_enabled_;
+  bool is_dump_bitstream_enabled_;
+  bool is_dump_jpg_enabled_;
+  uint32_t dump_frame_freq_;
+
+ private:
   Recorder recorder_;
 
   friend class CmdMenu;
@@ -538,12 +579,8 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
-
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
     CameraBufferMetaData& meta_data);
-
-  int32_t file_fd_;
 
   TrackInfo track_info_;
 
@@ -563,6 +600,8 @@ class TestTrack {
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
   bool display_started_;
+
+  DumpBitStream dump_bitstream_;
 };
 
 class CmdMenu

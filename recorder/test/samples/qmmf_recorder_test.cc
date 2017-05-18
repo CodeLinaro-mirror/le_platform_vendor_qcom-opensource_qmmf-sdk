@@ -85,6 +85,31 @@ RecorderTest::RecorderTest() :
   use_display = 0;
   TEST_KPI_GET_MASK();
   TEST_INFO("%s:%s: Exit kpi_debug_mask=%d", TAG, __func__, kpi_debug_mask);
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DUMP_BITSTREAM, prop_val, "1");
+  is_dump_bitstream_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_YUV, prop_val, "1");
+  is_dump_yuv_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_RAW, prop_val, "1");
+  is_dump_raw_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_JPEG, prop_val, "1");
+  is_dump_jpg_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_DUMP_FRAME_FREQ, prop_val, DEFAULT_DUMP_FRAME_FREQ);
+  dump_frame_freq_ = atoi(prop_val);
+
+  printf("%s:%s: is_dump_bitstream_enabled_ = %d\n",
+           TAG, __func__, is_dump_bitstream_enabled_);
+  printf("%s:%s: is_dump_yuv_enabled_ = %d\n",
+           TAG, __func__, is_dump_yuv_enabled_);
+  printf("%s:%s: is_dump_raw_enabled_ = %d\n",
+           TAG, __func__, is_dump_raw_enabled_);
+  printf("%s:%s: is_dump_jpg_enabled_ = %d\n",
+           TAG, __func__, is_dump_jpg_enabled_);
+  printf("%s:%s: dump_frame_freq_ = %d\n",
+           TAG, __func__, dump_frame_freq_);
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
 RecorderTest::~RecorderTest() {
@@ -3393,29 +3418,35 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
           cam_buf_meta.plane_info[i].height);
     }
 
-    switch (cam_buf_meta.format) {
-      case BufferFormat::kNV12:
+    if ( (is_dump_jpg_enabled_ && cam_buf_meta.format == BufferFormat::kBLOB)
+      || (is_dump_raw_enabled_ && (cam_buf_meta.format == BufferFormat::kRAW10
+          || cam_buf_meta.format == BufferFormat::kRAW16))
+      || (is_dump_yuv_enabled_ && (cam_buf_meta.format == BufferFormat::kNV12
+          || cam_buf_meta.format == BufferFormat::kNV21))) {
+      switch (cam_buf_meta.format) {
+        case BufferFormat::kNV12:
         ext_str = "nv12";
         break;
-      case BufferFormat::kNV21:
+        case BufferFormat::kNV21:
         ext_str = "nv21";
         break;
-      case BufferFormat::kBLOB:
+        case BufferFormat::kBLOB:
         ext_str = "jpg";
         break;
-      case BufferFormat::kRAW10:
+        case BufferFormat::kRAW10:
         ext_str = "raw10";
         break;
-      case BufferFormat::kRAW16:
+        case BufferFormat::kRAW16:
         ext_str = "raw16";
         break;
-      default:
+        default:
         assert(0);
         break;
+      }
+      file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
+          ext_str);
+      DumpFrameToFile(buffer, cam_buf_meta, file_path);
     }
-    file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
-        ext_str);
-    DumpFrameToFile(buffer, cam_buf_meta, file_path);
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
@@ -4310,7 +4341,7 @@ void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
 }
 
 TestTrack::TestTrack(RecorderTest* recorder_test)
-    : file_fd_(-1), recorder_test_(recorder_test), num_yuv_frames_(0),
+    : recorder_test_(recorder_test), num_yuv_frames_(0),
       display_started_(0) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   memset(&track_info_, 0x0, sizeof track_info_);
@@ -4319,9 +4350,7 @@ TestTrack::TestTrack(RecorderTest* recorder_test)
 
 TestTrack::~TestTrack() {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  if (file_fd_ > 0) {
-    close(file_fd_);
-  }
+
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
@@ -4521,25 +4550,25 @@ status_t TestTrack::Prepare() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
-#ifdef DUMP_BITSTREAM
-  if ( (track_info_.track_type == TrackType::kVideoAVC)
-     || (track_info_.track_type == TrackType::kVideoHEVC) ) {
-    String8 bitstream_filepath;
-    const char* type_string = (track_info_.track_type == TrackType::kVideoAVC)
-         ? "h264":"h265";
-    String8 extn(type_string);
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    bitstream_filepath.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lu.%s",
-        track_info_.track_id, track_info_.width, track_info_.height,
-        tv.tv_sec, extn.string());
-    file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
-        0655);
-    assert(file_fd_ >= 0);
-    TEST_INFO("%s:%s: file(%s) opened successfully!!", TAG, __func__,
-        bitstream_filepath.string());
+
+  if (track_info_.track_type == TrackType::kVideoAVC ||
+    track_info_.track_type == TrackType::kVideoHEVC) {
+
+    VideoFormat videoformat = (track_info_.track_type == TrackType::kVideoAVC)
+                   ? VideoFormat::kAVC : VideoFormat::kHEVC;
+    if (recorder_test_->is_dump_bitstream_enabled_) {
+      StreamDumpInfo dumpinfo = {
+        videoformat, // format
+        track_info_.track_id, // track_id
+        (int32_t)track_info_.width, // width
+        (int32_t)track_info_.height // height
+      };
+
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
   }
-#endif
+
   if (track_info_.track_type == TrackType::kAudioPCM ||
       track_info_.track_type == TrackType::kAudioG711) {
     ret = wav_output_.Open();
@@ -4563,12 +4592,7 @@ status_t TestTrack::CleanUp() {
   switch (track_info_.track_type) {
     case TrackType::kVideoAVC:
     case TrackType::kVideoHEVC:
-#ifdef DUMP_BITSTREAM
-    if(file_fd_ > 0) {
-      close(file_fd_);
-      file_fd_ = -1;
-    }
-#endif
+    dump_bitstream_.Close();
     break;
     case TrackType::kAudioPCM:
     case TrackType::kAudioG711:
@@ -4771,20 +4795,25 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
             TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
                 cam_buf_meta.plane_info[i].height);
           }
-          #ifdef DUMP_YUV_FRAMES
-          ++num_yuv_frames_;
-          // Dump every 200th Frame.
-          if (!(num_yuv_frames_ % 200)) {
-            const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
-                "raw" : "yuv";
-            String8 file_path;
-            file_path.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lld.%s",
-                track_info_.track_id, cam_buf_meta.plane_info[0].width,
-                cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
-            recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
+
+          if ((recorder_test_->is_dump_yuv_enabled_ &&
+               track_info_.track_type == TrackType::kVideoYUV) ||
+              (recorder_test_->is_dump_raw_enabled_ &&
+               track_info_.track_type == TrackType::kVideoRDI)) {
+            ++num_yuv_frames_;
+            if (num_yuv_frames_ == recorder_test_->dump_frame_freq_) {
+              const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
+                  "raw" : "yuv";
+              String8 file_path;
+              file_path.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lld.%s",
+                  track_info_.track_id, cam_buf_meta.plane_info[0].width,
+                  cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
+              recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
                                             file_path);
+              num_yuv_frames_ = 0;
+            }
           }
-          #endif
+
           PushFrameToDisplay(buffers[i], cam_buf_meta);
         }
       }
@@ -4799,10 +4828,10 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
                    meta_data.video_frame_type_info);
         }
       }
-      #ifdef DUMP_BITSTREAM
-      // Dump AVC/HEVC bitstream data
-      DumpBitStream(buffers);
-      #endif
+
+      if (recorder_test_->is_dump_bitstream_enabled_) {
+        dump_bitstream_.Dump(buffers);
+      }
     break;
     default:
     break;
@@ -4813,38 +4842,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
   assert(ret == 0);
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
-
-#ifdef DUMP_BITSTREAM
-status_t TestTrack::DumpBitStream(std::vector<BufferDescriptor>& buffers) {
-
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
-  for (auto& iter : buffers) {
-    if (file_fd_ > 0) {
-      uint32_t exp_size = iter.size;
-      TEST_DBG("%s BitStream buffer data(0x%p):size(%d):ts(%lld):flag(0x%x)"
-        ":buf_id(%d):capacity(%d)", __func__, iter.data, iter.size,
-         iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
-
-      uint32_t written_length = write(file_fd_, iter.data, iter.size);
-      TEST_DBG("%s: written_length(%d)", __func__, written_length);
-      if (written_length != exp_size) {
-        TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
-        strerror(errno));
-      }
-    } else {
-      TEST_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
-      return -1;
-    }
-    if (iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
-      close(file_fd_);
-      file_fd_ = -1;
-    }
-  }
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
-}
-#endif
 
 void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
@@ -4964,6 +4961,83 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
       TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
     }
   }
+  return NO_ERROR;
+}
+
+status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(dumpinfo.width > 0);
+  assert(dumpinfo.height > 0);
+
+  Close();
+
+  const char* type_string;
+  switch (dumpinfo.format) {
+    case VideoFormat::kAVC:
+      type_string = "h264";
+      break;
+    case VideoFormat::kHEVC:
+      type_string = "h265";
+      break;
+    default:
+      type_string = "bin";
+      break;
+  }
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  String8 extn(type_string);
+  String8 bitstream_filepath;
+  bitstream_filepath.appendFormat("/data/misc/qmmf/test_track_%d_%dx%d_%lu.%s",
+                                  dumpinfo.track_id, dumpinfo.width,
+                                  dumpinfo.height, tv.tv_sec,
+                                  extn.string());
+  file_fd_ = open(bitstream_filepath.string(),
+                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd_ <= 0) {
+    TEST_ERROR("%s:%s File open failed!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+void DumpBitStream::Close() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (file_fd_ > 0) {
+    close(file_fd_);
+    file_fd_ = -1;
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers) {
+
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  assert(file_fd_ > 0);
+
+  for (auto& iter : buffers) {
+    uint32_t exp_size = iter.size;
+    TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
+      ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
+       iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
+
+    uint32_t written_length = write(file_fd_, iter.data, iter.size);
+    TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
+    if (written_length != exp_size) {
+      TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+      strerror(errno));
+      return BAD_VALUE;
+    }
+
+    if (iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
+      Close();
+    }
+  }
+
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
