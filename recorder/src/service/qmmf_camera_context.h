@@ -72,6 +72,10 @@ class CameraContext : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
+  status_t WaitAecToConverge(nsecs_t timeout_msec) override;
+
+  status_t PrepareCapture(const ImageParam &param) override;
+
   status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;

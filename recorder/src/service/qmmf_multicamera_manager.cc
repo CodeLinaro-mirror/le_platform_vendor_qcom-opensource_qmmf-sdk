@@ -208,6 +208,34 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
 
+status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
+
+  // Since both cameras are in sync we need to wait Aec
+  // to converge only on main camera
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
+
+  status_t ret = camera_context->WaitAecToConverge(timeout);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: WaitAecToConverge Failed!", TAG, __func__);
+    return ret;
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::PrepareCapture(const ImageParam &param) {
+
+  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    status_t ret = camera_context->PrepareCapture(param);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:PrepareCapture Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
 status_t MultiCameraManager::CaptureImage(const ImageParam &param,
                                           const uint32_t num_images,
                                           const std::vector<CameraMetadata>
@@ -298,6 +326,29 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
       return ret;
     }
 
+    // Only prepare capture here since in capture command there is logic
+    // to wait for aec to converge. And this logic will not work with
+    // paused streams.
+    ret = PrepareCapture(cam_param);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:PrepareCapture failed!", TAG, __func__);
+      return ret;
+    }
+
+    // Ideally is capture fails we should resume camera streams and continue.
+    // But in our case dual camera will be broken and no need of that logic.
+    ret = ResumeCameraStreams();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:ResumeCameraStreams failed!", TAG, __func__);
+      return ret;
+    }
+
+    // Wait avoid capturing black frames
+    ret = WaitAecToConverge(kAecConvergeTimeout);
+    if (ret != NO_ERROR) {
+      QMMF_WARN("%s:%s:Fail ae to converge!", TAG, __func__);
+    }
+
     std::vector<CameraMetadata> dual_cam_meta = meta;
     for (size_t i = 0; i < camera_contexts_.size(); ++i) {
       sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
@@ -314,13 +365,6 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
         QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
         return ret;
       }
-    }
-    // Ideally is capture fails we should resume camera streams and continue.
-    // But in our case dual camera will be broken and no need of that logic.
-    ret = ResumeCameraStreams();
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s:ResumeCameraStreams failed!", TAG, __func__);
-      return ret;
     }
   } else {
     // Use normal capture if reconfiguration is not needed
