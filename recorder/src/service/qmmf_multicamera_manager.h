@@ -76,6 +76,8 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
+  status_t WaitAecToConverge(nsecs_t timeout) override;
+
   status_t CaptureImage(const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
@@ -176,6 +178,7 @@ class MultiCameraManager : public CameraInterface {
   Mutex                    lock_;
 
   static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
+  static const nsecs_t kAecConvergeTimeout = 200000000; // 200 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;

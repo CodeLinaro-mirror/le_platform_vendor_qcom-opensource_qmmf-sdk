@@ -207,6 +207,20 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
 
+status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
+
+  // Since both cameras are in sync we need to wait Aec
+  // to converge only on main camera
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
+
+  status_t ret = camera_context->WaitAecToConverge(timeout);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: WaitAecToConverge Failed!", TAG, __func__);
+    return ret;
+  }
+  return NO_ERROR;
+}
+
 status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
                                           std::vector<CameraMetadata> &meta,
                                           const StreamSnapshotCb& cb) {
@@ -315,6 +329,11 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     // Resume all previously active streams.
     for (auto const& track_id : active_streams_) {
       StartStream(track_id);
+    }
+    // Wait avoid capturing black frames
+    ret = WaitAecToConverge(kAecConvergeTimeout);
+    if (ret != NO_ERROR) {
+      QMMF_WARN("%s:%s: AE failed to converge!", TAG, __func__);
     }
   }
 

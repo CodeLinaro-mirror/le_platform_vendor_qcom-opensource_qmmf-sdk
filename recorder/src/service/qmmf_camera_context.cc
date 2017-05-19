@@ -472,6 +472,22 @@ std::function<void(int32_t stream_id, StreamBuffer buffer)>
   }
 }
 
+status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
+
+  std::unique_lock<std::mutex> lock(aec_lock_);
+  if (streaming_request_id_ != -1) {
+    aec_done_ = true;
+    int32_t wait_time = timeout / 100000;
+    if (aec_signal_.wait_for(lock,
+      std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+      QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
+      return TIMED_OUT;
+    }
+    aec_done_ = false;
+  }
+  return NO_ERROR;
+}
+
 status_t CameraContext::CaptureImage(const uint32_t num_images,
                                      const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
@@ -495,19 +511,6 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
       requests.push_back(snapshot_request_);
     }
     sequence_cnt_ = num_images;
-
-    {
-      std::unique_lock<std::mutex> lock(aec_lock_);
-      if (streaming_request_id_ != -1) {
-        aec_done_ = true;
-        int32_t wait_time = kSyncFrameWaitDuration/1000000;
-        if (aec_signal_.wait_for(lock,
-            std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
-          QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
-        }
-        aec_done_ = false;
-      }
-    }
 
     auto request_id = camera_device_->SubmitRequestList(requests, false,
                                                         &last_frame_mumber);
@@ -542,6 +545,8 @@ status_t CameraContext::ConfigImageCapture(const ImageParam &param) {
         QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
         return ret;
       }
+      // Wait aec to converge after reconfiguration
+      WaitAecToConverge(kSyncFrameWaitDuration);
     }
   } else {
     if (ImageFormat::kJPEG != param.image_format) {
