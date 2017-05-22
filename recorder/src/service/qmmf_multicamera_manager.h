@@ -362,6 +362,9 @@ class StreamStitching : public StitchingBase {
   sp<IBufferProducer>      buffer_producer_impl_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
 
+  uint32_t                 skip_camera_id_;
+  bool                     single_camera_mode_;
+
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
 };

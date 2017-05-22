@@ -421,6 +421,13 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
             "camera %d!", TAG, __func__, crop.camera_id);
         return BAD_VALUE;
       }
+      if (crop.width == 0 && crop.height == 0) {
+        auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+        for (auto const& cam_id : camera_ids) {
+          source_surface.at(cam_id).width = param.cam_stream_dim.width;
+          source_surface.at(cam_id).height = param.cam_stream_dim.height;
+        }
+      }
       surface_crop.emplace(crop.camera_id, crop);
     }
   }
@@ -1038,7 +1045,9 @@ status_t SnapshotStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
 }
 
 StreamStitching::StreamStitching(InitParams &param)
-    : StitchingBase(param) {
+    : StitchingBase(param),
+      skip_camera_id_ (0),
+      single_camera_mode_(false) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -1050,6 +1059,16 @@ StreamStitching::StreamStitching(InitParams &param)
     BufferConsumerImpl<StreamStitching> *impl;
     impl = new BufferConsumerImpl<StreamStitching>(this);
     camera_consumers_map_.add(camera_id, impl);
+  }
+
+  for (auto const& cam_id : params_.camera_ids) {
+    if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
+      auto crop = params_.surface_crop.at(cam_id);
+      if (crop.width == 0 && crop.height == 0) {
+        skip_camera_id_ = cam_id;
+        single_camera_mode_ = true;
+      }
+    }
   }
 
   BufferProducerImpl<StreamStitching> *producer_impl;
@@ -1110,8 +1129,11 @@ void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
-  if (stop_frame_sync_) {
+  if (stop_frame_sync_ || (single_camera_mode_ &&
+      buffer.camera_id == skip_camera_id_)) {
     ReturnBufferToCamera(buffer);
+  } else if (single_camera_mode_ && (buffer.camera_id != skip_camera_id_)) {
+    NotifyBufferToClient(buffer);
   } else {
     FrameSync(buffer);
   }
@@ -1121,7 +1143,11 @@ void StreamStitching::NotifyBufferReturned(const StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: Stream buffer(handle %p) returned", TAG, __func__,
       buffer.handle);
-  ReturnBufferToBufferPool(buffer);
+  if (buffer.camera_id == params_.multicam_id) {
+    ReturnBufferToBufferPool(buffer);
+  } else {
+    ReturnBufferToCamera(const_cast<StreamBuffer&>(buffer));
+  }
 }
 
 status_t StreamStitching::NotifyBufferToClient(StreamBuffer &buffer) {
