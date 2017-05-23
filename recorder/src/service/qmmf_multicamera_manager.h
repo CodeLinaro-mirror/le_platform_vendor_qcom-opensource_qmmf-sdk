@@ -119,8 +119,7 @@ class MultiCameraManager : public CameraInterface {
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
-  status_t CreateStreamStitching(const std::map<int32_t, SurfaceCrop>& crop,
-                                 const CameraStreamParam& param);
+  status_t CreateStreamStitching(const CameraStreamParam& param);
   status_t DeleteStreamStitching(const uint32_t id);
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
@@ -145,6 +144,9 @@ class MultiCameraManager : public CameraInterface {
   sp<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
   GrallocMemory            *jpeg_memory_pool_;
+
+  std::map<int32_t, SourceSurfaceParam> source_surface_;
+  std::map<int32_t, SurfaceCrop> surface_crop_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -257,6 +259,9 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   bool                     use_frame_sync_timeout;
   String8                  *work_thread_name_;
 
+  uint32_t                 skip_camera_id_;
+  bool                     single_camera_mode_;
+
   Mutex                    frame_lock_;
 
  private:
@@ -361,9 +366,6 @@ class StreamStitching : public StitchingBase {
  private:
   sp<IBufferProducer>      buffer_producer_impl_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
-
-  uint32_t                 skip_camera_id_;
-  bool                     single_camera_mode_;
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;

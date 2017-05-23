@@ -353,8 +353,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
                                           extra_param) {
 
   SourceSurfaceParam surface;
-  std::map<int32_t, SourceSurfaceParam> source_surface;
-  std::map<int32_t, SurfaceCrop> surface_crop;
+  source_surface_.clear();
+  surface_crop_.clear();
 
   if (extra_param.Exists(QMMF_SOURCE_SURFACE_PARAM)) {
     // Source surface entry count should be equal to the number of cameras.
@@ -371,17 +371,17 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     // Fetch source surface dimensions data from the container.
     for (size_t i = 0; i < entry_count; ++i) {
       extra_param.Fetch(QMMF_SOURCE_SURFACE_PARAM, surface, i);
-      if (source_surface.find(surface.camera_id) != source_surface.end()) {
+      if (source_surface_.find(surface.camera_id) != source_surface_.end()) {
         QMMF_ERROR("%s:%s: Found more than one QMMF_SOURCE_SURFACE_PARAM "
             "entry for camera %d!", TAG, __func__, surface.camera_id);
         return ALREADY_EXISTS;
       }
-      source_surface.emplace(surface.camera_id, surface);
+      source_surface_.emplace(surface.camera_id, surface);
     }
     // Verify that surface dimensions are set for every camera.
     auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
     for (auto const& cam_id : camera_ids) {
-      if (source_surface.find(cam_id) == source_surface.end()) {
+      if (source_surface_.find(cam_id) == source_surface_.end()) {
         QMMF_ERROR("%s:%s: QMMF_SOURCE_SURFACE_PARAM for camera %d missing!",
             TAG, __func__, cam_id);
         return NAME_NOT_FOUND;
@@ -395,16 +395,17 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
     for (auto const& cam_id : camera_ids) {
       surface.camera_id = cam_id;
-      source_surface.emplace(cam_id, surface);
+      source_surface_.emplace(cam_id, surface);
     }
   }
 
+  bool single_camera = false;
   if (extra_param.Exists(QMMF_SURFACE_CROP)) {
     SurfaceCrop crop;
     // Fetch crop rectangle data from the container.
     for (size_t i = 0; i < extra_param.EntryCount(QMMF_SURFACE_CROP); ++i) {
       extra_param.Fetch(QMMF_SURFACE_CROP, crop, i);
-      if (surface_crop.find(crop.camera_id) != surface_crop.end()) {
+      if (surface_crop_.find(crop.camera_id) != surface_crop_.end()) {
         QMMF_ERROR("%s:%s: Found more than one QMMF_SURFACE_CROP entry "
             "for camera %d!", TAG, __func__, crop.camera_id);
         return ALREADY_EXISTS;
@@ -415,38 +416,47 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
             "does not exist!", TAG, __func__, crop.camera_id, i);
         return NAME_NOT_FOUND;
       }
-      auto surface = source_surface.at(crop.camera_id);
-      if (surface.width < crop.width || surface.height < crop.height) {
+      auto surface = source_surface_.at(crop.camera_id);
+      if (crop.width == 0 && crop.height == 0) {
+        auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+        for (auto const& cam_id : camera_ids) {
+          source_surface_.at(cam_id).width = param.cam_stream_dim.width;
+          source_surface_.at(cam_id).height = param.cam_stream_dim.height;
+          single_camera = true;
+        }
+      } else if (surface.width < crop.width || surface.height < crop.height) {
         QMMF_ERROR("%s:%s: Invalid QMMF_SURFACE_CROP entry dimensions for "
             "camera %d!", TAG, __func__, crop.camera_id);
         return BAD_VALUE;
       }
-      if (crop.width == 0 && crop.height == 0) {
-        auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-        for (auto const& cam_id : camera_ids) {
-          source_surface.at(cam_id).width = param.cam_stream_dim.width;
-          source_surface.at(cam_id).height = param.cam_stream_dim.height;
-        }
-      }
-      surface_crop.emplace(crop.camera_id, crop);
+      surface_crop_.emplace(crop.camera_id, crop);
     }
   }
 
-  auto ret = CreateStreamStitching(surface_crop, param);
+  auto ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
     return ret;
   }
 
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
   // Start streams in reverse order. This is needed because camera
   // context is caching our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
-  CameraStreamParam stream_param(param);
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    auto camera_id = camera_contexts_.keyAt(ctx_idx);
-    auto &camera_surface = source_surface.at(camera_id);
-    stream_param.cam_stream_dim.width = camera_surface.width;
-    stream_param.cam_stream_dim.height = camera_surface.height;
+    CameraStreamParam stream_param(param);
+    if (use_vfe_crop && !single_camera) {
+      SetDefaultSurfaceDim(stream_param.cam_stream_dim.width,
+                           stream_param.cam_stream_dim.height);
+    } else {
+      auto camera_id = camera_contexts_.keyAt(ctx_idx);
+      auto &camera_surface = source_surface_.at(camera_id);
+      stream_param.cam_stream_dim.width = camera_surface.width;
+      stream_param.cam_stream_dim.height = camera_surface.height;
+    }
 
     ret = CreateCameraStream(ctx_idx, stream_param, extra_param);
     if (ret != NO_ERROR) {
@@ -780,15 +790,14 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStreamStitching(const std::map<int32_t,
-                                                   SurfaceCrop>& crop, const
-                                                   CameraStreamParam& param) {
+status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam&
+                                                   param) {
 
   StitchingBase::InitParams algo_param {};
   algo_param.multicam_id  = virtual_camera_id_;
   algo_param.camera_ids   = virtual_camera_map_.valueFor(virtual_camera_id_);
   algo_param.stitch_mode  = multicam_type_;
-  algo_param.surface_crop = crop;
+  algo_param.surface_crop = surface_crop_;
   algo_param.frame_rate   = param.frame_rate;
 
   GrallocMemory::BufferParams buffer_param {};
@@ -846,7 +855,7 @@ status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
                                                 extra_param) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
-  uint32_t camera_id = camera_contexts_.keyAt(cam_idx);
+  int32_t camera_id = camera_contexts_.keyAt(cam_idx);
 
   // On CreateStream, camera context most probably will
   // reconfigure the camera. So make sure that every time.
@@ -871,6 +880,25 @@ status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
         __func__, camera_id);
     return ret;
   }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
+  if (use_vfe_crop && surface_crop_.find(camera_id) != surface_crop_.end()) {
+    auto const& crop = surface_crop_.at(camera_id);
+    if (crop.width != 0 && crop.height != 0) {
+      int32_t crop_rect[4];
+      auto const& crop = surface_crop_.at(camera_id);
+      auto const& camera_surface = source_surface_.at(camera_id);
+      crop_rect[0] = ((float)crop.x / camera_surface.width) * 4056;
+      crop_rect[1] = ((float)crop.y / camera_surface.height) * 3040;
+      crop_rect[2] = ((float)crop.width / camera_surface.width) * 4056;
+      crop_rect[3] = ((float)crop.height / camera_surface.height) * 3040;
+      meta.update(ANDROID_SCALER_CROP_REGION, crop_rect, 4);
+    }
+  }
+
   ret = camera_context->SetCameraParam(meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
@@ -1045,9 +1073,7 @@ status_t SnapshotStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
 }
 
 StreamStitching::StreamStitching(InitParams &param)
-    : StitchingBase(param),
-      skip_camera_id_ (0),
-      single_camera_mode_(false) {
+    : StitchingBase(param) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -1059,16 +1085,6 @@ StreamStitching::StreamStitching(InitParams &param)
     BufferConsumerImpl<StreamStitching> *impl;
     impl = new BufferConsumerImpl<StreamStitching>(this);
     camera_consumers_map_.add(camera_id, impl);
-  }
-
-  for (auto const& cam_id : params_.camera_ids) {
-    if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
-      auto crop = params_.surface_crop.at(cam_id);
-      if (crop.width == 0 && crop.height == 0) {
-        skip_camera_id_ = cam_id;
-        single_camera_mode_ = true;
-      }
-    }
   }
 
   BufferProducerImpl<StreamStitching> *producer_impl;
@@ -1179,7 +1195,9 @@ StitchingBase::StitchingBase(InitParams &param)
     : params_(param),
       stop_frame_sync_(false),
       use_frame_sync_timeout(false),
-      work_thread_name_(nullptr) {
+      work_thread_name_(nullptr),
+      skip_camera_id_ (0),
+      single_camera_mode_(false) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
@@ -1188,6 +1206,16 @@ StitchingBase::StitchingBase(InitParams &param)
   for (auto const& camera_id : params_.camera_ids) {
     Vector<StreamBuffer> empty_buffers;
     unsynced_buffer_map_.add(camera_id, empty_buffers);
+  }
+
+  for (auto const& cam_id : params_.camera_ids) {
+    if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
+      auto crop = params_.surface_crop.at(cam_id);
+      if (crop.width == 0 && crop.height == 0) {
+        skip_camera_id_ = cam_id;
+        single_camera_mode_ = true;
+      }
+    }
   }
 
   // We need half the time for one frame 0.5sec/fps, but in nanoseconds.
@@ -1268,7 +1296,7 @@ bool StitchingBase::ThreadLoop() {
         ret = wait_for_sync_frames_.wait(sync_lock_);
       }
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s: Wait for frame available failed, ret(%d)", TAG,
+        QMMF_DEBUG("%s:%s: Wait for frame available failed, ret(%d)", TAG,
             __func__, ret);
         return true;
       }
@@ -1756,7 +1784,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   proc_data.input.bufs = input_buffer_list;
   proc_data.output.bufs = output_buffer_list;
 
-  if (!params_.surface_crop.empty()) {
+  if (!params_.surface_crop.empty() && !single_camera_mode_) {
     for (auto const& cam_id : params_.camera_ids) {
       if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
         proc_data.input.crop_cnt++;
