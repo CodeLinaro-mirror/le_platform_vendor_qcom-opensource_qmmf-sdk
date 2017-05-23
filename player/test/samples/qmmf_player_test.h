@@ -142,6 +142,7 @@ class PlayerTest {
 
   char *            filename_;
   AudioFileType     filetype_;
+  TrackTypes        config_track_type_;
 
  private:
 
@@ -232,6 +233,8 @@ class CmdMenu {
   Command GetCommand(bool& is_print_menu);
 
   void PrintMenu();
+
+  void HelpMenu(const char* test_name);
 
   PlayerTest &ctx_;
 };
