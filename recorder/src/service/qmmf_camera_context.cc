@@ -61,7 +61,6 @@ CameraContext::CameraContext()
       camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
-      current_snapshot_request_id_index_(0),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -1625,16 +1624,12 @@ status_t CameraContext::ReprocDelete() {
 
 status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
   if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    if ( snapshot_request_id_.size() > 0 ) {
-      if ( snapshot_request_id_[current_snapshot_request_id_index_]
-          == result.resultExtras.requestId ) {
-        if(reproc_pipe_.get() != nullptr) {
-           ++current_snapshot_request_id_index_;
-           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
-             current_snapshot_request_id_index_ = 0;
-           }
+    for (auto id : snapshot_request_id_) {
+      if (id == result.resultExtras.requestId) {
+        QMMF_INFO("%s:%s: found snapshot request id %d", TAG,__func__, id);
+        if (reproc_pipe_.get() != nullptr) {
           reproc_pipe_->AddResult(const_cast<void*>
-                                 (static_cast<void const*>(&result)));
+                                    (static_cast<void const*>(&result)));
         }
       }
     }
