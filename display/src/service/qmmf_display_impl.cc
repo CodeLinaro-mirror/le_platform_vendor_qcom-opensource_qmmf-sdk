@@ -930,6 +930,18 @@ DisplayError DisplayImpl::VSync(const DisplayEventVSync &vsync) {
   return kErrorNone;
 }
 
+DisplayError DisplayImpl::VSync(int fd, unsigned int sequence,
+                                unsigned int tv_sec, unsigned int tv_usec,
+                                void *data) {
+  return kErrorNotSupported;
+}
+
+DisplayError DisplayImpl::PFlip(int fd, unsigned int sequence,
+                                unsigned int tv_sec, unsigned int tv_usec,
+                                void *data) {
+  return kErrorNotSupported;
+}
+
 DisplayError DisplayImpl::Refresh() {
   return kErrorNotSupported;
 }
