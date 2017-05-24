@@ -677,13 +677,10 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   BnBuffer bn_buffer;
   memset(&bn_buffer, 0x0, sizeof bn_buffer);
 
-  uint32_t flags = 0x0;
-  if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
-    flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
+  if(codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     eos_atoutput_ = true;
     QMMF_INFO("%s:%s: EOS is received for track(%x)", TAG, __func__, TrackId());
   }
-  //TODO: Add CodecConfig flag too.
 
   {
     Mutex::Autolock lock(queue_lock_);
@@ -706,7 +703,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
         bn_buffer.width     = -1;
         bn_buffer.height    = -1;
         bn_buffer.buffer_id = (*it).fd;
-        bn_buffer.flag      = flags;
+        bn_buffer.flag      = codec_buffer.flag;
         bn_buffer.capacity  = (*it).capacity;
         found = true;
         break;
@@ -720,17 +717,22 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   MetaData meta_data;
   memset(&meta_data, 0x0, sizeof meta_data);
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kVideoFrameType);
-  if (codec_buffer.flag & OMX_BUFFERFLAG_SYNCFRAME) {
-    meta_data.video_frame_type_info = VideoFrameTypeInfo::kIFrame;
-  } else if (codec_buffer.flag & QOMX_VIDEO_PictureTypeIDR) {
-    meta_data.video_frame_type_info = VideoFrameTypeInfo::kIDRFrame;
-  } else if (codec_buffer.flag & OMX_VIDEO_PictureTypeP) {
-    meta_data.video_frame_type_info = VideoFrameTypeInfo::kPFrame;
-  } else if (codec_buffer.flag & OMX_VIDEO_PictureTypeB) {
-    meta_data.video_frame_type_info = VideoFrameTypeInfo::kBFrame;
-  } else {
-    QMMF_VERBOSE("%s: nFlags: 0x%x\n", __func__, codec_buffer.flag);
-  }
+
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagIDRFrame))
+    meta_data.video_frame_type_info = BufferFlags::kFlagIDRFrame;
+
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagIFrame))
+    meta_data.video_frame_type_info = BufferFlags::kFlagIFrame;
+
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagPFrame))
+    meta_data.video_frame_type_info = BufferFlags::kFlagPFrame;
+
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagBFrame))
+    meta_data.video_frame_type_info = BufferFlags::kFlagBFrame;
+
+  QMMF_VERBOSE("%s: Video Frame Type: %u\n", __func__,
+      static_cast<uint32_t>(meta_data.video_frame_type_info));
+
   std::vector<MetaData> meta_buffers;
   meta_buffers.push_back(meta_data);
 
@@ -847,7 +849,7 @@ void TrackEncoder::DumpBitStream(BufferDescriptor& codec_buffer) {
     QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
   }
 
-  if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     QMMF_ERROR("%s:%s This is last buffer from encoder.close file", TAG,
         __func__);
 
