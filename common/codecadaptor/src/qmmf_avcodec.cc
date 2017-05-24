@@ -3397,9 +3397,34 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
 
   codec_buffer.data = buf_header->pBuffer;
   codec_buffer.size = buf_header->nFilledLen;
-  codec_buffer.flag = buf_header->nFlags;
   codec_buffer.timestamp = buf_header->nTimeStamp;
   codec_buffer.offset = buf_header->nOffset;
+
+  if (buf_header->nFlags & QOMX_VIDEO_PictureTypeIDR)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagIDRFrame);
+
+  if (buf_header->nFlags & OMX_BUFFERFLAG_SYNCFRAME)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagIFrame);
+
+  if (buf_header->nFlags & OMX_VIDEO_PictureTypeP)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagPFrame);
+
+  if (buf_header->nFlags & OMX_VIDEO_PictureTypeB)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagBFrame);
+
+  if (buf_header->nFlags & OMX_BUFFERFLAG_CODECCONFIG)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagCodecConfig);
+
+  if (buf_header->nFlags & OMX_BUFFERFLAG_EOS)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
+
+  if (buf_header->nFlags & OMX_BUFFERFLAG_EXTRADATA)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagExtraData);
+
+  if (buf_header->nFlags & OMX_BUFFERFLAG_ENDOFFRAME)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOF);
+
+  QMMF_DEBUG("%s:%s codec_buffer.flag(%u)", TAG, __func__, codec_buffer.flag);
 
   if(avcodec->format_type_ == CodecType::kVideoDecoder) {
     struct VideoDecoderOutputMetaData *pParam =
@@ -3431,7 +3456,8 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
                  num_of_frames);
     ++src;
 
-    if (!((codec_buffer.flag) & OMX_BUFFERFLAG_EOS) && (num_of_frames > 0)) {
+    if (!((codec_buffer.flag) & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+        && (num_of_frames > 0)) {
       AudioEncoderMetadata* meta = reinterpret_cast<AudioEncoderMetadata*>(src);
       QMMF_VERBOSE("%s:%s audio metadata[%s]", TAG, __func__,
                    meta->ToString().c_str());
@@ -3458,7 +3484,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
     codec_buffer.capacity = buf_header->nAllocLen;
   }
 
-  if ((codec_buffer.flag) & OMX_BUFFERFLAG_EOS) {
+  if ((codec_buffer.flag) & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     QMMF_INFO("%s:%s received output port EOS", TAG, __func__);
     avcodec->StopOutput();
     if(!(avcodec->isEOSonOutput_)) {
@@ -3466,7 +3492,6 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
           OMX_BUFFERFLAG_EOS);
       avcodec->isEOSonOutput_ = true;
     }
-    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {
