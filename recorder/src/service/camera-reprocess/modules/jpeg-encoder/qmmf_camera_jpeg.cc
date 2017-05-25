@@ -37,6 +37,8 @@ namespace qmmf {
 
 namespace recorder {
 
+namespace reproc {
+
 CameraJpeg::CameraJpeg(int32_t Id)
     : id_(Id),
       reprocess_flag_(false),
@@ -192,6 +194,8 @@ status_t CameraJpeg::ReturnBuff(StreamBuffer buffer) {
        __func__, buffer.handle, buffer.timestamp, buffer.stream_id);
   return NO_ERROR;
 }
+
+}; // namespace reproc
 
 }; // namespace recoder
 

@@ -40,6 +40,8 @@ namespace qmmf {
 
 namespace recorder {
 
+namespace reproc {
+
 using namespace jpegencoder;
 
 class CameraJpeg : public Callbacks,
@@ -83,6 +85,9 @@ class CameraJpeg : public Callbacks,
   JpegEncoder*           jpeg_encoder_;
 
 };
+
+
+}; //namespace reproc
 
 }; //namespace recorder
 
