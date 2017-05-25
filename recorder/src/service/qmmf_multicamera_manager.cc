@@ -352,13 +352,13 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
                                           const VideoTrackExtraParam&
                                           extra_param) {
 
-  SourceSurfaceParam surface;
+  SourceSurfaceDesc surface;
   source_surface_.clear();
   surface_crop_.clear();
 
-  if (extra_param.Exists(QMMF_SOURCE_SURFACE_PARAM)) {
+  if (extra_param.Exists(QMMF_SOURCE_SURFACE_DESCRIPTOR)) {
     // Source surface entry count should be equal to the number of cameras.
-    size_t entry_count = extra_param.EntryCount(QMMF_SOURCE_SURFACE_PARAM);
+    size_t entry_count = extra_param.EntryCount(QMMF_SOURCE_SURFACE_DESCRIPTOR);
     if (entry_count < camera_contexts_.size()) {
       QMMF_ERROR("%s:%s: Not enough QMMF_SOURCE_SURFACE_PARAM entries! "
           "Required entries: %d!", TAG, __func__, camera_contexts_.size());
@@ -370,7 +370,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
     // Fetch source surface dimensions data from the container.
     for (size_t i = 0; i < entry_count; ++i) {
-      extra_param.Fetch(QMMF_SOURCE_SURFACE_PARAM, surface, i);
+      extra_param.Fetch(QMMF_SOURCE_SURFACE_DESCRIPTOR, surface, i);
       if (source_surface_.find(surface.camera_id) != source_surface_.end()) {
         QMMF_ERROR("%s:%s: Found more than one QMMF_SOURCE_SURFACE_PARAM "
             "entry for camera %d!", TAG, __func__, surface.camera_id);

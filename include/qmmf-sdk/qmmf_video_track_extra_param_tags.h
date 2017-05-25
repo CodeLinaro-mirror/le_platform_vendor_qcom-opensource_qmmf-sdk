@@ -36,9 +36,9 @@ namespace qmmf {
 namespace recorder {
 
 enum ParamTag {
-  QMMF_SOURCE_SURFACE_PARAM = (1 << 16),
+  QMMF_SOURCE_SURFACE_DESCRIPTOR = (1 << 16),
   QMMF_SURFACE_CROP,
-  QMMF_MULTICAM_SURFACE_PARAM,
+  QMMF_MULTICAM_MODE_SETTINGS,
   QMMF_SURFACE_PLACEMENT, // TODO: Not implemented. Do not use!
 };
 
@@ -80,7 +80,7 @@ enum class StitchingMode {
   kCustomComposition
 };
 
-struct SourceSurfaceParam : DataTagBase {
+struct SourceSurfaceDesc : DataTagBase {
   // ID of the camera whose surface dimensions will be set.
   int32_t camera_id;    // Default: -1
   // Width in pixels of the source surface.
@@ -90,8 +90,8 @@ struct SourceSurfaceParam : DataTagBase {
   // Transformations that will be applied on the source surface.
   TransformFlags flags; // Default: TransformFlags::kNone
 
-  SourceSurfaceParam()
-    : DataTagBase(QMMF_SOURCE_SURFACE_PARAM),
+  SourceSurfaceDesc()
+    : DataTagBase(QMMF_SOURCE_SURFACE_DESCRIPTOR),
       camera_id(-1), width(0), height(0), flags(TransformFlags::kNone) {}
 };
 
@@ -113,12 +113,12 @@ struct SurfaceCrop : DataTagBase {
       camera_id(-1), x(0), y(0), width(0), height(0) {}
 };
 
-struct MultiCamSurfaceParam : DataTagBase {
+struct MultiCamModeSettings : DataTagBase {
   StitchingMode mode;   // Default: StitchingMode::k360DefaultStitch
   TransformFlags flags; // Default: TransformFlags::kNone
 
-  MultiCamSurfaceParam()
-      : DataTagBase(QMMF_MULTICAM_SURFACE_PARAM),
+  MultiCamModeSettings()
+      : DataTagBase(QMMF_MULTICAM_MODE_SETTINGS),
         mode(StitchingMode::k360Default),
         flags(TransformFlags::kNone) {}
 };

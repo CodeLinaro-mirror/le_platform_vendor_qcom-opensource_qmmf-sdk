@@ -145,7 +145,7 @@ class MultiCameraManager : public CameraInterface {
   StreamSnapshotCb         client_snapshot_cb_;
   GrallocMemory            *jpeg_memory_pool_;
 
-  std::map<int32_t, SourceSurfaceParam> source_surface_;
+  std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
