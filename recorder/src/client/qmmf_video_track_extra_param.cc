@@ -27,6 +27,8 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <algorithm>
+
 #include "qmmf-sdk/qmmf_video_track_extra_param.h"
 
 namespace qmmf {

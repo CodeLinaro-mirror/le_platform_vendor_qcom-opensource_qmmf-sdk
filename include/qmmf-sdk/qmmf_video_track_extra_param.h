@@ -33,6 +33,7 @@
 #include <type_traits>
 #include <map>
 #include <vector>
+#include <cstring>
 
 #include "common/qmmf_log.h"
 
@@ -77,9 +78,6 @@ class VideoTrackExtraParam {
     static_assert(std::is_base_of<DataTagBase, T>::value,
         "The data type is not derived from base struct DataTagBase!");
 
-    static_assert(std::is_trivially_copyable<T>::value,
-        "The data struct is not trivially copyable!");
-
     DataTagBase base_data = static_cast<DataTagBase>(data);
     if (!base_data.IsValidTag(tag)) {
       QMMF_ERROR("%s: This data does not belong to tag %d!", __func__, tag);
@@ -99,9 +97,6 @@ class VideoTrackExtraParam {
 
     static_assert(std::is_base_of<DataTagBase, T>::value,
         "The data type is not derived from base struct DataTagBase!");
-
-    static_assert(std::is_trivially_copyable<T>::value,
-        "The data struct is not trivially copyable!");
 
     DataTagBase base_data = static_cast<DataTagBase>(data);
     if (!base_data.IsValidTag(tag)) {
