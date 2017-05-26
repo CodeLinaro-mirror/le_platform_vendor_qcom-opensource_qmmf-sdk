@@ -277,7 +277,7 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
       uint8_t *jpegEof = &cfg->params_.dest_buf[0].buf_vaddr[job_result_size_];
       memcpy(jpegEof, &jpegHeader, sizeof(jpegHeader));
 
-      *jpeg_size = job_result_size_+sizeof(jpegHeader) ;
+      *jpeg_size = job_result_size_ + sizeof(jpegHeader) + 1;
     }
   } else {
     ALOGE("%s: could not start encode job", __func__);
