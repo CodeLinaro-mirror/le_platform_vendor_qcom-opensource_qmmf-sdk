@@ -240,7 +240,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
       for (auto iter : client_cameraid_map_) {
         std::vector<uint32_t> camera_ids = iter.second;
         QMMF_INFO("%s:%s: client(%d) owning num cameras(%d)", TAG, __func__,
-            camera_ids.size());
+            client_id, camera_ids.size());
         for (auto camera : camera_ids) {
           ret = StopCamera(client_id, camera);
           if (ret != NO_ERROR) {
@@ -343,7 +343,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   auto& camera_id_vector = client_cameraid_map_[client_id];
   auto camera_id_iter = std::find(camera_id_vector.begin(),
       camera_id_vector.end(), camera_id);
-  camera_id_vector.erase(camera_id_iter, camera_id_vector.end());
+  camera_id_vector.erase(camera_id_iter);
   QMMF_INFO("%s:%s client_id(%d): number of cameras(%d)", TAG, __func__,
       client_id, camera_id_vector.size());
 
@@ -1264,6 +1264,17 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: client_id(%d) Failed to set FrameRate to TrackSource",
           TAG, __func__, client_id);
+      return ret;
+    }
+  }
+
+  if (type == CodecParamType::kEnableFrameRepeat) {
+    bool* enable_frame_repeat = static_cast<bool*>(param);
+    ret = camera_source_->EnableFrameRepeat(track_info.track_id,
+                                            *enable_frame_repeat);
+    if(ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: client_id(%d) Failed to set "
+          "FrameRepeat to TrackSource", TAG, __func__, client_id);
       return ret;
     }
   }

@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mman.h>
+#include <mutex>
 
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -54,6 +55,7 @@ using ::std::shared_ptr;
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
+static const uint64_t kTsFactor = 10000000; // 10 ms.
 
 CameraSource* CameraSource::instance_ = nullptr;
 
@@ -471,6 +473,20 @@ status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
   return NO_ERROR;
 }
 
+status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
+                                         const bool enable_frame_repeat) {
+
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
+  assert(track.get() != nullptr);
+
+  track->EnableFrameRepeat(enable_frame_repeat);
+  return NO_ERROR;
+}
+
 status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
                                            OverlayParam *param,
                                            uint32_t *overlay_id) {
@@ -627,13 +643,14 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
 
 void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 
-  uint32_t content_size;
+  uint32_t content_size = 0;
   int32_t width = -1, height = -1;
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
     case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
       width  = buffer.info.plane_info[0].width;
       height = buffer.info.plane_info[0].height;
@@ -686,7 +703,11 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       eos_acked_(false),
       enable_overlay_(false),
       input_count_(0),
-      count_(0) {
+      count_(0),
+      pending_encodes_per_frame_ratio_(0.0),
+      frame_repeat_ts_prev_(0),
+      frame_repeat_ts_curr_(0),
+      enable_frame_repeat_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -730,8 +751,10 @@ status_t TrackSource::Init() {
   memset(&stream_param, 0x0, sizeof stream_param);
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
-  if (track_params_.params.format_type == VideoFormat::kBayerRDI) {
+  if (track_params_.params.format_type == VideoFormat::kBayerRDI10BIT) {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
+  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
@@ -818,11 +841,13 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
   bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (is_force_cleanup) {
-      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__);
+      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__,
+          TrackId());
       Mutex::Autolock autoLock(buffer_list_lock_);
       for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
         StreamBuffer buffer = buffer_list_.valueAt(i);
@@ -917,16 +942,34 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
     QMMF_VERBOSE("%s:%s: track_id(%x) frames_received_.size(%d)", TAG, __func__,
         TrackId(), frames_received_.Size());
 
-    StreamBuffer stream_buffer = *frames_received_.Begin();
+    auto stream_buffer = frames_received_.Begin();
+
     buffer.data =
-        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer.handle));
-    buffer.fd = stream_buffer.fd;
-    buffer.capacity = stream_buffer.frame_length;
-    buffer.size = stream_buffer.filled_length;
-    buffer.timestamp = stream_buffer.timestamp;
-    buffer.flag = stream_buffer.flags;
-    frames_being_encoded_.PushBack(stream_buffer);
-    frames_received_.Erase(frames_received_.Begin());
+        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer->handle));
+    buffer.fd = stream_buffer->fd;
+    buffer.capacity = stream_buffer->frame_length;
+    buffer.size = stream_buffer->filled_length;
+    buffer.timestamp = stream_buffer->timestamp;
+    buffer.flag = stream_buffer->flags;
+
+    uint64_t ts_factor = (stream_buffer->timestamp - frame_repeat_ts_prev_) /
+        stream_buffer->encodes_per_frame_count - kTsFactor;
+    if (stream_buffer->encodes_per_frame_count !=
+        stream_buffer->pending_encodes_per_frame) {
+      buffer.timestamp = frame_repeat_ts_curr_ + ts_factor;
+    }
+    frame_repeat_ts_curr_ = buffer.timestamp;
+
+    stream_buffer->pending_encodes_per_frame--;
+    if (!stream_buffer->pending_encodes_per_frame) {
+      stream_buffer->needs_return = true;
+      frame_repeat_ts_prev_ = stream_buffer->timestamp;
+    }
+    frames_being_encoded_.PushBack((*stream_buffer));
+
+    if (!stream_buffer->pending_encodes_per_frame) {
+      frames_received_.Erase(frames_received_.Begin());
+    }
   }
 
   if (IsStop()) {
@@ -948,12 +991,18 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
       __func__, TrackId(), frames_being_encoded_.Size());
 
   bool found = false;
+
+  Mutex::Autolock lock(lock_);
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
     if ((*iter).handle ==  buffer.data) {
       QMMF_VERBOSE("%s:%s: Buffer found in frames_being_encoded_ list!", TAG,
           __func__);
-      ReturnBufferToProducer((*iter));
+
+      if (iter->needs_return) {
+        ReturnBufferToProducer((*iter));
+      }
+
       frames_being_encoded_.Erase(iter);
       found = true;
       break;
@@ -1011,11 +1060,18 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
                 TAG, __func__, TrackId(), input_frame_rate_, framerate);
       input_frame_rate_ = framerate;
       input_frame_interval_  = 1000000.0 / input_frame_rate_;
-      // Output fps cannot be more than input fps.
-      if (input_frame_rate_ < track_params_.params.frame_rate)
-        output_frame_interval_ = 1000000.0 / input_frame_rate_;
-      else
+
+      // Track frame rate can be higher than input frame rate only if
+      // frame_repeat is enabled
+      if (input_frame_rate_ < track_params_.params.frame_rate) {
+        if (enable_frame_repeat_) {
+          output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+        } else {
+          output_frame_interval_ = 1000000.0 / input_frame_rate_;
+        }
+      } else {
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+      }
     }
     if (debug_fps_ & kDebugSourceTrackFps) {
       QMMF_INFO("%s:%s: track_id(%x): source fps: = %0.2f", TAG, __func__,
@@ -1036,7 +1092,11 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     return;
   }
 
-  QMMF_VERBOSE("%s:%s: track_id(%x) numInts = %d", TAG, __func__, TrackId(),
+  buffer.needs_return = false;
+  buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
+  buffer.encodes_per_frame_count = buffer.pending_encodes_per_frame;
+
+  QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
       buffer.handle->numInts);
   for (int32_t i = 0; i < buffer.handle->numInts; i++) {
     QMMF_VERBOSE("%s:%s: track_id(%x) data[%d] =%d", TAG, __func__, TrackId(),
@@ -1065,7 +1125,8 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (IsStop()) {
@@ -1077,14 +1138,14 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     BnBuffer bn_buffer;
     memset(&bn_buffer, 0x0, sizeof bn_buffer);
-    bn_buffer.ion_fd         = buffer.fd;
-    bn_buffer.size           = buffer.size;
-    bn_buffer.timestamp      = buffer.timestamp;
-    bn_buffer.width          = buffer.info.plane_info[0].width;
-    bn_buffer.height         = buffer.info.plane_info[0].height;
-    bn_buffer.buffer_id      = buffer.fd;
-    bn_buffer.flag           = 0x10;
-    bn_buffer.capacity       = buffer.size;
+    bn_buffer.ion_fd            = buffer.fd;
+    bn_buffer.size              = buffer.size;
+    bn_buffer.timestamp         = buffer.timestamp;
+    bn_buffer.width             = buffer.info.plane_info[0].width;
+    bn_buffer.height            = buffer.info.plane_info[0].height;
+    bn_buffer.buffer_id         = buffer.fd;
+    bn_buffer.flag              = 0x10;
+    bn_buffer.capacity          = buffer.size;
 
     // Buffers from this list used for YUV callback.
     {
@@ -1094,10 +1155,12 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
 
-    MetaData meta_data;
-    memset(&meta_data, 0x0, sizeof meta_data);
+    MetaData meta_data {};
     meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-    meta_data.cam_buffer_meta_data = buffer.info;
+    meta_data.meta_flag |= static_cast<uint32_t>
+        (MetaParamType::kCamMetaFrameNumber);
+    meta_data.cam_buffer_meta_data  = buffer.info;
+    meta_data.cam_meta_frame_number = buffer.frame_number;
 
     std::vector<MetaData> meta_buffers;
     meta_buffers.push_back(meta_data);
@@ -1294,6 +1357,12 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
   }
 }
 
+void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {
+
+  std::lock_guard<std::mutex> lock(frame_repeat_lock_);
+  enable_frame_repeat_ = enable_frame_repeat;
+}
+
 bool TrackSource::IsFrameSkip() {
 
   Mutex::Autolock autoLock(frame_skip_lock_);
@@ -1306,6 +1375,29 @@ bool TrackSource::IsFrameSkip() {
     skip = true;
   }
   return skip;
+}
+
+uint32_t TrackSource::CalculateEncodesPerFrame() {
+
+  std::lock_guard<std::mutex> lock(frame_repeat_lock_);
+  uint32_t encodes_per_frame;
+
+  if ((!enable_frame_repeat_) ||
+      (input_frame_rate_ >= track_params_.params.frame_rate)) {
+    return 1;
+  }
+
+  encodes_per_frame = static_cast<uint32_t>(input_frame_interval_) /
+      output_frame_interval_;
+  pending_encodes_per_frame_ratio_ +=
+      (input_frame_interval_ / output_frame_interval_) - encodes_per_frame;
+
+  if (pending_encodes_per_frame_ratio_ >= 1.0) {
+    pending_encodes_per_frame_ratio_ -= 1.0;
+    ++encodes_per_frame;
+  }
+
+  return encodes_per_frame;
 }
 
 void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {

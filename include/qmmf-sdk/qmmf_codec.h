@@ -70,7 +70,8 @@ enum class VideoFormat {
   kHEVC,
   kAVC,
   kYUV,
-  kBayerRDI,
+  kBayerRDI10BIT,
+  kBayerRDI12BIT,
   kBayerIdeal,
 };
 
@@ -85,6 +86,7 @@ enum class CodecParamType {
   kAudioEffectsParamType,
   kAudioVolumeParamType,
   kDecodeOperatingRate,
+  kEnableFrameRepeat,
 };
 
 enum class AVCProfileType {
@@ -319,7 +321,8 @@ union VideoCodecParams {
         stream << "avc[" << avc.ToString() << "]";
         break;
       case VideoFormat::kYUV:
-      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerRDI10BIT:
+      case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
         stream << "N/A";
         break;
@@ -377,7 +380,8 @@ enum class ImageFormat {
   kJPEG,
   kNV12,
   kBayerIdeal,
-  kBayerRDI,
+  kBayerRDI10BIT,
+  kBayerRDI12BIT,
 };
 
 enum class ImageMetaDataType {
@@ -409,6 +413,7 @@ enum class BufferFormat {
   kNV21,
   kBLOB,
   kRAW10,
+  kRAW12,
   kRAW16
 };
 

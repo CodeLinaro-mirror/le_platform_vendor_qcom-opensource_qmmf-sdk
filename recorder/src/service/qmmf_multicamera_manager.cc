@@ -76,12 +76,12 @@ status_t MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t>
     return BAD_VALUE;
   }
   QMMF_INFO("%s:%s: Number of camera to be used(%d)", TAG, __func__,
-    camera_ids.size());
+      camera_ids.size());
 
   Vector<uint32_t> ids;
-  for (uint32_t i = 0; i < camera_ids.size(); ++i) {
-    QMMF_INFO("%s:%s camera id=%d", TAG, __func__, camera_ids[i]);
-    ids.push_back(camera_ids[i]);
+  for (auto const& cam_id : camera_ids) {
+    QMMF_INFO("%s:%s camera id=%d", TAG, __func__, cam_id);
+    ids.push_back(cam_id);
   }
   ++virtual_camera_id_;
   virtual_camera_map_.add(virtual_camera_id_, ids);
@@ -174,14 +174,15 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     QMMF_ERROR("%s:%s: Invalid virtual camera ID!", TAG, __func__);
     return BAD_VALUE;
   }
-  Vector<uint32_t> camera_ids = virtual_camera_map_.valueFor(virtual_camera_id);
   QMMF_INFO("%s:%s: Total Number of cameras to be closed(%d)", TAG, __func__,
-      camera_ids.size());
+      camera_contexts_.size());
 
   snapshot_stitch_algo_->RequestExitAndWait();
   snapshot_stitch_algo_.clear();
 
-  for (auto const& cam_id : camera_ids) {
+  // Close cameras backwards since first camera is master camera.
+  while (!camera_contexts_.isEmpty()) {
+    uint32_t cam_id = camera_contexts_.keyAt(camera_contexts_.size() - 1);
     QMMF_INFO("%s:%s camera id(%d) to be closed", TAG, __func__, cam_id);
 
     sp<CameraContext> camera_context = camera_contexts_.valueFor(cam_id);
@@ -574,8 +575,11 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
     case ImageFormat::kNV12:
       format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       break;
-    case ImageFormat::kBayerRDI:
+    case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
+      break;
+    case ImageFormat::kBayerRDI12BIT:
+      format = HAL_PIXEL_FORMAT_RAW12;
       break;
     case ImageFormat::kBayerIdeal:
       // Not supported.

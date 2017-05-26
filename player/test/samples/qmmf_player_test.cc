@@ -310,6 +310,8 @@ int32_t PlayerTest::Prepare() {
 int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
                               VideoTrackCreateParam& video_track_param_) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
+  auto ret = 0;
+  AacCodecData           aac_codec_data;
 
   CreateDataSource();
 
@@ -321,10 +323,22 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
     audio_track_param_.bit_depth   = 16; //TODO m_sTrackInfo_.sAudio.ulBitDepth;
 
     if (m_sTrackInfo_.sAudio.ulCodecType == 3) {
+      ret = m_pDemux_->GetAACCodecData(audio_track_id_, &aac_codec_data);
+      if (ret == false) {
+        TEST_ERROR("%s:%s: Failed to get codec info", TAG, __func__);
+    }
+      TEST_DBG("%s:%s aac codec profile : %u format : %d ", TAG, __func__,
+          aac_codec_data.ucAACProfile,
+          static_cast<uint32_t>(aac_codec_data.eAACStreamFormat));
       audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
-      audio_track_param_.codec_params.aac.bit_rate = m_sTrackInfo_.sAudio.ulBitRate;
+      audio_track_param_.codec_params.aac.bit_rate =
+          m_sTrackInfo_.sAudio.ulBitRate;
       audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
       audio_track_param_.codec_params.aac.mode     = AACMode::kAALC;
+      if (m_sTrackInfo_.sAudio.ulSampleRate == 22050 ||
+          m_sTrackInfo_.sAudio.ulSampleRate == 24000) {
+        audio_track_param_.sample_rate  = m_sTrackInfo_.sAudio.ulSampleRate * 2;
+      }
     } else if (m_sTrackInfo_.sAudio.ulCodecType == 7) {
       audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
       audio_track_param_.sample_rate = 16000;
@@ -380,7 +394,6 @@ int32_t PlayerTest::Start() {
 
   if(start_again_ && !intermediate_stop_)
   {
-
     TEST_INFO("%s:%s: Playback Speed(%u) Playback Direction(%u)", TAG, __func__,
         static_cast<uint32_t>(playback_speed_),
         static_cast<uint32_t>(playback_dir_));
@@ -631,10 +644,14 @@ void * PlayerTest::StartPlayingVideo(void *ptr) {
         playertest->m_sTrackInfo_.sVideo.sSampleBuf.pucData1 + nFormatBlockSize,
         &(playertest->m_sTrackInfo_.sVideo.sSampleBuf.ulLen), sSampleInfo);
 
-    if (static_cast<uint32_t>(playertest->playback_dir_) == 4) {
-      mFSStatus = playertest->m_pDemux_->SeekRelativeSyncPoint(
-          static_cast<int>(sSampleInfo.startTime/1000) , -2);
-      TEST_INFO("%s:%s: REW %u", TAG, __func__, static_cast<uint32_t>(mFSStatus));
+    if (playertest->playback_dir_ == TrickModeDirection::kNormalRewind) {
+      if (sSampleInfo.startTime == 0) {
+        eMediaStatus = FILE_SOURCE_DATA_END;
+      } else {
+        mFSStatus = playertest->m_pDemux_->SeekRelativeSyncPoint(
+            static_cast<int>(sSampleInfo.startTime/1000), -2);
+        TEST_INFO("%s:%s: REW %u", TAG, __func__, static_cast<uint32_t>(mFSStatus));
+      }
     }
 
 #ifdef DUMP_VIDEO_BITSTREAM
@@ -1072,7 +1089,8 @@ uint32_t PlayerTest::ReadMediaInfo() {
 
         eErr = ReadAudioTrackMediaInfo(sTrackInfo.id, eMnType);
         audio_track_id_ = sTrackInfo.id;
-        if (m_sTrackInfo_.ulNumTracks  == 1) {
+        if (m_sTrackInfo_.ulNumTracks  == 1 ||
+            config_track_type_ == TrackTypes::kAudioOnly) {
           track_type_ = TrackTypes::kAudioOnly;
         }
 
@@ -1086,7 +1104,8 @@ uint32_t PlayerTest::ReadMediaInfo() {
 
         eErr = ReadVideoTrackMediaInfo(sTrackInfo.id, eMnType);
         video_track_id_ = sTrackInfo.id;
-        if (m_sTrackInfo_.ulNumTracks  == 1) {
+        if (m_sTrackInfo_.ulNumTracks  == 1 ||
+            config_track_type_ == TrackTypes::kVideoOnly) {
           track_type_ = TrackTypes::kVideoOnly;
         }
       }
@@ -1249,6 +1268,12 @@ ERROR_BAIL:
   return eErr;
 }
 
+void CmdMenu::HelpMenu(const char * test_name){
+  printf("\n Player Test Usage:\n");
+  printf("1) %s <mp4 file> \n", test_name);
+  printf("2) %s <mp4 file> -o video, for video only playback \n", test_name);
+  printf("3) %s <mp4 file> -o audio, for audio only playback \n", test_name);
+}
 void CmdMenu::PrintMenu() {
 
   printf("\n\n=========== PLAYER TEST MENU ===================\n\n");
@@ -1289,15 +1314,29 @@ int main(int argc,char *argv[]) {
   bool is_print_menu = true;
   int32_t exit_test = false;
 
-  if (argc == 2) {
+  if (argc == 4) {
+    if (strcmp(argv[2], "-o")) {
+      cmd_menu.HelpMenu(argv[0]);
+      exit_test = true;
+    } else {
+      if (!(strcmp(argv[3], "video"))) {
+        test_context.config_track_type_ = TrackTypes::kVideoOnly;
+      } else if (!(strcmp(argv[3], "audio"))) {
+        test_context.config_track_type_ = TrackTypes::kAudioOnly;
+      }
+    }
+  }
+
+  if (argc == 2 || (argc == 4 && !exit_test)) {
     char *extn = strrchr(argv[1], '.');
     TEST_INFO("%s: exten is: %s", TAG, extn);
-    if(!((strcmp(extn, ".mp4") == 0) || (strcmp(extn, ".MP4") == 0))) {
+    if (!((strcmp(extn, ".mp4") == 0) || (strcmp(extn, ".MP4") == 0))) {
       TEST_ERROR("%s:%s Player support .mp4/.MP4 extn only", TAG,__func__);
+      cmd_menu.HelpMenu(argv[0]);
       exit_test = true;
     }
   } else {
-    TEST_ERROR("%s:%s Give mp4 file to play", TAG,__func__);
+    cmd_menu.HelpMenu(argv[0]);
     exit_test = true;
   }
 

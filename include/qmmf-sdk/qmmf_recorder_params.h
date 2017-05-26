@@ -58,7 +58,9 @@ namespace recorder {
 
 typedef int32_t status_t;
 
-enum class EventType { kError, kStateChanged };
+enum class EventType {
+  kServerDied = 1,
+};
 
 typedef std::function<void(EventType event_type, void *event_data,
                            size_t event_data_size)> EventCb;
@@ -80,9 +82,10 @@ struct SessionCb {
 /// \brief MetaParamType flag is used to determine type of meta data set in
 /// MetaData structure.
 enum class MetaParamType {
-  kNone           = (1 << 0),
-  kCamBufMetaData = (1 << 1),
-  kVideoFrameType = (1 << 2),
+  kNone               = (1 << 0),
+  kCamBufMetaData     = (1 << 1),
+  kVideoFrameType     = (1 << 2),
+  kCamMetaFrameNumber = (1 << 3)
 };
 
 /// \brief VideoFrameTypeInfo is used to determine the type of encoded video
@@ -108,6 +111,7 @@ struct MetaData {
   uint32_t meta_flag;
   CameraBufferMetaData cam_buffer_meta_data;
   VideoFrameTypeInfo video_frame_type_info;
+  uint32_t cam_meta_frame_number;
 };
 
 /// \brief Both data and event callbacks should be set by the client.

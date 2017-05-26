@@ -593,7 +593,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->transform.flip_vertical =
       surface_param.surface_transform.flip_vertical;
   layer->transform.rotation = surface_param.surface_transform.rotation;
-  layer->plane_alpha = surface_param.plane_alpha;
+  layer->plane_alpha = 0xFF;
   layer->frame_rate = surface_param.frame_rate;
   layer->solid_fill_color = surface_param.solid_fill_color;
   layer->flags.solid_fill = surface_param.surface_flags.solid_fill;

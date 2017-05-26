@@ -162,17 +162,21 @@ class RecorderGtest : public ::testing::Test {
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
-  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                                buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
@@ -184,11 +188,18 @@ class RecorderGtest : public ::testing::Test {
                            const uint8_t *buffer, size_t size,
                            int64_t timestamp, AVQueue *que);
 
-  void VideoCachedDataCb(uint32_t track_id,
+  void VideoCachedDataCb(uint32_t session_id, uint32_t track_id,
                          std::vector<BufferDescriptor> buffers,
                          std::vector<MetaData> meta_buffers,
                          VideoFormat format_type,
                          AVQueue *que);
+
+  void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
+                                       const CameraMetadata &result);
+
+  void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
+                                       std::vector<BufferDescriptor> buffers,
+                                       std::vector<MetaData> meta_buffers);
 
   status_t DumpQueue(AVQueue *queue, int32_t file_fd);
 
@@ -214,6 +225,11 @@ class RecorderGtest : public ::testing::Test {
   CameraMetadata       static_info_;
   nr_modes_            supported_nr_modes_;
   vhdr_modes_          supported_hdr_modes_;
+
+  typedef std::tuple<BufferDescriptor, CameraMetadata, uint32_t, uint32_t>
+      BufferMetaDataTuple;
+  std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
+  std::mutex buffer_metadata_lock_;
 
   DumpBitStream         dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;

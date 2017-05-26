@@ -31,6 +31,18 @@
 
 #include <utils/Log.h>
 
+#undef assert
+// Invalid ptr operation just to get backtraces into logcat.
+// TODO: Use "libunwind" to get proper traces.
+#define assert(condition) do { \
+  if (!(condition)) { \
+    int *p = 0; \
+    QMMF_ERROR("assert(%s) at %s:%d", #condition, __FILE__, __LINE__); \
+    *p = 4; \
+    ALOGE("%p", p); \
+  } \
+} while (0)
+
 // Remove comment markers to define LOG_LEVEL_DEBUG for debugging-related logs
 //#define LOG_LEVEL_DEBUG
 
