@@ -32,11 +32,13 @@
 
 #include <fcntl.h>
 
+#include <cstdlib>
 #include <iomanip>
 #include <memory>
 #include <string>
 #include <sstream>
 
+#include <cutils/properties.h>
 #include <utils/String8.h>
 #include <OMX_QCOMExtns.h>
 #include <utils/RefBase.h>
@@ -586,6 +588,24 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     QMMF_ERROR("%s:%s Failed to set port definiton on %s", TAG, __func__,
         PORT_NAME(kPortIndexOutput));
     return ret;
+  }
+
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("media.msm8953.version", prop, "0");
+  if (atoi(prop) == 1) {
+    QMMF_INFO("%s:%s Setting the Low Power Encode mode", TAG, __func__);
+    QOMX_EXTNINDEX_VIDEO_PERFMODE perf_param;
+    InitOMXParams(&perf_param);
+    // 1 represents High Quality Mode
+    // 2 represents Low Power Mode
+    perf_param.nPerfMode = 2;
+    ret = omx_client_->SetConfig(
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexConfigVideoVencPerfMode),
+        reinterpret_cast<OMX_PTR>(&perf_param));
+    if (ret != 0) {
+      QMMF_ERROR("%s:%s Failed to set Low Power Mode", TAG, __func__);
+      return ret;
+    }
   }
 
   switch(codec_param.video_enc_param.format_type) {

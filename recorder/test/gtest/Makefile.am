@@ -18,6 +18,7 @@ bin_PROGRAMS += recorder_360cam_gtest
 recorder_360cam_gtest_SOURCES  = qmmf_recorder_360cam_gtest.cc
 recorder_360cam_gtest_CPPFLAGS = -I$(top_srcdir)/include
 recorder_360cam_gtest_CPPFLAGS += -I$(top_srcdir)/
+recorder_360cam_gtest_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 recorder_360cam_gtest_LDFLAGS  = -lutils -lcutils -llog -lgtest -lgtest_main
 recorder_360cam_gtest_LDFLAGS  += -lcamera_client -lcamera_metadata
 recorder_360cam_gtest_LDADD    = ../../src/client/libqmmf_recorder_client.la
