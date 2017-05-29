@@ -822,13 +822,9 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  CameraMetadata static_meta;
-  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
-  assert(ret == NO_ERROR);
+  auto ret = NO_ERROR;
   if (!snapshot_request_.metadata.isEmpty()) {
     meta.clear();
-    // Append static meta data.
-    meta.append(static_meta);
     // Append default snapshot meta data.
     meta.append(snapshot_request_.metadata);
   } else {
@@ -1075,6 +1071,13 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   auto ret = camera_device_->CreateDefaultRequest(template_type,
       &request.metadata);
   assert(ret == NO_ERROR);
+
+  CameraMetadata static_meta;
+  ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
+  assert(ret == NO_ERROR);
+
+  // Append static meta data.
+  request.metadata.append(static_meta);
   return ret;
 }
 
