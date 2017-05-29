@@ -29,3 +29,5 @@ sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_player_params.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_device.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_codec.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_overlay.h
+sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_video_track_extra_param.h
+sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_video_track_extra_param_tags.h
