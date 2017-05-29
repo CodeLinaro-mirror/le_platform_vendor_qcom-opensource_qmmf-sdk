@@ -547,15 +547,25 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
 
 status_t MultiCameraManager::SetCameraParam(const CameraMetadata &meta) {
 
-  //One of the cameras will be master cam that's why we need
-  //to set the params only for one camera.
-  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
-  assert(camera_context.get() != nullptr);
-  status_t ret = camera_context->SetCameraParam(meta);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetCameraParam Failed!", TAG, __func__);
+  for (size_t ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
+    int32_t camera_id = camera_contexts_.keyAt(ctx_idx);
+
+    auto ret = FillDualCamMetadata(const_cast<CameraMetadata&>(meta), ctx_idx);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: FillDualCamMetadata Failed!", TAG,
+          __func__, camera_id);
+      return ret;
+    }
+
+    ret = camera_context->SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+          camera_id);
+      return ret;
+    }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::GetCameraParam(CameraMetadata &meta) {
