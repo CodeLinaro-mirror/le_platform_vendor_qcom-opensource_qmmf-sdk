@@ -35,7 +35,7 @@
 #include <vector>
 #include <cstring>
 
-#include "common/qmmf_log.h"
+#include <utils/Log.h>
 
 namespace qmmf {
 
@@ -80,13 +80,13 @@ class VideoTrackExtraParam {
 
     DataTagBase base_data = static_cast<DataTagBase>(data);
     if (!base_data.IsValidTag(tag)) {
-      QMMF_ERROR("%s: This data does not belong to tag %d!", __func__, tag);
+      ALOGE("%s: This data does not belong to tag %d!", __func__, tag);
       return -EINVAL;
     }
 
     auto ret = FillDataEntry(tag, entry, data);
     if (0 != ret) {
-      QMMF_ERROR("%s: Failed to fill data entry!", __func__);
+      ALOGE("%s: Failed to fill data entry!", __func__);
       return ret;
     }
     return 0;
@@ -100,13 +100,13 @@ class VideoTrackExtraParam {
 
     DataTagBase base_data = static_cast<DataTagBase>(data);
     if (!base_data.IsValidTag(tag)) {
-      QMMF_ERROR("%s: This data does not belong to tag %d!", __func__, tag);
+      ALOGE("%s: This data does not belong to tag %d!", __func__, tag);
       return -EINVAL;
     }
 
     auto ret = FetchDataEntry(tag, entry, data);
     if (0 != ret) {
-      QMMF_ERROR("%s: Failed to add data entry!", __func__);
+      ALOGE("%s: Failed to add data entry!", __func__);
       return ret;
     }
     return 0;
@@ -167,7 +167,7 @@ class VideoTrackExtraParam {
   int32_t FillDataEntry(uint32_t &tag, uint32_t &entry, const T &data) {
 
     if (locked_) {
-      QMMF_ERROR("%s: Can't add tag entry to a locked Container!", __func__);
+      ALOGE("%s: Can't add tag entry to a locked Container!", __func__);
       return -EPERM;
     }
 
@@ -186,7 +186,7 @@ class VideoTrackExtraParam {
       if (it == data_map_.end()) {
         // Neither tag nor entry exist in the map, add them.
         if (0 != entry) {
-          QMMF_ERROR("%s: Invalid entry number! Entries must be subsequent!",
+          ALOGE("%s: Invalid entry number! Entries must be subsequent!",
               __func__);
           return -EINVAL;
         }
@@ -195,7 +195,7 @@ class VideoTrackExtraParam {
       } else if (it != data_map_.end() && it->second.size() <= entry) {
         // Tag exist in the map, but the entry does not.
         if ((it->second.size() - entry) > 1) {
-          QMMF_ERROR("%s: Invalid entry number! Entries must be subsequent!",
+          ALOGE("%s: Invalid entry number! Entries must be subsequent!",
               __func__);
           return -EINVAL;
         }
