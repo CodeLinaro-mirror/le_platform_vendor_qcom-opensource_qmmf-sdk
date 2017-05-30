@@ -647,7 +647,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
                 surface_buffer.plane_info[0].ion_fd;
 
             it->second->queued = 1;
-            it->second->commited == 0;
+            it->second->commited = 0;
             QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
                 "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
                 it->second->queued, it->second->dequed, it->second->commited);

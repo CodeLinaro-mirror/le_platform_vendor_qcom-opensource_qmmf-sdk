@@ -33,6 +33,7 @@
 #include <linux/msm_ion.h>
 #include <adreno/c2d2.h>
 #include <utils/String8.h>
+#include <cutils/properties.h>
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -82,6 +83,8 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 
 // Remove comment marker to measure time taken in overlay drawing.
 //#define DEBUG_BLIT_TIME
+
+#define PROP_DUMP_BLOB_IMAGE        "persist.qmmf.overlay.dump.blob"
 
 struct DrawInfo {
     uint32_t width;
@@ -185,7 +188,22 @@ class OverlayItemStaticImage : public OverlayItem {
  private:
   int32_t CreateSurface();
 
+  void DestroySurface();
+
   android::String8 image_path_;
+  OverlayImageType image_type_;
+  char *   image_buffer_;
+  uint32_t image_size_;
+  uint32_t image_width_;
+  uint32_t image_height_;
+  uint32_t crop_rect_x_;
+  uint32_t crop_rect_y_;
+  uint32_t crop_rect_width_;
+  uint32_t crop_rect_height_;
+  bool     blob_image_dump_enabled_;
+  int32_t  blob_buffer_file_fd_;
+  bool blob_buffer_updated_;
+  std::mutex update_param_lock_;
 };
 
 #define DATETIME_TEXT_BUF_WIDTH         192

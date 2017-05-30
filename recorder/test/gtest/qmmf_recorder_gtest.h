@@ -37,6 +37,7 @@
 #include <map>
 #include <mutex>
 #include <cutils/properties.h>
+#include <cairo/cairo.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -91,12 +92,22 @@ struct FaceInfo {
 #define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
 
+#define TEXT_SIZE                   40
+#define DATETIME_PIXEL_SIZE         30
+
 typedef struct StreamDumpInfo {
   VideoFormat   format;
   uint32_t      track_id;
   int32_t       width;
   int32_t       height;
 } StreamDumpInfo;
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
+};
 
 class DumpBitStream {
  public:
@@ -214,11 +225,20 @@ class RecorderGtest : public ::testing::Test {
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
+
+  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
+
+  void ClearSurface();
+
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
   std::mutex face_overlay_lock_;
+  cairo_surface_t*       cr_surface_;
+  cairo_t*               cr_context_;
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;

@@ -76,7 +76,7 @@ ReprocessFactory::getReprocEngine(String8 name,
   ICameraModule* instance = nullptr;
 
   if (name == "JpegEncode") {
-    instance = new CameraJpeg(GetId());
+    instance = new reproc::CameraJpeg(GetId());
   } else if (name == "HALJpegEncode") {
     instance = new CameraHal(context);
   } else if (name == "Simple") {
