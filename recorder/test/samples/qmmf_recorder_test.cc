@@ -4139,43 +4139,105 @@ int32_t RecorderTest::RunAutoMode() {
     return ret;
   }
 
-  ret = StartCamera();
-  if (NO_ERROR  != ret) {
-    ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
-    return ret;
+  CameraStartParam camera_params;
+  memset(&camera_params, 0x0, sizeof camera_params);
+  camera_params.zsl_mode            = false;
+  camera_params.zsl_queue_depth     = 10;
+  camera_params.zsl_width           = 3840;
+  camera_params.zsl_height          = 2160;
+  camera_params.frame_rate          = 30;
+  camera_params.flags               = 0x0;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if(ret != 0) {
+      ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
   }
 
-  ret = Session4KEncTrack(TrackType::kVideoAVC);
-  if (NO_ERROR  != ret) {
-    ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
-    return ret;
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  video_track_param.camera_id   = camera_id_;
+  video_track_param.width       = 3840;
+  video_track_param.height      = 2160;
+  video_track_param.frame_rate  = 30;
+
+  video_track_param.format_type = VideoFormat::kAVC;
+  video_track_param.codec_param.avc.idr_interval = 1;
+  video_track_param.codec_param.avc.bitrate      = 10000000;
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kMaxBitrate;
+  video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 27;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 28;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 28;
+  video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+  video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 10;
+  video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+  video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
+  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+  video_track_param.codec_param.avc.ltr_count = 4;
+  video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers, std::vector<MetaData>
+      meta_buffers) { recorder_.ReturnTrackBuffer(session_id, 1, buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t data_size) { };
+
+  ret = recorder_.CreateVideoTrack(session_id,
+            1, video_track_param, video_track_cb);
+
+  if(ret != 0) {
+      ALOGE("%s:%s CreateVideoTrack failed!!", TAG, __func__);
   }
 
-  ret = StartSession();
-  if (NO_ERROR  != ret) {
-      ALOGE("%s:%s Session4KEncTrack Failed!!", TAG, __func__);
-      return ret;
+  ret = recorder_.StartSession(session_id);
+  if(ret != 0) {
+      ALOGE("%s:%s StartSession failed!!", TAG, __func__);
   }
 
   // Record video for 5 sec
   sleep(5);
 
-  ret = StopSession();
-  if (NO_ERROR  != ret) {
-      ALOGE("%s:%s StopSession Failed!!", TAG, __func__);
+  ret = recorder_.StopSession(session_id, true /*flush buffers*/);
+  if(ret != 0) {
+      ALOGE("%s:%s StopSession failed!!", TAG, __func__);
+  }
+
+  ret = recorder_.DeleteVideoTrack(session_id, 1);    //info.track_id = 1;
+  if (ret != 0) {
+      ALOGE("%s:%s DeleteVideoTrack Failed!!", TAG, __func__);
       return ret;
   }
 
-  ret = DeleteSession();
-  if (NO_ERROR  != ret) {
+  ret = recorder_.DeleteSession(session_id);
+  if (ret != 0) {
       ALOGE("%s:%s DeleteSession Failed!!", TAG, __func__);
       return ret;
   }
 
-  ret = StopCamera();
-  if (NO_ERROR  != ret) {
-      ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
-      return ret;
+  ret = recorder_.StopCamera(camera_id_);
+  if(ret != 0) {
+    ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
   }
 
   ret = Disconnect();
