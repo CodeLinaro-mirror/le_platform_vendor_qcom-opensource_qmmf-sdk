@@ -1,6 +1,7 @@
 source_files = qmmf_recorder.cc
 source_files += qmmf_recorder_client.cc
 source_files += qmmf_recorder_client_ion.cc
+source_files += qmmf_video_track_extra_param.cc
 
 # Build qmmf recorder client library
 # libqmmf_recorder_client.so
