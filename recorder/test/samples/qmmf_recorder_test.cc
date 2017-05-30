@@ -4900,6 +4900,9 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
 
+#if USE_SKIA
+
+#elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (data),
                                                     CAIRO_FORMAT_ARGB32, width,
@@ -4953,6 +4956,7 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
   cairo_show_text (cr_context_, "User Text Bolb Test");
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush(cr_surface_);
+#endif
 
   TEST_DBG("%s: Exit", __func__);
   return ret;

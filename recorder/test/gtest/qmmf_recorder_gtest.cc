@@ -9974,6 +9974,9 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
 
+#if USE_SKIA
+
+#elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (data),
                                                     CAIRO_FORMAT_ARGB32, width,
@@ -9982,6 +9985,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   cr_context_ = cairo_create (cr_surface_);
   assert (cr_context_ != nullptr);
+#endif
 
   struct timeval tv;
   time_t now_time;
@@ -10003,6 +10007,9 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   ClearSurface();
 
+#if USE_SKIA
+
+#elif USE_CAIRO
   cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
                           CAIRO_FONT_WEIGHT_BOLD);
   cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
@@ -10063,6 +10070,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush(cr_surface_);
+#endif
 
   TEST_DBG("%s: Exit", __func__);
   return ret;
@@ -10079,11 +10087,15 @@ void RecorderGtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 void RecorderGtest::ClearSurface() {
   RGBAValues bg_color;
   memset(&bg_color, 0x0, sizeof bg_color);
+#if USE_SKIA
+
+#elif USE_CAIRO
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_CLEAR);
   cairo_paint(cr_context_);
   cairo_surface_flush(cr_surface_);
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+#endif
 }
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {

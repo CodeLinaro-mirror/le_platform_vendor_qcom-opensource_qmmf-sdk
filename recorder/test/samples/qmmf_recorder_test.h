@@ -48,7 +48,12 @@
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+
+#if USE_SKIA
+#include <SkCanvas.h>
+#elif USE_CAIRO
 #include <cairo/cairo.h>
+#endif
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -616,8 +621,12 @@ class TestTrack {
   bool display_started_;
 
   DumpBitStream dump_bitstream_;
-  cairo_surface_t*       cr_surface_;
-  cairo_t*               cr_context_;
+#if USE_SKIA
+  SkCanvas*                canvas_;
+#elif USE_CAIRO
+  cairo_surface_t*         cr_surface_;
+  cairo_t*                 cr_context_;
+#endif
 };
 
 class CmdMenu
