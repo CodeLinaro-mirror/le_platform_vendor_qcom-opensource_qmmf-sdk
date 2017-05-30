@@ -46,7 +46,7 @@
 #include <qmmf-sdk/qmmf_video_track_extra_param_tags.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
 
-#define DEBUG
+//#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
