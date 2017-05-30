@@ -33,7 +33,7 @@
 
 namespace qmmf {
 
-namespace jpegencoder {
+namespace reprocjpegencoder {
 
 class JpegEncoder {
 
@@ -73,6 +73,6 @@ class JpegEncoder {
 
 };
 
-}; //namespace jpegencoder ends here
+}; //namespace reprocjpegencoder ends here
 
 }; //namespace qmmf ends here

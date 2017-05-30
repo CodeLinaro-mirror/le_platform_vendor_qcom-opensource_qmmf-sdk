@@ -45,13 +45,13 @@ CameraJpeg::CameraJpeg(int32_t Id)
       ready_to_start_(false),
       jpeg_encoder_(nullptr) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  jpeg_encoder_ = JpegEncoder::getInstance();
+  jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 CameraJpeg::~CameraJpeg() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
-  JpegEncoder::releaseInstance();
+  reprocjpegencoder::JpegEncoder::releaseInstance();
   jpeg_encoder_ = nullptr;
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
