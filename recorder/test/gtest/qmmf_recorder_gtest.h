@@ -37,7 +37,12 @@
 #include <map>
 #include <mutex>
 #include <cutils/properties.h>
+
+#if USE_SKIA
+#include <SkCanvas.h>
+#elif USE_CAIRO
 #include <cairo/cairo.h>
+#endif
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -237,8 +242,12 @@ class RecorderGtest : public ::testing::Test {
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
   std::mutex face_overlay_lock_;
-  cairo_surface_t*       cr_surface_;
-  cairo_t*               cr_context_;
+#if USE_SKIA
+  SkCanvas*            canvas_;
+#elif USE_CAIRO
+  cairo_surface_t*     cr_surface_;
+  cairo_t*             cr_context_;
+#endif
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
