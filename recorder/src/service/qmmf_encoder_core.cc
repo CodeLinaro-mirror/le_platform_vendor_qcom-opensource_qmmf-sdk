@@ -390,13 +390,15 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
   }
 
 #ifdef DUMP_BITSTREAM
-  String8 bitstream_filepath;
+
   VideoFormat fmt_type = track_params.params.format_type;
   const char* type_string = (fmt_type == VideoFormat::kAVC) ? "h264" : "h265";
-  String8 extension(type_string);
-  bitstream_filepath.appendFormat(FRAME_DUMP_PATH"/track_enc_%x.%s",
-      track_params.track_id, type_string);
-  file_fd_ = open(bitstream_filepath.string(), O_CREAT | O_WRONLY | O_TRUNC,
+  std::string extension(type_string);
+  std::string bitstream_filepath(FRAME_DUMP_PATH);
+  bitstream_filepath += "/track_enc_";
+  bitstream_filepath += std::to_string(track_params.track_id) + ".";
+  bitstream_filepath += type_string;
+  file_fd_ = open(bitstream_filepath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
        0655);
 #endif
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
