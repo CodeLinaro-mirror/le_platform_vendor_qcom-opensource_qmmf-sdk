@@ -35,6 +35,7 @@
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
+#include <condition_variable>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
@@ -235,7 +236,7 @@ class CameraContext : public CameraInterface,
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
-  Mutex                    device_access_lock_;
+  std::mutex               device_access_lock_;
   CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
 
@@ -394,7 +395,7 @@ class CameraPort : public RefBase {
   sp<PostProcPipe>       postproc_pipe_;
   std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
-  Mutex                  stop_lock_;
+  std::mutex             stop_lock_;
 
   std::string            pipe_config_json_data_;
 };
@@ -434,7 +435,7 @@ class ZslPort : public CameraPort {
   void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
   int32_t         input_stream_id_ = -1;
-  Mutex           zsl_queue_lock_;
+  std::mutex      zsl_queue_lock_;
   List<ZSLEntry>  zsl_queue_;
   ZSLEntry        zsl_input_buffer_ = {};
   bool            zsl_running_ = false;

@@ -285,7 +285,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   uint32_t                 skip_camera_id_;
   bool                     single_camera_mode_;
 
-  Mutex                    frame_lock_;
+  std::mutex               frame_lock_;
 
  private:
   struct StitchLibInterface {
@@ -397,7 +397,7 @@ class StreamStitching : public StitchingBase {
 
   sp<IBufferProducer>      buffer_producer_impl_;
 
-  Mutex                    consumer_lock_;
+  std::mutex               consumer_lock_;
 
   std::map<uintptr_t, sp<IBufferConsumer> > stitching_consumers_;
 
@@ -433,7 +433,7 @@ class SnapshotStitching : public StitchingBase {
   KeyedVector<uint32_t, sp<CameraContext> > camera_contexts_;
 
   StreamSnapshotCb         client_snapshot_cb_;
-  Mutex                    snapshot_lock;
+  std::mutex               snapshot_lock_;
 };
 
 }; // recorder.

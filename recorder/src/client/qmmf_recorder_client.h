@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <camera/CameraMetadata.h>
@@ -220,7 +219,7 @@ class RecorderClient {
 
   vendor_tag_ops_t     vendor_tag_ops_;
   camera_module_t      *camera_module_;
-  Mutex                lock_;
+  std::mutex           lock_;
   sp<IRecorderService> recorder_service_;
   sp<DeathNotifier>    death_notifier_;
   RecorderCb           recorder_cb_;

@@ -31,6 +31,7 @@
 
 #include <utils/RefBase.h>
 #include <utils/Log.h>
+#include <utils/Timers.h>
 #include <map>
 #include <mutex>
 #include <condition_variable>

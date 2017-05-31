@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -57,17 +57,17 @@ class IBufferProducer : public RefBase {
 
   // To provide number of connected consumers.
   int32_t GetNumConsumer() {
-      Mutex::Autolock autoLock(lock_);
+      std::lock_guard<std::mutex> autoLock(lock_);
       return buffer_consumers_.size();
   }
 
  protected:
   // Lock to protect list of consumer.
-  Mutex lock_;
+  std::mutex lock_;
 
   // Lock to protect return buffer sequence, buffer would come back to produces
   // from different thread context
-  Mutex buffer_return_lock_;
+  std::mutex buffer_return_lock_;
 
   // List of consumers.
   Vector< sp<IBufferConsumer>> buffer_consumers_;
@@ -147,7 +147,7 @@ BufferProducerImpl<_type>::~BufferProducerImpl() {
 
 template <typename _type>
 void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
-  Mutex::Autolock autoLock(lock_);
+  std::lock_guard<std::mutex> autoLock(lock_);
   //Check for any consumer present. Notify them
   //about the new incoming buffer and keep reference count.
   if (!buffer_consumers_.isEmpty()) {
@@ -174,7 +174,7 @@ void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
 template <typename _type>
 void BufferProducerImpl<_type>::NotifyBufferReturned(StreamBuffer& buffer) {
 
-  Mutex::Autolock autoLock(buffer_return_lock_);
+  std::lock_guard<std::mutex> autoLock(buffer_return_lock_);
 
    if (!buffer_map_.IsExist(buffer)) {
     QMMF_INFO("%s:%s: Warning Buffer is already returned (%p)",
@@ -201,7 +201,7 @@ void BufferProducerImpl<_type>::AddConsumer(const sp<IBufferConsumer>&
                                             consumer) {
 
   assert(consumer.get() != NULL);
-  Mutex::Autolock autoLock(lock_);
+  std::lock_guard<std::mutex> autoLock(lock_);
   buffer_consumers_.add(consumer);
   QMMF_VERBOSE("%s:%s: Consumer(%p) added successfully!", TAG, __func__,
       consumer.get());
@@ -211,7 +211,7 @@ template <typename _type>
 void BufferProducerImpl<_type>::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
   assert(consumer.get() != NULL);
-  Mutex::Autolock autoLock(lock_);
+  std::lock_guard<std::mutex> autoLock(lock_);
 
   Vector<sp<IBufferConsumer> >::iterator iter = buffer_consumers_.begin();
   for(; iter != buffer_consumers_.end(); ++iter) {

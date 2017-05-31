@@ -31,7 +31,6 @@
 
 #include <libgralloc/gralloc_priv.h>
 #include <utils/KeyedVector.h>
-#include <utils/Mutex.h>
 #include <memory>
 
 #include "common/qmmf_common_utils.h"

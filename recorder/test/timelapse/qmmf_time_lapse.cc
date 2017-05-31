@@ -57,8 +57,8 @@ int32_t TimeLapse::Run() {
     printf("%s: Image capture failed: %d\n", __func__, ret);
     goto EXIT;
   } else {
-    Mutex::Autolock l(snapshot_lock_);
-    snapshot_cond_.wait(snapshot_lock_);
+    std::unique_lock<std::mutex> l(snapshot_lock_);
+    snapshot_cond_.wait(l);
   }
 
   ret = CreateSession();
@@ -80,8 +80,8 @@ int32_t TimeLapse::Run() {
   }
 
   while (0 < count) {
-    Mutex::Autolock l(lapse_lock_);
-    lapse_cond_.wait(lapse_lock_);
+    std::unique_lock<std::mutex> l(lapse_lock_);
+    lapse_cond_.wait(l);
     ret = CaptureImage();
     if (NO_ERROR != ret) {
       printf("%s: Image capture failed: %d\n", __func__, ret);
@@ -90,9 +90,9 @@ int32_t TimeLapse::Run() {
     count--;
   }
   if (NO_ERROR == ret) {
-    Mutex::Autolock l(snapshot_lock_);
+    std::unique_lock<std::mutex> l(snapshot_lock_);
     while (snapshot_count_ < params_.count) {
-      snapshot_cond_.wait(snapshot_lock_);
+      snapshot_cond_.wait(l);
     }
   }
 
@@ -237,10 +237,10 @@ void TimeLapse::PreviewTrackHandler(uint32_t track_id,
     if (0 < last_capture_ts_) {
       uint64_t delta = buffers[0].timestamp - last_capture_ts_;
       assert(0 < delta);
-      delta = ns2ms(delta);
+      delta = delta / 1000000;
       if (delta >= params_.period) {
-        Mutex::Autolock l(lapse_lock_);
-        lapse_cond_.signal();
+        std::lock_guard<std::mutex> l(lapse_lock_);
+        lapse_cond_.notify_one();
         last_capture_ts_ = buffers[0].timestamp;
       }
     } else {
@@ -324,8 +324,8 @@ int32_t TimeLapse::CaptureImage(bool store) {
                               BufferDescriptor buffer,
                               MetaData meta_data)
       { recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-        Mutex::Autolock l(snapshot_lock_);
-        snapshot_cond_.signal();
+        std::lock_guard<std::mutex> l(snapshot_lock_);
+        snapshot_cond_.notify_one();
       } };
   }
 
@@ -338,7 +338,7 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
                            BufferDescriptor buffer, MetaData meta_data) {
 
   size_t written_len;
-  Mutex::Autolock l(snapshot_lock_);
+  std::lock_guard<std::mutex> l(snapshot_lock_);
 
   std::string file_path("/data/misc/qmmf/time_lapse_");
   file_path += std::to_string(snapshot_count_) + ".jpg";
@@ -356,7 +356,7 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
     goto FAIL;
   }
   snapshot_count_++;
-  snapshot_cond_.signal();
+  snapshot_cond_.notify_one();
 
 FAIL:
   if (file != NULL) {

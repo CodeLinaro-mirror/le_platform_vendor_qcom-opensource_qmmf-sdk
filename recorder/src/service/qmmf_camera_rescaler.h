@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <utils/Timers.h>
 #include <condition_variable>
 #include <libgralloc/gralloc_priv.h>
 #include <media/msm_media_info.h>
