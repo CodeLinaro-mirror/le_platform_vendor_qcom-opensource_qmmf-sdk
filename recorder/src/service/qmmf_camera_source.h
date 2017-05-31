@@ -308,9 +308,9 @@ class TrackSource : public ICodecSource {
   VideoTrackParams         track_params_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
   bool                     is_stop_;
-  Mutex                    stop_lock_;
+  std::mutex               stop_lock_;
   bool                     eos_acked_;
-  Mutex                    eos_lock_;
+  std::mutex               eos_lock_;
 
   std::mutex               lock_;
   std::condition_variable  wait_for_frame_;
@@ -322,7 +322,7 @@ class TrackSource : public ICodecSource {
   // Maps of Unique buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
 
-  Mutex buffer_list_lock_;
+  std::mutex buffer_list_lock_;
 
   // Input buffer list, to feed buffers to encoder.
   TSQueue<StreamBuffer> frames_received_;
@@ -340,7 +340,7 @@ class TrackSource : public ICodecSource {
   double  input_frame_interval_;
   double  output_frame_interval_;
   double  remaining_frame_skip_time_;
-  Mutex   frame_skip_lock_;
+  std::mutex frame_skip_lock_;
 
   uint32_t debug_fps_;
   struct timeval input_prevtv_;

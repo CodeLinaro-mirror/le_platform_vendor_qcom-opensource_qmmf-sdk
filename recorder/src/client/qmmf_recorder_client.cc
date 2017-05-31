@@ -107,7 +107,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (CheckServiceStatus()) {
     QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
@@ -194,7 +194,7 @@ status_t RecorderClient::Disconnect() {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -239,7 +239,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
   bool enable_result_cb = false;
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -265,7 +265,7 @@ status_t RecorderClient::StopCamera(const uint32_t camera_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -283,7 +283,7 @@ status_t RecorderClient::CreateSession(const SessionCb& cb,
                                        uint32_t* session_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -310,7 +310,7 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -347,7 +347,7 @@ status_t RecorderClient::StartSession(const uint32_t session_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_BASE();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -374,7 +374,7 @@ status_t RecorderClient::StopSession(const uint32_t session_id,
                                      bool do_flush) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_BASE();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -397,7 +397,7 @@ status_t RecorderClient::PauseSession(const uint32_t session_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
 
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -415,7 +415,7 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
 {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_KPI_DETAIL();
-    Mutex::Autolock lock(lock_);
+    std::lock_guard<std::mutex> lock(lock_);
 
     if (!CheckServiceStatus()) {
       return NO_INIT;
@@ -433,7 +433,7 @@ status_t RecorderClient::GetSupportedPlugins(SupportedPlugins *plugins)
 {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_KPI_DETAIL();
-    Mutex::Autolock lock(lock_);
+    std::lock_guard<std::mutex> lock(lock_);
 
     if (!CheckServiceStatus()) {
       return NO_INIT;
@@ -452,7 +452,7 @@ status_t RecorderClient::CreatePlugin(uint32_t *uid, const PluginInfo &plugin)
 {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_KPI_DETAIL();
-    Mutex::Autolock lock(lock_);
+    std::lock_guard<std::mutex> lock(lock_);
 
     if (!CheckServiceStatus()) {
       return NO_INIT;
@@ -471,7 +471,7 @@ status_t RecorderClient::DeletePlugin(const uint32_t &uid)
 {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_KPI_DETAIL();
-    Mutex::Autolock lock(lock_);
+    std::lock_guard<std::mutex> lock(lock_);
 
     if (!CheckServiceStatus()) {
       return NO_INIT;
@@ -491,7 +491,7 @@ status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
 {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_KPI_DETAIL();
-    Mutex::Autolock lock(lock_);
+    std::lock_guard<std::mutex> lock(lock_);
 
     if (!CheckServiceStatus()) {
       return NO_INIT;
@@ -518,7 +518,7 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                param.ToString().c_str());
   QMMF_KPI_DETAIL();
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -550,7 +550,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -586,7 +586,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -663,7 +663,7 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
                                             size_t param_size) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -684,7 +684,7 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
                                             size_t param_size) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -706,7 +706,7 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_KPI_DETAIL();
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -741,7 +741,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   QMMF_KPI_DETAIL();
   int32_t ret = NO_ERROR;
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -809,7 +809,7 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_ASYNC_BEGIN("FirstCapImg", camera_id);
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -828,7 +828,7 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
                                             const ImageConfigParam &config) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -864,7 +864,7 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       &buffer) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -914,7 +914,7 @@ status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
                                         const CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -932,7 +932,7 @@ status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -949,7 +949,7 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
                                                 CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -968,7 +968,7 @@ status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
                                              uint32_t *overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -987,7 +987,7 @@ status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
                                              const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1006,7 +1006,7 @@ status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
                                                 OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1025,7 +1025,7 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
                                                    const OverlayParam &param) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1043,7 +1043,7 @@ status_t RecorderClient::SetOverlay(const uint32_t track_id,
                                     const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1061,7 +1061,7 @@ status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
                                        const uint32_t overlay_id) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1082,7 +1082,7 @@ status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1103,7 +1103,7 @@ status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
@@ -1162,7 +1162,7 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
 void RecorderClient::ServiceDeathHandler() {
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   int32_t ret = NO_ERROR;
   //Clear all pending buffers.
   for (size_t i = 0; i < track_buf_map_.size(); ++i) {

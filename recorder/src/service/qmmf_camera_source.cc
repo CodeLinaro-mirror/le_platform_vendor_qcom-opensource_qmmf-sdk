@@ -1168,7 +1168,7 @@ status_t TrackSource::StartTrack() {
 
   assert(camera_interface_.get() != nullptr);
 
-  Mutex::Autolock lock(stop_lock_);
+  std::lock_guard<std::mutex> lock(stop_lock_);
   is_stop_ = false;
   eos_acked_ = false;
 
@@ -1208,7 +1208,7 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   {
-    Mutex::Autolock lock(stop_lock_);
+    std::lock_guard<std::mutex> lock(stop_lock_);
     is_stop_ = true;
   }
   // Stop sequence when encoder is involved.
@@ -1237,7 +1237,7 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     if (is_force_cleanup) {
       QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__,
           TrackId());
-      Mutex::Autolock autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
         StreamBuffer buffer = buffer_list_.valueAt(i);
         ReturnBufferToProducer(buffer);
@@ -1275,7 +1275,7 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     }
     QMMF_INFO("%s:%s: Pipe stop done(%x)", TAG, __func__, TrackId());
     {
-      Mutex::Autolock autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       QMMF_DEBUG("%s:%s: track_id(%x) buffer_list_.size(%d)", TAG, __func__,
           TrackId(), buffer_list_.size());
       if (buffer_list_.size() == 0) {
@@ -1314,7 +1314,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       QMMF_INFO("%s:%s: track_id(%x) EOS acknowledged by Encoder!!", TAG,
           __func__, TrackId());
       ClearInputQueue();
-      Mutex::Autolock lock(eos_lock_);
+      std::lock_guard<std::mutex> lock(eos_lock_);
       eos_acked_ = true;
     } else if (status == CodecPortStatus::kPortIdle) {
       QMMF_INFO("%s:%s: track_id(%x) PortIdle acknowledged by Encoder!!", TAG,
@@ -1495,7 +1495,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 #endif
 
   {
-    Mutex::Autolock lock(eos_lock_);
+    std::lock_guard<std::mutex> lock(eos_lock_);
     if (eos_acked_ && IsStop()) {
       auto track_format = track_params_.params.format_type;
       if (track_format == VideoFormat::kAVC ||
@@ -1526,7 +1526,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     // is different from its previous value
     if (!(is_first_time) &&
         (fabs(input_frame_rate_ - framerate) >= FPS_CHANGE_THRESHOLD)) {
-      Mutex::Autolock autoLock(frame_skip_lock_);
+      std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
       QMMF_INFO("%s:%s: track_id(%x) adjusting fps from (%0.2f) to (%0.2f)",
                 TAG, __func__, TrackId(), input_frame_rate_, framerate);
       input_frame_rate_ = framerate;
@@ -1637,7 +1637,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     // Buffers from this list used for YUV callback.
     {
-      Mutex::Autolock autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       buffer_list_.add(buffer.fd, buffer);
     }
     std::vector<BnBuffer> bn_buffers;
@@ -1671,7 +1671,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
     QMMF_VERBOSE("%s:%s: track_id(%x) bn_buffers[%d].ion_fd=%d", TAG, __func__,
         TrackId(), i, bn_buffers[i].ion_fd);
     {
-      Mutex::Autolock autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       int32_t idx = buffer_list_.indexOfKey(bn_buffers[i].ion_fd);
       QMMF_DEBUG("%s:%s: track_id(%x) Buffer fd(%d) found in list", TAG,
           __func__, TrackId(), bn_buffers[i].ion_fd);
@@ -1728,7 +1728,7 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 bool TrackSource::IsStop() {
 
   QMMF_VERBOSE("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
-  Mutex::Autolock lock(stop_lock_);
+  std::lock_guard<std::mutex> lock(stop_lock_);
   QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return is_stop_;
 }
@@ -1834,7 +1834,7 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
 
 void TrackSource::UpdateFrameRate(const float frame_rate) {
 
-  Mutex::Autolock autoLock(frame_skip_lock_);
+  std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
   assert(frame_rate > 0.0f);
 
   if (fabs(track_params_.params.frame_rate - frame_rate) > 0.1f) {
@@ -1868,7 +1868,7 @@ bool TrackSource::IsEnableFrameSkip() {
 
 bool TrackSource::IsFrameSkip() {
 
-  Mutex::Autolock autoLock(frame_skip_lock_);
+  std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
   bool skip;
   remaining_frame_skip_time_ -= input_frame_interval_;
   if (0 >= remaining_frame_skip_time_) {

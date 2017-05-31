@@ -1145,7 +1145,7 @@ SnapshotStitching::~SnapshotStitching() {
 void SnapshotStitching::FrameAvailableCb(uint32_t count,
                                          StreamBuffer &buffer) {
 
-  Mutex::Autolock lock(frame_lock_);
+  std::lock_guard<std::mutex> lock(frame_lock_);
   QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %d is available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
@@ -1159,7 +1159,7 @@ void SnapshotStitching::FrameAvailableCb(uint32_t count,
 
 status_t SnapshotStitching::ImageBufferReturned(const int32_t buffer_id) {
 
-  Mutex::Autolock lock(snapshot_lock);
+  std::lock_guard<std::mutex> lock(snapshot_lock_);
   ssize_t idx = snapshot_buffer_list_.indexOfKey(buffer_id);
   if (idx == NAME_NOT_FOUND) {
     QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!", TAG, __func__, buffer_id);
@@ -1185,7 +1185,7 @@ status_t SnapshotStitching::NotifyBufferToClient(StreamBuffer &buffer) {
   status_t ret = NO_ERROR;
   if(nullptr != client_snapshot_cb_) {
     {
-      Mutex::Autolock lock(snapshot_lock);
+      std::lock_guard<std::mutex> lock(snapshot_lock_);
       snapshot_buffer_list_.add(buffer.fd, buffer);
     }
     client_snapshot_cb_(1, buffer);
@@ -1249,7 +1249,7 @@ StreamStitching::~StreamStitching() {
 
 status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
 
-  Mutex::Autolock lock(consumer_lock_);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   if (consumer.get() == nullptr) {
     QMMF_ERROR("%s:%s: Input consumer is NULL", TAG, __func__);
     return BAD_VALUE;
@@ -1274,7 +1274,7 @@ status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
 
 status_t StreamStitching::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
-  Mutex::Autolock lock(consumer_lock_);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   if (consumer.get() == nullptr) {
     QMMF_ERROR("%s:%s: Input consumer is NULL", TAG, __func__);
     return BAD_VALUE;
@@ -1307,7 +1307,7 @@ sp<IBufferConsumer>& StreamStitching::GetConsumerIntf(uint32_t camera_id) {
 
 void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
 
-  Mutex::Autolock lock(frame_lock_);
+  std::lock_guard<std::mutex> lock(frame_lock_);
   QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
@@ -1439,14 +1439,14 @@ status_t StitchingBase::Configure(GrallocMemory::BufferParams &param) {
 
 int32_t StitchingBase::Run() {
 
-  Mutex::Autolock lock(frame_lock_);
+  std::lock_guard<std::mutex> lock(frame_lock_);
   stop_frame_sync_ = false;
   return Camera3Thread::Run(work_thread_name_.c_str());
 }
 
 void StitchingBase::RequestExitAndWait() {
 
-  Mutex::Autolock lock(frame_lock_);
+  std::lock_guard<std::mutex> lock(frame_lock_);
   status_t ret = StopFrameSync();
   assert(NO_ERROR == ret);
 }

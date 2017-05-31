@@ -562,7 +562,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   client_snapshot_cb_ = cb;
   burst_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
-    Mutex::Autolock lock(device_access_lock_);
+    std::lock_guard<std::mutex> lock(device_access_lock_);
     int64_t last_frame_mumber;
     uint8_t jpeg_quality = snapshot_param_.image_quality;
     List<Camera3Request> requests;
@@ -885,7 +885,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.isEmpty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     int64_t last_frame_mumber;
@@ -1001,7 +1001,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
                                            int32_t* stream_id) {
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
   int32_t ret = NO_ERROR;
@@ -1075,7 +1075,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 
 status_t CameraContext::CreateDeviceInputStream(
     CameraInputStreamParameters& params, int32_t* stream_id) {
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   int32_t ret = NO_ERROR;
@@ -1138,7 +1138,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
     }
   }
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
 
   if (camera_start_params_.zsl_mode && zsl_port_.get() != nullptr) {
     ret = camera_device_->BeginConfigure();
@@ -1174,7 +1174,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
                                              camera3_request_template_t
                                              template_type) {
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
 
   auto ret = camera_device_->CreateDefaultRequest(template_type,
       &request.metadata);
@@ -1293,7 +1293,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   }
 
   {
-    Mutex::Autolock lock(device_access_lock_);
+    std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
       fpsRange[0] = ceil(max_fps);
@@ -1353,7 +1353,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 int32_t CameraContext::SubmitRequest(Camera3Request request,
                                      bool is_streaming,
                                      int64_t *lastFrameNumber) {
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
 
   int32_t ret = NO_ERROR;
   ret = camera_device_->SubmitRequest(request, is_streaming,
@@ -1364,7 +1364,7 @@ int32_t CameraContext::SubmitRequest(Camera3Request request,
 
 status_t CameraContext::CancelRequest() {
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
 
   int64_t last_frame_mumber;
   assert(streaming_request_id_ >= 0);
@@ -1540,7 +1540,7 @@ status_t CameraContext::CaptureZSLImage() {
     regular_snapshot = true;
   }
 
-  Mutex::Autolock lock(device_access_lock_);
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   uint8_t jpeg_quality = snapshot_param_.image_quality;
   int64_t last_frame_mumber;
 
@@ -2216,7 +2216,7 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
-  Mutex::Autolock l(zsl_queue_lock_);
+  std::lock_guard<std::mutex> l(zsl_queue_lock_);
   zsl_running_ = false;
 
   if (!zsl_queue_.empty()) {
@@ -2244,19 +2244,19 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
 }
 
 void ZslPort::ResumeZSL() {
-  Mutex::Autolock l(zsl_queue_lock_);
+  std::lock_guard<std::mutex> l(zsl_queue_lock_);
   zsl_running_ = true;
 }
 
 bool ZslPort::IsRunning() {
-  Mutex::Autolock l(zsl_queue_lock_);
+  std::lock_guard<std::mutex> l(zsl_queue_lock_);
   return zsl_running_ && (camera_stream_id_ > 0);
 }
 
 status_t ZslPort::PickZSLBuffer() {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock l(zsl_queue_lock_);
+  std::lock_guard<std::mutex> l(zsl_queue_lock_);
   auto ret = NO_ERROR;
 
   if (zsl_queue_.empty()) {
@@ -2319,7 +2319,7 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
       entry.timestamp = -1;
       memset(&entry.buffer, 0, sizeof(entry.buffer));
 
-      Mutex::Autolock l(zsl_queue_lock_);
+      std::lock_guard<std::mutex> l(zsl_queue_lock_);
       if (zsl_running_) {
         bool append = true;
         if (!zsl_queue_.empty()) {
@@ -2458,7 +2458,7 @@ void ZslPort::ZSLCaptureCallback(StreamBuffer buffer) {
   ZSLEntry entry;
   entry.timestamp = -1;
   {
-    Mutex::Autolock l(zsl_queue_lock_);
+    std::lock_guard<std::mutex> l(zsl_queue_lock_);
     if (zsl_running_) {
       bool append = true;
       if (!zsl_queue_.empty()) {
