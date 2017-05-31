@@ -547,15 +547,25 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
 
 status_t MultiCameraManager::SetCameraParam(const CameraMetadata &meta) {
 
-  //One of the cameras will be master cam that's why we need
-  //to set the params only for one camera.
-  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
-  assert(camera_context.get() != nullptr);
-  status_t ret = camera_context->SetCameraParam(meta);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetCameraParam Failed!", TAG, __func__);
+  for (size_t ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
+    int32_t camera_id = camera_contexts_.keyAt(ctx_idx);
+
+    auto ret = FillDualCamMetadata(const_cast<CameraMetadata&>(meta), ctx_idx);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: FillDualCamMetadata Failed!", TAG,
+          __func__, camera_id);
+      return ret;
+    }
+
+    ret = camera_context->SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+          camera_id);
+      return ret;
+    }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::GetCameraParam(CameraMetadata &meta) {
@@ -958,23 +968,17 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
     related_id = camera_contexts_.keyAt(cam_idx + 1);
   }
 
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
 
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
+  uint8_t sync = 1;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
 
-  const uint8_t sync = 1;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
+  uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
 
-  const uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
-
-  const uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+  uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
 
   return NO_ERROR;
 }

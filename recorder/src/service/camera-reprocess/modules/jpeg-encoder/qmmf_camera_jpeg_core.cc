@@ -59,7 +59,7 @@ typedef struct {
 
 namespace qmmf {
 
-namespace jpegencoder {
+namespace reprocjpegencoder {
 
 JpegEncoder *JpegEncoder::encoder_instance_ = 0;
 
@@ -309,6 +309,6 @@ void JpegEncoder::EncodeCb(void *p_output, void *userData) {
   cfg->enc_done_cond_.notify_one();
 }
 
-} //namespace jpegencoder ends here
+} //namespace reprocjpegencoder ends here
 
 } //namespace qmmf ends here
