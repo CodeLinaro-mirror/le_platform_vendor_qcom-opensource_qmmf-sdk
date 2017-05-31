@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,7 +28,6 @@
 */
 
 #include <inttypes.h>
-#include <utils/String8.h>
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_time_lapse.h"
 
@@ -338,15 +337,15 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
                            uint32_t image_sequence_count,
                            BufferDescriptor buffer, MetaData meta_data) {
 
-  String8 file_path;
   size_t written_len;
   Mutex::Autolock l(snapshot_lock_);
 
-  file_path.appendFormat("/data/misc/qmmf/time_lapse_%llu.jpg", snapshot_count_);
-  FILE *file = fopen(file_path.string(), "w+");
+  std::string file_path("/data/misc/qmmf/time_lapse_");
+  file_path += std::to_string(snapshot_count_) + ".jpg";
+  FILE *file = fopen(file_path.c_str(), "w+");
   if (!file) {
     printf("%s: Unable to open file(%s)", __func__,
-               file_path.string());
+               file_path.c_str());
     goto FAIL;
   }
 

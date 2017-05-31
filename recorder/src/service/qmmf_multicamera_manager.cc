@@ -1130,7 +1130,7 @@ SnapshotStitching::SnapshotStitching(
       client_snapshot_cb_(nullptr) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  work_thread_name_ = new String8("SnapshotStitching");
+  work_thread_name_ = "SnapshotStitching";
   camera_contexts_ = contexts;
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -1223,7 +1223,7 @@ StreamStitching::StreamStitching(InitParams &param)
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   use_frame_sync_timeout = true;
-  work_thread_name_ = new String8("StreamStitching");
+  work_thread_name_ = "StreamStitching";
 
   // Create consumers for the physical cameras.
   for (auto const& camera_id : params_.camera_ids) {
@@ -1370,7 +1370,6 @@ StitchingBase::StitchingBase(InitParams &param)
     : params_(param),
       stop_frame_sync_(false),
       use_frame_sync_timeout(false),
-      work_thread_name_(nullptr),
       skip_camera_id_ (0),
       single_camera_mode_(false) {
 
@@ -1407,7 +1406,6 @@ StitchingBase::~StitchingBase() {
   process_buffers_map_.clear();
   registered_buffers_.clear();
   memory_pool_.clear();
-  delete work_thread_name_;
 
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -1443,7 +1441,7 @@ int32_t StitchingBase::Run() {
 
   Mutex::Autolock lock(frame_lock_);
   stop_frame_sync_ = false;
-  return Camera3Thread::Run(work_thread_name_->string());
+  return Camera3Thread::Run(work_thread_name_.c_str());
 }
 
 void StitchingBase::RequestExitAndWait() {
@@ -1761,7 +1759,7 @@ status_t StitchingBase::InitLibrary() {
     return ret;
   }
 
-  String8 lib_name;
+  std::string lib_name;
   switch (params_.stitch_mode) {
     case MultiCameraConfigType::k360Stitch:
       lib_name.append(k360StitchLib);
@@ -1775,10 +1773,10 @@ status_t StitchingBase::InitLibrary() {
       return BAD_VALUE;
   }
 
-  void* handle = dlopen(lib_name, RTLD_NOW);
+  void* handle = dlopen(lib_name.c_str(), RTLD_NOW);
   if (nullptr == handle) {
     QMMF_ERROR("%s:%s: Failed to open %s, error: %s", TAG, __func__,
-        lib_name.string(), dlerror());
+        lib_name.c_str(), dlerror());
     return BAD_VALUE;
   }
 
@@ -2147,7 +2145,7 @@ void StitchingBase::ProcessCallback(qmmf_alg_cb_t *cb_data) {
   QMMF_DEBUG("%s:%s: Return status (%d)", TAG, __func__, cb_data->status);
 
   StitchingBase *algo = static_cast<StitchingBase *> (cb_data->user_data);
-  if (algo->work_thread_name_->contains("SnapshotStitching")) {
+  if (algo->work_thread_name_ == "SnapshotStitching") {
     std::set<int32_t> buffer_fds = { cb_data->buf->fd };
     auto ret = algo->UnregisterBuffers(buffer_fds);
     if (NO_ERROR == ret) {

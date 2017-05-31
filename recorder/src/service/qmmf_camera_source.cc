@@ -1952,15 +1952,17 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
                             MAP_SHARED, buffer.fd, 0);
     assert(buf_vaaddr != nullptr);
 
-    String8 file_path;
+    std::string file_path(FRAME_DUMP_PATH);
     size_t written_len;
-    file_path.appendFormat(FRAME_DUMP_PATH"/track_%x_%lld.yuv",
-        TrackId(), buffer.timestamp);
+    file_path += "/track_"; %x_%lld.yuv");
+    file_path += std::to_string(TrackId()) + "_";
+    file_path += std::to_string(buffer.timestamp);
+    file_path += ".yuv";
 
-    FILE *file = fopen(file_path.string(), "w+");
+    FILE *file = fopen(file_path.c_str(), "w+");
     if (!file) {
       QMMF_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
-          file_path.string());
+          file_path.c_str());
       goto FAIL;
     }
     written_len = fwrite(buf_vaaddr, sizeof(uint8_t), buffer.size,
@@ -1973,7 +1975,7 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
         goto FAIL;
     }
     QMMF_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored(%s)\n",__func__,
-        buf_vaaddr, written_len, file_path.string());
+        buf_vaaddr, written_len, file_path.c_str());
 
 FAIL:
     if (file != nullptr) {

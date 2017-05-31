@@ -280,7 +280,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   InitParams               params_;
   bool                     stop_frame_sync_;
   bool                     use_frame_sync_timeout;
-  String8                  *work_thread_name_;
+  std::string              work_thread_name_;
 
   uint32_t                 skip_camera_id_;
   bool                     single_camera_mode_;

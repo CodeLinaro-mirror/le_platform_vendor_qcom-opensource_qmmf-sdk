@@ -31,7 +31,6 @@
 
 
 #include <utils/Log.h>
-#include <utils/String8.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -12334,15 +12333,15 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       ++id2;
 
     if (id == dump_yuv_freq_ || id2 == dump_yuv_freq_) {
-      String8 file_path;
+      std::string file_path("/data/misc/qmmf/gtest_track_");
       size_t written_len;
-      file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv",
-                             track_id, buffers[0].timestamp);
-
-      FILE *file = fopen(file_path.string(), "w+");
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".yuv";
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -12355,7 +12354,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-        buffers[0].data, written_len, file_path.string());
+        buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
       if (file != NULL) {
@@ -12435,7 +12434,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
                                BufferDescriptor buffer, MetaData meta_data) {
 
   TEST_INFO("%s:%s Enter", TAG, __func__);
-  String8 file_path;
+
   size_t written_len;
 
   if (meta_data.meta_flag  &
@@ -12492,12 +12491,14 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
       struct timeval tv;
       gettimeofday(&tv, NULL);
       uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-      file_path.appendFormat("/data/misc/qmmf/snapshot_%u_%llu.%s", image_sequence_count,
-          tv_ms, ext_str);
-      FILE *file = fopen(file_path.string(), "w+");
+      std::string file_path("/data/misc/qmmf/snapshot_");
+      file_path += std::to_string(image_sequence_count) + "_";
+      file_path += std::to_string(tv_ms) + ".";
+      file_path += ext_str;
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -12509,7 +12510,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-                buffer.data, written_len, file_path.string());
+                buffer.data, written_len, file_path.c_str());
 
     FAIL:
       if (file != NULL) {
@@ -12864,12 +12865,13 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
       type_string = "bin";
       break;
   }
-  String8 extn(type_string);
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
-                                  dumpinfo.track_id, dumpinfo.width,
-                                  dumpinfo.height, extn.string());
-  int32_t file_fd = open(bitstream_filepath.string(),
+  std::string extn(type_string);
+  std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
+  bitstream_filepath += std::to_string(dumpinfo.track_id) + "_";
+  bitstream_filepath += std::to_string(dumpinfo.width) + "x";
+  bitstream_filepath += std::to_string(dumpinfo.height) + ".";
+  bitstream_filepath += extn;
+  int32_t file_fd = open(bitstream_filepath.c_str(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd <= 0) {
     TEST_ERROR("%s:%s File open failed!", TAG, __func__);
