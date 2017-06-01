@@ -40,6 +40,7 @@
 #include <binder/Parcel.h>
 #include <camera/CameraMetadata.h>
 
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 
@@ -67,6 +68,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RESUME_SESSION,
   RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
+  RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS,
   RECORDER_DELETE_AUDIOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
   RECORDER_RETURN_TRACKBUFFER,
@@ -146,105 +148,143 @@ class IRecorderService : public IInterface {
  public:
   DECLARE_META_INTERFACE(RecorderService);
 
-  virtual status_t Connect(const sp<IRecorderServiceCallback>& service_cb) = 0;
+  virtual status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
+                           uint32_t* client_id) = 0;
 
-  virtual status_t Disconnect() = 0;
+  virtual status_t Disconnect(const uint32_t client_id) = 0;
 
-  virtual status_t StartCamera(const uint32_t camera_id,
+  virtual status_t StartCamera(const uint32_t client_id,
+                               const uint32_t camera_id,
                                const CameraStartParam &param,
                                bool enable_result_cb = false) = 0;
 
-  virtual status_t StopCamera(const uint32_t camera_id) = 0;
+  virtual status_t StopCamera(const uint32_t client_id,
+                              const uint32_t camera_id) = 0;
 
-  virtual status_t CreateSession(uint32_t *session_id) = 0;
+  virtual status_t CreateSession(const uint32_t client_id,
+                                 uint32_t *session_id) = 0;
 
-  virtual status_t DeleteSession(const uint32_t session_id) = 0;
+  virtual status_t DeleteSession(const uint32_t client_id,
+                                 const uint32_t session_id) = 0;
 
-  virtual status_t StartSession(const uint32_t session_id) = 0;
+  virtual status_t StartSession(const uint32_t client_id,
+                                const uint32_t session_id) = 0;
 
-  virtual status_t StopSession(const uint32_t session_id, bool do_flush) = 0;
+  virtual status_t StopSession(const uint32_t client_id,
+                               const uint32_t session_id, bool do_flush) = 0;
 
-  virtual status_t PauseSession(const uint32_t session_id) = 0;
+  virtual status_t PauseSession(const uint32_t client_id,
+                                const uint32_t session_id) = 0;
 
-  virtual status_t ResumeSession(const uint32_t session_id) = 0;
+  virtual status_t ResumeSession(const uint32_t client_id,
+                                 const uint32_t session_id) = 0;
 
-  virtual status_t CreateAudioTrack(const uint32_t session_id,
+  virtual status_t CreateAudioTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
                                     const uint32_t track_id,
                                     const AudioTrackCreateParam& param) = 0;
 
-  virtual status_t CreateVideoTrack(const uint32_t session_id,
+  virtual status_t CreateVideoTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
                                     const uint32_t track_id,
                                     const VideoTrackCreateParam& param) = 0;
 
-  virtual status_t DeleteAudioTrack(const uint32_t session_id,
+  virtual status_t CreateVideoTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
+                                    const uint32_t track_id,
+                                    const VideoTrackCreateParam& param,
+                                    const VideoTrackExtraParam&
+                                    extra_param) = 0;
+
+  virtual status_t DeleteAudioTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
                                     const uint32_t track_id) = 0;
 
-  virtual status_t DeleteVideoTrack(const uint32_t session_id,
+  virtual status_t DeleteVideoTrack(const uint32_t client_id,
+                                    const uint32_t session_id,
                                     const uint32_t track_id) = 0;
 
-  virtual status_t ReturnTrackBuffer(const uint32_t session_id,
+  virtual status_t ReturnTrackBuffer(const uint32_t client_id,
+                                     const uint32_t session_id,
                                      const uint32_t track_id,
                                      std::vector<BnBuffer> &buffers) = 0;
 
-  virtual status_t SetAudioTrackParam(const uint32_t session_id,
+  virtual status_t SetAudioTrackParam(const uint32_t client_id,
+                                      const uint32_t session_id,
                                       const uint32_t track_id,
                                       CodecParamType type,
                                       void *param,
                                       size_t param_size) = 0;
 
-  virtual status_t SetVideoTrackParam(const uint32_t session_id,
+  virtual status_t SetVideoTrackParam(const uint32_t client_id,
+                                      const uint32_t session_id,
                                       const uint32_t track_id,
                                       CodecParamType type,
                                       void *param,
                                       size_t param_size) = 0;
 
-  virtual status_t CaptureImage(const uint32_t camera_id,
+  virtual status_t CaptureImage(const uint32_t client_id,
+                                const uint32_t camera_id,
                                 const ImageParam &param,
                                 const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta) = 0;
 
-  virtual status_t ConfigImageCapture(const uint32_t camera_id,
+  virtual status_t ConfigImageCapture(const uint32_t client_id,
+                                      const uint32_t camera_id,
                                       const ImageCaptureConfig &config) = 0;
 
-  virtual status_t CancelCaptureImage(const uint32_t camera_id) = 0;
+  virtual status_t CancelCaptureImage(const uint32_t client_id,
+                                      const uint32_t camera_id) = 0;
 
-  virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
+  virtual status_t ReturnImageCaptureBuffer(const uint32_t client_id,
+                                            const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;
 
-  virtual status_t SetCameraParam(const uint32_t camera_id,
+  virtual status_t SetCameraParam(const uint32_t client_id,
+                                  const uint32_t camera_id,
                                   const CameraMetadata &meta) = 0;
 
-  virtual status_t GetCameraParam(const uint32_t camera_id,
+  virtual status_t GetCameraParam(const uint32_t client_id,
+                                  const uint32_t camera_id,
                                   CameraMetadata &meta) = 0;
 
-  virtual status_t GetDefaultCaptureParam(const uint32_t camera_id,
+  virtual status_t GetDefaultCaptureParam(const uint32_t client_id,
+                                          const uint32_t camera_id,
                                           CameraMetadata &meta) = 0;
 
-  virtual status_t CreateOverlayObject(const uint32_t track_id,
+  virtual status_t CreateOverlayObject(const uint32_t client_id,
+                                       const uint32_t track_id,
                                        OverlayParam *param,
                                        uint32_t *overlay_id) = 0;
 
-  virtual status_t DeleteOverlayObject(const uint32_t track_id,
+  virtual status_t DeleteOverlayObject(const uint32_t client_id,
+                                       const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
 
-  virtual status_t GetOverlayObjectParams(const uint32_t track_id,
+  virtual status_t GetOverlayObjectParams(const uint32_t client_id,
+                                          const uint32_t track_id,
                                           const uint32_t overlay_id,
                                           OverlayParam &param) = 0;
 
-  virtual status_t UpdateOverlayObjectParams(const uint32_t track_id,
+  virtual status_t UpdateOverlayObjectParams(const uint32_t client_id,
+                                             const uint32_t track_id,
                                              const uint32_t overlay_id,
                                              OverlayParam *param) = 0;
 
-  virtual status_t SetOverlayObject(const uint32_t track_id,
+  virtual status_t SetOverlayObject(const uint32_t client_id,
+                                    const uint32_t track_id,
                                     const uint32_t overlay_id) = 0;
 
-  virtual status_t RemoveOverlayObject(const uint32_t track_id,
+  virtual status_t RemoveOverlayObject(const uint32_t client_id,
+                                       const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
 
-  virtual status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
+  virtual status_t CreateMultiCamera(const uint32_t client_id,
+                                     const std::vector<uint32_t> camera_ids,
                                      uint32_t *virtual_camera_id) = 0;
 
-  virtual status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
+  virtual status_t ConfigureMultiCamera(const uint32_t client_id,
+                                        const uint32_t virtual_camera_id,
                                         const MultiCameraConfigType type,
                                         const void *param,
                                         const uint32_t param_size) = 0;

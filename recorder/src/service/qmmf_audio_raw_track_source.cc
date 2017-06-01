@@ -438,7 +438,7 @@ void AudioRawTrackSource::Thread() {
       meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kNone);
       std::vector<MetaData> meta_buffers;
       meta_buffers.push_back(meta_data);
-      track_params_.data_cb(track_params_.track_id, bn_buffers, meta_buffers);
+      track_params_.data_cb(bn_buffers, meta_buffers);
 
       if (stop_received &&
           buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))

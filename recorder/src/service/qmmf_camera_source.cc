@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mman.h>
+#include <mutex>
 
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -54,6 +55,7 @@ using ::std::shared_ptr;
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
+static const uint64_t kTsFactor = 10000000; // 10 ms.
 
 CameraSource* CameraSource::instance_ = nullptr;
 
@@ -337,7 +339,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
 
   auto ret = track_source->Init();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) TrackSource Init failed!", TAG, __func__,
+    QMMF_ERROR("%s:%s: track_id(%x) TrackSource Init failed!", TAG, __func__,
         track_id);
     goto FAIL;
   }
@@ -364,7 +366,7 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
 
   track_sources_.removeItem(track_id);
 
-  QMMF_INFO("%s:%s: track_id(%d) Deleted Successfully!", TAG, __func__,
+  QMMF_INFO("%s:%s: track_id(%x) Deleted Successfully!", TAG, __func__,
       track_id);
   return ret;
 }
@@ -381,12 +383,13 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
   auto ret = track->StartTrack();
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Started Succesffuly!", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: TrackSource id(%x) Started Succesffuly!", TAG, __func__,
       track_id);
   return ret;
 }
 
-status_t CameraSource::StopTrackSource(const uint32_t track_id) {
+status_t CameraSource::StopTrackSource(const uint32_t track_id,
+                                       bool is_force_cleanup) {
 
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
@@ -395,10 +398,10 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
   assert(track.get() != nullptr);
 
-  auto ret = track->StopTrack();
+  auto ret = track->StopTrack(is_force_cleanup);
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s:%s: TrackSource id(%d) Stopped Succesffuly!", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: TrackSource id(%x) Stopped Succesffuly!", TAG, __func__,
       track_id);
   return ret;
 }
@@ -467,6 +470,20 @@ status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
 
   track->UpdateFrameRate(frame_rate);
 
+  return NO_ERROR;
+}
+
+status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
+                                         const bool enable_frame_repeat) {
+
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  shared_ptr<TrackSource> track = track_sources_.valueFor(track_id);
+  assert(track.get() != nullptr);
+
+  track->EnableFrameRepeat(enable_frame_repeat);
   return NO_ERROR;
 }
 
@@ -626,13 +643,14 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
 
 void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 
-  uint32_t content_size;
+  uint32_t content_size = 0;
   int32_t width = -1, height = -1;
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
     case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
       width  = buffer.info.plane_info[0].width;
       height = buffer.info.plane_info[0].height;
@@ -684,9 +702,12 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_stop_(false),
       eos_acked_(false),
       enable_overlay_(false),
-      display_started_(0),
       input_count_(0),
-      count_(0) {
+      count_(0),
+      pending_encodes_per_frame_ratio_(0.0),
+      frame_repeat_ts_prev_(0),
+      frame_repeat_ts_curr_(0),
+      enable_frame_repeat_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -724,67 +745,57 @@ TrackSource::~TrackSource() {
 
 status_t TrackSource::Init() {
 
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Enter track_id(%x)", TAG, __func__, TrackId());
 
   CameraStreamParam stream_param;
   memset(&stream_param, 0x0, sizeof stream_param);
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
-  if (track_params_.params.format_type == VideoFormat::kBayerRDI) {
+  if (track_params_.params.format_type == VideoFormat::kBayerRDI10BIT) {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
+  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
-  stream_param.cam_stream_type  = track_params_.camera_stream_type;
   stream_param.frame_rate       = track_params_.params.frame_rate;
   stream_param.id               = track_params_.track_id;
   stream_param.low_power_mode   = track_params_.params.low_power_mode;
 
   assert(camera_interface_.get() != nullptr);
-  auto ret = camera_interface_->CreateStream(stream_param);
+  auto ret = camera_interface_->CreateStream(stream_param,
+                                             track_params_.extra_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
     return BAD_VALUE;
   }
 
   QMMF_INFO("%s:%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
-      " Created Succesffuly for track_id(%d)", TAG, __func__, this,
+      " Created Succesffuly for track_id(%x)", TAG, __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
   //TODO: Add mechanism to query the stream format from adaptor.
   ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
   assert(ret == NO_ERROR);
 
-  if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-    ret = CreateDisplayPreview(display::DisplayType::kPrimary,
-        track_params_);
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s CreateDisplayPreview Failed!!", TAG, __func__);
-      return ret;
-    }
-  }
-
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::DeInit() {
 
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Enter track_id(%x)", TAG, __func__, TrackId());
   assert(camera_interface_.get() != nullptr);
 
-  auto ret = DeleteDisplayPreview(display::DisplayType::kPrimary);
+  auto ret = camera_interface_->DeleteStream(TrackId());
   assert(ret == NO_ERROR);
 
-  ret = camera_interface_->DeleteStream(TrackId());
-  assert(ret == NO_ERROR);
-
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::StartTrack() {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
 
   assert(camera_interface_.get() != nullptr);
 
@@ -799,13 +810,15 @@ status_t TrackSource::StartTrack() {
   auto ret = camera_interface_->StartStream(TrackId(), consumer);
   assert(ret == NO_ERROR);
 
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
-status_t TrackSource::StopTrack() {
+status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   {
     Mutex::Autolock lock(stop_lock_);
     is_stop_ = true;
@@ -829,53 +842,66 @@ status_t TrackSource::StopTrack() {
 
   bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-    //Encoder is not involved in this case.
+    if (is_force_cleanup) {
+      QMMF_INFO("%s:%s: track_id(%x) stopping in force mode!", TAG, __func__,
+          TrackId());
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      for (uint32_t i = 0; i < buffer_list_.size(); ++i) {
+        StreamBuffer buffer = buffer_list_.valueAt(i);
+        ReturnBufferToProducer(buffer);
+      }
+      buffer_list_.clear();
+      wait = false;
+    }
+    // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
     auto ret = camera_interface_->StopStream(TrackId());
     assert(ret == NO_ERROR);
-
-    Mutex::Autolock autoLock(buffer_list_lock_);
     {
-      QMMF_DEBUG("%s:%s: track_id(%d) buffer_list_.size(%d)", TAG, __func__,
+      Mutex::Autolock autoLock(buffer_list_lock_);
+      QMMF_DEBUG("%s:%s: track_id(%x) buffer_list_.size(%d)", TAG, __func__,
           TrackId(), buffer_list_.size());
       if (buffer_list_.size() == 0) {
         wait = false;
       }
     }
   } else {
-      QMMF_DEBUG("%s:%s: track_id(%d), Wait for Encoder to return being encoded"
+      QMMF_DEBUG("%s:%s: track_id(%x), Wait for Encoder to return being encoded"
           " buffers!", TAG, __func__, TrackId());
   }
   if (wait) {
     auto ret = wait_for_idle_.waitRelative(idle_lock_, kWaitDuration);
     if (ret == TIMED_OUT) {
-        QMMF_ERROR("%s:%s: track_id(%d) StopTrack Timed out happend! Encoder"
+        QMMF_ERROR("%s:%s: track_id(%x) StopTrack Timed out happend! Encoder"
         "failed to go in Idle state!", TAG, __func__, TrackId());
       return ret;
     }
   }
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
 status_t TrackSource::NotifyPortEvent(PortEventType event_type,
                                       void* event_data) {
 
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Enter track_id(%x)", TAG, __func__, TrackId());
   if (event_type == PortEventType::kPortStatus) {
     CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
     if (status == CodecPortStatus::kPortStop) {
       // Encoder Received the EOS with valid last buffer successfully, stop the
       // camera stream and clear the received buffer queue.
-      QMMF_INFO("%s:%s: track_id(%d) EOS acknowledged by Encoder!!", TAG,
+      QMMF_INFO("%s:%s: track_id(%x) EOS acknowledged by Encoder!!", TAG,
           __func__, TrackId());
       ClearInputQueue();
       Mutex::Autolock lock(eos_lock_);
       eos_acked_ = true;
     } else if (status == CodecPortStatus::kPortIdle) {
+      QMMF_INFO("%s:%s: track_id(%x) PortIdle acknowledged by Encoder!!", TAG,
+          __func__, TrackId());
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
       auto ret = camera_interface_->StopStream(TrackId());
@@ -883,7 +909,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
       assert(frames_being_encoded_.Size() == 0);
-      QMMF_INFO("%s:%s: track_id(%d) All queued buffers are returned from"
+      QMMF_INFO("%s:%s: track_id(%x) All queued buffers are returned from"
           " encoder!!", TAG, __func__, TrackId());
       // wait_for_idle_ will not be needed once we make stop api as async.
       Mutex::Autolock lock(idle_lock_);
@@ -891,69 +917,93 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
     }
   }
 
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
 status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
                                 void* client_data) {
 
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Enter track_id(%x)", TAG, __func__, TrackId());
   bool timeout = false;
   {
     Mutex::Autolock lock(lock_);
     if (frames_received_.Size() == 0) {
-      QMMF_DEBUG("%s:%s: track_id(%d) Wait for bufferr!!", TAG, __func__,
+      QMMF_DEBUG("%s:%s: track_id(%x) Wait for bufferr!!", TAG, __func__,
           TrackId());
       auto ret = wait_for_frame_.waitRelative(lock_, kWaitDuration);
       if (ret == TIMED_OUT) {
-          QMMF_ERROR("%s:%s: track_id(%d) Buffer Timed out happend! No buffers"
+          QMMF_ERROR("%s:%s: track_id(%x) Buffer Timed out happend! No buffers"
               "from Camera", TAG, __func__, TrackId());
           timeout = true;
       }
     }
     assert(timeout == false);
 
-    QMMF_VERBOSE("%s:%s: track_id(%d) frames_received_.size(%d)", TAG, __func__,
+    QMMF_VERBOSE("%s:%s: track_id(%x) frames_received_.size(%d)", TAG, __func__,
         TrackId(), frames_received_.Size());
 
-    StreamBuffer stream_buffer = *frames_received_.Begin();
+    auto stream_buffer = frames_received_.Begin();
+
     buffer.data =
-        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer.handle));
-    buffer.fd = stream_buffer.fd;
-    buffer.capacity = stream_buffer.frame_length;
-    buffer.size = stream_buffer.filled_length;
-    buffer.timestamp = stream_buffer.timestamp;
-    buffer.flag = stream_buffer.flags;
-    frames_being_encoded_.PushBack(stream_buffer);
-    frames_received_.Erase(frames_received_.Begin());
+        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer->handle));
+    buffer.fd = stream_buffer->fd;
+    buffer.capacity = stream_buffer->frame_length;
+    buffer.size = stream_buffer->filled_length;
+    buffer.timestamp = stream_buffer->timestamp;
+    buffer.flag = stream_buffer->flags;
+
+    uint64_t ts_factor = (stream_buffer->timestamp - frame_repeat_ts_prev_) /
+        stream_buffer->encodes_per_frame_count - kTsFactor;
+    if (stream_buffer->encodes_per_frame_count !=
+        stream_buffer->pending_encodes_per_frame) {
+      buffer.timestamp = frame_repeat_ts_curr_ + ts_factor;
+    }
+    frame_repeat_ts_curr_ = buffer.timestamp;
+
+    stream_buffer->pending_encodes_per_frame--;
+    if (!stream_buffer->pending_encodes_per_frame) {
+      stream_buffer->needs_return = true;
+      frame_repeat_ts_prev_ = stream_buffer->timestamp;
+    }
+    frames_being_encoded_.PushBack((*stream_buffer));
+
+    if (!stream_buffer->pending_encodes_per_frame) {
+      frames_received_.Erase(frames_received_.Begin());
+    }
   }
 
   if (IsStop()) {
-    QMMF_DEBUG("%s:%s: track_id(%d) Send EOS to Encoder!", TAG, __func__,
+    QMMF_DEBUG("%s:%s: track_id(%x) Send EOS to Encoder!", TAG, __func__,
         TrackId());
     // TODO defile EOS flag in AVCodec to delete EOS.
     return -1;
   }
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
 status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
                                    void* client_data) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) frames_being_encoded_.size(%d)", TAG,
+  QMMF_VERBOSE("%s:%s: track_id(%x) frames_being_encoded_.size(%d)", TAG,
       __func__, TrackId(), frames_being_encoded_.Size());
 
   bool found = false;
+
+  Mutex::Autolock lock(lock_);
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
     if ((*iter).handle ==  buffer.data) {
       QMMF_VERBOSE("%s:%s: Buffer found in frames_being_encoded_ list!", TAG,
           __func__);
-      ReturnBufferToProducer((*iter));
+
+      if (iter->needs_return) {
+        ReturnBufferToProducer((*iter));
+      }
+
       frames_being_encoded_.Erase(iter);
       found = true;
       break;
@@ -963,13 +1013,13 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
   QMMF_VERBOSE("%s:%s: frames_being_encoded_.Size(%d)", TAG, __func__,
       frames_being_encoded_.Size());
 
-  QMMF_DEBUG("%s:%s Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
 void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
-  QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
 
 #ifdef NO_FRAME_PROCESS
   ReturnBufferToProducer(buffer);
@@ -983,7 +1033,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       if (track_format == VideoFormat::kAVC
           || track_format == VideoFormat::kHEVC) {
         // Return buffer if track is stoped and EOS is acknowledged by AVCodec.
-        QMMF_INFO("%s:%s: Track(%d) Stoped and eos is acked!", TAG, __func__,
+        QMMF_INFO("%s:%s: Track(%x) Stoped and eos is acked!", TAG, __func__,
           TrackId());
         ReturnBufferToProducer(buffer);
         return;
@@ -1007,18 +1057,25 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     if (!(is_first_time) &&
         (fabs(input_frame_rate_ - framerate) >= FPS_CHANGE_THRESHOLD)) {
       Mutex::Autolock autoLock(frame_skip_lock_);
-      QMMF_INFO("%s:%s: track_id(%d) adjusting fps from (%0.2f) to (%0.2f)",
+      QMMF_INFO("%s:%s: track_id(%x) adjusting fps from (%0.2f) to (%0.2f)",
                 TAG, __func__, TrackId(), input_frame_rate_, framerate);
       input_frame_rate_ = framerate;
       input_frame_interval_  = 1000000.0 / input_frame_rate_;
-      // Output fps cannot be more than input fps.
-      if (input_frame_rate_ < track_params_.params.frame_rate)
-        output_frame_interval_ = 1000000.0 / input_frame_rate_;
-      else
+
+      // Track frame rate can be higher than input frame rate only if
+      // frame_repeat is enabled
+      if (input_frame_rate_ < track_params_.params.frame_rate) {
+        if (enable_frame_repeat_) {
+          output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+        } else {
+          output_frame_interval_ = 1000000.0 / input_frame_rate_;
+        }
+      } else {
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
+      }
     }
     if (debug_fps_ & kDebugSourceTrackFps) {
-      QMMF_INFO("%s:%s: track_id(%d): source fps: = %0.2f", TAG, __func__,
+      QMMF_INFO("%s:%s: track_id(%x): source fps: = %0.2f", TAG, __func__,
                 TrackId(), framerate);
     }
     input_prevtv_ = tv;
@@ -1036,16 +1093,20 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     return;
   }
 
+  buffer.needs_return = false;
+  buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
+  buffer.encodes_per_frame_count = buffer.pending_encodes_per_frame;
+
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
       buffer.handle->numInts);
   for (int32_t i = 0; i < buffer.handle->numInts; i++) {
-    QMMF_VERBOSE("%s:%s: track_id(%d) data[%d] =%d", TAG, __func__, TrackId(),
+    QMMF_VERBOSE("%s:%s: track_id(%x) data[%d] =%d", TAG, __func__, TrackId(),
         i , buffer.handle->data[i]);
   }
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) ion_fd = %d", TAG, __func__, TrackId(),
+  QMMF_VERBOSE("%s:%s: track_id(%x) ion_fd = %d", TAG, __func__, TrackId(),
       buffer.fd);
-  QMMF_VERBOSE("%s:%s: track_id(%d) size = %d", TAG, __func__, TrackId(),
+  QMMF_VERBOSE("%s:%s: track_id(%x) size = %d", TAG, __func__, TrackId(),
       buffer.size);
 
   if (enable_overlay_) {
@@ -1065,31 +1126,27 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kBayerRDI ||
-      track_params_.params.format_type == VideoFormat::kBayerIdeal ||
-      track_params_.camera_stream_type == CameraStreamType::kPreview) {
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (IsStop()) {
-      QMMF_DEBUG("%s:%s: track_id(%d) Stop is triggred, Stop giving raw buffer"
+      QMMF_DEBUG("%s:%s: track_id(%x) Stop is triggred, Stop giving raw buffer"
           " to client!", TAG, __func__, TrackId());
       ReturnBufferToProducer(buffer);
       return;
     }
 
-    if (track_params_.camera_stream_type == CameraStreamType::kPreview) {
-      PushFrameToDisplay(buffer);
-    }
-
     BnBuffer bn_buffer;
     memset(&bn_buffer, 0x0, sizeof bn_buffer);
-    bn_buffer.ion_fd         = buffer.fd;
-    bn_buffer.size           = buffer.size;
-    bn_buffer.timestamp      = buffer.timestamp;
-    bn_buffer.width          = buffer.info.plane_info[0].width;
-    bn_buffer.height         = buffer.info.plane_info[0].height;
-    bn_buffer.buffer_id      = buffer.fd;
-    bn_buffer.flag           = 0x10;
-    bn_buffer.capacity       = buffer.size;
+    bn_buffer.ion_fd            = buffer.fd;
+    bn_buffer.size              = buffer.size;
+    bn_buffer.timestamp         = buffer.timestamp;
+    bn_buffer.width             = buffer.info.plane_info[0].width;
+    bn_buffer.height            = buffer.info.plane_info[0].height;
+    bn_buffer.buffer_id         = buffer.fd;
+    bn_buffer.flag              = 0x10;
+    bn_buffer.capacity          = buffer.size;
 
     // Buffers from this list used for YUV callback.
     {
@@ -1099,15 +1156,17 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
 
-    MetaData meta_data;
-    memset(&meta_data, 0x0, sizeof meta_data);
+    MetaData meta_data {};
     meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-    meta_data.cam_buffer_meta_data = buffer.info;
+    meta_data.meta_flag |= static_cast<uint32_t>
+        (MetaParamType::kCamMetaFrameNumber);
+    meta_data.cam_buffer_meta_data  = buffer.info;
+    meta_data.cam_meta_frame_number = buffer.frame_number;
 
     std::vector<MetaData> meta_buffers;
     meta_buffers.push_back(meta_data);
 
-    track_params_.data_cb(TrackId(), bn_buffers, meta_buffers);
+    track_params_.data_cb(bn_buffers, meta_buffers);
   } else {
     // Push buffers into encoder queue.
     PushFrameToQueue(buffer);
@@ -1116,17 +1175,17 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
 status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   assert(bn_buffers.size() > 0);
   assert(buffer_consumer_impl_ != nullptr);
 
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
-    QMMF_VERBOSE("%s:%s: track_id(%d) bn_buffers[%d].ion_fd=%d", TAG, __func__,
+    QMMF_VERBOSE("%s:%s: track_id(%x) bn_buffers[%d].ion_fd=%d", TAG, __func__,
         TrackId(), i, bn_buffers[i].ion_fd);
     {
       Mutex::Autolock autoLock(buffer_list_lock_);
       int32_t idx = buffer_list_.indexOfKey(bn_buffers[i].ion_fd);
-      QMMF_DEBUG("%s:%s: track_id(%d) Buffer fd(%d) found in list", TAG,
+      QMMF_DEBUG("%s:%s: track_id(%x) Buffer fd(%d) found in list", TAG,
           __func__, TrackId(), bn_buffers[i].ion_fd);
       assert(idx >= 0);
       StreamBuffer buffer = buffer_list_.valueFor(bn_buffers[i].ion_fd);
@@ -1136,24 +1195,24 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
   }
   if (IsStop()) {
     if (buffer_list_.size() > 0) {
-      QMMF_INFO("%s:%s: track_id(%d) Stop is triggered, but still num raw "
+      QMMF_INFO("%s:%s: track_id(%x) Stop is triggered, but still num raw "
           "buffers(%d) are with client!", TAG, __func__, TrackId(),
           buffer_list_.size());
     } else {
       // wait_for_idle_ will not be needed once we make stop api as async.
-      QMMF_INFO("%s:%s: track_id(%d) Stop is triggered, all raw buffers are"
+      QMMF_INFO("%s:%s: track_id(%x) Stop is triggered, all raw buffers are"
           " returned from client!", TAG, __func__, TrackId());
       Mutex::Autolock lock(idle_lock_);
       wait_for_idle_.signal();
     }
   }
-  QMMF_VERBOSE("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return NO_ERROR;
 }
 
 void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
-  QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
 
   // Dynamic FPS measurement of Track
   if (debug_fps_ & kDebugTrackFps) {
@@ -1164,7 +1223,7 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
     count_++;
     if (time_diff >= FPS_TIME_INTERVAL) {
       float framerate = (count_ * 1000000) / (float)time_diff;
-      QMMF_INFO("%s:%s: track_id(%d): track fps: = %0.2f", TAG, __func__,
+      QMMF_INFO("%s:%s: track_id(%x):track fps: = %0.2f", TAG, __func__,
                 TrackId(), framerate);
       prevtv_ = tv;
       count_ = 0;
@@ -1173,28 +1232,28 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
   Mutex::Autolock lock(lock_);
   frames_received_.PushBack(buffer);
-  QMMF_DEBUG("%s:%s: track_id(%d) frames_received.size(%d)", TAG, __func__,
+  QMMF_DEBUG("%s:%s: track_id(%x) frames_received.size(%d)", TAG, __func__,
       TrackId(), frames_received_.Size());
   wait_for_frame_.signal();
 
-  QMMF_VERBOSE("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
 }
 
 bool TrackSource::IsStop() {
 
-  QMMF_VERBOSE("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   Mutex::Autolock lock(stop_lock_);
-  QMMF_VERBOSE("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return is_stop_;
 }
 
 void TrackSource::ClearInputQueue() {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   // Once connection is broken b/w port and trackSoure there is no chance to
   // get new buffers in frames_received_ queue.
   uint32_t size = frames_received_.Size();
-  QMMF_INFO("%s:%s: track_id(%d): (%d) buffers to return from frames_received_",
+  QMMF_INFO("%s:%s: track_id(%x):(%d) buffers to return from frames_received_",
       TAG, __func__, TrackId(), size);
   assert(buffer_consumer_impl_->GetProducerHandle().get() != nullptr);
   auto iter = frames_received_.Begin();
@@ -1202,13 +1261,13 @@ void TrackSource::ClearInputQueue() {
     ReturnBufferToProducer((*iter));
   }
   frames_received_.Clear();
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
 }
 
 status_t TrackSource::CreateOverlayObject(OverlayParam *param,
                                           uint32_t *overlay_id) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   uint32_t id;
   auto ret = overlay_.CreateOverlayItem(*param, &id);
   if (ret != NO_ERROR) {
@@ -1218,71 +1277,71 @@ status_t TrackSource::CreateOverlayObject(OverlayParam *param,
   *overlay_id = id;
   QMMF_INFO("%s:%s: OverlayItem of type(%d) created! id(%d)", TAG, __func__,
       param->type, id);
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   auto ret = overlay_.DeleteOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: deleteOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
                                              OverlayParam &param) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   auto ret = overlay_.GetOverlayParams(overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: getOverlayItemParams failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
                                                 OverlayParam *param) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   auto ret = overlay_.UpdateOverlayParams(overlay_id, *param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: updateOverlayParams failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   auto ret = overlay_.EnableOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: enableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
   enable_overlay_ = true;
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
 status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   auto ret = overlay_.DisableOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: disableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
   enable_overlay_ = false;
-  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
 
@@ -1292,11 +1351,17 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
   assert(frame_rate > 0.0f);
 
   if (fabs(track_params_.params.frame_rate - frame_rate) > 0.1f) {
-      QMMF_INFO("%s:%s: track_id(%d) Track fps changed from (%5.2f) to (%5.2f)",
+      QMMF_INFO("%s:%s: track_id(%x) Track fps changed from (%5.2f) to (%5.2f)",
           TAG, __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
   }
+}
+
+void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {
+
+  std::lock_guard<std::mutex> lock(frame_repeat_lock_);
+  enable_frame_repeat_ = enable_frame_repeat;
 }
 
 bool TrackSource::IsFrameSkip() {
@@ -1313,149 +1378,27 @@ bool TrackSource::IsFrameSkip() {
   return skip;
 }
 
-status_t TrackSource::CreateDisplayPreview(display::DisplayType display_type,
-    const VideoTrackParams& track_param) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  int32_t res = 0;
-  DisplayCb  display_status_cb;
-  SurfaceConfig surface_config;
+uint32_t TrackSource::CalculateEncodesPerFrame() {
 
-  display_= new Display();
-  assert(display_ != nullptr);
-  res = display_->Connect();
-  if (res != 0) {
-    QMMF_ERROR("%s:%s Display Connect Failed!!", TAG, __func__);
-    delete display_;
-    display_ = nullptr;
-    return res;
+  std::lock_guard<std::mutex> lock(frame_repeat_lock_);
+  uint32_t encodes_per_frame;
+
+  if ((!enable_frame_repeat_) ||
+      (input_frame_rate_ >= track_params_.params.frame_rate)) {
+    return 1;
   }
 
-  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
-      void *event_data, size_t event_data_size) { DisplayCallbackHandler
-      (event_type, event_data, event_data_size); };
+  encodes_per_frame = static_cast<uint32_t>(input_frame_interval_) /
+      output_frame_interval_;
+  pending_encodes_per_frame_ratio_ +=
+      (input_frame_interval_ / output_frame_interval_) - encodes_per_frame;
 
-  display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
-      { DisplayVSyncHandler(time_stamp); };
-
-  res = display_->CreateDisplay(display_type, display_status_cb);
-  if (res != 0) {
-    QMMF_ERROR("%s:%s CreateDisplay Failed!!", TAG, __func__);
-    display_->Disconnect();
-    delete display_;
-    display_ = nullptr;
-    return res;
+  if (pending_encodes_per_frame_ratio_ >= 1.0) {
+    pending_encodes_per_frame_ratio_ -= 1.0;
+    ++encodes_per_frame;
   }
 
-  memset(&surface_config, 0x0, sizeof surface_config);
-
-  surface_config.width = track_param.params.width;
-  surface_config.height = track_param.params.height;
-  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config.buffer_count = 1;
-  surface_config.cache = 0;
-  surface_config.use_buffer = 1;
-  surface_config.context = 1;
-  res = display_->CreateSurface(surface_config, &surface_id_);
-  if (res != 0) {
-    QMMF_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
-    DeleteDisplayPreview(display_type);
-    return res;
-  }
-  display_started_ = 1;
-
-  surface_param_.src_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
-  surface_param_.dst_rect = { 0.0, 0.0, (float)track_param.params.width,
-      (float)track_param.params.height };
-  surface_param_.surface_blending =
-      SurfaceBlending::kBlendingCoverage;
-  surface_param_.surface_flags.cursor = 0;
-  surface_param_.frame_rate = track_param.params.frame_rate;
-  surface_param_.z_order = 0;
-  surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
-
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return res;
-
-}
-
-status_t TrackSource::DeleteDisplayPreview(display::DisplayType display_type) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  int32_t res = 0;
-  if (display_started_ == 1) {
-    display_started_ = 0;
-    res = display_->DestroySurface(surface_id_);
-    if (res != 0) {
-      QMMF_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
-    }
-
-    res = display_->DestroyDisplay(display_type);
-    if (res != 0) {
-      QMMF_ERROR("%s:%s DestroyDisplay Failed!!", TAG, __func__);
-    }
-
-    res = display_->Disconnect();
-
-    if (display_ != nullptr) {
-      QMMF_INFO("%s:%s: DELETE display_:%p", TAG, __func__, display_);
-      delete display_;
-      display_ = nullptr;
-    }
-  }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return res;
-}
-
-void TrackSource::DisplayCallbackHandler(DisplayEventType event_type,
-    void *event_data, size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void TrackSource::DisplayVSyncHandler(int64_t time_stamp)
-{
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-}
-
-status_t TrackSource::PushFrameToDisplay(StreamBuffer& buffer) {
-  int32_t ret = 0;
-  void *buf_vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
-                          MAP_SHARED, buffer.fd, 0);
-  assert(buf_vaaddr != nullptr);
-
-  if (display_started_) {
-    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = static_cast<int32_t>(buffer.fd);
-    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-    surface_buffer_.plane_info[0].stride = buffer.info.plane_info[0].stride;
-    surface_buffer_.plane_info[0].size = buffer.frame_length;
-    surface_buffer_.plane_info[0].width = buffer.info.plane_info[0].width;
-    surface_buffer_.plane_info[0].height = buffer.info.plane_info[0].height;
-    surface_buffer_.plane_info[0].offset = 0;
-    surface_buffer_.plane_info[0].buf = (void*)buf_vaaddr;
-
-    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
-        surface_param_);
-    if (buf_vaaddr != nullptr) {
-      munmap(buf_vaaddr, buffer.size);
-      buf_vaaddr = nullptr;
-    }
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
-      return ret;
-    }
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
-      return ret;
-    }
-  }
-  return ret;
+  return encodes_per_frame;
 }
 
 void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
@@ -1477,7 +1420,7 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
 
     String8 file_path;
     size_t written_len;
-    file_path.appendFormat(FRAME_DUMP_PATH"/track_%d_%lld.yuv",
+    file_path.appendFormat(FRAME_DUMP_PATH"/track_%x_%lld.yuv",
         TrackId(), buffer.timestamp);
 
     FILE *file = fopen(file_path.string(), "w+");

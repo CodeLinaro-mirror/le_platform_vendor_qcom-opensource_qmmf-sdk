@@ -157,7 +157,7 @@ void Camera3Gtest::StreamCbAvgFPS(int32_t streamId, StreamBuffer buffer) {
 
 void Camera3Gtest::ErrorCb(CameraErrorCode errorCode,
                            const CaptureResultExtras &extras) {
-  printf("%s: ErrorCode: %d frameNumber %" PRId64 " requestId %d\n", __func__,
+  printf("%s: ErrorCode: %d frameNumber %d requestId %d\n", __func__,
          errorCode, extras.frameNumber, extras.requestId);
   if (ERROR_CAMERA_SERVICE >= errorCode) {
     camera_error_ = true;  // Unrecoverable error
@@ -401,7 +401,7 @@ void Camera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
 
 void Camera3Gtest::StreamCbSignalOnFrame(int32_t streamId,
                                          StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer with frame number: %" PRId64 " arrived\n",
+  printf("%s: streamId: %d buffer with frame number: %d arrived\n",
          __func__, streamId, buffer.frame_number);
   device_client_->ReturnStreamBuffer(streamId, buffer);
   pthread_mutex_lock(&input_lock_);
@@ -446,7 +446,7 @@ void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%d_%d.yuv",
                       streamId, buffer.frame_number, aec_lock_);
     mkdir("/data/misc/qmmf/aec_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
@@ -463,7 +463,7 @@ void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%d_%d.yuv",
                       streamId, buffer.frame_number, awb_lock_);
     mkdir("/data/misc/qmmf/awb_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
@@ -978,6 +978,86 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
 
       videoRequest.metadata.update(ANDROID_CONTROL_AE_MODE,
                                     &metaEntry.data.u8[metaEntry.count],
+                                    1);
+
+      ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+      ASSERT_GE(ret, 0);
+      videoRequestId = ret;
+
+      // Run video for some time
+      sleep(5);
+
+      dump_yuv_ = true;
+    }
+
+    ret = device_client_->CancelRequest(videoRequestId, &lastFrameNumber);
+    ASSERT_EQ(0, ret);
+
+    printf("%s: Video request cancelled last frame number: %" PRId64 "\n",
+       __func__, lastFrameNumber);
+
+    ret = device_client_->WaitUntilIdle();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->DeleteStream(repeatingStreamId, true);
+    ASSERT_EQ(0, ret);
+    ASSERT_FALSE(camera_error_);
+  }
+}
+
+TEST_F(Camera3Gtest, Video1080pExposureMeteringModes) {
+  CameraStreamParameters streamParams;
+  Camera3Request videoRequest;
+  int64_t lastFrameNumber;
+  int32_t repeatingStreamId, videoRequestId;
+  CameraMetadata staticInfo;
+
+  auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
+  ASSERT_EQ(0, ret);
+
+  if (staticInfo.exists(QCAMERA3_EXPOSURE_METER_AVAILABLE_MODES)) {
+    camera_metadata_entry metaEntry =
+        staticInfo.find(QCAMERA3_EXPOSURE_METER_AVAILABLE_MODES);
+
+    ret = device_client_->BeginConfigure();
+    ASSERT_EQ(0, ret);
+
+    memset(&streamParams, 0, sizeof(streamParams));
+    streamParams.bufferCount = STREAM_BUFFER_COUNT;
+    streamParams.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    streamParams.width = 1920;
+    streamParams.height = 1080;
+    streamParams.grallocFlags =
+      GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+    streamParams.cb = [&](int32_t streamId,
+              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+
+    // 1080p Stream1
+    repeatingStreamId = device_client_->CreateStream(streamParams);
+    ASSERT_GE(repeatingStreamId, 0);
+    videoRequest.streamIds.add(repeatingStreamId);
+
+    ret = device_client_->EndConfigure();
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                        &videoRequest.metadata);
+    ASSERT_EQ(0, ret);
+
+    ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);
+    ASSERT_GE(ret, 0);
+    videoRequestId = ret;
+
+    while (metaEntry.count) {
+      --metaEntry.count;
+      printf("Exposure metering mode: %d\n", metaEntry.data.i32[metaEntry.count]);
+
+      ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
+                          &videoRequest.metadata);
+      ASSERT_EQ(0, ret);
+
+      videoRequest.metadata.update(QCAMERA3_EXPOSURE_METER,
+                                    &metaEntry.data.i32[metaEntry.count],
                                     1);
 
       ret = device_client_->SubmitRequest(videoRequest, true, &lastFrameNumber);

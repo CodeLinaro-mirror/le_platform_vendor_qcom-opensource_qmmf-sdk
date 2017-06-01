@@ -102,7 +102,8 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
   return instance_;
 }
 DisplayImpl::DisplayImpl()
-  : current_handle_(0) {
+  : current_handle_(0),
+    vsync_state_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if(!core_intf_) {
@@ -203,7 +204,7 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
   displayinfo_.insert({current_handle_, nullptr});
 
   *display_handle = current_handle_;
-
+  vsync_state_= true;
   auto displayinfo = displayinfo_.find(*display_handle);
 
   displayinfo->second = new DisplayInfo();
@@ -417,6 +418,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   if(!surface_config.use_buffer) {
     for(uint32_t i=0; i<surface_config.buffer_count;i++) {
       BufferInfo *bufferinfo = new BufferInfo();
+      Buff_Info  *bufiduse = new Buff_Info();
 
       bufferinfo->buffer_config.width = surface_config.width;
       bufferinfo->buffer_config.height = surface_config.height;
@@ -428,7 +430,10 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
       bufferinfo->alloc_buffer_info.size = 0;
       surfaceinfo->buffer_internal = !surface_config.use_buffer;
       surfaceinfo->buffer_info.insert({i,bufferinfo});
-      surfaceinfo->buf_id_use.insert({i,0});
+      bufiduse->commited = 0;
+      bufiduse->queued = 0;
+      bufiduse->dequed = 0;
+      surfaceinfo->buf_id_use.insert({i,bufiduse});
       surfaceinfo->mmapbuf = nullptr;
       error = buffer_allocator_.AllocateBuffer(bufferinfo);
       if (error != kErrorNone) {
@@ -473,7 +478,7 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
     surfaceinfo->second->buffer_info.erase(it);
   }
 
-  for (std::map<int32_t, bool>::iterator it =
+  for (std::map<int32_t, Buff_Info*>::iterator it =
       surfaceinfo->second->buf_id_use.begin() ;
       it != surfaceinfo->second->buf_id_use.end(); ++it) {
     surfaceinfo->second->buf_id_use.erase(it);
@@ -505,10 +510,14 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
   assert(surfaceinfo->second != NULL);
   surface_buffer.buf_id = -1;
 
-  for (std::map<int, bool>::iterator it =
-      surfaceinfo->second->buf_id_use.begin();
-      it != surfaceinfo->second->buf_id_use.end(); ++it) {
-    if (!it->second) {
+
+  for (std::map<int, Buff_Info*>::iterator it =
+          surfaceinfo->second->buf_id_use.begin();
+          it != surfaceinfo->second->buf_id_use.end(); ++it) {
+      if (!it->second->dequed) {
+        it->second->dequed =1;
+        it->second->queued = 0;
+        it->second->commited = 0;
       auto buffer_info = surfaceinfo->second->buffer_info.find(it->first);
       if (buffer_info != surfaceinfo->second->buffer_info.end()) {
         BufferInfo* bufferinfo = buffer_info->second;
@@ -518,9 +527,11 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
         surface_buffer.plane_info[0].height = bufferinfo->buffer_config.height;
         surface_buffer.format = (SurfaceFormat)bufferinfo->buffer_config.format;
         surface_buffer.plane_info[0].ion_fd = bufferinfo->alloc_buffer_info.fd;
+        QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u"
+            "commited::%u", TAG, __func__, surface_buffer.plane_info[0].ion_fd,
+            it->second->queued, it->second->dequed, it->second->commited);
         surface_buffer.buf_id = it->first;
         surface_buffer.plane_info[0].offset = 0;
-
         surface_buffer.plane_info[0].stride = bufferinfo->alloc_buffer_info.stride;
         surface_buffer.plane_info[0].size = bufferinfo->alloc_buffer_info.size/
             bufferinfo->buffer_config.buffer_count;
@@ -529,11 +540,18 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
       }
     }
   }
+  for (std::map<int, Buff_Info*>::iterator it =
+       surfaceinfo->second->buf_id_use.begin();
+       it != surfaceinfo->second->buf_id_use.end(); ++it) {
+       if(it->second->commited == 1)
+        it->second->dequed =0;
+       it->second->commited = 0;
+   }
+
   pthread_mutex_unlock(&thread_lock_);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
-
 }
 
 status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
@@ -592,23 +610,25 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->transform.flip_vertical =
       surface_param.surface_transform.flip_vertical;
   layer->transform.rotation = surface_param.surface_transform.rotation;
-  layer->plane_alpha = surface_param.plane_alpha;
+  layer->plane_alpha = 0xFF;
   layer->frame_rate = surface_param.frame_rate;
   layer->solid_fill_color = surface_param.solid_fill_color;
   layer->flags.solid_fill = surface_param.surface_flags.solid_fill;
   layer->flags.cursor = surface_param.surface_flags.cursor;
   layer->input_buffer.planes[0].fd = surface_buffer.plane_info[0].ion_fd;
+  QMMF_DEBUG("%s:%s Value of Buffer Ion_Fd", TAG,
+                __func__, surface_buffer.plane_info[0].ion_fd);
   layer->input_buffer.buffer_id = surface_buffer.buf_id;
   layer->flags.updating = true;
   if (surfaceinfo->second->buffer_internal) {
-    auto buf_id_use = surfaceinfo->second->buf_id_use.find
-        (surface_buffer.buf_id);
-    buf_id_use->second = 1;
+    auto buf_id_use = surfaceinfo->second->buf_id_use.find(surface_buffer.buf_id);
+    buf_id_use->second->queued = 1;
+    buf_id_use->second->commited = 0;
   } else {
-    std::map<int, bool>::iterator it;
+    std::map<int, Buff_Info*>::iterator it;
     for (it = surfaceinfo->second->buf_id_use.begin() ;
           it != surfaceinfo->second->buf_id_use.end(); ++it) {
-      if (!it->second && it->first == surface_buffer.buf_id) {
+      if (!it->second->queued && it->first == surface_buffer.buf_id) {
         auto buffer_info = surfaceinfo->second->buffer_info.find(it->first);
         if (buffer_info != surfaceinfo->second->buffer_info.end()) {
           BufferInfo* bufferinfo = buffer_info->second;
@@ -625,7 +645,12 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
                 surface_buffer.plane_info[0].size;
             bufferinfo->alloc_buffer_info.fd =
                 surface_buffer.plane_info[0].ion_fd;
-            it->second = 1;
+
+            it->second->queued = 1;
+            it->second->commited = 0;
+            QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
+                "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
+                it->second->queued, it->second->dequed, it->second->commited);
             break;
           }
         }
@@ -633,6 +658,9 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
     }
     if (it == surfaceinfo->second->buf_id_use.end()) {
       BufferInfo *bufferinfo = new BufferInfo();
+      Buff_Info  *bufiduse = new Buff_Info();
+      bufiduse->queued = 1;
+      bufiduse->commited = 0;
       int32_t buf_id = surface_buffer.buf_id;
       bufferinfo->buffer_config.width =surface_buffer.plane_info[0].width;
       bufferinfo->buffer_config.height = surface_buffer.plane_info[0].height;
@@ -640,11 +668,14 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
           (LayerBufferFormat)surface_buffer.format;
       bufferinfo->buffer_config.buffer_count = 1;
       bufferinfo->alloc_buffer_info.fd = surface_buffer.plane_info[0].ion_fd;
+      QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
+          "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
+          it->second->queued, it->second->dequed, it->second->commited);
       bufferinfo->alloc_buffer_info.stride =
           surface_buffer.plane_info[0].stride;
       bufferinfo->alloc_buffer_info.size = surface_buffer.plane_info[0].size;
       surfaceinfo->second->buffer_info.insert({buf_id,bufferinfo});
-      surfaceinfo->second->buf_id_use.insert({buf_id,1});
+      surfaceinfo->second->buf_id_use.insert({buf_id,bufiduse});
     }
   }
   pthread_mutex_unlock(&thread_lock_);
@@ -898,13 +929,17 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
       if (!queued_buffers_only)
         push_layer =1;
       else {
-        for (std::map<int, bool>::iterator it =
+        for (std::map<int, Buff_Info*>::iterator it =
             surfaceinfo->second->buf_id_use.begin() ;
             it != surfaceinfo->second->buf_id_use.end(); ++it) {
-          if(it->second) {
-            push_layer = 1;
-            it->second = 0;
-          }
+            QMMF_DEBUG("%s:%s State of Buffer is queued::%u dequed::%u"
+                "commited::%u", TAG, __func__, it->second->queued,
+                it->second->dequed, it->second->commited);
+            if(it->second->queued) {
+              push_layer = 1;
+              it->second->queued = 0;
+              it->second->commited =1;
+            }
         }
       }
       if(push_layer) {
@@ -920,10 +955,25 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
 DisplayError DisplayImpl::VSync(const DisplayEventVSync &vsync) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  SCOPE_LOCK(vsync_callback_locker_);
-  vsync_callback_locker_.Signal();
+  if (vsync_state_) {
+    SCOPE_LOCK(vsync_callback_locker_);
+    vsync_callback_locker_.Signal();
+    vsync_state_ = false;
+  }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return kErrorNone;
+}
+
+DisplayError DisplayImpl::VSync(int fd, unsigned int sequence,
+                                unsigned int tv_sec, unsigned int tv_usec,
+                                void *data) {
+  return kErrorNotSupported;
+}
+
+DisplayError DisplayImpl::PFlip(int fd, unsigned int sequence,
+                                unsigned int tv_sec, unsigned int tv_usec,
+                                void *data) {
+  return kErrorNotSupported;
 }
 
 DisplayError DisplayImpl::Refresh() {

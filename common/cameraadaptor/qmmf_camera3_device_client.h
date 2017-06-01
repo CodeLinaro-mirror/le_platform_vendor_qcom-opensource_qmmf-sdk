@@ -68,7 +68,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t OpenCamera(uint32_t idx);
   int32_t BeginConfigure() { return 0; }
   int32_t EndConfigure(bool isConstrainedHighSpeed = false,
-                       bool isRawOnly = false);
+                       bool isRawOnly = false,
+                       uint32_t batch_size = 1);
 
   int32_t DeleteStream(int streamId, bool cache);
   int32_t CreateStream(const CameraStreamParameters &outputConfiguration);
@@ -86,7 +87,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t GetCameraInfo(uint32_t idx, CameraMetadata *info);
   int32_t GetNumberOfCameras() { return number_of_cameras_; }
-
+  const Vector<int32_t> GetRequestIds(){ return current_request_ids_; }
   int32_t WaitUntilIdle();
 
   int32_t Flush(int64_t *lastFrameNumber = NULL);
@@ -97,6 +98,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
                               const struct hw_module_t **pHmi);
 
  private:
+  Vector<int32_t> current_request_ids_;
   typedef enum State_t {
     STATE_ERROR,
     STATE_NOT_INITIALIZED,
@@ -140,7 +142,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
                            int32_t &maxJpegSizeHeight);
 
   int32_t ConfigureStreams(bool isConstrainedHighSpeed = false,
-                           bool isRawOnly = false);
+                           bool isRawOnly = false,
+                           uint32_t batch_size = 1);
   int32_t ConfigureStreamsLocked();
 
   void SetErrorState(const char *fmt, ...);
@@ -230,6 +233,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool hfr_mode_enabled_;
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
+  uint32_t batch_size_;
 };
 
 }  // namespace cameraadaptor ends here

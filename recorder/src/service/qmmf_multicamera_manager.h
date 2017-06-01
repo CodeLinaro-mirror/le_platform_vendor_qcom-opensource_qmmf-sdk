@@ -37,8 +37,10 @@
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 
-#include <qmmf_alg_intf.h>
+#include <qmmf-alg/qmmf_alg_intf.h>
 
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
+#include "qmmf-sdk/qmmf_video_track_extra_param_tags.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -74,17 +76,14 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t WaitAecToConverge(nsecs_t timeout) override;
-
-  status_t PrepareCapture(const ImageParam &param) override;
-
   status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param) override;
+  status_t CreateStream(const CameraStreamParam& param,
+                        const VideoTrackExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
@@ -92,10 +91,6 @@ class MultiCameraManager : public CameraInterface {
                        sp<IBufferConsumer>& consumer) override;
 
   status_t StopStream(const uint32_t track_id) override;
-
-  status_t ResumeStream(const uint32_t track_id) override;
-
-  status_t PauseStream(const uint32_t track_id) override;
 
   status_t SetCameraParam(const CameraMetadata &meta) override;
 
@@ -111,7 +106,7 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
-  void ReCalculateWidth(uint32_t &width);
+  status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
@@ -124,18 +119,16 @@ class MultiCameraManager : public CameraInterface {
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
-  status_t CreateStreamStitching(const CameraStreamParam &param);
+  status_t CreateStreamStitching(const CameraStreamParam& param);
   status_t DeleteStreamStitching(const uint32_t id);
 
-  status_t CreateCameraStream(const uint32_t cam_idx,
-                              const CameraStreamParam& param);
-  status_t DeleteCameraStream(const uint32_t cam_idx, const uint32_t track_id);
+  status_t CreateCameraStream(const uint32_t& cam_idx,
+                              const CameraStreamParam& param,
+                              const VideoTrackExtraParam& extra_param);
+  status_t DeleteCameraStream(const uint32_t& cam_idx,
+                              const uint32_t& track_id);
 
-  status_t PauseCameraStreams();
-  status_t ResumeCameraStreams();
-
-  status_t FillDualCamMetadataTags(CameraMetadata &meta,
-                                   const uint32_t cam_idx);
+  status_t FillDualCamMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
@@ -151,6 +144,9 @@ class MultiCameraManager : public CameraInterface {
   sp<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
   GrallocMemory            *jpeg_memory_pool_;
+
+  std::map<int32_t, SourceSurfaceDesc> source_surface_;
+  std::map<int32_t, SurfaceCrop> surface_crop_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -171,7 +167,6 @@ class MultiCameraManager : public CameraInterface {
   Mutex                    lock_;
 
   static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
-  static const nsecs_t kAecConvergeTimeout = 200000000; // 200 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
@@ -227,10 +222,11 @@ class GrallocMemory : public RefBase {
 class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
-    uint32_t               virtual_camera_id;
-    Vector<uint32_t>       camera_ids;
-    MultiCameraConfigType  multicam_type;
-    uint32_t               frame_rate;
+    uint32_t                       multicam_id;
+    Vector<uint32_t>               camera_ids;
+    MultiCameraConfigType          stitch_mode;
+    std::map<int32_t, SurfaceCrop> surface_crop;
+    uint32_t                       frame_rate;
   };
 
   StitchingBase(InitParams &param);
@@ -262,6 +258,9 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   bool                     stop_frame_sync_;
   bool                     use_frame_sync_timeout;
   String8                  *work_thread_name_;
+
+  uint32_t                 skip_camera_id_;
+  bool                     single_camera_mode_;
 
   Mutex                    frame_lock_;
 

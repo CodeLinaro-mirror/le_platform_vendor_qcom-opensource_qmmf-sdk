@@ -87,7 +87,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
 
 Camera3DeviceClient::~Camera3DeviceClient() {
   if (!request_handler_.ExitPending()) {
-    request_handler_.RequestExit();
+    request_handler_.RequestExitAndWait();
   }
 
   if (NULL != device_) {
@@ -338,7 +338,8 @@ exit:
 }
 
 int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
-                                          bool isRawOnly) {
+                                          bool isRawOnly,
+                                          uint32_t batch_size) {
   if (NULL == camera_module_) {
     return -ENODEV;
   }
@@ -348,15 +349,17 @@ int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
     return -EINVAL;
   }
 
-  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly);
+  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly, batch_size);
 }
 
 int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
-                                              bool isRawOnly) {
+                                              bool isRawOnly,
+                                              uint32_t batch_size) {
   pthread_mutex_lock(&lock_);
 
   hfr_mode_enabled_ = isConstrainedHighSpeed;
   is_raw_only_ = isRawOnly;
+  batch_size_ = batch_size;
   bool res = ConfigureStreamsLocked();
 
   pthread_mutex_unlock(&lock_);
@@ -447,7 +450,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
     }
   }
 
-  request_handler_.FinishConfiguration();
+  request_handler_.FinishConfiguration(batch_size_);
   reconfig_ = false;
   frame_number_ = 0;
   InternalUpdateStatusLocked(STATE_CONFIGURED);
@@ -523,7 +526,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
     }
-    if (!cache) {
+    if (!cache && !streams_.isEmpty()) {
       reconfig_ = true;
       res = ConfigureStreamsLocked();
       if (0 != res) {
@@ -1049,7 +1052,7 @@ void Camera3DeviceClient::HandleCaptureResult(
   }
   PendingRequest &request = pending_requests_vector_.editValueAt(idx);
   QMMF_DEBUG(
-      "%s: Received PendingRequest requestId = %d, frameNumber = %lld,"
+      "%s: Received PendingRequest requestId = %d, frameNumber = %d,"
       "burstId = %d, partialResultCount = %d\n",
       __func__, request.resultExtras.requestId,
       request.resultExtras.frameNumber, request.resultExtras.burstId,
@@ -1204,7 +1207,7 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
         resultExtras.frameNumber = msg.frame_number;
         QMMF_ERROR(
             "%s: Camera %d: cannot find pending request for "
-            "frame %lld error\n",
+            "frame %u error\n",
             __func__, id_, resultExtras.frameNumber);
       }
       pthread_mutex_unlock(&pending_requests_lock_);
@@ -1467,8 +1470,10 @@ int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
 
   List<const CameraMetadata> metadataRequestList;
   int32_t requestId = next_request_id_;
+  int32_t temp_request_id = requestId;
 
   pthread_mutex_lock(&lock_);
+  current_request_ids_.clear();
 
   switch (state_) {
     case STATE_ERROR:
@@ -1545,11 +1550,12 @@ int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
     metadata.update(ANDROID_REQUEST_OUTPUT_STREAMS, &request_stream_id[0],
                     request_stream_id.size());
 
-    metadata.update(ANDROID_REQUEST_ID, &requestId, 1);
-
+    metadata.update(ANDROID_REQUEST_ID, &temp_request_id, 1);
     metadataRequestList.push_back(metadata);
+    current_request_ids_.push_back(temp_request_id);
+    temp_request_id++;
   }
-  next_request_id_++;
+  next_request_id_ = temp_request_id;
 
   res = AddRequestListLocked(metadataRequestList, streaming, lastFrameNumber);
   if (0 != res) {

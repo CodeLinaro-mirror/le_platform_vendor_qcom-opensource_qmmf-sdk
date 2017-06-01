@@ -1363,7 +1363,7 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   if (file_fd_ > 0) {
     ssize_t expSize = (ssize_t) codec_buffer.size;
-    QMMF_INFO("FillBufferDone size writen to file  %zd", expSize);
+    QMMF_INFO("FillBufferDone size writen to file  %lu", expSize);
     if (expSize != write(file_fd_,
           reinterpret_cast<uint8_t*>(codec_buffer.data) + codec_buffer.offset,
           codec_buffer.size)) {

@@ -52,6 +52,16 @@ if test "x$with_mm_core_library" != "xno"; then
    AC_SUBST([MMCORE_CFLAGS], "${mm_core_libdir}")
 fi
 
+AC_ARG_WITH([drone-target],
+      AC_HELP_STRING([with-drone-target=@<:@dir@:>@],
+         [Specify drone target]),
+      [drone_target=$withval],
+      drone_target=false)
+
+if test "x$drone_target" == "xtrue" ; then
+[CPPFLAGS="$CPPFLAGS -D_DRONE_"]
+fi
+
 AC_ARG_WITH([camerahal],
       AC_HELP_STRING([with-camerahal=@<:@dir@:>@],
          [Specify the location of CameraHal]),
@@ -62,9 +72,33 @@ if test "x$with_camerahal" != "xno"; then
    AC_SUBST([CAMERAHAL_CFLAGS], "${camerahal_libdir}")
 fi
 
-AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
+[CPPFLAGS="$CPPFLAGS -std=c++14 -Wall -Wextra -Werror"]
 
-[CPPFLAGS="$CPPFLAGS -std=c++11 -Wall -Wextra -Werror"]
+AC_ARG_WITH([camcommon],
+      AC_HELP_STRING([with-camcommon=@<:@dir@:>@],
+         [Specify the location of Camera stack common headers]),
+      [camcommon_incdir=$withval])
+
+AC_ARG_WITH([camifaceinc],
+      AC_HELP_STRING([with-camifaceinc=@<:@dir@:>@],
+         [Specify the location of Camera interface headers]),
+      [camiface_incdir=$withval])
+
+AC_ARG_WITH([exif],
+      AC_HELP_STRING([with-exif=@<:@dir@:>@],
+         [Specify the location of exif headers]),
+      [exif_incdir=$withval])
+
+AC_ARG_WITH([omxcore],
+      AC_HELP_STRING([with-omxcore=@<:@dir@:>@],
+         [Specify the location of OMX core headers]),
+      [omxcore_incdir=$withval])
+
+AC_ARG_WITH([openmax],
+      AC_HELP_STRING([with-openmax=@<:@dir@:>@],
+         [Specify the location of OpenMAX headers]),
+      [openmax_incdir=$withval])
+
 # TODO functions have unused input parameters
 [CPPFLAGS="$CPPFLAGS -Wno-unused-parameter"]
 # TODO this warning suppress issue in lib gralloc private
@@ -74,9 +108,56 @@ AM_CONDITIONAL(ENABLE_360, test "x${enable_360}" = "xyes")
 # TODO define ANDROID macro to resolve redefinition of LOGE by MMDebugMsg.h
 [CPPFLAGS="$CPPFLAGS -DANDROID"]
 
+AC_ARG_WITH([basemachine],
+        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
+        [Specify the Machine name]),
+        [case "${withval}" in
+                apq8053) multicam_enable=true ;;
+                *) multicam_enable=false ;;
+        esac],
+        [multicam_enable=false])
+AM_CONDITIONAL([ENABLE_360], [test x$multicam_enable = xtrue])
+
+AC_ARG_WITH([camcommon],
+      AC_HELP_STRING([with-camcommon=@<:@dir@:>@],
+         [Specify the location of Camera stack common headers]),
+      [camcommon_incdir=$withval])
+
+AC_ARG_WITH([camifaceinc],
+      AC_HELP_STRING([with-camifaceinc=@<:@dir@:>@],
+         [Specify the location of Camera interface headers]),
+      [camiface_incdir=$withval])
+
+AC_ARG_WITH([exif],
+      AC_HELP_STRING([with-exif=@<:@dir@:>@],
+         [Specify the location of exif headers]),
+      [exif_incdir=$withval])
+
+AC_ARG_WITH([omxcore],
+      AC_HELP_STRING([with-omxcore=@<:@dir@:>@],
+         [Specify the location of OMX core headers]),
+      [omxcore_incdir=$withval])
+
+AC_ARG_WITH([openmax],
+      AC_HELP_STRING([with-openmax=@<:@dir@:>@],
+         [Specify the location of OpenMAX headers]),
+      [openmax_incdir=$withval])
+
+AC_SUBST([CAMERASTACKCOMMON_CFLAGS], "${camcommon_incdir}")
+AC_SUBST([CAMERAINTERFACE_CFLAGS], "${camiface_incdir}")
+AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
+AC_SUBST([OMXCORE_CFLAGS], "${omxcore_incdir}")
+AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
+
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])
 AC_SUBST([LIBS])
+
+AC_SUBST([CAMERASTACKCOMMON_CFLAGS], "${camcommon_incdir}")
+AC_SUBST([CAMERAINTERFACE_CFLAGS], "${camiface_incdir}")
+AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
+AC_SUBST([OMXCORE_CFLAGS], "${omxcore_incdir}")
+AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
 
 AC_CONFIG_FILES([ \
     Makefile \
@@ -91,6 +172,11 @@ AC_CONFIG_FILES([ \
     display/src/client/Makefile \
     display/src/service/Makefile \
     recorder/src/client/Makefile \
+    recorder/src/service/camera-reprocess/modules/copy/Makefile \
+    recorder/src/service/camera-reprocess/modules/simple/Makefile \
+    recorder/src/service/camera-reprocess/modules/camera-hal/Makefile \
+    recorder/src/service/camera-reprocess/modules/jpeg-encoder/Makefile \
+    recorder/src/service/camera-reprocess/modules/haze-buster/Makefile \
     recorder/src/service/Makefile \
     player/src/client/Makefile \
     player/src/service/Makefile \

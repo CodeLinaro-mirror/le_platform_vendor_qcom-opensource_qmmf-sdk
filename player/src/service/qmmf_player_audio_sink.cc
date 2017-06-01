@@ -27,14 +27,14 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
 #define TAG "AudioSink"
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
 #include <memory>
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
 #include <linux/msm_ion.h>
 
 #include "player/src/service/qmmf_player_audio_sink.h"
@@ -42,10 +42,14 @@
 namespace qmmf {
 namespace player {
 
+using ::android::List;
+using ::android::Mutex;
+using ::android::NO_ERROR;
+using ::android::Vector;
 using ::qmmf::avcodec::CodecBuffer;
 using ::qmmf::avcodec::CodecPortStatus;
-using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::PortEventType;
+using ::qmmf::avcodec::PortreconfigData;
 using ::std::make_shared;
 using ::std::shared_ptr;
 

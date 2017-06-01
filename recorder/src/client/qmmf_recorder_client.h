@@ -38,6 +38,7 @@
 
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
@@ -81,6 +82,11 @@ class RecorderClient {
 
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
                             const VideoTrackCreateParam& param,
+                            const TrackCb& cb);
+
+  status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
+                            const VideoTrackCreateParam& param,
+                            const VideoTrackExtraParam& extra_param,
                             const TrackCb& cb);
 
   status_t ReturnTrackBuffer(const uint32_t session_id,
@@ -189,24 +195,19 @@ class RecorderClient {
 
   bool CheckServiceStatus();
 
+  void ServiceDeathHandler();
+
+  typedef std::function <void(void)> NotifyServerDeathCB;
   class DeathNotifier : public IBinder::DeathRecipient {
    public:
-    DeathNotifier(RecorderClient* parent) : parent_(parent) {}
+    DeathNotifier(NotifyServerDeathCB& cb) : notify_server_death_(cb) {}
 
     void binderDied(const wp<IBinder>&) override {
-          ALOGD("RecorderClient:%s: Recorder service died", __func__);
-
-          Mutex::Autolock l(parent_->lock_);
-          parent_->recorder_service_.clear();
-          parent_->recorder_service_ = nullptr;
-          // If server dies for somereason then crash client process to reset
-          // the state, in this case application can reconnect to the camera
-          // without reboot.
-          assert(0);
+      ALOGD("RecorderClient:%s: Recorder service died", __func__);
+      notify_server_death_();
     }
-    RecorderClient* parent_;
+    NotifyServerDeathCB notify_server_death_;
   };
-  friend class DeathNotifier;
 
   vendor_tag_ops_t     vendor_tag_ops_;
   camera_module_t      *camera_module_;
@@ -216,6 +217,7 @@ class RecorderClient {
   RecorderCb           recorder_cb_;
   int32_t              ion_device_;
   RecorderClientIon    buffer_ion_;
+  uint32_t             client_id_;
 
   // List of session callbacks.
   DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;
@@ -244,6 +246,7 @@ class RecorderClient {
   // map <track_id, map <buffer index, buffer_info> >
   DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
 
+  DefaultKeyedVector<uint32_t, BufInfo> snapshot_buffers_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {

@@ -125,12 +125,12 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         AVCParamsInternal(codec_param.avc).ToParcel(parcel);
         break;
       case VideoFormat::kYUV:
-      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerRDI10BIT:
+      case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to write
         break;
     }
-    parcel->writeUint32(out_device);
   }
 
   VideoTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
@@ -147,12 +147,12 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         codec_param.avc = AVCParamsInternal().FromParcel(parcel);
         break;
       case VideoFormat::kYUV:
-      case VideoFormat::kBayerRDI:
+      case VideoFormat::kBayerRDI10BIT:
+      case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to read
         break;
     }
-    out_device = parcel.readUint32();
     return *this;
   }
 };

@@ -41,7 +41,7 @@ namespace recorder {
 
 class IBufferConsumer;
 
-class CameraInterface : public RefBase {
+class CameraInterface : public virtual RefBase {
  public:
 
   virtual status_t OpenCamera(const uint32_t camera_id,
@@ -50,10 +50,6 @@ class CameraInterface : public RefBase {
 
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 
-  virtual status_t WaitAecToConverge(nsecs_t timeout) = 0;
-
-  virtual status_t PrepareCapture(const ImageParam &param) = 0;
-
   virtual status_t CaptureImage(const ImageParam &param,
                                 const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta,
@@ -61,7 +57,8 @@ class CameraInterface : public RefBase {
 
   virtual status_t CancelCaptureImage() = 0;
 
-  virtual status_t CreateStream(const CameraStreamParam& param) = 0;
+  virtual status_t CreateStream(const CameraStreamParam& param,
+                                const VideoTrackExtraParam& extra_param) = 0;
 
   virtual status_t DeleteStream(const uint32_t track_id) = 0;
 
@@ -69,10 +66,6 @@ class CameraInterface : public RefBase {
                                sp<IBufferConsumer>& consumer) = 0;
 
   virtual status_t StopStream(const uint32_t track_id) = 0;
-
-  virtual status_t ResumeStream(const uint32_t track_id) = 0;
-
-  virtual status_t PauseStream(const uint32_t track_id) = 0;
 
   virtual status_t SetCameraParam(const CameraMetadata &meta) = 0;
 
