@@ -257,7 +257,7 @@ class RecorderImpl {
   EncoderCore*          encoder_core_;
   AudioSource*          audio_source_;
   AudioEncoderCore*     audio_encoder_core_;
-  //Vector<uint32_t>      session_ids_;
+  //std::vector<uint32_t>      session_ids_;
   RemoteCallbackHandle  remote_cb_handle_;
 
   //std::map<uint32_t, std::vector<TrackInfo> > sessions_;

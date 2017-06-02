@@ -91,7 +91,7 @@ void CameraContext::InitSupportedFPS() {
         ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
     for (size_t i = 0 ; i < entry.count; i += 2) {
       if (entry.data.i32[i] == entry.data.i32[i+1]) {
-        supported_fps_.add(entry.data.i32[i]);
+        supported_fps_.push_back(entry.data.i32[i]);
       }
     }
   } else {
@@ -187,7 +187,7 @@ status_t CameraContext::DeleteSnapshotStream() {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   bool cache = (postproc_enable_ || (streaming_request_id_ == -1));
-  if (!snapshot_request_.streamIds.isEmpty()) {
+  if (!snapshot_request_.streamIds.empty()) {
     auto ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete snapshot stream: %d",
@@ -265,7 +265,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
   assert(ret == NO_ERROR);
   InitSupportedFPS();
-  assert(!supported_fps_.isEmpty());
+  assert(!supported_fps_.empty());
   InitHFRModes();
 
   {
@@ -308,11 +308,11 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       return ret;
     }
 
-    if (streaming_active_requests_.isEmpty()) {
-      streaming_active_requests_.push();
+    if (streaming_active_requests_.empty()) {
+      streaming_active_requests_.emplace_back();
     }
 
-    ret = CreateCaptureRequest(streaming_active_requests_.editItemAt(0),
+    ret = CreateCaptureRequest(streaming_active_requests_[0],
                                CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Capture request for ZSL failed!", TAG, __func__);
@@ -323,7 +323,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     fps_range[0] = param.frame_rate;
     fps_range[1] = param.frame_rate;
 
-    streaming_active_requests_.editItemAt(0).metadata.update(
+    streaming_active_requests_[0].metadata.update(
         ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
 
     CameraStreamParam zsl_param = {};
@@ -397,7 +397,7 @@ void CameraContext::InitHFRModes() {
     uint32_t batch = meta_entry.data.i32[i + batch_size_offset];
     if (min_fps == max_fps) { //Only constant framerates are supported
       HFRMode_t mode = {width, height, batch, min_fps};
-      hfr_batch_modes_list_.add(mode);
+      hfr_batch_modes_list_.push_back(mode);
     }
   }
 }
@@ -520,7 +520,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
 
   if (!camera_start_params_.zsl_mode) {
     sequence_cnt_ = num_images;
-    bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
+    bool reconfigure_needed = snapshot_request_.streamIds.empty() ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
                               (postproc_enable_ != IsPostProcNeeded(param));
@@ -617,7 +617,7 @@ status_t CameraContext::CancelCaptureImage() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-  if (!snapshot_request_.streamIds.isEmpty() && !snapshot_request_id_.isEmpty()) {
+  if (!snapshot_request_.streamIds.empty() && !snapshot_request_id_.empty()) {
     std::unique_lock<std::mutex> lock(capture_count_lock_);
     std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
 
@@ -767,16 +767,16 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
   // Create global streaming capture request, this capture request would be
   // Common to all video/preview and zsl snapshot stream. non zsl snapshot
   // will have separate capture request.
-  if (streaming_active_requests_.isEmpty()) {
-    streaming_active_requests_.push();
-    ret = CreateCaptureRequest(streaming_active_requests_.editItemAt(0),
+  if (streaming_active_requests_.empty()) {
+    streaming_active_requests_.emplace_back();
+    ret = CreateCaptureRequest(streaming_active_requests_[0],
                                CAMERA3_TEMPLATE_VIDEO_RECORD);
     assert(ret == NO_ERROR);
     QMMF_INFO("%s:%s: Global Streaming Capture request created successfully!",
         TAG, __func__);
   }
 
-  streaming_active_requests_.editItemAt(0).metadata.update(
+  streaming_active_requests_[0].metadata.update(
       QCAMERA3_VENDOR_SENSOR_MODE, &sensor_vendor_mode_, 1);
 
   // Add port to list of active ports.
@@ -886,12 +886,12 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
-  if ((!streaming_active_requests_.isEmpty()) &&
+  if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     int64_t last_frame_mumber;
     List<Camera3Request> request_list;
     for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
-      Camera3Request &req = streaming_active_requests_.editItemAt(i);
+      Camera3Request &req = streaming_active_requests_[i];
       req.metadata.clear();
       req.metadata.append(meta);
       request_list.push_back(req);
@@ -918,7 +918,7 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   meta.clear();
   int32_t ret = NO_ERROR;
-  if ((!streaming_active_requests_.isEmpty()) &&
+  if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     meta.append(streaming_active_requests_[0].metadata);
   } else {
@@ -992,7 +992,7 @@ CameraStartParam& CameraContext::GetCameraStartParam() {
   return camera_start_params_;
 }
 
-Vector<int32_t>& CameraContext::GetSupportedFps() {
+std::vector<int32_t>& CameraContext::GetSupportedFps() {
 
   return supported_fps_;
 }
@@ -1218,10 +1218,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         streaming_active_requests_.resize(batch_size);
       }
       for (size_t i = 0; i < batch_size; i++) {
-        streaming_active_requests_.editItemAt(i).streamIds.add(cam_stream_id);
+        streaming_active_requests_[i].streamIds.add(cam_stream_id);
         if ((1 < i) && (streaming_active_requests_[i].metadata.isEmpty())) {
           assert(!streaming_active_requests_[0].metadata.isEmpty());
-          streaming_active_requests_.editItemAt(i).metadata.append(
+          streaming_active_requests_[i].metadata.append(
               streaming_active_requests_[0].metadata);
         }
       }
@@ -1236,7 +1236,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       QMMF_INFO("%s:%s: streaming_active_requests_.size(%d)", TAG, __func__,
           streaming_active_requests_.size());
       for (size_t j = 0; j < streaming_active_requests_.size(); j++) {
-        Camera3Request &req = streaming_active_requests_.editItemAt(j);
+        Camera3Request &req = streaming_active_requests_[j];
         bool match = false;
         size_t idx = -1;
         QMMF_INFO("%s:%s: req.streamIds.size(%d)", TAG, __func__,
@@ -1283,7 +1283,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   }
 
   if (stale_batches_present) {
-    streaming_active_requests_.removeItemsAt(stale_idx, stale_count);
+    streaming_active_requests_.erase(streaming_active_requests_.begin()
+        + stale_idx,
+        streaming_active_requests_.begin()
+        + stale_idx + stale_count);
   }
   size = streaming_active_requests_[0].streamIds.size();
   QMMF_INFO("%s:%s: Number of streams(%d) to start", TAG, __func__, size);
@@ -1300,7 +1303,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       fpsRange[1] = ceil(max_fps);
 
       for (size_t i = 0; i < streaming_active_requests_.size(); ++i) {
-        streaming_active_requests_.editItemAt(i).metadata.update(
+        streaming_active_requests_[i].metadata.update(
             ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
       }
     }

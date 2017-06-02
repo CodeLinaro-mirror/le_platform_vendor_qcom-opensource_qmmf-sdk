@@ -183,7 +183,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
 
       if (exif_size != 0) {
         img_buffer.exif_size = exif_entities_.size();
-        img_buffer.exif_data = (void*)exif_entities_.begin();
+        img_buffer.exif_data = (void*)(&exif_entities_[0]);
       } else {
         QMMF_ERROR("%s Empty exif section!", __func__);
         img_buffer.exif_size = 0;
@@ -548,7 +548,7 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
     return BAD_VALUE;
   }
   exif_entities_.clear();
-  exif_entities_.setCapacity(kMaxExifEntries);
+  exif_entities_.resize(kMaxExifEntries);
   exif_ifd_ptr_offset_ = 0;
   interop_ifd_ptr_offset_ = 0;
   gps_ifd_ptr_offset_ = 0;

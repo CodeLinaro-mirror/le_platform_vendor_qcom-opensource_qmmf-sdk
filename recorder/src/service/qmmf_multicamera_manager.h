@@ -118,7 +118,7 @@ class MultiCameraManager : public CameraInterface {
 
   CameraStartParam& GetCameraStartParam() override;
 
-  Vector<int32_t>& GetSupportedFps() override;
+  std::vector<int32_t>& GetSupportedFps() override;
 
  private:
   void ResultCallback(uint32_t camera_id, const CameraMetadata &meta);
@@ -150,7 +150,7 @@ class MultiCameraManager : public CameraInterface {
   uint32_t                 virtual_camera_id_;
   CameraStartParam         start_params_;
   MultiCameraConfigType    multicam_type_;
-  Vector<int32_t>          supported_fps_;
+  std::vector<int32_t>     supported_fps_;
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
 
@@ -172,7 +172,7 @@ class MultiCameraManager : public CameraInterface {
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
-  KeyedVector<uint32_t, Vector<uint32_t> > virtual_camera_map_;
+  KeyedVector<uint32_t, std::vector<uint32_t> > virtual_camera_map_;
 
   // Map of camera id and CameraContext.
   KeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
@@ -246,7 +246,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
     uint32_t                       multicam_id;
-    Vector<uint32_t>               camera_ids;
+    std::vector<uint32_t>          camera_ids;
     MultiCameraConfigType          stitch_mode;
     std::map<int32_t, SurfaceCrop> surface_crop;
     uint32_t                       frame_rate;
@@ -317,10 +317,10 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t InitLibrary();
   status_t DeInitLibrary();
   status_t FlushLibrary();
-  status_t Configlibrary(Vector<StreamBuffer> &input_buffers,
-                         Vector<StreamBuffer> &output_buffers);
-  status_t ProcessBuffers(Vector<StreamBuffer> &input_buffers,
-                          Vector<StreamBuffer> &output_buffers);
+  status_t Configlibrary(std::vector<StreamBuffer> &input_buffers,
+                         std::vector<StreamBuffer> &output_buffers);
+  status_t ProcessBuffers(std::vector<StreamBuffer> &input_buffers,
+                          std::vector<StreamBuffer> &output_buffers);
   status_t ParseCalibFile(void **data, uint32_t &size);
   status_t PopulateImageFormat(qmmf_alg_format_t &fmt,
                                const StreamBuffer *buffer);
@@ -336,7 +336,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.
-  KeyedVector<uint32_t, Vector<StreamBuffer> > unsynced_buffer_map_;
+  KeyedVector<uint32_t, std::vector<StreamBuffer> > unsynced_buffer_map_;
 
   // List with buffers ready to go through stitch processing.
   // The uint32_t is the camera id to which this buffer belongs to.

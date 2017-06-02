@@ -299,7 +299,7 @@ status_t RecorderClient::CreateSession(const SessionCb& cb,
   }
   session_cb_list_.add(*session_id, cb);
 
-  Vector<uint32_t> tracks;
+  std::vector<uint32_t> tracks;
   sessions_.add(*session_id, tracks);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -321,7 +321,7 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
     return BAD_VALUE;
   }
 
-  Vector<uint32_t> tracks;
+  std::vector<uint32_t> tracks;
   tracks = sessions_.valueFor(session_id);
   if (tracks.size() > 0) {
     QMMF_ERROR("%s:%s: Delete tracks first before deleting Session(%d)", TAG,
@@ -353,7 +353,7 @@ status_t RecorderClient::StartSession(const uint32_t session_id) {
     return NO_INIT;
   }
 
-  Vector<uint32_t> tracks = sessions_.valueFor(session_id);
+  std::vector<uint32_t> tracks = sessions_.valueFor(session_id);
   for (size_t i = 0; i < tracks.size(); i++)
     buffer_ion_.Release(tracks[i]);
 
@@ -384,7 +384,7 @@ status_t RecorderClient::StopSession(const uint32_t session_id,
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s StopSession failed!", TAG, __func__);
   } else {
-    Vector<uint32_t> tracks = sessions_.valueFor(session_id);
+    std::vector<uint32_t> tracks = sessions_.valueFor(session_id);
     for (size_t i = 0; i < tracks.size(); i++) {
       QMMF_KPI_ASYNC_BEGIN("LastVidFrame", tracks[i]);
     }
@@ -1134,12 +1134,12 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
                                            const uint32_t track_id, bool add) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
-  Vector<uint32_t> tracks;
+  std::vector<uint32_t> tracks;
   tracks = sessions_.valueFor(session_id);
   if (!add) {
-    for (size_t i = 0; i < tracks.size(); i++) {
-      if (tracks[i] == track_id) {
-        tracks.removeAt(i);
+    for (auto it = tracks.begin(); it != tracks.end(); it++) {
+      if (*it == track_id) {
+        tracks.erase(it);
         break;
       }
     }
@@ -1149,7 +1149,7 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
   sessions_.replaceValueFor(session_id, tracks);
   size_t size = sessions_.size();
   for (size_t i = 0; i < size; i++) {
-    Vector<uint32_t> track_ids;
+    std::vector<uint32_t> track_ids;
     track_ids = sessions_.valueFor(session_id);
     for (size_t j = 0; j < track_ids.size(); j++) {
       QMMF_INFO("%s:%s: session_id(%d):track_id(%d)", TAG, __func__, session_id,

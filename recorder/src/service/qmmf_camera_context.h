@@ -121,7 +121,7 @@ class CameraContext : public CameraInterface,
 
   CameraStartParam& GetCameraStartParam() override;
 
-  Vector<int32_t>& GetSupportedFps() override;
+  std::vector<int32_t>& GetSupportedFps() override;
 
   status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
@@ -254,7 +254,7 @@ class CameraContext : public CameraInterface,
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  Vector<int32_t>          snapshot_request_id_;
+  std::vector<int32_t>     snapshot_request_id_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
@@ -264,11 +264,11 @@ class CameraContext : public CameraInterface,
 
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
-  Vector<int32_t>          supported_fps_;
+  std::vector<int32_t>     supported_fps_;
   sp<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  Vector<sp<CameraPort> > active_ports_;
+  std::vector<sp<CameraPort> > active_ports_;
 
   // Map of <port_id and PostProc plugins>
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
@@ -282,8 +282,8 @@ class CameraContext : public CameraInterface,
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;
   bool                     hfr_supported_;
-  Vector<HFRMode_t>        hfr_batch_modes_list_;
-  Vector<Camera3Request>   streaming_active_requests_;
+  std::vector<HFRMode_t>   hfr_batch_modes_list_;
+  std::vector<Camera3Request> streaming_active_requests_;
 
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;

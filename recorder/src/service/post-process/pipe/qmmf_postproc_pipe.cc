@@ -29,8 +29,6 @@
 
 #define TAG "RecorderPostProcPipe"
 
-#include <utils/Vector.h>
-
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
 #include "../interface/qmmf_postproc.h"

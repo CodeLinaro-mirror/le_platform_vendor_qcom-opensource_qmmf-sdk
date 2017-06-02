@@ -248,7 +248,7 @@ class RecorderClient {
   } BufInfo;
 
   // map <session id, vector<track id> >
-  DefaultKeyedVector<uint32_t, Vector<uint32_t> >  sessions_;
+  DefaultKeyedVector<uint32_t, std::vector<uint32_t> >  sessions_;
   // map <buffer index, buffer_info>
   typedef DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
   // map <track_id, map <buffer index, buffer_info> >
