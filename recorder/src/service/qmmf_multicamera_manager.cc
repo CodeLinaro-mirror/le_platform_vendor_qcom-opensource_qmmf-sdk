@@ -101,7 +101,7 @@ status_t MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t>
   QMMF_INFO("%s:%s: Number of camera to be used(%d)", TAG, __func__,
       camera_ids.size());
 
-  Vector<uint32_t> ids;
+  std::vector<uint32_t> ids;
   for (auto const& cam_id : camera_ids) {
     QMMF_INFO("%s:%s camera id=%d", TAG, __func__, cam_id);
     ids.push_back(cam_id);
@@ -135,7 +135,8 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     QMMF_ERROR("%s:%s: Invalid virtual camera ID!", TAG, __func__);
     return BAD_VALUE;
   }
-  Vector<uint32_t> camera_ids = virtual_camera_map_.valueFor(virtual_camera_id);
+  std::vector<uint32_t> camera_ids =
+      virtual_camera_map_.valueFor(virtual_camera_id);
   QMMF_INFO("%s:%s: Total Number of cameras to be open(%d)", TAG, __func__,
       camera_ids.size());
 
@@ -768,7 +769,7 @@ CameraStartParam& MultiCameraManager::GetCameraStartParam() {
   return start_params_;
 }
 
-Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
+std::vector<int32_t>& MultiCameraManager::GetSupportedFps() {
 
   return camera_contexts_.valueAt(0)->GetSupportedFps();
 }
@@ -1378,7 +1379,7 @@ StitchingBase::StitchingBase(InitParams &param)
 
   // Initialize the buffer map with unsynchronized buffers.
   for (auto const& camera_id : params_.camera_ids) {
-    Vector<StreamBuffer> empty_buffers;
+    std::vector<StreamBuffer> empty_buffers;
     unsynced_buffer_map_.add(camera_id, empty_buffers);
   }
 
@@ -1453,7 +1454,7 @@ void StitchingBase::RequestExitAndWait() {
 
 bool StitchingBase::ThreadLoop() {
 
-  Vector<StreamBuffer> input_buffers, output_buffers;
+  std::vector<StreamBuffer> input_buffers, output_buffers;
   {
     // If there aren't any pending synchronized buffers waiting to go through
     // stitch processing, wait until such buffer becomes available.
@@ -1504,8 +1505,8 @@ bool StitchingBase::ThreadLoop() {
       static_cast<const private_handle_t *>(b.handle);
   b.fd           = priv_handle->fd;
   b.size         = priv_handle->size;
-  b.frame_number = input_buffers.itemAt(0).frame_number;
-  b.timestamp    = input_buffers.itemAt(0).timestamp;
+  b.frame_number = input_buffers[0].frame_number;
+  b.timestamp    = input_buffers[0].timestamp;
   b.camera_id    = params_.multicam_id;
   output_buffers.push_back(b);
 
@@ -1544,7 +1545,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
   bool match_found;
   int32_t timestamp_delta;
   uint32_t num_matched_frames = 1;
-  Vector<StreamBuffer> *unsynced_buffers;
+  std::vector<StreamBuffer> *unsynced_buffers;
   // Map of camera id and index of the matched buffer from
   // the unsynced_buffers queue for that camera id.
   KeyedVector<uint32_t, uint32_t> matched_buffers;
@@ -1566,7 +1567,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
     // Backward search, as the latest buffers are at the back.
     for (int32_t idx = (unsynced_buffers->size() - 1); idx >= 0; --idx) {
-      const StreamBuffer &unsynced_frame = unsynced_buffers->itemAt(idx);
+      const StreamBuffer &unsynced_frame = unsynced_buffers->at(idx);
       timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
 
       if (std::abs(timestamp_delta) < kMaxTimestampDelta) {
@@ -1606,10 +1607,11 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
       // Remove older excess buffers from the queue.
       for (int32_t i = 0; i < excess_buffers; ++i) {
-        StreamBuffer &buf = unsynced_buffers->editItemAt(i);
+        StreamBuffer &buf = unsynced_buffers->at(i);
         ReturnBufferToCamera(buf);
       }
-      unsynced_buffers->removeItemsAt(0, excess_buffers);
+      unsynced_buffers->erase(unsynced_buffers->begin(),
+          unsynced_buffers->begin() + excess_buffers);
     }
     return FAILED_TRANSACTION;
   }
@@ -1625,12 +1627,13 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     uint32_t camera_id = matched_buffers.keyAt(idx);
     uint32_t match_idx = matched_buffers.valueAt(idx);
     unsynced_buffers = &unsynced_buffer_map_.editValueFor(camera_id);
-    unsynced_buffers->removeAt(match_idx);
+    unsynced_buffers->erase(unsynced_buffers->begin() + match_idx);
     for (uint32_t i = 0; i < match_idx; ++i) {
-      StreamBuffer &buf = unsynced_buffers->editItemAt(i);
+      StreamBuffer &buf = unsynced_buffers->at(i);
       ReturnBufferToCamera(buf);
     }
-    unsynced_buffers->removeItemsAt(0, match_idx);
+    unsynced_buffers->erase(unsynced_buffers->begin(),
+        unsynced_buffers->begin() + match_idx);
   }
 
   std::lock_guard<std::mutex> lock(sync_lock_);
@@ -1733,19 +1736,19 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
 
 status_t StitchingBase::ReturnUnsyncedBuffers(uint32_t camera_id) {
 
-  Vector<StreamBuffer> &buffers =
+  std::vector<StreamBuffer> &buffers =
       unsynced_buffer_map_.editValueFor(camera_id);
 
   status_t ret = NO_ERROR;
-  while (!buffers.isEmpty()) {
-    StreamBuffer &buf = buffers.editTop();
+  while (!buffers.empty()) {
+    StreamBuffer &buf = buffers.back();
     ret = ReturnBufferToCamera(buf);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to return buffer %p for camera %d", TAG,
           __func__, buf.handle, camera_id);
       return ret;
     }
-    buffers.pop();
+    buffers.pop_back();
   }
   return ret;
 }
@@ -1862,8 +1865,8 @@ status_t StitchingBase::FlushLibrary() {
   return NO_ERROR;
 }
 
-status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
-                                      Vector<StreamBuffer> &output_buffers) {
+status_t StitchingBase::Configlibrary(std::vector<StreamBuffer> &input_buffers,
+                                      std::vector<StreamBuffer> &output_buffers) {
 
   status_t ret = NO_ERROR;
 
@@ -1898,7 +1901,7 @@ status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
   }
 
   for (uint32_t idx = 0; idx < config.input.cnt; ++idx) {
-    const StreamBuffer *buf = &input_buffers.itemAt(idx);
+    const StreamBuffer *buf = &input_buffers.at(idx);
     ret = PopulateImageFormat(config.input.fmts[idx], buf);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to set input image format", TAG, __func__);
@@ -1907,7 +1910,7 @@ status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
   }
 
   for (uint32_t idx = 0; idx < config.output.cnt; ++idx) {
-    const StreamBuffer *buf = &output_buffers.itemAt(idx);
+    const StreamBuffer *buf = &output_buffers.at(idx);
     ret = PopulateImageFormat(config.output.fmts[idx], buf);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to set output image format", TAG, __func__);
@@ -1927,8 +1930,8 @@ EXIT:
   return ret;
 }
 
-status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
-                                       Vector<StreamBuffer> &output_buffers) {
+status_t StitchingBase::ProcessBuffers(std::vector<StreamBuffer> &input_buffers,
+                                       std::vector<StreamBuffer> &output_buffers) {
 
   status_t ret = NO_ERROR;
   const StreamBuffer *buffer = nullptr;
@@ -1969,7 +1972,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   proc_data.output.crop = output_crop;
 
   for (uint32_t idx = 0; idx < proc_data.input.cnt; ++idx) {
-    buffer = &input_buffers.itemAt(idx);
+    buffer = &input_buffers.at(idx);
     memset(&proc_data.input.bufs[idx], 0x0, sizeof(proc_data.input.bufs[idx]));
     ret = PrepareBuffer(reg_buf_list, proc_data.input.bufs[idx], buffer);
     if (NO_ERROR != ret) {
@@ -1986,7 +1989,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   }
 
   for (uint32_t idx = 0; idx < proc_data.output.cnt; ++idx) {
-    buffer = &output_buffers.itemAt(idx);
+    buffer = &output_buffers.at(idx);
     memset(&proc_data.output.bufs[idx], 0x0, sizeof(proc_data.output.bufs[idx]));
     ret = PrepareBuffer(reg_buf_list, proc_data.output.bufs[idx], buffer);
     if (NO_ERROR != ret) {

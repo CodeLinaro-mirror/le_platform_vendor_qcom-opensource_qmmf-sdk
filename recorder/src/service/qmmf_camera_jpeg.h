@@ -141,7 +141,7 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
   std::map<int64_t, CameraMetadata> results_;
 
   //IExifGenerator*                    exif_generator_;
-  Vector<qmmf_exif_tag_t> exif_entities_;
+  std::vector<qmmf_exif_tag_t> exif_entities_;
   uint32_t  exif_ifd_ptr_offset_;
   uint32_t  interop_ifd_ptr_offset_;
   uint32_t  gps_ifd_ptr_offset_;

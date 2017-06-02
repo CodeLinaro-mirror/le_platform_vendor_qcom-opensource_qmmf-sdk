@@ -70,7 +70,7 @@ class IBufferProducer : public RefBase {
   std::mutex buffer_return_lock_;
 
   // List of consumers.
-  Vector< sp<IBufferConsumer>> buffer_consumers_;
+  std::vector< sp<IBufferConsumer>> buffer_consumers_;
 };
 
 class IBufferConsumer : public RefBase {
@@ -150,7 +150,7 @@ void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
   std::lock_guard<std::mutex> autoLock(lock_);
   //Check for any consumer present. Notify them
   //about the new incoming buffer and keep reference count.
-  if (!buffer_consumers_.isEmpty()) {
+  if (!buffer_consumers_.empty()) {
       buffer_map_.Add(buffer);
       buffer_map_.ReplaceValueFor(buffer, buffer_consumers_.size());
 
@@ -202,7 +202,7 @@ void BufferProducerImpl<_type>::AddConsumer(const sp<IBufferConsumer>&
 
   assert(consumer.get() != NULL);
   std::lock_guard<std::mutex> autoLock(lock_);
-  buffer_consumers_.add(consumer);
+  buffer_consumers_.push_back(consumer);
   QMMF_VERBOSE("%s:%s: Consumer(%p) added successfully!", TAG, __func__,
       consumer.get());
 }
@@ -213,7 +213,7 @@ void BufferProducerImpl<_type>::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   assert(consumer.get() != NULL);
   std::lock_guard<std::mutex> autoLock(lock_);
 
-  Vector<sp<IBufferConsumer> >::iterator iter = buffer_consumers_.begin();
+  std::vector<sp<IBufferConsumer> >::iterator iter = buffer_consumers_.begin();
   for(; iter != buffer_consumers_.end(); ++iter) {
     QMMF_INFO("%s:%s: (%p) iter=%p & consumer=%p", TAG, __func__, this,
         (*iter).get(), consumer.get());
