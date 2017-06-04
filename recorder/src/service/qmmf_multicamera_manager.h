@@ -129,6 +129,7 @@ class MultiCameraManager : public CameraInterface {
                               const uint32_t& track_id);
 
   status_t FillDualCamMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
+  status_t FillCropMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
