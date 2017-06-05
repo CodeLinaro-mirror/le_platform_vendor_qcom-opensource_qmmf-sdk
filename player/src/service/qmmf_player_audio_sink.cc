@@ -474,8 +474,8 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   DumpPCMData(codec_buffer);
 #endif
 
-  if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stopplayback_ || !(codec_buffer.size) || paused_)) {
+  if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
+      !(codec_buffer.size) || paused_)) {
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d"
         " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
         codec_buffer.timestamp);
@@ -702,7 +702,7 @@ void AudioTrackSink::DumpPCMData(BufferDescriptor& codec_buffer) {
     QMMF_ERROR("%s:%s File is not open fd = %d", TAG, __func__, file_fd_);
   }
 
-  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+  if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
     QMMF_ERROR("%s:%s This is last buffer from decoder.close file", TAG,
         __func__);
     close(file_fd_);
