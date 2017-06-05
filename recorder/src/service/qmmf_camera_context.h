@@ -86,7 +86,8 @@ class CameraContext : public CameraInterface,
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param) override;
+  status_t CreateStream(const CameraStreamParam& param,
+                        const VideoTrackExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
@@ -146,6 +147,12 @@ class CameraContext : public CameraInterface,
 
   friend class CameraPort;
   friend class ZslPort;
+
+  void StoreBatchStreamId(sp<CameraPort>& port);
+
+  void RestoreBatchStreamId(CameraPort* port);
+
+  status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
 
   void InitSupportedFPS(const CameraMetadata &static_meta);
 
@@ -214,7 +221,6 @@ class CameraContext : public CameraInterface,
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   Vector<int32_t>          snapshot_request_id_;
-  int32_t                  current_snapshot_request_id_index_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
@@ -253,6 +259,8 @@ class CameraContext : public CameraInterface,
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
   bool                     aec_done_ = false;
+  uint32_t                 batch_size_;
+  int32_t                  batch_stream_id_;
 };
 
 enum class CameraPortType {

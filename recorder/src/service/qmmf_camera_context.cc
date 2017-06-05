@@ -61,13 +61,14 @@ CameraContext::CameraContext()
       camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
-      current_snapshot_request_id_index_(0),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
       reprocess_enable_(false),
       result_cb_(nullptr),
-      hfr_supported_(false) {
+      hfr_supported_(false),
+      batch_size_(1),
+      batch_stream_id_(-1) {
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
 }
 
@@ -576,20 +577,38 @@ status_t CameraContext::CancelCaptureImage() {
   return ret;
 }
 
-status_t CameraContext::CreateStream(const CameraStreamParam& param) {
+void CameraContext::RestoreBatchStreamId(CameraPort* port) {
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid port", TAG, __func__);
+    return;
+  }
 
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  // 1. Check if streaming request already is going on, if yes then cancel it
-  //    and reconfigure it with adding new request.
-  // 2. Check for available port where consumer can be attached, if not then
-  //    Create new one.
-  // 3. Create camera adaptor stream.
-  // 4. Create port and link it with adaptor stream.
-  // 5. Create producer interface in port and link consumer.
+  if (batch_stream_id_ == port->GetCameraStreamId()) {
+    batch_stream_id_ = -1;
+    batch_size_ = 1;
+  }
+}
 
-  assert(camera_device_.get() != nullptr);
-  assert(param.id != 0);
-  size_t batch = 1;
+void CameraContext::StoreBatchStreamId(sp<CameraPort>& port) {
+  assert(port.get() != nullptr);
+  if (port->GetPortBatchSize() > 1) {
+    if (batch_stream_id_ > -1) {
+      QMMF_WARN("%s:%s:The Batch stream is already configuried", TAG, __func__);
+    } else {
+      batch_stream_id_ = port->GetCameraStreamId();
+    }
+  }
+}
+
+status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
+                                     uint32_t& batch_size) {
+
+  /* only one batch stream is supported */
+  if (batch_size_ > 1) {
+    /* set batch size to default */
+    batch_size = 1;
+    return NO_ERROR;
+  }
 
   if ((kConstrainedModeThreshold < param.frame_rate) && (!hfr_supported_)) {
     QMMF_ERROR("%s:%s: Stream tries to enable HFR which is not supported!",
@@ -604,6 +623,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     return BAD_VALUE;
   }
 
+  size_t batch = 1;
   if (kHFRBatchModeThreshold <= param.frame_rate) {
     bool supported = false;
     for (size_t i = 0; i < hfr_batch_modes_list_.size(); i++) {
@@ -625,6 +645,32 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     }
   }
 
+  batch_size = batch;
+  batch_size_ = batch_size;
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::CreateStream(const CameraStreamParam& param,
+                                     const VideoTrackExtraParam& extra_param) {
+
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  // 1. Check if streaming request already is going on, if yes then cancel it
+  //    and reconfigure it with adding new request.
+  // 2. Check for available port where consumer can be attached, if not then
+  //    Create new one.
+  // 3. Create camera adaptor stream.
+  // 4. Create port and link it with adaptor stream.
+  // 5. Create producer interface in port and link consumer.
+
+  assert(camera_device_.get() != nullptr);
+  assert(param.id != 0);
+
+  size_t batch;
+  if (NO_ERROR != GetBatchSize(param, batch)) {
+    return BAD_VALUE;
+  }
+
   sp<CameraPort> port;
   if (param.low_power_mode) {
     port = new CameraPort(param, batch, CameraPortType::kPreview, this);
@@ -638,6 +684,8 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param) {
     QMMF_ERROR("%s:%s: CameraPort Can't be Created!", TAG, __func__);
     return BAD_VALUE;
   }
+
+  StoreBatchStreamId(port);
 
   // Create global streaming capture request, this capture request would be
   // Common to all video/preview and zsl snapshot stream. non zsl snapshot
@@ -680,6 +728,8 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
 
   auto ret = port->DeInit();
   assert(ret == NO_ERROR);
+
+  RestoreBatchStreamId(port);
 
   DeletePort(track_id);
 
@@ -901,7 +951,8 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     if (params.format == HAL_PIXEL_FORMAT_RAW10) {
       is_raw_only = true;
     }
-    ret = camera_device_->EndConfigure(is_constrained_mode, is_raw_only);
+    ret = camera_device_->EndConfigure(is_constrained_mode, is_raw_only,
+                                       batch_size_);
     assert(ret == NO_ERROR);
   }
 
@@ -1574,16 +1625,12 @@ status_t CameraContext::ReprocDelete() {
 
 status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
   if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    if ( snapshot_request_id_.size() > 0 ) {
-      if ( snapshot_request_id_[current_snapshot_request_id_index_]
-          == result.resultExtras.requestId ) {
-        if(reproc_pipe_.get() != nullptr) {
-           ++current_snapshot_request_id_index_;
-           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
-             current_snapshot_request_id_index_ = 0;
-           }
+    for (auto id : snapshot_request_id_) {
+      if (id == result.resultExtras.requestId) {
+        QMMF_INFO("%s:%s: found snapshot request id %d", TAG,__func__, id);
+        if (reproc_pipe_.get() != nullptr) {
           reproc_pipe_->AddResult(const_cast<void*>
-                                 (static_cast<void const*>(&result)));
+                                    (static_cast<void const*>(&result)));
         }
       }
     }

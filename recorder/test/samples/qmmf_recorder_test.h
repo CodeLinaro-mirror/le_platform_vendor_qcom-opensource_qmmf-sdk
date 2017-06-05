@@ -48,6 +48,7 @@
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+#include <cairo/cairo.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -107,6 +108,8 @@ if (kpi_debug_mask & KPI_ONLY) { \
 
 #define FEATURE_NOT_AVAILABLE  "Not available"
 
+#define TEXT_SIZE                   40
+
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
@@ -123,6 +126,19 @@ using ::qmmf::display::SurfaceFormat;
 
 #define AEC_SETTLE_INTERVAL 2
 #define MAX_NUM_CAMERAS 3
+
+#define DEFAULT_DUMP_FRAME_FREQ  "200"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_YUV          "persist.qmmf.rec.test.dumpyuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_BITSTREAM    "persist.qmmf.rec.test.dumpstrm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_JPEG         "persist.qmmf.rec.gtest.dumpjpeg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_RAW          "persist.qmmf.rec.gtest.dumpraw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_FRAME_FREQ   "persist.qmmf.rec.test.dumpfreq"
 
 enum class AfMode {
   kNone,
@@ -174,6 +190,13 @@ struct TrackInfo {
   int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+};
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
 };
 
 class CameraMetaDataParser {
@@ -259,6 +282,7 @@ public:
               SnapshotType::kNone,
               0,
               0,
+              0,
               0
             } {};
 
@@ -272,6 +296,27 @@ public:
     }
 };
 
+typedef struct StreamDumpInfo {
+  VideoFormat   format;
+  uint32_t      track_id;
+  int32_t       width;
+  int32_t       height;
+} StreamDumpInfo;
+
+class DumpBitStream {
+ public:
+  DumpBitStream() : file_fd_(-1) {};
+
+  ~DumpBitStream() {};
+
+  status_t SetUp(const StreamDumpInfo& dumpinfo);
+
+  void Close();
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers);
+
+  int32_t file_fd_;
+};
 
 class RecorderTest {
  public:
@@ -444,7 +489,13 @@ class RecorderTest {
 
   Recorder& GetRecorder() { return recorder_; }
 
-  private:
+  bool is_dump_yuv_enabled_;
+  bool is_dump_raw_enabled_;
+  bool is_dump_bitstream_enabled_;
+  bool is_dump_jpg_enabled_;
+  uint32_t dump_frame_freq_;
+
+ private:
   Recorder recorder_;
 
   friend class CmdMenu;
@@ -521,6 +572,10 @@ class TestTrack {
 
   status_t DisableOverlay();
 
+  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
+
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -538,12 +593,8 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
-
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
     CameraBufferMetaData& meta_data);
-
-  int32_t file_fd_;
 
   TrackInfo track_info_;
 
@@ -563,6 +614,10 @@ class TestTrack {
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
   bool display_started_;
+
+  DumpBitStream dump_bitstream_;
+  cairo_surface_t*       cr_surface_;
+  cairo_t*               cr_context_;
 };
 
 class CmdMenu

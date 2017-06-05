@@ -63,7 +63,7 @@ class Camera3RequestHandler : public Camera3Thread {
   void TogglePause(bool pause);
 
   bool IsStreamActive(Camera3Stream &stream);
-  void FinishConfiguration();
+  void FinishConfiguration(uint32_t batch_size);
 
   void RequestExit() override;
   void RequestExitAndWait() override;
@@ -115,6 +115,7 @@ class Camera3RequestHandler : public Camera3Thread {
 
   Camera3Monitor &monitor_;
   int32_t monitor_id_;
+  uint32_t batch_size_;
 };
 
 }  // namespace cameraadaptor ends here

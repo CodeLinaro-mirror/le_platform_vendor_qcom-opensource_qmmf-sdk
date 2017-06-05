@@ -643,7 +643,7 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
 
 void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 
-  uint32_t content_size;
+  uint32_t content_size = 0;
   int32_t width = -1, height = -1;
   void* vaddr = nullptr;
   switch (buffer.info.format) {
@@ -763,7 +763,8 @@ status_t TrackSource::Init() {
   stream_param.low_power_mode   = track_params_.params.low_power_mode;
 
   assert(camera_interface_.get() != nullptr);
-  auto ret = camera_interface_->CreateStream(stream_param);
+  auto ret = camera_interface_->CreateStream(stream_param,
+                                             track_params_.extra_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateStream failed!!", TAG, __func__);
     return BAD_VALUE;
