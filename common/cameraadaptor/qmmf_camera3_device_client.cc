@@ -523,7 +523,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
     }
-    if (!cache) {
+    if (!cache && !streams_.isEmpty()) {
       reconfig_ = true;
       res = ConfigureStreamsLocked();
       if (0 != res) {
