@@ -154,6 +154,8 @@ class MultiCameraManager : public CameraInterface {
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
 
+  std::vector<uint32_t>    active_streams_;
+
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
   KeyedVector<uint32_t, Vector<uint32_t> > virtual_camera_map_;

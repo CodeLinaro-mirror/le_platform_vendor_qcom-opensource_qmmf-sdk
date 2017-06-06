@@ -434,6 +434,12 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
+
+  // Stop all active streams.
+  for (auto const& track_id : active_streams_) {
+    StopStream(track_id);
+  }
+
   auto ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
@@ -470,6 +476,11 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
+  // Resume all previously active streams.
+  for (auto const& track_id : active_streams_) {
+    StartStream(track_id);
+  }
+  active_streams_.push_back(param.id);
   return NO_ERROR;
 }
 
@@ -491,6 +502,8 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
+  auto track = find(active_streams_.begin(), active_streams_.end(), track_id);
+  active_streams_.erase(track);
   return NO_ERROR;
 }
 
