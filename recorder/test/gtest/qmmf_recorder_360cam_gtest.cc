@@ -1024,6 +1024,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1031,7 +1033,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1145,6 +1146,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1152,7 +1155,6 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1266,6 +1268,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1273,7 +1277,6 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1389,6 +1392,8 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -1396,7 +1401,6 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -1556,6 +1560,8 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
@@ -1567,7 +1573,6 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
@@ -1727,6 +1732,8 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
@@ -1897,6 +1904,8 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
@@ -2065,6 +2074,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
@@ -2076,7 +2087,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
@@ -2935,6 +2945,8 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -2942,7 +2954,6 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -3057,6 +3068,8 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -3064,7 +3077,6 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -3179,6 +3191,8 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -3186,7 +3200,6 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -3303,6 +3316,8 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
   assert(ret == NO_ERROR);
@@ -3310,7 +3325,6 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -3471,6 +3485,8 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
@@ -3482,7 +3498,6 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
@@ -3785,6 +3800,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncAndSingleWXGATrack) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3985,6 +4002,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -3993,7 +4012,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4120,6 +4138,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4128,7 +4148,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4255,6 +4274,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4263,7 +4284,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4390,6 +4410,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4398,7 +4420,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4525,6 +4546,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4533,7 +4556,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4660,6 +4682,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4668,7 +4692,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4795,6 +4818,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4803,7 +4828,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -4930,6 +4954,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -4938,7 +4964,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5065,6 +5090,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5073,7 +5100,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5235,6 +5261,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5243,7 +5271,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5370,6 +5397,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5378,7 +5407,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5630,6 +5658,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5638,7 +5668,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -5765,6 +5794,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5952,6 +5983,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -5960,7 +5993,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6088,6 +6120,8 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6096,7 +6130,6 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6224,6 +6257,8 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6232,7 +6267,6 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6360,6 +6394,8 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6368,7 +6404,6 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6496,6 +6531,8 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6504,7 +6541,6 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6632,6 +6668,8 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6640,7 +6678,6 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6768,6 +6805,8 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6776,7 +6815,6 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -6904,6 +6942,8 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
@@ -6912,7 +6952,6 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
