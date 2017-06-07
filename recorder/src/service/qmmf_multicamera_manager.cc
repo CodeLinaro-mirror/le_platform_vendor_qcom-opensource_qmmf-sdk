@@ -137,10 +137,10 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
 
   StitchingBase::InitParams algo_param {};
-  algo_param.virtual_camera_id = virtual_camera_id_;
-  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
-  algo_param.frame_rate = 1;
+  algo_param.multicam_id = virtual_camera_id_;
+  algo_param.camera_ids  = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.stitch_mode = multicam_type_;
+  algo_param.frame_rate  = 1;
 
   snapshot_stitch_algo_ = new SnapshotStitching(algo_param, camera_contexts_);
   ret = snapshot_stitch_algo_->Initialize();
@@ -270,7 +270,7 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
 
   ImageParam cam_param (param);
   cam_param.image_format = image_format;
-  ReCalculateWidth(cam_param.width);
+  SetDefaultSurfaceDim(cam_param.width, cam_param.height);
 
   if (need_jpeg_encoding) {
     StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buf) {
@@ -287,20 +287,19 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
   };
 
   if (reconfigure_needed) {
-    // Make sure that every time after reconfiguration
-    // we are linking the related cameras.
-    std::vector<CameraMetadata>linkDaulCamMeta = meta;
+    // Linking the related cameras every time after reconfiguration.
+    std::vector<CameraMetadata> dualcam_meta = meta;
     for (size_t i = 0; i < camera_contexts_.size(); ++i) {
       sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
-      //  LinkDualCam only should be sent only on first capture in burst
-      ret = fillDualCamLinkMetadataTags(linkDaulCamMeta[0], i);
+      // Dual camera meta should only be sent only on first capture in burst.
+      ret = FillDualCamMetadata(dualcam_meta[0], i);
       if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: DualCamLink capture metadata failed!", TAG, __func__);
+        QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
         return ret;
       }
       ret = camera_context->CaptureImage(cam_param, num_images,
-                                         linkDaulCamMeta, stream_cb);
+                                         dualcam_meta, stream_cb);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
         return ret;
@@ -349,67 +348,128 @@ status_t MultiCameraManager::CancelCaptureImage() {
   return ret;
 }
 
-status_t MultiCameraManager::CreateStream(const CameraStreamParam& param) {
+status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
+                                          const VideoTrackExtraParam&
+                                          extra_param) {
 
-  status_t ret;
-  ssize_t ctx_idx;
+  SourceSurfaceDesc surface;
+  source_surface_.clear();
+  surface_crop_.clear();
 
-  CameraStreamParam context_param (param);
-  ReCalculateWidth(context_param.cam_stream_dim.width);
-
-  // Start streams in reverse order. This is needed becouse camera
-  // context is cahcing our streams and streams will be destroyed only
-  // when new stream is created, and not on delete stream as expected.
-  CameraMetadata meta;
-  for (ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
-    assert(camera_context.get() != nullptr);
-    ret = camera_context->CreateStream(context_param);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CameraContext CreateStream Failed!", TAG, __func__);
-      goto FAIL;
+  if (extra_param.Exists(QMMF_SOURCE_SURFACE_DESCRIPTOR)) {
+    // Source surface entry count should be equal to the number of cameras.
+    size_t entry_count = extra_param.EntryCount(QMMF_SOURCE_SURFACE_DESCRIPTOR);
+    if (entry_count < camera_contexts_.size()) {
+      QMMF_ERROR("%s:%s: Not enough QMMF_SOURCE_SURFACE_PARAM entries! "
+          "Required entries: %d!", TAG, __func__, camera_contexts_.size());
+      return NOT_ENOUGH_DATA;
+    } else if (entry_count > camera_contexts_.size()) {
+      QMMF_ERROR("%s:%s: QMMF_SOURCE_SURFACE_PARAM entries count exceeds "
+          "camera count (%d)!", TAG, __func__, camera_contexts_.size());
+      return BAD_INDEX;
     }
-
-    // On CreateStream, camera context most probably will
-    // reconfigure the camera. So make sure that every time
-    // after reconfiguration we are linking the related cameras.
-    ret = camera_context->GetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: GetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
+    // Fetch source surface dimensions data from the container.
+    for (size_t i = 0; i < entry_count; ++i) {
+      extra_param.Fetch(QMMF_SOURCE_SURFACE_DESCRIPTOR, surface, i);
+      if (source_surface_.find(surface.camera_id) != source_surface_.end()) {
+        QMMF_ERROR("%s:%s: Found more than one QMMF_SOURCE_SURFACE_PARAM "
+            "entry for camera %d!", TAG, __func__, surface.camera_id);
+        return ALREADY_EXISTS;
+      }
+      source_surface_.emplace(surface.camera_id, surface);
     }
-
-    ret = fillDualCamLinkMetadataTags(meta, ctx_idx);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: FillDualCamera link for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
+    // Verify that surface dimensions are set for every camera.
+    auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+    for (auto const& cam_id : camera_ids) {
+      if (source_surface_.find(cam_id) == source_surface_.end()) {
+        QMMF_ERROR("%s:%s: QMMF_SOURCE_SURFACE_PARAM for camera %d missing!",
+            TAG, __func__, cam_id);
+        return NAME_NOT_FOUND;
+      }
     }
-
-    ret = camera_context->SetCameraParam(meta);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: SetCameraParam for camera %d failed!",
-          TAG, __func__, camera_contexts_.keyAt(ctx_idx));
-      goto FAIL;
+  } else {
+    surface.width = param.cam_stream_dim.width;
+    surface.height = param.cam_stream_dim.height;
+    // Fill the source camera surfaces with default values.
+    SetDefaultSurfaceDim(surface.width, surface.height);
+    auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+    for (auto const& cam_id : camera_ids) {
+      surface.camera_id = cam_id;
+      source_surface_.emplace(cam_id, surface);
     }
-    //Clear metadata for next iteration
-    meta.clear();
   }
 
-  ret = CreateStreamStitching(param);
+  bool single_camera = false;
+  if (extra_param.Exists(QMMF_SURFACE_CROP)) {
+    SurfaceCrop crop;
+    // Fetch crop rectangle data from the container.
+    for (size_t i = 0; i < extra_param.EntryCount(QMMF_SURFACE_CROP); ++i) {
+      extra_param.Fetch(QMMF_SURFACE_CROP, crop, i);
+      if (surface_crop_.find(crop.camera_id) != surface_crop_.end()) {
+        QMMF_ERROR("%s:%s: Found more than one QMMF_SURFACE_CROP entry "
+            "for camera %d!", TAG, __func__, crop.camera_id);
+        return ALREADY_EXISTS;
+      }
+      // Verify the camera ID.
+      if (NAME_NOT_FOUND == camera_contexts_.indexOfKey(crop.camera_id)) {
+        QMMF_ERROR("%s:%s: Camera ID %d for QMMF_SURFACE_CROP entry %d "
+            "does not exist!", TAG, __func__, crop.camera_id, i);
+        return NAME_NOT_FOUND;
+      }
+      auto surface = source_surface_.at(crop.camera_id);
+      if (crop.width == 0 && crop.height == 0) {
+        auto camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
+        for (auto const& cam_id : camera_ids) {
+          source_surface_.at(cam_id).width = param.cam_stream_dim.width;
+          source_surface_.at(cam_id).height = param.cam_stream_dim.height;
+          single_camera = true;
+        }
+      } else if (surface.width < crop.width || surface.height < crop.height) {
+        QMMF_ERROR("%s:%s: Invalid QMMF_SURFACE_CROP entry dimensions for "
+            "camera %d!", TAG, __func__, crop.camera_id);
+        return BAD_VALUE;
+      }
+      surface_crop_.emplace(crop.camera_id, crop);
+    }
+  }
+
+  auto ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
-    goto FAIL;
+    return ret;
+  }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
+  // Start streams in reverse order. This is needed because camera
+  // context is caching our streams and streams will be destroyed only
+  // when new stream is created, and not on delete stream as expected.
+  for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
+    CameraStreamParam stream_param(param);
+    if (use_vfe_crop && !single_camera) {
+      SetDefaultSurfaceDim(stream_param.cam_stream_dim.width,
+                           stream_param.cam_stream_dim.height);
+    } else {
+      auto camera_id = camera_contexts_.keyAt(ctx_idx);
+      auto &camera_surface = source_surface_.at(camera_id);
+      stream_param.cam_stream_dim.width = camera_surface.width;
+      stream_param.cam_stream_dim.height = camera_surface.height;
+    }
+
+    ret = CreateCameraStream(ctx_idx, stream_param, extra_param);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: CreateCameraStream Failed!", TAG, __func__);
+      for (size_t idx = ctx_idx + 1; idx < camera_contexts_.size(); ++idx) {
+        DeleteCameraStream(idx, param.id);
+      }
+      DeleteStreamStitching(param.id);
+      return ret;
+    }
   }
 
   return NO_ERROR;
-
-FAIL:
-  for (size_t i = ctx_idx + 1; i < camera_contexts_.size(); ++i) {
-    camera_contexts_.valueAt(i)->DeleteStream(context_param.id);
-  }
-  return ret;
 }
 
 status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
@@ -418,12 +478,10 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
 
   // Delete the streams backwards since first camera is master camera
   // and need to be stopped last.
-  for (ssize_t i = camera_contexts_.size() - 1; i >= 0; --i) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-    assert(camera_context.get() != nullptr);
-    ret = camera_context->DeleteStream(track_id);
+  for (ssize_t idx = camera_contexts_.size() - 1; idx >= 0; --idx) {
+    ret = DeleteCameraStream(idx, track_id);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: DeleteStream Failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: DeleteCameraStream Failed!", TAG, __func__);
       return ret;
     }
   }
@@ -432,7 +490,6 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
-
   return ret;
 }
 
@@ -490,15 +547,25 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
 
 status_t MultiCameraManager::SetCameraParam(const CameraMetadata &meta) {
 
-  //One of the cameras will be master cam that's why we need
-  //to set the params only for one camera.
-  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
-  assert(camera_context.get() != nullptr);
-  status_t ret = camera_context->SetCameraParam(meta);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetCameraParam Failed!", TAG, __func__);
+  for (size_t ctx_idx = 0; ctx_idx < camera_contexts_.size(); ++ctx_idx) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(ctx_idx);
+    int32_t camera_id = camera_contexts_.keyAt(ctx_idx);
+
+    auto ret = FillDualCamMetadata(const_cast<CameraMetadata&>(meta), ctx_idx);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: FillDualCamMetadata Failed!", TAG,
+          __func__, camera_id);
+      return ret;
+    }
+
+    ret = camera_context->SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+          camera_id);
+      return ret;
+    }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::GetCameraParam(CameraMetadata &meta) {
@@ -559,10 +626,20 @@ Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
   return supported_fps_;
 }
 
-void MultiCameraManager::ReCalculateWidth(uint32_t &width) {
+status_t MultiCameraManager::SetDefaultSurfaceDim(uint32_t& w, uint32_t& h) {
 
-  // Divide the width of the stitched output on the number of cameras.
-  width /= camera_contexts_.size();
+  switch (multicam_type_) {
+    case MultiCameraConfigType::k360Stitch:
+    case MultiCameraConfigType::kSideBySide:
+      // Divide the width of the stitched output on the number of cameras.
+      w /= camera_contexts_.size();
+      break;
+    default:
+      QMMF_ERROR("%s:%s: Unsupported MultiCamera mode: 0x%x", TAG, __func__,
+          multicam_type_);
+      return NAME_NOT_FOUND;
+  }
+  return NO_ERROR;
 }
 
 int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
@@ -723,39 +800,41 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam &param) {
+status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam&
+                                                   param) {
 
   StitchingBase::InitParams algo_param {};
-  algo_param.virtual_camera_id = virtual_camera_id_;
-  algo_param.camera_ids = virtual_camera_map_.valueFor(virtual_camera_id_);
-  algo_param.multicam_type = multicam_type_;
-  algo_param.frame_rate = multicam_start_params_.frame_rate;
+  algo_param.multicam_id  = virtual_camera_id_;
+  algo_param.camera_ids   = virtual_camera_map_.valueFor(virtual_camera_id_);
+  algo_param.stitch_mode  = multicam_type_;
+  algo_param.surface_crop = surface_crop_;
+  algo_param.frame_rate   = param.frame_rate;
 
-  GrallocMemory::BufferParams buf_param {};
+  GrallocMemory::BufferParams buffer_param {};
   if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
-    buf_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+    buffer_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   } else {
-    buf_param.format      = HAL_PIXEL_FORMAT_RAW10;
+    buffer_param.format      = HAL_PIXEL_FORMAT_RAW10;
   }
-  buf_param.width         = param.cam_stream_dim.width;
-  buf_param.height        = param.cam_stream_dim.height;
-  buf_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
-  buf_param.max_size      = 0;
+  buffer_param.width         = param.cam_stream_dim.width;
+  buffer_param.height        = param.cam_stream_dim.height;
+  buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+  buffer_param.max_size      = 0;
 
-  buf_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
+  buffer_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
   if (param.cam_stream_dim.width == kWidth4K &&
       param.cam_stream_dim.height == kHeight4K) {
-    buf_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
+    buffer_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
   }
-  buf_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  buffer_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
 
   sp<StreamStitching> stitching_algo = new StreamStitching(algo_param);
-  status_t ret = stitching_algo->Initialize();
+  auto ret = stitching_algo->Initialize();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to initialize stitching algo!", TAG, __func__);
     return ret;
   }
-  ret = stitching_algo->Configure(buf_param);
+  ret = stitching_algo->Configure(buffer_param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to configure stitching algo!", TAG, __func__);
     return ret;
@@ -780,8 +859,83 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::fillDualCamLinkMetadataTags(CameraMetadata &meta,
-                                                         const uint32_t cam_idx) {
+status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
+                                                const CameraStreamParam& param,
+                                                const VideoTrackExtraParam&
+                                                extra_param) {
+
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
+  int32_t camera_id = camera_contexts_.keyAt(cam_idx);
+
+  // On CreateStream, camera context most probably will
+  // reconfigure the camera. So make sure that every time.
+  // after reconfiguration we are linking the related cameras.
+  status_t ret = camera_context->CreateStream(param, extra_param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: CreateStream Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+
+  CameraMetadata meta;
+  ret = camera_context->GetCameraParam(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: GetCameraParam Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+  ret = FillDualCamMetadata(meta, cam_idx);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: FillDualCamMetadata Failed!", TAG,
+        __func__, camera_id);
+    return ret;
+  }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
+  if (use_vfe_crop && surface_crop_.find(camera_id) != surface_crop_.end()) {
+    auto const& crop = surface_crop_.at(camera_id);
+    if (crop.width != 0 && crop.height != 0) {
+      int32_t crop_rect[4];
+      auto const& crop = surface_crop_.at(camera_id);
+      auto const& camera_surface = source_surface_.at(camera_id);
+      crop_rect[0] = ((float)crop.x / camera_surface.width) * 4056;
+      crop_rect[1] = ((float)crop.y / camera_surface.height) * 3040;
+      crop_rect[2] = ((float)crop.width / camera_surface.width) * 4056;
+      crop_rect[3] = ((float)crop.height / camera_surface.height) * 3040;
+      meta.update(ANDROID_SCALER_CROP_REGION, crop_rect, 4);
+    }
+  }
+
+  ret = camera_context->SetCameraParam(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::DeleteCameraStream(const uint32_t& cam_idx,
+                                                const uint32_t& track_id) {
+
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
+  uint32_t camera_id = camera_contexts_.keyAt(cam_idx);
+
+  status_t ret = camera_context->DeleteStream(track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Camera %d: DeleteStream Failed!", TAG, __func__,
+        camera_id);
+    return ret;
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
+                                                 const uint32_t& cam_idx) {
 
   int32_t related_id;
   uint8_t is_main;
@@ -797,7 +951,7 @@ status_t MultiCameraManager::fillDualCamLinkMetadataTags(CameraMetadata &meta,
       return NO_ERROR;
   }
 
-  // If we dont have even cameras to link dont link the last camera
+  // If we don't have even cameras to link don't link the last camera
   if ((cam_idx == camera_contexts_.size() - 1) &&
       (camera_contexts_.size() & 1)) {
     QMMF_WARN("%s:%s: Last camera id %d will not be linked, No pair!",
@@ -814,23 +968,17 @@ status_t MultiCameraManager::fillDualCamLinkMetadataTags(CameraMetadata &meta,
     related_id = camera_contexts_.keyAt(cam_idx + 1);
   }
 
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
 
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
+  uint8_t sync = 1;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
 
-  const uint8_t sync = 1;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
+  uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
 
-  const uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
-
-  const uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
-  const_cast<CameraMetadata&>(meta).update(
-      qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+  uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
+  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
 
   return NO_ERROR;
 }
@@ -1001,8 +1149,11 @@ void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: Camera %u: Frame %" PRId64 " is available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
-  if (stop_frame_sync_) {
+  if (stop_frame_sync_ || (single_camera_mode_ &&
+      buffer.camera_id == skip_camera_id_)) {
     ReturnBufferToCamera(buffer);
+  } else if (single_camera_mode_ && (buffer.camera_id != skip_camera_id_)) {
+    NotifyBufferToClient(buffer);
   } else {
     FrameSync(buffer);
   }
@@ -1012,7 +1163,11 @@ void StreamStitching::NotifyBufferReturned(const StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s:%s: Stream buffer(handle %p) returned", TAG, __func__,
       buffer.handle);
-  ReturnBufferToBufferPool(buffer);
+  if (buffer.camera_id == params_.multicam_id) {
+    ReturnBufferToBufferPool(buffer);
+  } else {
+    ReturnBufferToCamera(const_cast<StreamBuffer&>(buffer));
+  }
 }
 
 status_t StreamStitching::NotifyBufferToClient(StreamBuffer &buffer) {
@@ -1044,7 +1199,9 @@ StitchingBase::StitchingBase(InitParams &param)
     : params_(param),
       stop_frame_sync_(false),
       use_frame_sync_timeout(false),
-      work_thread_name_(nullptr) {
+      work_thread_name_(nullptr),
+      skip_camera_id_ (0),
+      single_camera_mode_(false) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
@@ -1053,6 +1210,16 @@ StitchingBase::StitchingBase(InitParams &param)
   for (auto const& camera_id : params_.camera_ids) {
     Vector<StreamBuffer> empty_buffers;
     unsynced_buffer_map_.add(camera_id, empty_buffers);
+  }
+
+  for (auto const& cam_id : params_.camera_ids) {
+    if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
+      auto crop = params_.surface_crop.at(cam_id);
+      if (crop.width == 0 && crop.height == 0) {
+        skip_camera_id_ = cam_id;
+        single_camera_mode_ = true;
+      }
+    }
   }
 
   // We need half the time for one frame 0.5sec/fps, but in nanoseconds.
@@ -1133,7 +1300,7 @@ bool StitchingBase::ThreadLoop() {
         ret = wait_for_sync_frames_.wait(sync_lock_);
       }
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s: Wait for frame available failed, ret(%d)", TAG,
+        QMMF_DEBUG("%s:%s: Wait for frame available failed, ret(%d)", TAG,
             __func__, ret);
         return true;
       }
@@ -1170,7 +1337,7 @@ bool StitchingBase::ThreadLoop() {
   b.size         = priv_handle->size;
   b.frame_number = input_buffers.itemAt(0).frame_number;
   b.timestamp    = input_buffers.itemAt(0).timestamp;
-  b.camera_id    = params_.virtual_camera_id;
+  b.camera_id    = params_.multicam_id;
   output_buffers.push_back(b);
 
   if (!stitch_lib_.configured) {
@@ -1379,7 +1546,7 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
   QMMF_DEBUG("%s:%s: Got buffer(%p), camera id %d", TAG, __func__, handle,
       buffer.camera_id);
 
-  if (buffer.camera_id == params_.virtual_camera_id) {
+  if (buffer.camera_id == params_.multicam_id) {
     if (QMMF_ALG_SUCCESS == status) {
       ret = NotifyBufferToClient(buffer);
     } else {
@@ -1425,7 +1592,7 @@ status_t StitchingBase::InitLibrary() {
   }
 
   String8 lib_name;
-  switch (params_.multicam_type) {
+  switch (params_.stitch_mode) {
     case MultiCameraConfigType::k360Stitch:
       lib_name.append(k360StitchLib);
       break;
@@ -1434,7 +1601,7 @@ status_t StitchingBase::InitLibrary() {
       break;
     default:
       QMMF_ERROR("%s:%s MultiCamera type (%d) is not supported!", TAG,
-          __func__, params_.multicam_type);
+          __func__, params_.stitch_mode);
       return BAD_VALUE;
   }
 
@@ -1621,6 +1788,23 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   proc_data.input.bufs = input_buffer_list;
   proc_data.output.bufs = output_buffer_list;
 
+  if (!params_.surface_crop.empty() && !single_camera_mode_) {
+    for (auto const& cam_id : params_.camera_ids) {
+      if (params_.surface_crop.find(cam_id) != params_.surface_crop.end()) {
+        proc_data.input.crop_cnt++;
+      }
+    }
+    if (params_.surface_crop.find(params_.multicam_id) !=
+        params_.surface_crop.end()) {
+      proc_data.output.crop_cnt++;
+    }
+  }
+  qmmf_alg_crop_t input_crop[proc_data.input.crop_cnt];
+  qmmf_alg_crop_t output_crop[proc_data.output.crop_cnt];
+
+  proc_data.input.crop = input_crop;
+  proc_data.output.crop = output_crop;
+
   for (uint32_t idx = 0; idx < proc_data.input.cnt; ++idx) {
     buffer = &input_buffers.itemAt(idx);
     memset(&proc_data.input.bufs[idx], 0x0, sizeof(proc_data.input.bufs[idx]));
@@ -1628,6 +1812,13 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare input buffer", TAG, __func__);
       goto EXIT;
+    }
+    auto it = params_.surface_crop.find(buffer->camera_id);
+    if (it != params_.surface_crop.end()) {
+      proc_data.input.crop[idx].x = it->second.x;
+      proc_data.input.crop[idx].y = it->second.y;
+      proc_data.input.crop[idx].width = it->second.width;
+      proc_data.input.crop[idx].height = it->second.height;
     }
   }
 
@@ -1638,6 +1829,13 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s: Failed to prepare output buffer", TAG, __func__);
       goto EXIT;
+    }
+    auto it = params_.surface_crop.find(buffer->camera_id);
+    if (it != params_.surface_crop.end()) {
+      proc_data.output.crop[idx].x = it->second.x;
+      proc_data.output.crop[idx].y = it->second.y;
+      proc_data.output.crop[idx].width = it->second.width;
+      proc_data.output.crop[idx].height = it->second.height;
     }
   }
 

@@ -203,6 +203,21 @@ status_t Recorder::CreateVideoTrack(const uint32_t session_id,
   return ret;
 }
 
+status_t Recorder::CreateVideoTrack(const uint32_t session_id,
+                                    const uint32_t track_id,
+                                    const VideoTrackCreateParam& param,
+                                    const VideoTrackExtraParam& extra_param,
+                                    const TrackCb& cb) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->CreateVideoTrack(session_id,track_id, param,
+                                                extra_param, cb);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: CreateVideoTrackWithExtraParam failed!", __func__);
+  }
+  return ret;
+}
+
 status_t Recorder::ReturnTrackBuffer(const uint32_t session_id,
                                      const uint32_t track_id,
                                      std::vector<BufferDescriptor> &buffers) {

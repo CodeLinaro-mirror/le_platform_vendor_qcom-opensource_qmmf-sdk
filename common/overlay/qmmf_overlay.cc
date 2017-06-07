@@ -310,7 +310,7 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
       " =% d", __func__, buffer.width, buffer.height, buffer.frame_len);
   OVDBG_VERBOSE("%s: OverlayTargetBuffer: format = %d", __func__, buffer.format);
 
-  void* bufVaddr = mmap(NULL, buffer.frame_len, PROT_READ  | PROT_WRITE,
+  void* bufVaddr = mmap(nullptr, buffer.frame_len, PROT_READ  | PROT_WRITE,
                                               MAP_SHARED, buffer.ion_fd, 0);
   if(!bufVaddr) {
     OVDBG_ERROR("%s: mmap failed!", __func__);
@@ -318,7 +318,7 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
   }
 
   // Map input YUV buffer to GPU.
-  void *gpuAddr = NULL;
+  void *gpuAddr = nullptr;
   ret = c2dMapAddr(buffer.ion_fd, bufVaddr, buffer.frame_len, 0,
                    KGSL_USER_MEM_TYPE_ION, &gpuAddr);
   if(ret != C2D_STATUS_OK) {
@@ -506,8 +506,8 @@ bool Overlay::IsOverlayItemValid(uint32_t overlay_id) {
 
 OverlayItem::OverlayItem(int32_t ion_device)
     :x_(0), y_(0), width_(0), height_(0),
-     c2dsurface_id_(-1), gpu_addr_(NULL),
-     vaddr_(NULL), ion_fd_(0), size_(0),
+     c2dsurface_id_(-1), gpu_addr_(nullptr),
+     vaddr_(nullptr), ion_fd_(0), size_(0),
      dirty_(false), ion_device_(ion_device),
      is_active_(false) {
   OVDBG_VERBOSE("%s:Enter ", __func__);
@@ -525,12 +525,12 @@ OverlayItem::~OverlayItem() {
   //Unmap overlay gpu address.
   if(gpu_addr_) {
     c2dUnMapAddr(gpu_addr_);
-    gpu_addr_ = NULL;
+    gpu_addr_ = nullptr;
     OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
   }
   if(vaddr_) {
     munmap(vaddr_, size_);
-    vaddr_ = NULL;
+    vaddr_ = nullptr;
   }
   //Destroy source overlay surface.
   if(c2dsurface_id_) {
@@ -570,7 +570,7 @@ int32_t OverlayItem::AllocateIonMemory(IonMemInfo& mem_info, uint32_t size) {
   OVDBG_VERBOSE("%s:Enter",__func__);
   struct ion_allocation_data alloc;
   struct ion_fd_data ionFdData;
-  void *data = NULL;
+  void *data = nullptr;
   int ionType = 0x1 << ION_IOMMU_HEAP_ID;
   int32_t ret = 0;
 
@@ -594,7 +594,7 @@ int32_t OverlayItem::AllocateIonMemory(IonMemInfo& mem_info, uint32_t size) {
     goto ION_MAP_FAILED;
   }
 
-  data = mmap(NULL, alloc.len, PROT_READ | PROT_WRITE, MAP_SHARED,
+  data = mmap(nullptr, alloc.len, PROT_READ | PROT_WRITE, MAP_SHARED,
               ionFdData.fd, 0);
 
   if (data == MAP_FAILED) {
@@ -670,22 +670,84 @@ OverlayItemStaticImage::~OverlayItemStaticImage() {
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
+void OverlayItemStaticImage::DestroySurface() {
+  //Unmap overlay gpu address.
+  if(gpu_addr_) {
+    c2dUnMapAddr(gpu_addr_);
+    gpu_addr_ = nullptr;
+    OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
+  }
+  if(vaddr_) {
+    munmap(vaddr_, size_);
+    vaddr_ = nullptr;
+  }
+  //Destroy source overlay surface.
+  if(c2dsurface_id_) {
+    c2dDestroySurface(c2dsurface_id_);
+    c2dsurface_id_ = -1;
+    OVDBG_INFO("%s: Destroyed c2d Surface type(%d)",__func__, type_);
+  }
+  //Free overlay ION memory.
+  if(ion_fd_) {
+    ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
+    close(ion_fd_);
+    ion_fd_ = -1;
+    OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
+  }
+}
+
 int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
   int32_t ret = 0;
 
-  if(param.image_info.width <= 0 || param.image_info.height <= 0) {
+  if(param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
     OVDBG_ERROR("%s: Image Width & Height is not correct!", __func__);
     return BAD_VALUE;
   }
 
   location_type_ = param.location;
-  width_        = param.image_info.width;
-  height_       = param.image_info.height;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
+  image_type_    = param.image_info.image_type;
 
-  image_path_.setTo(param.image_info.image_location,
-      strlen(param.image_info.image_location) + 1);
+  if (param.image_info.image_type == OverlayImageType::kFilePath) {
+
+    image_path_.setTo(param.image_info.image_location,
+        strlen(param.image_info.image_location) + 1);
+  } else if (param.image_info.image_type == OverlayImageType::kBlobType) {
+
+    image_buffer_  = param.image_info.image_buffer;
+    image_size_    = param.image_info.image_size;
+    image_width_   = param.image_info.source_rect.width;
+    image_height_  = param.image_info.source_rect.height;
+    OVDBG_VERBOSE("%s: image blob  image_buffer_::0x%p  image_size_::%u "
+        "image_width_::%u image_height_::%u ",
+        __func__, image_buffer_, image_size_, image_width_, image_height_);
+
+    char prop_val[PROPERTY_VALUE_MAX];
+    property_get(PROP_DUMP_BLOB_IMAGE, prop_val, "0");
+    blob_image_dump_enabled_ = (atoi(prop_val) == 0) ? false : true;
+
+    if (blob_image_dump_enabled_) {
+      FILE* pFile;
+      pFile = fopen("/data/misc/qmmf/overlay_image_blob.rgb","wb");
+      if (pFile ){
+        fwrite(image_buffer_, sizeof(char), image_size_, pFile);
+      }
+      fclose(pFile);
+    }
+
+    crop_rect_x_      = param.image_info.source_rect.start_x;
+    crop_rect_y_      = param.image_info.source_rect.start_y;
+    crop_rect_width_  = param.image_info.source_rect.width;
+    crop_rect_height_ = param.image_info.source_rect.height;
+    OVDBG_VERBOSE("%s: image blob  crop_rect_x_::%u  crop_rect_y_::%u "
+        "crop_rect_width_::%u  crop_rect_height_::%u",
+        __func__, crop_rect_x_, crop_rect_y_,crop_rect_width_, crop_rect_height_);
+  }
 
   ret = CreateSurface();
   if(ret != 0) {
@@ -699,6 +761,10 @@ int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
 int32_t OverlayItemStaticImage::UpdateAndDraw() {
   // Nothing to update, contents are static.
   // Never marked as dirty.
+  std::lock_guard<std::mutex> lock(update_param_lock_);
+  if (blob_buffer_updated_) {
+    c2dSurfaceUpdated(c2dsurface_id_, nullptr);
+  }
   return OK;
 }
 
@@ -735,6 +801,10 @@ void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
       x = targetWidth - (width_ + xMargin);
       y = targetHeight - (height_ + yMargin);
       break;
+    case OverlayLocationType::kRandom:
+      x = x_;
+      y = y_;
+      break;
     case OverlayLocationType::kNone:
     default:
       x = x_;
@@ -751,10 +821,12 @@ void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemStaticImage::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type             = OverlayType::kStaticImage;
-  param.location         = location_type_;
-  param.image_info.width  = width_;
-  param.image_info.height = height_;
+  param.type              = OverlayType::kStaticImage;
+  param.location          = location_type_;
+  param.dst_rect.start_x  = x_;
+  param.dst_rect.start_y  = y_;
+  param.dst_rect.width    = width_;
+  param.dst_rect.height   = height_;
   std::string str(image_path_.string());
   str.copy(param.image_info.image_location, image_path_.length());
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -763,6 +835,7 @@ void OverlayItemStaticImage::GetParameters(OverlayParam& param) {
 int32_t OverlayItemStaticImage::UpdateParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
+  std::lock_guard<std::mutex> lock(update_param_lock_);
   int32_t ret = 0;
 
   if(strcmp(image_path_.string(), param.image_info.image_location) != 0) {
@@ -770,14 +843,80 @@ int32_t OverlayItemStaticImage::UpdateParameters(OverlayParam& param) {
     return BAD_VALUE;
   }
 
-  if(param.image_info.width <= 0 || param.image_info.height <= 0) {
+  if(param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
     OVDBG_ERROR("%s: Image Width & Height is not correct!", __func__);
     return BAD_VALUE;
   }
 
   location_type_ = param.location;
-  width_        = param.image_info.width;
-  height_       = param.image_info.height;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
+
+  if (image_type_ == OverlayImageType::kBlobType) {
+
+    image_buffer_  = param.image_info.image_buffer;
+    image_width_   = param.image_info.source_rect.width;
+    image_height_  = param.image_info.source_rect.height;
+    OVDBG_DEBUG("%s: updated image blob  image_buffer_::0x%p image_size_::%u "
+        "image_width_::%u image_height_::%u ",
+        __func__, image_buffer_, param.image_info.image_size,
+        image_width_, image_height_);
+
+    crop_rect_x_      = param.image_info.source_rect.start_x;
+    crop_rect_y_      = param.image_info.source_rect.start_y;
+    crop_rect_width_  = param.image_info.source_rect.width;
+    crop_rect_height_ = param.image_info.source_rect.height;
+    OVDBG_DEBUG("%s: updated image blob  crop_rect_x_::%u crop_rect_y_::%u "
+        "crop_rect_width_::%u  crop_rect_height_::%u",
+        __func__, crop_rect_x_, crop_rect_y_,crop_rect_width_, crop_rect_height_);
+
+    if (blob_image_dump_enabled_) {
+      String8 blobbuffer_filepath;
+      struct timeval tv;
+      gettimeofday(&tv, nullptr);
+
+      blobbuffer_filepath.appendFormat("/data/misc/qmmf/overlay_blob_buffer_%lu.%s",
+          tv.tv_sec, "rgb");
+
+      blob_buffer_file_fd_ = open(blobbuffer_filepath.string(), O_CREAT |
+          O_WRONLY | O_TRUNC, 0655);
+      assert(blob_buffer_file_fd_ >= 0);
+
+      uint32_t bytes_written;
+      bytes_written  = write(blob_buffer_file_fd_, image_buffer_,
+          param.image_info.image_size);
+
+      if (bytes_written != param.image_info.image_size) {
+        OVDBG_ERROR("Bytes written != %d and written = %u", bytes_written,
+            param.image_info.image_size);
+      }
+      close(blob_buffer_file_fd_);
+    }
+
+    // only buffer content is changed not buffer size
+    if (param.image_info.buffer_updated &&
+        (param.image_info.image_size == image_size_)) {
+      OVDBG_DEBUG("%s: updated image_size_:: %u param.image_info.image_size:: %u ",
+          __func__, image_size_, param.image_info.image_size);
+      uint32_t size = param.image_info.image_size;
+      uint32_t* pixels = static_cast<uint32_t*>(vaddr_);
+      memcpy(pixels, image_buffer_, size);
+      blob_buffer_updated_ = param.image_info.buffer_updated;
+      MarkDirty(true);
+    } else if (param.image_info.image_size != image_size_) {
+
+      image_size_ = param.image_info.image_size;
+      DestroySurface();
+      ret = CreateSurface();
+      if (ret != 0) {
+        OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+        return ret;
+      }
+    }
+    image_size_= param.image_info.image_size;
+  }
 
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
@@ -787,35 +926,48 @@ int32_t OverlayItemStaticImage::CreateSurface() {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t   ret = 0;
-  uint32_t size = width_ * height_ * 4;
-
+  uint32_t size;
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
 
-  ret = AllocateIonMemory(mem_info, size);
-  if(0 != ret) {
-    OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
-    return ret;
-  }
-  uint32_t* pixels = (uint32_t*)mem_info.vaddr;
+  if (image_type_ == OverlayImageType::kFilePath)  {
 
-  //Load raw logo image file.
-  FILE *file = 0;
-  size_t bytes;
+    size = width_ * height_ * 4;
+    ret = AllocateIonMemory(mem_info, size);
+    if(0 != ret) {
+      OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
+      return ret;
+    }
+    uint32_t* pixels = (uint32_t*)mem_info.vaddr;
 
-  file = fopen(image_path_.string(), "rb");
-  if(file) {
-    bytes = fread(pixels, 1, size, file);
-    OVDBG_INFO("%s: Total btyes = %d",__func__,bytes);
-    if(bytes != size) {
-      OVDBG_ERROR("%s: Raw file format is not correct",__func__);
+    //Load raw logo image file.
+    FILE *file = 0;
+    size_t bytes;
+
+    file = fopen(image_path_.string(), "rb");
+    if(file) {
+      bytes = fread(pixels, 1, size, file);
+      OVDBG_INFO("%s: Total btyes = %d",__func__,bytes);
+      if(bytes != size) {
+        OVDBG_ERROR("%s: Raw file format is not correct",__func__);
+        fclose(file);
+        goto ERROR;
+      }
       fclose(file);
+    } else {
+      OVDBG_ERROR("%s: (%s)File open Failed!!",__func__, image_path_.string());
       goto ERROR;
     }
-    fclose(file);
-  } else {
-    OVDBG_ERROR("%s: (%s)File open Failed!!",__func__, image_path_.string());
-    goto ERROR;
+  } else if(image_type_ == OverlayImageType::kBlobType){
+
+    size = image_size_;
+    ret = AllocateIonMemory(mem_info, size);
+    if(0 != ret) {
+      OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
+      return ret;
+    }
+    uint32_t* pixels = static_cast<uint32_t*>(mem_info.vaddr);
+    memcpy(pixels, image_buffer_, size);
   }
 
   //Map ARGB ION buffer to GPU.
@@ -876,12 +1028,18 @@ int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
   OVDBG_VERBOSE("%s: Enter", __func__);
   location_type_ = param.location;
   text_color_    = param.color;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
 
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
-  width_  = DATETIME_TEXT_BUF_WIDTH;
-  height_ = DATETIME_TEXT_BUF_HEIGHT;
 
+  if (param.dst_rect.width == 0 || param.dst_rect.height == 0) {
+    width_  = DATETIME_TEXT_BUF_WIDTH;
+    height_ = DATETIME_TEXT_BUF_HEIGHT;
+  }
   auto ret = CreateSurface();
   if(ret != 0) {
     OVDBG_ERROR("%s: createLogoSurface failed!", __func__);
@@ -904,7 +1062,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   char date_buf[40];
   char time_buf[40];
 
-  gettimeofday(&tv, NULL);
+  gettimeofday(&tv, nullptr);
   now_time = tv.tv_sec;
   time = localtime(&now_time);
 
@@ -1075,6 +1233,10 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
       x = targetWidth - (draw_info->width + xMargin);
       y = targetHeight - (draw_info->height + yMargin);
       break;
+    case OverlayLocationType::kRandom:
+      x = x_;
+      y = y_;
+      break;
     case OverlayLocationType::kNone:
     default:
       break;
@@ -1088,9 +1250,13 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemDateAndTime::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type     = OverlayType::kDateType;
-  param.location = location_type_;
-  param.color    = text_color_;
+  param.type             = OverlayType::kDateType;
+  param.location         = location_type_;
+  param.color            = text_color_;
+  param.dst_rect.start_x = x_;
+  param.dst_rect.start_y = y_;
+  param.dst_rect.width   = width_;
+  param.dst_rect.height  = height_;
   param.date_time.date_format = date_time_type_.date_format;
   param.date_time.time_format = date_time_type_.time_format;
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1102,6 +1268,10 @@ int32_t OverlayItemDateAndTime::UpdateParameters(OverlayParam& param) {
   int32_t ret = 0;
   location_type_ = param.location;
   text_color_    = param.color;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
 
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
@@ -1208,17 +1378,17 @@ OverlayItemBoundingBox::~OverlayItemBoundingBox() {
 int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  if ((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
+  if ((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
     return BAD_VALUE;
   }
-  if (param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
     return BAD_VALUE;
   }
 
-  x_          = param.bounding_box.start_x;
-  y_          = param.bounding_box.start_y;
-  width_      = param.bounding_box.width;
-  height_     = param.bounding_box.height;
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
   bbox_color_ = param.color;
 
   float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
@@ -1227,7 +1397,7 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   float aspect_ratio = scaled_width / scaled_height;
 
   OVDBG_INFO("%s: BoundingBox(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
-      __func__, param.bounding_box.width, param.bounding_box.height,
+      __func__, param.dst_rect.width, param.dst_rect.height,
       aspect_ratio, scaled_width, scaled_height);
 
   int32_t width = static_cast<int32_t>(round(scaled_width));
@@ -1391,13 +1561,13 @@ void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemBoundingBox::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type      = OverlayType::kBoundingBox;
-  param.location  = OverlayLocationType::kNone;
-  param.color     = bbox_color_;
-  param.bounding_box.start_x = x_;
-  param.bounding_box.start_y = y_;
-  param.bounding_box.width  = width_;
-  param.bounding_box.height = height_;
+  param.type             = OverlayType::kBoundingBox;
+  param.location         = OverlayLocationType::kNone;
+  param.color            = bbox_color_;
+  param.dst_rect.start_x = x_;
+  param.dst_rect.start_y = y_;
+  param.dst_rect.width   = width_;
+  param.dst_rect.height  = height_;
   std::string str(bbox_name_.string());
   str.copy(param.bounding_box.box_name, bbox_name_.length());
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1408,16 +1578,16 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
 
-  if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
+  if((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
       return BAD_VALUE;
   }
-  if(param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
+  if(param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
       return BAD_VALUE;
   }
-  x_          = param.bounding_box.start_x;
-  y_          = param.bounding_box.start_y;
-  width_      = param.bounding_box.width;
-  height_     = param.bounding_box.height;
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
 
   if ( (bbox_color_ != param.color)
      || strcmp(bbox_name_.string(), param.bounding_box.box_name)) {
@@ -1536,11 +1706,17 @@ int32_t OverlayItemText::Init(OverlayParam& param) {
 
   location_type_ = param.location;
   text_color_    = param.color;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
 
   text_.setTo(param.user_text, strlen(param.user_text) + 1);
-  width_  = TEXT_BUF_WIDTH;
-  height_ = TEXT_BUF_HEIGHT;
 
+  if (param.dst_rect.width == 0 || param.dst_rect.height == 0) {
+    width_  = TEXT_BUF_WIDTH;
+    height_ = TEXT_BUF_HEIGHT;
+  }
   auto ret = CreateSurface();
   if(ret != 0) {
     OVDBG_ERROR("%s: CreateSurface failed!", __func__);
@@ -1664,6 +1840,10 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
       x = targetWidth - (draw_info->width + xMargin);
       y = targetHeight - (draw_info->height + yMargin);
       break;
+    case OverlayLocationType::kRandom:
+      x = x_;
+      y = y_;
+      break;
     case OverlayLocationType::kNone:
     default:
       x = x_;
@@ -1680,9 +1860,13 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemText::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type      = OverlayType::kUserText;
-  param.location  = location_type_;
-  param.color     = text_color_;
+  param.type             = OverlayType::kUserText;
+  param.location         = location_type_;
+  param.color            = text_color_;
+  param.dst_rect.start_x = x_;
+  param.dst_rect.start_y = y_;
+  param.dst_rect.width   = width_;
+  param.dst_rect.height  = height_;
   std::string str(text_.string());
   str.copy(param.user_text, text_.length());
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1694,6 +1878,10 @@ int32_t OverlayItemText::UpdateParameters(OverlayParam& param) {
   int32_t ret = 0;
   location_type_ = param.location;
   text_color_    = param.color;
+  x_             = param.dst_rect.start_x;
+  y_             = param.dst_rect.start_y;
+  width_         = param.dst_rect.width;
+  height_        = param.dst_rect.height;
   text_.clear();
   text_.setTo(param.user_text, strlen(param.user_text) + 1);
   MarkDirty(true);
@@ -1768,10 +1956,10 @@ int32_t OverlayItemText::CreateSurface() {
     goto ERROR;
   }
 
-  ion_fd_        = mem_info.fd;
+  ion_fd_       = mem_info.fd;
   vaddr_        = mem_info.vaddr;
   size_         = mem_info.size;
-  handle_data_   = mem_info.handle_data;
+  handle_data_  = mem_info.handle_data;
 
   OVDBG_INFO("%s: Exit", __func__);
   return ret;
@@ -1800,17 +1988,17 @@ int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
 
-  if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
+  if((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
     return BAD_VALUE;
   }
-  if(param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
+  if(param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
     return BAD_VALUE;
   }
 
-  x_          = param.bounding_box.start_x;
-  y_          = param.bounding_box.start_y;
-  width_      = param.bounding_box.width;
-  height_     = param.bounding_box.height;
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
   mask_color_ = param.color;
 
   auto ret = CreateSurface();
@@ -1881,13 +2069,13 @@ void OverlayItemPrivacyMask::GetDrawInfo(uint32_t targetWidth,
 void OverlayItemPrivacyMask::GetParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type      = OverlayType::kPrivacyMask;
-  param.location  = OverlayLocationType::kNone;
-  param.bounding_box.start_x = x_;
-  param.bounding_box.start_y = y_;
-  param.bounding_box.width   = width_;
-  param.bounding_box.height  = height_;
-  param.color = mask_color_;
+  param.type             = OverlayType::kPrivacyMask;
+  param.location         = OverlayLocationType::kNone;
+  param.dst_rect.start_x = x_;
+  param.dst_rect.start_y = y_;
+  param.dst_rect.width   = width_;
+  param.dst_rect.height  = height_;
+  param.color            = mask_color_;
   OVDBG_VERBOSE("%s:Exit ",__func__);
 }
 
@@ -1896,16 +2084,16 @@ int32_t OverlayItemPrivacyMask::UpdateParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
 
-  if((param.bounding_box.width <= 0) || (param.bounding_box.height <= 0)) {
+  if((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
     return BAD_VALUE;
   }
-  if(param.bounding_box.start_x < 0 || param.bounding_box.start_y < 0) {
+  if(param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
     return BAD_VALUE;
   }
-  x_          = param.bounding_box.start_x;
-  y_          = param.bounding_box.start_y;
-  width_      = param.bounding_box.width;
-  height_     = param.bounding_box.height;
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
   mask_color_ = param.color;
 
   // Mark dirty, updated contents would be re-painted in next paint cycle.

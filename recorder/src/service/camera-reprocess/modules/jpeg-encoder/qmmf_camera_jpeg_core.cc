@@ -59,7 +59,7 @@ typedef struct {
 
 namespace qmmf {
 
-namespace jpegencoder {
+namespace reprocjpegencoder {
 
 JpegEncoder *JpegEncoder::encoder_instance_ = 0;
 
@@ -277,7 +277,7 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
       uint8_t *jpegEof = &cfg->params_.dest_buf[0].buf_vaddr[job_result_size_];
       memcpy(jpegEof, &jpegHeader, sizeof(jpegHeader));
 
-      *jpeg_size = job_result_size_+sizeof(jpegHeader) ;
+      *jpeg_size = job_result_size_ + sizeof(jpegHeader) + 1;
     }
   } else {
     ALOGE("%s: could not start encode job", __func__);
@@ -309,6 +309,6 @@ void JpegEncoder::EncodeCb(void *p_output, void *userData) {
   cfg->enc_done_cond_.notify_one();
 }
 
-} //namespace jpegencoder ends here
+} //namespace reprocjpegencoder ends here
 
 } //namespace qmmf ends here
