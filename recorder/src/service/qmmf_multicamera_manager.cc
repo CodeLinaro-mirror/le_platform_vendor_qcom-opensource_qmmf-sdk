@@ -292,6 +292,13 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     }
     snapshot_stitch_algo_->Run();
   }
+
+  if (reconfigure_needed) {
+    // Stop all active streams.
+    for (auto const& track_id : active_streams_) {
+      StopStream(track_id);
+    }
+  }
   SetDefaultSurfaceDim(capture_param.width, capture_param.height);
 
   for (size_t idx = 0; idx < camera_contexts_.size(); ++idx) {
@@ -300,6 +307,13 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: ConfigCaptureImage Failed!", TAG, __func__);
       return ret;
+    }
+  }
+
+  if (reconfigure_needed) {
+    // Resume all previously active streams.
+    for (auto const& track_id : active_streams_) {
+      StartStream(track_id);
     }
   }
 
