@@ -48,9 +48,10 @@ namespace qmmf {
 
 using namespace cameraadaptor;
 
-#define VIDEO_STREAM_BUFFER_COUNT   11
-#define PREVIEW_STREAM_BUFFER_COUNT 10
-#define EXTRA_DCVS_BUFFERS          2
+#define VIDEO_STREAM_BUFFER_COUNT    11
+#define PREVIEW_STREAM_BUFFER_COUNT  10
+#define SNAPSHOT_STREAM_BUFFER_COUNT 30
+#define EXTRA_DCVS_BUFFERS            2
 
 //FIXME: This is temporary change until necessary vendor mode changes are merged
 // in HAL3.
@@ -80,9 +81,11 @@ class CameraContext : public CameraInterface,
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
+  status_t CaptureImage(const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
+
+  status_t ConfigImageCapture(const ImageParam &param) override;
 
   status_t CancelCaptureImage() override;
 
@@ -167,6 +170,8 @@ class CameraContext : public CameraInterface,
 
   status_t CreateSnapshotStream(const ImageParam &param);
 
+  status_t DeleteSnapshotStream();
+
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
 
@@ -179,7 +184,7 @@ class CameraContext : public CameraInterface,
 
   void InitHFRModes();
 
-  status_t CaptureZSLImage(const ImageParam &param);
+  status_t CaptureZSLImage();
 
   //Camera client callbacks.
   void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);

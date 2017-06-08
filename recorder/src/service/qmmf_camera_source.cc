@@ -247,7 +247,14 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-  auto ret = camera->CaptureImage(param, num_images, meta, stream_cb);
+
+  auto ret = camera->ConfigImageCapture(param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
+    return ret;
+  }
+
+  ret = camera->CaptureImage(num_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
     return ret;

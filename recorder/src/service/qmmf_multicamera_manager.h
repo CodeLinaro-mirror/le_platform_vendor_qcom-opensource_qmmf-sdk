@@ -76,9 +76,11 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
+  status_t CaptureImage(const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
+
+  status_t ConfigImageCapture(const ImageParam &param) override;
 
   status_t CancelCaptureImage() override;
 
@@ -115,8 +117,7 @@ class MultiCameraManager : public CameraInterface {
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
-  status_t CreateJpegEncoder(const ImageParam &param, const ImageFormat &image,
-                             const uint32_t num_images);
+  status_t CreateJpegEncoder(const ImageParam &param);
   void EncodeJpegImage(const StreamBuffer &buffer);
   void OnStitchedFrameAvailable(StreamBuffer buffer);
   void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);

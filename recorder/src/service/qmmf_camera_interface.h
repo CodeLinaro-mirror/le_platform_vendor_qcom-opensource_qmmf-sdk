@@ -50,10 +50,11 @@ class CameraInterface : public virtual RefBase {
 
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 
-  virtual status_t CaptureImage(const ImageParam &param,
-                                const uint32_t num_images,
+  virtual status_t CaptureImage(const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
+
+  virtual status_t ConfigImageCapture(const ImageParam &param) = 0;
 
   virtual status_t CancelCaptureImage() = 0;
 
