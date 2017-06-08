@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -879,7 +879,7 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
   bool found = false;
 
-  List<StreamBuffer>::iterator it = frames_being_decoded_.Begin();
+  std::list<StreamBuffer>::iterator it = frames_being_decoded_.Begin();
   for (; it != frames_being_decoded_.End(); ++it) {
     if ((*it).data ==  stream_buffer.data) {
       {

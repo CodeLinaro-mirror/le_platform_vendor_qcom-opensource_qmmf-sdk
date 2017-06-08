@@ -432,7 +432,8 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
     QMMF_INFO("%s:%s track_id(%x) Force cleanup", TAG, __func__, TrackId());
     std::lock_guard<std::mutex> lock(queue_lock_);
     is_force_cleanup_ = true;
-    List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+    std::list<BufferDescriptor>::iterator it =
+        output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
@@ -587,7 +588,8 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
 #ifdef DONT_NOTIFY
   // This change is only for debug purpose, it will circulate buffers without
   // sending/mapping them to another process.
-  List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+  std::list<BufferDescriptor>::iterator it =
+      output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     QMMF_VERBOSE("%s:%s track_id(%x) Checking match (0x%p)vs(0x%p) ", TAG,
@@ -610,7 +612,8 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
     //  eos_atoutput_ to true.
     {
       std::lock_guard<std::mutex> lock(queue_lock_);
-      List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+      std::list<BufferDescriptor>::iterator it =
+          output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if (((*it).data) == (codec_buffer.data)) {
           QMMF_INFO("%s:%s track_id(%x) EOS is already done! moving buffer from"
@@ -656,7 +659,8 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
         TAG, __func__, TrackId(), output_occupy_buffer_queue_.Size());
     {
       std::lock_guard<std::mutex> lock(queue_lock_);
-      List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+      std::list<BufferDescriptor>::iterator it =
+          output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if ((*it).fd == static_cast<int32_t>(iter.buffer_id)) {
           QMMF_DEBUG("%s:%s: track_id(%x) buffer_id(%d) found in list", TAG,
@@ -704,7 +708,8 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
         TAG, __func__);
       return;
     }
-    List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+    std::list<BufferDescriptor>::iterator it =
+        output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
       QMMF_VERBOSE("%s:%s track_id(%x) Checking match (0x%p) vs (0x%p) ", TAG,
           __func__, TrackId(), (*it).data,  codec_buffer.data);

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -42,7 +42,6 @@
 namespace qmmf {
 namespace player {
 
-using ::android::List;
 using ::android::Mutex;
 using ::android::NO_ERROR;
 using ::android::Vector;
@@ -482,7 +481,7 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     FillSinkBuffer(codec_buffer);
   }
 
-  List<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
+  std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     QMMF_VERBOSE("%s:%s track_id(%d) Checking match (0x%p)vs(0x%p) ", TAG,
