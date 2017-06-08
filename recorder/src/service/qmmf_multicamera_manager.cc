@@ -491,19 +491,44 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
-  return ret;
+  return NO_ERROR;
 }
 
-status_t MultiCameraManager::StartStream(const uint32_t track_id,
+status_t MultiCameraManager::AddConsumer(const uint32_t& track_id,
                                          sp<IBufferConsumer>& consumer) {
-
-  status_t ret = NO_ERROR;
 
   sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
   assert(stitching_algo.get() != nullptr);
 
-  stitching_algo->AddConsumer(consumer);
-  stitching_algo->Run();
+  auto ret = stitching_algo->AddConsumer(consumer);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: Consumer(%p) added to track_id(%d)", TAG, __func__,
+      consumer.get(), track_id);
+
+  for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    sp<IBufferConsumer> consumer =
+        stitching_algo->GetConsumerIntf(camera_contexts_.keyAt(i));
+    assert(consumer.get() != nullptr);
+
+    ret = camera_context->AddConsumer(track_id, consumer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: AddConsumer Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::RemoveConsumer(const uint32_t& track_id,
+                                            sp<IBufferConsumer>& consumer) {
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  auto ret = stitching_algo->RemoveConsumer(consumer);
+  assert(ret == NO_ERROR);
 
   for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
@@ -513,7 +538,29 @@ status_t MultiCameraManager::StartStream(const uint32_t track_id,
         stitching_algo->GetConsumerIntf(camera_contexts_.keyAt(i));
     assert(consumer.get() != nullptr);
 
-    ret = camera_context->StartStream(track_id, consumer);
+    ret = camera_context->RemoveConsumer(track_id, consumer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: RemoveConsumer Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::StartStream(const uint32_t track_id) {
+
+  status_t ret = NO_ERROR;
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->Run();
+
+  for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+    assert(camera_context.get() != nullptr);
+
+    ret = camera_context->StartStream(track_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: StartStream Failed!", TAG, __func__);
       return ret;
@@ -529,7 +576,6 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
   assert(stitching_algo.get() != nullptr);
 
   stitching_algo->RequestExitAndWait();
-  stitching_algo->RemoveConsumer();
 
   // Stop the streams backwards since first camera is master camera
   // and need to be stopped last.
@@ -1148,6 +1194,7 @@ StreamStitching::~StreamStitching() {
 
 status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
 
+  Mutex::Autolock lock(consumer_lock_);
   if (nullptr != buffer_consumer_impl_.get()) {
     QMMF_ERROR("%s:%s: Consumer already set", TAG, __func__);
     return INVALID_OPERATION;
@@ -1167,8 +1214,9 @@ status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-status_t StreamStitching::RemoveConsumer() {
+status_t StreamStitching::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
+  Mutex::Autolock lock(consumer_lock_);
   if(buffer_producer_impl_->GetNumConsumer() == 0) {
     QMMF_ERROR("%s:%s: There are no connected consumers!", TAG, __func__);
     return INVALID_OPERATION;

@@ -87,8 +87,13 @@ class MultiCameraManager : public CameraInterface {
 
   status_t DeleteStream(const uint32_t track_id) override;
 
-  status_t StartStream(const uint32_t track_id,
+  status_t AddConsumer(const uint32_t& track_id,
                        sp<IBufferConsumer>& consumer) override;
+
+  status_t RemoveConsumer(const uint32_t& track_id,
+                          sp<IBufferConsumer>& consumer) override;
+
+  status_t StartStream(const uint32_t track_id) override;
 
   status_t StopStream(const uint32_t track_id) override;
 
@@ -348,7 +353,7 @@ class StreamStitching : public StitchingBase {
   // Methods for establishing buffer communication link between the
   // consumer of the client and buffer producer of the stitching pipeline.
   status_t AddConsumer(const sp<IBufferConsumer>& consumer);
-  status_t RemoveConsumer();
+  status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
   // Method to provide consumer interface, it would be used by a CameraContext
   // port producer to post buffers.
@@ -367,6 +372,8 @@ class StreamStitching : public StitchingBase {
  private:
   sp<IBufferProducer>      buffer_producer_impl_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
+
+  Mutex                    consumer_lock_;
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;

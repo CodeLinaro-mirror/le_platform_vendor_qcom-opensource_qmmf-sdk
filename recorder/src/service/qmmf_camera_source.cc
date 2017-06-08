@@ -808,7 +808,10 @@ status_t TrackSource::StartTrack() {
   consumer = GetConsumerIntf();
   assert(consumer.get() != nullptr);
 
-  auto ret = camera_interface_->StartStream(TrackId(), consumer);
+  auto ret = camera_interface_->AddConsumer(TrackId(), consumer);
+  assert(ret == NO_ERROR);
+
+  ret = camera_interface_->StartStream(TrackId());
   assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
@@ -860,7 +863,11 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     }
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
+
     auto ret = camera_interface_->StopStream(TrackId());
+    assert(ret == NO_ERROR);
+
+    ret = camera_interface_->RemoveConsumer(TrackId(), GetConsumerIntf());
     assert(ret == NO_ERROR);
     {
       Mutex::Autolock autoLock(buffer_list_lock_);
@@ -905,8 +912,13 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
           __func__, TrackId());
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
+
       auto ret = camera_interface_->StopStream(TrackId());
       assert(ret == NO_ERROR);
+
+      ret = camera_interface_->RemoveConsumer(TrackId(), GetConsumerIntf());
+      assert(ret == NO_ERROR);
+
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
       assert(frames_being_encoded_.Size() == 0);

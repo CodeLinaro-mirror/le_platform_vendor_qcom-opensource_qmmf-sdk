@@ -91,8 +91,13 @@ class CameraContext : public CameraInterface,
 
   status_t DeleteStream(const uint32_t track_id) override;
 
-  status_t StartStream(const uint32_t track_id,
+  status_t AddConsumer(const uint32_t& track_id,
                        sp<IBufferConsumer>& consumer) override;
+
+  status_t RemoveConsumer(const uint32_t& track_id,
+                          sp<IBufferConsumer>& consumer) override;
+
+  status_t StartStream(const uint32_t track_id) override;
 
   status_t StopStream(const uint32_t track_id) override;
 
@@ -299,16 +304,14 @@ class CameraPort : public RefBase {
 
   status_t DeInit();
 
-  status_t Start(const uint32_t consumer_id,
-                 const sp<IBufferConsumer>& consumer);
+  status_t Start();
 
-  status_t Stop(const uint32_t consumer_id);
+  status_t Stop();
 
   // Apis to Add/Remove consumer at run time.
-  status_t AddConsumer(const uint32_t consumer_id,
-                       const sp<IBufferConsumer>& consumer);
+  status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
-  status_t RemoveConsumer(const uint32_t consumer_id);
+  status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
   void NotifyBufferReturned(const StreamBuffer& buffer);
 
@@ -324,7 +327,7 @@ class CameraPort : public RefBase {
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
-  uint32_t GetConsumerId() { return consumer_id_; }
+  uint32_t GetPortId() { return port_id_; }
 
   CameraPortType GetPortType() { return port_type_; }
 
@@ -336,24 +339,21 @@ class CameraPort : public RefBase {
 
  private:
 
-  bool IsConsumerIdValid(const uint32_t id);
+  bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 
   void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
 
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParam      params_;
   CameraStreamParameters cam_stream_params_;
-  Mutex                  consumer_lock_;
   bool                   ready_to_start_;
   size_t                 batch_size_;
-  uint32_t               consumer_id_;
+  uint32_t               port_id_;
 
-  // map of <consumer id, IBufferConsumer>
-  DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
+  std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
   sp<ReprocessPipe>      reproc_pipe_;
-  sp<IBufferConsumer>    consumer_;
-  Mutex                  stop_lock_;
+  std::mutex             consumer_lock_;
 };
 
 class ZslPort : public CameraPort {

@@ -306,7 +306,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
     active_ports_.push_back(zsl_port_);
 
-    ret = zsl_port_->Start(0, nullptr);
+    ret = zsl_port_->Start();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: zsl port start failed!", TAG, __func__);
       return ret;
@@ -376,7 +376,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
       QMMF_WARN("%s:%s: ZSL queue is not flashed!", TAG, __func__);
       // Even it is not flushed still give a try to Stop it.
     }
-    ret = zsl_port_->Stop(0);
+    ret = zsl_port_->Stop();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s ZSL port stop failed!", TAG, __func__);
       return ret;
@@ -738,7 +738,7 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
   return ret;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id,
+status_t CameraContext::AddConsumer(const uint32_t& track_id,
                                     sp<IBufferConsumer>& consumer) {
 
   auto port = GetPort(track_id);
@@ -748,11 +748,42 @@ status_t CameraContext::StartStream(const uint32_t track_id,
   }
   assert(port != nullptr);
 
-  auto ret = port->Start(track_id, consumer);
+  auto ret = port->AddConsumer(consumer);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: Consumer(%p) added to track_id(%d)", TAG, __func__,
+      consumer.get(), track_id);
+  return NO_ERROR;
+}
+
+status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
+                                       sp<IBufferConsumer>& consumer) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->RemoveConsumer(consumer);
+  assert(ret == NO_ERROR);
+  return NO_ERROR;
+}
+
+status_t CameraContext::StartStream(const uint32_t track_id) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->Start();
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: track_id(%d) started on port(0x%p)", TAG, __func__,
       track_id, port);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraContext::StopStream(const uint32_t track_id) {
@@ -764,9 +795,9 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   }
   assert(port != nullptr);
 
-  auto ret = port->Stop(track_id);
+  auto ret = port->Stop();
   assert(ret == NO_ERROR);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
@@ -1543,7 +1574,7 @@ CameraPort* CameraContext::GetPort(const uint32_t track_id) {
   CameraPort* port = nullptr;
   for (auto iter : active_ports_) {
     auto type = iter->GetPortType();
-    if (track_id == iter->GetConsumerId() && (type != CameraPortType::kZSL)) {
+    if (track_id == iter->GetPortId() && (type != CameraPortType::kZSL)) {
       QMMF_INFO("%s:%s: Found the port for id(0%x)", TAG, __func__, track_id);
       port = iter.get();
       break;
@@ -1562,7 +1593,7 @@ void CameraContext::DeletePort(const uint32_t track_id) {
   auto iter = active_ports_.begin();
   while (iter != active_ports_.end()) {
     auto type = (*iter)->GetPortType();
-    if (track_id == (*iter)->GetConsumerId()
+    if (track_id == (*iter)->GetPortId()
         && (type != CameraPortType::kZSL)) {
       QMMF_INFO("%s:%s: Found the port for id(0%x)", TAG, __func__, track_id);
       iter = active_ports_.erase(iter);
@@ -1637,7 +1668,7 @@ CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
       params_(param),
       ready_to_start_(false),
       batch_size_(batch),
-      consumer_id_(param.id) {
+      port_id_(param.id) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -1711,6 +1742,10 @@ status_t CameraPort::Init() {
     auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,
                                           cam_stream_params_, &static_meta);
     assert(reproc_id >= 0);
+
+    sp<IBufferConsumer>& consumer = reproc_pipe_->GetConsumerIntf();
+    buffer_producer_impl_->AddConsumer(consumer);
+    consumer->SetProducerHandle(buffer_producer_impl_);
   }
 
   port_state_ = PortState::PORT_CREATED;
@@ -1729,6 +1764,7 @@ status_t CameraPort::DeInit() {
   assert(context_ != nullptr);
 
   if (reproc_pipe_.get() != nullptr) {
+    buffer_producer_impl_->RemoveConsumer(reproc_pipe_->GetConsumerIntf());
     reproc_pipe_.clear();
   }
 
@@ -1737,30 +1773,22 @@ status_t CameraPort::DeInit() {
     QMMF_ERROR("%s:%s: DeleteDeviceStream failed!!", TAG, __func__);
     return BAD_VALUE;
   }
-  consumer_map_.clear();
+  consumers_.clear();
   QMMF_DEBUG("%s:%s: CameraPort(0x%p) deinitialized successfully! ", TAG,
       __func__, this);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t CameraPort::Start(const uint32_t consumer_id,
-                           const sp<IBufferConsumer>& consumer) {
+status_t CameraPort::Start() {
 
-  // ZSL port can start and stop without having any consumer connected.
-  if (port_type_ != CameraPortType::kZSL) {
-    assert(consumer.get() != nullptr);
-    // Establish buffer communication link between consumer (TrackSource) and
-    // Buffer Producer interface of camera port.
+  if (port_state_ == PortState::PORT_STARTED){
+    // Port is already in started state.
+    return NO_ERROR;
+  }
 
-    if (reproc_pipe_.get() != nullptr) {
-      consumer_ = consumer;
-      reproc_pipe_->AddConsumer(consumer_);
-      AddConsumer(consumer_id, reproc_pipe_->GetConsumerIntf());
-      reproc_pipe_->Start();
-    } else {
-      AddConsumer(consumer_id, consumer);
-    }
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->Start();
   }
 
   //TODO: protect it with lock.
@@ -1768,47 +1796,29 @@ status_t CameraPort::Start(const uint32_t consumer_id,
   port_state_ = PortState::PORT_READYTOSTART;
 
   QMMF_INFO("%s:%s: track_id(%x):camera stream(%d) to start!", TAG, __func__,
-      consumer_id, camera_stream_id_);
+      port_id_, camera_stream_id_);
 
   auto ret = context_->UpdateRequest(true);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
-        , TAG, __func__, consumer_id);
+    QMMF_ERROR("%s:%s: UpdateRequest failed! for track_id = %d", TAG,
+        __func__, port_id_);
+    return ret;
   }
+  QMMF_INFO("%s:%s: track_id(%x):Port(%p) Started Succussfully!", TAG,
+      __func__, port_id_, this);
+
   port_state_ = PortState::PORT_STARTED;
-  return ret;
+  return NO_ERROR;
 }
 
-status_t CameraPort::Stop(const uint32_t consumer_id) {
+status_t CameraPort::Stop() {
 
-  // ZSL port can start and stop without having any consumer connected.
-  if (port_type_ != CameraPortType::kZSL) {
-
-    if (!IsConsumerIdValid(consumer_id)) {
-      QMMF_ERROR("%s:%s: consumer_id(%x) is not valid!", TAG, __func__,
-          consumer_id);
-      return BAD_VALUE;
-    }
-
-    // Break buffer communication link between consumer and camera port.
-    if (reproc_pipe_.get() != nullptr) {
-      Mutex::Autolock lock(stop_lock_);
-      RemoveConsumer(consumer_id);
-      reproc_pipe_->RemoveConsumer(consumer_);
-      reproc_pipe_->Stop();
-    } else {
-      RemoveConsumer(consumer_id);
-    }
-
-    size_t size = consumer_map_.size();
-    QMMF_INFO("%s:%s: Number of Consumer left = %d", TAG, __func__, size);
-    if (size > 0) {
-      // Camera port is still getting used by some other consumer, don't delete
-      // camera device stream, eventaully it would be deleted when number
-      // of consumer becomes zero.
-      return NO_ERROR;
-    }
+  if (port_state_ == PortState::PORT_CREATED ||
+      port_state_ == PortState::PORT_STOPPED){
+    // Port is already in stopped state.
+    return NO_ERROR;
   }
+
   //TODO: protect it with lock.
   ready_to_start_ = false;
   port_state_ = PortState::PORT_READYTOSTOP;
@@ -1818,46 +1828,67 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
   auto ret = context_->UpdateRequest(true);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
-        , TAG, __func__, consumer_id);
+        , TAG, __func__, port_id_);
+    return ret;
   }
-  QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Stopped Succussfully!", TAG,
-      __func__, consumer_id, this);
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->Stop();
+  }
+  QMMF_INFO("%s:%s: track_id(%x):Port(%p) Stopped Succussfully!", TAG,
+      __func__, port_id_, this);
 
   port_state_ = PortState::PORT_STOPPED;
-
-  return ret;
-}
-
-status_t CameraPort::AddConsumer(const uint32_t consumer_id,
-                                 const sp<IBufferConsumer>& consumer) {
-
-  Mutex::Autolock lock(consumer_lock_);
-
-  consumer_map_.add(consumer_id, consumer);
-  // Add consumer to port's producer interface.
-  assert(buffer_producer_impl_.get() != nullptr);
-  buffer_producer_impl_->AddConsumer(consumer);
-  consumer->SetProducerHandle(buffer_producer_impl_);
-  QMMF_DEBUG("%s:%s: ConsumerId(%x):(0x%p) has been added to CameraPort(0x%p)."
-      "Total number of consumer =%d", TAG, __func__, consumer_id, consumer.get()
-      , this, consumer_map_.size());
   return NO_ERROR;
 }
 
-status_t CameraPort::RemoveConsumer(const uint32_t consumer_id) {
+status_t CameraPort::AddConsumer(sp<IBufferConsumer>& consumer) {
 
-  Mutex::Autolock lock(consumer_lock_);
-
-  sp<IBufferConsumer> consumer = consumer_map_.valueFor(consumer_id);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   assert(consumer.get() != nullptr);
-  // Remove consumer from port's producer interface.
-  assert(buffer_producer_impl_.get() != nullptr);
-  buffer_producer_impl_->RemoveConsumer(consumer);
 
-  consumer_map_.removeItem(consumer_id);
-  QMMF_DEBUG("%s:%s: ConsumerId(%x):(0x%p) has been Remved CameraPort(0x%p)."
-      "Total number of consumer =%d", TAG, __func__,consumer_id, consumer.get(),
-      this, consumer_map_.size());
+  if (IsConsumerConnected(consumer)) {
+    QMMF_ERROR("%s:%s: consumer(%p) already added to the producer!",
+        TAG, __func__, consumer.get());
+    return ALREADY_EXISTS;
+  }
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->AddConsumer(consumer);
+  } else {
+    // Add consumer to port's producer interface.
+    assert(buffer_producer_impl_.get() != nullptr);
+    buffer_producer_impl_->AddConsumer(consumer);
+    consumer->SetProducerHandle(buffer_producer_impl_);
+    QMMF_DEBUG("%s:%s: Consumer(%p) has been added to CameraPort(%p)."
+        "Total number of consumer = %d", TAG, __func__, consumer.get()
+        , this, buffer_producer_impl_->GetNumConsumer());
+  }
+  consumers_.emplace(reinterpret_cast<uintptr_t>(consumer.get()), consumer);
+  return NO_ERROR;
+}
+
+status_t CameraPort::RemoveConsumer(sp<IBufferConsumer>& consumer) {
+
+  std::lock_guard<std::mutex> lock(consumer_lock_);
+  assert(consumer.get() != nullptr);
+  if (!IsConsumerConnected(consumer)) {
+    QMMF_ERROR("%s:%s: consumer(%p) is not connected to this port(%p)!",
+        TAG, __func__, consumer.get(), this);
+    return BAD_VALUE;
+  }
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->RemoveConsumer(consumer);
+  } else {
+    // Remove consumer from port's producer interface.
+    assert(buffer_producer_impl_.get() != nullptr);
+    buffer_producer_impl_->RemoveConsumer(consumer);
+    QMMF_DEBUG("%s:%s: Consumer(%p) has been removed from CameraPort(%p)."
+        "Total number of consumer = %d", TAG, __func__, consumer.get()
+        , this, buffer_producer_impl_->GetNumConsumer());
+  }
+  consumers_.erase(reinterpret_cast<uintptr_t>(consumer.get()));
   return NO_ERROR;
 }
 
@@ -1871,8 +1902,9 @@ void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
 }
 
 int32_t CameraPort::GetNumConsumers() {
-  Mutex::Autolock lock(consumer_lock_);
-  return consumer_map_.size();
+
+  std::lock_guard<std::mutex> lock(consumer_lock_);
+  return consumers_.size();
 }
 
 bool CameraPort::IsReadyToStart() {
@@ -1884,17 +1916,13 @@ PortState& CameraPort::getPortState() {
   return port_state_;
 }
 
-bool CameraPort::IsConsumerIdValid(const uint32_t id) {
+bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
 
-  bool valid = false;
-  size_t size = consumer_map_.size();
-  for(size_t i = 0; i < size; i++) {
-    if (id == consumer_map_.keyAt(i)) {
-        valid = true;
-        break;
-    }
+  uintptr_t key = reinterpret_cast<uintptr_t>(consumer.get());
+  if (consumers_.find(key) != consumers_.end()) {
+    return true;
   }
-  return valid;
+  return false;
 }
 
 void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
@@ -1907,7 +1935,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
       "frame_number: %d\n", TAG, __func__, stream_id, stream_buffer.handle,
       stream_buffer.timestamp, stream_buffer.frame_number);
 
-  Mutex::Autolock lock(stop_lock_);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
     stream_buffer.camera_id = context_->camera_id_;
     buffer_producer_impl_->NotifyBuffer(stream_buffer);

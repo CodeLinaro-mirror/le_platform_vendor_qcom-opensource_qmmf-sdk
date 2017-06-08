@@ -62,8 +62,13 @@ class CameraInterface : public virtual RefBase {
 
   virtual status_t DeleteStream(const uint32_t track_id) = 0;
 
-  virtual status_t StartStream(const uint32_t track_id,
+  virtual status_t AddConsumer(const uint32_t& track_id,
                                sp<IBufferConsumer>& consumer) = 0;
+
+  virtual status_t RemoveConsumer(const uint32_t& track_id,
+                                  sp<IBufferConsumer>& consumer) = 0;
+
+  virtual status_t StartStream(const uint32_t track_id) = 0;
 
   virtual status_t StopStream(const uint32_t track_id) = 0;
 
