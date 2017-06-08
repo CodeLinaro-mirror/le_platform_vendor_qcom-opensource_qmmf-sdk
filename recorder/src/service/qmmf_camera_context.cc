@@ -565,7 +565,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
     std::lock_guard<std::mutex> lock(device_access_lock_);
     int64_t last_frame_mumber;
     uint8_t jpeg_quality = snapshot_param_.image_quality;
-    List<Camera3Request> requests;
+    std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < sequence_cnt_; i++) {
       if (it != meta.end()) {
@@ -889,7 +889,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     int64_t last_frame_mumber;
-    List<Camera3Request> request_list;
+    std::list<Camera3Request> request_list;
     for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
       Camera3Request &req = streaming_active_requests_[i];
       req.metadata.clear();
@@ -1307,7 +1307,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
             ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
       }
     }
-    List<Camera3Request> request_list;
+    std::list<Camera3Request> request_list;
     for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
@@ -2223,8 +2223,8 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
   zsl_running_ = false;
 
   if (!zsl_queue_.empty()) {
-    List<ZSLEntry>::iterator it = zsl_queue_.begin();
-    List<ZSLEntry>::iterator end = zsl_queue_.end();
+    std::list<ZSLEntry>::iterator it = zsl_queue_.begin();
+    std::list<ZSLEntry>::iterator end = zsl_queue_.end();
     while (it != end) {
       if (it->timestamp == it->buffer.timestamp) {
         assert(context_ != nullptr);
@@ -2272,9 +2272,9 @@ status_t ZslPort::PickZSLBuffer() {
     return -EBUSY;
   }
 
-  List<ZSLEntry>::iterator good_entry;
-  List<ZSLEntry>::iterator it = zsl_queue_.begin();
-  List<ZSLEntry>::iterator end = zsl_queue_.end();
+  std::list<ZSLEntry>::iterator good_entry;
+  std::list<ZSLEntry>::iterator it = zsl_queue_.begin();
+  std::list<ZSLEntry>::iterator end = zsl_queue_.end();
   bool found = false;
   while (it != end) {
     if ((it->timestamp == it->buffer.timestamp) && (!it->result.isEmpty())) {
@@ -2326,8 +2326,8 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
       if (zsl_running_) {
         bool append = true;
         if (!zsl_queue_.empty()) {
-          List<ZSLEntry>::iterator it = zsl_queue_.begin();
-          List<ZSLEntry>::iterator end = zsl_queue_.end();
+          std::list<ZSLEntry>::iterator it = zsl_queue_.begin();
+          std::list<ZSLEntry>::iterator end = zsl_queue_.end();
           while (it != end) {
             if (it->timestamp == timestamp) {
               it->result.append(result.metadata);
@@ -2465,8 +2465,8 @@ void ZslPort::ZSLCaptureCallback(StreamBuffer buffer) {
     if (zsl_running_) {
       bool append = true;
       if (!zsl_queue_.empty()) {
-        List<ZSLEntry>::iterator it = zsl_queue_.begin();
-        List<ZSLEntry>::iterator end = zsl_queue_.end();
+        std::list<ZSLEntry>::iterator it = zsl_queue_.begin();
+        std::list<ZSLEntry>::iterator end = zsl_queue_.end();
         while (it != end) {
           if (it->timestamp == buffer.timestamp) {
             it->buffer = buffer;

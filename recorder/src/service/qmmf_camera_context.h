@@ -436,7 +436,7 @@ class ZslPort : public CameraPort {
 
   int32_t         input_stream_id_ = -1;
   std::mutex      zsl_queue_lock_;
-  List<ZSLEntry>  zsl_queue_;
+  std::list<ZSLEntry>  zsl_queue_;
   ZSLEntry        zsl_input_buffer_ = {};
   bool            zsl_running_ = false;
   uint32_t        zsl_queue_depth_ = 0;
