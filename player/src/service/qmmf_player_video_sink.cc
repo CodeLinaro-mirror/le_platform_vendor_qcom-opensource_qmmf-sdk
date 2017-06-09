@@ -447,8 +447,8 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
       __func__, TrackId(), codec_buffer.data);
 
-  if (!(stopplayback_ || (codec_buffer.flag & OMX_BUFFERFLAG_EOS) ||
-      !(codec_buffer.size) || (paused_))) {
+  if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
+      stopplayback_ || !(codec_buffer.size) || (paused_))) {
     Dispatcher(codec_buffer);
 
 #ifdef DUMP_YUV_FRAMES
@@ -1022,7 +1022,7 @@ void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
     }
   }
 
-  if(codec_buffer.flag & OMX_BUFFERFLAG_EOS) {
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     QMMF_ERROR("%s:%s This is last buffer from decoder.close file", TAG,
         __func__);
     close(file_fd_);

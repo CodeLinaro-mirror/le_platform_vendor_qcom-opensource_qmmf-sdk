@@ -35,6 +35,7 @@
 #include <inttypes.h>
 #include <cstdlib>
 #include <stdio.h>
+#include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -898,14 +899,12 @@ status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
   if (use_vfe_crop && surface_crop_.find(camera_id) != surface_crop_.end()) {
     auto const& crop = surface_crop_.at(camera_id);
     if (crop.width != 0 && crop.height != 0) {
-      int32_t crop_rect[4];
-      auto const& crop = surface_crop_.at(camera_id);
-      auto const& camera_surface = source_surface_.at(camera_id);
-      crop_rect[0] = ((float)crop.x / camera_surface.width) * 4056;
-      crop_rect[1] = ((float)crop.y / camera_surface.height) * 3040;
-      crop_rect[2] = ((float)crop.width / camera_surface.width) * 4056;
-      crop_rect[3] = ((float)crop.height / camera_surface.height) * 3040;
-      meta.update(ANDROID_SCALER_CROP_REGION, crop_rect, 4);
+      ret = FillCropMetadata(meta, cam_idx);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: Camera %d: FillCropMetadata Failed!", TAG,
+            __func__, camera_id);
+        return ret;
+      }
     }
   }
 
@@ -979,6 +978,47 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
 
   uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
   meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::FillCropMetadata(CameraMetadata& meta,
+                                              const uint32_t& cam_idx) {
+
+  auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  if (!active_array_size.count) {
+    QMMF_ERROR("%s:%s: Active sensor array size is missing!",
+        TAG, __func__);
+    return NAME_NOT_FOUND;
+  }
+  // Take the active pixel array width and height as base on which to
+  // recalculate the actual crop region dimensions.
+  float x = active_array_size.data.i32[2];
+  float y = active_array_size.data.i32[3];
+  float width = active_array_size.data.i32[2];
+  float height = active_array_size.data.i32[3];
+
+  int32_t camera_id = camera_contexts_.keyAt(cam_idx);
+  auto const& crop = surface_crop_.at(camera_id);
+  auto const& camera_surface = source_surface_.at(camera_id);
+
+  // Get the crop region scale ratios and recalculate them against the base.
+  x *= (static_cast<float>(crop.x) / camera_surface.width);
+  y *= (static_cast<float>(crop.y) / camera_surface.height);
+  width *= (static_cast<float>(crop.width) / camera_surface.width);
+  height *= (static_cast<float>(crop.height) / camera_surface.height);
+
+  int32_t crop_region[] = {
+      static_cast<int32_t>(round(x)),
+      static_cast<int32_t>(round(y)),
+      static_cast<int32_t>(round(width)),
+      static_cast<int32_t>(round(height)),
+  };
+  auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to set crop region metadata!", TAG, __func__);
+    return ret;
+  }
 
   return NO_ERROR;
 }

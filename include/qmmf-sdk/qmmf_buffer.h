@@ -36,9 +36,17 @@
 
 namespace qmmf {
 
+//  BufferFlags will be used to determine the type of encoded frame
 enum class BufferFlags {
-  kFlagEOS = (1 << 1),
-  kFlagCodecConfig = (1 << 2)
+  kFlagNone = 0,
+  kFlagEOF = (1 << 0),          //  EOF: End of Frame
+  kFlagEOS = (1 << 1),          //  EOS: End of Stream
+  kFlagCodecConfig = (1 << 2),
+  kFlagIDRFrame = (1 << 3),
+  kFlagIFrame = (1 << 4),
+  kFlagPFrame = (1 << 5),
+  kFlagBFrame = (1 << 6),
+  kFlagExtraData = (1 << 7)
 };
 
 struct BufferDescriptor {
