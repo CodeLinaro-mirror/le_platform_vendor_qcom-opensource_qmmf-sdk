@@ -82,7 +82,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t SubmitRequestList(List<Camera3Request> requests,
                             bool streaming = false,
                             int64_t *lastFrameNumber = NULL);
-  int32_t ReturnStreamBuffer(int32_t streamId, StreamBuffer buffer);
+  int32_t ReturnStreamBuffer(StreamBuffer buffer);
   int32_t CancelRequest(int requestId, int64_t *lastFrameNumber = NULL);
 
   int32_t GetCameraInfo(uint32_t idx, CameraMetadata *info);

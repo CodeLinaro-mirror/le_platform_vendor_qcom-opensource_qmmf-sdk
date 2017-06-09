@@ -45,8 +45,7 @@ namespace recorder {
 
 class IPostProcCameraContext {
 public:
-  virtual status_t ReturnStreamBuffer(int stream_id,
-                                      qmmf::StreamBuffer buffer) = 0;
+  virtual status_t ReturnStreamBuffer(StreamBuffer buffer) = 0;
   virtual status_t CreateDeviceStream(CameraStreamParameters& params,
                                       uint32_t frame_rate,
                                       int32_t* stream_id) = 0;

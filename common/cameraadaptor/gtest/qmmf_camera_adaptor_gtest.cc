@@ -138,7 +138,7 @@ void Camera3Gtest::TearDown() {
   }
 }
 
-void Camera3Gtest::StreamCbAvgFPS(int32_t streamId, StreamBuffer buffer) {
+void Camera3Gtest::StreamCbAvgFPS(StreamBuffer buffer) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
   uint64_t timeDiff =
@@ -152,7 +152,7 @@ void Camera3Gtest::StreamCbAvgFPS(int32_t streamId, StreamBuffer buffer) {
     fps_count_ = 0;
   }
 
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
 void Camera3Gtest::ErrorCb(CameraErrorCode errorCode,
@@ -214,19 +214,20 @@ void Camera3Gtest::ResultCb(const CaptureResult &result) {
   pthread_mutex_unlock(&meta_lock_);
 }
 
-void Camera3Gtest::SnapshotCb(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+void Camera3Gtest::SnapshotCb(StreamBuffer buffer) {
+  printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
 
   CalcSize sizeFunc = [&](
       uint8_t *mappedBuffer, uint32_t width, uint32_t height,
       uint32_t stride) { return GetJpegSize(mappedBuffer, width); };
 
   String8 path;
-  path.appendFormat("/usr/stream_%d_%" PRIo64 ".jpg", streamId, jpeg_idx_);
-  StoreBuffer(path, jpeg_idx_, buffer, streamId, sizeFunc);
+  path.appendFormat("/usr/stream_%d_%" PRIo64, buffer.stream_id, jpeg_idx_);
+  path.appendFormat(".jpg");
+  StoreBuffer(path, jpeg_idx_, buffer, sizeFunc);
 
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
 bool Camera3Gtest::IsInputSupported() {
@@ -339,8 +340,7 @@ int32_t Camera3Gtest::StartSreaming(int32_t usage, uint32_t width,
   streamParams.width = width;
   streamParams.height = height;
   streamParams.grallocFlags = usage;;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   ret = device_client_->CreateStream(streamParams);
   if (0 > ret) {
@@ -393,17 +393,16 @@ int32_t Camera3Gtest::StopDeleteStream(int32_t streamId, int32_t requestId) {
   return ret;
 }
 
-void Camera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+void Camera3Gtest::StreamCb(StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
-void Camera3Gtest::StreamCbSignalOnFrame(int32_t streamId,
-                                         StreamBuffer buffer) {
+void Camera3Gtest::StreamCbSignalOnFrame(StreamBuffer buffer) {
   printf("%s: streamId: %d buffer with frame number: %d arrived\n",
-         __func__, streamId, buffer.frame_number);
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+         __func__, buffer.stream_id, buffer.frame_number);
+  device_client_->ReturnStreamBuffer(buffer);
   pthread_mutex_lock(&input_lock_);
   if (input_buffer_flag_ &&
       (buffer.frame_number == input_last_frame_number_)) {
@@ -413,9 +412,9 @@ void Camera3Gtest::StreamCbSignalOnFrame(int32_t streamId,
   pthread_mutex_unlock(&input_lock_);
 }
 
-void Camera3Gtest::StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+void Camera3Gtest::StreamCbDumpNVXX(StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
 
   if (dump_yuv_) {
     String8 path;
@@ -423,11 +422,12 @@ void Camera3Gtest::StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer) {
     CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
         uint32_t height, uint32_t stride) { return 0; };
 
-    path.appendFormat("/usr/stream_%d_%" PRIo64 ".yuv", streamId, yuv_idx_);
-    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
+    path.appendFormat("/usr/stream_%d_%" PRIo64, buffer.stream_id, yuv_idx_);
+    path.appendFormat(".yuv");
+    StoreBuffer(path, yuv_idx_, buffer, sizeFunc);
   }
 
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 
   pthread_mutex_lock(&reprocess_lock_);
   if (reprocess_flag_) {
@@ -437,9 +437,9 @@ void Camera3Gtest::StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer) {
   pthread_mutex_unlock(&reprocess_lock_);
 }
 
-void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+void Camera3Gtest::StreamCbAecLock(StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
 
   CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
         uint32_t height, uint32_t stride) { return 0; };
@@ -447,16 +447,16 @@ void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
   if(buffer.frame_number % 5 == 0) {
     String8 path;
     path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%d_%d.yuv",
-                      streamId, buffer.frame_number, aec_lock_);
+                      buffer.stream_id, buffer.frame_number, aec_lock_);
     mkdir("/data/misc/qmmf/aec_lock", S_IRWXU);
-    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
+    StoreBuffer(path, yuv_idx_, buffer, sizeFunc);
   }
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
-void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+void Camera3Gtest::StreamCbAwbLock(StreamBuffer buffer) {
+  printf("%s: streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
 
   CalcSize sizeFunc = [&](uint8_t *mappedBuffer, uint32_t width,
         uint32_t height, uint32_t stride) { return 0; };
@@ -464,29 +464,30 @@ void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
   if(buffer.frame_number % 5 == 0) {
     String8 path;
     path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%d_%d.yuv",
-                      streamId, buffer.frame_number, awb_lock_);
+                      buffer.stream_id, buffer.frame_number, awb_lock_);
     mkdir("/data/misc/qmmf/awb_lock", S_IRWXU);
-    StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
+    StoreBuffer(path, yuv_idx_, buffer, sizeFunc);
   }
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
-void Camera3Gtest::Raw16Cb(int32_t streamId, StreamBuffer buffer) {
-  printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.timestamp);
+void Camera3Gtest::Raw16Cb(StreamBuffer buffer) {
+  printf("%s: E streamId: %d buffer: %p ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.timestamp);
 
   CalcSize sizeFunc = [&](
       uint8_t *mappedBuffer, uint32_t width, uint32_t height,
       uint32_t stride) { return stride*height*2; };
 
   String8 path;
-  path.appendFormat("/usr/stream_%d_%" PRIo64 ".raw", streamId, raw_idx_);
-  StoreBuffer(path, raw_idx_, buffer, streamId, sizeFunc);
+  path.appendFormat("/usr/stream_%d_%" PRIo64, buffer.stream_id, raw_idx_);
+  path.appendFormat(".raw");
+  StoreBuffer(path, raw_idx_, buffer, sizeFunc);
 
-  device_client_->ReturnStreamBuffer(streamId, buffer);
+  device_client_->ReturnStreamBuffer(buffer);
 }
 
-void Camera3Gtest::InputCb(int32_t streamId, StreamBuffer buffer) {
+void Camera3Gtest::InputCb(StreamBuffer buffer) {
   bool return_buffer = true;
   pthread_mutex_lock(&input_lock_);
   if (input_buffer_flag_) {
@@ -498,7 +499,7 @@ void Camera3Gtest::InputCb(int32_t streamId, StreamBuffer buffer) {
   pthread_mutex_unlock(&input_lock_);
 
   if (return_buffer) {
-    device_client_->ReturnStreamBuffer(streamId, buffer);
+    device_client_->ReturnStreamBuffer(buffer);
   }
 }
 
@@ -508,8 +509,7 @@ void Camera3Gtest::GetInputBuffer(StreamBuffer &buffer) {
 
 void Camera3Gtest::ReturnInputBuffer(StreamBuffer &buffer) {
   if (buffer.handle == input_buffer_.handle) {
-    auto ret = device_client_->ReturnStreamBuffer(input_stream_id_,
-                                                  input_buffer_);
+    auto ret = device_client_->ReturnStreamBuffer(input_buffer_);
     if (0 != ret) {
       printf("%s: Failed to return input buffer: %d\n", __func__, ret);
       camera_error_ = true;
@@ -523,8 +523,7 @@ void Camera3Gtest::ReturnInputBuffer(StreamBuffer &buffer) {
 }
 
 int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
-                                  StreamBuffer &buffer, int32_t streamId,
-                                  CalcSize &calcSize) {
+                                  StreamBuffer &buffer, CalcSize &calcSize) {
   int32_t ret = 0;
 
   alloc_device_t *grallocDevice = device_client_->GetGrallocDevice();
@@ -646,8 +645,7 @@ TEST_F(Camera3Gtest, Video1080pManualExposure) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
     GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-            StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -775,8 +773,7 @@ TEST_F(Camera3Gtest, Video1080pSceneControl) {
     streamParams.height = 1080;
     streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-    streamParams.cb = [&](int32_t streamId,
-              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
     // 1080p Stream1
     repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -859,8 +856,7 @@ TEST_F(Camera3Gtest, Video1080pEVcontrol) {
     streamParams.height = 1080;
     streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-    streamParams.cb = [&](int32_t streamId,
-              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
     // 1080p Stream1
     repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -949,8 +945,7 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
     streamParams.height = 1080;
     streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-    streamParams.cb = [&](int32_t streamId,
-              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
     // 1080p Stream1
     repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -1029,8 +1024,7 @@ TEST_F(Camera3Gtest, Video1080pExposureMeteringModes) {
     streamParams.height = 1080;
     streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-    streamParams.cb = [&](int32_t streamId,
-              StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
     // 1080p Stream1
     repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -1110,8 +1104,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshotHDR) {
     streamParams.width = 1920;
     streamParams.height = 1080;
     streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-    streamParams.cb = [&](int32_t streamId,
-              StreamBuffer buffer) { StreamCb(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
     // 1080p Stream1
     previewStreamId = device_client_->CreateStream(streamParams);
@@ -1124,8 +1117,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshotHDR) {
     streamParams.width = 4000;
     streamParams.height = 3000;
     streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-    streamParams.cb = [&](int32_t streamId,
-               StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+    streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
     snapshotStreamId = device_client_->CreateStream(streamParams);
     ASSERT_GE(snapshotStreamId, 0);
@@ -1201,9 +1193,7 @@ TEST_F(Camera3Gtest, ZSLStream12Mp) {
   streamParams.width = 4000;
   streamParams.height = 3000;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB|GRALLOC_USAGE_HW_CAMERA_ZSL;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { StreamCbAvgFPS(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   zslStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(zslStreamId, 0);
@@ -1259,8 +1249,7 @@ TEST_F(Camera3Gtest, FlushZSL) {
   streamParams.width = 4000;
   streamParams.height = 3000;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   zslStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(zslStreamId, 0);
@@ -1305,8 +1294,7 @@ TEST_F(Camera3Gtest, Preview1080pSnapshot12Mp) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -1318,8 +1306,7 @@ TEST_F(Camera3Gtest, Preview1080pSnapshot12Mp) {
   streamParams.width = 4000;
   streamParams.height = 3000;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1387,9 +1374,7 @@ TEST_F(Camera3Gtest, UpdateExposureDuringPreviewVGA) {
   streamParams.width = 640;
   streamParams.height = 480;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbDumpNVXX(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -1458,8 +1443,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kSaturation) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   videoStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId, 0);
@@ -1471,8 +1455,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kSaturation) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1549,8 +1532,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kISO) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   videoStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId, 0);
@@ -1562,8 +1544,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kISO) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1654,8 +1635,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kWNR) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   videoStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId, 0);
@@ -1667,8 +1647,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshot4kWNR) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1749,8 +1728,7 @@ TEST_F(Camera3Gtest, Video4KLiveSnapshot4K) {
   streamParams.height = 2160;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   videoStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId, 0);
@@ -1762,8 +1740,7 @@ TEST_F(Camera3Gtest, Video4KLiveSnapshot4K) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1823,9 +1800,7 @@ TEST_F(Camera3Gtest, Video4KPlus180pLiveSnapshot4KYUVPreview1080p) {
   streamParams.height = 2160;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAvgFPS(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
@@ -1837,8 +1812,7 @@ TEST_F(Camera3Gtest, Video4KPlus180pLiveSnapshot4KYUVPreview1080p) {
   streamParams.height = 180;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
   videoRequest.streamIds.add(repeatingStreamId);
@@ -1848,8 +1822,7 @@ TEST_F(Camera3Gtest, Video4KPlus180pLiveSnapshot4KYUVPreview1080p) {
   streamParams.width = 1920;
   streamParams.height = 1080;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
   videoRequest.streamIds.add(repeatingStreamId);
@@ -1861,8 +1834,7 @@ TEST_F(Camera3Gtest, Video4KPlus180pLiveSnapshot4KYUVPreview1080p) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -1952,8 +1924,7 @@ TEST_F(Camera3Gtest, Video1080pAFR) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCbAvgFPS(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2027,8 +1998,7 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2074,8 +2044,7 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2137,8 +2106,7 @@ TEST_F(Camera3Gtest, Video1080pZoom) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2203,8 +2171,7 @@ TEST_F(Camera3Gtest, Video1080pThreeStreams) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCbAvgFPS(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2212,8 +2179,7 @@ TEST_F(Camera3Gtest, Video1080pThreeStreams) {
   videoRequest.streamIds.add(repeatingStreamId);
 
   // 1080p Stream2
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
   videoRequest.streamIds.add(repeatingStreamId);
@@ -2265,8 +2231,7 @@ TEST_F(Camera3Gtest, ThreeVideo1080Plus180pPreview1080pLiveSnapshot4KYUV) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   // 1080p Stream1
   repeatingStreamId = device_client_->CreateStream(streamParams);
@@ -2285,9 +2250,7 @@ TEST_F(Camera3Gtest, ThreeVideo1080Plus180pPreview1080pLiveSnapshot4KYUV) {
 
   // 1080p Preview
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAvgFPS(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
   videoRequest.streamIds.add(repeatingStreamId);
@@ -2297,8 +2260,7 @@ TEST_F(Camera3Gtest, ThreeVideo1080Plus180pPreview1080pLiveSnapshot4KYUV) {
   streamParams.height = 180;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
   repeatingStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(repeatingStreamId, 0);
   videoRequest.streamIds.add(repeatingStreamId);
@@ -2310,8 +2272,7 @@ TEST_F(Camera3Gtest, ThreeVideo1080Plus180pPreview1080pLiveSnapshot4KYUV) {
   streamParams.width = 3840;
   streamParams.height = 2160;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -2380,8 +2341,7 @@ TEST_F(Camera3Gtest, DynamicDeleteVideo1080p) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   // Stream1
   videoStreamId = device_client_->CreateStream(streamParams);
@@ -2389,9 +2349,7 @@ TEST_F(Camera3Gtest, DynamicDeleteVideo1080p) {
   videoRequest.streamIds.add(videoStreamId);
 
   // Add a second 1080p video stream
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { StreamCbSignalOnFrame(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbSignalOnFrame(buffer); };
   videoStreamId1 = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId1, 0);
   videoRequest.streamIds.add(videoStreamId1);
@@ -2461,8 +2419,7 @@ TEST_F(Camera3Gtest, DynamicReconfigureVideo1080p) {
   streamParams.height = 1080;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   // Stream1
   videoStreamId = device_client_->CreateStream(streamParams);
@@ -2566,8 +2523,7 @@ TEST_F(Camera3Gtest, InvalidRequest) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -2601,8 +2557,7 @@ TEST_F(Camera3Gtest, PrepareTeardownPreview) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -2697,9 +2652,7 @@ TEST_F(Camera3Gtest, HFRVideo1080p60FPS) {
   stream_params.height = stream_height;
   stream_params.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  stream_params.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAvgFPS(streamId, buffer);
-  };
+  stream_params.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   video_stream_id = device_client_->CreateStream(stream_params);
   ASSERT_GE(video_stream_id, 0);
@@ -2808,9 +2761,7 @@ TEST_F(Camera3Gtest, HFRVideo720p120FPS) {
   streamParams.height = streamHeight;
   streamParams.grallocFlags =
       GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAvgFPS(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAvgFPS(buffer); };
 
   videoStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(videoStreamId, 0);
@@ -2878,8 +2829,7 @@ TEST_F(Camera3Gtest, ReprocessYUVToYUV) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -2891,8 +2841,7 @@ TEST_F(Camera3Gtest, ReprocessYUVToYUV) {
   streamParams.width = yuvSize[0];
   streamParams.height = yuvSize[1];
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { InputCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { InputCb(buffer); };
 
   yuvStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(yuvStreamId, 0);
@@ -2918,9 +2867,7 @@ TEST_F(Camera3Gtest, ReprocessYUVToYUV) {
   streamParams.width = yuvSize[0];
   streamParams.height = yuvSize[1];
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   yuvOutputStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(yuvOutputStreamId, 0);
@@ -3004,8 +2951,7 @@ TEST_F(Camera3Gtest, ReprocessRAWToYUV1080p) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -3017,8 +2963,7 @@ TEST_F(Camera3Gtest, ReprocessRAWToYUV1080p) {
   streamParams.width = rawSize[0];
   streamParams.height = rawSize[1];
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { InputCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { InputCb(buffer); };
 
   rawStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(rawStreamId, 0);
@@ -3044,9 +2989,7 @@ TEST_F(Camera3Gtest, ReprocessRAWToYUV1080p) {
   streamParams.width = 1920;
   streamParams.height = 1080;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { StreamCbDumpNVXX(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   yuvOutputStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(yuvOutputStreamId, 0);
@@ -3132,9 +3075,7 @@ TEST_F(Camera3Gtest, ReprocessZSL12MpToYUV4K) {
   stream_params.width = zsl_width;
   stream_params.height = zsl_height;
   stream_params.grallocFlags = GRALLOC_USAGE_HW_FB|GRALLOC_USAGE_HW_CAMERA_ZSL;
-  stream_params.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { InputCb(streamId, buffer); };
+  stream_params.cb = [&](StreamBuffer buffer) { InputCb(buffer); };
 
   zsl_stream_id = device_client_->CreateStream(stream_params);
   ASSERT_GE(zsl_stream_id, 0);
@@ -3160,9 +3101,7 @@ TEST_F(Camera3Gtest, ReprocessZSL12MpToYUV4K) {
   stream_params.width = yuv_width;
   stream_params.height = yuv_height;
   stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  stream_params.cb = [&](int32_t streamId,
-                        StreamBuffer buffer)
-                        { StreamCbDumpNVXX(streamId, buffer); };
+  stream_params.cb = [&](StreamBuffer buffer) { StreamCbDumpNVXX(buffer); };
 
   yuv_output_stream_id = device_client_->CreateStream(stream_params);
   ASSERT_GE(yuv_output_stream_id, 0);
@@ -3248,8 +3187,7 @@ TEST_F(Camera3Gtest, RAW16Bit) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -3261,8 +3199,7 @@ TEST_F(Camera3Gtest, RAW16Bit) {
   streamParams.width = rawSize[0];
   streamParams.height = rawSize[1];
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { Raw16Cb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { Raw16Cb(buffer); };
 
   rawStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(rawStreamId, 0);
@@ -3324,8 +3261,7 @@ TEST_F(Camera3Gtest, SnapshotBurstBracketing) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -3337,8 +3273,7 @@ TEST_F(Camera3Gtest, SnapshotBurstBracketing) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -3422,8 +3357,7 @@ TEST_F(Camera3Gtest, SnapshotAndRAW16Bit) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { StreamCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCb(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -3435,8 +3369,7 @@ TEST_F(Camera3Gtest, SnapshotAndRAW16Bit) {
   streamParams.width = rawSize[0];
   streamParams.height = rawSize[1];
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { Raw16Cb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { Raw16Cb(buffer); };
 
   rawStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(rawStreamId, 0);
@@ -3448,8 +3381,7 @@ TEST_F(Camera3Gtest, SnapshotAndRAW16Bit) {
   streamParams.width = PREVIEW_WIDTH;
   streamParams.height = PREVIEW_HEIGHT;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId,
-                        StreamBuffer buffer) { SnapshotCb(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { SnapshotCb(buffer); };
 
   snapshotStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(snapshotStreamId, 0);
@@ -3510,9 +3442,7 @@ TEST_F(Camera3Gtest, ExposureLockVGA) {
   streamParams.width = 640;
   streamParams.height = 480;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAecLock(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAecLock(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);
@@ -3578,9 +3508,7 @@ TEST_F(Camera3Gtest, AwbLockVGA) {
   streamParams.width = 640;
   streamParams.height = 480;
   streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
-    StreamCbAwbLock(streamId, buffer);
-  };
+  streamParams.cb = [&](StreamBuffer buffer) { StreamCbAwbLock(buffer); };
 
   previewStreamId = device_client_->CreateStream(streamParams);
   ASSERT_GE(previewStreamId, 0);

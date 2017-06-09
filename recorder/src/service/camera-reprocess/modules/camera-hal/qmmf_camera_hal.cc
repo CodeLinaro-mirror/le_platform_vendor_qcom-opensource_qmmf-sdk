@@ -66,7 +66,8 @@ void CameraHal::ReturnInputBuffer(StreamBuffer &buffer) {
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
     if ((*iter).handle ==  buffer.handle) {
-      auto ret = context_->ReturnStreamBuffer(input_stream_id_, (*iter));
+      (*iter).stream_id = input_stream_id_;
+      auto ret = context_->ReturnStreamBuffer((*iter));
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s: Failed to return input buffer: %d\n", __func__, ret);
       }
@@ -80,7 +81,8 @@ void CameraHal::ReturnAllInputBuffers() {
   Mutex::Autolock lock(burst_queue_lock_);
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
-    auto ret = context_->ReturnStreamBuffer(input_stream_id_, (*iter));
+    (*iter).stream_id = input_stream_id_;
+    auto ret = context_->ReturnStreamBuffer((*iter));
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to return input buffer: %d\n", __func__, ret);
     }
@@ -91,8 +93,7 @@ void CameraHal::ReturnAllInputBuffers() {
   input_burst_queue_.clear();
 }
 
-void CameraHal::ReprocessCallback(int32_t stream_id,
-                                  StreamBuffer in_buff) {
+void CameraHal::ReprocessCallback(StreamBuffer in_buff) {
   StreamBuffer b;
   memset(&b, 0, sizeof b);
   b.fd = -1;
@@ -168,8 +169,7 @@ int32_t CameraHal::Create(const int32_t stream_id,
   streamParams.width = output.width;
   streamParams.height = output.height;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](int32_t streamId, StreamBuffer buffer)
-                        { ReprocessCallback(streamId, buffer); };
+  streamParams.cb = [&](StreamBuffer buffer) { ReprocessCallback(buffer); };
   ret = context_->CreateDeviceStream(streamParams, frame_rate, &stream_id_p);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
@@ -298,7 +298,7 @@ void CameraHal::AddBuff(StreamBuffer in_buff) {
 status_t CameraHal::ReturnBuff(StreamBuffer buffer) {
   QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) ts: %lld", TAG,
        __func__, buffer.handle, buffer.timestamp);
-  return context_->ReturnStreamBuffer(buffer.stream_id, buffer);
+  return context_->ReturnStreamBuffer(buffer);
 }
 
 void CameraHal::AddResult(const void* result_in) {
