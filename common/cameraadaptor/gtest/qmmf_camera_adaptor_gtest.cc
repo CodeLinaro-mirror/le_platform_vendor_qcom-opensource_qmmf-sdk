@@ -305,7 +305,7 @@ uint64_t Camera3Gtest::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
   uint32_t blobSize = sizeof(struct camera3_jpeg_blob);
 
   if (width > blobSize) {
-    size_t offset = width - blobSize;
+    size_t offset = width - blobSize - 1;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
