@@ -43,9 +43,6 @@
 #include <qmmf-sdk/qmmf_codec.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
-#include <QCamera3VendorTags.h>
-#include <cutils/properties.h>
-#include <cutils/trace.h>
 
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
@@ -62,7 +59,6 @@
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #define TEST_WARN(fmt,args...)   ALOGW(fmt, ##args)
-
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
@@ -126,6 +122,7 @@ using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
 #define AEC_SETTLE_INTERVAL 2
+#define MAX_NUM_CAMERAS 3
 
 enum class AfMode {
   kNone,
@@ -150,6 +147,7 @@ struct SnapshotInfo {
    uint32_t       width;
    uint32_t       height;
    uint32_t       count;
+   int32_t        camera_id;
 };
 
 enum class TrackType {
@@ -173,7 +171,7 @@ struct TrackInfo {
   uint32_t  bitrate;
   uint32_t  session_id;
   uint32_t  track_id;
-  uint32_t  camera_id;
+  int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
 };
@@ -229,33 +227,50 @@ enum class TNRTuningCmd {
 class TestTrack;
 class CmdMenu;
 
+ struct CameraInitInfo {
+   int32_t                           camera_id;
+   uint32_t                          camera_fps;
+   uint32_t                          numStream;
+   AfMode                            af_mode;
+   bool                              tnr;
+   bool                              vhdr;
+   bool                              binning_correct;
+   CameraInitInfo():
+        camera_id(-1),
+        camera_fps(0),
+        numStream(0),
+        af_mode(AfMode::kOff),
+        tnr(false),
+        vhdr(false),
+        binning_correct(false) {};
+ };
+
 class TestInitParams {
 public:
-    int32_t                camera_id;
-    uint8_t                camera_fps;
-    SnapshotInfo           snapshot_info;
-    AfMode                 af_mode;
-    uint32_t               recordTime;
-    uint32_t               numStream;
-    bool                   tnr;
-    bool                   vhdr;
-    bool                   binning_correct;
+    int32_t                           num_cameras;
+    uint32_t                          recordTime;
+    SnapshotInfo                      snapshot_info;
+    std::vector<CameraInitInfo*>      cam_init_infos;
 
     TestInitParams() :
-            camera_id(-1),
-            camera_fps(0),
+            num_cameras(1),
+            recordTime(0),
             snapshot_info {
               SnapshotType::kNone,
               0,
               0,
+              0,
               0
-            },
-            af_mode(AfMode::kOff),
-            recordTime(0),
-            numStream(0),
-            tnr(0),
-            vhdr(0),
-            binning_correct(false) {};
+            } {};
+
+    ~TestInitParams()
+    {
+       for(std::vector<uint32_t>::size_type i = 0;
+           i < cam_init_infos.size(); i++) {
+          free(cam_init_infos.at(i));
+       }
+       cam_init_infos.clear();
+    }
 };
 
 
@@ -353,27 +368,24 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
-  void printInitParameterAndTtrackInfo(const TestInitParams&
-                           initParams,const TrackInfo& track_info);
+  void printInitParameterAndTtrackInfo(const TestInitParams& initParams,
+                                       const std::vector<TrackInfo>& infos);
   status_t AddPreviewTrack();
   status_t RemovePreviewTrack();
   void PreviewTrackHandler(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
-  void CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result);
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
-  status_t ToggleAFMode(const AfMode& af_mode);
+  status_t ToggleAFMode(int32_t camera_id, const AfMode& af_mode);
   int32_t ToggleBinningCorrectionMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
-  std::string GetCurrentBinningCorrectionMode();
-  status_t GetCurrentAFMode(int32_t& mode);
+  std::string GetCurrentBinningCorrectionMode(int32_t camera_id);
   status_t GetSharpnessStrength(int32_t *strength);
   status_t SetSharpnessStrength(const int32_t& val);
   status_t GetSensorSensitivity(int32_t *sensitivity);
@@ -389,6 +401,7 @@ class RecorderTest {
   status_t SetTNRMotionDetectionSensitivity(const float& sensitivity);
   status_t GetRawHistogramStatistic(const CameraMetadata& meta);
   status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
+  status_t GetCurrentAFMode(int32_t camera_id, int32_t& mode);
 
   // Auto Mode
   int32_t RunAutoMode();
@@ -401,11 +414,14 @@ class RecorderTest {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  void RecorderCallbackHandler(EventType event_type, void *event_data,
-                               size_t event_data_size);
+  void RecorderEventCallbackHandler(EventType event_type, void *event_data,
+                                    size_t event_data_size);
 
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
+
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
 
   status_t DumpFrameToFile(BufferDescriptor& buffer,
                            CameraBufferMetaData& meta_data, String8& file_name);
@@ -429,7 +445,7 @@ class RecorderTest {
   void InitSupportedVHDRModes();
   void InitSupportedIRModes();
   void InitSupportedBinningCorrectionModes();
-  int32_t SetBinningCorrectionMode(const bool& mode);
+  int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
 
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
@@ -470,6 +486,8 @@ class TestTrack {
   TrackType& GetTrackType() { return track_info_.track_type; }
 
   uint32_t GetTrackId() { return track_info_.track_id; }
+
+  uint32_t GetCameraId() { return track_info_.camera_id; }
 
   status_t SetUp(TrackInfo& track_info);
 
