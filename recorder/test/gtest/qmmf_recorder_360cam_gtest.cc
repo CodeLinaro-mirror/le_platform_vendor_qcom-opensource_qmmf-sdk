@@ -1924,6 +1924,168 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 }
 
 /*
+* Stitched4KEncTrackWithSWTNR: This case will test a MultiCamera
+*                            session with 3840x1920 stitched h264 encoded track
+*                            with SW TNR enabled.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack
+*   - StartSession
+*   - Enable TNR
+*   - StopSession
+*   - DeleteVideoTrack
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSWTNR) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width  = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id   = multicam_id_;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate    = 4000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * Stitched4KEncAnd1080pYUVTrackWithSWTNR: This case will test a MultiCamera
 *                            session with one 3840x1920 h264 encoded and one
 *                            2160x1080 YUV track with SW TNR enabled and both
@@ -2000,6 +2162,30 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
     video_track_param.format_type = format_type;
     video_track_param.low_power_mode = false;
 
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate    = 4000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
     if (dump_bitstream_.IsEnabled()) {
       Stream360DumpInfo dumpinfo = {
         video_track_param.format_type,
@@ -2058,6 +2244,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
     ret = recorder_.GetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
+    // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
     assert(ret == NO_ERROR);
