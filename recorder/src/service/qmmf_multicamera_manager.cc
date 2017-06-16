@@ -60,6 +60,7 @@ MultiCameraManager::MultiCameraManager()
     multicam_start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
     result_cb_(nullptr),
+    error_cb_(nullptr),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(1),
     jpeg_encoding_enabled_(false),
@@ -101,7 +102,8 @@ status_t MultiCameraManager::ConfigureMultiCamera(
 
 status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
                                         const CameraStartParam &param,
-                                        const ResultCb &cb) {
+                                        const ResultCb &cb,
+                                        const ErrorCb &errcb) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
@@ -137,6 +139,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   }
 
   result_cb_ = cb;
+  error_cb_ = errcb;
   multicam_start_params_ = param;
   supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
 

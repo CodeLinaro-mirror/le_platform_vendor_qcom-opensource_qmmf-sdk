@@ -72,7 +72,8 @@ class MultiCameraManager : public CameraInterface {
                                 const void *param, const size_t param_size);
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
-                      const ResultCb &cb = nullptr) override;
+                      const ResultCb &cb = nullptr,
+                      const ErrorCb &errcb = nullptr) override;
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
@@ -148,6 +149,7 @@ class MultiCameraManager : public CameraInterface {
   MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
   ResultCb                 result_cb_;
+  ErrorCb                  error_cb_;
 
   //Non zsl capture request.
   ImageParam               snapshot_param_;
