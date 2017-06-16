@@ -302,8 +302,14 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
       const CameraMetadata &result) {
         CameraResultCallback(client_id, camera_id, result);
       };
+
+  ErrorCb errcb = [ this, client_id ] (RecorderErrorData &error) {
+        CameraErrorCallback(client_id, error);
+      };
+
   auto ret = camera_source_->StartCamera(camera_id, param,
-                                         enable_result_cb ? cb : nullptr);
+                                         enable_result_cb ? cb : nullptr,
+                                         errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -1775,6 +1781,17 @@ void RecorderImpl::CameraResultCallback(uint32_t remote_client_id,
   assert(remote_cb_handle_ != nullptr);
   assert(remote_client_id > 0);
   remote_cb_handle_(remote_client_id)->NotifyCameraResult(camera_id, result);
+}
+
+void RecorderImpl::CameraErrorCallback(uint32_t remote_client_id,
+                                       RecorderErrorData &error) {
+  assert(remote_cb_handle_ != nullptr);
+  assert(remote_client_id > 0);
+  error.remote_client_id = remote_client_id;
+
+  remote_cb_handle_(remote_client_id)->NotifyRecorderEvent(EventType::kCameraError,
+                                                          reinterpret_cast<void*>(&error),
+                                                          sizeof(RecorderErrorData));
 }
 
 bool RecorderImpl::IsClientValid(const uint32_t client_id) {

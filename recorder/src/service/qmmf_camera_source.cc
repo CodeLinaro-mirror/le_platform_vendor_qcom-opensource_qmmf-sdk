@@ -95,7 +95,8 @@ CameraSource::~CameraSource() {
 
 status_t CameraSource::StartCamera(const uint32_t camera_id,
                                    const CameraStartParam &param,
-                                   const ResultCb &cb) {
+                                   const ResultCb &cb,
+                                   const ErrorCb &errcb) {
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
   QMMF_KPI_DETAIL();
@@ -130,7 +131,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     camera_map_.add(camera_id, camera);
   }
 
-  auto ret = camera->OpenCamera(camera_id, param, cb);
+  auto ret = camera->OpenCamera(camera_id, param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);

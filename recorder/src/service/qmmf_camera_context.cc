@@ -66,6 +66,7 @@ CameraContext::CameraContext()
       burst_cnt_(0),
       reprocess_enable_(false),
       result_cb_(nullptr),
+      error_cb_(nullptr),
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1) {
@@ -196,7 +197,8 @@ status_t CameraContext::DeleteSnapshotStream() {
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,
                                    const CameraStartParam &param,
-                                   const ResultCb &cb) {
+                                   const ResultCb &cb,
+                                   const ErrorCb &errcb) {
 
   uint32_t ret = NO_ERROR;
   bool match_camera_id = false;
@@ -333,6 +335,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   result_cb_ = cb;
+  error_cb_ = errcb;
   sensor_vendor_mode_ = param.getSensorVendorMode();
 
   return ret;
@@ -1532,6 +1535,14 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
 
   QMMF_WARN("%s:%s: Camera Client: error_code: %d\n", TAG, __func__,
             error_code);
+  if (nullptr != error_cb_) {
+    RecorderErrorData error_data {};
+    error_data.error_code = error_code;
+    error_data.requestId = result.requestId;
+    error_data.frameNumber = result.frameNumber;
+    error_data.camera_id = camera_id_;
+    error_cb_(error_data);
+  }
 }
 
 void CameraContext::CameraIdleCb() {

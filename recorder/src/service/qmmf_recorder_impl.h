@@ -209,6 +209,9 @@ class RecorderImpl {
   void CameraResultCallback(uint32_t remote_client_id, uint32_t camera_id,
                             const CameraMetadata &result);
 
+  void CameraErrorCallback(uint32_t client_id,
+                           RecorderErrorData &error);
+
  private:
 
   bool IsClientValid(const uint32_t client_id);

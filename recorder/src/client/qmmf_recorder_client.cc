@@ -1177,8 +1177,11 @@ void RecorderClient::ServiceDeathHandler() {
 
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  if (recorder_cb_.event_cb != nullptr) {
+    recorder_cb_.event_cb(event_type, event_data, event_data_size);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
@@ -2042,8 +2045,10 @@ ServiceCallbackHandler::~ServiceCallbackHandler() {
 void ServiceCallbackHandler::NotifyRecorderEvent(EventType event_type,
                                                  void *event_data,
                                                  size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  assert(client_ != nullptr);
+  client_->NotifyRecorderEvent(event_type, event_data, event_data_size);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
@@ -2137,6 +2142,29 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size) {
 
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    Parcel data, reply;
+
+    data.writeInterfaceToken(
+        IRecorderServiceCallback::getInterfaceDescriptor());
+    data.writeInt32(static_cast<underlying_type<EventType>::type>(event_type));
+    data.writeUint32(event_data_size);
+
+    android::Parcel::WritableBlob blob;
+    if (event_data_size) {
+      data.writeBlob(event_data_size, false, &blob);
+      memset(blob.data(), 0x0, event_data_size);
+      memcpy(blob.data(), event_data, event_data_size);
+    }
+
+    remote()->transact(
+        uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT),
+        data, &reply, IBinder::FLAG_ONEWAY);
+
+    if (event_data_size) {
+      blob.release();
+    }
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifySessionEvent(EventType event_type, void *event_data,
@@ -2336,8 +2364,25 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
 
   switch(code) {
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT: {
-    //TODO:
-        return NO_ERROR;
+      uint32_t event_data_size;
+      int32_t event_type;
+
+      data.readInt32(&event_type);
+      data.readUint32(&event_data_size);
+
+      android::Parcel::ReadableBlob blob;
+      void* event_data = nullptr;
+      if (event_data_size) {
+        data.readBlob(event_data_size, &blob);
+        event_data = const_cast<void*>(blob.data());
+      }
+
+      NotifyRecorderEvent(static_cast<EventType>(event_type), event_data,
+                          event_data_size);
+      if (event_data_size) {
+        blob.release();
+      }
+      return NO_ERROR;
     }
     break;
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_SESSION_EVENT: {

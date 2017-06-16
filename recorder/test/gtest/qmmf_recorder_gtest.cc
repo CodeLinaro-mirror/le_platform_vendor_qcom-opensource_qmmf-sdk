@@ -9558,7 +9558,16 @@ void RecorderGtest::ClearSessions() {
 void RecorderGtest::RecorderCallbackHandler(EventType event_type,
                                             void *event_data,
                                             size_t event_data_size) {
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
+  TEST_INFO("%s:%s Enter event: %d ", TAG, __func__, event_type);
+  if (event_type == EventType::kCameraError &&
+      event_data_size && event_data != nullptr) {
+    RecorderErrorData *error_data = static_cast<RecorderErrorData *>(event_data);
+    TEST_INFO("%s:%s error_code %d  requestId %d  frameNumber %d \
+        remote_client_id %d  camera_id %d",
+        TAG, __func__, error_data->error_code, error_data->requestId,
+        error_data->frameNumber, error_data->remote_client_id,
+        error_data->camera_id);
+  }
   TEST_INFO("%s:%s Exit ", TAG, __func__);
 }
 

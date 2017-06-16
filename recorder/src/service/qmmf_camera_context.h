@@ -77,7 +77,8 @@ class CameraContext : public CameraInterface,
   ~CameraContext();
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
-                      const ResultCb &cb = nullptr) override;
+                      const ResultCb &cb = nullptr,
+                      const ErrorCb &errcb = nullptr) override;
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
@@ -247,6 +248,7 @@ class CameraContext : public CameraInterface,
   bool                     cancel_capture_ = false;
 
   ResultCb                 result_cb_;
+  ErrorCb                  error_cb_;
   Vector<int32_t>          supported_fps_;
   sp<CameraPort>           zsl_port_;
 

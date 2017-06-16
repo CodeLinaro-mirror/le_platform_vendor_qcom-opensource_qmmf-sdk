@@ -63,7 +63,8 @@ class CameraSource {
   ~CameraSource();
 
   status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
-                       const ResultCb &cb = nullptr);
+                       const ResultCb &cb = nullptr,
+                       const ErrorCb &errcb = nullptr);
 
   status_t StopCamera(const uint32_t camera_id);
 
