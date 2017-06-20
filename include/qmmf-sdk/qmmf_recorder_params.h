@@ -88,6 +88,16 @@ enum class MetaParamType {
   kCamMetaFrameNumber = (1 << 3)
 };
 
+/// \brief VideoFrameTypeInfo is used to determine the type of encoded video
+/// frame.
+enum class VideoFrameTypeInfo {
+  kNone,
+  kIDRFrame,
+  kIFrame,
+  kBFrame,
+  kPFrame,
+};
+
 /// \brief MultiCameraConfigType is used to determine the type and purpose
 /// of created MultiCamera.
 enum class MultiCameraConfigType {
@@ -100,7 +110,7 @@ enum class MultiCameraConfigType {
 struct MetaData {
   uint32_t meta_flag;
   CameraBufferMetaData cam_buffer_meta_data;
-  uint32_t video_frame_type_info;
+  VideoFrameTypeInfo video_frame_type_info;
   uint32_t cam_meta_frame_number;
 };
 
