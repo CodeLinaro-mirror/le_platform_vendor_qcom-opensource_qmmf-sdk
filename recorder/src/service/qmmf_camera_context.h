@@ -86,7 +86,8 @@ class CameraContext : public CameraInterface,
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param) override;
+  status_t CreateStream(const CameraStreamParam& param,
+                        const VideoTrackExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
@@ -153,9 +154,9 @@ class CameraContext : public CameraInterface,
 
   status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
 
-  void InitSupportedFPS(const CameraMetadata &static_meta);
+  void InitSupportedFPS();
 
-  bool IsInputSupported(const CameraMetadata &static_meta);
+  bool IsInputSupported();
 
   status_t CreateZSLStream(const CameraStartParam &param);
 
@@ -171,7 +172,7 @@ class CameraContext : public CameraInterface,
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
-  void InitHFRModes(CameraMetadata &static_meta);
+  void InitHFRModes();
 
   status_t CaptureZSLImage(const ImageParam &param);
 
@@ -212,6 +213,7 @@ class CameraContext : public CameraInterface,
   uint32_t                 camera_id_;
   Mutex                    device_access_lock_;
   CameraStartParam         camera_start_params_;
+  CameraMetadata           static_meta_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
@@ -220,7 +222,6 @@ class CameraContext : public CameraInterface,
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   Vector<int32_t>          snapshot_request_id_;
-  int32_t                  current_snapshot_request_id_index_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;

@@ -37,19 +37,21 @@ namespace qmmf {
 
 namespace recorder {
 
+namespace reproc {
+
 CameraJpeg::CameraJpeg(int32_t Id)
     : id_(Id),
       reprocess_flag_(false),
       ready_to_start_(false),
       jpeg_encoder_(nullptr) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  jpeg_encoder_ = JpegEncoder::getInstance();
+  jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 CameraJpeg::~CameraJpeg() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
-  JpegEncoder::releaseInstance();
+  reprocjpegencoder::JpegEncoder::releaseInstance();
   jpeg_encoder_ = nullptr;
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -192,6 +194,8 @@ status_t CameraJpeg::ReturnBuff(StreamBuffer buffer) {
        __func__, buffer.handle, buffer.timestamp, buffer.stream_id);
   return NO_ERROR;
 }
+
+}; // namespace reproc
 
 }; // namespace recoder
 

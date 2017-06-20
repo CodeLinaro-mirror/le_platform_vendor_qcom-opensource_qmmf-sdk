@@ -53,6 +53,7 @@ enum class OverlayLocationType {
   kCenter,
   kBottomLeft,
   kBottomRight,
+  kRandom,
   kNone
 };
 
@@ -71,36 +72,41 @@ struct OverlayDateTimeType {
 };
 
 struct BoundingBox {
+  char box_name[MAX_STRING_LENGTH];
+};
+
+enum class OverlayImageType {
+  kFilePath,
+  kBlobType
+};
+
+struct OverlayRect {
   int32_t start_x;
   int32_t start_y;
   int32_t width;
   int32_t height;
-  char box_name[MAX_STRING_LENGTH];
 };
 
 struct OverlayImageInfo {
+  OverlayImageType image_type;
   char image_location[MAX_STRING_LENGTH];
-  int32_t width;
-  int32_t height;
+  char * image_buffer;
+  uint32_t image_size;
+  OverlayRect source_rect;
+  bool buffer_updated;
 };
 
 struct OverlayParam {
   OverlayType type;
   OverlayLocationType location;
   uint32_t color;
+  OverlayRect dst_rect;
   union {
     OverlayDateTimeType date_time;
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
   };
-};
-
-struct PrivacyMask {
-  int32_t  start_x;
-  int32_t  start_y;
-  int32_t  width;
-  int32_t  height;
 };
 
 enum class TargetBufferFormat {

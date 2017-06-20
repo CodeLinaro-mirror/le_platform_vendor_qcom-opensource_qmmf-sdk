@@ -33,7 +33,7 @@
 
 namespace qmmf {
 
-namespace jpegencoder {
+namespace reprocjpegencoder {
 
 class JpegEncoder {
 
@@ -71,8 +71,10 @@ class JpegEncoder {
 
   snapshot_info in_buffer_;
 
+  void *libjpeg_interface_;
+
 };
 
-}; //namespace jpegencoder ends here
+}; //namespace reprocjpegencoder ends here
 
 }; //namespace qmmf ends here

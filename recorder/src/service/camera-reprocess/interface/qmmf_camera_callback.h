@@ -51,6 +51,8 @@ class IReprocessCallbacks : public virtual RefBase {
    virtual status_t GetBuffer(StreamBuffer* buffer) = 0;
 
    virtual void SetCallBacks(sp<IReprocessCallbacks>& cb) = 0;
+
+   virtual void ClearCallBacks() = 0;
 };
 
 class Callbacks : public virtual IReprocessCallbacks {
@@ -61,6 +63,8 @@ class Callbacks : public virtual IReprocessCallbacks {
    ~Callbacks() {}
 
    void SetCallBacks(sp<IReprocessCallbacks>& cb) override { cb_ = cb; }
+
+   void ClearCallBacks() override { cb_.clear(); }
 
    void ReprocessLibCallback(StreamBuffer in_buff,
                              StreamBuffer out_buff) override {

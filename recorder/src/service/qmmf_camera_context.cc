@@ -61,7 +61,6 @@ CameraContext::CameraContext()
       camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
-      current_snapshot_request_id_index_(0),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -84,9 +83,9 @@ CameraContext::~CameraContext() {
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void CameraContext::InitSupportedFPS(const CameraMetadata &static_meta) {
-  if (static_meta.exists(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)) {
-    camera_metadata_ro_entry_t entry = static_meta.find(
+void CameraContext::InitSupportedFPS() {
+  if (static_meta_.exists(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)) {
+    camera_metadata_entry_t entry = static_meta_.find(
         ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
     for (size_t i = 0 ; i < entry.count; i += 2) {
       if (entry.data.i32[i] == entry.data.i32[i+1]) {
@@ -99,9 +98,9 @@ void CameraContext::InitSupportedFPS(const CameraMetadata &static_meta) {
   }
 }
 
-bool CameraContext::IsInputSupported(const CameraMetadata &static_meta) {
-  if (static_meta.exists(ANDROID_REQUEST_MAX_NUM_INPUT_STREAMS)) {
-    camera_metadata_ro_entry entry = static_meta.find(
+bool CameraContext::IsInputSupported() {
+  if (static_meta_.exists(ANDROID_REQUEST_MAX_NUM_INPUT_STREAMS)) {
+    camera_metadata_entry entry = static_meta_.find(
         ANDROID_REQUEST_MAX_NUM_INPUT_STREAMS);
     if (0 < entry.data.i32[0]) {
       return true;
@@ -185,7 +184,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   uint32_t ret = NO_ERROR;
   bool match_camera_id = false;
   uint32_t num_camera = 0;
-  CameraMetadata static_meta;
 
   //Setup Camera3DeviceClient callbacks.
   memset(&camera_callbacks_, 0x0, sizeof camera_callbacks_);
@@ -233,11 +231,11 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   assert(ret == NO_ERROR);
   camera_id_ = camera_id;
 
-  ret = camera_device_->GetCameraInfo(camera_id, &static_meta);
+  ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
   assert(ret == NO_ERROR);
-  InitSupportedFPS(static_meta);
+  InitSupportedFPS();
   assert(!supported_fps_.isEmpty());
-  InitHFRModes(static_meta);
+  InitHFRModes();
 
   ret = CreateCaptureRequest(snapshot_request_,
                              CAMERA3_TEMPLATE_STILL_CAPTURE);
@@ -247,7 +245,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
   if (param.zsl_mode) {
 
-    if (!IsInputSupported(static_meta)) {
+    if (!IsInputSupported()) {
       QMMF_ERROR("%s:%s: Camera doesn't support input streams!",
                  TAG, __func__);
       ret = BAD_VALUE;
@@ -327,7 +325,7 @@ FAIL:
   return ret;
 }
 
-void CameraContext::InitHFRModes(CameraMetadata &static_meta) {
+void CameraContext::InitHFRModes() {
   uint32_t width_offset = 0;
   uint32_t height_offset = 1;
   uint32_t min_fps_offset = 2;
@@ -336,7 +334,7 @@ void CameraContext::InitHFRModes(CameraMetadata &static_meta) {
   uint32_t hfr_size = 5;
 
   camera_metadata_entry meta_entry =
-      static_meta.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+      static_meta_.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
   for (uint32_t i = 0; i < meta_entry.count; ++i) {
     uint8_t caps = meta_entry.data.u8[i];
     if (ANDROID_REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO ==
@@ -349,7 +347,7 @@ void CameraContext::InitHFRModes(CameraMetadata &static_meta) {
     return;
   }
 
-  meta_entry = static_meta.find(
+  meta_entry = static_meta_.find(
       ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS);
   for (uint32_t i = 0; i < meta_entry.count; i += hfr_size) {
     uint32_t width = meta_entry.data.i32[i + width_offset];
@@ -652,7 +650,8 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
   return NO_ERROR;
 }
 
-status_t CameraContext::CreateStream(const CameraStreamParam& param) {
+status_t CameraContext::CreateStream(const CameraStreamParam& param,
+                                     const VideoTrackExtraParam& extra_param) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   // 1. Check if streaming request already is going on, if yes then cancel it
@@ -822,13 +821,9 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  CameraMetadata static_meta;
-  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
-  assert(ret == NO_ERROR);
+  auto ret = NO_ERROR;
   if (!snapshot_request_.metadata.isEmpty()) {
     meta.clear();
-    // Append static meta data.
-    meta.append(static_meta);
     // Append default snapshot meta data.
     meta.append(snapshot_request_.metadata);
   } else {
@@ -1075,6 +1070,9 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   auto ret = camera_device_->CreateDefaultRequest(template_type,
       &request.metadata);
   assert(ret == NO_ERROR);
+
+  // Append static meta data.
+  request.metadata.append(static_meta_);
   return ret;
 }
 
@@ -1349,19 +1347,16 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
 
   QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
 
-  CameraMetadata static_meta;
   camera_metadata_entry_t entry;
-  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
-  assert(ret == NO_ERROR);
-
   bool supported = false;
   uint32_t w, h;
+
   switch (format) {
     case ImageFormat::kJPEG:
     //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available in static
     // meta.
-    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
-      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
+    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
+      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
       for (uint32_t i = 0 ; i < entry.count; i += 2) {
         w = entry.data.i32[i+0];
         h = entry.data.i32[i+1];
@@ -1375,8 +1370,8 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
     supported = true;
     break;
     case ImageFormat::kNV12:
-    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
         if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
@@ -1396,8 +1391,8 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
     break;
     case ImageFormat::kBayerRDI10BIT:
     case ImageFormat::kBayerRDI12BIT:
-    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-      entry = static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
       for (uint32_t i = 0 ; i < entry.count; i += 2) {
         w = entry.data.i32[i+0];
         h = entry.data.i32[i+1];
@@ -1596,14 +1591,10 @@ status_t CameraContext::ReprocCreate(CameraStreamParameters &stream_param,
   reproc_pipe_ = new ReprocessPipe(this);
   assert(reproc_pipe_.get() != nullptr);
 
-  CameraMetadata static_meta;
-  auto ret = camera_device_->GetCameraInfo(camera_id_, &static_meta);
-  assert(ret == NO_ERROR);
-
   const char* pipe_1_[] = {"JpegEncode"};
   const uint32_t pipe_size = sizeof(pipe_1_)/sizeof(pipe_1_[0]);
   auto reproc_id = reproc_pipe_->Create(stream_id, pipe_1_, pipe_size,
-                                        stream_param, &static_meta);
+                                        stream_param, &static_meta_);
   assert(reproc_id >= 0);
 
   reproc_pipe_->AddConsumer(GetConsumerIntf());
@@ -1625,16 +1616,12 @@ status_t CameraContext::ReprocDelete() {
 
 status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
   if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    if ( snapshot_request_id_.size() > 0 ) {
-      if ( snapshot_request_id_[current_snapshot_request_id_index_]
-          == result.resultExtras.requestId ) {
-        if(reproc_pipe_.get() != nullptr) {
-           ++current_snapshot_request_id_index_;
-           if (static_cast<uint32_t>(current_snapshot_request_id_index_) == sequence_cnt_) {
-             current_snapshot_request_id_index_ = 0;
-           }
+    for (auto id : snapshot_request_id_) {
+      if (id == result.resultExtras.requestId) {
+        QMMF_INFO("%s:%s: found snapshot request id %d", TAG,__func__, id);
+        if (reproc_pipe_.get() != nullptr) {
           reproc_pipe_->AddResult(const_cast<void*>
-                                 (static_cast<void const*>(&result)));
+                                    (static_cast<void const*>(&result)));
         }
       }
     }

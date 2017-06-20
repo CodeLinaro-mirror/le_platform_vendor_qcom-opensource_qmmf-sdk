@@ -36,6 +36,7 @@
 
 #include <camera/CameraMetadata.h>
 
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 
@@ -159,13 +160,29 @@ class Recorder {
                             const TrackCb &cb);
 
   /// \brief Creates an video track and associates it to the session uuid provided.
-  /// User must specify the unqiue track_id for the session. params must
+  /// User must specify the unique track_id for the session.
   ///
-  /// specify the video track characteristics such as codec, bitrate etc.
+  /// params must specify the video track characteristics such as codec,
+  /// bitrate etc.
   /// cb is used by the recorder to inform clients about track data
   /// availability and track specific async errors
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
                             const VideoTrackCreateParam &param,
+                            const TrackCb &cb);
+
+  /// \brief Creates an video track with additional configurations set in
+  /// extra_param container and associates it to the session uuid provided.
+  /// User must specify the unique track_id for the session.
+  ///
+  /// params must specify the video track characteristics such as codec,
+  /// bitrate etc.
+  /// extra_param may contain additional parameters for setting crop, source
+  /// surface dimensions, multi-camera mode, etc.
+  /// cb is used by the recorder to inform clients about track data
+  /// availability and track specific async errors
+  status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
+                            const VideoTrackCreateParam &param,
+                            const VideoTrackExtraParam& extra_param,
                             const TrackCb &cb);
 
   /// \brief Returns the track buffer back to recoder

@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <map>
+#include <cutils/properties.h>
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -42,6 +43,59 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
+
+#define DEFAULT_360_YUV_DUMP_FREQ       "200"
+#define DEFAULT_360_ITERATIONS_COUNT    "50"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_360_YUV_FRAMES        "persist.qmmf.360.gtest.dump.yuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_360_BITSTREAM         "persist.qmmf.360.gtest.dump.stm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_360_JPEG              "persist.qmmf.360.gtest.dump.jpg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_360_RAW               "persist.qmmf.360.gtest.dump.raw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_360_YUV_FREQ          "persist.qmmf.360.gtest.dump.frq"
+// Prop to set no of iterations
+#define PROP_360_N_ITERATIONS           "persist.qmmf.360.gtest.iter"
+
+typedef struct Stream360DumpInfo {
+  VideoFormat           format;
+  uint32_t              track_id;
+  int32_t               width;
+  int32_t               height;
+} Stream360DumpInfo;
+
+class Dump360BitStream {
+ public:
+  Dump360BitStream() : is_enabled_(false) {};
+
+  ~Dump360BitStream() {file_fds_.clear();}
+
+  bool IsEnabled() {return is_enabled_;}
+
+  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
+
+  int32_t GetFileFd(const uint32_t count)
+                   {assert(count > 0);
+                    assert(count <= file_fds_.size());
+                    return file_fds_[count-1];}
+
+  void Enable(const bool enable) {is_enabled_ = enable;}
+
+  status_t SetUp(const Stream360DumpInfo& dumpinfo);
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers,
+                const int32_t file_fd);
+
+  void Close(int32_t file_fd);
+
+  void CloseAll();
+ private:
+  bool is_enabled_;
+  std::vector<int32_t> file_fds_;
+};
 
 class Recorder360Gtest : public ::testing::Test {
  public:
@@ -60,8 +114,6 @@ class Recorder360Gtest : public ::testing::Test {
 
   int32_t DeInit();
 
-  void ClearSessions();
-
   void RecorderCallbackHandler(EventType event_type, void *event_data,
                                size_t event_data_size);
 
@@ -72,26 +124,27 @@ class Recorder360Gtest : public ::testing::Test {
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
-  void VideoTrackYUVDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                           buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackTwoEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                              buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
 
-  void VideoTrackThreeEncDataCb(uint32_t track_id, std::vector<BufferDescriptor>
-                                buffers, std::vector<MetaData> meta_buffers);
+  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
-
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers,
-                     int32_t file_fd);
 
   Recorder              recorder_;
   uint32_t              multicam_id_;
@@ -100,9 +153,11 @@ class Recorder360Gtest : public ::testing::Test {
   std::vector<uint32_t> camera_ids_;
   CameraStartParam      multicam_start_params_;
   RecorderCb            recorder_status_cb_;
-  int32_t               track1_bitstream_filefd_;
-  int32_t               track2_bitstream_filefd_;
-  int32_t               track3_bitstream_filefd_;
-  std::map <uint32_t , std::vector<uint32_t> > sessions_;
+
+  Dump360BitStream      dump_bitstream_;
+  bool                  is_dump_jpeg_enabled_;
+  bool                  is_dump_raw_enabled_;
+  bool                  is_dump_yuv_enabled_;
+  uint32_t              dump_yuv_freq_;
 };
 

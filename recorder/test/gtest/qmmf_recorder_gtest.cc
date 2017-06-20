@@ -42,6 +42,8 @@
 #include <random>
 #include <QCamera3VendorTags.h>
 #include <sys/time.h>
+#include <sys/time.h>
+#include <chrono>
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
@@ -5710,8 +5712,8 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   object_params.location = OverlayLocationType::kBottomRight;
   std::string str("/etc/overlay_test.rgba");
   str.copy(object_params.image_info.image_location, str.length());
-  object_params.image_info.width  = 451;
-  object_params.image_info.height = 109;
+  object_params.dst_rect.width  = 451;
+  object_params.dst_rect.height = 109;
   ret = recorder_.CreateOverlayObject(video_track_id, object_params,
                                       &static_img_id);
   assert(ret == 0);
@@ -6065,10 +6067,10 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   object_params.type  = OverlayType::kBoundingBox;
   object_params.color = COLOR_LIGHT_GREEN;
   // Dummy coordinates for test purpose.
-  object_params.bounding_box.start_x = 20;
-  object_params.bounding_box.start_y = 20;
-  object_params.bounding_box.width   = 400;
-  object_params.bounding_box.height  = 200;
+  object_params.dst_rect.start_x = 20;
+  object_params.dst_rect.start_y = 20;
+  object_params.dst_rect.width   = 400;
+  object_params.dst_rect.height  = 200;
   std::string bb_text("Test BBox..");
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
@@ -6085,21 +6087,17 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
                                            object_params);
     assert(ret == 0);
 
-    object_params.bounding_box.start_x = ((object_params.bounding_box.start_x +
-        object_params.bounding_box.width) < width) ?
-        object_params.bounding_box.start_x + 5 : 20;
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.start_x + 5 : 20;
 
-    object_params.bounding_box.width = ((object_params.bounding_box.start_x +
-        object_params.bounding_box.width) < width) ?
-        object_params.bounding_box.width + 5 : 200;
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.width + 5 : 200;
 
-    object_params.bounding_box.start_y = ((object_params.bounding_box.start_y +
-        object_params.bounding_box.height) < height) ?
-        object_params.bounding_box.start_y + 2 : 20;
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.start_y + 2 : 20;
 
-    object_params.bounding_box.height = ((object_params.bounding_box.start_y +
-        object_params.bounding_box.height) < height) ?
-        object_params.bounding_box.height + 2 : 100;
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.height + 2 : 100;
 
     ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
                                               object_params);
@@ -6235,10 +6233,10 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   object_params.type  = OverlayType::kBoundingBox;
   object_params.color = COLOR_LIGHT_GREEN;
   // Dummy coordinates for test purpose.
-  object_params.bounding_box.start_x = 40;
-  object_params.bounding_box.start_y = 40;
-  object_params.bounding_box.width   = 800;
-  object_params.bounding_box.height  = 400;
+  object_params.dst_rect.start_x = 40;
+  object_params.dst_rect.start_y = 40;
+  object_params.dst_rect.width   = 800;
+  object_params.dst_rect.height  = 400;
   std::string bb_text("Test BBox..");
   bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
 
@@ -6255,21 +6253,17 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
                                            object_params);
     assert(ret == 0);
 
-    object_params.bounding_box.start_x = ((object_params.bounding_box.start_x +
-        object_params.bounding_box.width) < width) ?
-        object_params.bounding_box.start_x + 5 : 20;
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.start_x + 5 : 20;
 
-    object_params.bounding_box.width = ((object_params.bounding_box.start_x +
-        object_params.bounding_box.width) < width) ?
-        object_params.bounding_box.width + 5 : 200;
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.width + 5 : 200;
 
-    object_params.bounding_box.start_y = ((object_params.bounding_box.start_y +
-        object_params.bounding_box.height) < height) ?
-        object_params.bounding_box.start_y + 2 : 20;
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.start_y + 2 : 20;
 
-    object_params.bounding_box.height = ((object_params.bounding_box.start_y +
-        object_params.bounding_box.height) < height) ?
-        object_params.bounding_box.height + 2 : 100;
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.height + 2 : 100;
 
     ret = recorder_.UpdateOverlayObjectParams(video_track_id, bbox_id,
                                               object_params);
@@ -6591,10 +6585,10 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   object_params.type  = OverlayType::kPrivacyMask;
   object_params.color = 0xFF9933FF; //Fill mask with color.
   // Dummy coordinates for test purpose.
-  object_params.bounding_box.start_x = 20;
-  object_params.bounding_box.start_y = 40;
-  object_params.bounding_box.width   = 1920/8;
-  object_params.bounding_box.height  = 1080/8;
+  object_params.dst_rect.start_x = 20;
+  object_params.dst_rect.start_y = 40;
+  object_params.dst_rect.width   = 1920/8;
+  object_params.dst_rect.height  = 1080/8;
 
   uint32_t mask_id;
   ret = recorder_.CreateOverlayObject(video_track_id, object_params,
@@ -6613,21 +6607,17 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
                                              object_params);
       assert(ret == 0);
 
-      object_params.bounding_box.start_x = (object_params.bounding_box.start_x +
-          object_params.bounding_box.width < 1920) ?
-          object_params.bounding_box.start_x + 20 : 20;
+      object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
+          object_params.dst_rect.width < 1920) ? object_params.dst_rect.start_x + 20 : 20;
 
-      object_params.bounding_box.width = (object_params.bounding_box.start_x +
-          object_params.bounding_box.width < 1920) ?
-          object_params.bounding_box.width + 50 : 1920/8;
+      object_params.dst_rect.width = (object_params.dst_rect.start_x +
+          object_params.dst_rect.width < 1920) ? object_params.dst_rect.width + 50 : 1920/8;
 
-      object_params.bounding_box.start_y = (object_params.bounding_box.start_y +
-          object_params.bounding_box.height < 1080) ?
-          object_params.bounding_box.start_y + 10 : 40;
+      object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
+          object_params.dst_rect.height < 1080) ? object_params.dst_rect.start_y + 10 : 40;
 
-      object_params.bounding_box.height = (object_params.bounding_box.start_y +
-          object_params.bounding_box.height < 1080) ?
-          object_params.bounding_box.height + 50 : 1080/8;
+      object_params.dst_rect.height = (object_params.dst_rect.start_y +
+          object_params.dst_rect.height < 1080) ? object_params.dst_rect.height + 50 : 1080/8;
 
       ret = recorder_.UpdateOverlayObjectParams(video_track_id, mask_id,
                                                 object_params);
@@ -6662,6 +6652,426 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   assert(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithStaticImageBlobOverlay:This test will apply static image blob
+*                                    overlay ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = camera_id_;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create Static Image blob type overlay.
+  OverlayParam object_params;
+  uint32_t static_img_id;
+  char * image_buffer;
+  uint32_t image_size;
+  int32_t image_width;
+  int32_t image_height;
+  // Create Image buffer blob type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kStaticImage;
+  object_params.location = OverlayLocationType::kRandom;
+  object_params.image_info.image_type = OverlayImageType::kBlobType;
+  object_params.dst_rect.start_x = 1200;
+  object_params.dst_rect.start_y = 580;
+  object_params.dst_rect.width   = 451;
+  object_params.dst_rect.height  = 109;
+
+  object_params.image_info.source_rect.start_x = 0;
+  object_params.image_info.source_rect.start_y = 0;
+  object_params.image_info.source_rect.width  = 451;
+  object_params.image_info.source_rect.height = 109;
+  object_params.image_info.buffer_updated = false;
+
+  image_width = object_params.image_info.source_rect.width;
+  image_height = object_params.image_info.source_rect.height;
+
+  FILE *image = nullptr;
+  image = fopen("/etc/overlay_test.rgba", "r");
+  if (!image) {
+   TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+   assert(image == nullptr);
+  }
+
+  object_params.image_info.image_size = image_width * image_height * 4;
+  image_size = object_params.image_info.image_size;
+
+  object_params.image_info.image_buffer =
+      reinterpret_cast<char *>(malloc(sizeof(char) * image_size));
+  image_buffer = object_params.image_info.image_buffer;
+
+  fread(object_params.image_info.image_buffer, sizeof(char),
+      object_params.image_info.image_size, image);
+
+  fclose(image);
+
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                      &static_img_id);
+
+  assert(ret == 0);
+  // Apply overlay object on video track.
+  ret = recorder_.SetOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  //Mimic moving Static Image blob type.
+  for (uint32_t j = 0; j < 100; ++j) {
+    ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
+                                           object_params);
+    assert(ret == 0);
+
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.start_x + 5 : 20;
+
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.width + 5 : 200;
+
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.start_y + 2 : 20;
+
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.height + 2 : 100;
+
+    object_params.image_info.image_size   = image_size;
+    object_params.image_info.image_buffer = image_buffer;
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width  = 451;
+    object_params.image_info.source_rect.height = 109;
+    object_params.image_info.buffer_updated = false;
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
+                                              object_params);
+    assert(ret == 0);
+    usleep(250000);
+  }
+
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  free(image_buffer);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithStaticImageBlobUpdateBufferOverlay:This test will apply static
+*         image blob overlay ontop of 1080 video and it's content is updating.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - CreateOverlayObject
+*   - SetOverlay
+*   loop Start {
+*   ------------------
+*    - GetOverlayObjectParams
+*    - UpdateOverlayObjectParams
+*   ------------------
+*   } loop End
+*   - RemoveOverlay
+*   - DeleteOverlayObject
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id   = camera_id_;
+  video_track_param.width       = width;
+  video_track_param.height      = height;
+  video_track_param.frame_rate  = 30;
+  video_track_param.format_type = format_type;
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      format_type,
+      video_track_id,
+      width,
+      height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Create Static Image blob type overlay.
+  OverlayParam object_params;
+  uint32_t static_img_id;
+  char * image_buffer;
+  uint32_t image_size;
+  int32_t image_width;
+  int32_t image_height;
+  // Create Image buffer blob type overlay.
+  memset(&object_params, 0x0, sizeof object_params);
+  object_params.type = OverlayType::kStaticImage;
+  object_params.location = OverlayLocationType::kRandom;
+  object_params.image_info.image_type = OverlayImageType::kBlobType;
+  object_params.dst_rect.start_x = 1200;
+  object_params.dst_rect.start_y = 800;
+  object_params.dst_rect.width   = 451;
+  object_params.dst_rect.height  = 109;
+
+  object_params.image_info.source_rect.start_x = 0;
+  object_params.image_info.source_rect.start_y = 0;
+  object_params.image_info.source_rect.width   = 451;
+  object_params.image_info.source_rect.height  = 109;
+  object_params.image_info.buffer_updated = false;
+
+  image_width = object_params.image_info.source_rect.width;
+  image_height = object_params.image_info.source_rect.height;
+
+  object_params.image_info.image_size = image_width * image_height * 4;
+  image_size = object_params.image_info.image_size;
+
+  object_params.image_info.image_buffer =
+      reinterpret_cast<char *>(malloc(sizeof(char) * image_size));
+  image_buffer = object_params.image_info.image_buffer;
+
+  DrawOverlay(object_params.image_info.image_buffer,
+      object_params.image_info.source_rect.width,
+      object_params.image_info.source_rect.height);
+
+  ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                      &static_img_id);
+
+  assert(ret == 0);
+  // Apply overlay object on video track.
+  ret = recorder_.SetOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  //Mimic movement and buffer update for static image blob type.
+  for (uint32_t j = 0; j < 100; ++j) {
+    ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
+                                           object_params);
+    assert(ret == 0);
+
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.start_x + 5 : 20;
+
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+        object_params.dst_rect.width) < width) ? object_params.dst_rect.width + 5 : 200;
+
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.start_y + 2 : 20;
+
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+        object_params.dst_rect.height) < height) ? object_params.dst_rect.height + 2 : 100;
+
+    object_params.image_info.image_size   = image_size;
+    object_params.image_info.image_buffer = image_buffer;
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width  = 451;
+    object_params.image_info.source_rect.height = 109;
+    object_params.image_info.buffer_updated = true;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+      object_params.image_info.source_rect.width,
+      object_params.image_info.source_rect.height);
+
+    ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
+                                              object_params);
+    assert(ret == 0);
+    usleep(500000);
+  }
+
+  // Remove overlay object from video track.
+  ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, static_img_id);
+  assert(ret == 0);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  free(image_buffer);
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -9508,17 +9918,17 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
       ret = RecorderGtest::recorder_.GetOverlayObjectParams(face_track_id_,
           face_bbox_id_[i], object_params);
       assert(ret == 0);
-      object_params.bounding_box.start_x = info.face_rect[i].left;
-      object_params.bounding_box.width = info.face_rect[i].width;
-      if (object_params.bounding_box.width <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.bounding_box.width);
-        object_params.bounding_box.width = 1;
+      object_params.dst_rect.start_x = info.face_rect[i].left;
+      object_params.dst_rect.width = info.face_rect[i].width;
+      if (object_params.dst_rect.width <= 0) {
+        TEST_INFO("invalid width(%d)", object_params.dst_rect.width);
+        object_params.dst_rect.width = 1;
       }
-      object_params.bounding_box.start_y = info.face_rect[i].top;
-      object_params.bounding_box.height = info.face_rect[i].height;
-      if (object_params.bounding_box.height <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.bounding_box.height);
-        object_params.bounding_box.height = 1;
+      object_params.dst_rect.start_y = info.face_rect[i].top;
+      object_params.dst_rect.height = info.face_rect[i].height;
+      if (object_params.dst_rect.height <= 0) {
+        TEST_INFO("invalid width(%d)", object_params.dst_rect.height);
+        object_params.dst_rect.height = 1;
       }
       ret = RecorderGtest::recorder_.UpdateOverlayObjectParams(face_track_id_,
           face_bbox_id_[i], object_params);
@@ -9541,10 +9951,10 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
         memset(&object_params, 0x0, sizeof object_params);
         object_params.type  = OverlayType::kBoundingBox;
         object_params.color = COLOR_LIGHT_GREEN;
-        object_params.bounding_box.start_x = info.face_rect[i].left;
-        object_params.bounding_box.start_y = info.face_rect[i].top;
-        object_params.bounding_box.width   = info.face_rect[i].width;
-        object_params.bounding_box.height  = info.face_rect[i].height;
+        object_params.dst_rect.start_x = info.face_rect[i].left;
+        object_params.dst_rect.start_y = info.face_rect[i].top;
+        object_params.dst_rect.width   = info.face_rect[i].width;
+        object_params.dst_rect.height  = info.face_rect[i].height;
         bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
         ret = recorder_.CreateOverlayObject(face_track_id_,
                  object_params, &bbox_id);
@@ -9557,6 +9967,135 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
   }
   face_overlay_lock_.unlock();
   info.face_rect.clear();
+}
+
+status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
+
+  TEST_DBG("%s: Enter", __func__);
+  status_t ret = 0;
+
+#if USE_SKIA
+
+#elif USE_CAIRO
+  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
+                                                    (data),
+                                                    CAIRO_FORMAT_ARGB32, width,
+                                                    height, width * 4);
+  assert (cr_surface_ != nullptr);
+
+  cr_context_ = cairo_create (cr_surface_);
+  assert (cr_context_ != nullptr);
+#endif
+
+  struct timeval tv;
+  time_t now_time;
+  struct tm *time;
+  char date_buf[40];
+  char time_buf[40];
+
+  gettimeofday(&tv, NULL);
+  now_time = tv.tv_sec;
+  time = localtime(&now_time);
+
+  strftime(date_buf, sizeof date_buf, "%Y/%m/%d", time);
+  strftime(time_buf, sizeof time_buf, "%H:%M:%S", time);
+
+  TEST_INFO("%s: date:time (%s:%s)", __func__, date_buf, time_buf);
+
+  double x_date, x_time, y_date, y_time;
+  x_date = x_time = y_date = y_time = 0.0;
+
+  ClearSurface();
+
+#if USE_SKIA
+
+#elif USE_CAIRO
+  cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
+                          CAIRO_FONT_WEIGHT_BOLD);
+  cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
+  cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+
+  cairo_font_extents_t font_extent;
+  cairo_font_extents (cr_context_, &font_extent);
+  TEST_DBG("%s: ascent=%f, descent=%f, height=%f, max_x_advance=%f,"
+      " max_y_advance = %f", __func__, font_extent.ascent, font_extent.descent,
+       font_extent.height, font_extent.max_x_advance,
+       font_extent.max_y_advance);
+
+  cairo_text_extents_t date_text_extents;
+  cairo_text_extents (cr_context_, date_buf, &date_text_extents);
+
+  TEST_DBG("%s: Date: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
+      " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
+      date_text_extents.x_bearing, date_text_extents.y_bearing,
+      date_text_extents.width, date_text_extents.height,
+      date_text_extents.x_advance, date_text_extents.y_advance);
+
+  cairo_font_options_t *options;
+  options = cairo_font_options_create ();
+  cairo_font_options_set_antialias (options, CAIRO_ANTIALIAS_DEFAULT);
+  cairo_set_font_options (cr_context_, options);
+  cairo_font_options_destroy (options);
+
+  //(0,0) is at topleft corner of draw buffer.
+  y_date = height/2.0; // height is buffer height.
+  y_date = std::max(y_date, date_text_extents.height - (font_extent.descent/2.0));
+  cairo_move_to (cr_context_, x_date, y_date);
+
+  // Draw date.
+  RGBAValues text_color;
+  memset(&text_color, 0x0, sizeof text_color);
+  ExtractColorValues(0x0000CCFF, &text_color);
+  cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
+                         text_color.blue, text_color.alpha);
+
+  cairo_show_text (cr_context_, date_buf);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+
+  cairo_text_extents_t time_text_extents;
+  cairo_text_extents (cr_context_, time_buf, &time_text_extents);
+  TEST_DBG("%s: Time: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
+    " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
+    time_text_extents.x_bearing, time_text_extents.y_bearing,
+    time_text_extents.width, time_text_extents.height,
+    time_text_extents.x_advance, time_text_extents.y_advance);
+  // Calculate the x_time to draw the time text extact middle of buffer.
+  // Use x_width which usally few pixel less than the width of the actual
+  // drawn text.
+  x_time = (width - time_text_extents.width)/2.0; // width_ is buffer width.
+  y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
+  cairo_move_to (cr_context_, x_time, y_time);
+  cairo_show_text (cr_context_, time_buf);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+
+  cairo_surface_flush(cr_surface_);
+#endif
+
+  TEST_DBG("%s: Exit", __func__);
+  return ret;
+}
+
+void RecorderGtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
+
+  color->red   = ((hex_color >> 24) & 0xff) / 255.0;
+  color->green = ((hex_color >> 16) & 0xff) / 255.0;
+  color->blue  = ((hex_color >> 8) & 0xff) / 255.0;
+  color->alpha = ((hex_color) & 0xff) / 255.0;
+}
+
+void RecorderGtest::ClearSurface() {
+  RGBAValues bg_color;
+  memset(&bg_color, 0x0, sizeof bg_color);
+#if USE_SKIA
+
+#elif USE_CAIRO
+  cairo_set_operator(cr_context_, CAIRO_OPERATOR_CLEAR);
+  cairo_paint(cr_context_);
+  cairo_surface_flush(cr_surface_);
+  cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+#endif
 }
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
