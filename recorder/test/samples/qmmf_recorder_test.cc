@@ -91,7 +91,8 @@ RecorderTest::RecorderTest() :
             snapshot_choice_(SnapshotType::kNone),
             num_images_(0),
             aec_converged_(false),
-            ltr_count_(0) {
+            ltr_count_(0),
+            camera_error_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
@@ -1473,19 +1474,23 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
     for (uint32_t i = 0; i < snapshot_info.count; i++) {
       meta_array.push_back(meta);
     }
-
-    TEST_INFO("CaptureImage size %dx%d images count %d\n",
-              image_param.width,image_param.height,snapshot_info.count);
-    ret = recorder_.CaptureImage(snapshot_info.camera_id, image_param,
-                                 snapshot_info.count,
-                                 meta_array, cb);
-    if(ret != 0) {
-      ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
-    }
-
+    int32_t repeat = snapshot_info.count;
     bool is_cancel_snapshot = false;
     is_cancel_snapshot = is_test_cancel_snapshot();
-    if (is_cancel_snapshot) {
+
+    do {
+      {
+        std::lock_guard<std::mutex> lk(error_lock_);
+        camera_error_ = false;
+      }
+      TEST_INFO("CaptureImage size %dx%d images count %d\n",
+                image_param.width,image_param.height,snapshot_info.count);
+      ret = recorder_.CaptureImage(snapshot_info.camera_id, image_param,
+                                   snapshot_info.count,
+                                   meta_array, cb);
+      if(ret != 0) {
+        ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
+      }
       std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
       burst_snapshot_count_ = snapshot_info.count;
       uint32_t wait_time_secs = get_snapshot_cb_wait_time();
@@ -1495,7 +1500,17 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
            std::cv_status::timeout) {
            TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
       }
+      {
+        std::lock_guard<std::mutex> lk(error_lock_);
+        if (!camera_error_) {
+          TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+          break;
+        }
+      }
+      TEST_ERROR("%s:%s Restart TakeSnapshot", TAG, __func__);
+    } while (repeat-- > 0);
 
+    if (is_cancel_snapshot) {
       ret = CancelTakeSnapshot();
       if (ret != 0) {
         TEST_ERROR("%s:%s CancelTakeSnapshot Failed", TAG, __func__);
@@ -1669,15 +1684,30 @@ status_t RecorderTest::TakeSnapshot() {
       for (uint32_t i = 0; i < num_images_; i++) {
         meta_array.push_back(meta);
       }
-      ret = recorder_.CaptureImage(camera_id_, image_param, num_images_,
-                                   meta_array, cb);
-      if (ret != 0) {
-        ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
-      }
-      TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
-      unique_lock < mutex > lock(callback_lock_);
-      signal_cb_.wait(lock);
-      TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+
+      int32_t repeat = num_images_;
+      do {
+        {
+          std::lock_guard<std::mutex> lock(error_lock_);
+          camera_error_ = false;
+        }
+        ret = recorder_.CaptureImage(camera_id_, image_param, num_images_,
+                                     meta_array, cb);
+        if (ret != 0) {
+          ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
+        }
+        TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
+        unique_lock < mutex > lock(callback_lock_);
+        signal_cb_.wait(lock);
+        TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+        {
+          std::lock_guard<std::mutex> lock(error_lock_);
+          if (!camera_error_) {
+            TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+            break;
+          }
+        }
+      } while(repeat-- > 0);
     }
   } while ((input != '0'));
 
@@ -3696,6 +3726,10 @@ void RecorderTest::RecorderEventCallbackHandler(EventType event_type,
     // qmmf-server runs as a daemon and gets restarted automatically, on death
     // event application can cleanup all its resources and connect again.
     TEST_WARN("%s:%s: Recorder Service died!", TAG, __func__);
+  } else if (event_type == EventType::kCameraError) {
+    TEST_INFO("%s:%s: Found CameraError", TAG, __func__);
+    std::lock_guard<std::mutex> lock(error_lock_);
+    camera_error_ = true;
   }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
