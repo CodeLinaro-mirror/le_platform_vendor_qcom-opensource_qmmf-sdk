@@ -301,6 +301,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   status_t InitLibrary();
   status_t DeInitLibrary();
+  status_t FlushLibrary();
   status_t Configlibrary(Vector<StreamBuffer> &input_buffers,
                          Vector<StreamBuffer> &output_buffers);
   status_t ProcessBuffers(Vector<StreamBuffer> &input_buffers,
@@ -311,6 +312,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
                          qmmf_alg_buffer_t &img_buffer,
                          const StreamBuffer *buffer);
+  status_t UnregisterBuffers(std::set<int32_t> buffer_fds);
 
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
@@ -328,13 +330,15 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // Map of the stream buffers that are given to the library for processing.
   std::map<buffer_handle_t, StreamBuffer> process_buffers_map_;
 
-  // List containing all gralloc buffers that have been registered
-  // by the library.
-  std::set<buffer_handle_t> registered_buffers_;
+  // List containing all gralloc buffers file descriptors that have been
+  // registered by the library.
+  std::set<int32_t> registered_buffers_;
 
   // The maximum interval in which two frames are thought of as syncable.
   // It is calculated, based on the frame rate.
   int32_t timestamp_max_delta_;
+
+  std::mutex               register_buffer_lock_;
 
   Mutex                    buffers_lock_;
   Condition                wait_for_buffers_;

@@ -1332,6 +1332,7 @@ StitchingBase::~StitchingBase() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   DeInitLibrary();
+
   unsynced_buffer_map_.clear();
   process_buffers_map_.clear();
   registered_buffers_.clear();
@@ -1616,9 +1617,7 @@ status_t StitchingBase::StopFrameSync() {
     }
   }
   // Flush all pending buffers from the library.
-  if (nullptr != stitch_lib_.handle) {
-    stitch_lib_.flush(stitch_lib_.context);
-  }
+  FlushLibrary();
   // Wait for all currently processed buffers to return.
   Mutex::Autolock lock(buffers_lock_);
   while (!process_buffers_map_.empty()) {
@@ -1798,13 +1797,24 @@ status_t StitchingBase::DeInitLibrary() {
   return ret;
 }
 
+status_t StitchingBase::FlushLibrary() {
+
+  if (nullptr == stitch_lib_.handle) {
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  stitch_lib_.flush(stitch_lib_.context);
+
+  return NO_ERROR;
+}
+
 status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
                                       Vector<StreamBuffer> &output_buffers) {
 
   status_t ret = NO_ERROR;
 
   if (nullptr == stitch_lib_.handle) {
-    QMMF_ERROR("%s:%s: Invalid IL lib handle!", TAG, __func__);
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
     return BAD_VALUE;
   }
 
@@ -1870,7 +1880,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   const StreamBuffer *buffer = nullptr;
 
   if (nullptr == stitch_lib_.handle) {
-    QMMF_ERROR("%s:%s: Invalid IL lib handle!", TAG, __func__);
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
     return BAD_VALUE;
   }
 
@@ -1942,8 +1952,9 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     ret = stitch_lib_.register_bufs(stitch_lib_.context, reg_buf_list);
     if (QMMF_ALG_SUCCESS != ret) {
       // Remove the failed buffers from the list with registered buffers.
+      std::lock_guard<std::mutex> lock(register_buffer_lock_);
       for (uint32_t idx = 0; idx < reg_buf_list.cnt; ++idx) {
-        registered_buffers_.erase(reg_buf_list.bufs[idx].handle);
+        registered_buffers_.erase(reg_buf_list.bufs[idx].fd);
       }
       QMMF_ERROR("%s:%s: Register buffers failed, err(%d)", TAG, __func__, ret);
       goto EXIT;
@@ -2065,9 +2076,10 @@ status_t StitchingBase::PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
   img_buffer.size   = buffer->size;
   img_buffer.handle = buffer->handle;
 
-  if (registered_buffers_.find(buffer->handle) == registered_buffers_.end()) {
+  std::lock_guard<std::mutex> lock(register_buffer_lock_);
+  if (registered_buffers_.find(buffer->fd) == registered_buffers_.end()) {
     // Add buffer to the list, later it will be removed in case register fails.
-    registered_buffers_.insert(buffer->handle);
+    registered_buffers_.insert(buffer->fd);
 
     // Increment the count of the buffers that need to be registered.
     ++reg_buf_list.cnt;
@@ -2090,12 +2102,48 @@ status_t StitchingBase::PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
   return NO_ERROR;
 }
 
+status_t StitchingBase::UnregisterBuffers(std::set<int32_t> buffer_fds) {
+
+  std::lock_guard<std::mutex> lock(register_buffer_lock_);
+
+  if (nullptr == stitch_lib_.handle) {
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  qmmf_alg_buf_list_t reg_buf_list {};
+  reg_buf_list.cnt = buffer_fds.size();
+  reg_buf_list.bufs = static_cast<qmmf_alg_buffer_t*>(
+      calloc(reg_buf_list.cnt, sizeof(*reg_buf_list.bufs)));
+  if (nullptr == reg_buf_list.bufs) {
+    QMMF_ERROR("%s:%s: Failed to allocate buffer memory", TAG, __func__);
+    return NO_MEMORY;
+  }
+
+  uint32_t idx = 0;
+  for (auto const& buffer_fd : buffer_fds) {
+    reg_buf_list.bufs[idx++].fd = buffer_fd;
+  }
+
+  stitch_lib_.unregister_bufs(stitch_lib_.context, reg_buf_list);
+  free(reg_buf_list.bufs);
+
+  return NO_ERROR;
+}
 
 void StitchingBase::ProcessCallback(qmmf_alg_cb_t *cb_data) {
 
   QMMF_DEBUG("%s:%s: Return status (%d)", TAG, __func__, cb_data->status);
 
   StitchingBase *algo = static_cast<StitchingBase *> (cb_data->user_data);
+  if (algo->work_thread_name_->contains("SnapshotStitching")) {
+    std::set<int32_t> buffer_fds = { cb_data->buf->fd };
+    auto ret = algo->UnregisterBuffers(buffer_fds);
+    if (NO_ERROR == ret) {
+      std::lock_guard<std::mutex> lock(algo->register_buffer_lock_);
+      algo->registered_buffers_.erase(cb_data->buf->fd);
+    }
+  }
   algo->ReturnProcessedBuffer(cb_data->buf->handle, cb_data->status);
 }
 
