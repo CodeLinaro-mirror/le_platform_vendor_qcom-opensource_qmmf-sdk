@@ -63,8 +63,7 @@ MultiCameraManager::MultiCameraManager()
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
-    client_snapshot_cb_(nullptr),
-    jpeg_memory_pool_(nullptr) {}
+    client_snapshot_cb_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
@@ -156,6 +155,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Jpeg encoder's memory pool initialization failed!",
         TAG, __func__);
+    jpeg_memory_pool_.clear();
     jpeg_encoder_.clear();
     return NO_INIT;
   }
@@ -200,7 +200,8 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     jpeg_encoder_->Delete();
     jpeg_encoding_enabled_ = false;
   }
-  delete jpeg_memory_pool_;
+  jpeg_memory_pool_.clear();
+  jpeg_encoder_.clear();
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
