@@ -150,7 +150,7 @@ class DumpBitStream {
 
 class RecorderGtest : public ::testing::Test {
  public:
-  RecorderGtest() : recorder_(), face_bbox_active_(false) {};
+  RecorderGtest() : recorder_(), face_bbox_active_(false), camera_error_(false) {};
 
   ~RecorderGtest() {};
 
@@ -270,5 +270,6 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+  bool                  camera_error_;
 };
 

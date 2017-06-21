@@ -547,6 +547,7 @@ class RecorderTest {
   std::mutex               snapshot_wait_lock_;
   std::condition_variable  snapshot_wait_signal_;
   uint32_t                 burst_snapshot_count_;
+  bool                     camera_error_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
