@@ -129,13 +129,14 @@ class RecorderImpl {
                               size_t param_size);
 
   status_t CaptureImage(const uint32_t client_id,
-                        const uint32_t camera_id, const ImageParam &param,
+                        const uint32_t camera_id,
+                        const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta);
 
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
-                              const ImageCaptureConfig &config);
+                              const ImageConfigParam &config);
 
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id);

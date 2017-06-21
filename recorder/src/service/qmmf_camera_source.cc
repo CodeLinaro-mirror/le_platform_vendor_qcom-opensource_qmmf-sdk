@@ -250,24 +250,52 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   }
   assert(camera.get() != nullptr);
 
+  auto ret = camera->SetUpCapture(param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: SetUpCapture Failed!", TAG, __func__);
+    return ret;
+  }
   client_snapshot_cb_ = cb;
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-
-  auto ret = camera->ConfigImageCapture(param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
-    return ret;
-  }
-
   ret = camera->CaptureImage(num_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
     return ret;
   }
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return ret;
+  return NO_ERROR;
+}
+
+status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
+                                          const ImageConfigParam &config) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  bool match = false;
+  sp<CameraInterface> camera;
+  for (uint8_t i = 0; i < camera_map_.size(); i++) {
+    if (camera_id == camera_map_.keyAt(i)) {
+        match = true;
+        camera = camera_map_.valueAt(i);
+        break;
+    }
+  }
+  if (!match) {
+    QMMF_ERROR("%s:%s: Invalid Camera Id, It is different then camera is open"
+        "with", TAG, __func__);
+    return BAD_VALUE;
+  }
+  assert(camera.get() != nullptr);
+
+  auto ret = camera->ConfigImageCapture(config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ConfigImageCapture Failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
 }
 
 status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
@@ -287,8 +315,8 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
     QMMF_ERROR("%s:%s: Invalid Camera Id(%d)!", TAG, __func__, camera_id);
     return BAD_VALUE;
   }
-
   assert(camera.get() != nullptr);
+
   auto ret = camera->CancelCaptureImage();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CancelCaptureImage Failed!", TAG, __func__);

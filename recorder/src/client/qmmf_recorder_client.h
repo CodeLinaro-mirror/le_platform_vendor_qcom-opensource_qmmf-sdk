@@ -113,10 +113,10 @@ class RecorderClient {
                         const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
-                        const ImageCaptureCb& cb);
+                        const ImageCaptureCb &cb);
 
   status_t ConfigImageCapture(const uint32_t camera_id,
-                              const ImageCaptureConfig &config);
+                              const ImageConfigParam &config);
 
   status_t CancelCaptureImage(const uint32_t camera_id);
 

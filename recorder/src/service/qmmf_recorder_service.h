@@ -144,14 +144,15 @@ class RecorderService : public BnInterface<IRecorderService> {
                               void *param,
                               size_t param_size) override;
 
-  status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+  status_t CaptureImage(const uint32_t client_id,
+                        const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta) override;
 
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
-                              const ImageCaptureConfig &config) override;
+                              const ImageConfigParam &config) override;
 
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id) override;
