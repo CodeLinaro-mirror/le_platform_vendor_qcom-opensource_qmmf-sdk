@@ -20,7 +20,7 @@ LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
 LOCAL_SRC_FILES := qmmf_recorder.cc
 LOCAL_SRC_FILES += qmmf_recorder_client.cc
 LOCAL_SRC_FILES += qmmf_recorder_client_ion.cc
-LOCAL_SRC_FILES += qmmf_video_track_extra_param.cc
+LOCAL_SRC_FILES += qmmf_recorder_extra_param.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata libcamera_client
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libbinder

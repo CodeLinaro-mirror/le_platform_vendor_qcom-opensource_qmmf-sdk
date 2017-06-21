@@ -208,7 +208,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         VideoTrackCreateParam video_track_param;
         memset(&video_track_param, 0x0, sizeof video_track_param);
         memcpy(&video_track_param, blob.data(), blob_size);
-        VideoTrackExtraParam extra_param(extra_blob.data(), extra_blob_size);
+        VideoExtraParam extra_param(extra_blob.data(), extra_blob_size);
         ret = CreateVideoTrack(client_id, session_id, track_id,
                                video_track_param, extra_param);
         blob.release();
@@ -910,8 +910,7 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
                                            const VideoTrackCreateParam& param,
-                                           const VideoTrackExtraParam&
-                                           extra_param) {
+                                           const VideoExtraParam& extra_param) {
   QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
 
   if (!IsClientValid(client_id)) {

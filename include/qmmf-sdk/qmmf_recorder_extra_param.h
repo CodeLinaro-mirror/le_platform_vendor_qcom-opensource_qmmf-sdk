@@ -29,11 +29,13 @@
 
 #pragma once
 
-#include <errno.h>
-#include <type_traits>
-#include <map>
-#include <vector>
+#include <cerrno>
+#include <cstdint>
+#include <memory>
 #include <cstring>
+#include <type_traits>
+#include <vector>
+#include <map>
 
 #include <utils/Log.h>
 
@@ -41,6 +43,9 @@ namespace qmmf {
 
 namespace recorder {
 
+/**
+ * Base structure for all data structures.
+ */
 struct DataTagBase {
  private:
   uint32_t tag_id;
@@ -52,26 +57,48 @@ struct DataTagBase {
   }
 };
 
-class VideoTrackExtraParam {
+class ExtraParam {
  public:
-  VideoTrackExtraParam();
-  VideoTrackExtraParam(const void *data, const size_t &size);
-  VideoTrackExtraParam(const VideoTrackExtraParam &other);
+  ExtraParam();
+  ExtraParam(const void *data, const size_t &size);
+  ExtraParam(const ExtraParam &other);
 
-  ~VideoTrackExtraParam();
+  ~ExtraParam();
 
-  VideoTrackExtraParam &operator=(const VideoTrackExtraParam &other);
+  ExtraParam &operator=(const ExtraParam &other);
 
+  /**
+   * Remove all data from the container.
+   */
   int32_t Clear();
 
+  /**
+   * Check if the container is empty
+   */
   bool IsEmpty() const;
 
+  /**
+   * Check if the container has any data for the given tag.
+   */
   bool Exists(uint32_t tag) const;
 
+  /**
+   * Total count of the tags recorded in the container.
+   */
   size_t TagCount() const;
 
+  /**
+   * Number entries of the specified data tag in the container.
+   */
   size_t EntryCount(uint32_t tag) const;
 
+  /**
+   * Add the data structure associated with the tag ID at the the given
+   * entry position. The default entry position is the first(0).
+   * If a tag entry with this number already exists in the container its data
+   * structure will be overwritten with the new one.
+   * It is required for the entry numbers to be subsequent.
+   */
   template<typename T>
   int32_t Update(uint32_t tag, const T &data, uint32_t entry = 0) {
 
@@ -92,6 +119,10 @@ class VideoTrackExtraParam {
     return 0;
   }
 
+  /**
+   * Retrieve the data structure associated with the tag ID at the the given
+   * entry position. The default entry position is the first(0).
+   */
   template<typename T>
   int32_t Fetch(uint32_t tag, T &data, uint32_t entry = 0) const {
 
@@ -112,8 +143,14 @@ class VideoTrackExtraParam {
     return 0;
   }
 
+  /**
+   * Remove a data tag entry from the container.
+   */
   int32_t Remove(uint32_t tag, uint32_t entry);
 
+  /**
+   * Completely erase a tag and all of its entries from the container.
+   */
   int32_t Erase(uint32_t tag);
 
   /**
@@ -126,7 +163,7 @@ class VideoTrackExtraParam {
    * Give raw memory pool ownership to the caller.
    * The new owner is responsible to free the allocated memory via delete.
    */
-  void* Release();
+  std::shared_ptr<void> ReleaseOwnership();
 
   /**
    * Temporally take reference pointer to the raw memory pool.
@@ -150,7 +187,10 @@ class VideoTrackExtraParam {
  private:
   typedef uint8_t byte_t;
 
-  /*
+  /**
+   * Descriptor of a tag data structure in the raw memory pool.
+   * It is attached to the beginning of each structure recorded in the memory.
+   *
    * @tag_id: Unique ID describing the data structure type.
    * @entry_id: Subsequent number of the entry in the same tag_id.
    * @data_size: Size of the actual data structure. The data is located at an
@@ -243,11 +283,37 @@ class VideoTrackExtraParam {
   // Lock meant for preventing write/delete operations.
   mutable bool locked_;
 
-  // Tag and vector with memory offset entries where the actual data is stored.
+  // Tag map with memory offset entries where the actual data is stored.
   std::map<uint32_t, std::vector<uintptr_t> > data_map_;
   std::vector<byte_t> data_buffer_;
 
   static const size_t kDataDescSize = sizeof(DataDecriptor);
+
+};
+
+class VideoExtraParam : public ExtraParam {
+ public:
+  VideoExtraParam()
+      : ExtraParam() {};
+
+  VideoExtraParam(const void *data, const size_t &size)
+      : ExtraParam(data, size) {};
+
+  VideoExtraParam(const VideoExtraParam &other)
+      : ExtraParam(static_cast<ExtraParam>(other)) {};
+
+};
+
+class ImageExtraParam : public ExtraParam {
+ public:
+  ImageExtraParam()
+      : ExtraParam() {};
+
+  ImageExtraParam(const void *data, const size_t &size)
+      : ExtraParam(data, size) {};
+
+  ImageExtraParam(const ImageExtraParam &other)
+  : ExtraParam(static_cast<ExtraParam>(other)) {};
 
 };
 

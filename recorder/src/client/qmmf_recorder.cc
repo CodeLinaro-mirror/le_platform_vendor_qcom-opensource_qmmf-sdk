@@ -206,7 +206,7 @@ status_t Recorder::CreateVideoTrack(const uint32_t session_id,
 status_t Recorder::CreateVideoTrack(const uint32_t session_id,
                                     const uint32_t track_id,
                                     const VideoTrackCreateParam& param,
-                                    const VideoTrackExtraParam& extra_param,
+                                    const VideoExtraParam& extra_param,
                                     const TrackCb& cb) {
 
   assert(recorder_client_ != NULL);

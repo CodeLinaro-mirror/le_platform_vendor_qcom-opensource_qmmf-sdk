@@ -29,24 +29,24 @@
 
 #include <algorithm>
 
-#include "qmmf-sdk/qmmf_video_track_extra_param.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-VideoTrackExtraParam::VideoTrackExtraParam()
+ExtraParam::ExtraParam()
     : locked_(false) {
 
 }
 
-VideoTrackExtraParam::VideoTrackExtraParam(const void *data, const size_t &size)
+ExtraParam::ExtraParam(const void *data, const size_t &size)
     : locked_(false) {
 
   Acquire(data, size);
 }
 
-VideoTrackExtraParam::VideoTrackExtraParam(const VideoTrackExtraParam &other)
+ExtraParam::ExtraParam(const ExtraParam &other)
     : locked_(false) {
 
   const void *source_data = other.GetAndLock();
@@ -54,13 +54,12 @@ VideoTrackExtraParam::VideoTrackExtraParam(const VideoTrackExtraParam &other)
   other.ReturnAndUnlock(source_data);
 }
 
-VideoTrackExtraParam::~VideoTrackExtraParam() {
+ExtraParam::~ExtraParam() {
 
   Clear();
 }
 
-VideoTrackExtraParam &VideoTrackExtraParam::operator=(
-    const VideoTrackExtraParam &other) {
+ExtraParam &ExtraParam::operator=(const ExtraParam &other) {
 
   const void *source_data = other.GetAndLock();
   if (source_data != reinterpret_cast<const void*>(data_buffer_.data())) {
@@ -71,7 +70,7 @@ VideoTrackExtraParam &VideoTrackExtraParam::operator=(
   return *this;
 }
 
-int32_t VideoTrackExtraParam::Clear() {
+int32_t ExtraParam::Clear() {
 
   if (locked_) {
     ALOGE("%s: Can't clear a locked Container!", __func__);
@@ -83,28 +82,28 @@ int32_t VideoTrackExtraParam::Clear() {
   return 0;
 }
 
-bool VideoTrackExtraParam::IsEmpty() const {
+bool ExtraParam::IsEmpty() const {
 
   return data_map_.empty();
 }
 
-bool VideoTrackExtraParam::Exists(uint32_t tag) const {
+bool ExtraParam::Exists(uint32_t tag) const {
 
   return (data_map_.find(tag) != data_map_.end());
 }
 
-size_t VideoTrackExtraParam::TagCount() const {
+size_t ExtraParam::TagCount() const {
 
   return data_map_.size();
 }
 
-size_t VideoTrackExtraParam::EntryCount(uint32_t tag) const {
+size_t ExtraParam::EntryCount(uint32_t tag) const {
 
   if (!Exists(tag)) return 0;
   return data_map_.at(tag).size();
 }
 
-int32_t VideoTrackExtraParam::Remove(uint32_t tag, uint32_t entry) {
+int32_t ExtraParam::Remove(uint32_t tag, uint32_t entry) {
 
   auto ret = RemoveDataEntry(tag, entry);
   if (0 != ret) {
@@ -114,7 +113,7 @@ int32_t VideoTrackExtraParam::Remove(uint32_t tag, uint32_t entry) {
   return 0;
 }
 
-int32_t VideoTrackExtraParam::Erase(uint32_t tag) {
+int32_t ExtraParam::Erase(uint32_t tag) {
 
   auto ret = EraseDataTag(tag);
   if (0 != ret) {
@@ -124,7 +123,7 @@ int32_t VideoTrackExtraParam::Erase(uint32_t tag) {
   return 0;
 }
 
-int32_t VideoTrackExtraParam::Acquire(const void *data, const size_t &size) {
+int32_t ExtraParam::Acquire(const void *data, const size_t &size) {
 
   if (locked_) {
     ALOGE("%s: Assignment to a locked Container!", __func__);
@@ -159,26 +158,24 @@ int32_t VideoTrackExtraParam::Acquire(const void *data, const size_t &size) {
   return 0;
 }
 
-void* VideoTrackExtraParam::Release() {
+std::shared_ptr<void> ExtraParam::ReleaseOwnership() {
 
-  data_buffer_.shrink_to_fit();
-
-  void *data = ::operator new(data_buffer_.size());
-  memcpy(data, data_buffer_.data(), data_buffer_.size());
+  auto size = data_buffer_.size();
+  std::shared_ptr<void> data(new byte_t[size]);
+  memcpy(data.get(), data_buffer_.data(), size);
 
   data_map_.clear();
   data_buffer_.clear();
   return data;
-
 }
 
-const void* VideoTrackExtraParam::GetAndLock() const {
+const void* ExtraParam::GetAndLock() const {
 
   locked_ = true;
   return reinterpret_cast<const void*>(data_buffer_.data());
 }
 
-int32_t VideoTrackExtraParam::ReturnAndUnlock(const void *data) const {
+int32_t ExtraParam::ReturnAndUnlock(const void *data) const {
 
   if (!locked_) {
     ALOGE("%s: Can't unlock a non-locked Container!", __func__);
@@ -192,12 +189,12 @@ int32_t VideoTrackExtraParam::ReturnAndUnlock(const void *data) const {
   return 0;
 }
 
-size_t VideoTrackExtraParam::Size() const {
+size_t ExtraParam::Size() const {
 
   return data_buffer_.size();
 }
 
-int32_t VideoTrackExtraParam::RemoveDataEntry(uint32_t &tag, uint32_t &entry) {
+int32_t ExtraParam::RemoveDataEntry(uint32_t &tag, uint32_t &entry) {
 
   if (locked_) {
     ALOGE("%s: Can't remove entry from a locked Container!", __func__);
@@ -238,7 +235,7 @@ int32_t VideoTrackExtraParam::RemoveDataEntry(uint32_t &tag, uint32_t &entry) {
   return 0;
 }
 
-int32_t VideoTrackExtraParam::EraseDataTag(uint32_t &tag) {
+int32_t ExtraParam::EraseDataTag(uint32_t &tag) {
 
   if (locked_) {
     ALOGE("%s: Can't erase tag from a locked Container!", __func__);
@@ -283,7 +280,7 @@ int32_t VideoTrackExtraParam::EraseDataTag(uint32_t &tag) {
   return 0;
 }
 
-int32_t VideoTrackExtraParam::ReorganizeDataMap(uintptr_t entry_offset) {
+int32_t ExtraParam::ReorganizeDataMap(uintptr_t entry_offset) {
 
   // Retrieve the data descriptor and update the data map entry.
   while (data_buffer_.size() > entry_offset) {

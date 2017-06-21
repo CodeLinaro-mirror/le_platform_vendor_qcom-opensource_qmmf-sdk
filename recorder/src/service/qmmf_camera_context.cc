@@ -669,7 +669,7 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
 }
 
 status_t CameraContext::CreateStream(const CameraStreamParam& param,
-                                     const VideoTrackExtraParam& extra_param) {
+                                     const VideoExtraParam& extra_param) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   // 1. Check if streaming request already is going on, if yes then cancel it
