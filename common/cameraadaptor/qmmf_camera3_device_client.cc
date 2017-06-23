@@ -121,6 +121,9 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   if (NULL != gralloc_device_) {
     gralloc_device_->common.close(&gralloc_device_->common);
   }
+  if (camera_module_->get_vendor_tag_ops) {
+    set_camera_metadata_vendor_ops(nullptr);
+  }
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
