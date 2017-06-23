@@ -51,6 +51,7 @@ using namespace avcodec;
 namespace recorder {
 
 #define FPS_CHANGE_THRESHOLD  (0.005)
+#define FRAME_SKIP_THRESHOLD_PERCENT (0.05)
 
 class TrackSource;
 
@@ -230,6 +231,8 @@ class TrackSource : public ICodecSource {
   void PushFrameToQueue(StreamBuffer& buffer);
 
   uint32_t TrackId() { return track_params_.track_id; }
+
+  bool IsEnableFrameSkip();
 
   bool IsFrameSkip();
 

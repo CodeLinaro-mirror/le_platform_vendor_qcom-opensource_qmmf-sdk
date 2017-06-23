@@ -55,6 +55,7 @@ using ::std::shared_ptr;
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
+static const int32_t kDebugFrameSkip = 1<<2;
 static const uint64_t kTsFactor = 10000000; // 10 ms.
 
 CameraSource* CameraSource::instance_ = nullptr;
@@ -1075,20 +1076,21 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       }
     }
     if (debug_fps_ & kDebugSourceTrackFps) {
-      QMMF_INFO("%s:%s: track_id(%x): source fps: = %0.2f", TAG, __func__,
-                TrackId(), framerate);
+      QMMF_INFO("%s:%s: camera id %d, track_id(%x): source fps: = %0.2f", TAG,
+                 __func__,track_params_.params.camera_id, TrackId(), framerate);
     }
     input_prevtv_ = tv;
     input_count_ = 0;
   }
 
-  // Return buffer back to camera if frameskip is valid for this frame
-  // and is NOT a stop condition. In STOP condition, frame skip logic
-  // is bypassed as the buffer consumer may wait for the last buffer
-  // as part of stop processing. Skipping frames may result in timeouts
-  // in the consumer.
-  if ((!IsStop()) && IsFrameSkip()) {
+  // Return buffer back to camera if frameskip is enabled and valid.
+  if ((IsEnableFrameSkip()) && IsFrameSkip()) {
     // Skip frame to adjust fps.
+    if (debug_fps_ & kDebugFrameSkip) {
+      QMMF_INFO("%s:%s:cam_id(%d),track_id(%x),skip frame %u,fps %0.2f",
+                TAG, __func__,track_params_.params.camera_id,
+                TrackId(),buffer.frame_number,input_frame_rate_);
+    }
     ReturnBufferToProducer(buffer);
     return;
   }
@@ -1362,6 +1364,21 @@ void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {
 
   std::lock_guard<std::mutex> lock(frame_repeat_lock_);
   enable_frame_repeat_ = enable_frame_repeat;
+}
+
+// Enable frameskip only when dynamic fps is FRAME_SKIP_THRESHOLD_PERCENT
+// higher than required and this frame is NOT a stop condition. In STOP
+// condition,frame skip logic is bypassed as the buffer consumer may wait
+// for the last bufferas part of stop processing. Skipping frames may result
+// in timeouts in the consumer.
+bool TrackSource::IsEnableFrameSkip() {
+  bool is_enable = false;
+  if ((!IsStop()) &&
+     ((input_frame_rate_ - track_params_.params.frame_rate) >
+     (track_params_.params.frame_rate * FRAME_SKIP_THRESHOLD_PERCENT))) {
+      is_enable = true;
+  }
+  return is_enable;
 }
 
 bool TrackSource::IsFrameSkip() {
