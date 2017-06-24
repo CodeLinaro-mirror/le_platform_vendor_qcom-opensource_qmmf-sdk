@@ -1917,7 +1917,6 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   tracks.push_back(yuv_1080p_track);
 
   sessions_.insert(std::make_pair(session_id, tracks));
-
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -2232,7 +2231,6 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   ret = yuv_720p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_720p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -2927,7 +2925,6 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_1080p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   use_display = 1;
@@ -2963,7 +2960,6 @@ status_t RecorderTest::Session1080pYUVTrackWithPreview() {
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_1080p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -3415,6 +3411,201 @@ status_t RecorderTest::DeleteSession() {
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
+}
+
+void RecorderTest::GetMaxResolutionTrack(TrackInfo &result) {
+  if (sessions_.size() <= 0) {
+    TEST_ERROR("%s:%s: Application does not have the active session ", TAG,
+               __func__);
+  }
+  auto it_sessions = sessions_.begin();
+  auto it_testtrack = it_sessions->second;
+  uint32_t max_width = ((*it_testtrack.begin())->GetTrackHandle()).width;
+  result = (*it_testtrack.begin())->GetTrackHandle();
+  for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
+    auto it_test_track = it->second;
+    for (auto it_trackinfo = it_test_track.begin();
+         it_trackinfo != it_test_track.end(); ++it_trackinfo) {
+      TEST_DBG("%s:%s: Width:%u Height:%u ", TAG, __func__,
+                (*it_trackinfo)->GetTrackHandle().width,
+                (*it_trackinfo)->GetTrackHandle().height);
+      if (max_width < ((*it_trackinfo)->GetTrackHandle().width)) {
+        max_width = (*it_trackinfo)->GetTrackHandle().width;
+        result = (*it_trackinfo)->GetTrackHandle();
+      }
+    }
+  }
+}
+
+void RecorderTest::PrintAWBROIHelp() {
+  std::cout << " \nNote :" << std::endl;
+  std::cout << " Target color is color of ROI that user expect." << std::endl;
+  std::cout << " ROI should be selected such that there are no two colors in "
+               "that ROI."
+            << std::endl;
+  std::cout << " In ROI there should be only one color, and target color "
+               "specified should be the color which is expected color for user "
+               "in ROI."
+            << std::endl;
+  std::cout << " Procedure to test :" << std::endl;
+  std::cout << " - Enable the session in recorder_test" << std::endl;
+  std::cout << "   e.g. 1->3->6->A" << std::endl;
+  std::cout << " - Press '$' and get below option :" << std::endl;
+  std::cout << "   1. Enable ROI" << std::endl;
+  std::cout << "   2. Disable ROI" << std::endl;
+  std::cout << "   3. Help" << std::endl;
+  std::cout << "   X. Exit" << std::endl;
+  std::cout << " - Press '1 to enable ROI. below is the sample text to show "
+               "how to enter values :"
+            << std::endl;
+  std::cout << "  Enter Top Left Coordinate Values [x y] : 100 100"
+            << std::endl;
+  std::cout << "  Enter Bottom Right Coordinate Values [x y] : 200 200"
+            << std::endl;
+  std::cout << "  Enter RGB values [R G B] :255 1 1" << std::endl;
+  std::cout << " - Press '2' to disable ROI." << std::endl;
+  std::cout << " - Press 'X'/'x' to exit the ROI window.\n" << std::endl;
+}
+
+status_t RecorderTest::HandleAWBROIRequest() {
+  char input;
+  status_t status = -1;
+  int32_t full_fov_width, full_fov_height;
+  bool coordinate_correct = false;
+  int32_t top_left[2] = {0};
+  int32_t bottom_right[2] = {0};
+  bool color_correct = false;
+  CameraMetadata meta;
+  if (session_enabled_) {
+    if (static_info_.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+      auto active_array_size =
+          static_info_.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      if (!active_array_size.count) {
+        TEST_ERROR("%s:%s: Active sensor array size is missing!", TAG,
+                   __func__);
+        return status;
+      }
+      full_fov_width = active_array_size.data.i32[2];
+      full_fov_height = active_array_size.data.i32[3];
+    }
+    TrackInfo result;
+    memset(&result,0,sizeof(result));
+    GetMaxResolutionTrack(result);
+    int32_t max_roi_width_ = result.width;
+    int32_t max_roi_height_ = result.height;
+    do {
+      coordinate_correct = false;
+      color_correct = false;
+      std::cout << "  1. Enable ROI " << std::endl;
+      std::cout << "  2. Disable ROI " << std::endl;
+      std::cout << "  3. Help " << std::endl;
+      std::cout << "  X. Exit" << std::endl;
+      std::cin >> input;
+
+      switch (input) {
+        case '1':
+          std::cout << "  Max Width and Height supported is :["
+                    << max_roi_width_ << "][" << max_roi_height_ << "]"
+                    << "\n";
+
+          std::cout << "  Enter Top Left Coordinate Values [x y] : ";
+          std::cin >> top_left[0];
+          std::cin >> top_left[1];
+
+          std::cout << "\n  Enter Bottom Right Coordinate Values [x y] : ";
+          std::cin >> bottom_right[0];
+          std::cin >> bottom_right[1];
+
+          if ((top_left[0] >= 0 && top_left[0] <= max_roi_width_) &&
+              (top_left[1] >= 0 && top_left[1] <= max_roi_height_) &&
+              (bottom_right[0] > 0 && bottom_right[0] <= max_roi_width_) &&
+              (bottom_right[1] > 0 && bottom_right[1] <= max_roi_height_)) {
+            coordinate_correct = true;
+            roi_region_.roi_coordinates[0] =
+                top_left[0] * (full_fov_width / max_roi_width_);
+            roi_region_.roi_coordinates[1] =
+                top_left[1] * (full_fov_height / max_roi_height_);
+            roi_region_.roi_coordinates[2] =
+                bottom_right[0] * (full_fov_width / max_roi_width_);
+            roi_region_.roi_coordinates[3] =
+                bottom_right[1] * (full_fov_height / max_roi_height_);
+            roi_region_.roi_coordinates[4] = 1;  // Enable ROI
+          } else {
+            std::cout << "\n  Wrong Coordinates - Please enter ROI coordinates "
+                         "in range of :["
+                      << max_roi_width_ << "][" << max_roi_height_ << "]"
+                      << "\n";
+            break;
+          }
+
+          std::cout << "\n  Enter RGB values [R G B] :";
+          std::cin >> roi_region_.rgb_color[0];
+          std::cin >> roi_region_.rgb_color[1];
+          std::cin >> roi_region_.rgb_color[2];
+          std::cout << std::endl;
+          if ((roi_region_.rgb_color[0] >= 1 &&
+               roi_region_.rgb_color[0] <= 255) &&
+              (roi_region_.rgb_color[1] >= 1 &&
+               roi_region_.rgb_color[1] <= 255) &&
+              (roi_region_.rgb_color[2] >= 1 &&
+               roi_region_.rgb_color[2] <= 255)) {
+            color_correct = true;
+          } else {
+            std::cout << "\n Wrong Color Values - Please enter ROI color in "
+                         "range of :[1-255] \n";
+            break;
+          }
+          if (coordinate_correct && color_correct) {
+            meta.update(QCAMERA3_AWB_ROI_COLOR, roi_region_.rgb_color, 3);
+            meta.update(ANDROID_CONTROL_AWB_REGIONS,
+                        roi_region_.roi_coordinates, 5);
+            status = recorder_.SetCameraParam(camera_id_, meta);
+            if (status != 0) {
+              TEST_ERROR("%s:%s: Failed to set camera params", TAG, __func__);
+              return status;
+            }
+          }
+          break;
+        case '2':
+          status = recorder_.GetCameraParam(camera_id_, meta);
+          if (NO_ERROR == status) {
+            if (meta.exists(ANDROID_CONTROL_AWB_REGIONS)) {
+              TEST_DBG("%s:%s ANDROID_CONTROL_AWB_REGIONS Exists ", TAG,
+                       __func__);
+              roi_region_.roi_coordinates[4] = 0;  // Disable ROI
+              meta.update(ANDROID_CONTROL_AWB_REGIONS,
+                          roi_region_.roi_coordinates, 5);
+              status = recorder_.SetCameraParam(camera_id_, meta);
+              if (status != 0) {
+                TEST_ERROR("%s:%s: Failed to set camera params", TAG, __func__);
+                return status;
+              }
+            } else {
+              TEST_DBG("%s:%s ANDROID_CONTROL_AWB_REGIONS Does not Exists ",
+                       TAG, __func__);
+              return status;
+            }
+          } else {
+            TEST_ERROR("%s:%s: Failed to Get camera params", TAG, __func__);
+            return status;
+          }
+          break;
+        case '3':
+          PrintAWBROIHelp();
+          break;
+        case 'X':
+        case 'x':
+          break;
+        default:
+          std::cout
+              << " \n Wrong option selected - Please Enter value between 1-3 "
+              << std::endl;
+      }
+    } while (input != 'X' && input != 'x');
+  } else {
+    TEST_ERROR("%s:%s: No session found for ROI to apply", TAG, __func__);
+  }
+  return status;
 }
 
 void RecorderTest::SnapshotCb(uint32_t camera_id,
@@ -5391,6 +5582,7 @@ void CmdMenu::PrintMenu() {
 
     printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
            ctx_.GetCurrentIRMode().c_str());
+    printf("   %c. Set AWB ROI\n", CmdMenu::AWB_ROI_CMD);
   }
   printf("   %c. Set Antibanding mode\n", CmdMenu::SET_ANTIBANDING_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
@@ -5633,6 +5825,10 @@ int main(int argc,char *argv[]) {
       // 1080p@90FPS usecase is enabled through Menu
       case CmdMenu::BINNING_CORRECTION_CMD: {
         test_context.ToggleBinningCorrectionMode();
+      }
+      break;
+      case CmdMenu::AWB_ROI_CMD: {
+        test_context.HandleAWBROIRequest();
       }
       break;
       case CmdMenu::EXIT_CMD: {
