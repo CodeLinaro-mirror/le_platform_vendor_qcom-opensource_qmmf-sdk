@@ -336,6 +336,17 @@ class DumpBitStream {
   int32_t file_fd_;
 };
 
+typedef struct ROIRegion {
+  int32_t roi_coordinates[5];
+  int32_t rgb_color[3];
+  ROIRegion() {
+    roi_coordinates[0] = roi_coordinates[1] = roi_coordinates[2] =
+    roi_coordinates[3] = roi_coordinates[4] = 1;
+
+    rgb_color[0] = rgb_color[1] = rgb_color[2] = 1;
+  }
+} ROIRegion;
+
 class RecorderTest {
  public:
   RecorderTest();
@@ -432,6 +443,12 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
+  status_t HandleAWBROIRequest();
+
+  void GetMaxResolutionTrack(TrackInfo &);
+
+  void PrintAWBROIHelp();
+
   void printInitParamAndTtrackInfo(
                                    const TestInitParams& initParams,
                                    const std::vector<TrackInfo>& infos);
@@ -514,6 +531,7 @@ class RecorderTest {
   uint32_t dump_frame_freq_;
 
  private:
+  ROIRegion roi_region_;
   Recorder recorder_;
 
   friend class CmdMenu;
@@ -604,6 +622,8 @@ class TestTrack {
   status_t StartDisplay(DisplayType display_type);
 
   status_t StopDisplay(DisplayType display_type);
+
+  const TrackInfo& GetTrackHandle(){return track_info_;}
 
  private:
 
@@ -700,6 +720,7 @@ public:
         CHOOSE_CAMERA_CMD                       = 'C',
         SET_ANTIBANDING_MODE_CMD                = 'W',
         BINNING_CORRECTION_CMD                  = '#',
+        AWB_ROI_CMD                             = '$',
         NEXT_CMD                                = '\n',
         INVALID_CMD                             = '0'
     };
