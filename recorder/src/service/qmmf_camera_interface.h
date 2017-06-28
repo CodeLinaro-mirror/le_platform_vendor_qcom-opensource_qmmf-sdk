@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 

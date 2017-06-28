@@ -31,7 +31,6 @@
 
 #include <mutex>
 #include <utils/Log.h>
-#include <utils/KeyedVector.h>
 
 #include "qmmf-sdk/qmmf_codec.h"
 
