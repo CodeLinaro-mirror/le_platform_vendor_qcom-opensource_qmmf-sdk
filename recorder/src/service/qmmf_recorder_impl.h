@@ -30,7 +30,6 @@
 #pragma once
 
 #include <camera/CameraMetadata.h>
-#include <utils/KeyedVector.h>
 #include <algorithm>
 #include <vector>
 #include <mutex>
