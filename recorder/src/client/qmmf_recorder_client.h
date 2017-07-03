@@ -38,6 +38,7 @@
 
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_video_track_extra_param.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
@@ -81,6 +82,11 @@ class RecorderClient {
 
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
                             const VideoTrackCreateParam& param,
+                            const TrackCb& cb);
+
+  status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
+                            const VideoTrackCreateParam& param,
+                            const VideoTrackExtraParam& extra_param,
                             const TrackCb& cb);
 
   status_t ReturnTrackBuffer(const uint32_t session_id,

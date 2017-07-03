@@ -343,7 +343,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   auto& camera_id_vector = client_cameraid_map_[client_id];
   auto camera_id_iter = std::find(camera_id_vector.begin(),
       camera_id_vector.end(), camera_id);
-  camera_id_vector.erase(camera_id_iter, camera_id_vector.end());
+  camera_id_vector.erase(camera_id_iter);
   QMMF_INFO("%s:%s client_id(%d): number of cameras(%d)", TAG, __func__,
       client_id, camera_id_vector.size());
 
@@ -1022,11 +1022,13 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d) client_track_id(%d):"
       "service_track_id(%x)", TAG, __func__, client_id, session_id, track_id,
       service_track_id);
+  VideoTrackExtraParam empty_extra_params;
 
   VideoTrackParams video_track_params;
   memset(&video_track_params, 0x0, sizeof video_track_params);
   video_track_params.track_id    = service_track_id;
   video_track_params.params      = params;
+  video_track_params.extra_param = empty_extra_params;
   video_track_params.data_cb     = [this, client_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
           VideoTrackBufferCallback(client_id, track_id,
@@ -1088,6 +1090,100 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   QMMF_DEBUG("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
   return ret;
+}
+
+status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
+                                        const uint32_t session_id,
+                                        const uint32_t track_id,
+                                        const VideoTrackCreateParam& params,
+                                        const VideoTrackExtraParam&
+                                        extra_param) {
+
+  QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
+      client_id, session_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
+        TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  if (!IsSessionIdValid(client_id, session_id)) {
+    QMMF_ERROR("%s:%s: session_id(%d) is not valid!", TAG, __func__,
+        session_id);
+    return BAD_VALUE;
+  }
+  uint32_t service_track_id = GetUniqueServiceTrackId(client_id, session_id,
+                                                      track_id);
+  QMMF_INFO("%s:%s: client_id(%d):session_id(%d) client_track_id(%d):"
+      "service_track_id(%x)", TAG, __func__, client_id, session_id, track_id,
+      service_track_id);
+
+  VideoTrackParams video_track_params;
+  memset(&video_track_params, 0x0, sizeof video_track_params);
+  video_track_params.track_id    = service_track_id;
+  video_track_params.params      = params;
+  video_track_params.extra_param = extra_param;
+  video_track_params.data_cb     = [this, client_id, track_id]
+      (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
+          VideoTrackBufferCallback(client_id, track_id,
+                                   buffers, meta_buffers);
+      };
+  // Create Camera track first.
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->CreateTrackSource(service_track_id,
+                                               video_track_params);
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreateTrackSource track_id(%d):service_track_id(%x) "
+        " failed!", TAG, __func__, track_id, service_track_id);
+    return BAD_VALUE;
+  }
+  QMMF_INFO("%s:%s: client_id(%d):session_id(%d), TrackSource for "
+      "client_track_id(%d):service_track_id(%x) Added Successfully in "
+      "CameraSource!", TAG, __func__, client_id, session_id, track_id,
+      service_track_id);
+
+  // If video codec type is set to YUV then no need to create Encoder instance.
+  // direct YUV frame will go to client.
+  if ( (params.format_type == VideoFormat::kHEVC)
+      || (params.format_type == VideoFormat::kAVC) ) {
+
+    // Create Encoder track and add TrackSource as a source to iit.
+    // Track pipeline: TrackSource <--> TrackEncoder
+    assert(encoder_core_ != nullptr);
+    ret = encoder_core_->AddSource(camera_source_->
+        GetTrackSource(service_track_id), video_track_params);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d):service_track_id(%x) AddSource"
+        " failed!", TAG, __func__, track_id, service_track_id);
+      return BAD_VALUE;
+    }
+  }
+
+  // Assosiate track to session.
+  TrackInfo track_info;
+  memset(&track_info, 0x0, sizeof track_info);
+  track_info.track_id     = service_track_id;
+  track_info.type         = TrackType::kVideo;
+  track_info.video_params = video_track_params;
+
+  std::lock_guard<std::mutex> lock(client_session_lock_);
+  auto& session_track_map = client_session_map_[client_id];
+  auto& tracks_in_session = session_track_map[session_id];
+  auto track_tuple = std::make_tuple(track_id, service_track_id, track_info);
+  tracks_in_session.push_back(track_tuple);
+
+  QMMF_INFO("%s:%s: client_id(%d), session_id(%d), num sessions=%d", TAG,
+      __func__, client_id, session_id, session_track_map.size());
+  QMMF_INFO("%s:%s: num of tracks=%d", TAG, __func__,
+      tracks_in_session.size());
+  for (auto test : tracks_in_session) {
+    QMMF_INFO("%s:%s: client_track_id(%d):service_track_id(%x):track_type(%d)",
+        TAG, __func__, std::get<0>(test), std::get<1>(test),
+        std::get<2>(test).type);
+  }
+  QMMF_DEBUG("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
+      client_id, session_id);
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
@@ -1264,6 +1360,17 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: client_id(%d) Failed to set FrameRate to TrackSource",
           TAG, __func__, client_id);
+      return ret;
+    }
+  }
+
+  if (type == CodecParamType::kEnableFrameRepeat) {
+    bool* enable_frame_repeat = static_cast<bool*>(param);
+    ret = camera_source_->EnableFrameRepeat(track_info.track_id,
+                                            *enable_frame_repeat);
+    if(ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: client_id(%d) Failed to set "
+          "FrameRepeat to TrackSource", TAG, __func__, client_id);
       return ret;
     }
   }

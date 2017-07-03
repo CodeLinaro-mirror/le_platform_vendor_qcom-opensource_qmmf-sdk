@@ -59,11 +59,11 @@ typedef struct Camera3Request_t {
 } Camera3Request;
 
 typedef struct {
-  int32_t requestId;
-  int32_t burstId;
-  int64_t frameNumber;
-  int32_t partialResultCount;
-  bool input;
+  int32_t  requestId;
+  int32_t  burstId;
+  uint32_t frameNumber;
+  int32_t  partialResultCount;
+  bool     input;
 } CaptureResultExtras;
 
 typedef struct {

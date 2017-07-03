@@ -74,6 +74,7 @@ enum class CameraStreamFormat {
   kNV12,
   kNV21,
   kRAW10,
+  kRAW12,
 };
 
 struct CameraStreamDim {
@@ -98,6 +99,7 @@ typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
 
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
+  VideoTrackExtraParam   extra_param;
   uint32_t               track_id;
   buffer_callback        data_cb;
 };

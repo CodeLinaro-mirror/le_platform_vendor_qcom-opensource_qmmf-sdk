@@ -193,6 +193,30 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS: {
+        uint32_t client_id, session_id, track_id;
+        uint32_t blob_size, extra_blob_size;
+        data.readUint32(&client_id);
+        data.readUint32(&session_id);
+        data.readUint32(&track_id);
+        android::Parcel::ReadableBlob blob;
+        data.readUint32(&blob_size);
+        data.readBlob(blob_size, &blob);
+        android::Parcel::ReadableBlob extra_blob;
+        data.readUint32(&extra_blob_size);
+        data.readBlob(extra_blob_size, &extra_blob);
+        VideoTrackCreateParam video_track_param;
+        memset(&video_track_param, 0x0, sizeof video_track_param);
+        memcpy(&video_track_param, blob.data(), blob_size);
+        VideoTrackExtraParam extra_param(extra_blob.data(), extra_blob_size);
+        ret = CreateVideoTrack(client_id, session_id, track_id,
+                               video_track_param, extra_param);
+        blob.release();
+        extra_blob.release();
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_DELETE_AUDIOTRACK: {
         uint32_t client_id, session_id, track_id;
         data.readUint32(&client_id);
@@ -400,17 +424,36 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       break;
       case RECORDER_CREATE_OVERLAYOBJECT: {
         uint32_t client_id, blob_size, track_id;
+        android::Parcel::ReadableBlob image_blob;
+        uint32_t image_size;
+
         data.readUint32(&client_id);
         data.readUint32(&track_id);
+
         data.readUint32(&blob_size);
         android::Parcel::ReadableBlob blob;
         data.readBlob(blob_size, &blob);
         void* params = const_cast<void*>(blob.data());
+
+        OverlayParam  overlay_params;
+        memset(&overlay_params, 0x0, sizeof(OverlayParam));
+        memcpy(&overlay_params, static_cast<OverlayParam*>(params),
+            sizeof(OverlayParam));
+
+        if (overlay_params.type ==  OverlayType::kStaticImage &&
+            overlay_params.image_info.image_type == OverlayImageType::kBlobType) {
+          data.readUint32(&image_size);
+          data.readBlob(image_size, &image_blob);
+          overlay_params.image_info.image_size = image_size;
+          overlay_params.image_info.image_buffer =
+              reinterpret_cast<char*>(const_cast<void*>(image_blob.data()));
+        }
+
         uint32_t overlay_id;
-        ret = CreateOverlayObject(client_id, track_id,
-                                  static_cast<OverlayParam*>(params),
+        ret = CreateOverlayObject(client_id, track_id, &overlay_params,
                                   &overlay_id);
         blob.release();
+        image_blob.release();
         reply->writeUint32(overlay_id);
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -450,6 +493,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       break;
       case RECORDER_UPDATE_OVERLAYOBJECT_PARAMS: {
         uint32_t client_id, track_id, overlay_id, blob_size;
+        android::Parcel::ReadableBlob image_blob;
+        uint32_t image_size;
+
         data.readUint32(&client_id);
         data.readUint32(&track_id);
         data.readUint32(&overlay_id);
@@ -457,9 +503,26 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         android::Parcel::ReadableBlob blob;
         data.readBlob(blob_size, &blob);
         void* params = const_cast<void*>(blob.data());
+
+        OverlayParam  overlay_params;
+        memset(&overlay_params, 0x0, sizeof(OverlayParam));
+        memcpy(&overlay_params, static_cast<OverlayParam*>(params),
+            sizeof(OverlayParam));
+
+        if (overlay_params.type ==  OverlayType::kStaticImage &&
+            overlay_params.image_info.image_type == OverlayImageType::kBlobType
+            && overlay_params.image_info.buffer_updated == true) {
+          data.readUint32(&image_size);
+          data.readBlob(image_size, &image_blob);
+          overlay_params.image_info.image_size = image_size;
+          overlay_params.image_info.image_buffer =
+              reinterpret_cast<char*>(const_cast<void*>(image_blob.data()));
+        }
+
         ret = UpdateOverlayObjectParams(client_id, track_id, overlay_id,
-                                        static_cast<OverlayParam*>(params));
+                                        &overlay_params);
         blob.release();
+        image_blob.release();
         reply->writeInt32(ret);
         return NO_ERROR;
       }
@@ -837,6 +900,36 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                          param);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: CreateVideoTrack failed!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return ret;
+}
+
+status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
+                                           const uint32_t session_id,
+                                           const uint32_t track_id,
+                                           const VideoTrackCreateParam& param,
+                                           const VideoTrackExtraParam&
+                                           extra_param) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  uint32_t id = track_id & 0xffff0000;
+  if (id > 0) {
+    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->CreateVideoTrack(client_id, session_id, track_id,
+                                         param, extra_param);
+
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s:%s: CreateVideoTrackWithExtraParam failed!", TAG, __func__);
     return BAD_VALUE;
   }
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
