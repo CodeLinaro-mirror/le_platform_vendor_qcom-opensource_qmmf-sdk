@@ -53,8 +53,8 @@ PostProcTest::~PostProcTest() {
 }
 
 status_t PostProcTest::Create(const int32_t stream_id,
-                              const ReprocParam& input,
-                              const ReprocParam& output,
+                              const PostProcCreateParam& input,
+                              const PostProcCreateParam& output,
                               const uint32_t frame_rate,
                               const uint32_t num_images,
                               const void* static_meta,
@@ -80,13 +80,31 @@ status_t PostProcTest::Create(const int32_t stream_id,
   return NO_ERROR;
 }
 
-status_t PostProcTest::GetCapabilities(ReprocCaps *caps) {
-  caps->internal_buff = 0;
-  caps->out_format = -1; /* in == out format */
-  caps->in_format = -1; /* out == in format */
-  caps->scale_en = 0;
-  caps->usage = 0;
-  // TODO
+PostProcCreateParam PostProcTest::GetInput(const PostProcCreateParam &out) {
+  return out;
+}
+
+PostProcCreateParam PostProcTest::GetOutput(const PostProcCreateParam &in) {
+  return in;
+}
+
+status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
+  caps.output_buff_        = 0;
+  caps.min_width_          = 160;
+  caps.min_height_         = 120;
+  caps.max_width_          = 5104;
+  caps.max_height_         = 4092;
+  caps.crop_support_       = false;
+  caps.scale_support_      = false;
+  caps.inplace_processing_ = true;
+  caps.lib_version_        = "1.0";
+
+  caps.in_formats_.push_back(BufferFormat::kNV12);
+  caps.in_formats_.push_back(BufferFormat::kNV21);
+
+  caps.out_formats_.push_back(BufferFormat::kNV12);
+  caps.out_formats_.push_back(BufferFormat::kNV21);
+
   return NO_ERROR;
 }
 
@@ -123,22 +141,22 @@ status_t PostProcTest::Delete() {
   return NO_ERROR;
 }
 
-void PostProcTest::AddResult(const void* result) {
-}
-
-status_t PostProcTest::ReturnBuff(StreamBuffer buffer) {
-  QMMF_VERBOSE("%s:%s: StreamBuffer(%p) ts: %lld, streamId: %d", TAG,
-       __func__, buffer.handle, buffer.timestamp, buffer.stream_id);
+status_t PostProcTest::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
-status_t PostProcTest::Process(StreamBuffer& in_buff, StreamBuffer& out_buff) {
-  bool ret = true;
+status_t PostProcTest::Process(
+    const std::vector<StreamBuffer> &in_buffers,
+    const std::vector<StreamBuffer> &out_buffers) {
 
-  /* no process call directly client */
-  Listener_->OnFrameReady(in_buff);
   QMMF_INFO("%s:%s: Simple done", TAG, __func__);
-  return ret;
+
+  // no process call directly client
+  for (auto buf : in_buffers) {
+    Listener_->OnFrameReady(buf);
+  }
+
+  return NO_ERROR;
 }
 
 }; // namespace recoder

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ProcessingNode"
+#define TAG "PostProcNode"
 
 #include <sys/mman.h>
 #include <libgralloc/gralloc_priv.h>
@@ -57,11 +57,10 @@ PostProcNode::PostProcNode(const char* srt, IPostProc* context)
 
   module_->SetCallbacks(this);
 
-  memset(&caps_, 0x0, sizeof(ReprocCaps));
-  module_->GetCapabilities(&caps_);
+  module_->GetCapabilities(caps_);
 
   state_ = PostProcNodeState::CREATED;
-  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.string());
+  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
 }
 
 PostProcNode::~PostProcNode() {
@@ -84,16 +83,21 @@ PostProcNode::~PostProcNode() {
 }
 
 void PostProcNode::getDefaultParam(PostProcNodeParams& reproc_node_param,
-                                   PostProcNodeCreate& create_params) {
+                                   const PostProcNodeCreate& create_params) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+
   memset(&reproc_node_param, 0x0, sizeof reproc_node_param);
 
   /* input frame params */
-  reproc_node_param.in.format        = create_params.in.format;
-  reproc_node_param.in.width         = create_params.in.width;
-  reproc_node_param.in.height        = create_params.in.height;
+  reproc_node_param.in.format           = create_params.in.format;
+  reproc_node_param.in.width            = create_params.in.width;
+  reproc_node_param.in.height           = create_params.in.height;
 
   /* fill output frame params to default */
-  reproc_node_param.out              = reproc_node_param.in;
+  PostProcCreateParam out_create_params = module_->GetOutput(create_params.in);
+  reproc_node_param.out.format          = out_create_params.format;
+  reproc_node_param.out.width           = out_create_params.width;
+  reproc_node_param.out.height          = out_create_params.height;
 
   /* fill default in/out gralloc usage flag*/
   reproc_node_param.out.gralloc_flags = GRALLOC_USAGE_HW_FB |
@@ -109,32 +113,29 @@ void PostProcNode::getDefaultParam(PostProcNodeParams& reproc_node_param,
   reproc_node_param.out.max_buffer_count = create_params.max_buffer_count;
 
   /* update out data depends on capabilities */
-  if (caps_.scale_en) {
+  if (caps_.scale_support_) {
     reproc_node_param.out.width = create_params.out.width;
     reproc_node_param.out.height = create_params.out.height;
   }
 
-  if (caps_.usage) {
-    reproc_node_param.out.gralloc_flags = caps_.usage;
-  }
-
-  if (caps_.out_format > 0) {
-    reproc_node_param.out.format = caps_.out_format;
+  if (caps_.usage_) {
+    reproc_node_param.out.gralloc_flags = caps_.usage_;
   }
 
   if (reproc_node_param.out.format == HAL_PIXEL_FORMAT_BLOB) {
     reproc_node_param.out.max_size =
-        reproc_node_param.out.width*reproc_node_param.out.height;
+        reproc_node_param.out.width * reproc_node_param.out.height;
   }
 
-  if (!caps_.internal_buff) {
+  if (caps_.output_buff_ == 0) {
     // disable extra buffer allocation
     reproc_node_param.out.max_buffer_count = 0;
   } else {
     reproc_node_param.out.max_buffer_count =
-        std::max(caps_.internal_buff, create_params.max_buffer_count);
+        std::max(caps_.output_buff_, create_params.max_buffer_count);
   }
 
+  QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
 }
 
 int32_t PostProcNode::Initialize(int32_t input_stream_id,
@@ -156,46 +157,55 @@ int32_t PostProcNode::Initialize(int32_t input_stream_id,
                                    init_params_.out.max_size);
   assert(ret >= 0);
 
-  ReprocParam in, out;
-  memset(&in, 0x0, sizeof(ReprocParam));
-  memset(&out, 0x0, sizeof(ReprocParam));
+  PostProcCreateParam in;
+  in.width     = init_params_.in.width;
+  in.height    = init_params_.in.height;
+  in.format    = init_params_.in.format;
+  in.stride    = init_params_.in.width;
+  in.scanline  = init_params_.in.height;
 
-  in.stride = init_params_.in.width;
-  in.scanline = init_params_.in.height;
+  PostProcCreateParam out;
+  out.width    = init_params_.out.width;
+  out.height   = init_params_.out.height;
+  out.format   = init_params_.out.format;
+  out.stride   = init_params_.out.width;
+  out.scanline = init_params_.out.height;
 
-  in.width = init_params_.in.width;
-  in.height = init_params_.in.height;
-  in.format = init_params_.in.format;
+  QMMF_INFO("%s:%s:%s: Input:  dim: %dx%d stride %d scanline %d fmt: %x",
+      TAG, __func__, name_.c_str(),
+      in.width, in.height, in.stride, in.scanline, in.format);
+  QMMF_INFO("%s:%s:%s: Output: dim: %dx%d stride %d scanline %d fmt: %x",
+      TAG, __func__, name_.c_str(),
+      out.width, out.height, out.stride, out.scanline, out.format);
 
-  out.width = init_params_.out.width;
-  out.height = init_params_.out.height;
-  out.format = init_params_.out.format;
-
-  // kmotov todo error handling
-        module_->Create(input_stream_id, in, out,
+  ret = module_->Create(input_stream_id, in, out,
                         init_params_.in.frame_rate,
                         init_params_.in.max_buffer_count,
                         reinterpret_cast<void*>(static_meta), this, id_);
-  assert(id_ >= 0);
+  assert(ret == NO_ERROR && id_ >= 0);
 
   state_ = PostProcNodeState::INITIALIZED;
 
-  QMMF_VERBOSE("%s:%s: id_: %d name: %s", TAG, __func__,
-      id_, name_.string());
+  QMMF_VERBOSE("%s:%s:%s: Exit id: %d", TAG, __func__, name_.c_str(), id_);
 
   return id_;
+}
+
+PostProcCreateParam PostProcNode::GetInput(const PostProcCreateParam &out) {
+  return module_->GetInput(out);
 }
 
 status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::INITIALIZED) {
-    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s:%s:%s: Incorrect state: %d", TAG, __func__,
+        name_.c_str(), state_);
     return INVALID_OPERATION;
   }
 
   if (consumer == nullptr) {
-    QMMF_ERROR("%s:%s: Consumer is NULL", TAG, __func__);
+    QMMF_ERROR("%s:%s:%s: Consumer is NULL", TAG, __func__, name_.c_str());
     return BAD_VALUE;
   }
 
@@ -203,8 +213,8 @@ status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 
   state_ = PostProcNodeState::LINKED;
 
-  QMMF_VERBOSE("%s:%s: Consumer(%p) has been added.", TAG, __func__,
-      consumer.get());
+  QMMF_VERBOSE("%s:%s:%s: Consumer(%p) has been added.", TAG, __func__,
+      name_.c_str(), consumer.get());
 
   return NO_ERROR;
 }
@@ -213,7 +223,8 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::LINKED) {
-    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s:%s:%s: Incorrect state: %d", TAG, __func__,
+        name_.c_str(), state_);
     return INVALID_OPERATION;
   }
 
@@ -227,9 +238,13 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 status_t PostProcNode::Start() {
   status_t ret = NO_ERROR;
 
+  QMMF_INFO("%s:%s:%s: Enter Start. State: %d", TAG, __func__,
+      name_.c_str(), state_);
+
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::LINKED) {
-    QMMF_ERROR("%s:%s: wrong state_: %d ", TAG, __func__, state_);
+    QMMF_ERROR("%s:%s:%s: wrong state_: %d ", TAG, __func__,
+        name_.c_str(), state_);
     return BAD_VALUE;
   }
 
@@ -237,7 +252,8 @@ status_t PostProcNode::Start() {
 
   ret = module_->Start();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: fail to start module ret: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s:%s: fail to start module ret: %d", TAG, __func__,
+        name_.c_str(), ret);
     return ret;
   }
 
@@ -246,14 +262,16 @@ status_t PostProcNode::Start() {
 
   state_ = PostProcNodeState::ACTIVE;
 
+  QMMF_INFO("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
+
   return ret;
 }
 
 status_t PostProcNode::Stop() {
   status_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s: Enter stop name:%s state: %d", TAG, __func__,
-      name_.string(), state_);
+  QMMF_INFO("%s:%s:%s: Enter stop. State: %d", TAG, __func__,
+      name_.c_str(), state_);
 
   {
     std::lock_guard<std::mutex> lock(state_lock_);
@@ -264,17 +282,19 @@ status_t PostProcNode::Stop() {
   in_.FlushBufs([this] (StreamBuffer &buf) -> void
              { NotifyBufferReturn(buf); } );
 
-  QMMF_INFO("%s:%s: The Lip thread is stopped Id_: %d", TAG, __func__, id_);
+  QMMF_VERBOSE("%s:%s:%s: The Lip thread is stopped Id_: %d", TAG, __func__,
+      name_.c_str(), id_);
 
   ret = module_->Stop();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: fail to stop module ret: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s:%s:%s: fail to stop module ret: %d", TAG, __func__,
+        name_.c_str(), ret);
     return ret;
   }
 
   out_.RequestExitAndWait();
-  QMMF_INFO("%s:%s: The Node thread is stopped name: %s", TAG, __func__,
-      name_.string());
+  QMMF_VERBOSE("%s:%s:%s: The Node thread is stopped", TAG, __func__,
+      name_.c_str());
 
   out_.FlushBufs([this] (StreamBuffer &buf) -> void
           { NotifyBufferReturned(buf); } );
@@ -284,58 +304,44 @@ status_t PostProcNode::Stop() {
     state_ = PostProcNodeState::LINKED;
   }
 
-  QMMF_INFO("%s:%s: Exit stop name:%s state: %d", TAG, __func__,
-      name_.string(), state_);
+  QMMF_INFO("%s:%s:%s: Exit stop. State: %d", TAG, __func__,
+      name_.c_str(), state_);
 
   return ret;
 }
 
-void OutputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
-  std::unique_lock<std::mutex> lock(wait_lock_);
-  for (auto iter : bufs_list_) {
-    StreamBuffer buf = iter;
-    BuffHandler(buf);
-  }
-  bufs_list_.clear();
-}
-
 void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s: Frame %" PRId64 " buff:%p ts: %lld FD: %d name: %s", TAG,
+  QMMF_VERBOSE("%s:%s:Frame %d buff:%p ts: %lld FD: %d name: %s", TAG,
             __func__, buffer.frame_number, buffer.handle, buffer.timestamp,
-            buffer.fd, name_.string());
+            buffer.fd, name_.c_str());
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::ACTIVE) {
-    QMMF_ERROR("%s:%s: Buffer not processed. Incorrect state: %d", TAG,
-        __func__, state_);
+    QMMF_ERROR("%s:%s:%s: Buffer not processed. Incorrect state: %d", TAG,
+        __func__, name_.c_str(), state_);
     NotifyBufferReturn(buffer);
   } else {
     in_.AddBuf(buffer);
   }
+  QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
 }
 
-status_t PostProcNode::OnFrameProcessed(StreamBuffer &input_buffer) {
-  QMMF_INFO("%s:%s: Return FD: %d name: %s", TAG, __func__,
-    input_buffer.fd, name_.string());
+void PostProcNode::OnFrameProcessed(const StreamBuffer &input_buffer) {
+  QMMF_VERBOSE("%s:%s: Return FD: %d name: %s", TAG, __func__,
+    input_buffer.fd, name_.c_str());
 
-  NotifyBufferReturn(input_buffer);
-
-  return NO_ERROR;
+  NotifyBufferReturn(const_cast<StreamBuffer&>(input_buffer));
 }
 
-status_t PostProcNode::OnFrameReady(StreamBuffer &output_buffer) {
-  QMMF_INFO("%s:%s: Return FD: %d name: %s", TAG, __func__,
-    output_buffer.fd, name_.string());
+void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
+  QMMF_VERBOSE("%s:%s: Return FD: %d name: %s", TAG, __func__,
+    output_buffer.fd, name_.c_str());
 
-  out_.AddBuf(output_buffer);
-
-  return NO_ERROR;
+  out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
 
-void OutputHandler::AddBuf(StreamBuffer& buffer) {
-  std::unique_lock<std::mutex> lock(wait_lock_);
-  bufs_list_.push_back(buffer);
-  wait_.notify_one();
+void PostProcNode::OnError(RuntimeError err) {
+  QMMF_ERROR("%s:%s:%s: Error %d", TAG, __func__, name_.c_str(), err);
 }
 
 void PostProcNode::AddResult(const void* result) {
@@ -343,35 +349,36 @@ void PostProcNode::AddResult(const void* result) {
 }
 
 void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s: StreamBuffer(%p) FD: %d stream_id: %d moduleID:%d name: %s",
-      TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
-      id_, name_.string());
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(%p) FD: %d stream_id: %d moduleID:%d",
+      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
+      id_);
 
   if (buffer.stream_id == id_) {
     if (init_params_.out.max_buffer_count == 0) {
-        QMMF_VERBOSE("%s:%s: Buffer count is 0. Return to lib.", TAG, __func__);
+        QMMF_VERBOSE("%s:%s:%s: Buffer count is 0. Return to lib.", TAG,
+            __func__, name_.c_str());
         if (module_ == nullptr) {
-          QMMF_ERROR("%s:%s: Error", TAG, __func__);
+          QMMF_ERROR("%s:%s:%s: Error", TAG, __func__, name_.c_str());
         }
         module_->ReturnBuff(buffer);
         return;
     }
     status_t ret = mem_pool_->ReturnBufferLocked(buffer);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Buffer return Error", TAG, __func__);
+      QMMF_ERROR("%s:%s:%s Buffer return Error", TAG, __func__, name_.c_str());
     }
   } else {
     NotifyBufferReturn(buffer);
   }
-  QMMF_VERBOSE("%s:%s: Exit!", TAG, __func__);
+  QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
 }
 
 status_t PostProcNode::ReturnBufferToClient(StreamBuffer &buffer) {
   // Give buffer ownership to the CameraSource
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == PostProcNodeState::ACTIVE) {
-    QMMF_VERBOSE("%s:%s: StreamBuffer(handle %p) returned to client name: %s",
-        TAG, __func__, buffer.handle, name_.string());
+    QMMF_VERBOSE("%s:%s:%s: StreamBuffer(handle %p) returned to client",
+        TAG, __func__, name_.c_str(), buffer.handle);
     NotifyBuffer(buffer);
   } else {
     NotifyBufferReturned(buffer);
@@ -400,12 +407,12 @@ void InputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
   }
 }
 
-void* InputHandler::MapBuf(StreamBuffer& buffer) {
+status_t InputHandler::MapBuf(StreamBuffer& buffer) {
   void *vaaddr = nullptr;
 
   if (buffer.fd == -1) {
     QMMF_ERROR("%s:%s: Error Invalid FD", TAG, __func__);
-    return vaaddr;
+    return BAD_VALUE;
   }
 
   if (mapped_buffs_.count(buffer.fd) == 0) {
@@ -413,18 +420,20 @@ void* InputHandler::MapBuf(StreamBuffer& buffer) {
         MAP_SHARED, buffer.fd, 0);
     if (vaaddr == MAP_FAILED) {
         QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
-            strerror(errno), errno);
+            strerror(errno), errno);;
+        return BAD_VALUE;
     }
     buffer.data = vaaddr;
     map_data_t map;
     map.addr = vaaddr;
     map.size = buffer.size;
     mapped_buffs_[buffer.fd] = map;
+    buffer.data = vaaddr;
   } else {
-    vaaddr = mapped_buffs_[buffer.fd].addr;
+    buffer.data = mapped_buffs_[buffer.fd].addr;
   }
 
-  return vaaddr;
+  return NO_ERROR;
 }
 
 void InputHandler::UnMapBufs() {
@@ -439,62 +448,120 @@ void InputHandler::UnMapBufs() {
   mapped_buffs_.clear();
 }
 
+status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
+  std::unique_lock<std::mutex> lock(wait_lock_);
+
+  if (bufs_list_.empty()) {
+    size_t wait_time = kFrameTimeout;
+    auto ret = wait_.wait_for(lock, std::chrono::nanoseconds(wait_time));
+    if (ret == std::cv_status::timeout) {
+      QMMF_VERBOSE("%s:%s: Wait for frame available timed out Copy",
+          TAG, __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  auto iter = bufs_list_.begin();
+  StreamBuffer buff = *iter;
+  bufs_list_.erase(iter);
+
+  auto ret = MapBuf(buff);
+  if (ret != NO_ERROR) {
+    assert(0);
+  }
+
+  in_buffs.push_back(buff);
+
+  return NO_ERROR;
+}
+
+status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
+    const std::vector<StreamBuffer> &in_buffs) {
+  if (node_->caps_.output_buff_ == 0) {
+    return NO_ERROR;
+  }
+
+  for (auto buff : in_buffs) {
+    StreamBuffer out_buff;
+    memset(&out_buff, 0x0, sizeof(out_buff));
+    node_->mem_pool_->GetBuffer(&out_buff);
+
+    out_buff.stream_id = node_->id_;
+    out_buff.timestamp = buff.timestamp;
+    out_buff.frame_number = buff.frame_number;
+    out_buff.camera_id = buff.camera_id;
+    out_buff.flags = buff.flags;
+    out_buff.info = buff.info;
+
+    auto ret = MapBuf(out_buff);
+    if (ret != NO_ERROR) {
+      assert(0);
+    }
+
+    out_buffs.push_back(out_buff);
+  }
+
+  return NO_ERROR;
+}
+
 bool InputHandler::ThreadLoop() {
 
   {
     std::lock_guard<std::mutex> lock(node_->state_lock_);
     if (node_->state_ != PostProcNodeState::ACTIVE) {
-      return true;
+      // exit from main loop
+      return false;
     }
   }
 
-  StreamBuffer in_buff;
-  {
-    std::unique_lock<std::mutex> lock(wait_lock_);
-    if (bufs_list_.empty()) {
-      size_t wait_time = kFrameTimeout;
-      auto ret = wait_.wait_for(lock, std::chrono::nanoseconds(wait_time));
-      if (ret == std::cv_status::timeout) {
-        QMMF_VERBOSE("%s:%s: Wait for frame available timed out Copy",
-            TAG, __func__);
-        return true;
-      }
-    }
-    auto iter = bufs_list_.begin();
-    in_buff = *iter;
-    bufs_list_.erase(iter);
+  std::vector<StreamBuffer> in_buffs;
+  auto ret = GetInputBuffers(in_buffs);
+  if (ret != NO_ERROR) {
+    // timeout loop again
+    return true;
   }
 
-  // kmotov: todo:
-  StreamBuffer out_buff;
-  {
-    memset(&out_buff, 0x0, sizeof(out_buff));
-    node_->mem_pool_->GetBuffer(&out_buff);
-
-    out_buff.stream_id = node_->id_;
-    out_buff.timestamp = in_buff.timestamp;
-    out_buff.frame_number = in_buff.frame_number;
-    out_buff.camera_id = in_buff.camera_id;
-    out_buff.flags = in_buff.flags;
-    out_buff.info = in_buff.info;
-    out_buff.data = MapBuf(out_buff);
+  std::vector<StreamBuffer> out_buffs;
+  ret = GetOutputBuffers(out_buffs, in_buffs);
+  if (ret != NO_ERROR) {
+    assert(0);
   }
 
+  QMMF_VERBOSE("%s:%s: Process: FD: %d %d name: %s", TAG, __func__,
+    in_buffs[0].fd, out_buffs.size() == 0 ? -1 : out_buffs[0].fd,
+    node_->name_.c_str());
 
-  status_t ret = node_->module_->Process(in_buff, out_buff);
+  ret = node_->module_->Process(in_buffs, out_buffs);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s Error %d while algo process", TAG, __func__, ret);
-    assert(1);
+    assert(0);
   }
 
+  // loop again
   return true;
+}
+
+void OutputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
+  std::unique_lock<std::mutex> lock(wait_lock_);
+  for (auto iter : bufs_list_) {
+    StreamBuffer buf = iter;
+    BuffHandler(buf);
+  }
+  bufs_list_.clear();
+}
+
+void OutputHandler::AddBuf(StreamBuffer& buffer) {
+  std::unique_lock<std::mutex> lock(wait_lock_);
+  bufs_list_.push_back(buffer);
+  wait_.notify_one();
 }
 
 bool OutputHandler::ThreadLoop() {
   {
     std::lock_guard<std::mutex> lock(node_->state_lock_);
     if (node_->state_ != PostProcNodeState::ACTIVE) {
-      return true;
+      // exit main loop
+      return false;
     }
   }
 
@@ -506,6 +573,7 @@ bool OutputHandler::ThreadLoop() {
       auto ret = wait_.wait_for(lock, std::chrono::nanoseconds(wait_time));
       if (ret == std::cv_status::timeout) {
         QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
+        // timeout loop again
         return true;
       }
     }
@@ -516,6 +584,7 @@ bool OutputHandler::ThreadLoop() {
 
   node_->ReturnBufferToClient(buffer);
 
+  // loop again
   return true;
 }
 

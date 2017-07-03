@@ -29,32 +29,37 @@
 
 #pragma once
 
-#include "include/qmmf-plugin/qmmf_alg_intf.h"
+#include <map>
+#include <mutex>
+#include <string>
 
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 
+#include "qmmf-plugin/qmmf_alg_plugin.h"
+
 #include "common/qmmf_common_utils.h"
 
 #include "../../interface/qmmf_postproc_module.h"
-#include "../../common/qmmf_camera_alg.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-class PostProcHazeBuster : public IPostProcModule,
-                           public CameraAlg {
+using namespace qmmf_alg_plugin;
+
+class PostProcAlg : public IPostProcModule,
+                    public IEventListener {
 
  public:
 
-  PostProcHazeBuster(int32_t Id);
+  PostProcAlg(int32_t Id, std::string lib);
 
-  ~PostProcHazeBuster();
+  ~PostProcAlg();
 
   status_t Create(const int32_t stream_id,
-                  const ReprocParam& input,
-                  const ReprocParam& output,
+                  const PostProcCreateParam& input,
+                  const PostProcCreateParam& output,
                   const uint32_t frame_rate,
                   const uint32_t num_images,
                   const void* static_meta,
@@ -65,26 +70,52 @@ class PostProcHazeBuster : public IPostProcModule,
 
   void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
 
-  status_t Process(StreamBuffer &input_buffers,
-                   StreamBuffer &output_buffers) override;
+  status_t Configure(const std::string config_json_data) override;
+
+  status_t Process(const std::vector<StreamBuffer> &in_buffers,
+                   const std::vector<StreamBuffer> &out_buffers) override;
 
   void AddResult(const void* result) override {};
 
-  status_t ReturnBuff(StreamBuffer buffer) override { return NO_ERROR; };
-
-  status_t GetCapabilities(ReprocCaps *caps) override;
+  status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
   status_t Start() override;
 
   status_t Stop() override;
 
+  PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
+
+  PostProcCreateParam GetOutput(const PostProcCreateParam &in) override;
+
+  status_t GetCapabilities(PostProcCaps &caps) override;
+
+  void OnFrameProcessed(const AlgBuffer &input_buffer) override;
+
+  void OnFrameReady(const AlgBuffer &output_buffer) override;
+
+  void OnError(RuntimeError err) override;
+
  private:
 
-  void                     *context_;
-  int32_t                  id_;
-  bool                     reprocess_flag_;
-  bool                     ready_to_start_;
-  IPostProcEventListener   *Listener_;
+  PixelFormat GetAlgFormat(BufferFormat format);
+
+  BufferFormat GetQmmfFormat(PixelFormat format);
+
+  status_t PrepareAlgBuffer(std::vector<AlgBuffer> &algo_buffs,
+      const std::vector<StreamBuffer> stream_buffs);
+
+  StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
+
+  int32_t                           id_;
+  std::string                       Lib_;
+  bool                              reprocess_flag_;
+  bool                              ready_to_start_;
+  IPostProcEventListener            *Listener_;
+  void*                             lib_handle_;
+  IAlgPlugin                        *algo_;
+
+  std::map<int32_t, StreamBuffer>   buffs_;
+  std::mutex                        buffs_lock_;
 
 };
 

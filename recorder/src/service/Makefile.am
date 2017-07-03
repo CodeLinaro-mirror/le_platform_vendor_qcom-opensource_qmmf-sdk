@@ -23,7 +23,6 @@ source_files += post-process/node/qmmf_postproc_node.cc
 source_files += post-process/memory/qmmf_postproc_memory_pool.cc
 source_files += post-process/pipe/qmmf_postproc_pipe.cc
 source_files += post-process/common/qmmf_postproc_thread.cc
-source_files += post-process/common/qmmf_camera_alg.cc
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so
@@ -58,4 +57,4 @@ libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_disp
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/camera-hal-reproc/libqmmf_camera_hal_reproc.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/jpeg-encoder/libqmmf_jpeg.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/test/libqmmf_postproc_test.la
-libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/haze-buster/libqmmf_haze_buster.la
+libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/algo/libqmmf_postproc_algo.la

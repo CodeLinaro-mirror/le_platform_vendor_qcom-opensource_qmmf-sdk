@@ -37,8 +37,6 @@ namespace qmmf {
 
 namespace recorder {
 
-namespace reproc {
-
 PostProcJpeg::PostProcJpeg(int32_t Id)
     : id_(Id),
       reprocess_flag_(false),
@@ -57,8 +55,8 @@ PostProcJpeg::~PostProcJpeg() {
 }
 
 status_t PostProcJpeg::Create(const int32_t stream_id,
-                           const ReprocParam& input,
-                           const ReprocParam& output,
+                           const PostProcCreateParam& input,
+                           const PostProcCreateParam& output,
                            const uint32_t frame_rate,
                            const uint32_t num_images,
                            const void* static_meta,
@@ -84,13 +82,32 @@ status_t PostProcJpeg::Create(const int32_t stream_id,
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::GetCapabilities(ReprocCaps *caps) {
-  caps->internal_buff = 1;
-  caps->out_format = HAL_PIXEL_FORMAT_BLOB;
-  caps->in_format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  caps->scale_en = 0;
-  caps->usage = 0;
-  // TODO
+PostProcCreateParam PostProcJpeg::GetInput(const PostProcCreateParam &out) {
+  PostProcCreateParam in = out;
+  in.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  return in;
+}
+
+PostProcCreateParam PostProcJpeg::GetOutput(const PostProcCreateParam &in) {
+  PostProcCreateParam out = in;
+  out.format = HAL_PIXEL_FORMAT_BLOB;
+  return out;
+}
+
+status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
+  caps.output_buff_        = 1;
+  caps.min_width_          = 160;
+  caps.min_height_         = 120;
+  caps.max_width_          = 5104;
+  caps.max_height_         = 4092;
+  caps.crop_support_       = false;
+  caps.scale_support_      = false;
+  caps.inplace_processing_ = false;
+  caps.lib_version_        = "1.0";
+
+  caps.in_formats_.push_back(BufferFormat::kNV12);
+  caps.out_formats_.push_back(BufferFormat::kBLOB);
+
   return NO_ERROR;
 }
 
@@ -126,8 +143,15 @@ status_t PostProcJpeg::Delete() {
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::Process(StreamBuffer& in_buffer,
-                           StreamBuffer& out_buffer) {
+status_t PostProcJpeg::Configure(const std::string config_json_data) {
+  return NO_ERROR;
+}
+
+status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
+                               const std::vector<StreamBuffer> &out_buffers) {
+  StreamBuffer in_buffer = in_buffers.front();
+  StreamBuffer out_buffer = out_buffers.front();
+
   QMMF_VERBOSE("%s:%s: %d: Enter in FD: %d out FD: %d ", TAG,
       __func__, __LINE__, in_buffer.fd, out_buffer.fd);
 
@@ -191,17 +215,6 @@ status_t PostProcJpeg::Process(StreamBuffer& in_buffer,
 
   return NO_ERROR;
 }
-
-void PostProcJpeg::AddResult(const void* result) {
-}
-
-status_t PostProcJpeg::ReturnBuff(StreamBuffer buffer) {
-  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) ts: %lld, streamId: %d", TAG,
-       __func__, buffer.handle, buffer.timestamp, buffer.stream_id);
-  return NO_ERROR;
-}
-
-}; // namespace reproc
 
 }; // namespace recoder
 

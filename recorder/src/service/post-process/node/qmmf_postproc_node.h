@@ -44,6 +44,7 @@
 #include "../memory/qmmf_postproc_memory_pool.h"
 #include "../common/qmmf_postproc_thread.h"
 #include "../factory/qmmf_postproc_factory.h"
+
 namespace qmmf {
 
 namespace recorder {
@@ -51,17 +52,11 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
-struct ReprocessCreate {
-  uint32_t           width;
-  uint32_t           height;
-  int32_t            format;
-};
-
 struct PostProcNodeCreate {
-  ReprocessCreate    in;
-  ReprocessCreate    out;
-  uint32_t           frame_rate;
-  uint32_t           max_buffer_count;
+  PostProcCreateParam   in;
+  PostProcCreateParam   out;
+  uint32_t              frame_rate;
+  uint32_t              max_buffer_count;
 };
 
 struct PostProcImgParams {
@@ -99,7 +94,7 @@ class InputHandler : public PostProcThread {
 
   void FlushBufs(std::function<void(StreamBuffer&)> BuffHandler);
 
-  void* MapBuf(StreamBuffer& buffer);
+  status_t MapBuf(StreamBuffer& buffer);
 
   void UnMapBufs();
 
@@ -108,6 +103,11 @@ class InputHandler : public PostProcThread {
   bool ThreadLoop() override;
 
  private:
+
+  status_t GetInputBuffers(std::vector<StreamBuffer> &in_buffs);
+
+  status_t GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
+                            const std::vector<StreamBuffer> &in_buffs);
 
   struct map_data_t {
     void* addr;
@@ -162,13 +162,17 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
                       PostProcNodeParams& reproc_node_param,
                       void* static_meta);
 
+   PostProcCreateParam GetInput(const PostProcCreateParam &out);
+
    void OnFrameAvailable(StreamBuffer& buffer) override;
 
    void NotifyBufferReturned(StreamBuffer& buffer) override;
 
-   status_t OnFrameProcessed(StreamBuffer &input_buffer) override;
+   void OnFrameProcessed(const StreamBuffer &input_buffer)  override;
 
-   status_t OnFrameReady(StreamBuffer &output_buffer) override;
+   void OnFrameReady(const StreamBuffer &output_buffer) override;
+
+   void OnError(RuntimeError err) override;
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -177,7 +181,7 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    void AddResult(const void* result);
 
    void getDefaultParam(PostProcNodeParams& reproc_node_param,
-                        PostProcNodeCreate& create_params);
+                        const PostProcNodeCreate& create_params);
 
    status_t Start();
 
@@ -185,9 +189,13 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
  private:
 
+   StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
+
    status_t ReturnBufferToClient(StreamBuffer &buffer);
 
    status_t ReturnBuffers();
+
+   static const int32_t              circulation_buffers_ = 2;
 
    InputHandler                      in_;
    OutputHandler                     out_;
@@ -199,8 +207,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    PostProcNodeParams                init_params_;
 
    int32_t                           id_;
-   String8                           name_;
-   ReprocCaps                        caps_;
+   std::string                       name_;
+   PostProcCaps                      caps_;
 
    PostProcNodeState                 state_;
    std::mutex                        state_lock_;
