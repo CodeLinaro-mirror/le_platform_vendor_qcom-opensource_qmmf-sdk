@@ -56,7 +56,6 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
-static const int32_t kRecordDuration     = 2*60;   // 2 min for each iteration.
 static const int32_t kDelayAfterSnapshot = 5;
 static const uint32_t kZslWidth          = 1920;
 static const uint32_t kZslHeight         = 960;
@@ -91,6 +90,8 @@ void Recorder360Gtest::SetUp() {
   dump_yuv_freq_ = atoi(prop_val);
   property_get(PROP_360_N_ITERATIONS, prop_val, DEFAULT_360_ITERATIONS_COUNT);
   iteration_count_ = atoi(prop_val);
+  property_get(PROP_360_RECORD_DURATION, prop_val, DEFAULT_360_RECORD_DURATION);
+  record_duration_ = atoi(prop_val);
 
   camera_ids_.push_back(0);
   camera_ids_.push_back(1);
@@ -558,9 +559,9 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -665,9 +666,9 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -772,9 +773,9 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -888,9 +889,9 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1012,9 +1013,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1134,9 +1135,9 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1256,9 +1257,9 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1380,9 +1381,9 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1550,7 +1551,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1722,7 +1723,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -1894,7 +1895,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2064,7 +2065,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2089,6 +2090,367 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* Stitched720pYUVSessionAnd4KEncSession:
+*     This case will test a MultiCamera with 2 sessions, one 1440x720 YUV track
+*     and one 3840x1920 h264 encoded track, both at 30fps and configured to
+*     produce stitched frames.
+*     Both sessions are created at the beginning but the second is Start/Stop
+*     while the first is running.
+*
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   - CreateSession 1
+*   - CreateVideoTrack 1
+*   - CreateSession 2
+*   - CreateVideoTrack 2
+*   - StartSession 1
+*   loop Start {
+*   ------------------
+*   - StartSession 2
+*   - StopSession 2
+*   ------------------
+*   } loop End
+*   - StopSession 1
+*   - DeleteVideoTrack 2
+*   - DeleteSession 2
+*   - DeleteVideoTrack 1
+*   - DeleteSession 1
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_720p = 1;
+  uint32_t video_track_id_4k = 2;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id_720p;
+  ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
+  assert(session_id_720p > 0);
+  assert(ret == NO_ERROR);
+
+  // Set parameters for and create 1280x640 YUV track.
+  stream_width  = 1440;
+  stream_height = 720;
+
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  video_track_param.camera_id     = multicam_id_;
+  video_track_param.width         = stream_width;
+  video_track_param.height        = stream_height;
+  video_track_param.frame_rate    = stream_fps;
+  video_track_param.format_type   = VideoFormat::kYUV;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id_720p] (uint32_t track_id,
+                            std::vector<BufferDescriptor> buffers,
+                            std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(session_id_720p, track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id_720p, video_track_id_720p,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  uint32_t session_id_4k;
+  ret = recorder_.CreateSession(session_status_cb, &session_id_4k);
+  assert(session_id_4k > 0);
+  assert(ret == NO_ERROR);
+
+  // Set parameters for and create 3840x1920 h264 encodded track.
+  stream_width  = 3840;
+  stream_height = 1920;
+
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  video_track_param.camera_id     = multicam_id_;
+  video_track_param.width         = stream_width;
+  video_track_param.height        = stream_height;
+  video_track_param.frame_rate    = stream_fps;
+  video_track_param.format_type   = VideoFormat::kAVC;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
+  if (dump_bitstream_.IsEnabled()) {
+    Stream360DumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id_4k,
+      stream_width,
+      stream_height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  video_track_cb.data_cb = [&, session_id_4k] (uint32_t track_id,
+                            std::vector<BufferDescriptor> buffers,
+                            std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id_4k, track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id_4k, video_track_id_4k,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(session_id_720p);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.StartSession(session_id_4k);
+    assert(ret == NO_ERROR);
+
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id_4k, false);
+    assert(ret == NO_ERROR);
+  }
+  dump_bitstream_.CloseAll();
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(session_id_720p, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id_4k, video_track_id_4k);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id_4k);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id_720p, video_track_id_720p);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id_720p);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* Stitched720pYUVSessionAnd4KEncSessionAtRunTime:
+*     This case will test a MultiCamera with 2 sessions, one 1440x720 YUV track
+*     and one 3840x1920 h264 encoded track, both at 30fps and configured to
+*     produce stitched frames.
+*     The second session is created while the first is still running.
+*
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   - CreateSession 1
+*   - CreateVideoTrack 1
+*   - StartSession 1
+*   loop Start {
+*   ------------------
+*   - CreateSession 2
+*   - CreateVideoTrack 2
+*   - StartSession 2
+*   - StopSession 2
+*   - DeleteVideoTrack 2
+*   - DeleteSession 2
+*   ------------------
+*   } loop End
+*   - StopSession 1
+*   - DeleteVideoTrack 1
+*   - DeleteSession 1
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_720p = 1;
+  uint32_t video_track_id_4k = 2;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id_720p;
+  ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
+  assert(session_id_720p > 0);
+  assert(ret == NO_ERROR);
+
+  // Set parameters for and create 1280x640 YUV track.
+  stream_width  = 1440;
+  stream_height = 720;
+
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+  video_track_param.camera_id     = multicam_id_;
+  video_track_param.width         = stream_width;
+  video_track_param.height        = stream_height;
+  video_track_param.frame_rate    = stream_fps;
+  video_track_param.format_type   = VideoFormat::kYUV;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id_720p] (uint32_t track_id,
+                            std::vector<BufferDescriptor> buffers,
+                            std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(session_id_720p, track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id_720p, video_track_id_720p,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(session_id_720p);
+  assert(ret == NO_ERROR);
+
+  // Set parameters for and create 3840x1920 h264 encodded track.
+  stream_width  = 3840;
+  stream_height = 1920;
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    uint32_t session_id_4k;
+    ret = recorder_.CreateSession(session_status_cb, &session_id_4k);
+    assert(session_id_4k > 0);
+    assert(ret == NO_ERROR);
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id     = multicam_id_;
+    video_track_param.width         = stream_width;
+    video_track_param.height        = stream_height;
+    video_track_param.frame_rate    = stream_fps;
+    video_track_param.format_type   = VideoFormat::kAVC;
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id_4k] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id_4k, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id_4k, video_track_id_4k,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id_4k);
+    assert(ret == NO_ERROR);
+
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id_4k, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id_4k, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(session_id_720p, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id_720p, video_track_id_720p);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id_720p);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
 
 }
 
@@ -2472,9 +2834,9 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2581,9 +2943,9 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2690,9 +3052,9 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2808,9 +3170,9 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2933,9 +3295,9 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3056,9 +3418,9 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3179,9 +3541,9 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3304,9 +3666,9 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3475,7 +3837,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3606,9 +3968,9 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithSourceSurfaceCrop) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -3785,9 +4147,9 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncAndSingleWXGATrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4128,7 +4490,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4264,7 +4626,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4400,7 +4762,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4536,7 +4898,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4672,7 +5034,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4808,7 +5170,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -4944,7 +5306,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5080,7 +5442,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5387,7 +5749,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5513,7 +5875,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5648,7 +6010,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5784,7 +6146,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6110,7 +6472,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_AUTO\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6247,7 +6609,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_100\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6384,7 +6746,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_200\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6521,7 +6883,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_400\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6658,7 +7020,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_800\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6795,7 +7157,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_1600\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -6932,7 +7294,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     assert(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_3200\n");
 
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);

@@ -152,6 +152,8 @@ void ReprocessPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
     (*iter)->RemoveConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
   }
+  pipe_consumer_.clear();
+  pipe_consumer_ = nullptr;
 }
 
 void ReprocessPipe::Start() {

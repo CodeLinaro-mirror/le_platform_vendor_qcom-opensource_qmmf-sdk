@@ -67,6 +67,8 @@ struct FaceInfo {
 
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
+// Default recording duration is 2 minutes i.e. 2 * 60 seconds
+#define DEFAULT_RECORD_DURATION     "120"
 
 // Prop to enable YUV data dumping from YUV track
 #define PROP_DUMP_YUV_FRAMES        "persist.qmmf.rec.gtest.dumpyuv"
@@ -82,6 +84,8 @@ struct FaceInfo {
 #define PROP_N_ITERATIONS           "persist.qmmf.rec.gtest.iter"
 // Prop to set camera id
 #define PROP_CAMERA_ID              "persist.qmmf.rec.gtest.cameraid"
+// Prop to set recording duration in seconds
+#define PROP_RECORD_DURATION        "persist.qmmf.rec.gtest.recdur"
 
 // Prop to set Track Resolutions and FPS
 #define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
@@ -265,5 +269,6 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_raw_enabled_;
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
+  uint32_t              record_duration_;
 };
 

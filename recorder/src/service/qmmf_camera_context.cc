@@ -114,7 +114,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   int32_t stream_id = -1;
-  int32_t ret = NO_ERROR;
+  status_t ret = NO_ERROR;
 
   if (!snapshot_request_.streamIds.isEmpty()) {
     if (1 < snapshot_request_.streamIds.size()) {
@@ -152,7 +152,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
   if (reprocess_enable_) {
-    stream_param.bufferCount  = sequence_cnt_;
+    stream_param.bufferCount  = SNAPSHOT_STREAM_BUFFER_COUNT;
     stream_param.format       = HAL_PIXEL_FORMAT_YCbCr_420_888;
   }
 
@@ -175,6 +175,23 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     assert(ret == NO_ERROR);
   }
   return ret;
+}
+
+status_t CameraContext::DeleteSnapshotStream() {
+
+  bool cache = (reprocess_enable_ || (streaming_request_id_ == -1));
+  if (!snapshot_request_.streamIds.isEmpty()) {
+    auto ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: Failed to delete snapshot stream: %d",
+          __func__, ret);
+      return ret;
+    }
+    snapshot_request_.streamIds.clear();
+  }
+  ReprocDelete();
+
+  return NO_ERROR;
 }
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,
@@ -306,7 +323,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
     active_ports_.push_back(zsl_port_);
 
-    ret = zsl_port_->Start(0, nullptr);
+    ret = zsl_port_->Start();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: zsl port start failed!", TAG, __func__);
       return ret;
@@ -376,13 +393,13 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
       QMMF_WARN("%s:%s: ZSL queue is not flashed!", TAG, __func__);
       // Even it is not flushed still give a try to Stop it.
     }
-    ret = zsl_port_->Stop(0);
+    ret = zsl_port_->Stop();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s ZSL port stop failed!", TAG, __func__);
       return ret;
     }
   }
-  ReprocDelete();
+  DeleteSnapshotStream();
 
   if (streaming_request_id_ > 0) {
     QMMF_ERROR("%s:%s: Streaming Request still running! delete all tracks "
@@ -455,8 +472,23 @@ std::function<void(int32_t stream_id, StreamBuffer buffer)>
   }
 }
 
-status_t CameraContext::CaptureImage(const ImageParam &param,
-                                     const uint32_t num_images,
+status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
+
+  std::unique_lock<std::mutex> lock(aec_lock_);
+  if (streaming_request_id_ != -1) {
+    aec_done_ = true;
+    int32_t wait_time = timeout / 100000;
+    if (aec_signal_.wait_for(lock,
+      std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+      QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
+      return TIMED_OUT;
+    }
+    aec_done_ = false;
+  }
+  return NO_ERROR;
+}
+
+status_t CameraContext::CaptureImage(const uint32_t num_images,
                                      const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
@@ -465,72 +497,73 @@ status_t CameraContext::CaptureImage(const ImageParam &param,
   client_snapshot_cb_ = cb;
   burst_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
-
-    bool reconfigure_needed = (snapshot_param_.width !=
-        param.width) ||
-        (snapshot_param_.height != param.height) ||
-        snapshot_request_.streamIds.isEmpty() ||
-        (reprocess_enable_ != IsReprocessNeed(param));
-
+    Mutex::Autolock lock(device_access_lock_);
+    int64_t last_frame_mumber;
+    uint8_t jpeg_quality = snapshot_param_.image_quality;
+    List<Camera3Request> requests;
+    std::vector<CameraMetadata>::const_iterator it = meta.begin();
+    for (uint32_t i = 0; i < num_images; i++) {
+      if (it != meta.end()) {
+        snapshot_request_.metadata.clear();
+        snapshot_request_.metadata.append(*it++);
+      }
+      snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+      requests.push_back(snapshot_request_);
+    }
     sequence_cnt_ = num_images;
 
-    QMMF_INFO("%s:%s: reconfigure_needed=%d", TAG, __func__,
-        reconfigure_needed);
-
-    if (reconfigure_needed) {
-      ret = CreateSnapshotStream(param);
-      if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Failed during snapshot re-configure",
-                   TAG, __func__);
-        return ret;
-      }
-    }
-
-    {
-      Mutex::Autolock lock(device_access_lock_);
-      int64_t last_frame_mumber;
-      uint8_t jpeg_quality = snapshot_param_.image_quality;
-      List<Camera3Request> requests;
-      std::vector<CameraMetadata>::const_iterator it = meta.begin();
-      for (uint32_t i = 0; i < sequence_cnt_; i++) {
-        if (it != meta.end()) {
-          snapshot_request_.metadata.clear();
-          snapshot_request_.metadata.append(*it++);
-        }
-        snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality,
-                                          1);
-        requests.push_back(snapshot_request_);
-      }
-
-      {
-        std::unique_lock<std::mutex> lock(aec_lock_);
-        if (streaming_request_id_ != -1) {
-          aec_done_ = true;
-          int32_t wait_time = kSyncFrameWaitDuration/1000000;
-          if (aec_signal_.wait_for(lock,
-              std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
-            QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
-          }
-          aec_done_ = false;
-        }
-      }
-
-      auto request_id = camera_device_->SubmitRequestList(requests,
-                                              false,
-                                              &last_frame_mumber);
-      assert(request_id >= 0);
-      snapshot_request_id_ = camera_device_->GetRequestIds();
-    }
-    QMMF_INFO("%s:%s: Request for non-zsl submitted successfully", TAG, __func__);
+    auto request_id = camera_device_->SubmitRequestList(requests, false,
+                                                        &last_frame_mumber);
+    assert(request_id >= 0);
+    snapshot_request_id_ = camera_device_->GetRequestIds();
+    QMMF_INFO("%s:%s: Request for non-zsl submitted successfully", TAG,
+        __func__);
   } else {
-    ret = CaptureZSLImage(param);
+    ret = CaptureZSLImage();
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s:CaptureImage Failed in ZSL mode!", TAG, __func__);
+      QMMF_ERROR("%s:%s: CaptureImage Failed in ZSL mode!", TAG, __func__);
       return ret;
     }
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return ret;
+}
+
+status_t CameraContext::ConfigImageCapture(const ImageParam &param) {
+
+  if (!camera_start_params_.zsl_mode) {
+    bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
+                              (snapshot_param_.width != param.width) ||
+                              (snapshot_param_.height != param.height) ||
+                              (reprocess_enable_ != IsReprocessNeed(param));
+    snapshot_param_ = param;
+
+    if (reconfigure_needed) {
+      QMMF_INFO("%s:%s: Snapshot stream reconfigure required", TAG, __func__);
+      auto ret = CreateSnapshotStream(param);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
+        return ret;
+      }
+      // Wait aec to converge after reconfiguration
+      WaitAecToConverge(kSyncFrameWaitDuration);
+    }
+  } else {
+    if (ImageFormat::kJPEG != param.image_format) {
+      QMMF_ERROR("%s:%s ZSL capture supports only Jpeg as output!",
+                 TAG, __func__);
+      return BAD_VALUE;
+    }
+
+    if ((param.width != camera_start_params_.zsl_width) ||
+        (param.height != camera_start_params_.zsl_height)) {
+      QMMF_ERROR("%s:%s ZSL stream size %dx%d doesn't match image size %dx%d!",
+                 TAG, __func__, camera_start_params_.zsl_width,
+                 camera_start_params_.zsl_height, param.width, param.height);
+      return BAD_VALUE;
+    }
+  }
+  return NO_ERROR;
 }
 
 status_t CameraContext::CancelCaptureImage() {
@@ -557,19 +590,7 @@ status_t CameraContext::CancelCaptureImage() {
       }
       assert(sequence_cnt_ == 0);
     }
-    auto cache = (reprocess_enable_ || streaming_request_id_ == -1) ?
-                 true : false;
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
-          __func__, ret);
-      return ret;
-    }
-    snapshot_request_.streamIds.clear();
-
-    if (reproc_pipe_.get() != nullptr) {
-      reproc_pipe_.clear();
-    }
+    DeleteSnapshotStream();
   }
   cancel_capture_ = false;
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -738,7 +759,7 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
   return ret;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id,
+status_t CameraContext::AddConsumer(const uint32_t& track_id,
                                     sp<IBufferConsumer>& consumer) {
 
   auto port = GetPort(track_id);
@@ -748,11 +769,42 @@ status_t CameraContext::StartStream(const uint32_t track_id,
   }
   assert(port != nullptr);
 
-  auto ret = port->Start(track_id, consumer);
+  auto ret = port->AddConsumer(consumer);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: Consumer(%p) added to track_id(%d)", TAG, __func__,
+      consumer.get(), track_id);
+  return NO_ERROR;
+}
+
+status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
+                                       sp<IBufferConsumer>& consumer) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->RemoveConsumer(consumer);
+  assert(ret == NO_ERROR);
+  return NO_ERROR;
+}
+
+status_t CameraContext::StartStream(const uint32_t track_id) {
+
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
+    return BAD_VALUE;
+  }
+  assert(port != nullptr);
+
+  auto ret = port->Start();
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: track_id(%d) started on port(0x%p)", TAG, __func__,
       track_id, port);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraContext::StopStream(const uint32_t track_id) {
@@ -764,9 +816,9 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   }
   assert(port != nullptr);
 
-  auto ret = port->Stop(track_id);
+  auto ret = port->Stop();
   assert(ret == NO_ERROR);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
@@ -1417,27 +1469,13 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureZSLImage(const ImageParam &param) {
+status_t CameraContext::CaptureZSLImage() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
 
   bool regular_snapshot = false;
   assert(!snapshot_request_.streamIds.isEmpty());
-
-  if (ImageFormat::kJPEG != param.image_format) {
-    QMMF_ERROR("%s:%s ZSL capture supports only Jpeg as output!",
-               TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if ((param.width != camera_start_params_.zsl_width) ||
-      (param.height != camera_start_params_.zsl_height)) {
-    QMMF_ERROR("%s:%s ZSL stream size %dx%d doesn't match image size %dx%d!",
-               TAG, __func__, camera_start_params_.zsl_width,
-               camera_start_params_.zsl_height, param.width, param.height);
-    return BAD_VALUE;
-  }
 
   assert(zsl_port_.get() != nullptr);
   ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
@@ -1543,7 +1581,7 @@ CameraPort* CameraContext::GetPort(const uint32_t track_id) {
   CameraPort* port = nullptr;
   for (auto iter : active_ports_) {
     auto type = iter->GetPortType();
-    if (track_id == iter->GetConsumerId() && (type != CameraPortType::kZSL)) {
+    if (track_id == iter->GetPortId() && (type != CameraPortType::kZSL)) {
       QMMF_INFO("%s:%s: Found the port for id(0%x)", TAG, __func__, track_id);
       port = iter.get();
       break;
@@ -1562,7 +1600,7 @@ void CameraContext::DeletePort(const uint32_t track_id) {
   auto iter = active_ports_.begin();
   while (iter != active_ports_.end()) {
     auto type = (*iter)->GetPortType();
-    if (track_id == (*iter)->GetConsumerId()
+    if (track_id == (*iter)->GetPortId()
         && (type != CameraPortType::kZSL)) {
       QMMF_INFO("%s:%s: Found the port for id(0%x)", TAG, __func__, track_id);
       iter = active_ports_.erase(iter);
@@ -1637,7 +1675,7 @@ CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
       params_(param),
       ready_to_start_(false),
       batch_size_(batch),
-      consumer_id_(param.id) {
+      port_id_(param.id) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -1711,6 +1749,10 @@ status_t CameraPort::Init() {
     auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,
                                           cam_stream_params_, &static_meta);
     assert(reproc_id >= 0);
+
+    sp<IBufferConsumer>& consumer = reproc_pipe_->GetConsumerIntf();
+    buffer_producer_impl_->AddConsumer(consumer);
+    consumer->SetProducerHandle(buffer_producer_impl_);
   }
 
   port_state_ = PortState::PORT_CREATED;
@@ -1729,6 +1771,7 @@ status_t CameraPort::DeInit() {
   assert(context_ != nullptr);
 
   if (reproc_pipe_.get() != nullptr) {
+    buffer_producer_impl_->RemoveConsumer(reproc_pipe_->GetConsumerIntf());
     reproc_pipe_.clear();
   }
 
@@ -1737,30 +1780,22 @@ status_t CameraPort::DeInit() {
     QMMF_ERROR("%s:%s: DeleteDeviceStream failed!!", TAG, __func__);
     return BAD_VALUE;
   }
-  consumer_map_.clear();
+  consumers_.clear();
   QMMF_DEBUG("%s:%s: CameraPort(0x%p) deinitialized successfully! ", TAG,
       __func__, this);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t CameraPort::Start(const uint32_t consumer_id,
-                           const sp<IBufferConsumer>& consumer) {
+status_t CameraPort::Start() {
 
-  // ZSL port can start and stop without having any consumer connected.
-  if (port_type_ != CameraPortType::kZSL) {
-    assert(consumer.get() != nullptr);
-    // Establish buffer communication link between consumer (TrackSource) and
-    // Buffer Producer interface of camera port.
+  if (port_state_ == PortState::PORT_STARTED){
+    // Port is already in started state.
+    return NO_ERROR;
+  }
 
-    if (reproc_pipe_.get() != nullptr) {
-      consumer_ = consumer;
-      reproc_pipe_->AddConsumer(consumer_);
-      AddConsumer(consumer_id, reproc_pipe_->GetConsumerIntf());
-      reproc_pipe_->Start();
-    } else {
-      AddConsumer(consumer_id, consumer);
-    }
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->Start();
   }
 
   //TODO: protect it with lock.
@@ -1768,47 +1803,29 @@ status_t CameraPort::Start(const uint32_t consumer_id,
   port_state_ = PortState::PORT_READYTOSTART;
 
   QMMF_INFO("%s:%s: track_id(%x):camera stream(%d) to start!", TAG, __func__,
-      consumer_id, camera_stream_id_);
+      port_id_, camera_stream_id_);
 
   auto ret = context_->UpdateRequest(true);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
-        , TAG, __func__, consumer_id);
+    QMMF_ERROR("%s:%s: UpdateRequest failed! for track_id = %d", TAG,
+        __func__, port_id_);
+    return ret;
   }
+  QMMF_INFO("%s:%s: track_id(%x):Port(%p) Started Succussfully!", TAG,
+      __func__, port_id_, this);
+
   port_state_ = PortState::PORT_STARTED;
-  return ret;
+  return NO_ERROR;
 }
 
-status_t CameraPort::Stop(const uint32_t consumer_id) {
+status_t CameraPort::Stop() {
 
-  // ZSL port can start and stop without having any consumer connected.
-  if (port_type_ != CameraPortType::kZSL) {
-
-    if (!IsConsumerIdValid(consumer_id)) {
-      QMMF_ERROR("%s:%s: consumer_id(%x) is not valid!", TAG, __func__,
-          consumer_id);
-      return BAD_VALUE;
-    }
-
-    // Break buffer communication link between consumer and camera port.
-    if (reproc_pipe_.get() != nullptr) {
-      Mutex::Autolock lock(stop_lock_);
-      RemoveConsumer(consumer_id);
-      reproc_pipe_->RemoveConsumer(consumer_);
-      reproc_pipe_->Stop();
-    } else {
-      RemoveConsumer(consumer_id);
-    }
-
-    size_t size = consumer_map_.size();
-    QMMF_INFO("%s:%s: Number of Consumer left = %d", TAG, __func__, size);
-    if (size > 0) {
-      // Camera port is still getting used by some other consumer, don't delete
-      // camera device stream, eventaully it would be deleted when number
-      // of consumer becomes zero.
-      return NO_ERROR;
-    }
+  if (port_state_ == PortState::PORT_CREATED ||
+      port_state_ == PortState::PORT_STOPPED){
+    // Port is already in stopped state.
+    return NO_ERROR;
   }
+
   //TODO: protect it with lock.
   ready_to_start_ = false;
   port_state_ = PortState::PORT_READYTOSTOP;
@@ -1818,46 +1835,67 @@ status_t CameraPort::Stop(const uint32_t consumer_id) {
   auto ret = context_->UpdateRequest(true);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
-        , TAG, __func__, consumer_id);
+        , TAG, __func__, port_id_);
+    return ret;
   }
-  QMMF_INFO("%s:%s: track_id(%x):Port(0x%p) Stopped Succussfully!", TAG,
-      __func__, consumer_id, this);
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->Stop();
+  }
+  QMMF_INFO("%s:%s: track_id(%x):Port(%p) Stopped Succussfully!", TAG,
+      __func__, port_id_, this);
 
   port_state_ = PortState::PORT_STOPPED;
-
-  return ret;
-}
-
-status_t CameraPort::AddConsumer(const uint32_t consumer_id,
-                                 const sp<IBufferConsumer>& consumer) {
-
-  Mutex::Autolock lock(consumer_lock_);
-
-  consumer_map_.add(consumer_id, consumer);
-  // Add consumer to port's producer interface.
-  assert(buffer_producer_impl_.get() != nullptr);
-  buffer_producer_impl_->AddConsumer(consumer);
-  consumer->SetProducerHandle(buffer_producer_impl_);
-  QMMF_DEBUG("%s:%s: ConsumerId(%x):(0x%p) has been added to CameraPort(0x%p)."
-      "Total number of consumer =%d", TAG, __func__, consumer_id, consumer.get()
-      , this, consumer_map_.size());
   return NO_ERROR;
 }
 
-status_t CameraPort::RemoveConsumer(const uint32_t consumer_id) {
+status_t CameraPort::AddConsumer(sp<IBufferConsumer>& consumer) {
 
-  Mutex::Autolock lock(consumer_lock_);
-
-  sp<IBufferConsumer> consumer = consumer_map_.valueFor(consumer_id);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   assert(consumer.get() != nullptr);
-  // Remove consumer from port's producer interface.
-  assert(buffer_producer_impl_.get() != nullptr);
-  buffer_producer_impl_->RemoveConsumer(consumer);
 
-  consumer_map_.removeItem(consumer_id);
-  QMMF_DEBUG("%s:%s: ConsumerId(%x):(0x%p) has been Remved CameraPort(0x%p)."
-      "Total number of consumer =%d", TAG, __func__,consumer_id, consumer.get(),
-      this, consumer_map_.size());
+  if (IsConsumerConnected(consumer)) {
+    QMMF_ERROR("%s:%s: consumer(%p) already added to the producer!",
+        TAG, __func__, consumer.get());
+    return ALREADY_EXISTS;
+  }
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->AddConsumer(consumer);
+  } else {
+    // Add consumer to port's producer interface.
+    assert(buffer_producer_impl_.get() != nullptr);
+    buffer_producer_impl_->AddConsumer(consumer);
+    consumer->SetProducerHandle(buffer_producer_impl_);
+    QMMF_DEBUG("%s:%s: Consumer(%p) has been added to CameraPort(%p)."
+        "Total number of consumer = %d", TAG, __func__, consumer.get()
+        , this, buffer_producer_impl_->GetNumConsumer());
+  }
+  consumers_.emplace(reinterpret_cast<uintptr_t>(consumer.get()), consumer);
+  return NO_ERROR;
+}
+
+status_t CameraPort::RemoveConsumer(sp<IBufferConsumer>& consumer) {
+
+  std::lock_guard<std::mutex> lock(consumer_lock_);
+  assert(consumer.get() != nullptr);
+  if (!IsConsumerConnected(consumer)) {
+    QMMF_ERROR("%s:%s: consumer(%p) is not connected to this port(%p)!",
+        TAG, __func__, consumer.get(), this);
+    return BAD_VALUE;
+  }
+
+  if (reproc_pipe_.get() != nullptr) {
+    reproc_pipe_->RemoveConsumer(consumer);
+  } else {
+    // Remove consumer from port's producer interface.
+    assert(buffer_producer_impl_.get() != nullptr);
+    buffer_producer_impl_->RemoveConsumer(consumer);
+    QMMF_DEBUG("%s:%s: Consumer(%p) has been removed from CameraPort(%p)."
+        "Total number of consumer = %d", TAG, __func__, consumer.get()
+        , this, buffer_producer_impl_->GetNumConsumer());
+  }
+  consumers_.erase(reinterpret_cast<uintptr_t>(consumer.get()));
   return NO_ERROR;
 }
 
@@ -1871,8 +1909,9 @@ void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
 }
 
 int32_t CameraPort::GetNumConsumers() {
-  Mutex::Autolock lock(consumer_lock_);
-  return consumer_map_.size();
+
+  std::lock_guard<std::mutex> lock(consumer_lock_);
+  return consumers_.size();
 }
 
 bool CameraPort::IsReadyToStart() {
@@ -1884,17 +1923,13 @@ PortState& CameraPort::getPortState() {
   return port_state_;
 }
 
-bool CameraPort::IsConsumerIdValid(const uint32_t id) {
+bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
 
-  bool valid = false;
-  size_t size = consumer_map_.size();
-  for(size_t i = 0; i < size; i++) {
-    if (id == consumer_map_.keyAt(i)) {
-        valid = true;
-        break;
-    }
+  uintptr_t key = reinterpret_cast<uintptr_t>(consumer.get());
+  if (consumers_.find(key) != consumers_.end()) {
+    return true;
   }
-  return valid;
+  return false;
 }
 
 void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
@@ -1907,7 +1942,7 @@ void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
       "frame_number: %d\n", TAG, __func__, stream_id, stream_buffer.handle,
       stream_buffer.timestamp, stream_buffer.frame_number);
 
-  Mutex::Autolock lock(stop_lock_);
+  std::lock_guard<std::mutex> lock(consumer_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
     stream_buffer.camera_id = context_->camera_id_;
     buffer_producer_impl_->NotifyBuffer(stream_buffer);

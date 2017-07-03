@@ -55,6 +55,7 @@ using ::std::shared_ptr;
 static const nsecs_t kWaitDuration = 2000000000; // 2 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
+static const int32_t kDebugFrameSkip = 1<<2;
 static const uint64_t kTsFactor = 10000000; // 10 ms.
 
 CameraSource* CameraSource::instance_ = nullptr;
@@ -246,7 +247,14 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-  auto ret = camera->CaptureImage(param, num_images, meta, stream_cb);
+
+  auto ret = camera->ConfigImageCapture(param);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
+    return ret;
+  }
+
+  ret = camera->CaptureImage(num_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
     return ret;
@@ -807,7 +815,10 @@ status_t TrackSource::StartTrack() {
   consumer = GetConsumerIntf();
   assert(consumer.get() != nullptr);
 
-  auto ret = camera_interface_->StartStream(TrackId(), consumer);
+  auto ret = camera_interface_->AddConsumer(TrackId(), consumer);
+  assert(ret == NO_ERROR);
+
+  ret = camera_interface_->StartStream(TrackId());
   assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
@@ -859,7 +870,11 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     }
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
+
     auto ret = camera_interface_->StopStream(TrackId());
+    assert(ret == NO_ERROR);
+
+    ret = camera_interface_->RemoveConsumer(TrackId(), GetConsumerIntf());
     assert(ret == NO_ERROR);
     {
       Mutex::Autolock autoLock(buffer_list_lock_);
@@ -904,8 +919,13 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
           __func__, TrackId());
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
+
       auto ret = camera_interface_->StopStream(TrackId());
       assert(ret == NO_ERROR);
+
+      ret = camera_interface_->RemoveConsumer(TrackId(), GetConsumerIntf());
+      assert(ret == NO_ERROR);
+
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
       assert(frames_being_encoded_.Size() == 0);
@@ -1075,20 +1095,21 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       }
     }
     if (debug_fps_ & kDebugSourceTrackFps) {
-      QMMF_INFO("%s:%s: track_id(%x): source fps: = %0.2f", TAG, __func__,
-                TrackId(), framerate);
+      QMMF_INFO("%s:%s: camera id %d, track_id(%x): source fps: = %0.2f", TAG,
+                 __func__,track_params_.params.camera_id, TrackId(), framerate);
     }
     input_prevtv_ = tv;
     input_count_ = 0;
   }
 
-  // Return buffer back to camera if frameskip is valid for this frame
-  // and is NOT a stop condition. In STOP condition, frame skip logic
-  // is bypassed as the buffer consumer may wait for the last buffer
-  // as part of stop processing. Skipping frames may result in timeouts
-  // in the consumer.
-  if ((!IsStop()) && IsFrameSkip()) {
+  // Return buffer back to camera if frameskip is enabled and valid.
+  if ((IsEnableFrameSkip()) && IsFrameSkip()) {
     // Skip frame to adjust fps.
+    if (debug_fps_ & kDebugFrameSkip) {
+      QMMF_INFO("%s:%s:cam_id(%d),track_id(%x),skip frame %u,fps %0.2f",
+                TAG, __func__,track_params_.params.camera_id,
+                TrackId(),buffer.frame_number,input_frame_rate_);
+    }
     ReturnBufferToProducer(buffer);
     return;
   }
@@ -1362,6 +1383,21 @@ void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {
 
   std::lock_guard<std::mutex> lock(frame_repeat_lock_);
   enable_frame_repeat_ = enable_frame_repeat;
+}
+
+// Enable frameskip only when dynamic fps is FRAME_SKIP_THRESHOLD_PERCENT
+// higher than required and this frame is NOT a stop condition. In STOP
+// condition,frame skip logic is bypassed as the buffer consumer may wait
+// for the last bufferas part of stop processing. Skipping frames may result
+// in timeouts in the consumer.
+bool TrackSource::IsEnableFrameSkip() {
+  bool is_enable = false;
+  if ((!IsStop()) &&
+     ((input_frame_rate_ - track_params_.params.frame_rate) >
+     (track_params_.params.frame_rate * FRAME_SKIP_THRESHOLD_PERCENT))) {
+      is_enable = true;
+  }
+  return is_enable;
 }
 
 bool TrackSource::IsFrameSkip() {
