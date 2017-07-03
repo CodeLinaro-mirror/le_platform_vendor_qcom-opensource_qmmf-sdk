@@ -950,20 +950,21 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                  const int32_t buffer_id) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  if (snapshot_buffer_list_.indexOfKey(buffer_id) < 0) {
+  if (snapshot_buffer_list_.find(buffer_id) == snapshot_buffer_list_.end()) {
     QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!!", TAG, __func__, buffer_id);
     return BAD_VALUE;
   }
 
-  StreamBuffer buffer = snapshot_buffer_list_.valueFor(buffer_id);
+  StreamBuffer buffer = snapshot_buffer_list_.find(buffer_id)->second;
   assert(buffer.fd == buffer_id);
 
 
-  if (snapshot_buffer_stream_list_.indexOfKey(buffer_id) < 0) {
+  if (snapshot_buffer_stream_list_.find(buffer_id) ==
+      snapshot_buffer_stream_list_.end()) {
     QMMF_ERROR("%s:%s: buffer_id(%u) is not valid!!", TAG, __func__, buffer_id);
     return BAD_VALUE;
   }
-  int32_t stream_id = snapshot_buffer_stream_list_.valueFor(buffer_id);
+  int32_t stream_id = snapshot_buffer_stream_list_.find(buffer_id)->second;
 
   QMMF_DEBUG("%s:%s: stream_id(%d):stream_buffer(0x%p):ion_fd(%d)"
       " returned back!", TAG, __func__, stream_id, buffer.handle, buffer_id);
@@ -980,8 +981,8 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
   assert(ret == NO_ERROR);
 
-  snapshot_buffer_list_.removeItem(buffer_id);
-  snapshot_buffer_stream_list_.removeItem(buffer_id);
+  snapshot_buffer_list_.erase(buffer_id);
+  snapshot_buffer_stream_list_.erase(buffer_id);
 
   QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -1439,8 +1440,8 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   }
 
   buffer.camera_id = camera_id_;
-  snapshot_buffer_list_.add(buffer.fd, buffer);
-  snapshot_buffer_stream_list_.add(buffer.fd, buffer.stream_id);
+  snapshot_buffer_list_.insert(std::make_pair(buffer.fd, buffer));
+  snapshot_buffer_stream_list_.insert(std::make_pair(buffer.fd, buffer.stream_id));
 
   assert(client_snapshot_cb_ != nullptr);
   client_snapshot_cb_(burst_cnt_, buffer);

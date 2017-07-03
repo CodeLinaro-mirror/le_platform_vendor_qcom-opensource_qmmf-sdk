@@ -34,7 +34,6 @@
 #include <condition_variable>
 
 #include <camera/CameraMetadata.h>
-#include <utils/KeyedVector.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
@@ -178,10 +177,10 @@ class CameraSource {
   bool IsCopyStream(const VideoTrackParams& params);
 
   // Map of camera id and CameraContext.
-  DefaultKeyedVector<uint32_t, sp<CameraInterface>> camera_map_;
+  std::map<uint32_t, sp<CameraInterface>> camera_map_;
 
   // Map of track it and TrackSources.
-  DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
+  std::map<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
 
@@ -320,7 +319,7 @@ class TrackSource : public ICodecSource {
   std::condition_variable  wait_for_idle_;
 
   // Maps of Unique buffer Id and Buffer.
-  DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
+  std::map<uint32_t, StreamBuffer> buffer_list_;
 
   std::mutex buffer_list_lock_;
 
