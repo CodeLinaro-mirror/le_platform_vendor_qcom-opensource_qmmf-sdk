@@ -153,14 +153,15 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    friend class OutputHandler;
 
  public:
-   PostProcNode(const char* srt, IPostProc* context);
+   PostProcNode(std::string name, IPostProc* context);
 
    ~PostProcNode();
 
 
-   int32_t Initialize(int32_t input_stream_id,
-                      PostProcNodeParams& reproc_node_param,
-                      void* static_meta);
+   status_t Initialize(int32_t in_stream_id,
+                       PostProcNodeParams& reproc_node_param,
+                       void* static_meta,
+                       int32_t &out_stream_id);
 
    PostProcCreateParam GetInput(const PostProcCreateParam &out);
 
@@ -191,7 +192,7 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
 
-   status_t ReturnBufferToClient(StreamBuffer &buffer);
+   status_t ProcessOutputBuffer(StreamBuffer &buffer);
 
    status_t ReturnBuffers();
 

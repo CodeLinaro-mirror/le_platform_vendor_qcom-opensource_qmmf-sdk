@@ -37,13 +37,13 @@
 #include <utils/Condition.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 
 #include "post-process/pipe/qmmf_postproc_pipe.h"
 #include "post-process/plugin/qmmf_postproc_plugin.h"
 #include "post-process/interface/qmmf_postproc.h"
-
 namespace qmmf {
 
 using namespace cameraadaptor;
@@ -83,10 +83,10 @@ class CameraContext : public CameraInterface,
 
   status_t WaitAecToConverge(nsecs_t timeout_msec) override;
 
-  status_t SetUpCapture(const ImageParam &param) override;
+  status_t SetUpCapture(const ImageParam &param,
+                        const uint32_t num_images) override;
 
-  status_t CaptureImage(const uint32_t num_images,
-                        const std::vector<CameraMetadata> &meta,
+  status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;
@@ -143,6 +143,11 @@ class CameraContext : public CameraInterface,
 
   void RemoveConsumer(sp<IBufferConsumer>& consumer) {DetachConsumer(consumer);};
 
+  status_t CreateCaptureRequest(Camera3Request& request,
+                                camera3_request_template_t template_type);
+
+  CameraMetadata GetCameraStaticMeta();
+
  private:
 
   struct HFRMode_t {
@@ -175,9 +180,6 @@ class CameraContext : public CameraInterface,
   status_t CreateSnapshotStream(const ImageParam &param);
 
   status_t DeleteSnapshotStream();
-
-  status_t CreateCaptureRequest(Camera3Request& request,
-                                camera3_request_template_t template_type);
 
   status_t UpdateRequest(bool is_streaming);
 
@@ -215,7 +217,14 @@ class CameraContext : public CameraInterface,
 
   void DeletePort(const uint32_t track_id);
 
+  status_t ReprocInit(const ImageParam &param);
+
+  status_t ReprocDeinit();
+
+  status_t ReprocUpdateStreamParams(CameraStreamParameters& stream_param);
+
   status_t ReprocCreate(CameraStreamParameters &stream_param,
+                        const ImageParam &param,
                         int32_t stream_id);
 
   status_t ReprocDelete();
@@ -276,6 +285,14 @@ class CameraContext : public CameraInterface,
   bool                     aec_done_ = false;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
+
+  struct ReprocessConfig {
+    ReprocessConfig() : edge_smooth_enable_(false),
+                        bayer_lcac_enable_(false) {}
+
+    bool     edge_smooth_enable_;
+    bool     bayer_lcac_enable_;
+  } reprocess_config_;
 };
 
 enum class CameraPortType {

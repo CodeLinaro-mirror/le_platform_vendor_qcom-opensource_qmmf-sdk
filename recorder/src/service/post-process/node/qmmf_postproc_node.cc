@@ -38,12 +38,12 @@ namespace qmmf {
 
 namespace recorder {
 
-PostProcNode::PostProcNode(const char* srt, IPostProc* context)
+PostProcNode::PostProcNode(std::string name, IPostProc* context)
     : PostProcPlugin<PostProcNode>(this),
       in_(this),
       out_(this),
       id_(-1),
-      name_(srt) {
+      name_(name) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   mem_pool_ = new MemPool();
@@ -138,9 +138,10 @@ void PostProcNode::getDefaultParam(PostProcNodeParams& reproc_node_param,
   QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
 }
 
-int32_t PostProcNode::Initialize(int32_t input_stream_id,
-                                 PostProcNodeParams& reproc_node_param,
-                                 void* static_meta) {
+status_t PostProcNode::Initialize(int32_t in_stream_id,
+                                  PostProcNodeParams& reproc_node_param,
+                                  void* static_meta,
+                                  int32_t &out_stream_id) {
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::CREATED) {
     QMMF_ERROR("%s:%s: wrong state: %d", TAG, __func__, state_);
@@ -178,17 +179,22 @@ int32_t PostProcNode::Initialize(int32_t input_stream_id,
       TAG, __func__, name_.c_str(),
       out.width, out.height, out.stride, out.scanline, out.format);
 
-  ret = module_->Create(input_stream_id, in, out,
+  ret = module_->Create(in_stream_id, in, out,
                         init_params_.in.frame_rate,
                         init_params_.in.max_buffer_count,
                         reinterpret_cast<void*>(static_meta), this, id_);
-  assert(ret == NO_ERROR && id_ >= 0);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s:%s: fail to create ret: %d", TAG, __func__,
+        name_.c_str(), ret);
+    return ret;
+  }
+  out_stream_id = id_;
 
   state_ = PostProcNodeState::INITIALIZED;
 
   QMMF_VERBOSE("%s:%s:%s: Exit id: %d", TAG, __func__, name_.c_str(), id_);
 
-  return id_;
+  return NO_ERROR;
 }
 
 PostProcCreateParam PostProcNode::GetInput(const PostProcCreateParam &out) {
@@ -213,7 +219,7 @@ status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 
   state_ = PostProcNodeState::LINKED;
 
-  QMMF_VERBOSE("%s:%s:%s: Consumer(%p) has been added.", TAG, __func__,
+  QMMF_ERROR("%s:%s:%s: Consumer(%p) has been added.", TAG, __func__,
       name_.c_str(), consumer.get());
 
   return NO_ERROR;
@@ -311,9 +317,9 @@ status_t PostProcNode::Stop() {
 }
 
 void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:Frame %d buff:%p ts: %lld FD: %d name: %s", TAG,
-            __func__, buffer.frame_number, buffer.handle, buffer.timestamp,
-            buffer.fd, name_.c_str());
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd,
+      buffer.stream_id, buffer.timestamp);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::ACTIVE) {
@@ -327,15 +333,17 @@ void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
 }
 
 void PostProcNode::OnFrameProcessed(const StreamBuffer &input_buffer) {
-  QMMF_VERBOSE("%s:%s: Return FD: %d name: %s", TAG, __func__,
-    input_buffer.fd, name_.c_str());
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, name_.c_str(), input_buffer.handle, input_buffer.fd,
+      input_buffer.stream_id, input_buffer.timestamp);
 
   NotifyBufferReturn(const_cast<StreamBuffer&>(input_buffer));
 }
 
 void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
-  QMMF_VERBOSE("%s:%s: Return FD: %d name: %s", TAG, __func__,
-    output_buffer.fd, name_.c_str());
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
+      output_buffer.stream_id, output_buffer.timestamp);
 
   out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
@@ -349,23 +357,19 @@ void PostProcNode::AddResult(const void* result) {
 }
 
 void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(%p) FD: %d stream_id: %d moduleID:%d",
-      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
-      id_);
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld", TAG,
+    __func__, name_.c_str(), buffer.handle, buffer.fd,
+    buffer.stream_id, buffer.timestamp);
 
-  if (buffer.stream_id == id_) {
-    if (init_params_.out.max_buffer_count == 0) {
-        QMMF_VERBOSE("%s:%s:%s: Buffer count is 0. Return to lib.", TAG,
-            __func__, name_.c_str());
-        if (module_ == nullptr) {
-          QMMF_ERROR("%s:%s:%s: Error", TAG, __func__, name_.c_str());
-        }
-        module_->ReturnBuff(buffer);
-        return;
-    }
-    status_t ret = mem_pool_->ReturnBufferLocked(buffer);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s:%s Buffer return Error", TAG, __func__, name_.c_str());
+  if (caps_.inplace_processing_ == false) {
+    if (caps_.output_buff_ == 0) {
+      module_->ReturnBuff(buffer);
+    } else {
+      status_t ret = mem_pool_->ReturnBufferLocked(buffer);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s:%s Buffer return Error", TAG, __func__, name_.c_str());
+        assert(0);
+      }
     }
   } else {
     NotifyBufferReturn(buffer);
@@ -373,7 +377,11 @@ void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
 }
 
-status_t PostProcNode::ReturnBufferToClient(StreamBuffer &buffer) {
+status_t PostProcNode::ProcessOutputBuffer(StreamBuffer &buffer) {
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd,
+      buffer.stream_id, buffer.timestamp);
+
   // Give buffer ownership to the CameraSource
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == PostProcNodeState::ACTIVE) {
@@ -582,7 +590,7 @@ bool OutputHandler::ThreadLoop() {
     bufs_list_.pop_back();
   }
 
-  node_->ReturnBufferToClient(buffer);
+  node_->ProcessOutputBuffer(buffer);
 
   // loop again
   return true;

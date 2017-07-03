@@ -57,6 +57,11 @@ public:
 
   virtual status_t DeleteDeviceStream(int32_t stream_id, bool cache) = 0;
 
+  virtual status_t CreateCaptureRequest(Camera3Request& request,
+                                  camera3_request_template_t template_type) = 0;
+
+  virtual CameraMetadata GetCameraStaticMeta() = 0;
+
   virtual ~IPostProc() {};
 };
 

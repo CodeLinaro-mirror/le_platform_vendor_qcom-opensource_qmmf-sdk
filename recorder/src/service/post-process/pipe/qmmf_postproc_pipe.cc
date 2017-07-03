@@ -42,16 +42,24 @@ namespace qmmf {
 
 namespace recorder {
 
-PostProcPipe::PostProcPipe(IPostProc* context) :
+PostProcPipe::PostProcPipe(IPostProc* context,
+                           const std::vector<std::string> &pipe) :
     context_(context) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+
+  for (auto node : pipe) {
+    sp<PostProcNode> reproc_node = new PostProcNode(node, context_);
+    assert(reproc_node.get() != nullptr);
+    pipe_.push_back(reproc_node);
+  }
+
   state_ = PostProcPipeState::CREATED;
   QMMF_VERBOSE("%s:%s: Exit (%p)", TAG, __func__, this);
 }
 
 PostProcPipe::~PostProcPipe() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  for (auto iter : reproc_node_pipe_) {
+  for (auto iter : pipe_) {
     if (iter.get() != nullptr) {
       iter.clear();
     }
@@ -59,65 +67,62 @@ PostProcPipe::~PostProcPipe() {
   QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
 }
 
-int32_t PostProcPipe::Initialize(int32_t stream_id,
-                                  PostProcNodeCreate& reproc_node_create_param,
-                                  void* static_meta) {
-  PostProcNodeCreate create_param = reproc_node_create_param;
+PostProcCreateParam PostProcPipe::GetInput(PostProcCreateParam &out) {
+  PostProcCreateParam params = out;
 
-  Vector<sp<PostProcNode>>::iterator iter = reproc_node_pipe_.end();
-  while (iter != reproc_node_pipe_.begin()) {
+  // iterate nodes from last to first node
+  // each node return input requirement based on output
+  // give each node input as output of previous node
+  // return first node input to client
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
     --iter;
+    params = (*iter)->GetInput(params);
+  }
+  return params;
+}
+
+status_t PostProcPipe::CreatePipe(int32_t in_stream_id,
+                                  CameraStreamParameters &stream_param,
+                                  const ImageParam &param, // kmotov: todo:
+                                  void* static_meta,
+                                  int32_t &out_stream_id) {
+  init_params_ = stream_param;
+
+  PostProcNodeCreate create_param;
+  memset(&create_param, 0x0, sizeof create_param);
+
+  create_param.in.format  = stream_param.format;
+  create_param.in.width   = stream_param.width;
+  create_param.in.height  = stream_param.height;
+
+  create_param.out.format  = create_param.in.format;
+  create_param.out.width   = param.width;
+  create_param.out.height  = param.height;
+
+  create_param.frame_rate = 30; // todo
+  create_param.max_buffer_count = stream_param.bufferCount;
+
+  for (auto iter : pipe_) {
     PostProcNodeParams reproc_node_param;
-    (*iter)->getDefaultParam(reproc_node_param, create_param);
+    iter->getDefaultParam(reproc_node_param, create_param);
 
-    reprocess_stream_id_ = (*iter)->Initialize(stream_id,
-        reproc_node_param, static_meta);
-    assert(reprocess_stream_id_ >= 0);
+    auto ret = iter->Initialize(in_stream_id, reproc_node_param,
+        static_meta, out_stream_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: fail to create ret: %d", TAG, __func__, ret);
+      return ret;
+    }
 
-    /* update input params for next node */
+    // update input params for next node
     create_param.in.format = reproc_node_param.out.format;
-    create_param.in.width = reproc_node_param.out.width;
+    create_param.in.width  = reproc_node_param.out.width;
     create_param.in.height = reproc_node_param.out.height;
   }
 
-  reproc_node_create_param.out.format = create_param.out.format;
-  reproc_node_create_param.out.width = create_param.out.width;
-  reproc_node_create_param.out.height = create_param.out.height;
-
-  return reprocess_stream_id_;
-}
-
-int32_t PostProcPipe::Create(int32_t stream_id,
-                             const char* pipe[],
-                             const uint32_t pipe_size,
-                             CameraStreamParameters &stream_param,
-                             void* static_meta) {
-  init_params_ = stream_param;
-
-  for (uint32_t i = 0; i < pipe_size; i++) {
-    sp<PostProcNode>
-        reproc_node = new PostProcNode(String8(pipe[i]), context_);
-    assert(reproc_node.get() != nullptr);
-    reproc_node_pipe_.push_back(reproc_node);
-  }
-
-  PostProcNodeCreate reproc_node_create_param;
-  memset(&reproc_node_create_param, 0x0, sizeof reproc_node_create_param);
-
-  reproc_node_create_param.in.format  = stream_param.format;
-  reproc_node_create_param.in.width   = stream_param.width;
-  reproc_node_create_param.in.height  = stream_param.height;
-
-  reproc_node_create_param.out = reproc_node_create_param.in;
-
-  reproc_node_create_param.frame_rate = 30; // todo
-  reproc_node_create_param.max_buffer_count = stream_param.bufferCount;
-
-  auto steram_id = Initialize(stream_id, reproc_node_create_param, static_meta);
-
   state_ = PostProcPipeState::INITIALIZED;
 
-  return steram_id;
+  return NO_ERROR;
 }
 
 sp<IBufferConsumer>& PostProcPipe::GetConsumerIntf() {
@@ -126,28 +131,27 @@ sp<IBufferConsumer>& PostProcPipe::GetConsumerIntf() {
 
 void PostProcPipe::PipeNotifyBufferReturn(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  if (!reproc_node_pipe_.isEmpty()) {
-    reproc_node_pipe_[0]->NotifyBufferReturned(buffer);
+  if (pipe_.empty() == false) {
+    pipe_.back()->NotifyBufferReturned(buffer);
   }
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
 }
 
 void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
   sp<IBufferConsumer>& tmp_c = consumer;
-  for (auto iter : reproc_node_pipe_) {
-    if (iter.get() != nullptr) {
-      iter->AddConsumer(tmp_c);
-      tmp_c = iter->GetConsumerIntf();
-    }
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
+    --iter;
+    (*iter)->AddConsumer(tmp_c);
+    tmp_c = (*iter)->GetConsumerIntf();
   }
   pipe_consumer_ = tmp_c;
 }
 
 void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
   sp<IBufferConsumer>& tmp_c = consumer;
-
-  Vector<sp<PostProcNode>>::iterator iter = reproc_node_pipe_.end();
-  while (iter != reproc_node_pipe_.begin()) {
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
     --iter;
     (*iter)->RemoveConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
@@ -156,20 +160,32 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
   pipe_consumer_ = nullptr;
 }
 
-void PostProcPipe::Start() {
-  for (auto iter : reproc_node_pipe_) {
-    if (iter.get() != nullptr) {
-      iter->Start();
-    }
+status_t PostProcPipe::Start() {
+  if (pipe_.empty()) {
+    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    return BAD_VALUE;
   }
+
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
+    --iter;
+    (*iter)->Start();
+  }
+  return NO_ERROR;
 }
 
-void PostProcPipe::Stop() {
-  Vector<sp<PostProcNode>>::iterator iter = reproc_node_pipe_.end();
-  while (iter != reproc_node_pipe_.begin()) {
+status_t PostProcPipe::Stop() {
+  if (pipe_.empty()) {
+    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
     --iter;
     (*iter)->Stop();
   }
+  return NO_ERROR;
 }
 
 status_t PostProcPipe::AddConsumer(sp<IBufferConsumer>& consumer) {
@@ -206,7 +222,7 @@ status_t PostProcPipe::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 }
 
 void PostProcPipe::AddResult(const void* result) {
-  for (auto iter : reproc_node_pipe_) {
+  for (auto iter : pipe_) {
     if (iter.get() != nullptr) {
       iter->AddResult(result);
     }

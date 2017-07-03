@@ -295,9 +295,9 @@ PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {
   case BufferFormat::kBLOB:
     return kJpeg;
   case BufferFormat::kRAW10:
-    return kRawBggr10;
+    return kRawBggrMipi10;
   case BufferFormat::kRAW12:
-    return kRawBggr12;
+    return kRawBggrMipi12;
   case BufferFormat::kRAW16:
     return kRawBggr16;
   default:
@@ -315,9 +315,9 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
     return BufferFormat::kNV21;
   case kJpeg:
     return BufferFormat::kBLOB;
-  case kRawBggr10:
+  case kRawBggrMipi10:
     return BufferFormat::kRAW10;
-  case kRawBggr12:
+  case kRawBggrMipi12:
     return BufferFormat::kRAW12;
   case kRawBggr16:
     return BufferFormat::kRAW16;
@@ -373,6 +373,34 @@ status_t PostProcAlg::PrepareAlgBuffer(
   }
 
   return NO_ERROR;
+}
+
+void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
+  std::string file_name =
+      std::string("/lcac_" ) + (buf.pix_fmt_ < kRawBggr12 ? "mipi10" : "mipi12") +
+      std::string("_dim_")    + std::to_string(buf.plane_[0].width_) +
+      std::string("x")        + std::to_string(buf.plane_[0].height_) +
+      std::string("_stride_") + std::to_string(buf.plane_[0].stride_) +
+      std::string("_frame_")  + std::to_string(buf.frame_number_) +
+      std::string("_")        + (input ? "input" : "output") +
+      std::string(".raw");
+
+  FILE *file = fopen(file_name.c_str(), "w+");
+  if (!file) {
+    QMMF_ERROR("%s:%s Unable to open: %d", TAG, __func__, file_name.c_str());
+    return;
+  }
+
+  auto written_len = fwrite(buf.vaddr_, sizeof(uint8_t), buf.size_, file);
+  if (buf.size_ != written_len) {
+    QMMF_ERROR("%s:%s Bad Write error %d", TAG, __func__, errno);
+    fclose(file);
+    return;
+  }
+  QMMF_INFO("%s: Dump %s frame to %s\n", __func__,
+      input ? "input" : "output", file_name.c_str());
+
+  fclose(file);
 }
 
 StreamBuffer PostProcAlg::GetStreamBuffer(const AlgBuffer &algo_buf) {

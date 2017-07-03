@@ -29,9 +29,7 @@
 
 #pragma once
 
-#include <mutex>
-#include <list>
-#include <condition_variable>
+#include <utils/Mutex.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 
@@ -45,20 +43,15 @@ using namespace cameraadaptor;
 
 namespace recorder {
 
-enum class PostProcHalMode {
-  kJpegEncode,
-  kRawReprocess,
-};
-
 class CameraContext;
 
-class CameraHalReproc : public IPostProcModule {
+class CameraHalJpeg : public IPostProcModule {
 
  public:
 
-   CameraHalReproc(IPostProc* context);
+   CameraHalJpeg(IPostProc* context);
 
-   ~CameraHalReproc();
+   ~CameraHalJpeg();
 
    status_t Create(const int32_t stream_id,
                    const PostProcCreateParam& input,
@@ -94,17 +87,21 @@ class CameraHalReproc : public IPostProcModule {
 
  private:
 
-   struct ReprocessBundle {
+   struct BurstData {
      StreamBuffer   buffer;
-     CameraMetadata metadata;
+     CameraMetadata result;
      int64_t        timestamp;
    };
+
+   void AddBuff(StreamBuffer in_buff);
 
    void ReturnAllInputBuffers();
 
    void ReturnInputBuffer(StreamBuffer &buffer);
 
    void GetInputBuffer(StreamBuffer &buffer);
+
+   void StreamCallback(StreamBuffer Buffer);
 
    void ReprocessCallback(StreamBuffer buffer);
 
@@ -114,28 +111,25 @@ class CameraHalReproc : public IPostProcModule {
 
    status_t StartProcessing();
 
-   void StreamCb(StreamBuffer &in_buff);
+   IPostProc*               context_;
 
-   void AddBuff(const StreamBuffer buf);
+   List<StreamBuffer>       input_buffer_;
+   List<StreamBuffer>       input_buffer_done_;
 
-   void AddMeta(const CameraMetadata &metadata);
+   int32_t                  input_stream_id_;
+   Camera3Request           reprocess_request_;
 
-   IPostProc*                   context_;
-   IPostProcEventListener       *Listener_;
+   Mutex                    reprocess_lock_;
+   bool                     reprocess_flag_;
+   bool                     ready_to_start_;
 
-   std::mutex                   module_lock_;
-   bool                         ready_to_start_;
-   int32_t                      supportStreamId_;
+   uint32_t                 num_images_;
 
-   int32_t                      input_stream_id_;
-   Camera3Request               reprocess_request_;
-
-   std::list<StreamBuffer>      input_buffer_;
-   std::list<StreamBuffer>      input_buffer_done_;
-
-   std::list<ReprocessBundle>   reproc_partial_list_;
-   std::list<ReprocessBundle>   reproc_ready_list_;
-   std::mutex                   reproc_lock_;
+   List<BurstData>          burst_queue_;
+   List<BurstData>          input_burst_queue_;
+   Mutex                    burst_queue_lock_;
+   uint32_t                 burst_cnt_;
+   IPostProcEventListener   *Listener_;
 };
 
 }; //namespace recorder

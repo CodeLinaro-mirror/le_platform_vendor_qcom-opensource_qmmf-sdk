@@ -13,6 +13,3 @@ libqmmf_camera_hal_reproc_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_camera_hal_reproc_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libqmmf_camera_hal_reproc_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_camera_hal_reproc_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-
-#libqmmf_camera_hal_reproc_la_LIBADD
-

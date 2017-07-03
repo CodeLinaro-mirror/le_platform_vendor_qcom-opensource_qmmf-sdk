@@ -29,6 +29,7 @@
 
 #define TAG "ReprocessFactory"
 
+#include "../modules/camera-hal-jpeg/qmmf_camera_hal_jpeg.h"
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
 #include "../modules/test/qmmf_postproc_test.h"
@@ -76,11 +77,17 @@ PostProcFactory::getReprocEngine(std::string name, IPostProc* context) {
   if (name == "JpegEncode") {
     instance = new PostProcJpeg(GetId());
   } else if (name == "HALJpegEncode") {
-    instance = new CameraHalReproc(context);
+    instance = new CameraHalJpeg(context);
   } else if (name == "Test") {
     instance = new PostProcTest(GetId());
   } else if (name == "HazeBuster") {
     instance = new PostProcAlg(GetId(), "libqmmf_alg_hazebuster.so");
+  } else if (name == "EdgeSmooth") {
+    instance = new PostProcAlg(GetId(), "libqmmf_alg_es.so");
+  } else if (name == "HALReprocess") {
+    instance = new CameraHalReproc(context);
+  } else if (name == "BayerLcac") {
+    instance = new PostProcAlg(GetId(), "libqmmf_alg_lcac.so");
   } else {
     QMMF_ERROR("%s: Invalid post process engine: %s", __func__, name.c_str());
   }

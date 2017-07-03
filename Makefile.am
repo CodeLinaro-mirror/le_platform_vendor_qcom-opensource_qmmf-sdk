@@ -10,6 +10,7 @@ BUILD_COMPONENTS += plugins
 BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += display/src/client
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/algo
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-jpeg
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-reproc
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/jpeg-encoder
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/test

@@ -106,6 +106,8 @@ class PostProcAlg : public IPostProcModule,
 
   StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
 
+  void DumpFrame(AlgBuffer buf, bool input);
+
   int32_t                           id_;
   std::string                       Lib_;
   bool                              reprocess_flag_;

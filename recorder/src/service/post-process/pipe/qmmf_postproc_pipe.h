@@ -29,6 +29,9 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "../node/qmmf_postproc_node.h"
 
 namespace qmmf {
@@ -49,15 +52,18 @@ class PostProcPipe : public virtual  RefBase {
 
  public:
 
-   PostProcPipe(IPostProc * context);
+   PostProcPipe(IPostProc * context,
+                const std::vector<std::string> &pipe);
 
    ~PostProcPipe();
 
-   int32_t Create(int32_t stream_id,
-                  const char* pipe[],
-                  const uint32_t pipe_size,
-                  CameraStreamParameters &stream_param,
-                  void* static_meta);
+   PostProcCreateParam GetInput(PostProcCreateParam &out);
+
+   status_t CreatePipe(int32_t in_stream_id,
+                       CameraStreamParameters &stream_param,
+                       const ImageParam &param,
+                       void* static_meta,
+                       int32_t &out_stream_id);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -65,19 +71,15 @@ class PostProcPipe : public virtual  RefBase {
 
    void AddResult(const void* result);
 
-   void Start();
+   status_t Start();
 
-   void Stop();
+   status_t Stop();
 
    sp<IBufferConsumer>& GetConsumerIntf();
 
    void PipeNotifyBufferReturn(StreamBuffer& buffer);
 
  private:
-
-   int32_t Initialize(int32_t stream_id,
-                      PostProcNodeCreate& reproc_node_create_param,
-                      void* static_meta);
 
    void LinkPipe(sp<IBufferConsumer>& consumer);
 
@@ -87,9 +89,7 @@ class PostProcPipe : public virtual  RefBase {
 
    PostProcPipeState             state_;
 
-   int32_t                       reprocess_stream_id_;
-
-   Vector<sp<PostProcNode>>      reproc_node_pipe_;
+   std::vector<sp<PostProcNode>> pipe_;
 
    IPostProc*                    context_;
 

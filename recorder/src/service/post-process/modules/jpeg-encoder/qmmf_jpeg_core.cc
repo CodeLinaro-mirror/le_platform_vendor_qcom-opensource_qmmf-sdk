@@ -121,7 +121,7 @@ JpegEncoder::JpegEncoder() :
   cfg->handle_ = 0;
   cfg->job_id_ = 0;
 
-  void *libjpeg_interface_ = dlopen("libmmjpeg_interface.so", RTLD_NOW);
+  libjpeg_interface_ = dlopen("libmmjpeg_interface.so", RTLD_NOW);
   if (!libjpeg_interface_) {
     ALOGE("%s: could not open jpeg library", __func__);
   } else {

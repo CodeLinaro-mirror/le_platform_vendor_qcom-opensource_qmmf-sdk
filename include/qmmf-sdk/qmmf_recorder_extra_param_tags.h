@@ -39,6 +39,8 @@ enum ParamTag {
   QMMF_SOURCE_SURFACE_DESCRIPTOR = (1 << 16),
   QMMF_SURFACE_CROP,
   QMMF_MULTICAM_STITCH_CONFIG,
+  QMMF_REPROCESS_EDGE_SMOOTH,
+  QMMF_REPROCESS_BAYER_LCAC,
 };
 
 enum class TransformFlags {
@@ -122,6 +124,24 @@ struct MultiCamStitchConfig : DataTagBase {
     : DataTagBase(QMMF_MULTICAM_STITCH_CONFIG),
       mode(StitchingMode::k360Default),
       flags(TransformFlags::kNone) {}
+};
+
+struct ReprocessEdgeSmooth : DataTagBase {
+  // enable Edge Smooth
+  bool enable;        // Default: false
+
+  ReprocessEdgeSmooth()
+    : DataTagBase(QMMF_REPROCESS_EDGE_SMOOTH),
+      enable(false) {}
+};
+
+struct ReprocessBayerLCAC : DataTagBase {
+  // enable Bayer LCAC
+  bool enable;        // Default: false
+
+  ReprocessBayerLCAC()
+    : DataTagBase(QMMF_REPROCESS_BAYER_LCAC),
+      enable(false) {}
 };
 
 }; //namespace recorder.
