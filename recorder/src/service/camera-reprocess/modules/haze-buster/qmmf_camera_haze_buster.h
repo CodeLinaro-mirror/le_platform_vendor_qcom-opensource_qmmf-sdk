@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <qmmf-alg/qmmf_alg_intf.h>
+#include "include/qmmf-plugin/qmmf_alg_intf.h"
 
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
