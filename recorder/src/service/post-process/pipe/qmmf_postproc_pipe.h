@@ -27,27 +27,76 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
-
-#include "recorder/src/service/qmmf_recorder_utils.h"
-
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "../node/qmmf_postproc_node.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+class IBufferConsumer;
+class IBufferProducer;
 
-}; // namespace recoder
+enum class PostProcPipeState {
+  CREATED,
+  INITIALIZED,
+  READYTOSTART,
+  READYTOSTOP,
+};
 
-}; // namespace qmmf
+class PostProcPipe : public virtual  RefBase {
+
+ public:
+
+   PostProcPipe(IPostProc * context);
+
+   ~PostProcPipe();
+
+   int32_t Create(int32_t stream_id,
+                  const char* pipe[],
+                  const uint32_t pipe_size,
+                  CameraStreamParameters &stream_param,
+                  void* static_meta);
+
+   status_t AddConsumer(sp<IBufferConsumer>& consumer);
+
+   status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
+
+   void AddResult(const void* result);
+
+   void Start();
+
+   void Stop();
+
+   sp<IBufferConsumer>& GetConsumerIntf();
+
+   void PipeNotifyBufferReturn(StreamBuffer& buffer);
+
+ private:
+
+   int32_t Initialize(int32_t stream_id,
+                      PostProcNodeCreate& reproc_node_create_param,
+                      void* static_meta);
+
+   void LinkPipe(sp<IBufferConsumer>& consumer);
+
+   void UnlinkPipe(sp<IBufferConsumer>& consumer);
+
+   CameraStreamParameters        init_params_;
+
+   PostProcPipeState             state_;
+
+   int32_t                       reprocess_stream_id_;
+
+   Vector<sp<PostProcNode>>      reproc_node_pipe_;
+
+   IPostProc*                    context_;
+
+   sp<IBufferConsumer>           pipe_consumer_;
+
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf

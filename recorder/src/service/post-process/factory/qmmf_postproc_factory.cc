@@ -27,26 +27,67 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#define TAG "ReprocessFactory"
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
+#include "../modules/jpeg-encoder/qmmf_jpeg.h"
+#include "../modules/test/qmmf_postproc_test.h"
+#include "../modules/haze-buster/qmmf_haze_buster.h"
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
-
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "qmmf_postproc_factory.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+sp<PostProcFactory> PostProcFactory::instance_ = NULL;
+int32_t PostProcFactory::ids_ = 0x00f00000;
+
+sp<PostProcFactory> PostProcFactory::getInstance() {
+  if (instance_.get() == NULL) {
+    instance_ = new PostProcFactory();
+  }
+  return instance_;
+}
+
+void PostProcFactory::releaseInstance() {
+  QMMF_INFO("%s: destroying instance object.", __func__);
+  if (instance_.get() == NULL) {
+    QMMF_INFO("%s: Reset reprocess Ids.", __func__);
+    ids_ = 0x00f00000;
+  }
+  instance_.clear();
+}
+
+PostProcFactory::PostProcFactory() {
+}
+
+PostProcFactory::~PostProcFactory() {
+}
+
+int32_t PostProcFactory::GetId() {
+  return ids_++;
+}
+
+sp<IPostProcModule>
+PostProcFactory::getReprocEngine(String8 name,
+                                 IPostProc* context) {
+  sp<IPostProcModule> instance;
+
+  if (name == "JpegEncode") {
+    instance = new reproc::PostProcJpeg(GetId());
+  } else if (name == "HALJpegEncode") {
+    instance = new CameraHalReproc(context);
+  } else if (name == "Simple") {
+    instance = new PostProcTest(GetId());
+  } else if (name == "HazeBuster") {
+    instance = new PostProcHazeBuster(GetId());
+  } else {
+    QMMF_ERROR("%s: Invalid reprocess engine!", __func__);
+  }
+
+  return instance;
+}
 
 }; // namespace recoder
 

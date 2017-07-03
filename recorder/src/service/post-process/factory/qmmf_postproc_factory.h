@@ -27,27 +27,38 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <utils/String8.h>
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
-
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "../interface/qmmf_postproc_module.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+class PostProcFactory : public RefBase {
 
-}; // namespace recoder
+ public:
 
-}; // namespace qmmf
+   static sp<PostProcFactory> getInstance();
+
+   static void releaseInstance();
+
+   sp<IPostProcModule> getReprocEngine(String8 name, IPostProc* context);
+
+ private:
+
+   PostProcFactory();
+
+   ~PostProcFactory();
+
+   int32_t GetId();
+
+   static sp<PostProcFactory>    instance_;
+   static int32_t                ids_;
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf
