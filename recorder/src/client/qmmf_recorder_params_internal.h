@@ -130,7 +130,6 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         // nothing to write
         break;
     }
-    parcel->writeUint32(out_device);
   }
 
   VideoTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
@@ -152,7 +151,6 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         // nothing to read
         break;
     }
-    out_device = parcel.readUint32();
     return *this;
   }
 };

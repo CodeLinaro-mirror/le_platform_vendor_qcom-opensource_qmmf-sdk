@@ -29,22 +29,75 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
+#include <mutex>
+#include <vector>
 
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_aac.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
-#include <qmmf-sdk/qmmf_recorder.h>
-#include <qmmf-sdk/qmmf_recorder_params.h>
-#include <qmmf-sdk/qmmf_codec.h>
 #include <camera/CameraMetadata.h>
+#include <qmmf-sdk/qmmf_buffer.h>
+#include <qmmf-sdk/qmmf_codec.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
-#include <condition_variable>
+
+#include <QCamera3VendorTags.h>
+#include <cutils/properties.h>
+#include <cutils/trace.h>
+
+#include <qmmf-sdk/qmmf_recorder.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
 
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
+
+//#define DEBUG
+//Logging related defines
+#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...)  ALOGW(fmt, ##args)
+#ifdef DEBUG
+#define TEST_DBG  TEST_INFO
+#else
+#define TEST_DBG(...) ((void)0)
+#endif
+
+
+#define KPI_DISABLE 0
+#define KPI_ONLY 1
+extern volatile uint32_t kpi_debug_mask;
+
+#define TEST_KPI_GET_MASK() ({\
+char prop[PROPERTY_VALUE_MAX];\
+property_get("persist.qmmf.kpi.debug", prop, "0"); \
+kpi_debug_mask = atoi (prop);})
+
+#define TEST_KPI_BEGIN(name) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_begin(ATRACE_TAG_ALWAYS, name); \
+}\
+})
+
+#define TEST_KPI_END() ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_end(ATRACE_TAG_ALWAYS); \
+}\
+})
+
+#define TEST_KPI_ASYNC_BEGIN(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_async_begin(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
+
+#define TEST_KPI_ASYNC_END(name, cookie) ({\
+if (kpi_debug_mask & KPI_ONLY) { \
+  atrace_async_end(ATRACE_TAG_ALWAYS, name, cookie); \
+}\
+})
 
 // Enable this define to dump encoded bit stream data.
 #define DUMP_BITSTREAM
@@ -57,7 +110,7 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
-
+using namespace qcamera;
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;
 using ::qmmf::display::Display;
@@ -85,7 +138,8 @@ enum class SnapshotType {
    kNone,
    kJpeg,
    kRawYuv,
-   kRawRdi
+   kRawRdi,
+   kJpegBurst
 };
 
 struct SnapshotInfo {
@@ -93,7 +147,7 @@ struct SnapshotInfo {
    uint32_t       width;
    uint32_t       height;
    uint32_t       count;
-   uint32_t       camera_id;
+   int32_t        camera_id;
 };
 
 enum class TrackType {
@@ -117,43 +171,106 @@ struct TrackInfo {
   uint32_t  bitrate;
   uint32_t  session_id;
   uint32_t  track_id;
-  int32_t  camera_id;
+  int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+};
+
+class CameraMetaDataParser {
+public:
+  CameraMetaDataParser();
+  ~CameraMetaDataParser();
+  bool IsIREnabled(const CameraMetadata& metadata);
+  bool IsTNREnabled(const CameraMetadata& metadata);
+  bool IsSVHDREnabled(const CameraMetadata& metadata);
+  int64_t ParseFrameTime(const CameraMetadata& metadata);
+};
+
+class CheckKPITime {
+public:
+  CheckKPITime();
+  ~CheckKPITime();
+  void SetUp();
+  void CheckSwicthTime(const CameraMetadata& metadata);
+  void ParseCameraMetaData(const CameraMetadata& metadata);
+
+private:
+  CameraMetaDataParser     cam_metadata_parser_;
+  bool                     prev_nr_mode_;
+  bool                     prev_ir_mode_;
+  bool                     prev_svhdr_mode_;
+  bool                     new_nr_mode_;
+  bool                     new_ir_mode_;
+  bool                     new_svhdr_mode_;
+  int64_t                  last_frame_time_;
+  int64_t                  new_frame_time_;
+  bool                     mark_first_frame_time_;
+};
+
+enum class DynamicCameraParamsCmd {
+  kExit                = 'X',
+  kSharpness           = '1',
+  kAEGain              = '2',
+  kExposureTime        = '3',
+  kWNRStrength         = '4',
+  kTNRTuning           = '5',
+  kDumpHistogramStats  = '6',
+  kDumpAECAWBStats     = '7'
+};
+
+enum class TNRTuningCmd {
+  kExit                        = 'X',
+  kTNRIntensity                = '1',
+  kMotionDetectionSensitivity  = '2'
 };
 
 class TestTrack;
 class CmdMenu;
 
+ struct CameraInitInfo {
+   int32_t                           camera_id;
+   uint32_t                          camera_fps;
+   uint32_t                          numStream;
+   AfMode                            af_mode;
+   bool                              tnr;
+   bool                              vhdr;
+   bool                              binning_correct;
+   CameraInitInfo():
+        camera_id(-1),
+        camera_fps(0),
+        numStream(0),
+        af_mode(AfMode::kOff),
+        tnr(false),
+        vhdr(false),
+        binning_correct(false) {};
+ };
+
 class TestInitParams {
 public:
-    int32_t                camera_id[MAX_NUM_CAMERAS];
-    uint8_t                camera_fps[MAX_NUM_CAMERAS];
-    int32_t                num_cameras;
-    SnapshotInfo           snapshot_info;
-    AfMode                 af_mode;
-    uint32_t               recordTime;
-    uint32_t               numStream[MAX_NUM_CAMERAS];
-    bool                   tnr;
-    bool                   vhdr;
-    bool                   binning_correct;
+    int32_t                           num_cameras;
+    uint32_t                          recordTime;
+    SnapshotInfo                      snapshot_info;
+    std::vector<CameraInitInfo*>      cam_init_infos;
 
     TestInitParams() :
-            camera_id { -1, -1, -1},
-            camera_fps { 0, 0, 0},
-            num_cameras(0),
+            num_cameras(1),
+            recordTime(0),
             snapshot_info {
               SnapshotType::kNone,
               0,
               0,
+              0,
               0
-            },
-            af_mode(AfMode::kOff),
-            recordTime(0),
-            numStream {0, 0, 0},
-            tnr(0),
-            vhdr(0),
-            binning_correct(false) {};
+            } {};
+
+    ~TestInitParams()
+    {
+       for(std::vector<uint32_t>::size_type i = 0;
+           i < cam_init_infos.size(); i++) {
+          free(cam_init_infos.at(i));
+       }
+       cam_init_infos.clear();
+    }
 };
 
 
@@ -174,7 +291,6 @@ class RecorderTest {
   status_t TakeSnapshot();
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
-  status_t CancelTakeSnapshot();
 
   status_t StartMultiCameraMode();
 
@@ -240,6 +356,8 @@ class RecorderTest {
 
   status_t SetParams();
 
+  status_t SetDynamicCameraParam();
+
   status_t PauseSession();
 
   status_t ResumeSession();
@@ -250,14 +368,20 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
-  void printInitParameterAndTtrackInfo(const TestInitParams&
-                                 initParams,const TrackInfo& track_info,
-                                 int32_t camera_index);
+  void printInitParamAndTtrackInfo(
+                                   const TestInitParams& initParams,
+                                   const std::vector<TrackInfo>& infos);
+
+  status_t AddPreviewTrack();
+  status_t DeletePreviewTrack();
+  void PreviewTrackHandler(uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
   int32_t ToggleNR();
   int32_t ToggleVHDR();
   int32_t ToggleIR();
-  status_t ToggleAFMode(const AfMode& af_mode, int32_t camera_id);
+  status_t ToggleAFMode(int32_t camera_id, const AfMode& af_mode);
   int32_t ToggleBinningCorrectionMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
@@ -265,7 +389,23 @@ class RecorderTest {
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
   std::string GetCurrentBinningCorrectionMode(int32_t camera_id);
-  status_t GetCurrentAFMode(int32_t& mode, int32_t camera_id);
+  status_t GetCurrentAFMode(int32_t& mode);
+  status_t GetSharpnessStrength(int32_t &strength);
+  status_t SetSharpnessStrength(const int32_t& val);
+  status_t GetSensorSensitivity(int32_t *sensitivity);
+  status_t SetSensorSensitivity(const int32_t& val);
+  status_t GetExposureTime(int64_t *time_ns);
+  status_t SetExposureTime(const int64_t& val);
+  status_t GetWNRStrength(int32_t *wnr_strength);
+  status_t SetWNRStrength(const int32_t& val);
+  status_t SetTNRLevel();
+  status_t GetTNRIntensity(float *intensity);
+  status_t SetTNRIntensity(const float& intensity);
+  status_t GetTNRMotionDetectionSensitivity(float *sensitivity);
+  status_t SetTNRMotionDetectionSensitivity(const float& sensitivity);
+  status_t GetRawHistogramStatistic(const CameraMetadata& meta);
+  status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
+  status_t GetCurrentAFMode(int32_t camera_id, int32_t& mode);
 
   // Auto Mode
   int32_t RunAutoMode();
@@ -278,11 +418,14 @@ class RecorderTest {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  void RecorderCallbackHandler(EventType event_type, void *event_data,
-                               size_t event_data_size);
+  void RecorderEventCallbackHandler(EventType event_type, void *event_data,
+                                    size_t event_data_size);
 
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
+
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
 
   status_t DumpFrameToFile(BufferDescriptor& buffer,
                            CameraBufferMetaData& meta_data, String8& file_name);
@@ -294,39 +437,44 @@ class RecorderTest {
 
   friend class CmdMenu;
 
-  typedef std::map <uint8_t, std::string> nr_modes_map;
-  typedef std::map <uint8_t, std::string>::iterator nr_modes_iter;
-  typedef std::map <int32_t, std::string> vhdr_modes_map;
-  typedef std::map <int32_t, std::string>::iterator vhdr_modes_iter;
-  typedef std::map <int32_t, std::string> ir_modes_map;
-  typedef std::map <int32_t, std::string>::iterator ir_modes_iter;
-  typedef std::map <int32_t, std::string> bc_modes_map;
-  typedef std::map <int32_t, std::string>::iterator bc_modes_iter;
+  typedef std::map<uint8_t, std::string> nr_modes_map;
+  typedef std::map<uint8_t, std::string>::iterator nr_modes_iter;
+  typedef std::map<int32_t, std::string> vhdr_modes_map;
+  typedef std::map<int32_t, std::string>::iterator vhdr_modes_iter;
+  typedef std::map<int32_t, std::string> ir_modes_map;
+  typedef std::map<int32_t, std::string>::iterator ir_modes_iter;
+  typedef std::map<int32_t, std::string> bc_modes_map;
+  typedef std::map<int32_t, std::string>::iterator bc_modes_iter;
   void InitSupportedNRModes();
   void InitSupportedVHDRModes();
   void InitSupportedIRModes();
   void InitSupportedBinningCorrectionModes();
+  int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
 
-  int32_t SetBinningCorrectionMode(const bool& mode, int32_t camera_id);
-
-  // <session_id, vector<TestTrack*> >
-  std::map <uint32_t , std::vector<TestTrack*> > sessions_;
-  typedef std::map <uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
-
-  uint32_t camera_id_;
-  bool session_enabled_;
-  CameraMetadata static_info_;
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
   bc_modes_map supported_bc_modes_;
+
+  std::map<uint32_t, std::vector<TestTrack*> > sessions_;
+  typedef std::map<uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
+  uint32_t camera_id_;
+  bool session_enabled_;
+  CameraMetadata static_info_;
+  uint32_t preview_session_id_;
+  SnapshotType snapshot_choice_;
+
   bool use_display;
+  bool dump_aec_awb_stats_;
+  bool dump_histogram_stats_;
 
-  std::mutex               snapshot_wait_lock_;
-  std::condition_variable  snapshot_wait_signal_;
-  uint32_t                 burst_snapshot_count_;
-  bool                     take_snashot_done_;
-
+  CheckKPITime kpi_marker_;
+  ::std::condition_variable signal_;
+  ::std::mutex message_lock_;
+  ::std::condition_variable signal_cb_;
+  ::std::mutex callback_lock_;
+  uint32_t num_images_;
+  bool flag_aec_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -444,6 +592,7 @@ public:
         STOP_SESSION_CMD                        = 'B',
         TAKE_SNAPSHOT_CMD                       = 'S',
         SET_PARAM_CMD                           = 'T',
+        SET_DYNAMIC_CAMERA_PARAM_CMD            = '~',
         PAUSE_SESSION_CMD                       = 'P',
         RESUME_SESSION_CMD                      = 'R',
         ENABLE_OVERLAY_CMD                      = 'O',

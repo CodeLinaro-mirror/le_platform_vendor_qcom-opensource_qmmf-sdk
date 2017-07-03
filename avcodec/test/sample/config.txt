@@ -31,8 +31,8 @@
  */
 
 RecordingFrame     : -1
-InputFile          : /data/720p.yuv
-OutputFile         : /data/CodecTest.h264
+InputFile          : /data/misc/qmmf/720p.yuv
+OutputFile         : /data/misc/qmmf/CodecTest.h264
 CodecType          : VideoEncode
 Width              : 1280
 Height             : 720

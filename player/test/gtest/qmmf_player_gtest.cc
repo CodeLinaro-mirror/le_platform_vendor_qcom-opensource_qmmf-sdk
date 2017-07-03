@@ -425,7 +425,7 @@ int32_t PlayerGtest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
   switch(filetype_)
   {
     case AudioFileType::kAAC:
-      aac_file_io_ = new AACfileIO("/data/test.aac");
+      aac_file_io_ = new AACfileIO("/data/misc/qmmf/test.aac");
       result = aac_file_io_->Fillparams(&audio_track_param_);
       if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the AAC params", TAG, __func__);
@@ -433,7 +433,7 @@ int32_t PlayerGtest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
       break;
 
     case AudioFileType::kG711:
-      g711_file_io_ = new G711fileIO("/data/test.g711");
+      g711_file_io_ = new G711fileIO("/data/misc/qmmf/test.g711");
       result = g711_file_io_->Fillparams(&audio_track_param_);
       if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the G711 params", TAG, __func__);
@@ -441,7 +441,7 @@ int32_t PlayerGtest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
       break;
 
     case AudioFileType::kAMR:
-      amr_file_io_ = new AMRfileIO("/data/test.amr");
+      amr_file_io_ = new AMRfileIO("/data/misc/qmmf/test.amr");
       result = amr_file_io_->Fillparams(&audio_track_param_);
       if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the AMR params", TAG, __func__);

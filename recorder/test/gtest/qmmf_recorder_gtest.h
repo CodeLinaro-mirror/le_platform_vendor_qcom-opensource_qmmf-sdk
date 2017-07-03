@@ -74,6 +74,8 @@ struct FaceInfo {
 #define PROP_DUMP_YUV_FREQ          "persist.qmmf.rec.gtest.dumpfreq"
 // Prop to set no of iterations
 #define PROP_N_ITERATIONS           "persist.qmmf.rec.gtest.iter"
+// Prop to set camera id
+#define PROP_CAMERA_ID              "persist.qmmf.rec.gtest.cameraid"
 
 // Prop to set Track Resolutions and FPS
 #define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"

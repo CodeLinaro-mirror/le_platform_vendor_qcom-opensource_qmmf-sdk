@@ -235,7 +235,7 @@ status_t AudioTrackSink::Init(AudioTrackParams& track_param) {
   ConfigureSink(track_param);
 
 #ifdef DUMP_PCM_DATA
-  file_fd_ = open("/data/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  file_fd_ = open("/data/misc/qmmf/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -324,7 +324,7 @@ status_t AudioTrackSink::StartSink() {
 
 #ifdef DUMP_PCM_DATA
  if (file_fd_ == -1)
-    file_fd_ = open("/data/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
+    file_fd_ = open("/data/misc/qmmf/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
   auto ret = end_point_->Start();

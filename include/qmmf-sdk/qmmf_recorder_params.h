@@ -58,7 +58,9 @@ namespace recorder {
 
 typedef int32_t status_t;
 
-enum class EventType { kError, kStateChanged };
+enum class EventType {
+  kServerDied = 1,
+};
 
 typedef std::function<void(EventType event_type, void *event_data,
                            size_t event_data_size)> EventCb;
@@ -93,6 +95,13 @@ enum class VideoFrameTypeInfo {
   kIFrame,
   kBFrame,
   kPFrame,
+};
+
+/// \brief MultiCameraConfigType is used to determine the type and purpose
+/// of created MultiCamera.
+enum class MultiCameraConfigType {
+  k360Stitch,
+  kSideBySide,
 };
 
 /// \brief This struct is used to report different types of meta data associated
@@ -178,7 +187,6 @@ struct VideoTrackCreateParam {
   float            frame_rate;
   VideoFormat      format_type;
   VideoCodecParams codec_param;
-  uint32_t         out_device;
   bool             low_power_mode;
 
   ::std::string ToString() const {
@@ -192,7 +200,6 @@ struct VideoTrackCreateParam {
                          (format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
-    stream << "out_device[" << out_device << "]";
     return stream.str();
   }
 };

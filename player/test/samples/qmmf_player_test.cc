@@ -113,7 +113,7 @@ void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
   struct timeval tv;
   gettimeofday(&tv, NULL);
 
-  snapshot_filepath.appendFormat("/data/player_snapshot_%dx%d_%lu.%s",
+  snapshot_filepath.appendFormat("/data/misc/qmmf/player_snapshot_%dx%d_%lu.%s",
       m_sTrackInfo_.sVideo.ulWidth, m_sTrackInfo_.sVideo.ulHeight,
       tv.tv_sec, "yuv");
 
@@ -244,11 +244,11 @@ int32_t PlayerTest::Prepare() {
   auto result = 0;
 
 #ifdef DUMP_AUDIO_BITSTREAM
-  srcFile_audio_.open("/data/dump_audio.bin", std::ios::binary | std::ios::out);
+  srcFile_audio_.open("/data/misc/qmmf/dump_audio.bin", std::ios::binary | std::ios::out);
 #endif
 
 #ifdef DUMP_VIDEO_BITSTREAM
-  srcFile_video_.open("/data/dump_video.bin", std::ios::binary | std::ios::out);
+  srcFile_video_.open("/data/misc/qmmf/dump_video.bin", std::ios::binary | std::ios::out);
 #endif
 
   AudioTrackCreateParam audio_track_param_;
