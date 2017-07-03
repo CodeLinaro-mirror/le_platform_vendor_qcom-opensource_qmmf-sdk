@@ -32,7 +32,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <utils/RefBase.h>
-#include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 #include <condition_variable>
@@ -274,7 +273,7 @@ class CameraContext : public CameraInterface,
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
 
   // Maps of buffer Id and Buffer.
-  DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
   // User define value for sensor mode
   int32_t sensor_vendor_mode_;
@@ -285,7 +284,7 @@ class CameraContext : public CameraInterface,
   std::vector<HFRMode_t>   hfr_batch_modes_list_;
   std::vector<Camera3Request> streaming_active_requests_;
 
-  DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
+  std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
   sp<PostProcPipe>         postproc_pipe_;
   uint32_t                 batch_size_;

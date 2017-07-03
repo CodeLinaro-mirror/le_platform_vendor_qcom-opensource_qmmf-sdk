@@ -684,9 +684,9 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
       remote_cb_handle = [&] (uint32_t id) {
         QMMF_VERBOSE("%s:%s: Remote Callback request for client(%d)", TAG,
             __func__, id);
-        ssize_t idx = remote_cb_list_.indexOfKey(id);
-        assert(idx >= 0);
-        return remote_cb_list_.valueFor(id);
+        auto it = remote_cb_list_.find(id);
+        assert(it != remote_cb_list_.end());
+        return it->second;
     };
     ret = recorder_->Init(remote_cb_handle);
     if (ret != NO_ERROR) {
@@ -706,13 +706,14 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
       QMMF_ERROR("%s:%s: Unable to allocate remote callback!", TAG, __func__);
       return NO_INIT;
   }
-  remote_cb_list_.add(*client_id, remote_callback);
+  remote_cb_list_.insert(std::make_pair(*client_id, remote_callback));
 
   sp<DeathNotifier> death_notifier;
   death_notifier = new DeathNotifier();
   if (!death_notifier.get()) {
       QMMF_ERROR("%s:%s: Unable to allocate death notifier!", TAG, __func__);
-    remote_cb_list_.removeItem(*client_id);
+
+    remote_cb_list_.erase(*client_id);
     return NO_INIT;
   }
   NotifyClientDeath notify_death = [this, capture_client_id = *client_id] {
@@ -724,7 +725,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   IInterface::asBinder(remote_callback->getRemoteClient())
       ->linkToDeath(death_notifier);
 
-  death_notifier_list_.add(*client_id, death_notifier);
+  death_notifier_list_.insert(std::make_pair(*client_id, death_notifier));
 
   recorder_->RegisterClient(*client_id);
 
@@ -742,24 +743,28 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
   std::lock_guard<std::mutex> lock(lock_);
 
   int32_t ret = NO_ERROR;
-  ssize_t idx = death_notifier_list_.indexOfKey(client_id);
-  if (idx < 0) {
+  auto it = death_notifier_list_.find(client_id);
+  if (it == death_notifier_list_.end()) {
     QMMF_ERROR("%s:%s: Client doesn't exist! Wrong id", TAG, __func__);
     return BAD_VALUE;
   }
 
-  sp<DeathNotifier> death_notifier = death_notifier_list_.valueFor(client_id);
+  sp<DeathNotifier> death_notifier = it->second;
   assert(death_notifier.get() != nullptr);
 
-  sp<RemoteCallBack> remote_callback = remote_cb_list_.valueFor(client_id);
+  auto remote_cb_it = remote_cb_list_.find(client_id);
+  sp<RemoteCallBack> remote_callback;
+  if (remote_cb_it != remote_cb_list_.end()){
+    remote_callback = remote_cb_it->second;
+  }
   assert(remote_callback.get() != nullptr);
 
   IInterface::asBinder(remote_callback->getRemoteClient())
       ->unlinkToDeath(death_notifier);
 
-  death_notifier_list_.removeItem(client_id);
+  death_notifier_list_.erase(it);
 
-  remote_cb_list_.removeItem(client_id);
+  remote_cb_list_.erase(remote_cb_it);
 
   assert(recorder_ != nullptr);
   recorder_->DeRegisterClient(client_id);
@@ -1516,8 +1521,8 @@ void RecorderService::ClientDeathHandler(const uint32_t client_id) {
 bool RecorderService::IsClientValid(const uint32_t client_id) {
 
   std::lock_guard<std::mutex> lock(lock_);
-  ssize_t idx = remote_cb_list_.indexOfKey(client_id);
-  return idx < 0 ? false : true;
+  auto it = remote_cb_list_.find(client_id);
+  return it == remote_cb_list_.end() ? false : true;
 }
 
 status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
@@ -1526,8 +1531,8 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   std::lock_guard<std::mutex> lock(lock_);
 
   int32_t ret = NO_ERROR;
-  ssize_t idx = death_notifier_list_.indexOfKey(client_id);
-  if (idx < 0) {
+  auto it = death_notifier_list_.find(client_id);
+  if (it == death_notifier_list_.end()) {
     QMMF_ERROR("%s:%s: Client doesn't exist! Wrong id", TAG, __func__);
     return BAD_VALUE;
   }
@@ -1535,18 +1540,19 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   assert(recorder_ != nullptr);
   recorder_->DeRegisterClient(client_id, true);
 
-  sp<DeathNotifier> death_notifier = death_notifier_list_.valueFor(client_id);
-  assert(death_notifier.get() != nullptr);
+  assert(it != death_notifier_list_.end());
+  sp<DeathNotifier> death_notifier = it->second;
 
-  sp<RemoteCallBack> remote_callback = remote_cb_list_.valueFor(client_id);
-  assert(remote_callback.get() != nullptr);
+  auto it_remote_cb_list = remote_cb_list_.find(client_id);
+  assert(it_remote_cb_list != remote_cb_list_.end());
+  sp<RemoteCallBack> remote_callback = it_remote_cb_list->second;
 
   IInterface::asBinder(remote_callback->getRemoteClient())
       ->unlinkToDeath(death_notifier);
 
-  death_notifier_list_.removeItem(client_id);
+  death_notifier_list_.erase(it);
 
-  remote_cb_list_.removeItem(client_id);
+  remote_cb_list_.erase(it_remote_cb_list);
 
   if ( (death_notifier_list_.size() == 0) &&
        (remote_cb_list_.size() == 0) ) {

@@ -30,7 +30,6 @@
 #pragma once
 
 #include <utils/RefBase.h>
-#include <utils/KeyedVector.h>
 #include <camera/CameraMetadata.h>
 #include <vector>
 #include <map>
@@ -228,9 +227,9 @@ class RecorderClient {
   uint32_t             client_id_;
 
   // List of session callbacks.
-  DefaultKeyedVector<uint32_t, SessionCb > session_cb_list_;
+  std::map<uint32_t, SessionCb > session_cb_list_;
   // List of Track callbacks.
-  DefaultKeyedVector<uint32_t, TrackCb >   track_cb_list_;
+  std::map<uint32_t, TrackCb >   track_cb_list_;
   // Capture callback.
   ImageCaptureCb                           image_capture_cb_;
   // Camera result callback
@@ -248,13 +247,13 @@ class RecorderClient {
   } BufInfo;
 
   // map <session id, vector<track id> >
-  DefaultKeyedVector<uint32_t, std::vector<uint32_t> >  sessions_;
+  std::map<uint32_t, std::vector<uint32_t> >  sessions_;
   // map <buffer index, buffer_info>
-  typedef DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
+  typedef std::map<uint32_t, BufInfo> buf_info_map;
   // map <track_id, map <buffer index, buffer_info> >
-  DefaultKeyedVector<uint32_t,  buf_info_map> track_buf_map_;
+  std::map<uint32_t,  buf_info_map> track_buf_map_;
 
-  DefaultKeyedVector<uint32_t, BufInfo> snapshot_buffers_;
+  std::map<uint32_t, BufInfo> snapshot_buffers_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {
