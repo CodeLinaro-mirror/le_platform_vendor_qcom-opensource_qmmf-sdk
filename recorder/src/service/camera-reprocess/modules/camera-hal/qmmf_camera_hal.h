@@ -92,9 +92,9 @@ class CameraHal : public Callbacks,
 
    void GetInputBuffer(StreamBuffer &buffer);
 
-   void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
+   void StreamCallback(StreamBuffer Buffer);
 
-   void ReprocessCallback(int32_t stream_id, StreamBuffer buffer);
+   void ReprocessCallback(StreamBuffer buffer);
 
    status_t ValidateInput(const CameraMetadata& meta,
                           const ReprocParam& input,

@@ -369,8 +369,7 @@ status_t MultiCameraManager::CancelCaptureImage() {
 }
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
-                                          const VideoTrackExtraParam&
-                                          extra_param) {
+                                          const VideoExtraParam& extra_param) {
 
   SourceSurfaceDesc surface;
   source_surface_.clear();
@@ -938,7 +937,7 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
 
 status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
                                                 const CameraStreamParam& param,
-                                                const VideoTrackExtraParam&
+                                                const VideoExtraParam&
                                                 extra_param) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);

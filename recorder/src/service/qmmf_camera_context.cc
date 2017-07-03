@@ -449,26 +449,23 @@ bool CameraContext::IsReprocessNeed(const ImageParam &param) {
   return ((sequence_cnt_ > 1) && (param.image_format == ImageFormat::kJPEG));
 }
 
-void CameraContext::ReprocessCaptureCallback(int32_t stream_id,
-                                          StreamBuffer buffer) {
+void CameraContext::ReprocessCaptureCallback(StreamBuffer buffer) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   if (GetNumConsumer() > 0) {
     NotifyBuffer(buffer);
   } else {
     // Return the buffer back to the camera.
-    ReturnStreamBuffer(stream_id, buffer);
+    ReturnStreamBuffer(buffer);
   }
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-std::function<void(int32_t stream_id, StreamBuffer buffer)>
+std::function<void(StreamBuffer buffer)>
     CameraContext::GetStreamCb(const ImageParam &param) {
   if (reprocess_enable_) {
-    return [=](int32_t stream_id, StreamBuffer buffer)
-        { ReprocessCaptureCallback (stream_id, buffer); };
+    return [=](StreamBuffer buffer) { ReprocessCaptureCallback (buffer); };
   } else {
-    return [=](int32_t stream_id, StreamBuffer buffer)
-        { SnapshotCaptureCallback (stream_id, buffer); };
+    return [=](StreamBuffer buffer) { SnapshotCaptureCallback (buffer); };
   }
 }
 
@@ -672,7 +669,7 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
 }
 
 status_t CameraContext::CreateStream(const CameraStreamParam& param,
-                                     const VideoTrackExtraParam& extra_param) {
+                                     const VideoExtraParam& extra_param) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   // 1. Check if streaming request already is going on, if yes then cancel it
@@ -915,7 +912,7 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
       reproc_pipe_->PipeNotifyBufferReturn(buffer);
     }
   } else {
-    ret = ReturnStreamBuffer(stream_id, buffer);
+    ret = ReturnStreamBuffer(buffer);
   }
 
   QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
@@ -1321,12 +1318,11 @@ status_t CameraContext::CancelRequest() {
   return ret;
 }
 
-status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
-                                           StreamBuffer buffer) {
+status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
   QMMF_DEBUG("%s:%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n", TAG,
-      __func__, stream_id, buffer.handle, buffer.timestamp);
+      __func__, buffer.stream_id, buffer.handle, buffer.timestamp);
 
-  auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
+  auto ret = camera_device_->ReturnStreamBuffer(buffer);
   assert(ret == NO_ERROR);
 
   Mutex::Autolock lock(sync_frame_lock_);
@@ -1335,7 +1331,7 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
       ssize_t idx = -1;
       size_t count = sync_frame_.stream_ids.size();
       for (size_t i = 0; i < count; i++) {
-        if (sync_frame_.stream_ids[i] == stream_id) {
+        if (sync_frame_.stream_ids[i] == buffer.stream_id) {
           idx = i;
           break;
         }
@@ -1350,8 +1346,7 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
   return ret;
 }
 
-void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
-                                            StreamBuffer buffer) {
+void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
 
@@ -1373,7 +1368,7 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
   {
     --sequence_cnt_;
     if (cancel_capture_) {
-      camera_device_->ReturnStreamBuffer(stream_id, buffer);
+      camera_device_->ReturnStreamBuffer(buffer);
       if (sequence_cnt_ == 0) {
         QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
         capture_count_signal_.notify_one();
@@ -1384,7 +1379,7 @@ void CameraContext::SnapshotCaptureCallback(int32_t stream_id,
 
   buffer.camera_id = camera_id_;
   snapshot_buffer_list_.add(buffer.fd, buffer);
-  snapshot_buffer_stream_list_.add(buffer.fd, stream_id);
+  snapshot_buffer_stream_list_.add(buffer.fd, buffer.stream_id);
 
   assert(client_snapshot_cb_ != nullptr);
   client_snapshot_cb_(burst_cnt_, buffer);
@@ -1613,14 +1608,14 @@ void CameraContext::DeletePort(const uint32_t track_id) {
 }
 
 void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
-  SnapshotCaptureCallback(buffer.stream_id, buffer);
+  SnapshotCaptureCallback(buffer);
 }
 
 void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
 
   QMMF_DEBUG("%s:%s: %d: StreamBuffer(0x%p) Cameback to CameraPort", TAG,
        __func__, __LINE__, buffer.handle);
-  ReturnStreamBuffer(snapshot_request_.streamIds[0], buffer);
+  ReturnStreamBuffer(buffer);
 }
 
 status_t CameraContext::ReprocCreate(CameraStreamParameters &stream_param,
@@ -1721,8 +1716,7 @@ status_t CameraPort::Init() {
     }
   }
 
-  cam_stream_params_.cb = [&] (int32_t stream_id, StreamBuffer buffer)
-      { StreamCallback (stream_id, buffer); };
+  cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
   assert(context_ != nullptr);
   int32_t stream_id;
@@ -1905,7 +1899,7 @@ void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
        __func__, buffer.handle);
   //TODO: protect this with lock, would be required once multiple camera ports
   // are enabled.
-  context_->ReturnStreamBuffer(camera_stream_id_, buffer);
+  context_->ReturnStreamBuffer(buffer);
 }
 
 int32_t CameraPort::GetNumConsumers() {
@@ -1932,25 +1926,26 @@ bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
   return false;
 }
 
-void CameraPort::StreamCallback(int32_t stream_id, StreamBuffer stream_buffer) {
+void CameraPort::StreamCallback(StreamBuffer buffer) {
 
-  QMMF_VERBOSE("%s:%s: Enter stream_id(%d)", TAG, __func__, stream_id);
-  assert(stream_id == camera_stream_id_);
+  QMMF_VERBOSE("%s:%s: Enter stream_id(%d)", TAG, __func__, buffer.stream_id);
+  assert(buffer.stream_id == camera_stream_id_);
   assert(buffer_producer_impl_.get() != nullptr);
 
   QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld "
-      "frame_number: %d\n", TAG, __func__, stream_id, stream_buffer.handle,
-      stream_buffer.timestamp, stream_buffer.frame_number);
+      "frame_number: %d\n", TAG, __func__, buffer.stream_id,
+      buffer.handle, buffer.timestamp,
+      buffer.frame_number);
 
   std::lock_guard<std::mutex> lock(consumer_lock_);
   if(buffer_producer_impl_->GetNumConsumer() > 0) {
-    stream_buffer.camera_id = context_->camera_id_;
-    buffer_producer_impl_->NotifyBuffer(stream_buffer);
+    buffer.camera_id = context_->camera_id_;
+    buffer_producer_impl_->NotifyBuffer(buffer);
   } else {
     // Return the buffer back to camera.
     QMMF_VERBOSE("%s:%s: No consumer, simply return buffer back to camera!",
         TAG, __func__);
-    context_->ReturnStreamBuffer(stream_id, stream_buffer);
+    context_->ReturnStreamBuffer(buffer);
   }
   QMMF_VERBOSE("%s:%s: Exit ", TAG, __func__);
 }
@@ -1998,7 +1993,7 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
     while (it != end) {
       if (it->timestamp == it->buffer.timestamp) {
         assert(context_ != nullptr);
-        auto stat = context_->ReturnStreamBuffer(camera_stream_id_, it->buffer);
+        auto stat = context_->ReturnStreamBuffer(it->buffer);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s:%s Failed to flush ZSL buffer: %d",
                      TAG, __func__, ret);
@@ -2127,7 +2122,7 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
         QMMF_DEBUG("%s:%s Return Buffer from ZSl Queue back to camera!", TAG,
             __func__);
         assert (context_ != nullptr);
-        auto ret = context_->ReturnStreamBuffer(camera_stream_id_, entry.buffer);
+        auto ret = context_->ReturnStreamBuffer(entry.buffer);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s:%s Failed to return ZSL buffer to camera: %d",
                      TAG, __func__, ret);
@@ -2184,8 +2179,8 @@ status_t ZslPort::SetUpZSL() {
   zsl_stream_params.height = cam_start_param.zsl_height;
   zsl_stream_params.grallocFlags = GRALLOC_USAGE_HW_FB
                                    |GRALLOC_USAGE_HW_CAMERA_ZSL;
-  zsl_stream_params.cb = [&](int32_t stream_id, StreamBuffer buffer)
-                        { ZSLCaptureCallback(stream_id, buffer); };
+  zsl_stream_params.cb = [&](StreamBuffer buffer)
+      { ZSLCaptureCallback(buffer); };
 
   ret = context_->CreateDeviceStream(zsl_stream_params,
                                      cam_start_param.frame_rate,
@@ -2225,7 +2220,7 @@ status_t ZslPort::SetUpZSL() {
   return ret;
 }
 
-void ZslPort::ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer) {
+void ZslPort::ZSLCaptureCallback(StreamBuffer buffer) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   ZSLEntry entry;
@@ -2270,7 +2265,7 @@ void ZslPort::ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer) {
     QMMF_DEBUG("%s:%s Return Buffer from ZSl Queue back to camera!", TAG,
         __func__);
     assert (context_ != nullptr);
-    auto ret = context_->ReturnStreamBuffer(stream_id, entry.buffer);
+    auto ret = context_->ReturnStreamBuffer(entry.buffer);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s Failed to return ZSL buffer to camera: %d",
                  TAG, __func__, ret);
@@ -2292,8 +2287,7 @@ void ZslPort::ReturnZSLInputBuffer(StreamBuffer& buffer) {
     assert (context_ != nullptr);
     QMMF_INFO("%s:%s buffer(%d) returned from reprocess!", TAG, __func__,
         buffer.fd);
-    auto ret = context_->ReturnStreamBuffer(camera_stream_id_,
-                                            zsl_input_buffer_.buffer);
+    auto ret = context_->ReturnStreamBuffer(zsl_input_buffer_.buffer);
     if (NO_ERROR == ret) {
       zsl_input_buffer_.timestamp = -1;
     } else {

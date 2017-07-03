@@ -327,7 +327,7 @@ void ReprocessNode::NotifyBufferReturned(StreamBuffer& buffer) {
       TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
       reprocess_stream_id_, name_.string());
 
-  if (buffer.stream_id == (uint32_t)reprocess_stream_id_) {
+  if (buffer.stream_id == reprocess_stream_id_) {
     if (init_params_.out.max_buffer_count == 0) {
         QMMF_VERBOSE("%s:%s: Buffer count is 0. Return to lib.", TAG, __func__);
         camera_module_->ReturnBuff(buffer);

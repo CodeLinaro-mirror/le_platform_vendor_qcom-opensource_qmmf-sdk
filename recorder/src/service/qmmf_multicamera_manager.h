@@ -39,8 +39,8 @@
 
 #include <qmmf-alg/qmmf_alg_intf.h>
 
-#include "qmmf-sdk/qmmf_video_track_extra_param.h"
-#include "qmmf-sdk/qmmf_video_track_extra_param_tags.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -87,7 +87,7 @@ class MultiCameraManager : public CameraInterface {
   status_t CancelCaptureImage() override;
 
   status_t CreateStream(const CameraStreamParam& param,
-                        const VideoTrackExtraParam& extra_param) override;
+                        const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
@@ -132,7 +132,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
                               const CameraStreamParam& param,
-                              const VideoTrackExtraParam& extra_param);
+                              const VideoExtraParam& extra_param);
   status_t DeleteCameraStream(const uint32_t& cam_idx,
                               const uint32_t& track_id);
 

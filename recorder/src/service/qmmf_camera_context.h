@@ -92,7 +92,7 @@ class CameraContext : public CameraInterface,
   status_t CancelCaptureImage() override;
 
   status_t CreateStream(const CameraStreamParam& param,
-                        const VideoTrackExtraParam& extra_param) override;
+                        const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
@@ -119,7 +119,7 @@ class CameraContext : public CameraInterface,
 
   Vector<int32_t>& GetSupportedFps() override;
 
-  status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
+  status_t ReturnStreamBuffer(StreamBuffer buffer);
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
                                    int32_t* stream_id);
@@ -189,9 +189,9 @@ class CameraContext : public CameraInterface,
   status_t CaptureZSLImage();
 
   //Camera client callbacks.
-  void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void SnapshotCaptureCallback(StreamBuffer buffer);
 
-  void ReprocessCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void ReprocessCaptureCallback(StreamBuffer buffer);
 
   void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
 
@@ -205,7 +205,7 @@ class CameraContext : public CameraInterface,
 
   int32_t ImageToHalFormat(ImageFormat image);
 
-  std::function<void(int32_t, StreamBuffer)> GetStreamCb(const ImageParam &param);
+  std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
 
   bool IsReprocessNeed(const ImageParam &param);
 
@@ -348,7 +348,7 @@ class CameraPort : public RefBase {
 
   bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 
-  void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
+  void StreamCallback(StreamBuffer buffer);
 
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParam      params_;
@@ -391,7 +391,7 @@ class ZslPort : public CameraPort {
 
   status_t SetUpZSL();
 
-  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void ZSLCaptureCallback(StreamBuffer buffer);
 
   void GetZSLInputBuffer(StreamBuffer &buffer);
 

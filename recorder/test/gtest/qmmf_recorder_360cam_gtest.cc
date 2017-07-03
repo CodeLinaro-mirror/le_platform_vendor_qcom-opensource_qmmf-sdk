@@ -42,8 +42,8 @@
 #include <QCamera3VendorTags.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
-#include <qmmf-sdk/qmmf_video_track_extra_param.h>
-#include <qmmf-sdk/qmmf_video_track_extra_param_tags.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
 
 //#define DEBUG
@@ -3943,7 +3943,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithSourceSurfaceCrop) {
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    VideoTrackExtraParam extra_param;
+    VideoExtraParam extra_param;
     for (size_t i = 0; i < camera_ids_.size(); ++i) {
       SourceSurfaceDesc source_surface;
       source_surface.camera_id = camera_ids_.at(i);
@@ -4090,7 +4090,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncAndSingleWXGATrack) {
                 void *event_data, size_t event_data_size) -> void
         { VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    VideoTrackExtraParam extra_param;
+    VideoExtraParam extra_param;
     for (size_t i = 0; i < camera_ids_.size(); ++i) {
       SourceSurfaceDesc source_surface;
       source_surface.camera_id = camera_ids_.at(i);

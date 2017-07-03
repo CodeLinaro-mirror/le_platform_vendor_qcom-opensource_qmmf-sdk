@@ -67,14 +67,14 @@ void DualCamera3Gtest::SetUp() {
   ctx3_.cameraIdx = 2;
 }
 
-void DualCamera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
+void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
   String8 path;
   alloc_device_t *grallocDevice = device_client_->GetGrallocDevice();
   gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
         grallocDevice->common.module);
 
-  printf("%s: E streamId: %d buffer: %p size %d ts: %" PRId64 "\n", __func__, streamId,
-         buffer.handle, buffer.size, buffer.timestamp);
+  printf("%s: E streamId: %d buffer: %p size %d ts: %" PRId64 "\n", __func__,
+         buffer.stream_id, buffer.handle, buffer.size, buffer.timestamp);
 
   if (!(buffer.frame_number % 10)) {
     if (buffer.info.format < BufferFormat::kBLOB ) {
@@ -185,11 +185,11 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
     streamParams.height = height;
     streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
 
-    streamParams.cb = [&](int32_t streamId, StreamBuffer buffer) {
+    streamParams.cb = [&](StreamBuffer buffer) {
       printf("%s: Received buffer from camera Id: %d\n", __func__,
              ctx.cameraIdx);
-      StreamCb(streamId, buffer);
-      ctx.device->ReturnStreamBuffer(streamId, buffer);
+      StreamCb(buffer);
+      ctx.device->ReturnStreamBuffer(buffer);
     };
     ret = ctx.device->CreateStream(streamParams);
     if (0 > ret) {

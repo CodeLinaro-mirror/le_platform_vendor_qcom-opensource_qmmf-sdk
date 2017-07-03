@@ -54,18 +54,18 @@ class Camera3Gtest : public ::testing::Test {
 
   void TearDown() override;
 
-  void StreamCb(int32_t streamId, StreamBuffer buffer);
-  void StreamCbSignalOnFrame(int32_t streamId, StreamBuffer buffer);
-  void StreamCbAvgFPS(int32_t streamId, StreamBuffer buffer);
-  void SnapshotCb(int32_t streamId, StreamBuffer buffer);
-  void Raw16Cb(int32_t streamId, StreamBuffer buffer);
-  void StreamCbDumpNVXX(int32_t streamId, StreamBuffer buffer);
-  void StreamCbAecLock(int32_t streamId, StreamBuffer buffer);
-  void StreamCbAwbLock(int32_t streamId, StreamBuffer buffer);
+  void StreamCb(StreamBuffer buffer);
+  void StreamCbSignalOnFrame(StreamBuffer buffer);
+  void StreamCbAvgFPS(StreamBuffer buffer);
+  void SnapshotCb(StreamBuffer buffer);
+  void Raw16Cb(StreamBuffer buffer);
+  void StreamCbDumpNVXX(StreamBuffer buffer);
+  void StreamCbAecLock(StreamBuffer buffer);
+  void StreamCbAwbLock(StreamBuffer buffer);
   int32_t StoreBuffer(String8 extension, uint64_t &idx, StreamBuffer &buffer,
-                      int32_t streamId, CalcSize &calcSize);
+                      CalcSize &calcSize);
 
-  void InputCb(int32_t streamId, StreamBuffer buffer);
+  void InputCb(StreamBuffer buffer);
   void GetInputBuffer(StreamBuffer &buffer);
   void ReturnInputBuffer(StreamBuffer &buffer);
 
