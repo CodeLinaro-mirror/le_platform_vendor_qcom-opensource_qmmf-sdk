@@ -1243,6 +1243,9 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
         case AACFormat::kRaw:
           aac_params.eAACStreamFormat = OMX_AUDIO_AACStreamFormatRAW;
           break;
+       case AACFormat::kMP4FF:
+          aac_params.eAACStreamFormat = OMX_AUDIO_AACStreamFormatMP4FF;
+          break;
         default:
           QMMF_ERROR("%s: %s() unsupported AAC format: %d", TAG, __func__,
                      codec_param.audio_enc_param.codec_params.aac.format);
@@ -3094,6 +3097,7 @@ void* AVCodec::DeliverOutput(void *arg) {
 
     buf_header = avcodec->GetOutputBufferHdr(codec_buffer);
     assert(buf_header != nullptr);
+    buf_header->nFlags = 0x0;
 
     if(avcodec->IsOutputPortStop()) {
       QMMF_INFO("%s:%s Encoder is stop. exit from thread", TAG, __func__);
@@ -3804,8 +3808,8 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   }
 
   if (avcodec->format_type_ == CodecType::kAudioEncoder) {
-    BufferDescriptor* buf = reinterpret_cast<BufferDescriptor*>
-        (buf_header->pAppPrivate);
+    BufferDescriptor* buf =
+        reinterpret_cast<BufferDescriptor*>(buf_header->pAppPrivate);
     codec_buffer.data = buf->data;
     codec_buffer.fd = buf->fd;
     codec_buffer.size = 0;
@@ -3818,27 +3822,44 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
                  num_of_frames);
     ++src;
 
-    if (!((codec_buffer.flag) & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-        && (num_of_frames > 0)) {
-      AudioEncoderMetadata* meta = reinterpret_cast<AudioEncoderMetadata*>(src);
-      QMMF_VERBOSE("%s:%s audio metadata[%s]", TAG, __func__,
-                   meta->ToString().c_str());
-      size_t length = meta->frame_size;
-      const uint8_t* source_ptr = reinterpret_cast<const uint8_t*>
-                                                  (buf_header->pBuffer)
-                                  + 1 + meta->offset_to_frame;
-      uint8_t* dest_ptr = reinterpret_cast<uint8_t*>(codec_buffer.data)
-                          + codec_buffer.size;
-      memcpy(dest_ptr, source_ptr, length);
-      codec_buffer.size += length;
-      codec_buffer.timestamp = ((uint64_t)(meta->msw_ts) << 32) |
-                               (uint64_t)(meta->lsw_ts);
-      src += sizeof(meta);
-      --num_of_frames;
+    const uint8_t* source_ptr = nullptr;
+    uint8_t* dest_ptr = nullptr;
+    size_t length;
+
+    if (!((codec_buffer.flag) & static_cast<uint32_t>(BufferFlags::kFlagEOS))) {
+      if ((codec_buffer.flag) &
+          static_cast<uint32_t>(BufferFlags::kFlagCodecConfig)) {
+        QMMF_DEBUG("%s:%s codec config frame size[%u]", TAG, __func__,
+                   buf_header->nFilledLen);
+        source_ptr = reinterpret_cast<const uint8_t*>(buf_header->pBuffer);
+        dest_ptr =
+            reinterpret_cast<uint8_t*>(codec_buffer.data) + codec_buffer.size;
+        length = buf_header->nFilledLen;
+        memcpy(dest_ptr, source_ptr, length);
+        codec_buffer.size += length;
+        codec_buffer.timestamp = 0;
+      } else if (num_of_frames > 0) {
+        AudioEncoderMetadata* meta =
+            reinterpret_cast<AudioEncoderMetadata*>(src);
+        QMMF_VERBOSE("%s:%s audio metadata[%s]", TAG, __func__,
+                     meta->ToString().c_str());
+        length = meta->frame_size;
+        source_ptr = reinterpret_cast<const uint8_t*>(buf_header->pBuffer) + 1 +
+                     meta->offset_to_frame;
+        dest_ptr =
+            reinterpret_cast<uint8_t*>(codec_buffer.data) + codec_buffer.size;
+        memcpy(dest_ptr, source_ptr, length);
+        codec_buffer.size += length;
+        codec_buffer.timestamp =
+            ((uint64_t)(meta->msw_ts) << 32) | (uint64_t)(meta->lsw_ts);
+        src += sizeof(meta);
+        --num_of_frames;
+
+        if (num_of_frames > 0)
+          QMMF_WARN("%s:%s multiple audio frames were found in one buffer", TAG,
+                    __func__);
+      }
     }
-    if (num_of_frames > 0)
-      QMMF_WARN("%s:%s multiple audio frames were found in one buffer",
-                TAG, __func__);
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {
