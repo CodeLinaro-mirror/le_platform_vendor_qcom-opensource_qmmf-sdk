@@ -265,6 +265,13 @@ enum class TNRTuningCmd {
   kMotionDetectionSensitivity  = '2'
 };
 
+enum AutoModeOptions : char {
+  kWidth      = 'w',
+  kHeight     = 'h',
+  kFps        = 'f',
+  kTrackType  = 't'
+};
+
 class TestTrack;
 class CmdMenu;
 
@@ -503,7 +510,9 @@ class RecorderTest {
   }
 
   // Auto Mode
-  int32_t RunAutoMode();
+  int32_t ParseAutoModeParams(int32_t argc, char *argv[],
+                              VideoTrackCreateParam *track_param);
+  int32_t RunAutoMode(int32_t argc, char *argv[]);
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
