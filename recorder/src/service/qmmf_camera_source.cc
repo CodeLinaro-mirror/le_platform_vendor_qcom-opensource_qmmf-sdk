@@ -76,12 +76,15 @@ CameraSource* CameraSource::CreateCameraSource() {
 
 CameraSource::CameraSource() {
 
+  QMMF_KPI_GET_MASK();
+  QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
 CameraSource::~CameraSource() {
 
+  QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   if (!camera_map_.isEmpty()) {
     camera_map_.clear();
@@ -95,6 +98,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
                                    const ResultCb &cb) {
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
+  QMMF_KPI_DETAIL();
   bool is_virtual_camera_id = false;
 
 #ifdef ENABLE_360
@@ -142,6 +146,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
 
 status_t CameraSource::StopCamera(const uint32_t camera_id) {
 
+  QMMF_KPI_DETAIL();
   int32_t ret = NO_ERROR;
   QMMF_INFO("%s:%s: CameraId(%u) to close!", TAG, __func__, camera_id);
 
@@ -171,6 +176,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                                          uint32_t *virtual_camera_id) {
 
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_KPI_DETAIL();
 #ifdef ENABLE_360
   sp<CameraInterface> multi_camera = new MultiCameraManager();
   if (!multi_camera.get()) {
@@ -226,6 +232,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
                                     const SnapshotCb& cb) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   bool match = false;
   sp<CameraInterface> camera;
@@ -266,6 +273,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   bool match = false;
   sp<CameraInterface> camera;
@@ -318,6 +326,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
                                          const VideoTrackParams& track_params) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_KPI_DETAIL();
 
   // Find out the camera context corresponding to camera id where track has to
   // be created.
@@ -381,6 +390,7 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
 
 status_t CameraSource::StartTrackSource(const uint32_t track_id) {
 
+  QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
@@ -399,6 +409,7 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
 status_t CameraSource::StopTrackSource(const uint32_t track_id,
                                        bool is_force_cleanup) {
 
+  QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s:%s: track_id is not valid !!", TAG, __func__);
     return BAD_VALUE;
