@@ -61,6 +61,7 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess {
                   const PostProcParam& output,
                   const uint32_t frame_rate,
                   const uint32_t num_images,
+                  const uint32_t jpeg_quality,
                   const void* static_meta,
                   const PostProcCb& cb,
                   const void* context) override;
@@ -96,6 +97,7 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess {
   bool                   reprocess_flag_;
   bool                   ready_to_start_;
   uint32_t               num_images_;
+  uint32_t               jpeg_quality_;
 
   JpegEncoder*           jpeg_encoder_;
   PostProcCb             capture_client_cb_;
