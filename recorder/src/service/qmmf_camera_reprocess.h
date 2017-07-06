@@ -59,6 +59,7 @@ class ICameraPostProcess : public virtual RefBase {
                          const PostProcParam& output,
                          const uint32_t frame_rate,
                          const uint32_t num_images,
+                         const uint32_t jpeg_quality,
                          const void* static_data,
                          const PostProcCb& cb,
                          const void* context) = 0;

@@ -772,7 +772,8 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
                                        multicam_start_params_.frame_rate, 1,
-                                       nullptr, jpeg_cb, nullptr);
+                                       param.image_quality, nullptr, jpeg_cb,
+                                       nullptr);
   if (ret < NO_ERROR) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;
