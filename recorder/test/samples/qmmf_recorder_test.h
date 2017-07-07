@@ -311,13 +311,12 @@ public:
               0
             } {};
 
-    ~TestInitParams()
-    {
-       for(std::vector<uint32_t>::size_type i = 0;
-           i < cam_init_infos.size(); i++) {
-          free(cam_init_infos.at(i));
-       }
-       cam_init_infos.clear();
+    ~TestInitParams() {
+      for(std::vector<uint32_t>::size_type i = 0;
+          i < cam_init_infos.size(); i++) {
+        delete cam_init_infos.at(i);
+      }
+      cam_init_infos.clear();
     }
 };
 
