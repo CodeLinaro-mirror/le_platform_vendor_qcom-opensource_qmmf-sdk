@@ -149,6 +149,26 @@ class Recorder {
   /// session specific event cb is called by recorder
   status_t ResumeSession(const uint32_t session_id);
 
+  /// \brief Provides list with information regarding all existing plugins.
+  ///*
+  /// This is an async API.
+  status_t GetSupportedPlugins(SupportedPlugins *plugins);
+
+  /// \brief Create a instance of the plugin and map it to a unique ID.
+  ///
+  /// The unique ID is set by the underlying layers.
+  status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
+
+  /// \brief Delete the plugin instance with the given unique ID.
+  ///
+  /// Must be called after DeleteVideoTrack or CancelCaptureImage.
+  status_t DeletePlugin(const uint32_t &uid);
+
+  /// \brief Set plugin specific configuration data.
+  ///
+  /// This is an async API.
+  status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
+
   /// \brief Creates an audio track and associates it to the session id provided.
   /// User must specify the unqiue track_id for the session.
   ///

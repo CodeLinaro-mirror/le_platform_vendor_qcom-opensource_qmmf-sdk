@@ -51,13 +51,14 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
  public:
   QmmfSimpleTestAlgo()
       : listener_(nullptr),
-        caps_(BufferRequirements(160, 120, 3840, 2160,
+        caps_("SimpleTest",
+              BufferRequirements(160, 120, 3840, 2160,
                                  true, 1, 0, 0,
                                  {kNv12, kNv21}),
               BufferRequirements(160, 120, 3840, 2160,
                                  true, 1, 0, 0,
                                  {}),
-              false, 0, false, false, false, "1.0") {}
+              false, 0, false, false, false, 1.0) {}
 
  protected:
   /** GetCaps
