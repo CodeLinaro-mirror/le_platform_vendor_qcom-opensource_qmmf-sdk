@@ -485,6 +485,43 @@ status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
+status_t CameraContext::SetUpCapture(const ImageParam &param) {
+
+  if (!camera_start_params_.zsl_mode) {
+    bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
+                              (snapshot_param_.width != param.width) ||
+                              (snapshot_param_.height != param.height) ||
+                              (reprocess_enable_ != IsReprocessNeed(param));
+    snapshot_param_ = param;
+
+    if (reconfigure_needed) {
+      QMMF_INFO("%s:%s: Snapshot stream reconfigure required", TAG, __func__);
+      auto ret = CreateSnapshotStream(param);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
+        return ret;
+      }
+      // Wait aec to converge after reconfiguration
+      WaitAecToConverge(kSyncFrameWaitDuration);
+    }
+  } else {
+    if (ImageFormat::kJPEG != param.image_format) {
+      QMMF_ERROR("%s:%s ZSL capture supports only Jpeg as output!",
+                 TAG, __func__);
+      return BAD_VALUE;
+    }
+
+    if ((param.width != camera_start_params_.zsl_width) ||
+        (param.height != camera_start_params_.zsl_height)) {
+      QMMF_ERROR("%s:%s ZSL stream size %dx%d doesn't match image size %dx%d!",
+                 TAG, __func__, camera_start_params_.zsl_width,
+                 camera_start_params_.zsl_height, param.width, param.height);
+      return BAD_VALUE;
+    }
+  }
+  return NO_ERROR;
+}
+
 status_t CameraContext::CaptureImage(const uint32_t num_images,
                                      const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
@@ -526,40 +563,9 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
   return ret;
 }
 
-status_t CameraContext::ConfigImageCapture(const ImageParam &param) {
+status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
 
-  if (!camera_start_params_.zsl_mode) {
-    bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
-                              (snapshot_param_.width != param.width) ||
-                              (snapshot_param_.height != param.height) ||
-                              (reprocess_enable_ != IsReprocessNeed(param));
-    snapshot_param_ = param;
-
-    if (reconfigure_needed) {
-      QMMF_INFO("%s:%s: Snapshot stream reconfigure required", TAG, __func__);
-      auto ret = CreateSnapshotStream(param);
-      if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
-        return ret;
-      }
-      // Wait aec to converge after reconfiguration
-      WaitAecToConverge(kSyncFrameWaitDuration);
-    }
-  } else {
-    if (ImageFormat::kJPEG != param.image_format) {
-      QMMF_ERROR("%s:%s ZSL capture supports only Jpeg as output!",
-                 TAG, __func__);
-      return BAD_VALUE;
-    }
-
-    if ((param.width != camera_start_params_.zsl_width) ||
-        (param.height != camera_start_params_.zsl_height)) {
-      QMMF_ERROR("%s:%s ZSL stream size %dx%d doesn't match image size %dx%d!",
-                 TAG, __func__, camera_start_params_.zsl_width,
-                 camera_start_params_.zsl_height, param.width, param.height);
-      return BAD_VALUE;
-    }
-  }
+  // Not Implemented
   return NO_ERROR;
 }
 

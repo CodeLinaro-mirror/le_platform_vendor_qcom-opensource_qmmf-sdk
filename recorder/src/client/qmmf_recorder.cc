@@ -299,7 +299,7 @@ status_t Recorder::CaptureImage(const uint32_t camera_id,
 }
 
 status_t Recorder::ConfigImageCapture(const uint32_t camera_id,
-                                      const ImageCaptureConfig &config) {
+                                      const ImageConfigParam &config) {
 
   assert(recorder_client_ != NULL);
   auto ret = recorder_client_->ConfigImageCapture(camera_id, config);

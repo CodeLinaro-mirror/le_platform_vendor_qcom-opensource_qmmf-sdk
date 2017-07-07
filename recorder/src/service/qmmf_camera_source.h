@@ -75,10 +75,14 @@ class CameraSource {
                                 const void *param,
                                 const uint32_t param_size);
 
-  status_t CaptureImage(const uint32_t camera_id, const ImageParam &param,
+  status_t CaptureImage(const uint32_t camera_id,
+                        const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
-                        const SnapshotCb& cb);
+                        const SnapshotCb &cb);
+
+  status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageConfigParam &config);
 
   status_t CancelCaptureImage(const uint32_t camera_id);
 

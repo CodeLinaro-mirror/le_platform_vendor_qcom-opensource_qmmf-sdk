@@ -1404,6 +1404,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
                                     const ImageParam &param,
                                     const uint32_t num_images,
                                     const std::vector<CameraMetadata> &meta) {
+
   QMMF_DEBUG("%s:%s: Enter client_id(%d):camera_id(%d)", TAG, __func__,
       client_id, camera_id);
 
@@ -1412,9 +1413,8 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
       uint32_t count, BnBuffer& buf, MetaData& meta_data) {
           SnapshotCallback(client_id, camera_id, count, buf, meta_data);
       };
-
-  auto ret = camera_source_->CaptureImage(camera_id, param, num_images, meta,
-                                          cb);
+  auto ret = camera_source_->CaptureImage(camera_id, param, num_images,
+                                          meta, cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: client_id(%d):camera_id(%d) CaptureImage failed!", TAG,
         __func__, client_id, camera_id);
@@ -1427,10 +1427,21 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
 
 status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
                                           const uint32_t camera_id,
-                                          const ImageCaptureConfig &config) {
+                                          const ImageConfigParam &config) {
 
-  //NOT IMPLEMENTED.
-  return NO_ERROR;
+  QMMF_DEBUG("%s:%s: Enter client_id(%d):camera_id(%d)", TAG, __func__,
+      client_id, camera_id);
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->ConfigImageCapture(camera_id, config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: client_id(%d):camera_id(%d) ConfigImageCapture failed!",
+        TAG, __func__, client_id, camera_id);
+    return ret;
+  }
+  QMMF_DEBUG("%s:%s: Exit client_id(%d):camera_id(%d)", TAG, __func__,
+      client_id, camera_id);;
+  return ret;
 }
 
 
