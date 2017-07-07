@@ -234,22 +234,26 @@ class Recorder {
   /// @param camera_id: ID of camera
   /// @param param: Details dimensions, format of the image
   /// @param num_images: Number of images to be captured
-  /// @param meta : Optional camera meta parameter for each image to be captured
-  ///             If this vector is empty default paramters are used for
-  ///             for image catpure.
+  /// @param meta: Optional camera meta parameter for each image to be captured
+  ///        If this vector is empty default parameters are used for for image
+  ///        capture.
   /// @param cb: Callbacks for data and error notifications
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
-                        const ::std::vector<::android::CameraMetadata> &meta,
-                        const ImageCaptureCb& cb);
+                        const std::vector<::android::CameraMetadata> &meta,
+                        const ImageCaptureCb &cb);
 
-  /// \brief Enables clients to configure advance image capture paramters
+  /// \brief Enables clients to configure image capture parameters.
   ///
-  /// This is an optional API to be used only for advanced features such
-  /// as concurrent raw capture configuration etc
+  /// This is an optional API to be used only for advanced post processing
+  /// features.
+  ///
+  /// @param camera_id: ID of camera
+  /// @param param: Additional parameters for setting crop, reprocess
+  ///        plugins, multi-camera mode, etc.
   status_t ConfigImageCapture(const uint32_t camera_id,
-                              const ImageCaptureConfig &config);
+                              const ImageConfigParam &config);
 
   /// \brief Cancels an ongoing image capture
   ///

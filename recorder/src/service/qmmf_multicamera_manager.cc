@@ -221,52 +221,7 @@ status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
-                                          std::vector<CameraMetadata> &meta,
-                                          const StreamSnapshotCb& cb) {
-  Mutex::Autolock lock(lock_);
-  status_t ret = NO_ERROR;
-
-  if (multicam_start_params_.zsl_mode) {
-    QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
-    return BAD_VALUE;
-  }
-  sequence_cnt_ = num_images;
-
-  if (jpeg_encoding_enabled_) {
-    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buffer) {
-      OnStitchedFrameAvailable(buffer);
-    };
-    snapshot_stitch_algo_->SetClientCallback(encoder_cb);
-    client_snapshot_cb_ = cb;
-  } else {
-    snapshot_stitch_algo_->SetClientCallback(cb);
-  }
-
-  StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
-    snapshot_stitch_algo_->FrameAvailableCb(count, buf);
-  };
-
-  std::vector<CameraMetadata> capture_meta = meta;
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-
-    // Dual camera meta should only be sent only on first capture in burst.
-    ret = FillDualCamMetadata(capture_meta.at(0), i);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
-      return ret;
-    }
-    ret = camera_context->CaptureImage(num_images, capture_meta, stream_cb);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
-      return ret;
-    }
-  }
-  return NO_ERROR;
-}
-
-status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
+status_t MultiCameraManager::SetUpCapture(const ImageParam &param) {
 
   Mutex::Autolock lock(lock_);
   status_t ret = NO_ERROR;
@@ -318,9 +273,9 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
 
   for (size_t idx = 0; idx < camera_contexts_.size(); ++idx) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(idx);
-    ret = camera_context->ConfigImageCapture(capture_param);
+    ret = camera_context->SetUpCapture(capture_param);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: ConfigCaptureImage Failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: SetUpCapture Failed!", TAG, __func__);
       return ret;
     }
   }
@@ -337,6 +292,58 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     }
   }
 
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
+                                          std::vector<CameraMetadata> &meta,
+                                          const StreamSnapshotCb& cb) {
+
+  Mutex::Autolock lock(lock_);
+  status_t ret = NO_ERROR;
+
+  if (multicam_start_params_.zsl_mode) {
+    QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  sequence_cnt_ = num_images;
+
+  if (jpeg_encoding_enabled_) {
+    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buffer) {
+      OnStitchedFrameAvailable(buffer);
+    };
+    snapshot_stitch_algo_->SetClientCallback(encoder_cb);
+    client_snapshot_cb_ = cb;
+  } else {
+    snapshot_stitch_algo_->SetClientCallback(cb);
+  }
+
+  StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
+    snapshot_stitch_algo_->FrameAvailableCb(count, buf);
+  };
+
+  std::vector<CameraMetadata> capture_meta = meta;
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    // Dual camera meta should only be sent only on first capture in burst.
+    ret = FillDualCamMetadata(capture_meta.at(0), i);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
+      return ret;
+    }
+    ret = camera_context->CaptureImage(num_images, capture_meta, stream_cb);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::ConfigImageCapture(const ImageConfigParam &config) {
+
+  // Not Implemented
   return NO_ERROR;
 }
 
@@ -765,7 +772,8 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
                                        multicam_start_params_.frame_rate, 1,
-                                       nullptr, jpeg_cb, nullptr);
+                                       param.image_quality, nullptr, jpeg_cb,
+                                       nullptr);
   if (ret < NO_ERROR) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;
