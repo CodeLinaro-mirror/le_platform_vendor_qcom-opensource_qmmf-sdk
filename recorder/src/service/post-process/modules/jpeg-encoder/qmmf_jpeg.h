@@ -44,18 +44,14 @@ class PostProcJpeg : public IPostProcModule {
 
  public:
 
-  PostProcJpeg(int32_t Id);
+  PostProcJpeg();
 
   ~PostProcJpeg();
 
   status_t Create(const int32_t stream_id,
-                  const PostProcCreateParam& input,
-                  const PostProcCreateParam& output,
                   const uint32_t frame_rate,
                   const uint32_t num_images,
-                  const void* static_meta,
-                  const void* context,
-                  int32_t &out_stream_id) override;
+                  const void* context) override;
 
   status_t Delete() override;
 
@@ -76,13 +72,15 @@ class PostProcJpeg : public IPostProcModule {
 
   PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
 
-  PostProcCreateParam GetOutput(const PostProcCreateParam &in) override;
+  PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
+
+  status_t ValidateInput(const PostProcCreateParam &input) override;
+
+  status_t ValidateOutput(const PostProcCreateParam &output) override;
 
   status_t GetCapabilities(PostProcCaps &caps) override;
 
  private:
-
-  int32_t                        id_;
 
   bool                           reprocess_flag_;
   bool                           ready_to_start_;
@@ -90,6 +88,16 @@ class PostProcJpeg : public IPostProcModule {
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
+  PostProcCreateParam            input_param_;
+  PostProcCreateParam            output_param_;
+
+  static const uint32_t kMinWidth  = 160;
+  static const uint32_t kMinHeight = 120;
+  static const uint32_t kMaxWidth  = 5104;
+  static const uint32_t kMaxHeight = 4092;
+
+  static const int32_t kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  static const int32_t kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
 };
 
 }; //namespace recorder

@@ -1407,9 +1407,21 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
   ImageConfigParam image_config;
-  ReprocessEdgeSmooth edge_smooth_config;
-  edge_smooth_config.enable = true;
-  image_config.Update(QMMF_REPROCESS_EDGE_SMOOTH, edge_smooth_config);
+  PostprocPlugin edge_smooth_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  assert(ret == NO_ERROR);
+
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "EdgeSmooth") {
+      ret = recorder_.CreatePlugin(&edge_smooth_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, edge_smooth_plugin);
+    }
+  }
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -1424,6 +1436,12 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
     // Take snapshot after every 5 sec.
     sleep(5);
   }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(edge_smooth_plugin.uid);
+  assert(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
@@ -1543,9 +1561,21 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
   ImageConfigParam image_config;
-  ReprocessBayerLCAC lcac_config;
-  lcac_config.enable = true;
-  image_config.Update(QMMF_REPROCESS_BAYER_LCAC, lcac_config);
+  PostprocPlugin bayer_lcac_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  assert(ret == NO_ERROR);
+
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin);
+    }
+  }
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -1559,6 +1589,12 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
     assert(ret == NO_ERROR);
     sleep(5);
   }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  assert(ret == NO_ERROR);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -1689,12 +1725,29 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
   ImageConfigParam image_config;
-  ReprocessBayerLCAC lcac_config;
-  lcac_config.enable = true;
-  image_config.Update(QMMF_REPROCESS_BAYER_LCAC, lcac_config);
-  ReprocessEdgeSmooth edge_smooth_config;
-  edge_smooth_config.enable = true;
-  image_config.Update(QMMF_REPROCESS_EDGE_SMOOTH, edge_smooth_config);
+  PostprocPlugin bayer_lcac_plugin, edge_smooth_plugin, haze;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  assert(ret == NO_ERROR);
+
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+    }
+  }
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "EdgeSmooth") {
+      ret = recorder_.CreatePlugin(&edge_smooth_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, edge_smooth_plugin, 1);
+    }
+  }
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -1709,6 +1762,12 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
     sleep(5);
 
   }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  assert(ret == NO_ERROR);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -2700,7 +2759,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
 
-    ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
@@ -2708,7 +2767,143 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* SessionWith1080pEncTrackWithHazeBuster: This test will test session with
+*        1080p h264 track and post processing. Post processing pipe is
+*        Haze buster.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith1080pAndHazeBusterEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t width  = 1920;
+  int32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param;
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+
+    video_track_param.camera_id     = camera_id_;
+    video_track_param.width         = width;
+    video_track_param.height        = height;
+    video_track_param.frame_rate    = 30;
+    video_track_param.format_type   = format_type;
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    VideoExtraParam extra_param;
+    PostprocPlugin haze_buster_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    assert(ret == NO_ERROR);
+
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "HazeBuster") {
+        ret = recorder_.CreatePlugin(&haze_buster_plugin.uid, plugin_info);
+        assert(ret == NO_ERROR);
+
+        extra_param.Update(QMMF_POSTPROCESS_PLUGIN, haze_buster_plugin);
+      }
+    }
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeletePlugin(haze_buster_plugin.uid);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 

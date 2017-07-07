@@ -164,6 +164,64 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_GET_SUPPORTED_PLUGINS: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        SupportedPlugins plugins;
+        auto ret = GetSupportedPlugins(client_id, &plugins);
+        uint32_t num_plugins = plugins.size();
+        reply->writeUint32(num_plugins);
+        for (auto const& plugin : plugins) {
+          size_t blob_size = plugin.Size();
+          reply->writeUint32(blob_size);
+          android::Parcel::WritableBlob blob;
+          reply->writeBlob(blob_size, false, &blob);
+          memset(blob.data(), 0x0, blob_size);
+          memcpy(blob.data(), plugin.ToBlob().get(), blob_size);
+        }
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_CREATE_PLUGIN: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        uint32_t blob_size;
+        data.readUint32(&blob_size);
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(blob_size, &blob);
+        PluginInfo plugin(blob.data(), blob_size);
+        uint32_t uid;
+        ret = CreatePlugin(client_id, &uid, plugin);
+        reply->writeInt32(ret);
+        reply->writeUint32(uid);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_DELETE_PLUGIN: {
+        uint32_t client_id, uid;
+        data.readUint32(&client_id);
+        data.readUint32(&uid);
+        ret = DeletePlugin(client_id, uid);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_CONFIGURE_PLUGIN: {
+        uint32_t client_id, uid;
+        data.readUint32(&client_id);
+        data.readUint32(&uid);
+        uint32_t blob_size;
+        data.readUint32(&blob_size);
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(blob_size, &blob);
+        const char *string = reinterpret_cast<const char *>(blob.data());
+        std::string json_config(string, blob_size);
+        ret = ConfigPlugin(client_id, uid, json_config);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_CREATE_AUDIOTRACK: {
         uint32_t client_id, session_id, track_id;
         data.readUint32(&client_id);
@@ -353,7 +411,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         ImageConfigParam config(blob.data(), blob_size);
         ret = ConfigImageCapture(client_id, camera_id, config);
-        blob.release();
         reply->writeInt32(ret);
         return ret;
       }
@@ -868,6 +925,93 @@ status_t RecorderService::ResumeSession(const uint32_t client_id,
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
 
   return ret;
+}
+
+status_t RecorderService::GetSupportedPlugins(const uint32_t client_id,
+                                              SupportedPlugins *plugins) {
+
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->GetSupportedPlugins(client_id, plugins);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: GetSupportedPlugins failed: %d", TAG, __func__, ret);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::CreatePlugin(const uint32_t client_id, uint32_t *uid,
+                                       const PluginInfo &plugin) {
+
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->CreatePlugin(client_id, uid, plugin);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreatePlugin %s failed: %d", TAG, __func__,
+        plugin.name.c_str(), ret);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::DeletePlugin(const uint32_t client_id,
+                                       const uint32_t &uid) {
+
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->DeletePlugin(client_id, uid);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: DeletePlugin uid(%d) failed: %d", TAG, __func__,
+        uid, ret);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::ConfigPlugin(const uint32_t client_id,
+                                       const uint32_t &uid,
+                                       const std::string &json_config) {
+
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->ConfigPlugin(client_id, uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ConfigPlugin uid(%d) failed: %d", TAG, __func__,
+        uid, ret);
+    return ret;
+  }
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
 }
 
 status_t RecorderService::CreateAudioTrack(const uint32_t client_id,

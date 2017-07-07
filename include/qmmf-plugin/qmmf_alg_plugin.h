@@ -33,10 +33,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "qmmf_alg_types.h"
 
-#define QMMF_ALFO_LIB_LOAD_FUNC "QmmfAlgoNew"
+#define QMMF_ALG_LIB_LOAD_FUNC "QmmfAlgoNew"
 
 namespace qmmf {
 
@@ -45,9 +46,10 @@ namespace qmmf_alg_plugin {
 /** Capabilities:
  *    @input_buffer_requirements_: input buffer requirements
  *    @output_buffer_requirements_: output buffer requirements
+ *    @plugin_name_ : plugin full name
  *    @inplace_processing_: inplace processing is required
  *    @history_buffer_count_: history buffer count
- *    @runtime_enable_disable_: flag indicating whether runtime enable disable
+ *    @runtime_enable_disable_: flag indicating whether runtime enable/disable
  *                              is supported
  *    @crop_support_: image crop capability flag
  *    @scale_support_: image scale capability flag
@@ -59,11 +61,12 @@ class Capabilities {
  public:
   Capabilities() {};
 
-  Capabilities(std::vector<PixelFormat> in_pixel_formats,
-               std::vector<PixelFormat> out_pixel_formats,
+  Capabilities(std::string plugin_name,
+               std::set<PixelFormat> in_pixel_formats,
+               std::set<PixelFormat> out_pixel_formats,
                uint32_t buffer_count,
                const bool inplace_processing,
-               const std::string lib_version) {
+               const float lib_version) {
     in_buffer_requirements_.min_width_         = 16;
     in_buffer_requirements_.min_height_        = 16;
     in_buffer_requirements_.max_width_         = 16382;
@@ -84,16 +87,18 @@ class Capabilities {
     out_buffer_requirements_.plane_alignment_  = 16;
     out_buffer_requirements_.pixel_formats_    = out_pixel_formats;
 
+    plugin_name_ = plugin_name;
     inplace_processing_ = inplace_processing;
-    history_buffer_count_ = 0;
     runtime_enable_disable_ = true;
+    history_buffer_count_ = 0;
     crop_support_ = false;
     scale_support_ = false;
     lib_version_ = lib_version;
   };
 
   Capabilities(const Capabilities &caps)
-      : in_buffer_requirements_(caps.in_buffer_requirements_),
+      : plugin_name_(caps.plugin_name_),
+        in_buffer_requirements_(caps.in_buffer_requirements_),
         out_buffer_requirements_(caps.out_buffer_requirements_),
         inplace_processing_(caps.inplace_processing_),
         history_buffer_count_(caps.history_buffer_count_),
@@ -103,12 +108,14 @@ class Capabilities {
         lib_version_(caps.lib_version_) {};
 
   Capabilities(
+      const std::string plugin_name,
       const BufferRequirements &in_buffer_requirements,
       const BufferRequirements &out_buffer_requirements,
       const bool inplace_processing, const uint32_t history_buffer_count,
       const bool runtime_enable_disable, const bool crop_support,
-      const bool scale_support, const std::string lib_version)
-      : in_buffer_requirements_(in_buffer_requirements),
+      const bool scale_support, const float lib_version)
+      : plugin_name_(plugin_name),
+        in_buffer_requirements_(in_buffer_requirements),
         out_buffer_requirements_(out_buffer_requirements),
         inplace_processing_(inplace_processing),
         history_buffer_count_(history_buffer_count),
@@ -125,6 +132,8 @@ class Capabilities {
     indent++;
 
     std::stringstream stream;
+    stream << indentation.str()
+           << "\"plugin_name_\" : " << plugin_name_ << '\n';
     stream << indentation.str() << "\"in_buffer_requirements_\" : {" << '\n'
            << in_buffer_requirements_.ToString(indent) << "}," << '\n';
     stream << indentation.str() << "\"out_buffer_requirements_\" : {" << '\n'
@@ -145,6 +154,7 @@ class Capabilities {
     return stream.str();
   }
 
+  std::string             plugin_name_;
   BufferRequirements      in_buffer_requirements_;
   BufferRequirements      out_buffer_requirements_;
   bool                    inplace_processing_;
@@ -152,7 +162,7 @@ class Capabilities {
   bool                    runtime_enable_disable_;
   bool                    crop_support_;
   bool                    scale_support_;
-  std::string             lib_version_;
+  float                   lib_version_;
 };
 
 /** IEventListener

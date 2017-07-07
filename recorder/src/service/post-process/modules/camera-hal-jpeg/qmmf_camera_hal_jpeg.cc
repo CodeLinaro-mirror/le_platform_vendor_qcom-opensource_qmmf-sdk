@@ -111,13 +111,9 @@ void PostProcHalJpeg::ReprocessCallback(StreamBuffer in_buff) {
 }
 
 status_t PostProcHalJpeg::Create(const int32_t stream_id,
-                                 const PostProcCreateParam& input,
-                                 const PostProcCreateParam& output,
                                  const uint32_t frame_rate,
                                  const uint32_t num_images,
-                                 const void* static_meta,
-                                 const void* context,
-                                 int32_t &out_stream_id) {
+                                 const void* context) {
   int32_t ret = NO_ERROR;
   CameraInputStreamParameters inputStreamParams;
   CameraStreamParameters streamParams;
@@ -133,9 +129,7 @@ status_t PostProcHalJpeg::Create(const int32_t stream_id,
     return BAD_VALUE;
   }
 
-  if (NO_ERROR != ValidateInput(*const_cast<CameraMetadata*>(
-                                static_cast<const CameraMetadata*>(static_meta)),
-                                input, output)){
+  if (NO_ERROR != ValidateInput(input_param_, output_param_)){
     QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
     return BAD_VALUE;
   }
@@ -147,9 +141,9 @@ status_t PostProcHalJpeg::Create(const int32_t stream_id,
   burst_cnt_ = 0;
 
   memset(&inputStreamParams, 0, sizeof(inputStreamParams));
-  inputStreamParams.format = input.format;
-  inputStreamParams.width = input.width;
-  inputStreamParams.height = input.height;
+  inputStreamParams.format = input_param_.format;
+  inputStreamParams.width = input_param_.width;
+  inputStreamParams.height = input_param_.height;
   inputStreamParams.get_input_buffer = [&] (StreamBuffer &buffer)
       { GetInputBuffer(buffer); };
   inputStreamParams.return_input_buffer  = [&] (StreamBuffer &buffer)
@@ -164,9 +158,9 @@ status_t PostProcHalJpeg::Create(const int32_t stream_id,
   reprocess_request_.streamIds.add(stream_id_p);
   memset(&streamParams, 0, sizeof(streamParams));
   streamParams.bufferCount = num_images;
-  streamParams.format = output.format;
-  streamParams.width = output.width;
-  streamParams.height = output.height;
+  streamParams.format = output_param_.format;
+  streamParams.width = output_param_.width;
+  streamParams.height = output_param_.height;
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
   streamParams.cb = [&](StreamBuffer buffer) { ReprocessCallback(buffer); };
   ret = context_->CreateDeviceStream(streamParams, frame_rate, &stream_id_p);
@@ -178,37 +172,147 @@ status_t PostProcHalJpeg::Create(const int32_t stream_id,
   assert(stream_id_p >= 0);
   reprocess_request_.streamIds.add(stream_id_p);
   ready_to_start_ = true;
-  out_stream_id = stream_id_p;
 
   return ret;
 }
 
 PostProcCreateParam PostProcHalJpeg::GetInput(const PostProcCreateParam &out) {
-  PostProcCreateParam in = out;
-  in.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  return in;
+  // Save the output parameters as well, we will need them later.
+  input_param_ = output_param_ = out;
+  input_param_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  return input_param_;
 }
 
+// TODO: add additional checks
 PostProcCreateParam PostProcHalJpeg::GetOutput(const PostProcCreateParam &in) {
-  PostProcCreateParam out = in;
-  out.format = HAL_PIXEL_FORMAT_BLOB;
-  return out;
+  // This module has scale support and we already have the output.
+  input_param_ = in;
+  return output_param_;
 }
 
+status_t PostProcHalJpeg::ValidateInput(const PostProcCreateParam &input) {
+  CameraMetadata meta = context_->GetCameraStaticMeta();
+  bool supported = false;
+
+  camera_metadata_entry_t entry;
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
+    QMMF_ERROR("%s: HAL does not report supported formats!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+  for (uint32_t i = 0 ; i < entry.count; i++) {
+    if (entry.data.i32[i] == input.format &&
+        HAL_PIXEL_FORMAT_BLOB == input.format) {
+      supported = true;
+      break;
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Input format(%d) not supported", __func__, input.format);
+    return BAD_TYPE;
+  }
+  supported = false;
+
+  uint32_t w = 0, h = 0, scalar_format = 0, config_type = 0;
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  for (uint32_t i = 0 ; i < entry.count; i += 4) {
+    scalar_format = entry.data.i32[i];
+    config_type = entry.data.i32[i+3];
+    if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == scalar_format &&
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT == config_type) {
+      w = entry.data.i32[i+1];
+      h = entry.data.i32[i+2];
+      if(w == input.width && h == input.height) {
+        supported = true;
+        break;
+      }
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Input dimensions(%dx%d) not supported", __func__,
+        input.width, input.height);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
+status_t PostProcHalJpeg::ValidateOutput(const PostProcCreateParam &output) {
+  CameraMetadata meta = context_->GetCameraStaticMeta();
+  bool supported = false;
+
+  camera_metadata_entry_t entry;
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
+    QMMF_ERROR("%s: HAL does not report supported formats!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+  for (uint32_t i = 0 ; i < entry.count; i++) {
+    if (entry.data.i32[i] == output.format &&
+        HAL_PIXEL_FORMAT_BLOB == output.format) {
+      supported = true;
+      break;
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Output format(%d) not supported", __func__, output.format);
+    return BAD_TYPE;
+  }
+  supported = false;
+
+  uint32_t w = 0, h = 0, scalar_format = 0, config_type = 0;
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  for (uint32_t i = 0 ; i < entry.count; i += 4) {
+    scalar_format = entry.data.i32[i];
+    config_type = entry.data.i32[i+3];
+    if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == scalar_format &&
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == config_type) {
+      w = entry.data.i32[i+1];
+      h = entry.data.i32[i+2];
+      if(w == output.width && h == output.height) {
+        supported = true;
+        break;
+      }
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Output dimensions(%dx%d) not supported", __func__,
+        output.width, output.height);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
+// TODO: extract min/max width/height from camera metadata
 status_t PostProcHalJpeg::GetCapabilities(PostProcCaps &caps) {
   caps.output_buff_        = 0;
   caps.min_width_          = 160;
   caps.min_height_         = 120;
   caps.max_width_          = 5104;
   caps.max_height_         = 4092;
-  caps.usage_              = 0;
   caps.crop_support_       = false;
   caps.scale_support_      = true;
   caps.inplace_processing_ = false;
-  caps.lib_version_        = "1.0";
+  caps.usage_              = 0;
 
-  caps.in_formats_.push_back(BufferFormat::kNV12);
-  caps.out_formats_.push_back(BufferFormat::kBLOB);
+  caps.formats_.insert(BufferFormat::kBLOB);
 
   return NO_ERROR;
 }
@@ -383,11 +487,12 @@ void PostProcHalJpeg::AddResult(const void* result_in) {
   }
 }
 
-status_t PostProcHalJpeg::ValidateInput(const CameraMetadata& static_meta,
-                                        const PostProcCreateParam& input,
+status_t PostProcHalJpeg::ValidateInput(const PostProcCreateParam& input,
                                         const PostProcCreateParam& output) {
-  camera_metadata_ro_entry_t entry;
+  camera_metadata_entry_t entry;
   int32_t in_format, num_output_formats;
+
+  CameraMetadata static_meta = context_->GetCameraStaticMeta();
 
   if (static_meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
     entry = static_meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
