@@ -71,6 +71,8 @@ class JpegEncoder {
 
   snapshot_info in_buffer_;
 
+  void *libjpeg_interface_;
+
 };
 
 }; //namespace reprocjpegencoder ends here

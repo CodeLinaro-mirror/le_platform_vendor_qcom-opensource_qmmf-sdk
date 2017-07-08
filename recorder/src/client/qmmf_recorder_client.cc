@@ -509,8 +509,8 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
                                           const uint32_t track_id,
                                           const VideoTrackCreateParam& param,
-                                          const VideoTrackExtraParam&
-                                          extra_param, const TrackCb& cb) {
+                                          const VideoExtraParam& extra_param,
+                                          const TrackCb& cb) {
 
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   QMMF_KPI_BEGIN("CreateVideoTrackWithExtraParam");
@@ -1630,7 +1630,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                             const uint32_t session_id,
                             const uint32_t track_id,
                             const VideoTrackCreateParam& params,
-                            const VideoTrackExtraParam& extra_param) {
+                            const VideoExtraParam& extra_param) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);

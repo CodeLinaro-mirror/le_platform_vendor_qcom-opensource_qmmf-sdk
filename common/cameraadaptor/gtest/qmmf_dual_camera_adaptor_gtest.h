@@ -47,7 +47,7 @@ class DualCamera3Gtest : public ::testing::Test {
 
   virtual void SetUp();
 
-  void StreamCb(int32_t streamId, StreamBuffer buffer);
+  void StreamCb(StreamBuffer buffer);
 
   void ErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
   void IdleCb();

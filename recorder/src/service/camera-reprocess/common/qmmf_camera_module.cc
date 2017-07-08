@@ -51,8 +51,7 @@ CameraModule::CameraModule(String8 name, IPostProcCameraContext* context)
   camera_reprocess_ = reprocess_factory_->getReprocEngine(name_, context);
   assert(camera_reprocess_.get() != nullptr);
 
-  sp<IReprocessCallbacks> cb = this;
-  camera_reprocess_->SetCallBacks(cb);
+
 
   memset(&caps_, 0x0, sizeof(ReprocCaps));
   camera_reprocess_->GetCapabilities(&caps_);
@@ -74,9 +73,7 @@ CameraModule::~CameraModule() {
 
   mapped_buffs_.clear();
 
-  if (camera_reprocess_.get() != nullptr) {
-    camera_reprocess_->Delete();
-  }
+  camera_reprocess_.clear();
 
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -119,6 +116,8 @@ status_t CameraModule::Start() {
   }
 
   if (camera_reprocess_.get() != nullptr) {
+    sp<IReprocessCallbacks> cb = this;
+    camera_reprocess_->SetCallBacks(cb);
     camera_reprocess_->Start();
   }
 
@@ -155,6 +154,7 @@ status_t CameraModule::Stop() {
   }
   reprocess_flag_ = false;
 
+  camera_reprocess_->ClearCallBacks();
   QMMF_INFO("%s:%s: Exit stop Id_: %d", TAG, __func__, id_);
   return NO_ERROR;
 }

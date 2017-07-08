@@ -1022,7 +1022,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d) client_track_id(%d):"
       "service_track_id(%x)", TAG, __func__, client_id, session_id, track_id,
       service_track_id);
-  VideoTrackExtraParam empty_extra_params;
+  VideoExtraParam empty_extra_params;
 
   VideoTrackParams video_track_params;
   memset(&video_track_params, 0x0, sizeof video_track_params);
@@ -1096,8 +1096,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id,
                                         const VideoTrackCreateParam& params,
-                                        const VideoTrackExtraParam&
-                                        extra_param) {
+                                        const VideoExtraParam& extra_param) {
 
   QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);

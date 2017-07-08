@@ -53,8 +53,6 @@ ReprocessNode::ReprocessNode(const char* srt, IPostProcCameraContext* context)
   camera_module_ = new CameraModule(name_, context);
   assert(camera_module_.get() != nullptr);
 
-  sp<IReprocessCallbacks> cb = this;
-  SetCallBacks(cb);
 
   memset(&caps_, 0x0, sizeof(ReprocCaps));
   camera_module_->GetCapabilities(&caps_);
@@ -213,6 +211,8 @@ status_t ReprocessNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
 void ReprocessNode::Start() {
   if (camera_module_.get() != nullptr) {
+    sp<IReprocessCallbacks> cb = this;
+    SetCallBacks(cb);
     camera_module_->Start();
   }
   state_ = ReprocessNodeState::READYTOSTART;
@@ -234,6 +234,8 @@ void ReprocessNode::Stop() {
   Mutex::Autolock lock(stop_lock_);
   state_ = ReprocessNodeState::READYTOSTOP;
   ReturnBuffers();
+
+  ClearCallBacks();
 
   QMMF_INFO("%s:%s: Exit stop name:%s state: %d", TAG, __func__,
       name_.string(), state_);
@@ -325,7 +327,7 @@ void ReprocessNode::NotifyBufferReturned(StreamBuffer& buffer) {
       TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
       reprocess_stream_id_, name_.string());
 
-  if (buffer.stream_id == (uint32_t)reprocess_stream_id_) {
+  if (buffer.stream_id == reprocess_stream_id_) {
     if (init_params_.out.max_buffer_count == 0) {
         QMMF_VERBOSE("%s:%s: Buffer count is 0. Return to lib.", TAG, __func__);
         camera_module_->ReturnBuff(buffer);
@@ -363,6 +365,10 @@ status_t ReprocessNode::GetBuffer(StreamBuffer* buffer) {
 
 void ReprocessNode::SetCallBacks(sp<IReprocessCallbacks>& cb) {
   camera_module_->SetCallBacks(cb);
+}
+
+void ReprocessNode::ClearCallBacks() {
+  camera_module_->ClearCallBacks();
 }
 
 }; //namespace recorder.

@@ -35,6 +35,7 @@
 #include <inttypes.h>
 #include <cstdlib>
 #include <stdio.h>
+#include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -62,8 +63,7 @@ MultiCameraManager::MultiCameraManager()
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
-    client_snapshot_cb_(nullptr),
-    jpeg_memory_pool_(nullptr) {}
+    client_snapshot_cb_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {}
 
@@ -155,6 +155,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Jpeg encoder's memory pool initialization failed!",
         TAG, __func__);
+    jpeg_memory_pool_.clear();
     jpeg_encoder_.clear();
     return NO_INIT;
   }
@@ -199,16 +200,30 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     jpeg_encoder_->Delete();
     jpeg_encoding_enabled_ = false;
   }
-  delete jpeg_memory_pool_;
+  jpeg_memory_pool_.clear();
+  jpeg_encoder_.clear();
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
 
-status_t MultiCameraManager::CaptureImage(const ImageParam &param,
-                                          const uint32_t num_images,
-                                          const std::vector<CameraMetadata>
-                                          &meta, const StreamSnapshotCb& cb) {
+status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
+
+  // Since both cameras are in sync we need to wait Aec
+  // to converge only on main camera
+  sp<CameraContext> camera_context = camera_contexts_.valueAt(0);
+
+  status_t ret = camera_context->WaitAecToConverge(timeout);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: WaitAecToConverge Failed!", TAG, __func__);
+    return ret;
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
+                                          std::vector<CameraMetadata> &meta,
+                                          const StreamSnapshotCb& cb) {
   Mutex::Autolock lock(lock_);
   status_t ret = NO_ERROR;
 
@@ -216,65 +231,11 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
     return BAD_VALUE;
   }
+  sequence_cnt_ = num_images;
 
-  bool need_jpeg_encoding = false;
-  client_snapshot_cb_ = nullptr;
-  ImageFormat image_format = param.image_format;
-  if (param.image_format == ImageFormat::kJPEG) {
-    need_jpeg_encoding = true;
-    image_format = ImageFormat::kNV12;
-  }
-
-  bool reconfigure_needed = (snapshot_param_.width != param.width) ||
-      (snapshot_param_.height != param.height) ||
-      (sequence_cnt_ != num_images);
-
-  if (reconfigure_needed) {
-    snapshot_stitch_algo_->RequestExitAndWait();
-
-    if (jpeg_encoding_enabled_) {
-      jpeg_encoder_->Delete();
-      jpeg_encoding_enabled_ = false;
-    }
-
-    if (need_jpeg_encoding) {
-      ret = CreateJpegEncoder(param, image_format, num_images);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
-        return ret;
-      }
-      jpeg_encoding_enabled_ = true;
-    }
-
-    // Set buffer params for stitching.
-    GrallocMemory::BufferParams buffer_param {};
-    buffer_param.format           = ImageToHalFormat(image_format);
-    buffer_param.width            = param.width;
-    buffer_param.height           = param.height;
-    buffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
-    buffer_param.max_size         = 0;
-    buffer_param.max_buffer_count = num_images;
-
-    QMMF_INFO("%s:%s: W(%d) & H(%d)", TAG, __func__, buffer_param.width,
-        buffer_param.height);
-    ret = snapshot_stitch_algo_->Configure(buffer_param);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
-      return ret;
-    }
-
-    snapshot_param_ = param;
-    sequence_cnt_   = num_images;
-    snapshot_stitch_algo_->Run();
-  }
-
-  ImageParam cam_param (param);
-  cam_param.image_format = image_format;
-  SetDefaultSurfaceDim(cam_param.width, cam_param.height);
-
-  if (need_jpeg_encoding) {
-    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buf) {
-      OnStitchedFrameAvailable(buf);
+  if (jpeg_encoding_enabled_) {
+    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buffer) {
+      OnStitchedFrameAvailable(buffer);
     };
     snapshot_stitch_algo_->SetClientCallback(encoder_cb);
     client_snapshot_cb_ = cb;
@@ -286,37 +247,96 @@ status_t MultiCameraManager::CaptureImage(const ImageParam &param,
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
 
-  if (reconfigure_needed) {
-    // Linking the related cameras every time after reconfiguration.
-    std::vector<CameraMetadata> dualcam_meta = meta;
-    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-      sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+  std::vector<CameraMetadata> capture_meta = meta;
+  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
-      // Dual camera meta should only be sent only on first capture in burst.
-      ret = FillDualCamMetadata(dualcam_meta[0], i);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
-        return ret;
-      }
-      ret = camera_context->CaptureImage(cam_param, num_images,
-                                         dualcam_meta, stream_cb);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
-        return ret;
-      }
+    // Dual camera meta should only be sent only on first capture in burst.
+    ret = FillDualCamMetadata(capture_meta.at(0), i);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
+      return ret;
     }
-  } else {
-    // Use normal capture if reconfiguration is not needed
-    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-      sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
-      ret = camera_context->CaptureImage(cam_param, num_images,
-                                         meta, stream_cb);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: CaptureImage Failed!", TAG, __func__);
-        return ret;
-      }
+    ret = camera_context->CaptureImage(num_images, capture_meta, stream_cb);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
+      return ret;
     }
   }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
+
+  Mutex::Autolock lock(lock_);
+  status_t ret = NO_ERROR;
+
+  bool reconfigure_needed = (snapshot_param_.width != param.width) ||
+                            (snapshot_param_.height != param.height);
+
+  ImageParam capture_param = snapshot_param_ = param;
+  capture_param.image_format = (param.image_format == ImageFormat::kJPEG) ?
+                               ImageFormat::kNV12 : param.image_format;
+  if (reconfigure_needed) {
+    snapshot_stitch_algo_->RequestExitAndWait();
+    jpeg_encoding_enabled_ = (param.image_format == ImageFormat::kJPEG);
+
+    if (jpeg_encoding_enabled_) {
+      jpeg_encoder_->Delete();
+      ret = CreateJpegEncoder(capture_param);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: Failed to create JPEG encoder!", __func__);
+        return ret;
+      }
+    }
+
+    // Set buffer params for stitching.
+    GrallocMemory::BufferParams buffer_param {};
+    buffer_param.format        = ImageToHalFormat(capture_param.image_format);
+    buffer_param.width         = param.width;
+    buffer_param.height        = param.height;
+    buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+    buffer_param.max_buffer_count = SNAPSHOT_STREAM_BUFFER_COUNT;
+
+    QMMF_INFO("%s:%s: W(%d) & H(%d)", TAG, __func__, buffer_param.width,
+        buffer_param.height);
+    ret = snapshot_stitch_algo_->Configure(buffer_param);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
+      return ret;
+    }
+    snapshot_stitch_algo_->Run();
+  }
+
+  if (reconfigure_needed) {
+    // Stop all active streams.
+    for (auto const& track_id : active_streams_) {
+      StopStream(track_id);
+    }
+  }
+  SetDefaultSurfaceDim(capture_param.width, capture_param.height);
+
+  for (size_t idx = 0; idx < camera_contexts_.size(); ++idx) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(idx);
+    ret = camera_context->ConfigImageCapture(capture_param);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: ConfigCaptureImage Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+
+  if (reconfigure_needed) {
+    // Resume all previously active streams.
+    for (auto const& track_id : active_streams_) {
+      StartStream(track_id);
+    }
+    // Wait avoid capturing black frames
+    ret = WaitAecToConverge(kAecConvergeTimeout);
+    if (ret != NO_ERROR) {
+      QMMF_WARN("%s:%s: AE failed to converge!", TAG, __func__);
+    }
+  }
+
   return NO_ERROR;
 }
 
@@ -349,8 +369,7 @@ status_t MultiCameraManager::CancelCaptureImage() {
 }
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
-                                          const VideoTrackExtraParam&
-                                          extra_param) {
+                                          const VideoExtraParam& extra_param) {
 
   SourceSurfaceDesc surface;
   source_surface_.clear();
@@ -433,6 +452,12 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
+
+  // Stop all active streams.
+  for (auto const& track_id : active_streams_) {
+    StopStream(track_id);
+  }
+
   auto ret = CreateStreamStitching(param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: CreateStreamStitching Failed!", TAG, __func__);
@@ -469,6 +494,11 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
+  // Resume all previously active streams.
+  for (auto const& track_id : active_streams_) {
+    StartStream(track_id);
+  }
+  active_streams_.push_back(param.id);
   return NO_ERROR;
 }
 
@@ -490,19 +520,46 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
-  return ret;
+  auto track = find(active_streams_.begin(), active_streams_.end(), track_id);
+  active_streams_.erase(track);
+  return NO_ERROR;
 }
 
-status_t MultiCameraManager::StartStream(const uint32_t track_id,
+status_t MultiCameraManager::AddConsumer(const uint32_t& track_id,
                                          sp<IBufferConsumer>& consumer) {
-
-  status_t ret = NO_ERROR;
 
   sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
   assert(stitching_algo.get() != nullptr);
 
-  stitching_algo->AddConsumer(consumer);
-  stitching_algo->Run();
+  auto ret = stitching_algo->AddConsumer(consumer);
+  assert(ret == NO_ERROR);
+  QMMF_INFO("%s:%s: Consumer(%p) added to track_id(%d)", TAG, __func__,
+      consumer.get(), track_id);
+
+  for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+
+    sp<IBufferConsumer> consumer =
+        stitching_algo->GetConsumerIntf(camera_contexts_.keyAt(i));
+    assert(consumer.get() != nullptr);
+
+    ret = camera_context->AddConsumer(track_id, consumer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: AddConsumer Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::RemoveConsumer(const uint32_t& track_id,
+                                            sp<IBufferConsumer>& consumer) {
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  auto ret = stitching_algo->RemoveConsumer(consumer);
+  assert(ret == NO_ERROR);
 
   for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
@@ -512,7 +569,29 @@ status_t MultiCameraManager::StartStream(const uint32_t track_id,
         stitching_algo->GetConsumerIntf(camera_contexts_.keyAt(i));
     assert(consumer.get() != nullptr);
 
-    ret = camera_context->StartStream(track_id, consumer);
+    ret = camera_context->RemoveConsumer(track_id, consumer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: RemoveConsumer Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::StartStream(const uint32_t track_id) {
+
+  status_t ret = NO_ERROR;
+
+  sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
+  assert(stitching_algo.get() != nullptr);
+
+  stitching_algo->Run();
+
+  for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
+    sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
+    assert(camera_context.get() != nullptr);
+
+    ret = camera_context->StartStream(track_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: StartStream Failed!", TAG, __func__);
       return ret;
@@ -528,7 +607,6 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
   assert(stitching_algo.get() != nullptr);
 
   stitching_algo->RequestExitAndWait();
-  stitching_algo->RemoveConsumer();
 
   // Stop the streams backwards since first camera is master camera
   // and need to be stopped last.
@@ -671,9 +749,7 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
   return format;
 }
 
-status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param,
-                                               const ImageFormat &input_format,
-                                               const uint32_t num_images) {
+status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
 
   PostProcParam in {}, out {};
   PostProcCb jpeg_cb =
@@ -682,10 +758,10 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param,
 
   in.width = param.width;
   in.height = param.height;
-  in.format = ImageToHalFormat(input_format);
+  in.format = ImageToHalFormat(param.image_format);
   out.width = param.width;
   out.height = param.height;
-  out.format = ImageToHalFormat(param.image_format);
+  out.format = ImageToHalFormat(ImageFormat::kJPEG);
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
                                        multicam_start_params_.frame_rate, 1,
@@ -705,7 +781,7 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param,
   // TODO: Need to revisit the calculation of max_size.
   //       Width and height need to be extracted from metadata.
   buffer_param.max_size         = (param.width * param.height) * 2;
-  buffer_param.max_buffer_count = num_images;
+  buffer_param.max_buffer_count = SNAPSHOT_STREAM_BUFFER_COUNT;
   ret = jpeg_memory_pool_->Configure(buffer_param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to configure buffer params!", TAG, __func__);
@@ -861,7 +937,7 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
 
 status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
                                                 const CameraStreamParam& param,
-                                                const VideoTrackExtraParam&
+                                                const VideoExtraParam&
                                                 extra_param) {
 
   sp<CameraContext> camera_context = camera_contexts_.valueAt(cam_idx);
@@ -898,14 +974,12 @@ status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
   if (use_vfe_crop && surface_crop_.find(camera_id) != surface_crop_.end()) {
     auto const& crop = surface_crop_.at(camera_id);
     if (crop.width != 0 && crop.height != 0) {
-      int32_t crop_rect[4];
-      auto const& crop = surface_crop_.at(camera_id);
-      auto const& camera_surface = source_surface_.at(camera_id);
-      crop_rect[0] = ((float)crop.x / camera_surface.width) * 4056;
-      crop_rect[1] = ((float)crop.y / camera_surface.height) * 3040;
-      crop_rect[2] = ((float)crop.width / camera_surface.width) * 4056;
-      crop_rect[3] = ((float)crop.height / camera_surface.height) * 3040;
-      meta.update(ANDROID_SCALER_CROP_REGION, crop_rect, 4);
+      ret = FillCropMetadata(meta, cam_idx);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: Camera %d: FillCropMetadata Failed!", TAG,
+            __func__, camera_id);
+        return ret;
+      }
     }
   }
 
@@ -979,6 +1053,47 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
 
   uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
   meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::FillCropMetadata(CameraMetadata& meta,
+                                              const uint32_t& cam_idx) {
+
+  auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  if (!active_array_size.count) {
+    QMMF_ERROR("%s:%s: Active sensor array size is missing!",
+        TAG, __func__);
+    return NAME_NOT_FOUND;
+  }
+  // Take the active pixel array width and height as base on which to
+  // recalculate the actual crop region dimensions.
+  float x = active_array_size.data.i32[2];
+  float y = active_array_size.data.i32[3];
+  float width = active_array_size.data.i32[2];
+  float height = active_array_size.data.i32[3];
+
+  int32_t camera_id = camera_contexts_.keyAt(cam_idx);
+  auto const& crop = surface_crop_.at(camera_id);
+  auto const& camera_surface = source_surface_.at(camera_id);
+
+  // Get the crop region scale ratios and recalculate them against the base.
+  x *= (static_cast<float>(crop.x) / camera_surface.width);
+  y *= (static_cast<float>(crop.y) / camera_surface.height);
+  width *= (static_cast<float>(crop.width) / camera_surface.width);
+  height *= (static_cast<float>(crop.height) / camera_surface.height);
+
+  int32_t crop_region[] = {
+      static_cast<int32_t>(round(x)),
+      static_cast<int32_t>(round(y)),
+      static_cast<int32_t>(round(width)),
+      static_cast<int32_t>(round(height)),
+  };
+  auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to set crop region metadata!", TAG, __func__);
+    return ret;
+  }
 
   return NO_ERROR;
 }
@@ -1108,6 +1223,7 @@ StreamStitching::~StreamStitching() {
 
 status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
 
+  Mutex::Autolock lock(consumer_lock_);
   if (nullptr != buffer_consumer_impl_.get()) {
     QMMF_ERROR("%s:%s: Consumer already set", TAG, __func__);
     return INVALID_OPERATION;
@@ -1127,8 +1243,9 @@ status_t StreamStitching::AddConsumer(const sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-status_t StreamStitching::RemoveConsumer() {
+status_t StreamStitching::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
+  Mutex::Autolock lock(consumer_lock_);
   if(buffer_producer_impl_->GetNumConsumer() == 0) {
     QMMF_ERROR("%s:%s: There are no connected consumers!", TAG, __func__);
     return INVALID_OPERATION;
@@ -1222,8 +1339,8 @@ StitchingBase::StitchingBase(InitParams &param)
     }
   }
 
-  // We need half the time for one frame 0.5sec/fps, but in nanoseconds.
-  timestamp_max_delta_ = (500000000 / params_.frame_rate);
+  // We need half the time for one frame 0.6sec/fps, but in nanoseconds.
+  timestamp_max_delta_ = (600000000 / params_.frame_rate);
 
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -1233,6 +1350,7 @@ StitchingBase::~StitchingBase() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   DeInitLibrary();
+
   unsynced_buffer_map_.clear();
   process_buffers_map_.clear();
   registered_buffers_.clear();
@@ -1517,9 +1635,7 @@ status_t StitchingBase::StopFrameSync() {
     }
   }
   // Flush all pending buffers from the library.
-  if (nullptr != stitch_lib_.handle) {
-    stitch_lib_.flush(stitch_lib_.context);
-  }
+  FlushLibrary();
   // Wait for all currently processed buffers to return.
   Mutex::Autolock lock(buffers_lock_);
   while (!process_buffers_map_.empty()) {
@@ -1699,13 +1815,24 @@ status_t StitchingBase::DeInitLibrary() {
   return ret;
 }
 
+status_t StitchingBase::FlushLibrary() {
+
+  if (nullptr == stitch_lib_.handle) {
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
+    return BAD_VALUE;
+  }
+  stitch_lib_.flush(stitch_lib_.context);
+
+  return NO_ERROR;
+}
+
 status_t StitchingBase::Configlibrary(Vector<StreamBuffer> &input_buffers,
                                       Vector<StreamBuffer> &output_buffers) {
 
   status_t ret = NO_ERROR;
 
   if (nullptr == stitch_lib_.handle) {
-    QMMF_ERROR("%s:%s: Invalid IL lib handle!", TAG, __func__);
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
     return BAD_VALUE;
   }
 
@@ -1771,7 +1898,7 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
   const StreamBuffer *buffer = nullptr;
 
   if (nullptr == stitch_lib_.handle) {
-    QMMF_ERROR("%s:%s: Invalid IL lib handle!", TAG, __func__);
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
     return BAD_VALUE;
   }
 
@@ -1843,8 +1970,9 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
     ret = stitch_lib_.register_bufs(stitch_lib_.context, reg_buf_list);
     if (QMMF_ALG_SUCCESS != ret) {
       // Remove the failed buffers from the list with registered buffers.
+      std::lock_guard<std::mutex> lock(register_buffer_lock_);
       for (uint32_t idx = 0; idx < reg_buf_list.cnt; ++idx) {
-        registered_buffers_.erase(reg_buf_list.bufs[idx].handle);
+        registered_buffers_.erase(reg_buf_list.bufs[idx].fd);
       }
       QMMF_ERROR("%s:%s: Register buffers failed, err(%d)", TAG, __func__, ret);
       goto EXIT;
@@ -1966,9 +2094,10 @@ status_t StitchingBase::PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
   img_buffer.size   = buffer->size;
   img_buffer.handle = buffer->handle;
 
-  if (registered_buffers_.find(buffer->handle) == registered_buffers_.end()) {
+  std::lock_guard<std::mutex> lock(register_buffer_lock_);
+  if (registered_buffers_.find(buffer->fd) == registered_buffers_.end()) {
     // Add buffer to the list, later it will be removed in case register fails.
-    registered_buffers_.insert(buffer->handle);
+    registered_buffers_.insert(buffer->fd);
 
     // Increment the count of the buffers that need to be registered.
     ++reg_buf_list.cnt;
@@ -1991,12 +2120,48 @@ status_t StitchingBase::PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
   return NO_ERROR;
 }
 
+status_t StitchingBase::UnregisterBuffers(std::set<int32_t> buffer_fds) {
+
+  std::lock_guard<std::mutex> lock(register_buffer_lock_);
+
+  if (nullptr == stitch_lib_.handle) {
+    QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  qmmf_alg_buf_list_t reg_buf_list {};
+  reg_buf_list.cnt = buffer_fds.size();
+  reg_buf_list.bufs = static_cast<qmmf_alg_buffer_t*>(
+      calloc(reg_buf_list.cnt, sizeof(*reg_buf_list.bufs)));
+  if (nullptr == reg_buf_list.bufs) {
+    QMMF_ERROR("%s:%s: Failed to allocate buffer memory", TAG, __func__);
+    return NO_MEMORY;
+  }
+
+  uint32_t idx = 0;
+  for (auto const& buffer_fd : buffer_fds) {
+    reg_buf_list.bufs[idx++].fd = buffer_fd;
+  }
+
+  stitch_lib_.unregister_bufs(stitch_lib_.context, reg_buf_list);
+  free(reg_buf_list.bufs);
+
+  return NO_ERROR;
+}
 
 void StitchingBase::ProcessCallback(qmmf_alg_cb_t *cb_data) {
 
   QMMF_DEBUG("%s:%s: Return status (%d)", TAG, __func__, cb_data->status);
 
   StitchingBase *algo = static_cast<StitchingBase *> (cb_data->user_data);
+  if (algo->work_thread_name_->contains("SnapshotStitching")) {
+    std::set<int32_t> buffer_fds = { cb_data->buf->fd };
+    auto ret = algo->UnregisterBuffers(buffer_fds);
+    if (NO_ERROR == ret) {
+      std::lock_guard<std::mutex> lock(algo->register_buffer_lock_);
+      algo->registered_buffers_.erase(cb_data->buf->fd);
+    }
+  }
   algo->ReturnProcessedBuffer(cb_data->buf->handle, cb_data->status);
 }
 

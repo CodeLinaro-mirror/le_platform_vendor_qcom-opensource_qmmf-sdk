@@ -48,9 +48,10 @@ namespace qmmf {
 
 using namespace cameraadaptor;
 
-#define VIDEO_STREAM_BUFFER_COUNT   11
-#define PREVIEW_STREAM_BUFFER_COUNT 10
-#define EXTRA_DCVS_BUFFERS          2
+#define VIDEO_STREAM_BUFFER_COUNT    11
+#define PREVIEW_STREAM_BUFFER_COUNT  10
+#define SNAPSHOT_STREAM_BUFFER_COUNT 30
+#define EXTRA_DCVS_BUFFERS            2
 
 //FIXME: This is temporary change until necessary vendor mode changes are merged
 // in HAL3.
@@ -80,19 +81,28 @@ class CameraContext : public CameraInterface,
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
+  status_t WaitAecToConverge(nsecs_t timeout_msec) override;
+
+  status_t CaptureImage(const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
+
+  status_t ConfigImageCapture(const ImageParam &param) override;
 
   status_t CancelCaptureImage() override;
 
   status_t CreateStream(const CameraStreamParam& param,
-                        const VideoTrackExtraParam& extra_param) override;
+                        const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
-  status_t StartStream(const uint32_t track_id,
+  status_t AddConsumer(const uint32_t& track_id,
                        sp<IBufferConsumer>& consumer) override;
+
+  status_t RemoveConsumer(const uint32_t& track_id,
+                          sp<IBufferConsumer>& consumer) override;
+
+  status_t StartStream(const uint32_t track_id) override;
 
   status_t StopStream(const uint32_t track_id) override;
 
@@ -109,7 +119,7 @@ class CameraContext : public CameraInterface,
 
   Vector<int32_t>& GetSupportedFps() override;
 
-  status_t ReturnStreamBuffer(int32_t stream_id, StreamBuffer buffer);
+  status_t ReturnStreamBuffer(StreamBuffer buffer);
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
                                    int32_t* stream_id);
@@ -154,13 +164,15 @@ class CameraContext : public CameraInterface,
 
   status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
 
-  void InitSupportedFPS(const CameraMetadata &static_meta);
+  void InitSupportedFPS();
 
-  bool IsInputSupported(const CameraMetadata &static_meta);
+  bool IsInputSupported();
 
   status_t CreateZSLStream(const CameraStartParam &param);
 
   status_t CreateSnapshotStream(const ImageParam &param);
+
+  status_t DeleteSnapshotStream();
 
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
@@ -172,14 +184,14 @@ class CameraContext : public CameraInterface,
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
-  void InitHFRModes(CameraMetadata &static_meta);
+  void InitHFRModes();
 
-  status_t CaptureZSLImage(const ImageParam &param);
+  status_t CaptureZSLImage();
 
   //Camera client callbacks.
-  void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void SnapshotCaptureCallback(StreamBuffer buffer);
 
-  void ReprocessCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void ReprocessCaptureCallback(StreamBuffer buffer);
 
   void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
 
@@ -193,7 +205,7 @@ class CameraContext : public CameraInterface,
 
   int32_t ImageToHalFormat(ImageFormat image);
 
-  std::function<void(int32_t, StreamBuffer)> GetStreamCb(const ImageParam &param);
+  std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
 
   bool IsReprocessNeed(const ImageParam &param);
 
@@ -213,6 +225,7 @@ class CameraContext : public CameraInterface,
   uint32_t                 camera_id_;
   Mutex                    device_access_lock_;
   CameraStartParam         camera_start_params_;
+  CameraMetadata           static_meta_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
@@ -298,16 +311,14 @@ class CameraPort : public RefBase {
 
   status_t DeInit();
 
-  status_t Start(const uint32_t consumer_id,
-                 const sp<IBufferConsumer>& consumer);
+  status_t Start();
 
-  status_t Stop(const uint32_t consumer_id);
+  status_t Stop();
 
   // Apis to Add/Remove consumer at run time.
-  status_t AddConsumer(const uint32_t consumer_id,
-                       const sp<IBufferConsumer>& consumer);
+  status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
-  status_t RemoveConsumer(const uint32_t consumer_id);
+  status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
   void NotifyBufferReturned(const StreamBuffer& buffer);
 
@@ -323,7 +334,7 @@ class CameraPort : public RefBase {
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
-  uint32_t GetConsumerId() { return consumer_id_; }
+  uint32_t GetPortId() { return port_id_; }
 
   CameraPortType GetPortType() { return port_type_; }
 
@@ -335,24 +346,21 @@ class CameraPort : public RefBase {
 
  private:
 
-  bool IsConsumerIdValid(const uint32_t id);
+  bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 
-  void StreamCallback(int32_t stream_id, StreamBuffer Buffer);
+  void StreamCallback(StreamBuffer buffer);
 
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParam      params_;
   CameraStreamParameters cam_stream_params_;
-  Mutex                  consumer_lock_;
   bool                   ready_to_start_;
   size_t                 batch_size_;
-  uint32_t               consumer_id_;
+  uint32_t               port_id_;
 
-  // map of <consumer id, IBufferConsumer>
-  DefaultKeyedVector<uint32_t , sp<IBufferConsumer> > consumer_map_;
+  std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
   sp<ReprocessPipe>      reproc_pipe_;
-  sp<IBufferConsumer>    consumer_;
-  Mutex                  stop_lock_;
+  std::mutex             consumer_lock_;
 };
 
 class ZslPort : public CameraPort {
@@ -383,7 +391,7 @@ class ZslPort : public CameraPort {
 
   status_t SetUpZSL();
 
-  void ZSLCaptureCallback(int32_t stream_id, StreamBuffer buffer);
+  void ZSLCaptureCallback(StreamBuffer buffer);
 
   void GetZSLInputBuffer(StreamBuffer &buffer);
 

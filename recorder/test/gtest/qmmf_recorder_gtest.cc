@@ -60,7 +60,6 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
-static const int32_t kRecordDuration = 2*60;   // 2 min for each iteration.
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
@@ -108,6 +107,8 @@ void RecorderGtest::SetUp() {
   iteration_count_ = atoi(prop_val);
   property_get(PROP_CAMERA_ID, prop_val, "0");
   camera_id_ = atoi(prop_val);
+  property_get(PROP_RECORD_DURATION, prop_val, DEFAULT_RECORD_DURATION);
+  record_duration_ = atoi(prop_val);
 
   memset(&camera_start_params_, 0x0, sizeof camera_start_params_);
   camera_start_params_.zsl_mode         = false;
@@ -345,7 +346,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   face_track_id_ = video_track_id;
   TEST_INFO("Enable Face Detection");
 
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -484,7 +485,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   face_track_id_ = video_track_id;
   TEST_INFO("Enable Face Detection");
 
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -1840,9 +1841,9 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for time kRecordDuration, during this time buffer with
+    // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2175,9 +2176,9 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
     ret = recorder_.StartSession(session_id2);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id2, false);
     assert(ret == NO_ERROR);
@@ -2189,7 +2190,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
     assert(ret == NO_ERROR);
   }
 
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -2301,9 +2302,9 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -2413,9 +2414,9 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  // Let session run for kRecordDuration, during this time buffer with valid
+  // Let session run for record_duration_, during this time buffer with valid
   // data would be received in track callback (VideoTrackDataCb).
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -2992,9 +2993,9 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  // Let session run for kRecordDuration, during this time buffer with valid
+  // Let session run for record_duration_, during this time buffer with valid
   // data would be received in track callback (VideoTrackDataCb).
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -4970,9 +4971,9 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  // Let session run for kRecordDuration, during this time buffer with valid
+  // Let session run for record_duration_, during this time buffer with valid
   // data would be received in track callback (VideoTrackDataCb).
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -5087,9 +5088,9 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5227,9 +5228,9 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -5341,9 +5342,9 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -7165,9 +7166,9 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -7281,9 +7282,9 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -7393,9 +7394,9 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -7534,9 +7535,9 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     assert(ret == NO_ERROR);
@@ -7810,9 +7811,9 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
     ret = recorder_.StartSession(session_id2);
     assert(ret == NO_ERROR);
 
-    // Let session run for kRecordDuration, during this time buffer with valid
+    // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
-    sleep(kRecordDuration);
+    sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id2, false);
     assert(ret == NO_ERROR);
@@ -7837,7 +7838,7 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
     }
   }
 
-  sleep(kRecordDuration);
+  sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id1, false);
   assert(ret == NO_ERROR);
@@ -9218,10 +9219,10 @@ TEST_F(RecorderGtest, 1080pYUVTrackMatchCameraMetaData) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  // Let session run for time kRecordDuration, during this time buffer with
+  // Let session run for time record_duration_, during this time buffer with
   // valid data would be received in track callback
   // (VideoTrackDataCbMatchCameraMeta).
-  sleep(kRecordDuration*2);
+  sleep(record_duration_*2);
 
   ret = recorder_.StopSession(session_id, false);
   assert(ret == NO_ERROR);
@@ -9974,6 +9975,9 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
 
+#if USE_SKIA
+
+#elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (data),
                                                     CAIRO_FORMAT_ARGB32, width,
@@ -9982,6 +9986,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   cr_context_ = cairo_create (cr_surface_);
   assert (cr_context_ != nullptr);
+#endif
 
   struct timeval tv;
   time_t now_time;
@@ -10003,6 +10008,9 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   ClearSurface();
 
+#if USE_SKIA
+
+#elif USE_CAIRO
   cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
                           CAIRO_FONT_WEIGHT_BOLD);
   cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
@@ -10063,6 +10071,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush(cr_surface_);
+#endif
 
   TEST_DBG("%s: Exit", __func__);
   return ret;
@@ -10079,11 +10088,15 @@ void RecorderGtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 void RecorderGtest::ClearSurface() {
   RGBAValues bg_color;
   memset(&bg_color, 0x0, sizeof bg_color);
+#if USE_SKIA
+
+#elif USE_CAIRO
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_CLEAR);
   cairo_paint(cr_context_);
   cairo_surface_flush(cr_surface_);
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+#endif
 }
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {

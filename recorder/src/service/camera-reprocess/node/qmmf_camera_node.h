@@ -132,6 +132,8 @@ class ReprocessNode : public CameraThread,
 
    void SetCallBacks(sp<IReprocessCallbacks>& cb) override;
 
+   void ClearCallBacks() override;
+
    ReprocessNodeParams           init_params_;
    ReprocessNodeState            state_;
    Vector<StreamBuffer>          buffer_list_;

@@ -46,6 +46,8 @@ using namespace android;
 
 #define DEFAULT_360_YUV_DUMP_FREQ       "200"
 #define DEFAULT_360_ITERATIONS_COUNT    "50"
+// Default recording duration is 2 minutes i.e. 2 * 60 seconds
+#define DEFAULT_360_RECORD_DURATION     "120"
 
 // Prop to enable YUV data dumping from YUV track
 #define PROP_DUMP_360_YUV_FRAMES        "persist.qmmf.360.gtest.dump.yuv"
@@ -59,6 +61,8 @@ using namespace android;
 #define PROP_DUMP_360_YUV_FREQ          "persist.qmmf.360.gtest.dump.frq"
 // Prop to set no of iterations
 #define PROP_360_N_ITERATIONS           "persist.qmmf.360.gtest.iter"
+// Prop to set recording duration in seconds
+#define PROP_360_RECORD_DURATION        "persist.qmmf.360.gtest.rec.dur"
 
 typedef struct Stream360DumpInfo {
   VideoFormat           format;
@@ -159,5 +163,6 @@ class Recorder360Gtest : public ::testing::Test {
   bool                  is_dump_raw_enabled_;
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
+  uint32_t              record_duration_;
 };
 

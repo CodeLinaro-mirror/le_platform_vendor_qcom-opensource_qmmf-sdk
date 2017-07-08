@@ -121,6 +121,9 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   if (NULL != gralloc_device_) {
     gralloc_device_->common.close(&gralloc_device_->common);
   }
+  if (camera_module_->get_vendor_tag_ops) {
+    set_camera_metadata_vendor_ops(nullptr);
+  }
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -1146,6 +1149,7 @@ void Camera3DeviceClient::HandleCaptureResult(
     memset(&input_buffer, 0, sizeof(input_buffer));
     Camera3InputStream *input_stream =
         static_cast<Camera3InputStream *>(result->input_buffer->stream);
+    input_buffer.stream_id = input_stream->stream_id;
     input_buffer.data_space = input_stream->data_space;
     input_buffer.handle = *result->input_buffer->buffer;
     input_stream->return_input_buffer(input_buffer);
@@ -1339,8 +1343,7 @@ void Camera3DeviceClient::ReturnOutputBuffers(
   }
 }
 
-int32_t Camera3DeviceClient::ReturnStreamBuffer(int32_t streamId,
-                                                StreamBuffer buffer) {
+int32_t Camera3DeviceClient::ReturnStreamBuffer(StreamBuffer buffer) {
   Camera3Stream *stream;
   int32_t streamIdx;
   int32_t res = 0;
@@ -1366,9 +1369,9 @@ int32_t Camera3DeviceClient::ReturnStreamBuffer(int32_t streamId,
       goto exit;
   }
 
-  streamIdx = streams_.indexOfKey(streamId);
+  streamIdx = streams_.indexOfKey(buffer.stream_id);
   if (streamIdx == -ENOENT) {
-    QMMF_ERROR("%s: Stream %d does not exist\n", __func__, streamId);
+    QMMF_ERROR("%s: Stream %d does not exist\n", __func__, buffer.stream_id);
     res = -EINVAL;
     goto exit;
   }

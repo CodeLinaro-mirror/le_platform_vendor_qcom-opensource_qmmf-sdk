@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "qmmf_video_track_extra_param.h"
+#include "qmmf_recorder_extra_param.h"
 
 namespace qmmf {
 
@@ -38,8 +38,7 @@ namespace recorder {
 enum ParamTag {
   QMMF_SOURCE_SURFACE_DESCRIPTOR = (1 << 16),
   QMMF_SURFACE_CROP,
-  QMMF_MULTICAM_MODE_SETTINGS,
-  QMMF_SURFACE_PLACEMENT, // TODO: Not implemented. Do not use!
+  QMMF_MULTICAM_STITCH_CONFIG,
 };
 
 enum class TransformFlags {
@@ -113,27 +112,16 @@ struct SurfaceCrop : DataTagBase {
       camera_id(-1), x(0), y(0), width(0), height(0) {}
 };
 
-struct MultiCamModeSettings : DataTagBase {
-  StitchingMode mode;   // Default: StitchingMode::k360DefaultStitch
+struct MultiCamStitchConfig : DataTagBase {
+  // Type of frame stitching that will be applied.
+  StitchingMode mode;   // Default: StitchingMode::k360Default
+  // Transformation applied on the stitched frames.
   TransformFlags flags; // Default: TransformFlags::kNone
 
-  MultiCamModeSettings()
-      : DataTagBase(QMMF_MULTICAM_MODE_SETTINGS),
-        mode(StitchingMode::k360Default),
-        flags(TransformFlags::kNone) {}
-};
-
-// TODO: Not implemented. Do not use!
-struct SurfacePlacement : DataTagBase {
-  int32_t camera_id;    // Default: -1
-  uint32_t x;           // Default: 0
-  uint32_t y;           // Default: 0.
-  uint32_t width;       // Default: 0
-  uint32_t height;      // Default: 0
-
-  SurfacePlacement()
-    : DataTagBase(QMMF_SURFACE_PLACEMENT),
-      camera_id(-1), x(0), y(0), width(0), height(0) {}
+  MultiCamStitchConfig()
+    : DataTagBase(QMMF_MULTICAM_STITCH_CONFIG),
+      mode(StitchingMode::k360Default),
+      flags(TransformFlags::kNone) {}
 };
 
 }; //namespace recorder.

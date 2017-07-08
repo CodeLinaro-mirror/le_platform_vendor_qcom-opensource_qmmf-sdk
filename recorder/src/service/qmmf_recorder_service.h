@@ -115,7 +115,7 @@ class RecorderService : public BnInterface<IRecorderService> {
                             const uint32_t session_id,
                             const uint32_t track_id,
                             const VideoTrackCreateParam& param,
-                            const VideoTrackExtraParam& extra_param) override;
+                            const VideoExtraParam& extra_param) override;
 
   status_t DeleteAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,

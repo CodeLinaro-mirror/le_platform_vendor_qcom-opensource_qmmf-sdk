@@ -39,8 +39,7 @@ namespace cameraadaptor {
 
 // Please note that you can call all "Camera3DeviceClient" API methods
 // from the same context of this callback.
-typedef std::function<void(int32_t streamId, StreamBuffer buffer)>
-    StreamCallback;
+typedef std::function<void(StreamBuffer buffer)> StreamCallback;
 
 typedef struct {
   uint32_t width;

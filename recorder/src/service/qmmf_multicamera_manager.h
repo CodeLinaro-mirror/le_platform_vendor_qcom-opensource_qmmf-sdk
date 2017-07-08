@@ -39,8 +39,8 @@
 
 #include <qmmf-alg/qmmf_alg_intf.h>
 
-#include "qmmf-sdk/qmmf_video_track_extra_param.h"
-#include "qmmf-sdk/qmmf_video_track_extra_param_tags.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param.h"
+#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -76,19 +76,28 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t CaptureImage(const ImageParam &param, const uint32_t num_images,
+  status_t WaitAecToConverge(nsecs_t timeout) override;
+
+  status_t CaptureImage(const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
+
+  status_t ConfigImageCapture(const ImageParam &param) override;
 
   status_t CancelCaptureImage() override;
 
   status_t CreateStream(const CameraStreamParam& param,
-                        const VideoTrackExtraParam& extra_param) override;
+                        const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
 
-  status_t StartStream(const uint32_t track_id,
+  status_t AddConsumer(const uint32_t& track_id,
                        sp<IBufferConsumer>& consumer) override;
+
+  status_t RemoveConsumer(const uint32_t& track_id,
+                          sp<IBufferConsumer>& consumer) override;
+
+  status_t StartStream(const uint32_t track_id) override;
 
   status_t StopStream(const uint32_t track_id) override;
 
@@ -110,8 +119,7 @@ class MultiCameraManager : public CameraInterface {
 
   int32_t ImageToHalFormat(const ImageFormat &image);
 
-  status_t CreateJpegEncoder(const ImageParam &param, const ImageFormat &image,
-                             const uint32_t num_images);
+  status_t CreateJpegEncoder(const ImageParam &param);
   void EncodeJpegImage(const StreamBuffer &buffer);
   void OnStitchedFrameAvailable(StreamBuffer buffer);
   void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
@@ -124,11 +132,12 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
                               const CameraStreamParam& param,
-                              const VideoTrackExtraParam& extra_param);
+                              const VideoExtraParam& extra_param);
   status_t DeleteCameraStream(const uint32_t& cam_idx,
                               const uint32_t& track_id);
 
   status_t FillDualCamMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
+  status_t FillCropMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
   CameraStartParam         multicam_start_params_;
@@ -143,10 +152,12 @@ class MultiCameraManager : public CameraInterface {
   sp<SnapshotStitching>    snapshot_stitch_algo_;
   sp<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  GrallocMemory            *jpeg_memory_pool_;
+  sp<GrallocMemory>        jpeg_memory_pool_;
 
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
+
+  std::vector<uint32_t>    active_streams_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -167,6 +178,7 @@ class MultiCameraManager : public CameraInterface {
   Mutex                    lock_;
 
   static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
+  static const nsecs_t kAecConvergeTimeout = 200000000; // 200 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
@@ -292,6 +304,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   status_t InitLibrary();
   status_t DeInitLibrary();
+  status_t FlushLibrary();
   status_t Configlibrary(Vector<StreamBuffer> &input_buffers,
                          Vector<StreamBuffer> &output_buffers);
   status_t ProcessBuffers(Vector<StreamBuffer> &input_buffers,
@@ -302,6 +315,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
                          qmmf_alg_buffer_t &img_buffer,
                          const StreamBuffer *buffer);
+  status_t UnregisterBuffers(std::set<int32_t> buffer_fds);
 
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
@@ -319,13 +333,15 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // Map of the stream buffers that are given to the library for processing.
   std::map<buffer_handle_t, StreamBuffer> process_buffers_map_;
 
-  // List containing all gralloc buffers that have been registered
-  // by the library.
-  std::set<buffer_handle_t> registered_buffers_;
+  // List containing all gralloc buffers file descriptors that have been
+  // registered by the library.
+  std::set<int32_t> registered_buffers_;
 
   // The maximum interval in which two frames are thought of as syncable.
   // It is calculated, based on the frame rate.
   int32_t timestamp_max_delta_;
+
+  std::mutex               register_buffer_lock_;
 
   Mutex                    buffers_lock_;
   Condition                wait_for_buffers_;
@@ -347,7 +363,7 @@ class StreamStitching : public StitchingBase {
   // Methods for establishing buffer communication link between the
   // consumer of the client and buffer producer of the stitching pipeline.
   status_t AddConsumer(const sp<IBufferConsumer>& consumer);
-  status_t RemoveConsumer();
+  status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
   // Method to provide consumer interface, it would be used by a CameraContext
   // port producer to post buffers.
@@ -366,6 +382,8 @@ class StreamStitching : public StitchingBase {
  private:
   sp<IBufferProducer>      buffer_producer_impl_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
+
+  Mutex                    consumer_lock_;
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;

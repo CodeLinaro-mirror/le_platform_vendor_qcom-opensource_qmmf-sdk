@@ -57,7 +57,7 @@ struct StreamBuffer {
   int64_t  timestamp;
   uint32_t frame_number;
   uint32_t camera_id;
-  uint32_t stream_id;
+  int32_t  stream_id;
   android_dataspace data_space;
   buffer_handle_t handle;
   int32_t fd;

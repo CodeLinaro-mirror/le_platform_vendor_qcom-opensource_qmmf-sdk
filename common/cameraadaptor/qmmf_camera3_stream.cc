@@ -560,7 +560,7 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   pthread_mutex_unlock(&lock_);
 
   if (CAMERA3_BUFFER_STATUS_OK == buffer.status) {
-    callbacks_(id_, b);
+    callbacks_(b);
   } else {
     ReturnBuffer(b);
   }
