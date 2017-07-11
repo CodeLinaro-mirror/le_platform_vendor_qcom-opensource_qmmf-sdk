@@ -168,6 +168,7 @@ AC_CONFIG_FILES([ \
     common/audio/test/samples/Makefile \
     common/codecadaptor/Makefile \
     common/avqueue/Makefile \
+    plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \
     display/src/service/Makefile \

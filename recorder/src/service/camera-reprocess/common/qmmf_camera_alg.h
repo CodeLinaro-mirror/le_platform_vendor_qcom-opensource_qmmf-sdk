@@ -31,7 +31,7 @@
 
 #include <string>
 
-#include <qmmf-alg/qmmf_alg_intf.h>
+#include "include/qmmf-plugin/qmmf_alg_intf.h"
 
 #include "recorder/src/service/camera-reprocess/interface/qmmf_camera_reprocess.h"
 
