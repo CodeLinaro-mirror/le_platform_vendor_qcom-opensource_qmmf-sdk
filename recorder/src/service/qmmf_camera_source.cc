@@ -250,7 +250,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   }
   assert(camera.get() != nullptr);
 
-  auto ret = camera->SetUpCapture(param);
+  auto ret = camera->SetUpCapture(param, num_images);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: SetUpCapture Failed!", TAG, __func__);
     return ret;

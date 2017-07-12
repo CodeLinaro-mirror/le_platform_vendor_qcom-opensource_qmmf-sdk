@@ -485,9 +485,11 @@ status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetUpCapture(const ImageParam &param) {
+status_t CameraContext::SetUpCapture(const ImageParam &param,
+                                     const uint32_t num_images) {
 
   if (!camera_start_params_.zsl_mode) {
+    sequence_cnt_ = num_images;
     bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
@@ -596,6 +598,7 @@ status_t CameraContext::CancelCaptureImage() {
     DeleteSnapshotStream();
   }
   cancel_capture_ = false;
+  sequence_cnt_ = 0;
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }

@@ -221,7 +221,8 @@ status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::SetUpCapture(const ImageParam &param) {
+status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
+                                          const uint32_t num_images) {
 
   Mutex::Autolock lock(lock_);
   status_t ret = NO_ERROR;
