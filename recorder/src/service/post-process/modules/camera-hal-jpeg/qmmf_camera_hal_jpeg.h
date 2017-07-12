@@ -43,15 +43,13 @@ using namespace cameraadaptor;
 
 namespace recorder {
 
-class CameraContext;
-
-class CameraHalJpeg : public IPostProcModule {
+class PostProcHalJpeg : public IPostProcModule {
 
  public:
 
-   CameraHalJpeg(IPostProc* context);
+   PostProcHalJpeg(IPostProc* context);
 
-   ~CameraHalJpeg();
+   ~PostProcHalJpeg();
 
    status_t Create(const int32_t stream_id,
                    const PostProcCreateParam& input,

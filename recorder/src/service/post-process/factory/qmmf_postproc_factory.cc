@@ -77,7 +77,7 @@ PostProcFactory::getReprocEngine(std::string name, IPostProc* context) {
   if (name == "JpegEncode") {
     instance = new PostProcJpeg(GetId());
   } else if (name == "HALJpegEncode") {
-    instance = new CameraHalJpeg(context);
+    instance = new PostProcHalJpeg(context);
   } else if (name == "Test") {
     instance = new PostProcTest(GetId());
   } else if (name == "HazeBuster") {

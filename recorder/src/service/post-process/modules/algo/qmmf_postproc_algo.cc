@@ -387,7 +387,7 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
 
   FILE *file = fopen(file_name.c_str(), "w+");
   if (!file) {
-    QMMF_ERROR("%s:%s Unable to open: %d", TAG, __func__, file_name.c_str());
+    QMMF_ERROR("%s:%s Unable to open: %s", TAG, __func__, file_name.c_str());
     return;
   }
 

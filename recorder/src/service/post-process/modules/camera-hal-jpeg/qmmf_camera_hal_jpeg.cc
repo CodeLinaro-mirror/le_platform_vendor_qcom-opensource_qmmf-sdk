@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "CameraHalJpeg"
+#define TAG "PostProcHalJpeg"
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_camera_context.h"
@@ -38,7 +38,7 @@ namespace qmmf {
 
 namespace recorder {
 
-CameraHalJpeg::CameraHalJpeg(IPostProc* context)
+PostProcHalJpeg::PostProcHalJpeg(IPostProc* context)
     : context_(context),
       reprocess_flag_(false),
       ready_to_start_(false),
@@ -47,13 +47,13 @@ CameraHalJpeg::CameraHalJpeg(IPostProc* context)
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
-CameraHalJpeg::~CameraHalJpeg() {
+PostProcHalJpeg::~PostProcHalJpeg() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 
-void CameraHalJpeg::GetInputBuffer(StreamBuffer &buffer) {
+void PostProcHalJpeg::GetInputBuffer(StreamBuffer &buffer) {
   Mutex::Autolock lock(burst_queue_lock_);
   auto iter = input_buffer_.begin();
   input_buffer_done_.push_back((*iter));
@@ -61,7 +61,7 @@ void CameraHalJpeg::GetInputBuffer(StreamBuffer &buffer) {
   input_buffer_.erase(iter);
 }
 
-void CameraHalJpeg::ReturnInputBuffer(StreamBuffer &buffer) {
+void PostProcHalJpeg::ReturnInputBuffer(StreamBuffer &buffer) {
   Mutex::Autolock lock(burst_queue_lock_);
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
@@ -77,7 +77,7 @@ void CameraHalJpeg::ReturnInputBuffer(StreamBuffer &buffer) {
   }
 }
 
-void CameraHalJpeg::ReturnAllInputBuffers() {
+void PostProcHalJpeg::ReturnAllInputBuffers() {
   Mutex::Autolock lock(burst_queue_lock_);
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
@@ -93,7 +93,7 @@ void CameraHalJpeg::ReturnAllInputBuffers() {
   input_burst_queue_.clear();
 }
 
-void CameraHalJpeg::ReprocessCallback(StreamBuffer in_buff) {
+void PostProcHalJpeg::ReprocessCallback(StreamBuffer in_buff) {
   Listener_->OnFrameReady(in_buff);
 
   //start next frame reprocess
@@ -110,7 +110,7 @@ void CameraHalJpeg::ReprocessCallback(StreamBuffer in_buff) {
   }
 }
 
-status_t CameraHalJpeg::Create(const int32_t stream_id,
+status_t PostProcHalJpeg::Create(const int32_t stream_id,
                                  const PostProcCreateParam& input,
                                  const PostProcCreateParam& output,
                                  const uint32_t frame_rate,
@@ -183,19 +183,19 @@ status_t CameraHalJpeg::Create(const int32_t stream_id,
   return ret;
 }
 
-PostProcCreateParam CameraHalJpeg::GetInput(const PostProcCreateParam &out) {
+PostProcCreateParam PostProcHalJpeg::GetInput(const PostProcCreateParam &out) {
   PostProcCreateParam in = out;
   in.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
   return in;
 }
 
-PostProcCreateParam CameraHalJpeg::GetOutput(const PostProcCreateParam &in) {
+PostProcCreateParam PostProcHalJpeg::GetOutput(const PostProcCreateParam &in) {
   PostProcCreateParam out = in;
   out.format = HAL_PIXEL_FORMAT_BLOB;
   return out;
 }
 
-status_t CameraHalJpeg::GetCapabilities(PostProcCaps &caps) {
+status_t PostProcHalJpeg::GetCapabilities(PostProcCaps &caps) {
   caps.output_buff_        = 0;
   caps.min_width_          = 160;
   caps.min_height_         = 120;
@@ -212,15 +212,15 @@ status_t CameraHalJpeg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::Start() {
+status_t PostProcHalJpeg::Start() {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::Stop() {
+status_t PostProcHalJpeg::Stop() {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::StartProcessing() {
+status_t PostProcHalJpeg::StartProcessing() {
   if (!ready_to_start_) {
     return BAD_VALUE;
   }
@@ -252,7 +252,7 @@ status_t CameraHalJpeg::StartProcessing() {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::Delete() {
+status_t PostProcHalJpeg::Delete() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
 
   assert(context_ != nullptr);
@@ -276,11 +276,11 @@ status_t CameraHalJpeg::Delete() {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::Configure(const std::string config_json_data) {
+status_t PostProcHalJpeg::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
-status_t CameraHalJpeg::Process(
+status_t PostProcHalJpeg::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
@@ -290,7 +290,7 @@ status_t CameraHalJpeg::Process(
   return NO_ERROR;
 }
 
-void CameraHalJpeg::AddBuff(StreamBuffer in_buff) {
+void PostProcHalJpeg::AddBuff(StreamBuffer in_buff) {
   {
     Mutex::Autolock lock(burst_queue_lock_);
     bool append = true;
@@ -327,13 +327,13 @@ void CameraHalJpeg::AddBuff(StreamBuffer in_buff) {
   }
 }
 
-status_t CameraHalJpeg::ReturnBuff(StreamBuffer &buffer) {
+status_t PostProcHalJpeg::ReturnBuff(StreamBuffer &buffer) {
   QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) ts: %lld", TAG,
        __func__, buffer.handle, buffer.timestamp);
   return context_->ReturnStreamBuffer(buffer);
 }
 
-void CameraHalJpeg::AddResult(const void* result_in) {
+void PostProcHalJpeg::AddResult(const void* result_in) {
   int64_t timestamp;
   const CaptureResult &result = *const_cast<CaptureResult*>(
                                 static_cast<const CaptureResult*>(result_in));
@@ -382,7 +382,7 @@ void CameraHalJpeg::AddResult(const void* result_in) {
   }
 }
 
-status_t CameraHalJpeg::ValidateInput(const CameraMetadata& static_meta,
+status_t PostProcHalJpeg::ValidateInput(const CameraMetadata& static_meta,
                                         const PostProcCreateParam& input,
                                         const PostProcCreateParam& output) {
   camera_metadata_ro_entry_t entry;
