@@ -492,7 +492,12 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
   for (auto buff : in_buffs) {
     StreamBuffer out_buff;
     memset(&out_buff, 0x0, sizeof(out_buff));
-    node_->mem_pool_->GetBuffer(&out_buff);
+    auto ret = node_->mem_pool_->GetBuffer(&out_buff);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s:%s: fail to get buffer", TAG, __func__,
+          node_->name_.c_str());
+      return ret;
+    }
 
     out_buff.stream_id = node_->id_;
     out_buff.timestamp = buff.timestamp;
@@ -501,9 +506,11 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
     out_buff.flags = buff.flags;
     out_buff.info = buff.info;
 
-    auto ret = MapBuf(out_buff);
+    ret = MapBuf(out_buff);
     if (ret != NO_ERROR) {
-      assert(0);
+      QMMF_ERROR("%s:%s:%s: fail to map buffer", TAG, __func__,
+          node_->name_.c_str());
+      return ret;
     }
 
     out_buffs.push_back(out_buff);
@@ -532,6 +539,7 @@ bool InputHandler::ThreadLoop() {
   std::vector<StreamBuffer> out_buffs;
   ret = GetOutputBuffers(out_buffs, in_buffs);
   if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s Fail to get output buffer %d", TAG, __func__, ret);
     assert(0);
   }
 

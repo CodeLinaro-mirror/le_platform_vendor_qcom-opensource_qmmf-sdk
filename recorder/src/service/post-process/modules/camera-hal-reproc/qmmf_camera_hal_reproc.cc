@@ -84,11 +84,6 @@ void CameraHalReproc::ReturnAllInputBuffers() {
   reproc_ready_list_.clear();
 }
 
-// todo remove
-void CameraHalReproc::StreamCb(StreamBuffer &in_buff) {
-  context_->ReturnStreamBuffer(in_buff);
-}
-
 void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
   Listener_->OnFrameReady(in_buff);
 }
@@ -120,22 +115,6 @@ status_t CameraHalReproc::Create(const int32_t stream_id,
   std::lock_guard<std::mutex> lock(module_lock_);
 
   input_stream_id_ = stream_id;
-
-  // todo remove
-  CameraStreamParameters support_stream_params;
-  memset(&support_stream_params, 0, sizeof(support_stream_params));
-  support_stream_params.format       = output.format;
-  support_stream_params.width        = output.width; // todo: 640
-  support_stream_params.height       = output.height; // todo: 480
-  support_stream_params.grallocFlags = GRALLOC_USAGE_HW_FB;
-  support_stream_params.cb = [&](StreamBuffer buffer)
-                        { StreamCb(buffer); };
-  ret = context_->CreateDeviceStream(support_stream_params,
-                                     frame_rate, &supportStreamId_);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
-               __func__, ret);
-  }
 
   CameraInputStreamParameters input_stream_params;
   memset(&input_stream_params, 0, sizeof(input_stream_params));
@@ -248,31 +227,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
 }
 
 status_t CameraHalReproc::Start() {
-  status_t ret = NO_ERROR;
-
-  std::lock_guard<std::mutex> lock(module_lock_);
-
-  // todo remove
-  Camera3Request support_stream_request {};
-  support_stream_request.streamIds.add(supportStreamId_);
-  ret = context_->CreateCaptureRequest(support_stream_request,
-                                       CAMERA3_TEMPLATE_PREVIEW);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create capture request %d\n", __func__, ret);
-    return ret;
-  }
-
-  int64_t lastFrameNumber;
-  ret = context_->SubmitRequest(support_stream_request, false, &lastFrameNumber);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to submit capture request %d\n", __func__, ret);
-    return ret;
-  }
-
-  // todo: remove
-  sleep(1);
-
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraHalReproc::Stop() {

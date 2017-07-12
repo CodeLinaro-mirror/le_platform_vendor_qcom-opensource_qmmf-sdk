@@ -166,7 +166,7 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     if (ret == TIMED_OUT) {
       QMMF_ERROR("%s:%s: Wait for output buffer return timed out", TAG,
                  __func__);
-      return ret;
+      return TIMED_OUT;
     }
   }
   ret = GetBufferLocked(buffer);
