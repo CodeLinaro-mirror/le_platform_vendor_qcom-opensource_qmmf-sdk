@@ -138,7 +138,7 @@ void PostProcPipe::PipeNotifyBufferReturn(StreamBuffer& buffer) {
 }
 
 void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
-  sp<IBufferConsumer>& tmp_c = consumer;
+  sp<IBufferConsumer> tmp_c = consumer;
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
@@ -149,7 +149,7 @@ void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
 }
 
 void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
-  sp<IBufferConsumer>& tmp_c = consumer;
+  sp<IBufferConsumer> tmp_c = consumer;
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
