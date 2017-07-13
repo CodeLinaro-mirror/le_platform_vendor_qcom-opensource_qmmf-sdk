@@ -118,9 +118,7 @@ void PostProcNode::getDefaultParam(PostProcNodeParams& reproc_node_param,
     reproc_node_param.out.height = create_params.out.height;
   }
 
-  if (caps_.usage_) {
-    reproc_node_param.out.gralloc_flags = caps_.usage_;
-  }
+  reproc_node_param.out.gralloc_flags = caps_.usage_;
 
   if (reproc_node_param.out.format == HAL_PIXEL_FORMAT_BLOB) {
     reproc_node_param.out.max_size =

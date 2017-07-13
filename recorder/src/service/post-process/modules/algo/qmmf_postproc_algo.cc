@@ -150,6 +150,7 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   caps.scale_support_      = algo_caps.scale_support_;
   caps.inplace_processing_ = algo_caps.inplace_processing_;
   caps.lib_version_        = algo_caps.lib_version_;
+  caps.usage_              = 0;
 
   for (auto fmt : algo_caps.in_buffer_requirements_.pixel_formats_) {
     caps.in_formats_.push_back(GetQmmfFormat(fmt));

@@ -94,6 +94,7 @@ status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
   caps.min_height_         = 120;
   caps.max_width_          = 5104;
   caps.max_height_         = 4092;
+  caps.usage_              = 0;
   caps.crop_support_       = false;
   caps.scale_support_      = false;
   caps.inplace_processing_ = true;
