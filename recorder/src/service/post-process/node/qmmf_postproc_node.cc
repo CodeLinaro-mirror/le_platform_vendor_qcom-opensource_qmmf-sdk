@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "PostProcNode"
+#define TAG "RecorderPostProcNode"
 
 #include <sys/mman.h>
 #include <libgralloc/gralloc_priv.h>
@@ -44,7 +44,7 @@ PostProcNode::PostProcNode(std::string name, IPostProc* context)
       out_(this),
       id_(-1),
       name_(name) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Enter name %s", TAG, __func__, name.c_str());
 
   mem_pool_ = new MemPool();
   assert(mem_pool_.get() != nullptr);
@@ -52,7 +52,7 @@ PostProcNode::PostProcNode(std::string name, IPostProc* context)
   reprocess_factory_ = PostProcFactory::getInstance();
   assert(reprocess_factory_ != nullptr);
 
-  module_ = reprocess_factory_->getReprocEngine(name_, context);
+  module_ = reprocess_factory_->getPostProcEngine(name_, context);
   assert(module_.get() != nullptr);
 
   module_->SetCallbacks(this);
@@ -225,6 +225,8 @@ status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 
 status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
+  QMMF_VERBOSE("%s:%s:%s Enter consumer(%p)", TAG, __func__,name_.c_str(),
+      consumer.get());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::LINKED) {
     QMMF_ERROR("%s:%s:%s: Incorrect state: %d", TAG, __func__,
@@ -236,6 +238,7 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
   state_ = PostProcNodeState::INITIALIZED;
 
+  QMMF_VERBOSE("%s:%s:%s Exit", TAG, __func__, name_.c_str());
   return NO_ERROR;
 }
 
@@ -355,14 +358,16 @@ void PostProcNode::AddResult(const void* result) {
 }
 
 void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld", TAG,
-    __func__, name_.c_str(), buffer.handle, buffer.fd,
-    buffer.stream_id, buffer.timestamp);
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
+      buffer.timestamp);
 
   if (caps_.inplace_processing_ == false) {
     if (caps_.output_buff_ == 0) {
+      // Return buffer back to module.
       module_->ReturnBuff(buffer);
     } else {
+      // Return buffer back to mem pool.
       status_t ret = mem_pool_->ReturnBufferLocked(buffer);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s:%s:%s Buffer return Error", TAG, __func__, name_.c_str());
@@ -383,8 +388,9 @@ status_t PostProcNode::ProcessOutputBuffer(StreamBuffer &buffer) {
   // Give buffer ownership to the CameraSource
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == PostProcNodeState::ACTIVE) {
-    QMMF_VERBOSE("%s:%s:%s: StreamBuffer(handle %p) returned to client",
-        TAG, __func__, name_.c_str(), buffer.handle);
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld "
+      "Notify to next node!", TAG, __func__, name_.c_str(), buffer.handle,
+      buffer.fd, buffer.stream_id, buffer.timestamp);
     NotifyBuffer(buffer);
   } else {
     NotifyBufferReturned(buffer);
@@ -421,12 +427,15 @@ status_t InputHandler::MapBuf(StreamBuffer& buffer) {
     return BAD_VALUE;
   }
 
+  QMMF_INFO("%s:%s:%s buffer.fd=%d buffer.size=%d", TAG, __func__,
+      node_->GetName().c_str(), buffer.fd, buffer.size);
+
   if (mapped_buffs_.count(buffer.fd) == 0) {
     vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
         MAP_SHARED, buffer.fd, 0);
     if (vaaddr == MAP_FAILED) {
-        QMMF_ERROR("%s:%s  ION mmap failed: %s (%d)", TAG, __func__,
-            strerror(errno), errno);;
+        QMMF_ERROR("%s:%s:%s  ION mmap failed: error(%s):(%d)", TAG, __func__,
+            node_->GetName().c_str(), strerror(errno), errno);;
         return BAD_VALUE;
     }
     buffer.data = vaaddr;
@@ -446,11 +455,11 @@ void InputHandler::UnMapBufs() {
   for (auto iter : mapped_buffs_) {
     auto map = iter.second;
     if (map.addr) {
-      QMMF_INFO("%s:%s: Unmap %p size %d", TAG, __func__, map.addr, map.size);
+      QMMF_INFO("%s:%s:%s Unmap addr(%p) size(%d)", TAG, __func__,
+          node_->GetName().c_str(), map.addr, map.size);
       munmap(map.addr, map.size);
     }
   }
-
   mapped_buffs_.clear();
 }
 
@@ -473,16 +482,18 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
 
   auto ret = MapBuf(buff);
   if (ret != NO_ERROR) {
-    assert(0);
+    QMMF_ERROR("%s:%s:%s: fail to map buffer", TAG, __func__,
+        node_->name_.c_str());
+    return ret;
   }
 
   in_buffs.push_back(buff);
-
   return NO_ERROR;
 }
 
 status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
-    const std::vector<StreamBuffer> &in_buffs) {
+                                        const std::vector<StreamBuffer>
+                                          &in_buffs) {
   if (node_->caps_.output_buff_ == 0) {
     return NO_ERROR;
   }
@@ -597,7 +608,6 @@ bool OutputHandler::ThreadLoop() {
   }
 
   node_->ProcessOutputBuffer(buffer);
-
   // loop again
   return true;
 }

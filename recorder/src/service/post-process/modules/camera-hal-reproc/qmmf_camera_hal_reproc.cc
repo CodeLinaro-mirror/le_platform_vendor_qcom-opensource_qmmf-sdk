@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "CameraHalRerprocess"
+#define TAG "RecorderHALReproc"
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_camera_context.h"
@@ -64,7 +64,7 @@ void CameraHalReproc::ReturnInputBuffer(StreamBuffer &buffer) {
   for (; iter != input_buffer_done_.end(); iter++) {
     if ((*iter).handle ==  buffer.handle) {
       (*iter).stream_id = input_stream_id_;
-      Listener_->OnFrameProcessed(*iter);
+      listener_->OnFrameProcessed(*iter);
       input_buffer_done_.erase(iter);
       break;
     }
@@ -76,7 +76,7 @@ void CameraHalReproc::ReturnAllInputBuffers() {
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
     (*iter).stream_id = input_stream_id_;
-    Listener_->OnFrameProcessed(*iter);
+    listener_->OnFrameProcessed(*iter);
   }
   input_buffer_done_.clear();
   input_buffer_.clear();
@@ -85,7 +85,10 @@ void CameraHalReproc::ReturnAllInputBuffers() {
 }
 
 void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
-  Listener_->OnFrameReady(in_buff);
+  QMMF_INFO("%s:%s: HAL reprocess is done! StreamBuffer(0x%p) fd: %d stream_id:"
+      "%d ts: %lld", TAG,  __func__, in_buff.handle, in_buff.fd,
+      in_buff.stream_id, in_buff.timestamp);
+  listener_->OnFrameReady(in_buff);
 }
 
 status_t CameraHalReproc::Create(const int32_t stream_id,
@@ -96,6 +99,8 @@ status_t CameraHalReproc::Create(const int32_t stream_id,
                                  const void* static_meta,
                                  const void* context,
                                  int32_t &out_stream_id) {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t ret = NO_ERROR;
   int32_t stream_id_p;
 
@@ -279,6 +284,9 @@ status_t CameraHalReproc::Process(
 }
 
 status_t CameraHalReproc::ReturnBuff(StreamBuffer &buffer) {
+  QMMF_DEBUG("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld", TAG,
+    __func__, buffer.handle, buffer.fd,
+    buffer.stream_id, buffer.timestamp);
   return context_->ReturnStreamBuffer(buffer);
 }
 

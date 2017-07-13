@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessFactory"
+#define TAG "RecorderPostProcFactory"
 
 #include "../modules/camera-hal-jpeg/qmmf_camera_hal_jpeg.h"
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
@@ -71,7 +71,7 @@ int32_t PostProcFactory::GetId() {
 }
 
 sp<IPostProcModule>
-PostProcFactory::getReprocEngine(std::string name, IPostProc* context) {
+PostProcFactory::getPostProcEngine(std::string name, IPostProc* context) {
   sp<IPostProcModule> instance;
 
   if (name == "JpegEncode") {

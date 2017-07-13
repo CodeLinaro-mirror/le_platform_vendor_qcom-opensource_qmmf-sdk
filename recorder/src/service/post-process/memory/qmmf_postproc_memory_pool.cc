@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "MemPool"
+#define TAG "RecorderPostProcMemPool"
 
 #include <dlfcn.h>
 #include <hardware/hardware.h>
@@ -369,7 +369,6 @@ status_t MemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to allocate gralloc buffer", TAG, __func__);
   }
-
   return ret;
 }
 

@@ -27,13 +27,14 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "qmmf_postproc_thread.h"
+#define TAG "RecorderPostProcThread"
 
 #include <sys/prctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 
+#include "qmmf_postproc_thread.h"
 #include "common/qmmf_log.h"
 
 namespace qmmf {

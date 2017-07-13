@@ -71,7 +71,7 @@ class CameraHalReproc : public IPostProcModule {
 
    status_t Delete() override;
 
-   void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
+   void SetCallbacks(IPostProcEventListener *cb) override {listener_ = cb;};
 
    status_t Configure(const std::string config_json_data) override;
 
@@ -121,7 +121,7 @@ class CameraHalReproc : public IPostProcModule {
    void AddMeta(const CameraMetadata &metadata);
 
    IPostProc*                   context_;
-   IPostProcEventListener       *Listener_;
+   IPostProcEventListener       *listener_;
 
    std::mutex                   module_lock_;
    bool                         ready_to_start_;

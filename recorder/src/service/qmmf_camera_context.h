@@ -139,10 +139,6 @@ class CameraContext : public CameraInterface,
 
   void NotifyBufferReturned(StreamBuffer& buffer);
 
-  void AddConsumer(sp<IBufferConsumer>& consumer) {AttachConsumer(consumer);};
-
-  void RemoveConsumer(sp<IBufferConsumer>& consumer) {DetachConsumer(consumer);};
-
   status_t CreateCaptureRequest(Camera3Request& request,
                                 camera3_request_template_t template_type);
 
@@ -211,25 +207,23 @@ class CameraContext : public CameraInterface,
 
   std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
 
-  bool IsReprocessNeed(const ImageParam &param);
+  bool IsPostProcNeeded(const ImageParam &param);
 
   CameraPort* GetPort(const uint32_t track_id);
 
   void DeletePort(const uint32_t track_id);
 
-  status_t ReprocInit(const ImageParam &param);
+  status_t PostProcInit(const ImageParam &param);
 
-  status_t ReprocDeinit();
+  status_t PostProcUpdateStreamParams(CameraStreamParameters& stream_param);
 
-  status_t ReprocUpdateStreamParams(CameraStreamParameters& stream_param);
-
-  status_t ReprocCreate(CameraStreamParameters &stream_param,
+  status_t PostProcCreate(CameraStreamParameters &stream_param,
                         const ImageParam &param,
                         int32_t stream_id);
 
-  status_t ReprocDelete();
+  status_t PostProcDelete();
 
-  status_t ReprocAddResult(const CaptureResult &result);
+  status_t PostProcAddResult(const CaptureResult &result);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -249,7 +243,7 @@ class CameraContext : public CameraInterface,
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
   uint32_t                 burst_cnt_;
-  bool                     reprocess_enable_;
+  bool                     postproc_enable_;
   std::mutex               capture_count_lock_;
   std::condition_variable  capture_count_signal_;
   bool                     cancel_capture_ = false;
@@ -378,7 +372,7 @@ class CameraPort : public RefBase {
 
   std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
-  sp<PostProcPipe>       reproc_pipe_;
+  sp<PostProcPipe>       postproc_pipe_;
   std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
   Mutex                  stop_lock_;

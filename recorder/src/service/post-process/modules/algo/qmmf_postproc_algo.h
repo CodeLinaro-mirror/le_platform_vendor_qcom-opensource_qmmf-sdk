@@ -68,7 +68,7 @@ class PostProcAlg : public IPostProcModule,
 
   status_t Delete() override;
 
-  void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
+  void SetCallbacks(IPostProcEventListener *cb) override {listener_ = cb;};
 
   status_t Configure(const std::string config_json_data) override;
 
@@ -112,7 +112,7 @@ class PostProcAlg : public IPostProcModule,
   std::string                       Lib_;
   bool                              reprocess_flag_;
   bool                              ready_to_start_;
-  IPostProcEventListener            *Listener_;
+  IPostProcEventListener            *listener_;
   void*                             lib_handle_;
   IAlgPlugin                        *algo_;
 

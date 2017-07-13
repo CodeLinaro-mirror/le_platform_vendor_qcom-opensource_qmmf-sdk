@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "QmmfPostprocAlgo"
+#define TAG "RecorderPostProcAlg"
 
 #include <stdio.h>
 #include <sys/mman.h>
@@ -250,10 +250,10 @@ status_t PostProcAlg::Process(
     }
   } else {
     for (auto iter : in_buffers) {
-      Listener_->OnFrameReady(iter);
+      listener_->OnFrameReady(iter);
     }
     for (auto iter : out_buffers ) {
-      Listener_->OnFrameProcessed(iter);
+      listener_->OnFrameProcessed(iter);
     }
   }
 
@@ -267,7 +267,7 @@ void PostProcAlg::OnFrameProcessed(const AlgBuffer &input_buffer) {
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(input_buffer);
-  Listener_->OnFrameProcessed(buf);
+  listener_->OnFrameProcessed(buf);
 }
 
 void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
@@ -277,12 +277,12 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(output_buffer);
-  Listener_->OnFrameReady(buf);
+  listener_->OnFrameReady(buf);
 }
 
 void PostProcAlg::OnError(RuntimeError err) {
   QMMF_ERROR("%s:%s: Error %d", TAG, __func__, err);
-  Listener_->OnError(err);
+  listener_->OnError(err);
 }
 
 PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {

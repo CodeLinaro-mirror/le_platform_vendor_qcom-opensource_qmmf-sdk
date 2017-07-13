@@ -27,6 +27,8 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define TAG "RecorderJpeg"
+
 #include <condition_variable>
 #include <dlfcn.h>
 #include <hardware/camera3.h>
@@ -34,8 +36,6 @@
 #include <mutex>
 #include <qmmf_jpeg_core.h>
 #include <utils/Log.h>
-
-
 
 typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
                                      mm_jpeg_mpo_ops_t *,

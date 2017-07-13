@@ -45,7 +45,7 @@ class PostProcFactory : public RefBase {
 
    static void releaseInstance();
 
-   sp<IPostProcModule> getReprocEngine(std::string name, IPostProc* context);
+   sp<IPostProcModule> getPostProcEngine(std::string name, IPostProc* context);
 
  private:
 

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "PostProcJpeg"
+#define TAG "RecorderJpeg"
 
 #include <sys/mman.h>
 
@@ -209,8 +209,8 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
     QMMF_VERBOSE("%s:%s: SKIPP JPEG", TAG, __func__);
   }
 
-  Listener_->OnFrameReady(out_buffer);
-  Listener_->OnFrameProcessed(in_buffer);
+  listener_->OnFrameReady(out_buffer);
+  listener_->OnFrameProcessed(in_buffer);
 
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
 

@@ -59,7 +59,7 @@ class PostProcJpeg : public IPostProcModule {
 
   status_t Delete() override;
 
-  void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
+  void SetCallbacks(IPostProcEventListener *cb) override {listener_ = cb;};
 
   status_t Configure(const std::string config_json_data) override;
 
@@ -88,7 +88,7 @@ class PostProcJpeg : public IPostProcModule {
   bool                           ready_to_start_;
 
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
-  IPostProcEventListener         *Listener_;
+  IPostProcEventListener         *listener_;
 
 };
 

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPipe"
+#define TAG "RecorderPostProcPipe"
 
 #include <utils/Vector.h>
 
@@ -146,6 +146,8 @@ void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
     tmp_c = (*iter)->GetConsumerIntf();
   }
   pipe_consumer_ = tmp_c;
+  QMMF_INFO("%s:%s: Pipe is linked! last node consumer (%p)", TAG, __func__,
+      consumer.get());
 }
 
 void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
@@ -158,6 +160,7 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
   }
   pipe_consumer_.clear();
   pipe_consumer_ = nullptr;
+  QMMF_INFO("%s:%s: Pipe is unlinked!", TAG, __func__);
 }
 
 status_t PostProcPipe::Start() {
@@ -165,7 +168,6 @@ status_t PostProcPipe::Start() {
     QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
     return BAD_VALUE;
   }
-
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
@@ -190,6 +192,7 @@ status_t PostProcPipe::Stop() {
 
 status_t PostProcPipe::AddConsumer(sp<IBufferConsumer>& consumer) {
 
+  QMMF_INFO("%s:%s: Enter (%p)", TAG, __func__, consumer.get());
   if (state_ != PostProcPipeState::INITIALIZED) {
     QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
     return INVALID_OPERATION;
@@ -206,10 +209,13 @@ status_t PostProcPipe::AddConsumer(sp<IBufferConsumer>& consumer) {
              consumer.get());
 
   state_ = PostProcPipeState::READYTOSTART;
+  QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, consumer.get());
   return NO_ERROR;
 }
 
 status_t PostProcPipe::RemoveConsumer(sp<IBufferConsumer>& consumer) {
+
+  QMMF_INFO("%s:%s: Enter consumer=%p", TAG, __func__, consumer.get());
   if (state_ != PostProcPipeState::READYTOSTART) {
     QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
     return INVALID_OPERATION;
@@ -218,6 +224,7 @@ status_t PostProcPipe::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   UnlinkPipe(consumer);
 
   state_ = PostProcPipeState::READYTOSTOP;
+  QMMF_INFO("%s:%s: Exit consumer=%p", TAG, __func__, consumer.get());
   return NO_ERROR;
 }
 

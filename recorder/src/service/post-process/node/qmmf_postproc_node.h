@@ -188,6 +188,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    status_t Stop();
 
+   std::string& GetName() { return name_; }
+
  private:
 
    StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
