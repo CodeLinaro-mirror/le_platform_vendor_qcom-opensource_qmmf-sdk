@@ -31,7 +31,6 @@
 
 #include <mutex>
 #include <condition_variable>
-#include <utils/RefBase.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 #include <condition_variable>

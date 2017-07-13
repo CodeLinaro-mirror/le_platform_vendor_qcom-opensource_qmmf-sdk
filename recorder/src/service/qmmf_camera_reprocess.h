@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
-
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {

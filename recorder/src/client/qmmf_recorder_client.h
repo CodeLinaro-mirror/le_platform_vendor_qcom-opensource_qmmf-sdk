@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
 #include <camera/CameraMetadata.h>
 #include <vector>
 #include <map>
