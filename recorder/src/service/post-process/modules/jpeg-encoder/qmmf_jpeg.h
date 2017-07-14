@@ -27,27 +27,69 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <utils/Condition.h>
+#include <utils/KeyedVector.h>
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
+#include "../../interface/qmmf_postproc_module.h"
 
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "qmmf_jpeg_core.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+namespace reproc {
 
-}; // namespace recoder
+class PostProcJpeg : public IPostProcModule {
 
-}; // namespace qmmf
+ public:
+
+  PostProcJpeg(int32_t Id);
+
+  ~PostProcJpeg();
+
+  status_t Create(const int32_t stream_id,
+                  const ReprocParam& input,
+                  const ReprocParam& output,
+                  const uint32_t frame_rate,
+                  const uint32_t num_images,
+                  const void* static_meta,
+                  const void* context,
+                  int32_t &out_stream_id) override;
+
+  status_t Delete() override;
+
+  void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
+
+  status_t Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) override;
+
+  void AddResult(const void* result) override;
+
+  status_t ReturnBuff(StreamBuffer buffer) override;
+
+  status_t GetCapabilities(ReprocCaps *caps) override;
+
+  status_t Start() override;
+
+  status_t Stop() override;
+
+ private:
+
+  int32_t                        id_;
+
+  bool                           reprocess_flag_;
+  bool                           ready_to_start_;
+
+  reprocjpegencoder::JpegEncoder *jpeg_encoder_;
+  IPostProcEventListener         *Listener_;
+
+};
+
+
+}; //namespace reproc
+
+}; //namespace recorder
+
+}; //namespace qmmf

@@ -27,27 +27,47 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
-
-#include "recorder/src/service/qmmf_recorder_utils.h"
-
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include <thread>
+#include <mutex>
+#include <string>
+#include <sstream>
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+class PostProcThread {
+ public:
+  PostProcThread() : thread_(nullptr),
+                     abort_(false),
+                     running_(false),
+                     name_("") {};
 
-}; // namespace recoder
+  virtual ~PostProcThread() { RequestExitAndWait(); };
 
-}; // namespace qmmf
+  int32_t Run(const std::string &name = std::string());
+
+  virtual void RequestExit();
+
+  virtual void RequestExitAndWait();
+
+  bool ExitPending();
+
+ protected:
+  virtual bool ThreadLoop() = 0;
+
+ private:
+  static void *MainLoop(void *userdata);
+
+  std::thread                   *thread_;
+  std::mutex                    lock_;
+  bool                          abort_;
+  bool                          running_;
+  std::string                   name_;
+};
+
+}  // namespace recorder ends here
+
+}  // namespace qmmf ends here

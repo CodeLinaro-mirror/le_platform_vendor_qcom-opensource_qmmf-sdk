@@ -27,27 +27,42 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <functional>
+#include <utils/RefBase.h>
+#include "common/qmmf_common_utils.h"
+#include "common/cameraadaptor/qmmf_camera3_types.h"
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
+#include "recorder/src/service/post-process/common/qmmf_camera_base_types.h"
 
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
 
 namespace qmmf {
 
+using namespace cameraadaptor;
+
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+class IPostProc {
+public:
+  virtual status_t ReturnStreamBuffer(StreamBuffer buffer) = 0;
 
-}; // namespace recoder
+  virtual status_t CreateDeviceStream(CameraStreamParameters& params,
+                                      uint32_t frame_rate,
+                                      int32_t* stream_id) = 0;
 
-}; // namespace qmmf
+  virtual status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
+                                           int32_t* stream_id) = 0;
+
+  virtual status_t SubmitRequest(Camera3Request request,
+                                 bool is_streaming,
+                                 int64_t *lastFrameNumber) = 0;
+
+  virtual status_t DeleteDeviceStream(int32_t stream_id, bool cache) = 0;
+
+  virtual ~IPostProc() {};
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf

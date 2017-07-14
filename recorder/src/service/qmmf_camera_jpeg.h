@@ -35,7 +35,7 @@
 #include <libgralloc/gralloc_priv.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/service/camera-reprocess/common/qmmf_camera_base_types.h"
+#include "recorder/src/service/post-process/common/qmmf_camera_base_types.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 

@@ -40,9 +40,9 @@
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 
-#include "camera-reprocess/pipe/qmmf_camera_pipe.h"
-#include "camera-reprocess/plugin/qmmf_camera_plugin.h"
-#include "camera-reprocess/interface/qmmf_camera_reprocess.h"
+#include "post-process/pipe/qmmf_postproc_pipe.h"
+#include "post-process/plugin/qmmf_postproc_plugin.h"
+#include "post-process/interface/qmmf_postproc.h"
 
 namespace qmmf {
 
@@ -68,8 +68,8 @@ class IBufferProducer;
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
 // to camera device stream.
 class CameraContext : public CameraInterface,
-                      public ReprocessPlugin<CameraContext>,
-                      public virtual IPostProcCameraContext,
+                      public PostProcPlugin<CameraContext>,
+                      public virtual IPostProc,
                       public virtual RefBase {
  public:
   CameraContext();
@@ -266,7 +266,7 @@ class CameraContext : public CameraInterface,
 
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
-  sp<ReprocessPipe>        reproc_pipe_;
+  sp<PostProcPipe>         postproc_pipe_;
   SyncFrame                sync_frame_;
   Condition                sync_frame_cond_;
   Mutex                    sync_frame_lock_;
@@ -361,8 +361,10 @@ class CameraPort : public RefBase {
 
   std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
-  sp<ReprocessPipe>      reproc_pipe_;
+  sp<PostProcPipe>       reproc_pipe_;
   std::mutex             consumer_lock_;
+  sp<IBufferConsumer>    consumer_;
+  Mutex                  stop_lock_;
 };
 
 class ZslPort : public CameraPort {

@@ -57,7 +57,7 @@ float CameraContext::kHFRBatchModeThreshold = 120.0f;
 const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
 CameraContext::CameraContext()
-    : ReprocessPlugin<CameraContext>(this),
+    : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
@@ -914,8 +914,8 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
   status_t ret = NO_ERROR;
   if (stream_id != snapshot_request_.streamIds[0]) {
-    if (reproc_pipe_.get() != nullptr) {
-      reproc_pipe_->PipeNotifyBufferReturn(buffer);
+    if (postproc_pipe_.get() != nullptr) {
+      postproc_pipe_->PipeNotifyBufferReturn(buffer);
     }
   } else {
     ret = ReturnStreamBuffer(buffer);
@@ -1627,28 +1627,28 @@ void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
 status_t CameraContext::ReprocCreate(CameraStreamParameters &stream_param,
                                      int32_t stream_id) {
 
-  reproc_pipe_ = new ReprocessPipe(this);
-  assert(reproc_pipe_.get() != nullptr);
+  postproc_pipe_ = new PostProcPipe(this);
+  assert(postproc_pipe_.get() != nullptr);
 
   const char* pipe_1_[] = {"JpegEncode"};
   const uint32_t pipe_size = sizeof(pipe_1_)/sizeof(pipe_1_[0]);
-  auto reproc_id = reproc_pipe_->Create(stream_id, pipe_1_, pipe_size,
-                                        stream_param, &static_meta_);
+  auto reproc_id = postproc_pipe_->Create(stream_id, pipe_1_, pipe_size,
+                                          stream_param, &static_meta_);
   assert(reproc_id >= 0);
 
-  reproc_pipe_->AddConsumer(GetConsumerIntf());
-  AddConsumer(reproc_pipe_->GetConsumerIntf());
-  reproc_pipe_->Start();
+  postproc_pipe_->AddConsumer(GetConsumerIntf());
+  AddConsumer(postproc_pipe_->GetConsumerIntf());
+  postproc_pipe_->Start();
 
   return NO_ERROR;
 }
 
 status_t CameraContext::ReprocDelete() {
-  if (reproc_pipe_.get() != nullptr) {
-    RemoveConsumer(reproc_pipe_->GetConsumerIntf());
-    reproc_pipe_->RemoveConsumer(GetConsumerIntf());
-    reproc_pipe_->Stop();
-    reproc_pipe_.clear();
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->Stop();
+    RemoveConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_->RemoveConsumer(GetConsumerIntf());
+    postproc_pipe_.clear();
   }
   return NO_ERROR;
 }
@@ -1658,8 +1658,8 @@ status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
     for (auto id : snapshot_request_id_) {
       if (id == result.resultExtras.requestId) {
         QMMF_INFO("%s:%s: found snapshot request id %d", TAG,__func__, id);
-        if (reproc_pipe_.get() != nullptr) {
-          reproc_pipe_->AddResult(const_cast<void*>
+        if (postproc_pipe_.get() != nullptr) {
+          postproc_pipe_->AddResult(const_cast<void*>
                                     (static_cast<void const*>(&result)));
         }
       }
@@ -1743,7 +1743,7 @@ status_t CameraPort::Init() {
     const char* pipe[] = {"HazeBuster"};
     uint32_t pipe_size = sizeof(pipe)/sizeof(pipe[0]);
 
-    reproc_pipe_ = new ReprocessPipe(context_);
+    reproc_pipe_ = new PostProcPipe(context_);
     assert(reproc_pipe_.get() != nullptr);
     CameraMetadata static_meta; // TODO
     auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,

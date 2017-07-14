@@ -27,27 +27,71 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include <libgralloc/gralloc_priv.h>
+#include <utils/Condition.h>
+#include <utils/KeyedVector.h>
+#include <utils/Mutex.h>
+#include <memory>
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
+#include "common/qmmf_common_utils.h"
 
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "../plugin/qmmf_postproc_plugin.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+struct MemPoolParams {
+  uint32_t width;
+  uint32_t height;
+  int32_t  format;
+  int32_t  gralloc_flags;
+  uint32_t max_buffer_count;
+  uint32_t max_size;
+};
 
-}; // namespace recoder
+class MemPool : public RefBase {
 
-}; // namespace qmmf
+ public:
+
+   MemPool();
+
+   ~MemPool();
+
+   int32_t Initialize(uint32_t width, uint32_t height, int32_t  format,
+                      int32_t  gralloc_flags, uint32_t max_buffer_count,
+                      uint32_t max_size);
+
+   status_t ReturnBufferLocked(const StreamBuffer &buffer);
+
+   status_t GetBuffer(StreamBuffer* buffer);
+
+ private:
+
+   status_t GetBufferLocked(StreamBuffer* buffer);
+
+   status_t PopulateMetaInfo(CameraBufferMetaData &info,
+                             struct private_handle_t *priv_handle);
+
+   status_t AllocGrallocBuffer(buffer_handle_t *buf);
+
+   status_t FreeGrallocBuffer(buffer_handle_t buf);
+
+   alloc_device_t               *gralloc_device_;
+   buffer_handle_t              *gralloc_slots_;
+   uint32_t                      buffers_allocated_;
+   uint32_t                      pending_buffer_count_;
+   KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
+
+   MemPoolParams                 init_params_;
+   Mutex                         buffer_lock_;
+   Condition                     wait_for_buffer_;
+
+   static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf
