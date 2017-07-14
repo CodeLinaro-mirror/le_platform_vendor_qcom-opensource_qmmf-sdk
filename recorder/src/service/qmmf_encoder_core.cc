@@ -761,8 +761,6 @@ status_t TrackEncoder::AllocOutputPortBufs() {
   assert(avcodec_ != nullptr);
   ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
   assert(ret == NO_ERROR);
-  //TODO: This hardcoding would be fixed by AVCodec layer
-  count = OUTPUT_MAX_COUNT;
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;

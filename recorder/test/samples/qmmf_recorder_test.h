@@ -145,6 +145,18 @@ using ::qmmf::display::SurfaceFormat;
 // Prop to set frequency of YUV data dumping
 #define PROP_DUMP_FRAME_FREQ   "persist.qmmf.rec.test.dumpfreq"
 
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef CLIP
+#define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
+#endif
+
 enum class AfMode {
   kNone,
   kOff,
@@ -190,6 +202,7 @@ struct TrackInfo {
   float     fps;
   TrackType track_type;
   uint32_t  bitrate;
+  int32_t  ltr_count;
   uint32_t  session_id;
   uint32_t  track_id;
   int32_t   camera_id;
@@ -543,6 +556,8 @@ class RecorderTest {
   ::std::mutex callback_lock_;
   uint32_t num_images_;
   bool aec_converged_;
+
+  int32_t ltr_count_;
 
   std::mutex               snapshot_wait_lock_;
   std::condition_variable  snapshot_wait_signal_;
