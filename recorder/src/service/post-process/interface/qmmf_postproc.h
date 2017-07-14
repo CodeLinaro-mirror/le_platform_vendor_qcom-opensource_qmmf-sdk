@@ -34,9 +34,6 @@
 #include "common/qmmf_common_utils.h"
 #include "common/cameraadaptor/qmmf_camera3_types.h"
 
-#include "recorder/src/service/post-process/common/qmmf_camera_base_types.h"
-
-
 namespace qmmf {
 
 using namespace cameraadaptor;

@@ -4,7 +4,7 @@ MY_PATH := $(LOCAL_PATH)
 
 include $(MY_PATH)/camera-hal-reproc/Android.mk
 
-include $(MY_PATH)/haze-buster/Android.mk
+include $(MY_PATH)/algo/Android.mk
 
 include $(MY_PATH)/jpeg-encoder/Android.mk
 

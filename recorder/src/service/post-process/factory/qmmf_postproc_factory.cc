@@ -32,7 +32,7 @@
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
 #include "../modules/test/qmmf_postproc_test.h"
-#include "../modules/haze-buster/qmmf_haze_buster.h"
+#include "../modules/algo/qmmf_postproc_algo.h"
 
 #include "qmmf_postproc_factory.h"
 
@@ -70,20 +70,19 @@ int32_t PostProcFactory::GetId() {
 }
 
 sp<IPostProcModule>
-PostProcFactory::getReprocEngine(String8 name,
-                                 IPostProc* context) {
+PostProcFactory::getReprocEngine(std::string name, IPostProc* context) {
   sp<IPostProcModule> instance;
 
   if (name == "JpegEncode") {
-    instance = new reproc::PostProcJpeg(GetId());
+    instance = new PostProcJpeg(GetId());
   } else if (name == "HALJpegEncode") {
     instance = new CameraHalReproc(context);
-  } else if (name == "Simple") {
+  } else if (name == "Test") {
     instance = new PostProcTest(GetId());
   } else if (name == "HazeBuster") {
-    instance = new PostProcHazeBuster(GetId());
+    instance = new PostProcAlg(GetId(), "libqmmf_alg_hazebuster.so");
   } else {
-    QMMF_ERROR("%s: Invalid reprocess engine!", __func__);
+    QMMF_ERROR("%s: Invalid post process engine: %s", __func__, name.c_str());
   }
 
   return instance;

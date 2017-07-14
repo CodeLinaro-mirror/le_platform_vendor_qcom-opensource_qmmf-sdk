@@ -97,7 +97,7 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
   Listener_->OnFrameReady(in_buff);
 
   //start next frame reprocess
-  if (Start() != NO_ERROR) {
+  if (StartProcessing() != NO_ERROR) {
     QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
         __func__);
   }
@@ -111,8 +111,8 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
 }
 
 status_t CameraHalReproc::Create(const int32_t stream_id,
-                                 const ReprocParam& input,
-                                 const ReprocParam& output,
+                                 const PostProcCreateParam& input,
+                                 const PostProcCreateParam& output,
                                  const uint32_t frame_rate,
                                  const uint32_t num_images,
                                  const void* static_meta,
@@ -183,18 +183,44 @@ status_t CameraHalReproc::Create(const int32_t stream_id,
   return ret;
 }
 
-status_t CameraHalReproc::GetCapabilities(ReprocCaps *caps) {
-  caps->internal_buff = 0;
-  caps->out_format = HAL_PIXEL_FORMAT_BLOB;
-  caps->in_format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  caps->scale_en = 0;
-  caps->usage = 0;
+PostProcCreateParam CameraHalReproc::GetInput(const PostProcCreateParam &out) {
+  PostProcCreateParam in = out;
+  in.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  return in;
+}
 
-  // TODO
+PostProcCreateParam CameraHalReproc::GetOutput(const PostProcCreateParam &in) {
+  PostProcCreateParam out = in;
+  out.format = HAL_PIXEL_FORMAT_BLOB;
+  return out;
+}
+
+status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
+  caps.output_buff_        = 0;
+  caps.min_width_          = 160;
+  caps.min_height_         = 120;
+  caps.max_width_          = 5104;
+  caps.max_height_         = 4092;
+  caps.crop_support_       = false;
+  caps.scale_support_      = true;
+  caps.inplace_processing_ = false;
+  caps.lib_version_        = "1.0";
+
+  caps.in_formats_.push_back(BufferFormat::kNV12);
+  caps.out_formats_.push_back(BufferFormat::kBLOB);
+
   return NO_ERROR;
 }
 
 status_t CameraHalReproc::Start() {
+  return NO_ERROR;
+}
+
+status_t CameraHalReproc::Stop() {
+  return NO_ERROR;
+}
+
+status_t CameraHalReproc::StartProcessing() {
   if (!ready_to_start_) {
     return BAD_VALUE;
   }
@@ -226,10 +252,6 @@ status_t CameraHalReproc::Start() {
   return NO_ERROR;
 }
 
-status_t CameraHalReproc::Stop() {
-  return NO_ERROR;
-}
-
 status_t CameraHalReproc::Delete() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
 
@@ -254,8 +276,17 @@ status_t CameraHalReproc::Delete() {
   return NO_ERROR;
 }
 
-status_t CameraHalReproc::Process(StreamBuffer& in_buff, StreamBuffer& out_buff) {
-  AddBuff(in_buff);
+status_t CameraHalReproc::Configure(const std::string config_json_data) {
+  return NO_ERROR;
+}
+
+status_t CameraHalReproc::Process(
+    const std::vector<StreamBuffer> &in_buffers,
+    const std::vector<StreamBuffer> &out_buffers) {
+
+  for (auto buf : in_buffers) {
+    AddBuff(buf);
+  }
   return NO_ERROR;
 }
 
@@ -289,14 +320,14 @@ void CameraHalReproc::AddBuff(StreamBuffer in_buff) {
   }
 
   if (input_burst_queue_.size() >= num_images_) {
-    if (Start() != NO_ERROR) {
+    if (StartProcessing() != NO_ERROR) {
       QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
           __func__);
     }
   }
 }
 
-status_t CameraHalReproc::ReturnBuff(StreamBuffer buffer) {
+status_t CameraHalReproc::ReturnBuff(StreamBuffer &buffer) {
   QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) ts: %lld", TAG,
        __func__, buffer.handle, buffer.timestamp);
   return context_->ReturnStreamBuffer(buffer);
@@ -344,7 +375,7 @@ void CameraHalReproc::AddResult(const void* result_in) {
   }
 
   if (input_burst_queue_.size() >= num_images_) {
-    if (Start() != NO_ERROR) {
+    if (StartProcessing() != NO_ERROR) {
       QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
           __func__);
     }
@@ -352,8 +383,8 @@ void CameraHalReproc::AddResult(const void* result_in) {
 }
 
 status_t CameraHalReproc::ValidateInput(const CameraMetadata& static_meta,
-                                        const ReprocParam& input,
-                                        const ReprocParam& output) {
+                                        const PostProcCreateParam& input,
+                                        const PostProcCreateParam& output) {
   camera_metadata_ro_entry_t entry;
   int32_t in_format, num_output_formats;
 

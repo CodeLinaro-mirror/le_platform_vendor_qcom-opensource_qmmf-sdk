@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <utils/String8.h>
+#include <string>
 
 #include "../interface/qmmf_postproc_module.h"
 
@@ -45,7 +45,7 @@ class PostProcFactory : public RefBase {
 
    static void releaseInstance();
 
-   sp<IPostProcModule> getReprocEngine(String8 name, IPostProc* context);
+   sp<IPostProcModule> getReprocEngine(std::string name, IPostProc* context);
 
  private:
 
