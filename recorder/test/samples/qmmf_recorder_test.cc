@@ -72,6 +72,9 @@ static const char* kDefaultAECAWBStatsFilename =
 // Number of histogram color channels.
 // Currently 4: R, GR, GB, B
 static const int32_t kHistogramColorChannels = 4;
+// As per Venus supported range [0-4]
+static const int32_t kMinLTRCount = 0;
+static const int32_t kMaxLTRCount = 4;
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
@@ -79,7 +82,8 @@ RecorderTest::RecorderTest() :
             preview_session_id_(0),
             snapshot_choice_(SnapshotType::kNone),
             num_images_(0),
-            aec_converged_(false) {
+            aec_converged_(false),
+            ltr_count_(0) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
@@ -1892,6 +1896,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   info.track_id   = 1;
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
+  info.ltr_count  = ltr_count_;
   info.camera_id = camera_id_;
 
   ret = yuv_4k_track->SetUp(info);
@@ -1938,6 +1943,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
   info.height     = 2160;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -1974,6 +1980,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.height     = 1080;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2020,6 +2027,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   info.height     = 1080;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2068,6 +2076,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   info.height     = 2160;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2130,6 +2139,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   info.height     = 1080;
   info.track_id   = 2;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2165,6 +2175,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   info.height     = 1080;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2178,6 +2189,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   info.height     = 1080;
   info.track_id   = 2;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
 
@@ -2249,6 +2261,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   info.height     = 1080;
   info.track_id   = 1;
   info.track_type = track_type;
+  info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.low_power_mode = false;
 
@@ -3061,8 +3074,11 @@ status_t RecorderTest::SetParams() {
     printf("  2. framerate \n" );
     printf("  3. insert-idr \n" );
     printf("  4. idr interval \n" );
-    printf("  5. ltr mark \n" );
-    printf("  6. ltr use \n" );
+    printf("  5. ltr count (This has to be set before creating session)\n");
+    if (ltr_count_ > 0) {
+      printf("  6. ltr mark \n" );
+      printf("  7. ltr use \n" );
+    }
     printf("  0. exit \n");
     printf("\n");
     printf("Enter set param option\n");
@@ -3103,13 +3119,18 @@ status_t RecorderTest::SetParams() {
                                            &idr_interval, sizeof(idr_interval));
         break;
       case 5:
+        printf("Enter ltr count value [1-4]\n");
+        scanf("%d", &ltr_count_);
+        ltr_count_= CLIP(ltr_count_, kMinLTRCount, kMaxLTRCount);
+        break;
+      case 6:
         printf("Enter ltr mark id value\n");
         scanf("%d", &value);
         param_type = CodecParamType::kMarkLtrType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
                                               sizeof(value));
         break;
-      case 6:
+      case 7:
         printf("Enter ltr use id value\n");
         scanf("%d", &value);
         param_type = CodecParamType::kUseLtrType;
@@ -3390,6 +3411,7 @@ status_t RecorderTest::DeleteSession() {
   ret = recorder_.DeleteSession(session_id);
   sessions_.erase(it);
   use_display = 0;
+  ltr_count_ = 0;
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -3935,6 +3957,7 @@ void RecorderTest::printInitParamAndTtrackInfo(const TestInitParams& params,
             printf("\tTrackInfo.fps = %5.2f\n", track_info->fps);
             printf("\tTrackInfo.width = %d\n", track_info->width);
             printf("\tTrackInfo.height = %d\n\n", track_info->height);
+            printf("\tTrackInfo.ltr_count = %d\n\n", track_info->ltr_count);
           }
        }
     }
@@ -4104,6 +4127,9 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
         ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
+    } else if (!strncmp("LTRCount", key, strlen("LTRCount"))) {
+      int32_t val = atoi(value);
+      track_info.ltr_count = CLIP(val, kMinLTRCount, kMaxLTRCount);
     } else if(!strncmp("CamLowPowerMode", key, strlen("CamLowPowerMode"))) {
       track_info.low_power_mode = atoi(value) ? true : false;
       isStreamReadCompleted = true;
@@ -4191,7 +4217,7 @@ int32_t RecorderTest::RunAutoMode() {
   video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
   video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
   video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-  video_track_param.codec_param.avc.ltr_count = 4;
+  video_track_param.codec_param.avc.ltr_count = ltr_count_;
   video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
 
@@ -4469,7 +4495,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-      video_track_param.codec_param.avc.ltr_count = 4;
+      video_track_param.codec_param.avc.ltr_count = track_info.ltr_count;
       video_track_param.codec_param.avc.insert_aud_delimiter = true;
       break;
       case TrackType::kVideoHEVC:
@@ -4498,7 +4524,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-      video_track_param.codec_param.hevc.ltr_count = 4;
+      video_track_param.codec_param.hevc.ltr_count = track_info.ltr_count;
       break;
       case TrackType::kVideoYUV:
       case TrackType::kVideoPreview:
