@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <iomanip>
 
 #include "qmmf_postproc_algo.h"
 
@@ -181,7 +182,25 @@ status_t PostProcAlg::Start(const int32_t stream_id) {
 
   reprocess_flag_ = true;
 
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.dump.in", prop, "0");
+  if(atoi(prop) == 0) {
+    dump_in_frame_ = false;
+  } else {
+    dump_in_frame_ = true;
+    QMMF_INFO("%s:%s: Enable input frame dump", TAG, __func__);
+  }
+
+  property_get("persist.qmmf.postproc.dump.out", prop, "0");
+  if(atoi(prop) == 0) {
+    dump_out_frame_ = false;
+  } else {
+    dump_out_frame_ = true;
+    QMMF_INFO("%s:%s: Enable output frame dump", TAG, __func__);
+  }
+
   QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+
   return NO_ERROR;
 }
 
@@ -257,6 +276,12 @@ status_t PostProcAlg::Process(
       throw e;
     }
 
+    if (dump_in_frame_ == true) {
+      for (auto buf : in_alg_buffers) {
+        DumpFrame(buf, true);
+      }
+    }
+
     try {
       algo_->Process(in_alg_buffers, out_alg_buffers);
     } catch (const std::exception &e) {
@@ -289,6 +314,9 @@ void PostProcAlg::OnFrameProcessed(const AlgBuffer &input_buffer) {
 }
 
 void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
+  if (dump_out_frame_ == true) {
+    DumpFrame(output_buffer, false);
+  }
 
   const std::vector<AlgBuffer> buffers = {output_buffer};
   algo_->UnregisterOutputBuffers(buffers);
@@ -402,14 +430,122 @@ status_t PostProcAlg::PrepareAlgBuffer(
 }
 
 void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
-  std::string file_name =
-      std::string("/lcac_" ) + (buf.pix_fmt_ < kRawBggr12 ? "mipi10" : "mipi12") +
-      std::string("_dim_")    + std::to_string(buf.plane_[0].width_) +
-      std::string("x")        + std::to_string(buf.plane_[0].height_) +
-      std::string("_stride_") + std::to_string(buf.plane_[0].stride_) +
-      std::string("_frame_")  + std::to_string(buf.frame_number_) +
-      std::string("_")        + (input ? "input" : "output") +
-      std::string(".raw");
+  int32_t start = Lib_.find("libqmmf_alg_") + sizeof("libqmmf_alg_") - 1;
+  int32_t size = Lib_.find(".so") - start;
+
+  std::string module_name;
+  if (start < 0 || size < 0) {
+    module_name = "unknown";
+  } else {
+    module_name = Lib_.substr(start, size);
+  }
+
+  std::string file_name = "/data/misc/qmmf/img_algo_" + module_name + "_";
+
+  switch (buf.pix_fmt_) {
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+      file_name += "mipi10";
+      break;
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+      file_name += "mipi12";
+      break;
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+      file_name += "plain16_10bit";
+      break;
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+      file_name += "plain16_12bit";
+      break;
+    case kNv12:
+      file_name += "nv12";
+      break;
+    case kNv12UBWC:
+      file_name += "nv12bwc";
+      break;
+    case kNv21:
+      file_name += "nv21";
+      break;
+    case kNv21UBWC:
+      file_name += "nv21bwc";
+      break;
+    case kJpeg:
+      file_name += "jpeg";
+      break;
+    default:
+      std::stringstream sstream;
+      sstream << std::hex << buf.pix_fmt_;
+      file_name += sstream.str();
+      break;
+  }
+
+  file_name +=
+      "_dim_"      + std::to_string(buf.plane_[0].width_) +
+      "x"          + std::to_string(buf.plane_[0].height_) +
+      "_stride_"   + std::to_string(buf.plane_[0].stride_) +
+      "_scanline_" + std::to_string(buf.plane_[0].length_ /
+                                    buf.plane_[0].stride_) +
+      "_frame_"    + std::to_string(buf.frame_number_) +
+      "_"          + (input ? "input" : "output");
+
+  switch (buf.pix_fmt_) {
+    case kRawBggrMipi8:
+    case kRawGbrgMipi8:
+    case kRawGrbgMipi8:
+    case kRawRggbMipi8:
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+    case kRawBggr16:
+    case kRawGbrg16:
+    case kRawGrbg16:
+    case kRawRggb16:
+      file_name += ".raw";
+      break;
+    case kNv12:
+    case kNv12UBWC:
+    case kNv21:
+    case kNv21UBWC:
+    case kYuyv422i:
+    case kYvyu422i:
+    case kUyvy422i:
+    case kVyuy422i:
+    case kYuv420:
+    case kYvu420:
+    case kYuv420p:
+    case kYvu420p:
+      file_name += ".yuv";
+      break;
+    case kJpeg:
+      file_name += ".jpg";
+      break;
+    default:
+      file_name += ".bin";
+      break;
+  }
 
   FILE *file = fopen(file_name.c_str(), "w+");
   if (!file) {
@@ -423,7 +559,7 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     fclose(file);
     return;
   }
-  QMMF_INFO("%s: Dump %s frame to %s\n", __func__,
+  QMMF_INFO("%s:%s: Dump %s frame to %s\n", TAG, __func__,
       input ? "input" : "output", file_name.c_str());
 
   fclose(file);

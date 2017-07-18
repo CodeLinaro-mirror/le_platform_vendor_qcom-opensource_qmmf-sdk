@@ -105,6 +105,8 @@ class PostProcAlg : public IPostProcModule,
   std::string                       Lib_;
   bool                              reprocess_flag_;
   bool                              ready_to_start_;
+  bool                              dump_in_frame_;
+  bool                              dump_out_frame_;
   bool                              pass_through_;
   IPostProcEventListener            *listener_;
   void*                             lib_handle_;
