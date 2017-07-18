@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -97,8 +97,38 @@ typedef struct VideoTrackCreateParam {
     uint32_t height;
     uint32_t frame_rate;
     uint32_t bitrate;
+    bool enable_downscalar;
+    uint32_t output_height;
+    uint32_t output_width;
+    bool enable_vqzip_extradata;
     VideoCodecType codec;
     VideoOutSubtype out_device;
+
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "buffer_size[" << buffer_size << "] ";
+      stream << "num_buffers[" << num_buffers << "] ";
+      stream << "width[" << width << "] ";
+      stream << "height[" << height << "] ";
+      stream << "frame_rate[" << frame_rate << "] ";
+      stream << "bitrate[" << bitrate << "] ";
+      stream << "enable_downscalar[" << ::std::boolalpha << enable_downscalar
+             << ::std::noboolalpha << "] ";
+      if (enable_downscalar) {
+        stream << "output_width[" << output_width << "] ";
+        stream << "output_height[" << output_height << "] ";
+      }
+      stream << "enable_vqzip_extradata[" << ::std::boolalpha
+             << enable_vqzip_extradata << ::std::noboolalpha <<"] ";
+      stream << "VideoCodecType["
+             << static_cast<::std::underlying_type<VideoCodecType>::type>(codec)
+             << "] ";
+      stream << "out_device["
+             << static_cast<::std::underlying_type<VideoOutSubtype>::type>
+                           (out_device)
+             << "]";
+      return stream.str();
+    }
 } VideoTrackCreateParam;
 
 // Audio track create time parameters

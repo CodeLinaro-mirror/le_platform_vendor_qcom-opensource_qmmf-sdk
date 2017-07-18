@@ -194,5 +194,6 @@ AC_CONFIG_FILES([ \
     player/test/demuxer/Makefile \
     player/test/samples/Makefile \
     player/test/gtest/Makefile \
+    player/test/transcode_app/Makefile \
 ])
 AC_OUTPUT
