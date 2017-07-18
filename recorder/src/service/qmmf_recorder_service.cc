@@ -341,7 +341,10 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
         ret = CaptureImage(client_id, camera_id, image_params, num_images,
                            meta_array);
-        blob.release();
+        for (auto meta:meta_array) {
+          meta.clear();
+        }
+
         reply->writeInt32(ret);
         return ret;
       }
