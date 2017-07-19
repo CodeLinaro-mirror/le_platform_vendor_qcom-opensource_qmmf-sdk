@@ -310,13 +310,26 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     }
   }
 
-  // meta is missing append to queue directly
   if (append) {
+    // meta is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.buffer = buf;
     new_entry.timestamp = buf.timestamp;
     new_entry.metadata.clear();
     reproc_partial_list_.push_back(new_entry);
+  } else {
+    // clean up older metadata in partial list
+    if (!reproc_partial_list_.empty()) {
+      auto it = reproc_partial_list_.begin();
+      auto end = reproc_partial_list_.end();
+      while (it != end) {
+        if (it->timestamp >= buf.timestamp) {
+          // clean up only first entries which has lower than buf time stamp
+          break;
+        }
+        it = reproc_partial_list_.erase(it);
+      }
+    }
   }
 }
 
@@ -348,13 +361,27 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
     }
   }
 
-  // Buffer is missing append to queue directly
   if (append) {
+    // Buffer is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.metadata.append(metadata);
     new_entry.timestamp = timestamp;
     memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
     reproc_partial_list_.push_back(new_entry);
+  } else {
+    // clean up older metadata in partial list
+    if (!reproc_partial_list_.empty()) {
+      int64_t timeout = timestamp - kMetaTimeout;
+      auto it = reproc_partial_list_.begin();
+      auto end = reproc_partial_list_.end();
+      while (it != end) {
+        if (it->timestamp >= timeout) {
+          // clean up only first entries which has lower than timeout timestamp
+          break;
+        }
+        it = reproc_partial_list_.erase(it);
+      }
+    }
   }
 }
 
