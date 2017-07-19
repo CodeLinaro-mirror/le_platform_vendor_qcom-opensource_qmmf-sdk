@@ -46,6 +46,7 @@
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 using namespace qmmf;
 using namespace recorder;

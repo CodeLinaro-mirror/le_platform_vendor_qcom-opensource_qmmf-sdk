@@ -168,15 +168,16 @@ AC_CONFIG_FILES([ \
     common/audio/test/samples/Makefile \
     common/codecadaptor/Makefile \
     common/avqueue/Makefile \
+    plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \
     display/src/service/Makefile \
     recorder/src/client/Makefile \
-    recorder/src/service/camera-reprocess/modules/copy/Makefile \
-    recorder/src/service/camera-reprocess/modules/simple/Makefile \
-    recorder/src/service/camera-reprocess/modules/camera-hal/Makefile \
-    recorder/src/service/camera-reprocess/modules/jpeg-encoder/Makefile \
-    recorder/src/service/camera-reprocess/modules/haze-buster/Makefile \
+    recorder/src/service/post-process/modules/test/Makefile \
+    recorder/src/service/post-process/modules/camera-hal-jpeg/Makefile \
+    recorder/src/service/post-process/modules/camera-hal-reproc/Makefile \
+    recorder/src/service/post-process/modules/jpeg-encoder/Makefile \
+    recorder/src/service/post-process/modules/algo/Makefile \
     recorder/src/service/Makefile \
     player/src/client/Makefile \
     player/src/service/Makefile \

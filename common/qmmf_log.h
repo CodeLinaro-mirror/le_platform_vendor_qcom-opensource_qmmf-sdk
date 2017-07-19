@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -74,42 +74,69 @@ static inline void unused(...) {};
 #include <cutils/properties.h>
 #include <cutils/trace.h>
 
-#define KPI_DISABLE 0
-#define KPI_ONLY 1
-extern volatile uint32_t kpi_debug_mask;
+#define BASE_KPI_FLAG   1
+#define DETAIL_KPI_FLAG 2
+
+extern volatile uint32_t kpi_debug_level;
 
 #define QMMF_KPI_GET_MASK() ({\
 char prop[PROPERTY_VALUE_MAX];\
-property_get("persist.qmmf.kpi.debug", prop, "0"); \
-kpi_debug_mask = atoi (prop);})
+property_get("persist.qmmf.kpi.debug", prop, std::to_string(BASE_KPI_FLAG).c_str()); \
+kpi_debug_level = atoi (prop);})
 
-#define QMMF_KPI_BEGIN(name) ({\
-if (kpi_debug_mask & KPI_ONLY) { \
-     atrace_begin(ATRACE_TAG_ALWAYS, name); \
-}\
-})
+class BaseKpiObject {
+public:
+    BaseKpiObject(const char* str) {
+        if (kpi_debug_level >= BASE_KPI_FLAG) {
+            atrace_begin(ATRACE_TAG_ALWAYS, str);
+        }
+    }
 
-#define QMMF_KPI_END() ({\
-if (kpi_debug_mask & KPI_ONLY) { \
-     atrace_end(ATRACE_TAG_ALWAYS); \
-}\
+    ~BaseKpiObject() {
+        if (kpi_debug_level >= BASE_KPI_FLAG) {
+            atrace_end(ATRACE_TAG_ALWAYS);
+        }
+    }
+};
+
+#define QMMF_KPI_BASE() ({\
+BaseKpiObject a(__func__);\
 })
 
 #define QMMF_KPI_ASYNC_BEGIN(name, cookie) ({\
-if (kpi_debug_mask & KPI_ONLY) { \
+if (kpi_debug_level >= BASE_KPI_FLAG) { \
      atrace_async_begin(ATRACE_TAG_ALWAYS, name, cookie); \
 }\
 })
 
 #define QMMF_KPI_ASYNC_END(name, cookie) ({\
-if (kpi_debug_mask & KPI_ONLY) { \
+if (kpi_debug_level >= BASE_KPI_FLAG) { \
      atrace_async_end(ATRACE_TAG_ALWAYS, name, cookie); \
 }\
 })
+
+class DetailKpiObject {
+public:
+    DetailKpiObject(const char* str) {
+        if (kpi_debug_level >= DETAIL_KPI_FLAG) {
+            atrace_begin(ATRACE_TAG_ALWAYS, str);
+        }
+    }
+    ~DetailKpiObject() {
+        if (kpi_debug_level >= DETAIL_KPI_FLAG) {
+            atrace_end(ATRACE_TAG_ALWAYS);
+        }
+    }
+};
+
+#define QMMF_KPI_DETAIL() ({\
+DetailKpiObject a(__func__);\
+})
+
 #else
-#define QMMF_KPI_GET_MASK() do {} while (0)
-#define QMMF_KPI_BEGIN(name) do {} while (0)
-#define QMMF_KPI_END() do {} while (0)
+#define QMMF_KPI_GET_MASK   ()             do {} while (0)
+#define QMMF_KPI_BASE       ()             do {} while (0)
+#define QMMF_KPI_DETAIL     ()             do {} while (0)
 #define QMMF_KPI_ASYNC_BEGIN(name, cookie) do {} while (0)
-#define QMMF_KPI_ASYNC_END(name, cookie) do {} while (0)
+#define QMMF_KPI_ASYNC_END  (name, cookie) do {} while (0)
 #endif

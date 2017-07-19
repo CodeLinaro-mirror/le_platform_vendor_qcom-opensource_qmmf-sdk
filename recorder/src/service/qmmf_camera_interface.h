@@ -52,11 +52,13 @@ class CameraInterface : public virtual RefBase {
 
   virtual status_t WaitAecToConverge(nsecs_t timeout) = 0;
 
-  virtual status_t CaptureImage(const uint32_t num_images,
-                                const std::vector<CameraMetadata> &meta,
+  virtual status_t SetUpCapture(const ImageParam &param,
+                                const uint32_t num_images) = 0;
+
+  virtual status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
-  virtual status_t ConfigImageCapture(const ImageParam &param) = 0;
+  virtual status_t ConfigImageCapture(const ImageConfigParam &config) = 0;
 
   virtual status_t CancelCaptureImage() = 0;
 
