@@ -118,6 +118,12 @@ class DisplayImpl : public DisplayEventHandler
 
   // DisplayEventHandler methods
   virtual DisplayError VSync(const DisplayEventVSync &vsync);
+  virtual DisplayError VSync(int fd, unsigned int sequence,
+                             unsigned int tv_sec, unsigned int tv_usec,
+                             void *data);
+  virtual DisplayError PFlip(int fd, unsigned int sequence,
+                             unsigned int tv_sec, unsigned int tv_usec,
+                             void *data);
   virtual DisplayError Refresh();
   virtual DisplayError CECMessage(char *message);
 
@@ -139,22 +145,29 @@ class DisplayImpl : public DisplayEventHandler
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
   alloc_device_t *gralloc_device_;
+
+  typedef struct Buff_Info {
+    bool  queued;
+    bool  dequed;
+    bool  commited;
+  }Buff_Info;
+
   typedef struct SurfaceInfo {
     void* mmapbuf;
     Layer* layer;
     std::map<int32_t, BufferInfo*> buffer_info;
-    std::map<int32_t, bool> buf_id_use;
+    std::map<int32_t, Buff_Info*> buf_id_use;
     bool buffer_internal;
   }SurfaceInfo;
 
   typedef std::map<uint32_t, SurfaceInfo*> SurfaceinfoMap;
   typedef struct DisplayInfo {
-  DisplayType       display_type;
-  DisplayInterface* display_intf;
-  uint32_t          layer_count;
-  uint32_t          num_of_clients;
-  sp<RemoteCallBack>           remote_cb_;
-  SurfaceinfoMap surfaceinfo_;
+    DisplayType       display_type;
+    DisplayInterface* display_intf;
+    uint32_t          layer_count;
+    uint32_t          num_of_clients;
+    sp<RemoteCallBack>           remote_cb_;
+    SurfaceinfoMap surfaceinfo_;
   }DisplayInfo;
 
   DisplayHandle current_handle_;

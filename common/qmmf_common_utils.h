@@ -54,8 +54,8 @@ const int64_t kWaitDelay = 2000000000;  // 2 sec
 
 struct StreamBuffer {
   CameraBufferMetaData info;
-  int64_t timestamp;
-  int64_t frame_number;
+  int64_t  timestamp;
+  uint32_t frame_number;
   uint32_t camera_id;
   uint32_t stream_id;
   android_dataspace data_space;
@@ -66,6 +66,9 @@ struct StreamBuffer {
   uint32_t flags;
   uint32_t filled_length;
   uint32_t frame_length;
+  uint32_t pending_encodes_per_frame;
+  uint32_t encodes_per_frame_count;
+  bool needs_return;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -77,6 +80,10 @@ struct StreamBuffer {
     stream << "timestamp[" << timestamp << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
+    stream << "pending_encodes_per_frame[" << pending_encodes_per_frame << "] ";
+    stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
+    stream << "needs_return[" << ::std::boolalpha << needs_return
+           << ::std::noboolalpha << "] ";
     return stream.str();
   }
 };

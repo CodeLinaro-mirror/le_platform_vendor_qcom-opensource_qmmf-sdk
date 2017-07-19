@@ -44,9 +44,16 @@
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 
+#include <condition_variable>
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+
+#if USE_SKIA
+#include <SkCanvas.h>
+#elif USE_CAIRO
+#include <cairo/cairo.h>
+#endif
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
@@ -58,7 +65,6 @@
 //Logging related defines
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define TEST_WARN(fmt, args...)  ALOGW(fmt, ##args)
 #ifdef DEBUG
 #define TEST_DBG  TEST_INFO
 #else
@@ -107,6 +113,8 @@ if (kpi_debug_mask & KPI_ONLY) { \
 
 #define FEATURE_NOT_AVAILABLE  "Not available"
 
+#define TEXT_SIZE                   40
+
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
@@ -123,6 +131,19 @@ using ::qmmf::display::SurfaceFormat;
 
 #define AEC_SETTLE_INTERVAL 2
 #define MAX_NUM_CAMERAS 3
+
+#define DEFAULT_DUMP_FRAME_FREQ  "200"
+
+// Prop to enable YUV data dumping from YUV track
+#define PROP_DUMP_YUV          "persist.qmmf.rec.test.dumpyuv"
+// Prop to enable encoded bitstream data dumping
+#define PROP_DUMP_BITSTREAM    "persist.qmmf.rec.test.dumpstrm"
+// Prop to enable JPEG (BLOB) dumping
+#define PROP_DUMP_JPEG         "persist.qmmf.rec.gtest.dumpjpeg"
+// Prop to enable RAW Snapshot dumping
+#define PROP_DUMP_RAW          "persist.qmmf.rec.gtest.dumpraw"
+// Prop to set frequency of YUV data dumping
+#define PROP_DUMP_FRAME_FREQ   "persist.qmmf.rec.test.dumpfreq"
 
 enum class AfMode {
   kNone,
@@ -174,6 +195,13 @@ struct TrackInfo {
   int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+};
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
 };
 
 class CameraMetaDataParser {
@@ -273,6 +301,27 @@ public:
     }
 };
 
+typedef struct StreamDumpInfo {
+  VideoFormat   format;
+  uint32_t      track_id;
+  int32_t       width;
+  int32_t       height;
+} StreamDumpInfo;
+
+class DumpBitStream {
+ public:
+  DumpBitStream() : file_fd_(-1) {};
+
+  ~DumpBitStream() {};
+
+  status_t SetUp(const StreamDumpInfo& dumpinfo);
+
+  void Close();
+
+  status_t Dump(const std::vector<BufferDescriptor>& buffers);
+
+  int32_t file_fd_;
+};
 
 class RecorderTest {
  public:
@@ -291,6 +340,8 @@ class RecorderTest {
   status_t TakeSnapshot();
 
   status_t TakeSnapshotWithConfig(const SnapshotInfo& snapshot_info);
+
+  status_t CancelTakeSnapshot();
 
   status_t StartMultiCameraMode();
 
@@ -373,10 +424,12 @@ class RecorderTest {
                                    const std::vector<TrackInfo>& infos);
 
   status_t AddPreviewTrack();
-  status_t DeletePreviewTrack();
-  void PreviewTrackHandler(uint32_t track_id,
+  status_t RemovePreviewTrack();
+  void PreviewTrackHandler(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
+  void CameraResultCallbackHandler(uint32_t camera_id,
+                                   const CameraMetadata &result);
 
   int32_t ToggleNR();
   int32_t ToggleVHDR();
@@ -407,6 +460,18 @@ class RecorderTest {
   status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
   status_t GetCurrentAFMode(int32_t camera_id, int32_t& mode);
 
+  uint32_t get_snapshot_cb_wait_time() {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.rec.test.snaptime",prop,"10");
+    return atoi (prop);
+  }
+
+  bool is_test_cancel_snapshot() {
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.rec.test.canclsnap", prop, "0");
+    return atoi (prop);
+  }
+
   // Auto Mode
   int32_t RunAutoMode();
   // Config file related.
@@ -424,13 +489,16 @@ class RecorderTest {
   void SessionCallbackHandler(EventType event_type,
                               void *event_data, size_t event_data_size);
 
-  void CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result);
-
   status_t DumpFrameToFile(BufferDescriptor& buffer,
                            CameraBufferMetaData& meta_data, String8& file_name);
 
   Recorder& GetRecorder() { return recorder_; }
+
+  bool is_dump_yuv_enabled_;
+  bool is_dump_raw_enabled_;
+  bool is_dump_bitstream_enabled_;
+  bool is_dump_jpg_enabled_;
+  uint32_t dump_frame_freq_;
 
  private:
   Recorder recorder_;
@@ -474,7 +542,11 @@ class RecorderTest {
   ::std::condition_variable signal_cb_;
   ::std::mutex callback_lock_;
   uint32_t num_images_;
-  bool flag_aec_;
+  bool aec_converged_;
+
+  std::mutex               snapshot_wait_lock_;
+  std::condition_variable  snapshot_wait_signal_;
+  uint32_t                 burst_snapshot_count_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -505,6 +577,10 @@ class TestTrack {
 
   status_t DisableOverlay();
 
+  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
+
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -522,12 +598,8 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-  status_t DumpBitStream(std::vector<BufferDescriptor>& buffers);
-
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
     CameraBufferMetaData& meta_data);
-
-  int32_t file_fd_;
 
   TrackInfo track_info_;
 
@@ -547,6 +619,14 @@ class TestTrack {
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
   bool display_started_;
+
+  DumpBitStream dump_bitstream_;
+#if USE_SKIA
+  SkCanvas*                canvas_;
+#elif USE_CAIRO
+  cairo_surface_t*         cr_surface_;
+  cairo_t*                 cr_context_;
+#endif
 };
 
 class CmdMenu

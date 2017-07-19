@@ -157,7 +157,7 @@ void Camera3Gtest::StreamCbAvgFPS(int32_t streamId, StreamBuffer buffer) {
 
 void Camera3Gtest::ErrorCb(CameraErrorCode errorCode,
                            const CaptureResultExtras &extras) {
-  printf("%s: ErrorCode: %d frameNumber %" PRId64 " requestId %d\n", __func__,
+  printf("%s: ErrorCode: %d frameNumber %d requestId %d\n", __func__,
          errorCode, extras.frameNumber, extras.requestId);
   if (ERROR_CAMERA_SERVICE >= errorCode) {
     camera_error_ = true;  // Unrecoverable error
@@ -401,7 +401,7 @@ void Camera3Gtest::StreamCb(int32_t streamId, StreamBuffer buffer) {
 
 void Camera3Gtest::StreamCbSignalOnFrame(int32_t streamId,
                                          StreamBuffer buffer) {
-  printf("%s: streamId: %d buffer with frame number: %" PRId64 " arrived\n",
+  printf("%s: streamId: %d buffer with frame number: %d arrived\n",
          __func__, streamId, buffer.frame_number);
   device_client_->ReturnStreamBuffer(streamId, buffer);
   pthread_mutex_lock(&input_lock_);
@@ -446,7 +446,7 @@ void Camera3Gtest::StreamCbAecLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/aec_lock/stream_%d_%d_%d.yuv",
                       streamId, buffer.frame_number, aec_lock_);
     mkdir("/data/misc/qmmf/aec_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);
@@ -463,7 +463,7 @@ void Camera3Gtest::StreamCbAwbLock(int32_t streamId, StreamBuffer buffer) {
 
   if(buffer.frame_number % 5 == 0) {
     String8 path;
-    path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%03" PRIo64 "_%d.yuv",
+    path.appendFormat("/data/misc/qmmf/awb_lock/stream_%d_%d_%d.yuv",
                       streamId, buffer.frame_number, awb_lock_);
     mkdir("/data/misc/qmmf/awb_lock", S_IRWXU);
     StoreBuffer(path, yuv_idx_, buffer, streamId, sizeFunc);

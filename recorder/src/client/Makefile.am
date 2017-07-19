@@ -1,6 +1,7 @@
 source_files = qmmf_recorder.cc
 source_files += qmmf_recorder_client.cc
 source_files += qmmf_recorder_client_ion.cc
+source_files += qmmf_video_track_extra_param.cc
 
 # Build qmmf recorder client library
 # libqmmf_recorder_client.so
@@ -28,3 +29,5 @@ sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_player_params.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_device.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_codec.h
 sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_overlay.h
+sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_video_track_extra_param.h
+sdkinc_HEADERS += $(top_srcdir)/include/qmmf-sdk/qmmf_video_track_extra_param_tags.h
