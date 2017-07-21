@@ -469,7 +469,7 @@ status_t CameraHalReproc::StartProcessing() {
 
   std::lock_guard<std::mutex> lock(reproc_lock_);
   if (reproc_ready_list_.empty()) {
-    QMMF_INFO("%s:%s: no reprocess bundle", TAG, __func__);
+    QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
     return NO_ERROR;
   }
 
