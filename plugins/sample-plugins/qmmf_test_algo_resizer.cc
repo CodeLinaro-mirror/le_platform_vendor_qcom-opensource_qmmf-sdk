@@ -42,13 +42,14 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
  public:
   QmmfResizerTestAlgo() {
     caps_ = Capabilities(
+        "ResizerTest",
         BufferRequirements(160, 120, 3840, 2160,
                            true, 1, 0, 0,
                            {kNv21, kNv12}),
         BufferRequirements(160, 120, 3840, 2160,
                            true, 1, 0, 0,
                            {}),
-        false, 0, false, false, true, "1.0");
+        false, 0, false, false, true, 1.0);
   }
 
   /** Process

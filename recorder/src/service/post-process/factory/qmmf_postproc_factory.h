@@ -30,8 +30,13 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <map>
+#include <set>
 
 #include "../interface/qmmf_postproc_module.h"
+#include "../interface/qmmf_postproc.h"
+#include "../node/qmmf_postproc_node.h"
 
 namespace qmmf {
 
@@ -45,7 +50,21 @@ class PostProcFactory : public RefBase {
 
    static void releaseInstance();
 
-   sp<IPostProcModule> getPostProcEngine(std::string name, IPostProc* context);
+   int32_t GetUniqueId();
+
+   status_t GetSupportedPlugins(SupportedPlugins *plugins);
+
+   status_t CreatePlugin(uint32_t *uid, const PluginInfo &info);
+
+   status_t DeletePlugin(const uint32_t &uid);
+
+   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
+
+   sp<PostProcNode> GetProcNode(const uint32_t &uid);
+
+   sp<PostProcNode> GetProcNode(const std::string &name, IPostProc* context);
+
+   status_t ReturnProcNode(const uint32_t &uid);
 
  private:
 
@@ -53,10 +72,21 @@ class PostProcFactory : public RefBase {
 
    ~PostProcFactory();
 
-   int32_t GetId();
+   bool IsPlugin(std::string entry);
 
    static sp<PostProcFactory>    instance_;
    static int32_t                ids_;
+
+   static const std::string      plugin_prefix;
+   static const std::string      plugin_suffix;
+
+   SupportedPlugins supported_plugins_;
+   std::map<std::string, std::string> plugin_libraries_;
+
+   std::map<uint32_t, sp<PostProcNode> > plugin_nodes_;
+   std::set<uint32_t> plugin_nodes_in_use_;
+
+   std::map<uint32_t, sp<PostProcNode> > internal_nodes_;
 };
 
 }; //namespace recorder
