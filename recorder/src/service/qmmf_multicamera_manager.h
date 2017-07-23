@@ -78,10 +78,10 @@ class MultiCameraManager : public CameraInterface {
 
   status_t WaitAecToConverge(nsecs_t timeout) override;
 
-  status_t SetUpCapture(const ImageParam &param) override;
+  status_t SetUpCapture(const ImageParam &param,
+                        const uint32_t num_images) override;
 
-  status_t CaptureImage(const uint32_t num_images,
-                        const std::vector<CameraMetadata> &meta,
+  status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;

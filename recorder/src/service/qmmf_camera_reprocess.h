@@ -74,7 +74,7 @@ class ICameraPostProcess : public virtual RefBase {
 
   virtual status_t Start() = 0;
 
-  virtual status_t GetCapabilities(ReprocCaps *caps) = 0;
+  virtual status_t GetCapabilities(PostProcCaps *caps) = 0;
 
 };
 
