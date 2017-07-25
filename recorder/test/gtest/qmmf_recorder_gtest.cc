@@ -1323,10 +1323,6 @@ TEST_F(RecorderGtest, 4KSnapshot) {
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
-
     meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
@@ -1906,10 +1902,6 @@ TEST_F(RecorderGtest, BurstSnapshot) {
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-  uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-  ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-  assert(ret == NO_ERROR);
-
   meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   uint32_t num_images = 30;
@@ -2102,10 +2094,6 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
 
     meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
