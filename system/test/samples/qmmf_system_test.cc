@@ -53,6 +53,7 @@ namespace qmmf_test {
 namespace system {
 
 using ::qmmf::AudioDeviceId;
+using ::qmmf::BufferDescriptor;
 using ::qmmf::DeviceCaps;
 using ::qmmf::DeviceId;
 using ::qmmf::DeviceInfo;
@@ -64,6 +65,7 @@ using ::qmmf::system::SystemCb;
 using ::qmmf::system::Tone;
 using ::qmmf::system::ToneCb;
 using ::qmmf::system::TriggerCb;
+using ::qmmf::system::TriggerConfig;
 using ::std::cin;
 using ::std::condition_variable;
 using ::std::cout;
@@ -150,7 +152,6 @@ void SystemTest::EnableSoundTrigger() {
   QMMF_DEBUG("%s: %s() size[%ld]", TAG, __func__, size);
 
   SoundModel sound_model;
-  sound_model.device = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
   sound_model.keywords = 1;
   sound_model.size = size;
   sound_model.data = malloc(sound_model.size);
@@ -169,11 +170,64 @@ void SystemTest::EnableSoundTrigger() {
   fclose(fp);
 
   TriggerCb trigger_handler =
-    [this] (const int32_t error) -> void {
-      TriggerHandler(error);
+    [this] (const int32_t error, const BufferDescriptor& buffer) -> void {
+      TriggerHandler(error, buffer);
     };
 
-  result = system_.EnableSoundTrigger(trigger_handler);
+  TriggerConfig config;
+  config.device = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+  config.request_capture = false;
+  config.capture_duration = 0;
+  config.with_keyword = false;
+  config.keyword_duration = 0;
+
+  result = system_.EnableSoundTrigger(config, trigger_handler);
+  assert(result == 0);
+}
+
+void SystemTest::EnableSoundTriggerLAB() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  status_t result;
+
+  FILE *fp = fopen("/data/misc/qmmf/system_trigger.uim", "rb");
+  assert(fp != nullptr);
+
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  QMMF_DEBUG("%s: %s() size[%ld]", TAG, __func__, size);
+
+  SoundModel sound_model;
+  sound_model.keywords = 1;
+  sound_model.size = size;
+  sound_model.data = malloc(sound_model.size);
+  assert(sound_model.data != nullptr);
+  QMMF_DEBUG("%s: %s() sound_model[%s]", TAG, __func__,
+             sound_model.ToString().c_str());
+
+  size_t bytes_read = fread(sound_model.data, 1, sound_model.size, fp);
+  QMMF_DEBUG("%s: %s() bytes_read[%zd]", TAG, __func__, bytes_read);
+  assert(bytes_read == sound_model.size);
+
+  result = system_.LoadSoundModel(sound_model);
+  assert(result == 0);
+
+  free(sound_model.data);
+  fclose(fp);
+
+  TriggerCb trigger_handler =
+    [this] (const int32_t error, const BufferDescriptor& buffer) -> void {
+      TriggerHandler(error, buffer);
+    };
+
+  TriggerConfig config;
+  config.device = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+  config.request_capture = true;
+  config.capture_duration = 8000;
+  config.with_keyword = false;
+  config.keyword_duration = 0;
+
+  result = system_.EnableSoundTrigger(config, trigger_handler);
   assert(result == 0);
 }
 
@@ -218,13 +272,29 @@ void SystemTest::DeviceHandler(const DeviceInfo& device) {
   cout << "Received device event[" << device.ToString().c_str() << "]" << endl;
 }
 
-void SystemTest::TriggerHandler(const int32_t error) {
+void SystemTest::TriggerHandler(const int32_t error,
+                                const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
 
   if (error == 0) {
     cout << endl;
     cout << "Received SoundTrigger event" << endl;
+  }
+
+  if (buffer.data != nullptr) {
+    int32_t iresult = wav_.Configure(filename_prefix_);
+    assert(iresult == 0);
+
+    iresult = wav_.Open();
+    assert(iresult == 0);
+
+    iresult = wav_.Write(buffer.data, buffer.size);
+    assert(iresult == 0);
+
+    wav_.Close();
   }
 }
 
@@ -342,6 +412,8 @@ void CommandMenu::PrintMenu() {
          << endl;
     cout << static_cast<char>(Command::kEnableSoundTrigger)
          << ". Enable SoundTrigger" << endl;
+    cout << static_cast<char>(Command::kEnableSoundTriggerLAB)
+         << ". Enable SoundTrigger with captured audio" << endl;
     cout << static_cast<char>(Command::kDisableSoundTrigger)
          << ". Disable SoundTrigger" << endl;
     cout << static_cast<char>(Command::kPlayTone) << ". Play Tone" << endl;
@@ -392,6 +464,9 @@ int main(const int argc, const char * const argv[]) {
         break;
       case CommandMenu::Command::kEnableSoundTrigger:
         test.EnableSoundTrigger();
+        break;
+      case CommandMenu::Command::kEnableSoundTriggerLAB:
+        test.EnableSoundTriggerLAB();
         break;
       case CommandMenu::Command::kDisableSoundTrigger:
         test.DisableSoundTrigger();

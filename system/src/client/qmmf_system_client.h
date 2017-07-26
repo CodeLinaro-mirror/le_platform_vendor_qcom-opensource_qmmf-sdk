@@ -54,7 +54,8 @@ class SystemClient {
 
   status_t LoadSoundModel(const SoundModel& soundmodel);
   status_t UnloadSoundModel();
-  status_t EnableSoundTrigger(const TriggerCb& callback);
+  status_t EnableSoundTrigger(const TriggerConfig& config,
+                              const TriggerCb& callback);
   status_t DisableSoundTrigger();
 
   status_t RegisterForDeviceEvents(const DeviceCb& callback);
@@ -70,7 +71,7 @@ class SystemClient {
 
   // callbacks from service
   void NotifySystemEvent(const int32_t error);
-  void NotifyTriggerEvent(const int32_t error);
+  void NotifyTriggerEvent(const int32_t error, const BufferDescriptor& buffer);
   void NotifyDeviceEvent(const DeviceInfo& device);
   void NotifyToneEvent(const int32_t error);
 
@@ -115,7 +116,7 @@ class ServiceCallbackHandler : public BnSystemServiceCallback {
  private:
   // methods of BnSystemServiceCallback
   void NotifySystemEvent(const int32_t error);
-  void NotifyTriggerEvent(const int32_t error);
+  void NotifyTriggerEvent(const int32_t error, const BufferDescriptor& buffer);
   void NotifyDeviceEvent(const DeviceInfo& device);
   void NotifyToneEvent(const int32_t error);
 

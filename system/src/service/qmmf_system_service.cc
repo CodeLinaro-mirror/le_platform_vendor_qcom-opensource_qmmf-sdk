@@ -78,7 +78,8 @@ SystemService::SystemService() {
     };
 
   SystemTriggerHandler trigger_handler =
-    [this](const SystemHandle system_handle, const int32_t error) -> void {
+    [this](const SystemHandle system_handle, const int32_t error,
+           const BufferDescriptor& buffer) -> void {
       ClientHandlerMap::iterator client_handler_iterator =
           client_handlers_.find(system_handle);
       if (client_handler_iterator == client_handlers_.end()) {
@@ -87,7 +88,7 @@ SystemService::SystemService() {
         return;
       }
 
-      client_handler_iterator->second->NotifyTriggerEvent(error);
+      client_handler_iterator->second->NotifyTriggerEvent(error, buffer);
     };
 
   SystemDeviceHandler device_handler =
@@ -226,12 +227,15 @@ status_t SystemService::UnloadSoundModel(const SystemHandle system_handle) {
   return result;
 }
 
-status_t SystemService::EnableSoundTrigger(const SystemHandle system_handle) {
+status_t SystemService::EnableSoundTrigger(const SystemHandle system_handle,
+                                           const TriggerConfig& config) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
                system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+               config.ToString().c_str());
 
-  status_t result = system_impl_.EnableSoundTrigger(system_handle);
+  status_t result = system_impl_.EnableSoundTrigger(system_handle, config);
   if (result < 0)
     QMMF_ERROR("%s: %s() impl->EnableSoundTrigger failed: %d", TAG, __func__,
                result);
@@ -406,11 +410,15 @@ status_t SystemService::onTransact(uint32_t code, const Parcel& input,
 
     case SystemServiceCommand::kSystemEnableSoundTrigger: {
       SystemHandle system_handle = static_cast<SystemHandle>(input.readInt32());
+      TriggerConfigInternal config;
+      config.FromParcel(input);
 
       QMMF_DEBUG("%s: %s-SystemEnableSoundTrigger() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-SystemEnableSoundTrigger() INPARAM: system_handle[%d]",
                    TAG, __func__, system_handle);
-      status_t result = EnableSoundTrigger(system_handle);
+      QMMF_VERBOSE("%s: %s-SystemEnableSoundTrigger() INPARAM: config[%s]",
+                   TAG, __func__, config.ToString().c_str());
+      status_t result = EnableSoundTrigger(system_handle, config);
 
       output->writeInt32(result);
       break;

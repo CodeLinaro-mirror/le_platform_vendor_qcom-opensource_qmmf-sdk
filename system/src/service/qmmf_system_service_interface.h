@@ -73,7 +73,8 @@ class ISystemServiceCallback : public ::android::IInterface {
   DECLARE_META_INTERFACE(SystemServiceCallback);
 
   virtual void NotifySystemEvent(const int32_t error) = 0;
-  virtual void NotifyTriggerEvent(const int32_t error) = 0;
+  virtual void NotifyTriggerEvent(const int32_t error,
+                                  const BufferDescriptor& buffer) = 0;
   virtual void NotifyDeviceEvent(const DeviceInfo& device) = 0;
   virtual void NotifyToneEvent(const int32_t error) = 0;
 };
@@ -90,7 +91,8 @@ class ISystemService : public ::android::IInterface {
   virtual status_t LoadSoundModel(const SystemHandle system_handle,
                                   const SoundModel& soundmodel) = 0;
   virtual status_t UnloadSoundModel(const SystemHandle system_handle) = 0;
-  virtual status_t EnableSoundTrigger(const SystemHandle system_handle) = 0;
+  virtual status_t EnableSoundTrigger(const SystemHandle system_handle,
+                                      const TriggerConfig& config) = 0;
   virtual status_t DisableSoundTrigger(const SystemHandle system_handle) = 0;
 
   virtual status_t RegisterForDeviceEvents(const SystemHandle system_handle) = 0;
