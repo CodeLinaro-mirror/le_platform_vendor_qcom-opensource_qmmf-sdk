@@ -48,15 +48,24 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-// Need to use unified qmmf format (BufferFormat?)
-struct PostProcCreateParam {
-  uint32_t     stride;
-  uint32_t     scanline;
+/** PostProcIOParam:
+ *    @width: Width in pixels
+ *    @height: Height in pixels
+ *    @stride: Stride in bytes
+ *    @scanline: Scanline in lines
+ *    @frame_rate: Frame rate
+ *    @format: QMMF image format
+ *
+ *  This class defines module input and output parameters
+ **/
+struct PostProcIOParam {
   uint32_t     width;
   uint32_t     height;
-  int32_t      format;
+  uint32_t     stride;
+  uint32_t     scanline;
+  uint32_t     frame_rate;
+  BufferFormat format;
 };
-
 
 /** PostProcReqs:
  *    @formats_: supported input formats
@@ -165,13 +174,13 @@ class IPostProcModule : public RefBase {
 
    virtual status_t Stop() = 0;
 
-   virtual PostProcCreateParam GetInput(const PostProcCreateParam &out) = 0;
+   virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
 
-   virtual PostProcCreateParam GetOutput(const PostProcCreateParam &in) = 0;
+   virtual PostProcIOParam GetOutput(const PostProcIOParam &in) = 0;
 
-   virtual status_t ValidateInput(const PostProcCreateParam &input) = 0;
+   virtual status_t ValidateInput(const PostProcIOParam &input) = 0;
 
-   virtual status_t ValidateOutput(const PostProcCreateParam &output) = 0;
+   virtual status_t ValidateOutput(const PostProcIOParam &output) = 0;
 
    virtual status_t GetCapabilities(PostProcCaps &caps) = 0;
 };

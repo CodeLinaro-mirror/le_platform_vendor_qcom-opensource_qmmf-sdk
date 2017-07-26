@@ -120,6 +120,8 @@ class Common {
         break;
       default:
         /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
         return -1;
     }
   }
@@ -155,6 +157,8 @@ class Common {
         break;
       default:
         /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
         return BufferFormat::kUnsupported;
     }
   }

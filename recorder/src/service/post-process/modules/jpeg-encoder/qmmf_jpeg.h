@@ -70,13 +70,13 @@ class PostProcJpeg : public IPostProcModule {
 
   status_t Stop() override;
 
-  PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
+  PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
-  PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
+  PostProcIOParam GetOutput(const PostProcIOParam &in)override;
 
-  status_t ValidateInput(const PostProcCreateParam &input) override;
+  status_t ValidateInput(const PostProcIOParam &input) override;
 
-  status_t ValidateOutput(const PostProcCreateParam &output) override;
+  status_t ValidateOutput(const PostProcIOParam &output) override;
 
   status_t GetCapabilities(PostProcCaps &caps) override;
 
@@ -88,16 +88,16 @@ class PostProcJpeg : public IPostProcModule {
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
-  PostProcCreateParam            input_param_;
-  PostProcCreateParam            output_param_;
+  PostProcIOParam                input_param_;
+  PostProcIOParam                output_param_;
 
-  static const uint32_t kMinWidth  = 160;
-  static const uint32_t kMinHeight = 120;
-  static const uint32_t kMaxWidth  = 5104;
-  static const uint32_t kMaxHeight = 4092;
+  static const uint32_t          kMinWidth;
+  static const uint32_t          kMinHeight;
+  static const uint32_t          kMaxWidth;
+  static const uint32_t          kMaxHeight;
 
-  static const int32_t kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  static const int32_t kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
+  static const int32_t           kSupportedInputFormat;
+  static const int32_t           kSupportedOutputFormat;
 };
 
 }; //namespace recorder

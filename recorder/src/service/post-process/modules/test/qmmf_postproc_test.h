@@ -69,13 +69,13 @@ class PostProcTest : public IPostProcModule {
 
    status_t Stop() override;
 
-   PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
+   PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
-   PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
+   PostProcIOParam GetOutput(const PostProcIOParam &in)override;
 
-   status_t ValidateInput(const PostProcCreateParam &input) override;
+   status_t ValidateInput(const PostProcIOParam &input) override;
 
-   status_t ValidateOutput(const PostProcCreateParam &output) override;
+   status_t ValidateOutput(const PostProcIOParam &output) override;
 
    status_t GetCapabilities(PostProcCaps &caps) override;
 

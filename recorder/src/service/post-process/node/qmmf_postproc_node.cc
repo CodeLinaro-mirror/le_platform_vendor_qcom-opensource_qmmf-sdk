@@ -135,59 +135,22 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
 
 PostProcIOParam PostProcNode::GetInput(const PostProcIOParam &out) {
   output_param_ = out;
-  PostProcCreateParam output;
-  output.width  = out.width;
-  output.height = out.height;
-  output.format = Common::FromQmmfToHalFormat(out.format);
-  output.stride = out.width;
-  output.scanline = out.height;
-
-  PostProcCreateParam input = module_->GetInput(output);
-  input_param_.width = input.width;
-  input_param_.height = input.height;
-  input_param_.format = Common::FromHalToQmmfFormat(input.format);
-  input_param_.frame_rate = out.frame_rate;
+  input_param_ = module_->GetInput(out);
   return input_param_;
 }
 
-
 PostProcIOParam PostProcNode::GetOutput(const PostProcIOParam &in) {
-  input_param_  = in;
-  PostProcCreateParam input;
-  input.width  = in.width;
-  input.height = in.height;
-  input.format = Common::FromQmmfToHalFormat(in.format);
-  input.stride = in.width;
-  input.scanline = in.height;
-
-  PostProcCreateParam output = module_->GetOutput(input);
-  output_param_.width = output.width;
-  output_param_.height = output.height;
-  output_param_.format = Common::FromHalToQmmfFormat(output.format);
-  output_param_.frame_rate = in.frame_rate;
+  input_param_ = in;
+  output_param_ = module_->GetOutput(in);
   return output_param_;
 }
 
 status_t PostProcNode::ValidateInput(const PostProcIOParam &in) {
-  PostProcCreateParam input;
-  input.width  = in.width;
-  input.height = in.height;
-  input.format = Common::FromQmmfToHalFormat(in.format);
-  input.stride = in.width;
-  input.scanline = in.height;
-
-  return module_->ValidateInput(input);
+  return module_->ValidateInput(in);
 }
 
 status_t PostProcNode::ValidateOutput(const PostProcIOParam &out) {
-  PostProcCreateParam output;
-  output.width  = out.width;
-  output.height = out.height;
-  output.format = Common::FromQmmfToHalFormat(out.format);
-  output.stride = out.width;
-  output.scanline = out.height;
-
-  return module_->ValidateOutput(output);
+  return module_->ValidateOutput(out);
 }
 
 status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {

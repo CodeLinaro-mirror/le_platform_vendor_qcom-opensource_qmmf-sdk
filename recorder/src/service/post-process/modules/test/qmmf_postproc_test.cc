@@ -73,19 +73,19 @@ status_t PostProcTest::Create(const int32_t stream_id,
   return NO_ERROR;
 }
 
-PostProcCreateParam PostProcTest::GetInput(const PostProcCreateParam &out) {
+PostProcIOParam PostProcTest::GetInput(const PostProcIOParam &out) {
   return out;
 }
 
-PostProcCreateParam PostProcTest::GetOutput(const PostProcCreateParam &in) {
+PostProcIOParam PostProcTest::GetOutput(const PostProcIOParam &in) {
   return in;
 }
 
-status_t PostProcTest::ValidateInput(const PostProcCreateParam &input) {
+status_t PostProcTest::ValidateInput(const PostProcIOParam &input) {
   return NO_ERROR;
 }
 
-status_t PostProcTest::ValidateOutput(const PostProcCreateParam &output) {
+status_t PostProcTest::ValidateOutput(const PostProcIOParam &output) {
   return NO_ERROR;
 }
 

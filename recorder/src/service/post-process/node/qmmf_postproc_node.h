@@ -52,34 +52,6 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
-struct PostProcNodeCreate {
-  PostProcCreateParam   in;
-  PostProcCreateParam   out;
-  uint32_t              frame_rate;
-  uint32_t              max_buffer_count;
-};
-
-struct PostProcImgParams {
-  uint32_t           width;
-  uint32_t           height;
-  int32_t            format;
-  int32_t            gralloc_flags;
-  uint32_t           max_buffer_count;
-  uint32_t           max_size;
-  uint32_t           frame_rate;
-};
-
-struct PostProcNodeParams {
-  PostProcImgParams  in;
-  PostProcImgParams  out;
-};
-
-struct PostProcIOParam {
-  uint32_t     width;
-  uint32_t     height;
-  uint32_t     frame_rate;
-  BufferFormat format;
-};
 
 enum class PostProcNodeState {
   CREATED,
@@ -222,8 +194,6 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    sp<MemPool>                       mem_pool_;
    sp<IPostProcModule>               module_;
-
-   PostProcNodeParams                init_params_;
 
    PostProcIOParam                   input_param_;
    PostProcIOParam                   output_param_;

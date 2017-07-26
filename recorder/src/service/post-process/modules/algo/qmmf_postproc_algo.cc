@@ -103,7 +103,7 @@ status_t PostProcAlg::Create(const int32_t stream_id,
   return NO_ERROR;
 }
 
-PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
+PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   Requirements requirements;
   input_param_ = output_param_ = out;
 
@@ -111,8 +111,7 @@ PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
   requirements.height_   = out.height;
   requirements.stride_   = out.stride;
   requirements.scanline_ = out.scanline;
-  // todo: get work with qmmf format (PixelFormat) instead of HAL format
-  //algo_params.formats_.push_back(GetAlgFormat(out.format));
+  requirements.formats_.push_back(GetAlgFormat(out.format));
 
   std::vector<Requirements> alg_out = {requirements};
   requirements = algo_->GetInputRequirements(alg_out);
@@ -121,12 +120,12 @@ PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
   input_param_.height   = requirements.height_;
   input_param_.stride   = requirements.stride_;
   input_param_.scanline = requirements.scanline_;
-  //in.format   = GetQmmfFormat(algo_params.formats_.front());
+  input_param_.format   = GetQmmfFormat(requirements.formats_.front());
 
   return input_param_;
 }
 
-PostProcCreateParam PostProcAlg::GetOutput(const PostProcCreateParam &in) {
+PostProcIOParam PostProcAlg::GetOutput(const PostProcIOParam &in) {
   Capabilities caps = algo_->GetCaps();
   if (caps.scale_support_) return output_param_;
 
@@ -134,70 +133,26 @@ PostProcCreateParam PostProcAlg::GetOutput(const PostProcCreateParam &in) {
   return output_param_;
 }
 
-status_t PostProcAlg::ValidateInput(const PostProcCreateParam &input) {
+status_t PostProcAlg::ValidateInput(const PostProcIOParam &input) {
   Capabilities caps = algo_->GetCaps();
 
-  PixelFormat pix_fmt;
-  switch (input.format) {
-    case HAL_PIXEL_FORMAT_YCbCr_420_888:
-      pix_fmt = kNv12;
-      break;
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-      pix_fmt = kNv21;
-      break;
-    case HAL_PIXEL_FORMAT_BLOB:
-      pix_fmt = kJpeg;
-      break;
-    case HAL_PIXEL_FORMAT_RAW10:
-      pix_fmt = kRawBggrMipi10;
-      break;
-    case HAL_PIXEL_FORMAT_RAW12:
-      pix_fmt = kRawBggrMipi12;
-      break;
-    case HAL_PIXEL_FORMAT_RAW16:
-      pix_fmt = kRawBggr16;
-      break;
-    default:
-      pix_fmt = kNv12;
-  }
-
-  if (caps.in_buffer_requirements_.pixel_formats_.count(pix_fmt) == 0) {
-    QMMF_ERROR("%s:%s: Input format not supported", TAG, __func__);
+  if (caps.in_buffer_requirements_.pixel_formats_.
+        count(GetAlgFormat(input.format)) == 0) {
+    QMMF_ERROR("%s:%s: Input format %d alg %x not supported", TAG, __func__,
+        input.format, (unsigned int)GetAlgFormat(input.format));
     return BAD_TYPE;
   }
 
   return NO_ERROR;
 }
 
-status_t PostProcAlg::ValidateOutput(const PostProcCreateParam &output) {
+status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
   Capabilities caps = algo_->GetCaps();
 
-  PixelFormat pix_fmt;
-  switch (output.format) {
-    case HAL_PIXEL_FORMAT_YCbCr_420_888:
-      pix_fmt = kNv12;
-      break;
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-      pix_fmt = kNv21;
-      break;
-    case HAL_PIXEL_FORMAT_BLOB:
-      pix_fmt = kJpeg;
-      break;
-    case HAL_PIXEL_FORMAT_RAW10:
-      pix_fmt = kRawBggrMipi10;
-      break;
-    case HAL_PIXEL_FORMAT_RAW12:
-      pix_fmt = kRawBggrMipi12;
-      break;
-    case HAL_PIXEL_FORMAT_RAW16:
-      pix_fmt = kRawBggr16;
-      break;
-    default:
-      pix_fmt = kNv12;
-  }
-
-  if (caps.out_buffer_requirements_.pixel_formats_.count(pix_fmt) == 0) {
-    QMMF_ERROR("%s:%s: Input format not supported", TAG, __func__);
+  if (caps.out_buffer_requirements_.pixel_formats_.
+        count(GetAlgFormat(output.format)) == 0) {
+    QMMF_ERROR("%s:%s: Output format %d alg %x not supported", TAG, __func__,
+        output.format, (unsigned int)GetAlgFormat(output.format));
     return BAD_TYPE;
   }
 

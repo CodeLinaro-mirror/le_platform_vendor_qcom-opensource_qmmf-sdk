@@ -37,6 +37,14 @@ namespace qmmf {
 
 namespace recorder {
 
+const uint32_t PostProcJpeg::kMinWidth  = 160;
+const uint32_t PostProcJpeg::kMinHeight = 120;
+const uint32_t PostProcJpeg::kMaxWidth  = 5104;
+const uint32_t PostProcJpeg::kMaxHeight = 4092;
+
+const int32_t PostProcJpeg::kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_888;
+const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
+
 PostProcJpeg::PostProcJpeg()
     : reprocess_flag_(false),
       ready_to_start_(false),
@@ -75,20 +83,20 @@ status_t PostProcJpeg::Create(const int32_t stream_id,
   return NO_ERROR;
 }
 
-PostProcCreateParam PostProcJpeg::GetInput(const PostProcCreateParam &out) {
+PostProcIOParam PostProcJpeg::GetInput(const PostProcIOParam &out) {
   input_param_ = output_param_ = out;
-  input_param_.format = kSupportedInputFormat;
+  input_param_.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
   return input_param_;
 }
 
-PostProcCreateParam PostProcJpeg::GetOutput(const PostProcCreateParam &in) {
+PostProcIOParam PostProcJpeg::GetOutput(const PostProcIOParam &in) {
   output_param_ = input_param_ = in;
-  output_param_.format = kSupportedOutputFormat;
+  output_param_.format = Common::FromHalToQmmfFormat(kSupportedOutputFormat);
   return output_param_;
 }
 
-status_t PostProcJpeg::ValidateInput(const PostProcCreateParam &input) {
-  if (input.format != kSupportedInputFormat) {
+status_t PostProcJpeg::ValidateInput(const PostProcIOParam &input) {
+  if (input.format != Common::FromHalToQmmfFormat(kSupportedInputFormat)) {
     QMMF_ERROR("%s: Input format(%d) not supported", __func__, input.format);
     return BAD_TYPE;
   }
@@ -103,8 +111,8 @@ status_t PostProcJpeg::ValidateInput(const PostProcCreateParam &input) {
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::ValidateOutput(const PostProcCreateParam &output) {
-  if (output.format != kSupportedOutputFormat) {
+status_t PostProcJpeg::ValidateOutput(const PostProcIOParam &output) {
+  if (output.format != Common::FromHalToQmmfFormat(kSupportedOutputFormat)) {
     QMMF_ERROR("%s: Output format(%d) not supported", __func__, output.format);
     return BAD_TYPE;
   }
