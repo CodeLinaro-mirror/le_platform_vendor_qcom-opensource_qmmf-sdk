@@ -89,6 +89,8 @@ RecorderTest::RecorderTest() :
             session_enabled_(false),
             preview_session_id_(0),
             snapshot_choice_(SnapshotType::kNone),
+            dump_aec_awb_stats_(false),
+            dump_histogram_stats_(false),
             num_images_(0),
             aec_converged_(false),
             ltr_count_(0) {
@@ -4398,7 +4400,7 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
         } else if (!strcmp(optarg, "HEVC")) {
           track_param->format_type = VideoFormat::kHEVC;
         } else {
-          TEST_ERROR("%s:%s: Invalid TrackType = %s", TAG, __func__, val);
+          TEST_ERROR("%s:%s: Invalid TrackType = %s", TAG, __func__, optarg);
           return -EINVAL;
         }
         break;
