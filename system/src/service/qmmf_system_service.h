@@ -60,7 +60,8 @@ class SystemService : public ::android::BnInterface<ISystemService>
   status_t LoadSoundModel(const SystemHandle system_handle,
                           const SoundModel& soundmodel) override;
   status_t UnloadSoundModel(const SystemHandle system_handle) override;
-  status_t EnableSoundTrigger(const SystemHandle system_handle) override;
+  status_t EnableSoundTrigger(const SystemHandle system_handle,
+                              const TriggerConfig& config) override;
   status_t DisableSoundTrigger(const SystemHandle system_handle) override;
 
   status_t RegisterForDeviceEvents(const SystemHandle system_handle) override;

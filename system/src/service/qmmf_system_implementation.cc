@@ -139,12 +139,14 @@ status_t SystemImplementation::UnloadSoundModel(
 }
 
 status_t SystemImplementation::EnableSoundTrigger(
-    const SystemHandle system_handle) {
+    const SystemHandle system_handle, const TriggerConfig& config) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
                system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+               config.ToString().c_str());
 
-  status_t result = trigger_.EnableSoundTrigger(system_handle,
+  status_t result = trigger_.EnableSoundTrigger(system_handle, config,
                                                 trigger_handler_);
   if (result < 0)
     QMMF_ERROR("%s: %s() failed to enable SoundTrigger: %d",

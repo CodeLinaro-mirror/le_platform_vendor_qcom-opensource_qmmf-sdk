@@ -118,11 +118,14 @@ status_t System::UnloadSoundModel() {
   return result;
 }
 
-status_t System::EnableSoundTrigger(const TriggerCb& callback) {
+status_t System::EnableSoundTrigger(const TriggerConfig& config,
+                                    const TriggerCb& callback) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+               config.ToString().c_str());
   assert(system_client_ != nullptr);
 
-  status_t result = system_client_->EnableSoundTrigger(callback);
+  status_t result = system_client_->EnableSoundTrigger(config, callback);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->EnableSoundTrigger failed: %d", TAG, __func__,
                result);

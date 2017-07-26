@@ -31,11 +31,13 @@
 
 #include <cstdint>
 #include <functional>
+#include <iomanip>
 #include <sstream>
 #include <string>
 
 #include <sys/types.h>
 
+#include "qmmf-sdk/qmmf_buffer.h"
 #include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_device.h"
 
@@ -50,7 +52,8 @@ typedef int32_t status_t;
 typedef ::std::function<void(const int32_t error)> SystemCb;
 
 // SoundTrigger recognized utterance, or error occurred
-typedef ::std::function<void(const int32_t error)> TriggerCb;
+typedef ::std::function<void(const int32_t error,
+                             const BufferDescriptor& buffer)> TriggerCb;
 
 // device was unplugged or plugged
 typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
@@ -59,17 +62,35 @@ typedef ::std::function<void(const DeviceInfo& device)> DeviceCb;
 typedef ::std::function<void(const int32_t error)> ToneCb;
 
 struct SoundModel {
-  DeviceId device;
   uint32_t keywords;
   uint32_t size;
   void*    data;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
-    stream << "device[" << device << "] ";
     stream << "keywords[" << keywords << "] ";
     stream << "size[" << size << "] ";
     stream << "data[" << data << "]";
+    return stream.str();
+  }
+};
+
+struct TriggerConfig {
+  DeviceId device;
+  bool request_capture;
+  uint32_t capture_duration; // milliseconds
+  bool with_keyword;
+  uint32_t keyword_duration; // milliseconds
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "device[" << device << "] ";
+    stream << "request_capture[" << ::std::boolalpha << request_capture
+           << ::std::noboolalpha << "] ";
+    stream << "capture_duration[" << capture_duration << "] ";
+    stream << "with_keyword[" << ::std::boolalpha << with_keyword
+           << ::std::noboolalpha << "]";
+    stream << "keyword_duration[" << keyword_duration << "]";
     return stream.str();
   }
 };
