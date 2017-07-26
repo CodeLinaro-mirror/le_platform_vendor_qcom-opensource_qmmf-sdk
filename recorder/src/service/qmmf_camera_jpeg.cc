@@ -95,8 +95,8 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
   return 55; //TODO use reprocess ID
 }
 
-status_t CameraJpeg::GetCapabilities(ReprocCaps *caps) {
-  caps->internal_buff = 1;
+status_t CameraJpeg::GetCapabilities(PostProcCaps *caps) {
+  caps->output_buff_ = 1;
   // TODO
   return NO_ERROR;
 }

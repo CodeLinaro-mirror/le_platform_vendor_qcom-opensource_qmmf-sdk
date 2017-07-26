@@ -33,20 +33,20 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include "recorder/src/service/camera-reprocess/plugin/qmmf_camera_plugin.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
 #include "recorder/src/service/qmmf_camera_context.h"
-#include "recorder/src/service/camera-reprocess/node/qmmf_camera_node.h"
 
-#include "recorder/src/service/camera-reprocess/plugin/qmmf_camera_plugin.cc"
+#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
+#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
+#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class ReprocessPlugin<CameraContext>;
-template class ReprocessPlugin<ReprocessNode>;
+template class PostProcPlugin<CameraContext>;
+template class PostProcPlugin<PostProcNode>;
 
 }; // namespace recoder
 

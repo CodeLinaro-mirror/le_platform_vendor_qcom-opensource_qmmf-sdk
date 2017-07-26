@@ -61,7 +61,7 @@ MultiCameraManager::MultiCameraManager()
     multicam_start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
-    sequence_cnt_(0),
+    sequence_cnt_(1),
     jpeg_encoding_enabled_(false),
     client_snapshot_cb_(nullptr) {}
 
@@ -221,10 +221,13 @@ status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::SetUpCapture(const ImageParam &param) {
+status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
+                                          const uint32_t num_images) {
 
   Mutex::Autolock lock(lock_);
   status_t ret = NO_ERROR;
+
+  sequence_cnt_ = num_images;
 
   bool reconfigure_needed = (snapshot_param_.width != param.width) ||
                             (snapshot_param_.height != param.height);
@@ -273,7 +276,7 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param) {
 
   for (size_t idx = 0; idx < camera_contexts_.size(); ++idx) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(idx);
-    ret = camera_context->SetUpCapture(capture_param);
+    ret = camera_context->SetUpCapture(capture_param, num_images);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: SetUpCapture Failed!", TAG, __func__);
       return ret;
@@ -295,7 +298,7 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
+status_t MultiCameraManager::CaptureImage(const
                                           std::vector<CameraMetadata> &meta,
                                           const StreamSnapshotCb& cb) {
 
@@ -306,7 +309,6 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
     QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
     return BAD_VALUE;
   }
-  sequence_cnt_ = num_images;
 
   if (jpeg_encoding_enabled_) {
     StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buffer) {
@@ -322,7 +324,13 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
 
+  // Always use synchronized request for capture.
   std::vector<CameraMetadata> capture_meta = meta;
+
+  const uint8_t sync_req = 1;
+  capture_meta[0].update(qcamera::QCAMERA3_DUALCAM_SYNCHRONIZED_REQUEST,
+                         &sync_req, 1);
+
   for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
@@ -332,7 +340,7 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
       QMMF_ERROR("%s:%s: FillDualCamMetadata failed!", TAG, __func__);
       return ret;
     }
-    ret = camera_context->CaptureImage(num_images, capture_meta, stream_cb);
+    ret = camera_context->CaptureImage(capture_meta, stream_cb);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: CaptureImage with DualLink Failed!", TAG, __func__);
       return ret;
