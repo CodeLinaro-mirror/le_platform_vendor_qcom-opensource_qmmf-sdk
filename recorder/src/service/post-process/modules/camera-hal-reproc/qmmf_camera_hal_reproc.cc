@@ -161,7 +161,7 @@ PostProcCreateParam CameraHalReproc::GetInput(const PostProcCreateParam &out) {
   // Save the output parameters as well, we will need them later.
   input_param_ = output_param_ = out;
   // work around since HAL does not report supported formats correctly
-  input_param_.format = HAL_PIXEL_FORMAT_RAW10;
+  input_param_.format = HAL_PIXEL_FORMAT_RAW16;
   return input_param_;
 }
 
@@ -192,7 +192,9 @@ status_t CameraHalReproc::ValidateInput(const PostProcCreateParam &input) {
     if ((entry.data.i32[i] == input.format &&
         HAL_PIXEL_FORMAT_RAW10 == input.format) ||
         (entry.data.i32[i] == input.format &&
-        HAL_PIXEL_FORMAT_RAW12 == input.format)) {
+        HAL_PIXEL_FORMAT_RAW12 == input.format) ||
+        (entry.data.i32[i] == input.format &&
+        HAL_PIXEL_FORMAT_RAW16 == input.format)) {
       supported = true;
       break;
     }
@@ -386,13 +388,26 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     }
   }
 
-  // meta is missing append to queue directly
   if (append) {
+    // meta is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.buffer = buf;
     new_entry.timestamp = buf.timestamp;
     new_entry.metadata.clear();
     reproc_partial_list_.push_back(new_entry);
+  } else {
+    // clean up older metadata in partial list
+    if (!reproc_partial_list_.empty()) {
+      auto it = reproc_partial_list_.begin();
+      auto end = reproc_partial_list_.end();
+      while (it != end) {
+        if (it->timestamp >= buf.timestamp) {
+          // clean up only first entries which has lower than buf time stamp
+          break;
+        }
+        it = reproc_partial_list_.erase(it);
+      }
+    }
   }
 }
 

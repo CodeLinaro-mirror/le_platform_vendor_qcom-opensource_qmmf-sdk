@@ -1323,10 +1323,6 @@ TEST_F(RecorderGtest, 4KSnapshot) {
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
-
     meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
@@ -1367,6 +1363,52 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id      = camera_id_;
+  video_track_param.width          = 640;
+  video_track_param.height         = 480;
+  video_track_param.frame_rate     = 30;
+  video_track_param.format_type    = VideoFormat::kAVC;
+  video_track_param.low_power_mode = false;
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(1);
 
   ImageParam image_param;
   memset(&image_param, 0x0, sizeof image_param);
@@ -1442,6 +1484,17 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
 
   ret = recorder_.DeletePlugin(edge_smooth_plugin.uid);
   assert(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
@@ -1849,10 +1902,6 @@ TEST_F(RecorderGtest, BurstSnapshot) {
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-  uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-  ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-  assert(ret == NO_ERROR);
-
   meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   uint32_t num_images = 30;
@@ -2045,10 +2094,6 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-    uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
-    ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
 
     meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,

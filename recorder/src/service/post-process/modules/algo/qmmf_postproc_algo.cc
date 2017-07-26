@@ -162,6 +162,9 @@ status_t PostProcAlg::ValidateInput(const PostProcCreateParam &input) {
     case HAL_PIXEL_FORMAT_RAW12:
       pix_fmt = kRawBggrMipi12;
       break;
+    case HAL_PIXEL_FORMAT_RAW16:
+      pix_fmt = kRawBggr16;
+      break;
     default:
       pix_fmt = kNv12;
   }
@@ -201,6 +204,9 @@ status_t PostProcAlg::ValidateOutput(const PostProcCreateParam &output) {
       break;
     case HAL_PIXEL_FORMAT_RAW12:
       pix_fmt = kRawBggrMipi12;
+      break;
+    case HAL_PIXEL_FORMAT_RAW16:
+      pix_fmt = kRawBggr16;
       break;
     default:
       pix_fmt = kNv12;
