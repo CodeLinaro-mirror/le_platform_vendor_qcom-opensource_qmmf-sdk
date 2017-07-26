@@ -55,6 +55,8 @@ using namespace qmmf_alg_plugin;
  *    @scanline: Scanline in lines
  *    @frame_rate: Frame rate
  *    @format: QMMF image format
+ *    @gralloc_flags: output buffers gralloc flags
+ *    @buffer_count: output buffer count
  *
  *  This class defines module input and output parameters
  **/
@@ -65,6 +67,8 @@ struct PostProcIOParam {
   uint32_t     scanline;
   uint32_t     frame_rate;
   BufferFormat format;
+  int32_t      gralloc_flags;
+  uint32_t     buffer_count;
 };
 
 /** PostProcReqs:

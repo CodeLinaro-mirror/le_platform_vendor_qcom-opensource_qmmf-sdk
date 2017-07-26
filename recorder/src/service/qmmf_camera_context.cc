@@ -158,17 +158,8 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     ret = PostProcCreate(capture_plugins_);
     assert(ret == NO_ERROR);
 
-    PipeOutputParam out_param;
-    out_param.width = stream_param.width;
-    out_param.height = stream_param.height;
-    out_param.format = stream_param.format;
-    out_param.frame_rate = camera_start_params_.frame_rate;
-    out_param.image_quality = param.image_quality;
-
-    ret = PostProcBeginInit(out_param);
-    assert(ret == NO_ERROR);
-
-    ret = PostProcUpdateStreamParams(stream_param);
+    ret = PostProcUpdateStreamParams(stream_param, param.image_quality,
+                                     camera_start_params_.frame_rate);
     assert(ret == NO_ERROR);
   }
 
@@ -187,13 +178,13 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_request_.streamIds.add(stream_id);
 
   if (postproc_enable_) {
-    PipeInputParam in_param;
+    PipeIOParam in_param;
     in_param.width = stream_param.width;
     in_param.height = stream_param.height;
     in_param.format = stream_param.format;
     in_param.frame_rate = camera_start_params_.frame_rate;
 
-    ret = PostProcEndInit(stream_id, sequence_cnt_, in_param);
+    ret = PostProcInit(stream_id, in_param);
     assert(ret == NO_ERROR);
   }
   return ret;
@@ -1704,8 +1695,7 @@ status_t CameraContext::PostProcCreate(const std::vector<uint32_t> &plugins) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-  PostProcPipeType pipe_type = PostProcPipeType::kSnapshot;
-  postproc_pipe_ = new PostProcPipe(this, pipe_type, plugins);
+  postproc_pipe_ = new PostProcPipe(this, plugins);
   assert(postproc_pipe_.get() != nullptr);
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -1727,36 +1717,28 @@ status_t CameraContext::PostProcDelete() {
   return NO_ERROR;
 }
 
-status_t CameraContext::PostProcBeginInit(const PipeOutputParam &output) {
-
-  return postproc_pipe_->BeginInit(output);
-}
-
 status_t
-CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param) {
+CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
+                                          uint32_t image_quality,
+                                          uint32_t frame_rate) {
+  PipeIOParam out_param;
+  out_param.width = stream_param.width;
+  out_param.height = stream_param.height;
+  out_param.format = stream_param.format;
+  out_param.frame_rate = frame_rate;
+  out_param.image_quality = image_quality;
+  out_param.gralloc_flags = stream_param.grallocFlags;
+  out_param.buffer_count = stream_param.bufferCount;
 
-  PipeInputParam reproc_in_param;
-  auto ret = postproc_pipe_->GetInput(reproc_in_param);
-  assert(ret == NO_ERROR);
-
-  stream_param.format = reproc_in_param.format;
-  stream_param.width  = reproc_in_param.width;
-  stream_param.height = reproc_in_param.height;
-
-  if (stream_param.format == HAL_PIXEL_FORMAT_RAW10 ||
-      stream_param.format == HAL_PIXEL_FORMAT_RAW12 ||
-      stream_param.format == HAL_PIXEL_FORMAT_RAW16) {
-    camera_metadata_entry_t entry;
-    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        stream_param.width = entry.data.i32[i+0];
-        stream_param.height = entry.data.i32[i+1];
-        QMMF_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG, __func__,
-            i, stream_param.width, stream_param.height);
-      }
-    }
+  PipeIOParam in_param;
+  auto ret = postproc_pipe_->GetInput(in_param, out_param);
+  if (ret != NO_ERROR) {
+    return ret;
   }
+
+  stream_param.format = in_param.format;
+  stream_param.width  = in_param.width;
+  stream_param.height = in_param.height;
 
   QMMF_INFO("%s:%s: input dim %dx%d format %x ", TAG, __func__,
       stream_param.width, stream_param.height, stream_param.format);
@@ -1764,14 +1746,13 @@ CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param) 
   return NO_ERROR;
 }
 
-int32_t CameraContext::PostProcEndInit(int32_t stream_id,
-                                     uint32_t max_buffer_count,
-                                     const PipeInputParam &input) {
+int32_t CameraContext::PostProcInit(int32_t stream_id,
+                                    const PipeIOParam &input) {
 
-  auto reproc_id = postproc_pipe_->EndInit(stream_id, input, max_buffer_count);
-  if(reproc_id < 0) {
-    QMMF_ERROR("%s:%s: Failed to init reprocess pipe!", TAG, __func__);
-    return BAD_VALUE;
+  auto ret = postproc_pipe_->Init(stream_id, input);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed to init post proc pipe!", TAG, __func__);
+    return ret;
   }
 
   postproc_pipe_->AddConsumer(GetConsumerIntf());
@@ -1833,11 +1814,9 @@ status_t CameraPort::Init() {
   cam_stream_params_.grallocFlags =
       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
-  PostProcPipeType pipe_type;
 
   if (params_.low_power_mode) {
       cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
-      pipe_type = PostProcPipeType::kPreview;
   } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
@@ -1846,7 +1825,6 @@ status_t CameraPort::Init() {
         && params_.cam_stream_dim.height == 2160) {
       cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
     }
-    pipe_type = PostProcPipeType::kVideo;
   }
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
@@ -1855,22 +1833,23 @@ status_t CameraPort::Init() {
 
   if (context_->video_plugins_.count(port_id_) != 0) {
     auto port_plugins = context_->video_plugins_.at(port_id_);
-    postproc_pipe_ = new PostProcPipe(context_, pipe_type, port_plugins);
+    postproc_pipe_ = new PostProcPipe(context_, port_plugins);
     assert(postproc_pipe_.get() != nullptr);
 
-    PipeOutputParam out_param;
+    PipeIOParam out_param;
     out_param.width = cam_stream_params_.width;
     out_param.height = cam_stream_params_.height;
     out_param.format = cam_stream_params_.format;
     out_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
     out_param.image_quality = 100;
+    out_param.gralloc_flags = cam_stream_params_.grallocFlags;
+    out_param.buffer_count = cam_stream_params_.bufferCount;
 
-    auto ret = postproc_pipe_->BeginInit(out_param);
-    assert(ret == NO_ERROR);
-
-    PipeInputParam in_param;
-    ret = postproc_pipe_->GetInput(in_param);
-    assert(ret == NO_ERROR);
+    PipeIOParam in_param;
+    auto ret = postproc_pipe_->GetInput(in_param, out_param);
+    if (ret != NO_ERROR) {
+      return ret;
+    }
 
     // Update stream parameters
     cam_stream_params_.format = in_param.format;
@@ -1888,17 +1867,16 @@ status_t CameraPort::Init() {
   camera_stream_id_ = stream_id;
 
   if (context_->video_plugins_.count(port_id_) != 0) {
-    PipeInputParam in_param;
+    PipeIOParam in_param;
     in_param.width = cam_stream_params_.width;
     in_param.height = cam_stream_params_.height;
     in_param.format = cam_stream_params_.format;
     in_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
 
-    auto reproc_id = postproc_pipe_->EndInit(stream_id, in_param,
-                                             cam_stream_params_.bufferCount);
-    if(reproc_id < 0) {
+    ret = postproc_pipe_->Init(stream_id, in_param);
+    if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: Failed to init post proc pipe!", TAG, __func__);
-      return BAD_VALUE;
+      return ret;
     }
 
     sp<IBufferConsumer>& consumer = postproc_pipe_->GetConsumerIntf();

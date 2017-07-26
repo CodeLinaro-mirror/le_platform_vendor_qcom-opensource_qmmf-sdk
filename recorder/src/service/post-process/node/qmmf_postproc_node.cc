@@ -77,6 +77,7 @@ PostProcNode::~PostProcNode() {
 status_t PostProcNode::Initialize(int32_t in_stream_id,
                                   uint32_t max_buffer_count,
                                   int32_t  usage) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::CREATED) {
     QMMF_ERROR("%s:%s: wrong state: %d", TAG, __func__, state_);
@@ -134,26 +135,31 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
 }
 
 PostProcIOParam PostProcNode::GetInput(const PostProcIOParam &out) {
-  output_param_ = out;
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  output_param_ = out; // todo remove: real input/output should be pass to init
   input_param_ = module_->GetInput(out);
   return input_param_;
 }
 
 PostProcIOParam PostProcNode::GetOutput(const PostProcIOParam &in) {
-  input_param_ = in;
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  input_param_ = in; // todo remove: real input/output should be pass to init
   output_param_ = module_->GetOutput(in);
   return output_param_;
 }
 
 status_t PostProcNode::ValidateInput(const PostProcIOParam &in) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   return module_->ValidateInput(in);
 }
 
 status_t PostProcNode::ValidateOutput(const PostProcIOParam &out) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   return module_->ValidateOutput(out);
 }
 
 status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::INITIALIZED) {
@@ -178,6 +184,7 @@ status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 }
 
 status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
 
   QMMF_VERBOSE("%s:%s:%s Enter consumer(%p)", TAG, __func__,name_.c_str(),
       consumer.get());
@@ -197,6 +204,7 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 }
 
 status_t PostProcNode::Start() {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
   QMMF_INFO("%s:%s:%s: Enter Start. State: %d", TAG, __func__,
@@ -229,6 +237,7 @@ status_t PostProcNode::Start() {
 }
 
 status_t PostProcNode::Stop() {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
   QMMF_INFO("%s:%s:%s: Enter stop. State: %d", TAG, __func__,

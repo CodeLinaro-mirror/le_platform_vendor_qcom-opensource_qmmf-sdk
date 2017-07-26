@@ -42,25 +42,16 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
-struct PipeInputParam {
+struct PipeIOParam {
   uint32_t width;
   uint32_t height;
-  uint32_t frame_rate;
-  int32_t format;
-};
-
-struct PipeOutputParam {
-  uint32_t width;
-  uint32_t height;
+  uint32_t stride;
+  uint32_t scanline;
   uint32_t frame_rate;
   int32_t format;
   uint32_t image_quality;
-};
-
-enum class PostProcPipeType {
-  kVideo,
-  kPreview,
-  kSnapshot,
+  int32_t gralloc_flags;
+  uint32_t buffer_count;
 };
 
 enum class PostProcPipeState {
@@ -76,17 +67,13 @@ class PostProcPipe : public virtual  RefBase {
 
  public:
 
-   PostProcPipe(IPostProc* context, const PostProcPipeType &type,
-                const std::vector<uint32_t> &plugins);
+   PostProcPipe(IPostProc* context, const std::vector<uint32_t> &plugins);
 
    ~PostProcPipe();
 
-   status_t BeginInit(const PipeOutputParam &output);
+   status_t Init(int32_t stream_id, const PipeIOParam &input);
 
-   int32_t EndInit(int32_t stream_id, const PipeInputParam &input,
-                   uint32_t max_buffer_count);
-
-   status_t GetInput(PipeInputParam &input);
+   status_t GetInput(PipeIOParam &input, const PipeIOParam &output);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -126,11 +113,10 @@ class PostProcPipe : public virtual  RefBase {
 
    bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
-   PipeInputParam                input_param_;
-   PipeOutputParam               output_param_;
+   PipeIOParam                   input_param_;
+   PipeIOParam                   output_param_;
 
    PostProcPipeState             state_;
-   PostProcPipeType              type_;
 
    std::vector<sp<PostProcNode>> pipe_;
 

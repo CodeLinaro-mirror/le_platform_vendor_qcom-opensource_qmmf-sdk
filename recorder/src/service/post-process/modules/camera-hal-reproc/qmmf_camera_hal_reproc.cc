@@ -156,10 +156,53 @@ status_t CameraHalReproc::Create(const int32_t stream_id,
 }
 
 PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
-  // Save the output parameters as well, we will need them later.
   input_param_ = output_param_ = out;
-  // work around since HAL does not report supported formats correctly
-  input_param_.format = Common::FromHalToQmmfFormat(HAL_PIXEL_FORMAT_RAW16);
+
+  CameraMetadata meta = context_->GetCameraStaticMeta();
+
+  camera_metadata_entry_t entry;
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
+    QMMF_ERROR("%s: Hal does not report supported formats\n", __func__);
+    assert(0);
+  }
+
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    QMMF_ERROR("%s: Hal does not report supported sizes\n", __func__);
+    assert(0);
+  }
+
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+  uint32_t i;
+  for (i = 0 ; i < entry.count; i++) {
+    if (entry.data.i32[i] == HAL_PIXEL_FORMAT_RAW16) {
+      input_param_.format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
+      break;
+    }
+  }
+  if (i == entry.count) {
+    QMMF_ERROR("%s: Hal does not support required format\n", __func__);
+    assert(0);
+  }
+
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+  for (i = 0; i < entry.count; i += 2) {
+    input_param_.width = entry.data.i32[i + 0];
+    input_param_.height = entry.data.i32[i + 1];
+    if (input_param_.width >= out.width &&
+        input_param_.height >= out.height) {
+      break;
+    }
+  }
+  if (i >= entry.count) {
+    QMMF_ERROR("%s: Required resolution %dx%d is not supported. Max: %dx%d\n",
+      __func__, out.width, out.height, input_param_.width, input_param_.height);
+    assert(0);
+  }
+
+  QMMF_VERBOSE("%s:%s: input dim %dx%d format %x RAW10 %x RAW12 %x RAW16 %x",
+    TAG, __func__, input_param_.width, input_param_.height, input_param_.format,
+    HAL_PIXEL_FORMAT_RAW10, HAL_PIXEL_FORMAT_RAW12, HAL_PIXEL_FORMAT_RAW16);
+
   return input_param_;
 }
 

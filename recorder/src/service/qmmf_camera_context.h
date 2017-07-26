@@ -218,12 +218,11 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcDelete();
 
-  status_t PostProcBeginInit(const PipeOutputParam &output);
+  status_t PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
+                                      uint32_t image_quality,
+                                      uint32_t frame_rate);
 
-  status_t PostProcUpdateStreamParams(CameraStreamParameters& stream_param);
-
-  int32_t PostProcEndInit(int32_t stream_id, uint32_t max_buffer_count,
-                          const PipeInputParam &input);
+  int32_t PostProcInit(int32_t stream_id, const PipeIOParam &input);
 
   status_t PostProcAddResult(const CaptureResult &result);
 
