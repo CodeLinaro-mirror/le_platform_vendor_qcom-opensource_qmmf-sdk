@@ -42,9 +42,11 @@ namespace jpegencoder {
 
 struct snapshot_info
 {
-    uint8_t *img_data[3];
-    uint8_t *out_data[3];
-    CameraBufferMetaData source_info;
+  uint8_t *img_data[3];
+  uint8_t *out_data[3];
+  CameraBufferMetaData source_info;
+  uint32_t exif_size;
+  void*    exif_data;
 };
 
 class JpegEncoder {
@@ -66,8 +68,8 @@ public:
 
   ~JpegEncoder();
 
-  void *Encode(const snapshot_info& in_buffer, size_t *jpeg_size,
-               const uint32_t jpeg_quality);
+  void *Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
+               const uint32_t quality);
 
   static JpegEncoder *getInstance();
 
