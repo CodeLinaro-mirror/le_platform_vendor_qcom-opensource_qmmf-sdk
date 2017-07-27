@@ -111,6 +111,7 @@ class PostProcAlg : public IPostProcModule,
   std::string                       Lib_;
   bool                              reprocess_flag_;
   bool                              ready_to_start_;
+  bool                              pass_through_;
   IPostProcEventListener            *listener_;
   void*                             lib_handle_;
   IAlgPlugin                        *algo_;

@@ -44,7 +44,8 @@ using namespace qmmf_alg_plugin;
 PostProcAlg::PostProcAlg(std::string lib)
     : Lib_(lib),
       reprocess_flag_(false),
-      ready_to_start_(false) {
+      ready_to_start_(false),
+      pass_through_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   try {
@@ -59,6 +60,11 @@ PostProcAlg::PostProcAlg(std::string lib)
         Lib_.c_str(), e.what());
     throw e;
   }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.skipalgo", prop_val, "0");
+  pass_through_ = (0 == atoi(prop_val)) ? false : true;
+
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -106,6 +112,9 @@ status_t PostProcAlg::Create(const int32_t stream_id,
 PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   Requirements requirements;
   input_param_ = output_param_ = out;
+  if (pass_through_) {
+    return input_param_;
+  }
 
   requirements.width_    = out.width;
   requirements.height_   = out.height;
@@ -127,7 +136,9 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
 
 PostProcIOParam PostProcAlg::GetOutput(const PostProcIOParam &in) {
   Capabilities caps = algo_->GetCaps();
-  if (caps.scale_support_) return output_param_;
+  if (pass_through_ == false && caps.scale_support_ == true) {
+    return output_param_;
+  }
 
   output_param_ = in;
   return output_param_;
@@ -175,6 +186,14 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   for (auto fmt : algo_caps.out_buffer_requirements_.pixel_formats_) {
     caps.formats_.insert(GetQmmfFormat(fmt));
   }
+
+  if (pass_through_) {
+    caps.output_buff_        = 0;
+    caps.crop_support_       = false;
+    caps.scale_support_      = false;
+    caps.inplace_processing_ = true;
+  }
+
   return NO_ERROR;
 }
 
@@ -230,6 +249,13 @@ status_t PostProcAlg::Configure(const std::string config_json_data) {
 status_t PostProcAlg::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
+
+  if (pass_through_) {
+    for (auto iter : in_buffers) {
+      listener_->OnFrameReady(iter);
+    }
+    return NO_ERROR;
+  }
 
   if (reprocess_flag_ == true) {
     std::vector<AlgBuffer> in_alg_buffers;
