@@ -92,7 +92,6 @@ void Recorder360Gtest::SetUp() {
   iteration_count_ = atoi(prop_val);
   property_get(PROP_360_RECORD_DURATION, prop_val, DEFAULT_360_RECORD_DURATION);
   record_duration_ = atoi(prop_val);
-
   camera_ids_.push_back(0);
   camera_ids_.push_back(1);
 
@@ -1924,7 +1923,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 }
 
 /*
-* Stitched4KEncTrackWithSWTNR: This case will test a MultiCamera
+* Stitched4KEncTrackWithTNR: This case will test a MultiCamera
 *                            session with 3840x1920 stitched h264 encoded track
 *                            with SW TNR enabled.
 * Api test sequence:
@@ -1944,7 +1943,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSWTNR) {
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -2086,7 +2085,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSWTNR) {
 }
 
 /*
-* Stitched4KEncAnd1080pYUVTrackWithSWTNR: This case will test a MultiCamera
+* Stitched4KEncTrackWithTNRAnd1080pYUVTrack: This case will test a MultiCamera
 *                            session with one 3840x1920 h264 encoded and one
 *                            2160x1080 YUV track with SW TNR enabled and both
 *                            tracks configured to produce stitched frames.
@@ -2108,7 +2107,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSWTNR) {
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -2278,6 +2277,2690 @@ TEST_F(Recorder360Gtest, Stitched4KEncAnd1080pYUVTrackWithSWTNR) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 
+}
+
+/*
+* Stitched4KEncTrackWithTNRAnd480pYUVTrack: This case will test a MultiCamera
+*                            session with one 3840x1920 h264 encoded with TNR
+*                            enabled; and one 960x480 YUV track and both tracks
+*                            configured to produce stitched frames. TNR will be
+*                            applied only on 4k stream.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  uint32_t video_track_id_1080p = 2;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width  = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id   = multicam_id_;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate    = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_4k,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    // Set parameters for and create 960x480 YUV track.
+    stream_width  = 960;
+    stream_height = 480;
+    format_type = VideoFormat::kYUV;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id   = multicam_id_;
+    video_track_param.width       = stream_width;
+    video_track_param.height      = stream_height;
+    video_track_param.frame_rate  = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = true;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+* Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack: This case will test a
+*                            MultiCamera session with one 3840x1920 h264 encoded
+*                            with Source Surface Downscaling with SW TNR enabled.
+*                            Also one 960x480 YUV track ; both tracks configured
+*                            to produce stitched frames. TNR will only be applied
+*                            on the 4k stream.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  uint32_t video_track_id_480p = 2;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+              test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    VideoExtraParam extra_param;
+    for (size_t i = 0; i < camera_ids_.size(); ++i) {
+      SourceSurfaceDesc source_surface;
+      source_surface.camera_id = camera_ids_.at(i);
+      source_surface.width = 1600;
+      source_surface.height = 1600;
+      source_surface.flags = TransformFlags::kNone;
+      extra_param.Update(QMMF_SOURCE_SURFACE_DESCRIPTOR, source_surface, i);
+    }
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+
+    assert(ret == NO_ERROR);
+
+    stream_width = 960;
+    stream_height = 480;
+    format_type = VideoFormat::kYUV;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = true;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncTrackWithTNRWithOverlayMix: This case will test a
+*                                       MultiCamera session with
+*                                       3840x1920 stitched h264
+*                                       encoded track with SW TNR
+*                                       enabled with ten Overlays.
+*                                       Includes Privacy Mask, User
+*                                       Text and Static Image Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSession
+*  - Enable TNR
+*  - CreateOverlayObjects
+*  - SetOverlays
+*  - RemoveOverlays
+*  - DeleteOverlayObjects
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+    // 1. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 2800;
+    object_params.dst_rect.start_y = 900;
+    object_params.dst_rect.width   = 1920/4;
+    object_params.dst_rect.height  = 1080/4;
+
+    uint32_t privacy_mask_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_1);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_1);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_1);
+
+    // 2. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 1100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width   = 1920/4;
+    object_params.dst_rect.height  = 1080/4;
+
+    uint32_t privacy_mask_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_2);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_2);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_2);
+
+    // 3. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 1300;
+    object_params.dst_rect.start_y = 1000;
+    object_params.dst_rect.width   = 1920/2;
+    object_params.dst_rect.height  = 1080/2;
+
+    uint32_t privacy_mask_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_3);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_3);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_3);
+
+    // 4. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x660066FF; //Purple
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1000;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_0("Channel Title Testing");
+    user_text_0.copy(object_params.user_text, user_text_0.length());
+
+    uint32_t user_text_id_0;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_0);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_0);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_0);
+
+    // 5. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x33CC00FF; //Green
+    object_params.dst_rect.start_x = 2400;
+    object_params.dst_rect.start_y = 200;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_1("Location text");
+    user_text_1.copy(object_params.user_text, user_text_1.length());
+
+    uint32_t user_text_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_1);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_1);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_1);
+
+    // 6. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x33CC00FF; //Green
+    object_params.dst_rect.start_x = 2400;
+    object_params.dst_rect.start_y = 300;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_2("Location text");
+    user_text_2.copy(object_params.user_text, user_text_2.length());
+
+    uint32_t user_text_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_2);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_2);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_2);
+
+    // 7. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x33CC00FF; //Green
+    object_params.dst_rect.start_x = 2400;
+    object_params.dst_rect.start_y = 400;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_3("Location text");
+    user_text_3.copy(object_params.user_text, user_text_3.length());
+
+    uint32_t user_text_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_3);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_3);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_3);
+
+    // 8. Create Static Image type overlay.
+    uint32_t static_img_id;
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kBottomRight;
+    std::string str("/etc/overlay_test.rgba");
+    str.copy(object_params.image_info.image_location, str.length());
+    object_params.dst_rect.width = 451;
+    object_params.dst_rect.height = 109;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &static_img_id);
+    assert(ret == 0);
+    // Apply overlay object on video track.
+    ret = recorder_.SetOverlay(video_track_id_4k, static_img_id);
+    assert(ret == 0);
+    overlay_ids_.push_back(static_img_id);
+
+    // 9. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x189BF2FF; //Light Green
+    object_params.dst_rect.start_x = 200;
+    object_params.dst_rect.start_y = 400;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_4("Va event text");
+    user_text_4.copy(object_params.user_text, user_text_4.length());
+
+    uint32_t user_text_id_4;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_4);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_4);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_4);
+
+    // 10. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x189BF2FF; //Light Green
+    object_params.dst_rect.start_x = 200;
+    object_params.dst_rect.start_y = 500;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_5("Va event text");
+    user_text_5.copy(object_params.user_text, user_text_5.length());
+
+    uint32_t user_text_id_5;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_5);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_5);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_5);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* Stitched4KEncTrackWithTNRWithOverlayBlob: This case will test a
+*                                           MultiCamera session with
+*                                           3840x1920 stitched h264
+*                                           encoded track with SW TNR
+*                                           enabled with five Blob type
+*                                           Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSession
+*  - Enable TNR
+*  - CreateOverlayObjects
+*  - SetOverlays
+*  - RemoveOverlays
+*  - DeleteOverlayObjects
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+   char * image_buffer1;
+   char * image_buffer2;
+   char * image_buffer3;
+   char * image_buffer4;
+   char * image_buffer5;
+
+    // 1. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width   = 1334;
+    object_params.dst_rect.height  = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer1 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_1);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_1);
+
+
+    // 2. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 600;
+    object_params.dst_rect.start_y = 600;
+    object_params.dst_rect.width   = 1334;
+    object_params.dst_rect.height  = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer2 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_2);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_2);
+
+
+    // 3. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1250;
+    object_params.dst_rect.width   = 960;
+    object_params.dst_rect.height  = 320;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 320;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+    image_buffer3 = object_params.image_info.image_buffer;
+
+    uint32_t usertxt_blob_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_3);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_3);
+
+    // 4. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 3000;
+    object_params.dst_rect.start_y = 1200;
+    object_params.dst_rect.width   = 128;
+    object_params.dst_rect.height  = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 128;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer4 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_4;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_4);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_4);
+
+    // 5. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 2200;
+    object_params.dst_rect.start_y = 1600;
+    object_params.dst_rect.width   = 960;
+    object_params.dst_rect.height  = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer5 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_5;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_5);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_5);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+
+    free(image_buffer1);
+    free(image_buffer2);
+    free(image_buffer3);
+    free(image_buffer4);
+    free(image_buffer5);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix: This will test
+*                                                    a MultiCamera session with
+*                                                    3840x1920 stitched h264
+*                                                    encoded track and source
+*                                                    surface downscale with
+*                                                    SW TNR enabled with
+*                                                    seven Overlays. Includes
+*                                                    Privacy Mask, User Text and
+*                                                    Static Image type Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSession
+*  - Enable TNR
+*  - CreateOverlayObjects
+*  - SetOverlays
+*  - RemoveOverlays
+*  - DeleteOverlayObjects
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    VideoExtraParam extra_param;
+    for (size_t i = 0; i < camera_ids_.size(); ++i) {
+      SourceSurfaceDesc source_surface;
+      source_surface.camera_id = camera_ids_.at(i);
+      source_surface.width = 1600;
+      source_surface.height = 1600;
+      source_surface.flags = TransformFlags::kNone;
+      extra_param.Update(QMMF_SOURCE_SURFACE_DESCRIPTOR, source_surface, i);
+    }
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+    // 1. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 2800;
+    object_params.dst_rect.start_y = 900;
+    object_params.dst_rect.width   = 1920/4;
+    object_params.dst_rect.height  = 1080/4;
+
+    uint32_t privacy_mask_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_1);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_1);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_1);
+
+    // 2. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 1100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width   = 1920/4;
+    object_params.dst_rect.height  = 1080/4;
+
+    uint32_t privacy_mask_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_2);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_2);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_2);
+
+    // 3. Create PrivacyMask type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kPrivacyMask;
+    object_params.color = 0x4C4C4CFF; //Fill mask with color.
+    // Dummy coordinates for test purpose.
+    object_params.dst_rect.start_x = 1300;
+    object_params.dst_rect.start_y = 1000;
+    object_params.dst_rect.width   = 1920/2;
+    object_params.dst_rect.height  = 1080/2;
+
+    uint32_t privacy_mask_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &privacy_mask_id_3);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_3);
+    assert(ret == 0);
+    overlay_ids_.push_back(privacy_mask_id_3);
+
+    // 4. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x660066FF; //Purple
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1000;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_0("Channel Title Testing");
+    user_text_0.copy(object_params.user_text, user_text_0.length());
+
+    uint32_t user_text_id_0;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_0);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_0);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_0);
+
+
+    // 5. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x33CC00FF; //Green
+    object_params.dst_rect.start_x = 2400;
+    object_params.dst_rect.start_y = 200;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_1("Location text");
+    user_text_1.copy(object_params.user_text, user_text_1.length());
+
+    uint32_t user_text_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_1);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_1);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_1);
+
+
+    // 6. Create UserText type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kUserText;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.color = 0x33CC00FF; //Green
+    object_params.dst_rect.start_x = 2400;
+    object_params.dst_rect.start_y = 300;
+    object_params.dst_rect.width   = 480;
+    object_params.dst_rect.height  = 60;
+    std::string user_text_2("Location text");
+    user_text_2.copy(object_params.user_text, user_text_2.length());
+
+    uint32_t user_text_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &user_text_id_2);
+    assert(ret == 0);
+    ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_2);
+    assert(ret == 0);
+    overlay_ids_.push_back(user_text_id_2);
+
+    // 7. Create Static Image type overlay.
+    uint32_t static_img_id;
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kBottomRight;
+    std::string str("/etc/overlay_test.rgba");
+    str.copy(object_params.image_info.image_location, str.length());
+    object_params.dst_rect.width = 451;
+    object_params.dst_rect.height = 109;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &static_img_id);
+    assert(ret == 0);
+    // Apply overlay object on video track.
+    ret = recorder_.SetOverlay(video_track_id_4k, static_img_id);
+    assert(ret == 0);
+    overlay_ids_.push_back(static_img_id);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob: This will test
+*                                                 a MultiCamera session with
+*                                                 3840x1920 stitched h264
+*                                                 encoded track and surface
+*                                                 downscale with SW TNR enabled
+*                                                 with five Blob type Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSession
+*  - Enable TNR
+*  - CreateOverlayObjects
+*  - SetOverlays
+*  - RemoveOverlays
+*  - DeleteOverlayObjects
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    VideoExtraParam extra_param;
+    for (size_t i = 0; i < camera_ids_.size(); ++i) {
+      SourceSurfaceDesc source_surface;
+      source_surface.camera_id = camera_ids_.at(i);
+      source_surface.width = 1600;
+      source_surface.height = 1600;
+      source_surface.flags = TransformFlags::kNone;
+      extra_param.Update(QMMF_SOURCE_SURFACE_DESCRIPTOR, source_surface, i);
+    }
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+    char * image_buffer1;
+    char * image_buffer2;
+    char * image_buffer3;
+    char * image_buffer4;
+    char * image_buffer5;
+
+    // 1. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width   = 1334;
+    object_params.dst_rect.height  = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer1 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_1);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_1);
+
+    // 2. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 600;
+    object_params.dst_rect.start_y = 600;
+    object_params.dst_rect.width   = 1334;
+    object_params.dst_rect.height  = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer2 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_2);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_2);
+
+
+    // 3. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1250;
+    object_params.dst_rect.width   = 960;
+    object_params.dst_rect.height  = 320;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 320;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+    image_buffer3 = object_params.image_info.image_buffer;
+
+    uint32_t usertxt_blob_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_3);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_3);
+
+    // 4. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 3000;
+    object_params.dst_rect.start_y = 1200;
+    object_params.dst_rect.width   = 128;
+    object_params.dst_rect.height  = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 128;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer4 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_4;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_4);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_4);
+
+    // 5. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 2200;
+    object_params.dst_rect.start_y = 1600;
+    object_params.dst_rect.width   = 960;
+    object_params.dst_rect.height  = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+        object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer =
+        reinterpret_cast<char *>(malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer5 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+        object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_5;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_5);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_5);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+
+    free(image_buffer1);
+    free(image_buffer2);
+    free(image_buffer3);
+    free(image_buffer4);
+    free(image_buffer5);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack: This case will test a
+*                            MultiCamera session with one 3840x1920 h264 encoded
+*                            with with SW TNR enabled; and one 960x480 YUV
+*                            track ; both tracks configured to produce stitched
+*                            frames. TNR will only be applied on the 4k stream.
+*                            Usecase also includes five Blob type Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*     CreateOverlayObjects
+*  -  SetOverlays
+*  -  RemoveOverlays
+*  -  DeleteOverlayObjects
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  uint32_t video_track_id_480p = 2;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+              test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param,
+                                     video_track_cb);
+
+    assert(ret == NO_ERROR);
+
+    stream_width = 960;
+    stream_height = 480;
+    format_type = VideoFormat::kYUV;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = true;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+    char *image_buffer1;
+    char *image_buffer2;
+    char *image_buffer3;
+    char *image_buffer4;
+    char *image_buffer5;
+
+    // 1. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width = 1334;
+    object_params.dst_rect.height = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer1 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_1);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_1);
+
+    // 2. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 600;
+    object_params.dst_rect.start_y = 600;
+    object_params.dst_rect.width = 1334;
+    object_params.dst_rect.height = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer2 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_2);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_2);
+
+    // 3. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1250;
+    object_params.dst_rect.width = 960;
+    object_params.dst_rect.height = 320;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 320;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+    image_buffer3 = object_params.image_info.image_buffer;
+
+    uint32_t usertxt_blob_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_3);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_3);
+
+    // 4. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 3000;
+    object_params.dst_rect.start_y = 1200;
+    object_params.dst_rect.width = 128;
+    object_params.dst_rect.height = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 128;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer4 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_4;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_4);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_4);
+
+    // 5. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 2200;
+    object_params.dst_rect.start_y = 1600;
+    object_params.dst_rect.width = 960;
+    object_params.dst_rect.height = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer5 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_5;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_5);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_5);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
+    assert(ret == NO_ERROR);
+    dump_bitstream_.CloseAll();
+
+    free(image_buffer1);
+    free(image_buffer2);
+    free(image_buffer3);
+    free(image_buffer4);
+    free(image_buffer5);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAnd480pYUVTrack:
+*                            This case will test a MultiCamera session with
+*                            one 3840x1920 h264 encoded with source surface
+*                            downscaled with SW TNR enabled track; and one
+*                            960x480 YUV track ; both tracks configured to
+*                            produce stitched frames. TNR will only be applied
+*                            on the 4k stream. Usecase also includes five
+*                            Blob type Overlays.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*     CreateOverlayObjects
+*  -  SetOverlays
+*  -  RemoveOverlays
+*  -  DeleteOverlayObjects
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAnd480pYUVTrack) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  int32_t stream_width;
+  int32_t stream_height;
+  VideoTrackCreateParam video_track_param;
+  std::vector<uint32_t> overlay_ids_;
+
+  uint32_t stream_fps = 30;
+  uint32_t video_track_id_4k = 1;
+  uint32_t video_track_id_480p = 2;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = stream_fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+              test_info_->name(), i);
+
+    // Set parameters for and create 3840x1920 h264 encoded track.
+    stream_width = 3840;
+    stream_height = 1920;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = false;
+
+    video_track_param.codec_param.avc.idr_interval = 1;
+    video_track_param.codec_param.avc.bitrate = 12000000;
+    video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
+    video_track_param.codec_param.avc.level = AVCLevelType::kLevel3;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kMaxBitrate;
+    video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
+    video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    video_track_param.codec_param.avc.ltr_count = 0;
+    video_track_param.codec_param.avc.insert_aud_delimiter = true;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
+                                    video_track_id_4k, stream_width,
+                                    stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                     void *event_data,
+                                     size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    VideoExtraParam extra_param;
+    for (size_t i = 0; i < camera_ids_.size(); ++i) {
+      SourceSurfaceDesc source_surface;
+      source_surface.camera_id = camera_ids_.at(i);
+      source_surface.width = 1600;
+      source_surface.height = 1600;
+      source_surface.flags = TransformFlags::kNone;
+      extra_param.Update(QMMF_SOURCE_SURFACE_DESCRIPTOR, source_surface, i);
+    }
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+
+    assert(ret == NO_ERROR);
+
+    stream_width = 960;
+    stream_height = 480;
+    format_type = VideoFormat::kYUV;
+
+    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param.camera_id = multicam_id_;
+    video_track_param.width = stream_width;
+    video_track_param.height = stream_height;
+    video_track_param.frame_rate = stream_fps;
+    video_track_param.format_type = format_type;
+    video_track_param.low_power_mode = true;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    // Turn TNR On (High Quality)
+    uint8_t swtnr_enable = 2;
+    ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    OverlayParam object_params;
+
+    char *image_buffer1;
+    char *image_buffer2;
+    char *image_buffer3;
+    char *image_buffer4;
+    char *image_buffer5;
+
+    // 1. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 100;
+    object_params.dst_rect.start_y = 100;
+    object_params.dst_rect.width = 1334;
+    object_params.dst_rect.height = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer1 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_1;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_1);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_1);
+
+    // 2. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 600;
+    object_params.dst_rect.start_y = 600;
+    object_params.dst_rect.width = 1334;
+    object_params.dst_rect.height = 64;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 1334;
+    object_params.image_info.source_rect.height = 64;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer2 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_2;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_2);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_2);
+
+    // 3. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 400;
+    object_params.dst_rect.start_y = 1250;
+    object_params.dst_rect.width = 960;
+    object_params.dst_rect.height = 320;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 320;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+    image_buffer3 = object_params.image_info.image_buffer;
+
+    uint32_t usertxt_blob_id_3;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_3);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_3);
+
+    // 4. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 3000;
+    object_params.dst_rect.start_y = 1200;
+    object_params.dst_rect.width = 128;
+    object_params.dst_rect.height = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 128;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer4 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_4;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_4);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_4);
+
+    // 5. Create buffer blob type overlay.
+    memset(&object_params, 0x0, sizeof object_params);
+    object_params.type = OverlayType::kStaticImage;
+    object_params.location = OverlayLocationType::kRandom;
+    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    object_params.dst_rect.start_x = 2200;
+    object_params.dst_rect.start_y = 1600;
+    object_params.dst_rect.width = 960;
+    object_params.dst_rect.height = 128;
+
+    object_params.image_info.source_rect.start_x = 0;
+    object_params.image_info.source_rect.start_y = 0;
+    object_params.image_info.source_rect.width = 960;
+    object_params.image_info.source_rect.height = 128;
+    object_params.image_info.buffer_updated = false;
+
+    object_params.image_info.image_size =
+        (object_params.image_info.source_rect.width *
+         object_params.image_info.source_rect.height * 4);
+    object_params.image_info.image_buffer = reinterpret_cast<char *>(
+        malloc(sizeof(char) * object_params.image_info.image_size));
+    image_buffer5 = object_params.image_info.image_buffer;
+
+    DrawOverlay(object_params.image_info.image_buffer,
+                object_params.dst_rect.width, object_params.dst_rect.height);
+
+    uint32_t usertxt_blob_id_5;
+    ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
+                                        &usertxt_blob_id_5);
+    assert(ret == 0);
+
+    ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
+    assert(ret == 0);
+    // One track can have multiple types of overlay.
+    overlay_ids_.push_back(usertxt_blob_id_5);
+
+    sleep(record_duration_);
+
+    // Remove all overlays
+    for (auto overlay_id : overlay_ids_) {
+      ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+      ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
+      assert(ret == 0);
+    }
+    overlay_ids_.clear();
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
+    assert(ret == NO_ERROR);
+    dump_bitstream_.CloseAll();
+
+    free(image_buffer1);
+    free(image_buffer2);
+    free(image_buffer3);
+    free(image_buffer4);
+    free(image_buffer5);
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
 }
 
 /*
@@ -4053,7 +6736,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 }
 
 /*
-* SideBySide4KUHDYUVTrackWithSourceSurfaceCrop:
+* SideBySide4KUHDYUVTrackWithSrcSurfCrop:
 *     This case will test a MultiCamera session with one 4K Ultra HD YUV track
 *     and configured to produce side-by-side frames.
 *
@@ -4073,7 +6756,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 *   } loop End
 *  - StopCamera
 */
-TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithSourceSurfaceCrop) {
+TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithSrcSurfCrop) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -8310,6 +10993,42 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   TEST_INFO("%s:%s Exit", TAG, __func__);
+}
+
+status_t Recorder360Gtest::DrawOverlay(void *data, int32_t width, int32_t height) {
+  TEST_DBG("%s: Enter", __func__);
+  status_t ret = 0;
+
+  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
+                                                    (data),
+                                                    CAIRO_FORMAT_ARGB32, width,
+                                                    height, width * 4);
+  assert (cr_surface_ != nullptr);
+
+  cr_context_ = cairo_create (cr_surface_);
+  assert (cr_context_ != nullptr);
+
+  uint32_t mask_color_ = 0x189BF2FF;
+  RGBAValues mask_color;
+  ExtractColorValues(mask_color_, &mask_color);
+
+  // Paint entire rectangle with color.
+  cairo_set_source_rgba (cr_context_, mask_color.red, mask_color.green,
+                         mask_color.blue, mask_color.alpha);
+  cairo_paint(cr_context_);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  cairo_surface_flush (cr_surface_);
+
+  TEST_DBG("%s: Exit", __func__);
+  return ret;
+}
+
+void Recorder360Gtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
+
+  color->red   = ((hex_color >> 24) & 0xff) / 255.0;
+  color->green = ((hex_color >> 16) & 0xff) / 255.0;
+  color->blue  = ((hex_color >> 8) & 0xff) / 255.0;
+  color->alpha = ((hex_color) & 0xff) / 255.0;
 }
 
 status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
