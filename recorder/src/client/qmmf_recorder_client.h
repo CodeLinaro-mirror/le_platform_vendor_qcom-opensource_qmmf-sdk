@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <utils/Errors.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>

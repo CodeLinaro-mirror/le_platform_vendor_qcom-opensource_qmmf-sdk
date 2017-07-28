@@ -52,7 +52,6 @@ namespace qmmf {
 
 namespace recorder {
 
-static const char *kStitchCalibFile = "/data/misc/qmmf/calibfile";
 static const char *kSideBySideLib = "libqmmf_alg_side_by_side.so";
 static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
 
@@ -1715,8 +1714,6 @@ status_t StitchingBase::ReturnUnsyncedBuffers(uint32_t camera_id) {
 status_t StitchingBase::InitLibrary() {
 
   status_t ret = NO_ERROR;
-  char prop[PROPERTY_VALUE_MAX];
-  int32_t use_calib_file;
 
   if (nullptr != stitch_lib_.handle) {
     QMMF_WARN("%s:%s: Stitch library already initialized", TAG, __func__);
@@ -1785,23 +1782,7 @@ status_t StitchingBase::InitLibrary() {
     goto FAIL;
   }
 
-  property_get("persist.qmmf.stitch.calibfile", prop, "0");
-  use_calib_file = atoi(prop);
-
-  if (use_calib_file) {
-    qmmf_alg_blob_t calibation_blob {};
-    ret = ParseCalibFile(&calibation_blob.data, calibation_blob.size);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Failed to parse config file", TAG, __func__);
-      goto FAIL;
-    }
-
-    ret = stitch_lib_.init(&stitch_lib_.context, &calibation_blob);
-    free(calibation_blob.data);
-  } else {
-    ret = stitch_lib_.init(&stitch_lib_.context, nullptr);
-  }
-
+  ret = stitch_lib_.init(&stitch_lib_.context, nullptr);
   if (QMMF_ALG_SUCCESS != ret) {
     QMMF_ERROR("%s:%s: Failed to initialize library, ret(%d)", TAG,
         __func__, ret);
@@ -2003,51 +1984,6 @@ status_t StitchingBase::ProcessBuffers(Vector<StreamBuffer> &input_buffers,
 
 EXIT:
   free(reg_buf_list.bufs);
-  return ret;
-}
-
-status_t StitchingBase::ParseCalibFile(void **data, uint32_t &size) {
-
-  struct stat st;
-  size_t objects_read;
-
-  status_t ret = stat(kStitchCalibFile, &st);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Get file status failed (%s)", TAG, __func__,
-        strerror(errno));
-    return ret;
-  }
-
-  void *calibration_blob = calloc(1, st.st_size + 1);
-  if (nullptr == calibration_blob) {
-    QMMF_ERROR("%s:%s: Failed to allocate memory with size %ld", TAG,
-        __func__, (long int) st.st_size);
-    return NO_MEMORY;
-  }
-
-  FILE *file = fopen(kStitchCalibFile, "rb");
-  if (nullptr == file) {
-    QMMF_ERROR("%s:%s: Unable to open (%s)", TAG, __func__, kStitchCalibFile);
-    ret = UNKNOWN_ERROR;
-    goto FAIL;
-  }
-
-  objects_read = fread(calibration_blob, st.st_size, 1, file);
-  if (objects_read != 1) {
-    QMMF_ERROR("%s:%s: Reading error", TAG, __func__);
-    ret = UNKNOWN_ERROR;
-    fclose(file);
-    goto FAIL;
-  }
-
-  *data = calibration_blob;
-  size = st.st_size + 1;
-
-  fclose(file);
-  return NO_ERROR;
-
-FAIL:
-  free(calibration_blob);
   return ret;
 }
 
