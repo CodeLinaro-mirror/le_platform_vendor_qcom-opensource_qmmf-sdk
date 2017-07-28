@@ -36,9 +36,14 @@
 #include <vector>
 #include <map>
 #include <cutils/properties.h>
-
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
+
+#if USE_SKIA
+#include <SkCanvas.h>
+#elif USE_CAIRO
+#include <cairo/cairo.h>
+#endif
 
 using namespace qmmf;
 using namespace recorder;
@@ -70,6 +75,13 @@ typedef struct Stream360DumpInfo {
   int32_t               width;
   int32_t               height;
 } Stream360DumpInfo;
+
+struct RGBAValues {
+  double red;
+  double green;
+  double blue;
+  double alpha;
+};
 
 class Dump360BitStream {
  public:
@@ -154,6 +166,9 @@ class Recorder360Gtest : public ::testing::Test {
                             int32_t sensor_mode_w, int32_t sensor_mode_h,
                             int32_t crop_x, int32_t crop_y,
                             int32_t crop_w, int32_t crop_h);
+  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+
+  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   Recorder              recorder_;
   uint32_t              multicam_id_;
@@ -169,5 +184,11 @@ class Recorder360Gtest : public ::testing::Test {
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+#if USE_SKIA
+  SkCanvas*            canvas_;
+#elif USE_CAIRO
+  cairo_surface_t*     cr_surface_;
+  cairo_t*             cr_context_;
+#endif
 };
 
