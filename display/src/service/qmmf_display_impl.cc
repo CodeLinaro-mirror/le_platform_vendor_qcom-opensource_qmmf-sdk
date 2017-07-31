@@ -312,7 +312,7 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
   if(displayintf && core_intf_) {
     DisplayError error = core_intf_->DestroyDisplay(displayintf);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s:%s: Display Disconnet Failed. Error = %d", TAG, __func__,
+      QMMF_ERROR("%s:%s: Display Disconnect Failed. Error = %d", TAG, __func__,
           error);
       pthread_mutex_unlock(&thread_lock_);
       return error;
@@ -453,7 +453,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
     const uint32_t surface_id) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   pthread_mutex_lock(&thread_lock_);
 
   int32_t ret = NO_ERROR;
@@ -464,35 +464,35 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
     return -EINVAL;
   }
 
+  assert(displayinfo->second != NULL);
+  assert(displayinfo->second->surfaceinfo_.size() > 0);
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
-  assert(surfaceinfo->second != NULL);
+  if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
+    QMMF_INFO("%s:%s: surfaceinfo not found!", TAG, __func__);
+    return -EINVAL;
+  }
 
   for (std::map<int32_t, BufferInfo*>::iterator it =
       surfaceinfo->second->buffer_info.begin() ;
-      it != surfaceinfo->second->buffer_info.end(); ++it) {
+      it != surfaceinfo->second->buffer_info.end(); it++) {
     if (surfaceinfo->second->buffer_internal) {
       buffer_allocator_.FreeBuffer(it->second);
     }
     delete it->second;
     it->second = nullptr;
-    surfaceinfo->second->buffer_info.erase(it);
   }
 
-  for (std::map<int32_t, Buff_Info*>::iterator it =
-      surfaceinfo->second->buf_id_use.begin() ;
-      it != surfaceinfo->second->buf_id_use.end(); ++it) {
-    surfaceinfo->second->buf_id_use.erase(it);
-  }
-
-  FreeLayer(display_handle, surface_id);
   surfaceinfo->second->buffer_info.clear();
   surfaceinfo->second->buf_id_use.clear();
+  FreeLayer(display_handle, surface_id);
   delete surfaceinfo->second;
   displayinfo->second->surfaceinfo_.erase(surfaceinfo);
   pthread_mutex_unlock(&thread_lock_);
 
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
+
 status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
     QMMF_INFO("%s:%s: Enter", TAG, __func__);
