@@ -3020,6 +3020,44 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   return ret;
 }
 
+status_t RecorderTest::CreateAudioPCMFluenceTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  bool enable = true;
+  ret = recorder_.SetAudioTrackParam(session_id, info.track_id,
+                                     CodecParamType::kAudioFluencePro,
+                                     &enable, sizeof(enable));
+  assert(ret == 0);
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 // This session has one RDI track with sensor resolution.
 status_t RecorderTest::SessionRDITrack() {
 
@@ -5281,7 +5319,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.in_devices_num = 0;
     audio_track_params.in_devices[audio_track_params.in_devices_num++] =
         track_info.device_id;
-    audio_track_params.sample_rate = 48000;
+    audio_track_params.sample_rate = 16000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
     audio_track_params.flags       = 0;
@@ -6098,6 +6136,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,8KHz + G711 mono)\n",
       CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,16KHz,FluencePro)\n",
+      CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD);
   printf("   %c. Create Session: (1080p YUV with Display)\n",
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
@@ -6293,6 +6333,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMG711Track();
+      }
+      break;
+      case CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMFluenceTrack();
       }
       break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {

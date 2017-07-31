@@ -1183,7 +1183,20 @@ status_t RecorderService::SetAudioTrackParam(const uint32_t client_id,
                                              CodecParamType type,
                                              void *param,
                                              size_t param_size) {
-  // NOT IMPLEMENTED YET.
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->SetAudioTrackParam(client_id, session_id, track_id,
+                                           type, param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: SetAudioTrackParam failed!", TAG, __func__);
+    return ret;
+  }
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
   return NO_ERROR;
 }
 
