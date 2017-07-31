@@ -285,7 +285,7 @@ class TrackSource : public ICodecSource {
   sp<CameraInterface>   camera_interface_;
 
   Overlay  overlay_;
-  bool     enable_overlay_;
+  uint32_t active_overlays_;
 
   float   source_frame_rate_;
   float   input_frame_rate_;
