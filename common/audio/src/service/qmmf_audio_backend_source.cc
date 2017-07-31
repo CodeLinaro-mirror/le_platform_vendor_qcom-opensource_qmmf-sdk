@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,6 +39,7 @@
 #include <map>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <time.h>
 #include <vector>
@@ -67,6 +68,7 @@ using ::std::function;
 using ::std::map;
 using ::std::mutex;
 using ::std::queue;
+using ::std::string;
 using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
@@ -207,6 +209,9 @@ int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
       break;
     case 24:
       config.format = AUDIO_FORMAT_PCM_24_BIT_PACKED;
+      break;
+    case 32:
+      config.format = AUDIO_FORMAT_PCM_32_BIT;
       break;
     default:
       QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
@@ -577,6 +582,35 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
                  static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  switch (type) {
+    case AudioParamType::kVolume:
+    case AudioParamType::kDevice:
+      QMMF_WARN("%s: %s() invalid operation", TAG, __func__);
+      break;
+    case AudioParamType::kCustom:
+      {
+        string keyvalue = data.custom.key;
+        keyvalue.append("=");
+        keyvalue.append(data.custom.value);
+
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+        int result = qahw_in_set_parameters(qahw_stream_, keyvalue.c_str());
+        if (result != 0) {
+          QMMF_ERROR("%s: %s() failed to set custom parameter[%s]: %s[%s]",
+                     TAG, __func__, keyvalue.c_str(), result,
+                     strerror(result));
+          return result;
+        }
+#endif
+      }
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown parameter: %d", TAG, __func__,
+                 static_cast<int>(type));
       return -ENOSYS;
       break;
   }

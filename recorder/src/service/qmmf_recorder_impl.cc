@@ -1454,6 +1454,34 @@ status_t RecorderImpl::SetAudioTrackParam(const uint32_t client_id,
                                           CodecParamType type,
                                           void *param,
                                           size_t param_size) {
+  QMMF_DEBUG("%s:%s: Enter client_id(%d):session_id(%d)", TAG, __func__,
+      client_id, session_id);
+
+  if (!IsTrackValid(client_id, session_id, track_id)) {
+    QMMF_ERROR("%s:%s: client_id(%d):session_id(%d),track_id(%d) is not valid!",
+        TAG, __func__, client_id, session_id, track_id);
+    return BAD_VALUE;
+  }
+  TrackInfo track_info {};
+  GetServiceTrackInfo(client_id, session_id, track_id, &track_info);
+  assert(track_info.track_id > 0);
+
+  if (type == CodecParamType::kAudioFluencePro) {
+    bool* enable = static_cast<bool*>(param);
+    if (*enable) {
+      auto ret = audio_source_->SetParameter(track_info.track_id,
+                                             "audio_stream_profile",
+                                             "record_fluence");
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: client_id(%d) Failed to enable/disable FluencePro: %d",
+                   TAG, __func__, client_id, ret);
+        return ret;
+      }
+    }
+  }
+
+  QMMF_DEBUG("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
+      client_id, session_id);
   return NO_ERROR;
 }
 
