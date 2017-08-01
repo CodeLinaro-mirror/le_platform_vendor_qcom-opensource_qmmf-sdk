@@ -254,15 +254,41 @@ struct AudioTrackCreateParam {
 ///        Currently atmost one track can be a low_power_mode track.
 /// \TODO: define VideoOutDevice
 struct VideoTrackCreateParam {
-  uint32_t         camera_id;
-  uint32_t         width;
-  uint32_t         height;
-  float            frame_rate;
-  VideoFormat      format_type;
+  uint32_t camera_id;
+  uint32_t width;
+  uint32_t height;
+  float frame_rate;
+  VideoFormat format_type;
   VideoCodecParams codec_param;
-  bool             low_power_mode;
-  bool             do_vqzip;
-  VQZipInfo        vqzip_params;
+  bool low_power_mode;
+  bool do_vqzip;
+  VQZipInfo vqzip_params;
+
+  VideoTrackCreateParam(uint32_t cam_id = 0,
+                        VideoFormat fmt = VideoFormat::kYUV, uint32_t w = 3840,
+                        uint32_t h = 1920, float frm_rate = 30) {
+    camera_id = cam_id;
+    width = w;
+    height = h;
+    frame_rate = frm_rate;
+    format_type = fmt;
+    switch (format_type) {
+      case VideoFormat::kAVC:
+        setAVCDefaultVideoParam();
+        break;
+      case VideoFormat::kHEVC:
+        setHEVCDefaultVideoParam();
+        break;
+      default: {
+        // Nothing to do for other formats
+      }
+    }
+
+    // Setting LPM,VQZipInfo parameters
+    low_power_mode = false;
+    do_vqzip = false;
+    memset(&vqzip_params, 0x00, sizeof(vqzip_params));
+  }
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -271,17 +297,77 @@ struct VideoTrackCreateParam {
     stream << "height[" << height << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "format_type["
-           << static_cast<::std::underlying_type<VideoFormat>::type>
-                         (format_type)
+           << static_cast<::std::underlying_type<VideoFormat>::type>(
+                  format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
-    stream << "do_vqzip[" << ::std::boolalpha << do_vqzip
-           << ::std::noboolalpha << "] ";
+    stream << "do_vqzip[" << ::std::boolalpha << do_vqzip << ::std::noboolalpha
+           << "] ";
     stream << "vqzip_params[" << vqzip_params.ToString() << "]";
     return stream.str();
   }
-};
 
+  void setAVCDefaultVideoParam() {
+    // Setting default Parameters for AVC
+    codec_param.avc.idr_interval = 1;
+    codec_param.avc.bitrate = 6000000;
+    codec_param.avc.profile = AVCProfileType::kHigh;
+    codec_param.avc.level = AVCLevelType::kLevel5_1;
+    codec_param.avc.ratecontrol_type = VideoRateControlType::kMaxBitrate;
+    codec_param.avc.qp_params.enable_init_qp = true;
+    codec_param.avc.qp_params.init_qp.init_IQP = 27;
+    codec_param.avc.qp_params.init_qp.init_PQP = 28;
+    codec_param.avc.qp_params.init_qp.init_BQP = 28;
+    codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    codec_param.avc.qp_params.enable_qp_range = true;
+    codec_param.avc.qp_params.qp_range.min_QP = 10;
+    codec_param.avc.qp_params.qp_range.max_QP = 51;
+    codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
+    codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
+    codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
+    codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    codec_param.avc.ltr_count = 0;
+    codec_param.avc.insert_aud_delimiter = true;
+    codec_param.avc.hier_layer = 0;
+    codec_param.avc.prepend_sps_pps_to_idr = false;
+    codec_param.avc.sar_enabled = false;
+    codec_param.avc.sar_width = 0;
+    codec_param.avc.sar_height = 0;
+  }
+
+  void setHEVCDefaultVideoParam() {
+    // Setting default Parameters for HEVC
+    codec_param.hevc.idr_interval = 1;
+    codec_param.hevc.bitrate = 6000000;
+    codec_param.hevc.profile = HEVCProfileType::kMain;
+    codec_param.hevc.level = HEVCLevelType::kLevel5_1;
+    codec_param.hevc.ratecontrol_type = VideoRateControlType::kMaxBitrate;
+    codec_param.hevc.qp_params.enable_init_qp = true;
+    codec_param.hevc.qp_params.init_qp.init_IQP = 27;
+    codec_param.hevc.qp_params.init_qp.init_PQP = 28;
+    codec_param.hevc.qp_params.init_qp.init_BQP = 28;
+    codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
+    codec_param.hevc.qp_params.enable_qp_range = true;
+    codec_param.hevc.qp_params.qp_range.min_QP = 10;
+    codec_param.hevc.qp_params.qp_range.max_QP = 51;
+    codec_param.hevc.qp_params.enable_qp_IBP_range = true;
+    codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 10;
+    codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
+    codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 10;
+    codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
+    codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
+    codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
+    codec_param.hevc.ltr_count = 0;
+    codec_param.hevc.hier_layer = 0;
+    codec_param.hevc.prepend_sps_pps_to_idr = false;
+    codec_param.hevc.sar_enabled = false;
+    codec_param.hevc.sar_width = 0;
+    codec_param.hevc.sar_height = 0;
+  }
+};
 
 /// \brief Result callback passed to StartCamera API
 ///

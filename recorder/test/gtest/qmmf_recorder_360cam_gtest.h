@@ -72,8 +72,8 @@ using namespace android;
 typedef struct Stream360DumpInfo {
   VideoFormat           format;
   uint32_t              track_id;
-  int32_t               width;
-  int32_t               height;
+  uint32_t               width;
+  uint32_t               height;
 } Stream360DumpInfo;
 
 struct RGBAValues {
