@@ -809,7 +809,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
-      enable_overlay_(false),
+      active_overlays_(0),
       input_count_(0),
       count_(0),
       pending_encodes_per_frame_ratio_(0.0),
@@ -1230,7 +1230,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: track_id(%x) size = %d", TAG, __func__, TrackId(),
       buffer.size);
 
-  if (enable_overlay_) {
+  if (active_overlays_ > 0) {
     OverlayTargetBuffer overlay_buf;
     //TODO: get format from streamBuffer.
     overlay_buf.format    = TargetBufferFormat::kYUVNV12;
@@ -1448,7 +1448,7 @@ status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
     QMMF_ERROR("%s:%s: enableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  enable_overlay_ = true;
+  ++active_overlays_;
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
@@ -1461,7 +1461,7 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
     QMMF_ERROR("%s:%s: disableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  enable_overlay_ = false;
+  --active_overlays_;
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
