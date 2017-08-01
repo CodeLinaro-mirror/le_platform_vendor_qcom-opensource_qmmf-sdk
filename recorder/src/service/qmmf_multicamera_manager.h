@@ -382,10 +382,13 @@ class StreamStitching : public StitchingBase {
   status_t ReturnBufferToCamera(StreamBuffer &buffer) override;
 
  private:
+  bool IsConnected(const sp<IBufferConsumer>& consumer);
+
   sp<IBufferProducer>      buffer_producer_impl_;
-  sp<IBufferConsumer>      buffer_consumer_impl_;
 
   Mutex                    consumer_lock_;
+
+  std::map<uintptr_t, sp<IBufferConsumer> > stitching_consumers_;
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
