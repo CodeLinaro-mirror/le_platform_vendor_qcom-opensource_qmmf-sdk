@@ -137,6 +137,14 @@ PostProcCreateParam PostProcAlg::GetOutput(const PostProcCreateParam &in) {
 status_t PostProcAlg::ValidateInput(const PostProcCreateParam &input) {
   Capabilities caps = algo_->GetCaps();
 
+  if (input.width < caps.in_buffer_requirements_.min_width_ ||
+      input.width > caps.in_buffer_requirements_.max_width_ ||
+      input.height < caps.in_buffer_requirements_.min_height_ ||
+      input.height > caps.in_buffer_requirements_.max_height_) {
+    QMMF_ERROR("%s:%s: Input dimensions not supported", TAG, __func__);
+    return BAD_VALUE;
+  }
+
   PixelFormat pix_fmt;
   switch (input.format) {
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
@@ -171,6 +179,14 @@ status_t PostProcAlg::ValidateInput(const PostProcCreateParam &input) {
 
 status_t PostProcAlg::ValidateOutput(const PostProcCreateParam &output) {
   Capabilities caps = algo_->GetCaps();
+
+  if (output.width < caps.out_buffer_requirements_.min_width_ ||
+      output.width > caps.out_buffer_requirements_.max_width_ ||
+      output.height < caps.out_buffer_requirements_.min_height_ ||
+      output.height > caps.out_buffer_requirements_.max_height_) {
+    QMMF_ERROR("%s:%s: Input dimensions not supported", TAG, __func__);
+    return BAD_VALUE;
+  }
 
   PixelFormat pix_fmt;
   switch (output.format) {
@@ -419,7 +435,6 @@ status_t PostProcAlg::PrepareAlgBuffer(
           stride_in_bytes;
     }
 
-    QMMF_INFO("%s:%s Buffer format: %d", TAG, __func__, stream_buffer.info.format);
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
                   stream_buffer.fd,
                   stream_buffer.size,
