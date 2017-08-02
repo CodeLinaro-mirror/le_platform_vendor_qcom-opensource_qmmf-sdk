@@ -433,6 +433,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     }
   }
 
+  bool single_camera = false;
   if (extra_param.Exists(QMMF_SURFACE_CROP)) {
     SurfaceCrop crop;
     // Fetch crop rectangle data from the container.
@@ -455,6 +456,7 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
         for (auto const& cam_id : camera_ids) {
           source_surface_.at(cam_id).width = param.cam_stream_dim.width;
           source_surface_.at(cam_id).height = param.cam_stream_dim.height;
+          single_camera = true;
         }
       } else if (surface.width < crop.width || surface.height < crop.height) {
         QMMF_ERROR("%s:%s: Invalid QMMF_SURFACE_CROP entry dimensions for "
@@ -477,15 +479,24 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
     return ret;
   }
 
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
   // Start streams in reverse order. This is needed because camera
   // context is caching our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
-  CameraStreamParam stream_param(param);
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    auto &camera_surface = source_surface_.at(camera_contexts_.keyAt(ctx_idx));
-
-    stream_param.cam_stream_dim.width = camera_surface.width;
-    stream_param.cam_stream_dim.height = camera_surface.height;
+    CameraStreamParam stream_param(param);
+    if (use_vfe_crop && !single_camera) {
+      SetDefaultSurfaceDim(stream_param.cam_stream_dim.width,
+                           stream_param.cam_stream_dim.height);
+    } else {
+      auto camera_id = camera_contexts_.keyAt(ctx_idx);
+      auto &camera_surface = source_surface_.at(camera_id);
+      stream_param.cam_stream_dim.width = camera_surface.width;
+      stream_param.cam_stream_dim.height = camera_surface.height;
+    }
 
     ret = CreateCameraStream(ctx_idx, stream_param, extra_param);
     if (ret != NO_ERROR) {
@@ -972,6 +983,22 @@ status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx,
     return ret;
   }
 
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.vfe.crop", prop_val, "1");
+  bool use_vfe_crop = atoi(prop_val);
+
+  if (use_vfe_crop && surface_crop_.find(camera_id) != surface_crop_.end()) {
+    auto const& crop = surface_crop_.at(camera_id);
+    if (crop.width != 0 && crop.height != 0) {
+      ret = FillCropMetadata(meta, cam_idx);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: Camera %d: FillCropMetadata Failed!", TAG,
+            __func__, camera_id);
+        return ret;
+      }
+    }
+  }
+
   ret = camera_context->SetCameraParam(meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
@@ -1042,6 +1069,47 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
 
   uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
   meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::FillCropMetadata(CameraMetadata& meta,
+                                              const uint32_t& cam_idx) {
+
+  auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  if (!active_array_size.count) {
+    QMMF_ERROR("%s:%s: Active sensor array size is missing!",
+        TAG, __func__);
+    return NAME_NOT_FOUND;
+  }
+  // Take the active pixel array width and height as base on which to
+  // recalculate the actual crop region dimensions.
+  float x = active_array_size.data.i32[2];
+  float y = active_array_size.data.i32[3];
+  float width = active_array_size.data.i32[2];
+  float height = active_array_size.data.i32[3];
+
+  int32_t camera_id = camera_contexts_.keyAt(cam_idx);
+  auto const& crop = surface_crop_.at(camera_id);
+  auto const& camera_surface = source_surface_.at(camera_id);
+
+  // Get the crop region scale ratios and recalculate them against the base.
+  x *= (static_cast<float>(crop.x) / camera_surface.width);
+  y *= (static_cast<float>(crop.y) / camera_surface.height);
+  width *= (static_cast<float>(crop.width) / camera_surface.width);
+  height *= (static_cast<float>(crop.height) / camera_surface.height);
+
+  int32_t crop_region[] = {
+      static_cast<int32_t>(round(x)),
+      static_cast<int32_t>(round(y)),
+      static_cast<int32_t>(round(width)),
+      static_cast<int32_t>(round(height)),
+  };
+  auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to set crop region metadata!", TAG, __func__);
+    return ret;
+  }
 
   return NO_ERROR;
 }
