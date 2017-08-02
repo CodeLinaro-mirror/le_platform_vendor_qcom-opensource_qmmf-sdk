@@ -157,14 +157,9 @@ class Recorder360Gtest : public ::testing::Test {
   void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-  status_t DrawOverlay(void *data, int32_t width, int32_t height);
+ status_t DrawOverlay(void *data, int32_t width, int32_t height);
 
-  void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
-
-  status_t FillCropMetadata(CameraMetadata& meta,
-                            int32_t sensor_mode_w, int32_t sensor_mode_h,
-                            int32_t crop_x, int32_t crop_y,
-                            int32_t crop_w, int32_t crop_h);
+ void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   Recorder              recorder_;
   uint32_t              multicam_id_;
