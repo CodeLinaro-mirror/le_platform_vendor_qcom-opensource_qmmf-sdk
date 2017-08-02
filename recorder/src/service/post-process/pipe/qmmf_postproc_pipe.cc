@@ -42,15 +42,20 @@ namespace qmmf {
 
 namespace recorder {
 
-PostProcPipe::PostProcPipe(IPostProc* context,
-                           const std::vector<std::string> &pipe) :
-    context_(context) {
+PostProcPipe::PostProcPipe(IPostProc* context, const PostProcPipeType &type,
+                           const std::vector<uint32_t> &plugins)
+    : type_(type),
+      context_(context) {
+
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
-  for (auto node : pipe) {
-    sp<PostProcNode> reproc_node = new PostProcNode(node, context_);
-    assert(reproc_node.get() != nullptr);
-    pipe_.push_back(reproc_node);
+  factory_ = PostProcFactory::getInstance();
+  assert(factory_ != nullptr);
+
+  for (auto& plugin_uid : plugins) {
+    sp<PostProcNode> node = factory_->GetProcNode(plugin_uid);
+    assert(node.get() != nullptr);
+    pipe_.push_back(node);
   }
 
   state_ = PostProcPipeState::CREATED;
@@ -59,70 +64,187 @@ PostProcPipe::PostProcPipe(IPostProc* context,
 
 PostProcPipe::~PostProcPipe() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  for (auto iter : pipe_) {
-    if (iter.get() != nullptr) {
-      iter.clear();
-    }
+  for (auto& node : pipe_) {
+    QMMF_INFO("%s:%s: node(%p) uid(%d)", TAG, __func__, node.get(), node->GetId());
+    factory_->ReturnProcNode(node->GetId());
   }
+  pipe_consumer_.clear();
+
   QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
 }
 
-PostProcCreateParam PostProcPipe::GetInput(PostProcCreateParam &out) {
-  PostProcCreateParam params = out;
+status_t PostProcPipe::BeginInit(const PipeOutputParam &output) {
+  output_param_ = output;
 
-  // iterate nodes from last to first node
-  // each node return input requirement based on output
-  // give each node input as output of previous node
-  // return first node input to client
-  auto iter = pipe_.end();
-  while (iter != pipe_.begin()) {
-    --iter;
-    params = (*iter)->GetInput(params);
+  PostProcIOParam proc_param;
+  proc_param.width      = output_param_.width;
+  proc_param.height     = output_param_.height;
+  proc_param.format     = Common::FromHalToQmmfFormat(output_param_.format);
+  proc_param.frame_rate = output_param_.frame_rate;
+
+  /* If there are no plugins check if JPEG encoding is needed */
+  if (pipe_.empty() && proc_param.format == BufferFormat::kBLOB) {
+    sp<PostProcNode> node = factory_->GetProcNode("JpegEncode", nullptr);
+    pipe_.push_back(node);
   }
-  return params;
-}
 
-status_t PostProcPipe::CreatePipe(int32_t in_stream_id,
-                                  CameraStreamParameters &stream_param,
-                                  const ImageParam &param, // kmotov: todo:
-                                  void* static_meta,
-                                  int32_t &out_stream_id) {
-  init_params_ = stream_param;
+  /* Backward iteration over the pipe */
+  ssize_t idx = pipe_.size() - 1;
+  sp<PostProcNode> node;
 
-  PostProcNodeCreate create_param;
-  memset(&create_param, 0x0, sizeof create_param);
+  /* Validate pipeline and create internal processing nodes if necessary */
+  while (idx >= 0) {
+    node = pipe_.at(idx);
 
-  create_param.in.format  = stream_param.format;
-  create_param.in.width   = stream_param.width;
-  create_param.in.height  = stream_param.height;
+    /* Check compatibility with the previous node or pipe output */
+    auto ret = node->ValidateOutput(proc_param);
+    if (ret == BAD_TYPE) {
+      /* Unsupported format, try to fix this */
+      auto caps = node->GetCapabilities();
+      sp<PostProcNode> proc_node = FindInternalNode(proc_param, caps);
 
-  create_param.out.format  = create_param.in.format;
-  create_param.out.width   = param.width;
-  create_param.out.height  = param.height;
-
-  create_param.frame_rate = 30; // todo
-  create_param.max_buffer_count = stream_param.bufferCount;
-
-  for (auto iter : pipe_) {
-    PostProcNodeParams reproc_node_param;
-    iter->getDefaultParam(reproc_node_param, create_param);
-
-    auto ret = iter->Initialize(in_stream_id, reproc_node_param,
-        static_meta, out_stream_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: fail to create ret: %d", TAG, __func__, ret);
+      if (proc_node.get() != nullptr) {
+        /* Increment index and insert new internal post processing node */
+        ++idx;
+        pipe_.insert(pipe_.begin() + idx, proc_node);
+        continue;
+      } else {
+        QMMF_ERROR("%s:%s: Node format incompatibility!", TAG, __func__);
+        return ret;
+      }
+    } else if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Node dimensions incompatibility!", TAG, __func__);
       return ret;
     }
 
-    // update input params for next node
-    create_param.in.format = reproc_node_param.out.format;
-    create_param.in.width  = reproc_node_param.out.width;
-    create_param.in.height = reproc_node_param.out.height;
+    /* Update the output parameters for the next node */
+    proc_param = node->GetInput(proc_param);
+
+    /* Decrement node index */
+    --idx;
   }
 
-  state_ = PostProcPipeState::INITIALIZED;
+  /* Save the input params from the first node in the pipe */
+  input_param_.width = proc_param.width;
+  input_param_.height = proc_param.height;
+  input_param_.format = Common::FromQmmfToHalFormat(proc_param.format);
+  input_param_.frame_rate = proc_param.frame_rate;
 
+  state_ = PostProcPipeState::INITIALIZE;
   return NO_ERROR;
+}
+
+status_t PostProcPipe::GetInput(PipeInputParam &input) {
+  if (state_ != PostProcPipeState::INITIALIZE) {
+    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    return INVALID_OPERATION;
+  }
+
+  input = input_param_;
+  return NO_ERROR;
+}
+
+int32_t PostProcPipe::EndInit(int32_t stream_id, const PipeInputParam &input,
+                              uint32_t max_buffer_count) {
+  if (state_ != PostProcPipeState::INITIALIZE) {
+    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    return INVALID_OPERATION;
+  }
+
+  input_param_ = input;
+
+  PostProcIOParam proc_param;
+  proc_param.width      = input_param_.width;
+  proc_param.height     = input_param_.height;
+  proc_param.format     = Common::FromHalToQmmfFormat(input_param_.format);
+  proc_param.frame_rate = input_param_.frame_rate;
+
+  /* Forward iteration over the pipe */
+  size_t idx = 0;
+  sp<PostProcNode> node;
+
+  /* Validate pipeline and create internal processing nodes if necessary */
+  while (idx < pipe_.size()) {
+    node = pipe_.at(idx);
+
+    /* Check compatibility with the previous node */
+    auto ret = node->ValidateInput(proc_param);
+    if (ret == BAD_TYPE) {
+      /* Unsupported format, try to fix this */
+      auto reqs = node->GetRequirements();
+      sp<PostProcNode> proc_node = FindInternalNode(proc_param, reqs);
+
+      if (proc_node.get() != nullptr) {
+        /* Insert new internal post processing node at current index */
+        pipe_.insert(pipe_.begin() + idx, proc_node);
+        continue;
+      } else {
+        QMMF_ERROR("%s:%s: Node format incompatibility!", TAG, __func__);
+        return ret;
+      }
+    } else if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Node dimensions incompatibility!", TAG, __func__);
+      return ret;
+    }
+
+    /* Update the output parameters for the next node */
+    proc_param = node->GetOutput(proc_param);
+
+    /* Increment node index */
+    ++idx;
+  }
+
+  int32_t usage_flags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+      GRALLOC_USAGE_SW_READ_OFTEN;
+
+  if (type_ == PostProcPipeType::kVideo) {
+    usage_flags |= GRALLOC_USAGE_HW_VIDEO_ENCODER;
+  }
+
+  /* Initialize pipeline nodes */
+  for (auto const& node : pipe_) {
+    auto ret = node->Initialize(stream_id, max_buffer_count, usage_flags);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to initialize node!", TAG, __func__);
+      return ret;
+    }
+  }
+
+  /* Set the consumer of the 1st node as the pipe consumer */
+  pipe_consumer_ = pipe_.front()->GetConsumerIntf();
+
+  state_ = PostProcPipeState::INITIALIZED;
+  return factory_->GetUniqueId();
+}
+
+sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output,
+                                                const PostProcCaps &caps) {
+  sp<PostProcNode> node;
+
+  /* Check if a RAW re-processing or JPEG encoding node is required */
+  if (IsYUVFormat(output.format) && SupportsRAWFormat(caps.formats_)) {
+    node = factory_->GetProcNode("HALReprocess", context_);
+  } else if (IsJPEGFormat(output.format) && SupportsYUVFormat(caps.formats_)) {
+    node = factory_->GetProcNode("JpegEncode", nullptr);
+  }
+
+  return node;
+}
+
+sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output,
+                                                const PostProcReqs &reqs) {
+  sp<PostProcNode> node;
+
+  /* Check if a RAW re-processing or JPEG encoding node is required */
+  if (IsRAWFormat(output.format) && (SupportsYUVFormat(reqs.formats_) ||
+      SupportsJPEGFormat(reqs.formats_))) {
+    node = factory_->GetProcNode("HALReprocess", context_);
+  } else if (IsYUVFormat(output.format) &&
+      SupportsJPEGFormat(reqs.formats_)) {
+    node = factory_->GetProcNode("JpegEncode", nullptr);
+  }
+
+  return node;
 }
 
 sp<IBufferConsumer>& PostProcPipe::GetConsumerIntf() {
@@ -145,7 +267,6 @@ void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
     (*iter)->AddConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
   }
-  pipe_consumer_ = tmp_c;
   QMMF_INFO("%s:%s: Pipe is linked! last node consumer (%p)", TAG, __func__,
       consumer.get());
 }
@@ -158,9 +279,63 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
     (*iter)->RemoveConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
   }
-  pipe_consumer_.clear();
-  pipe_consumer_ = nullptr;
   QMMF_INFO("%s:%s: Pipe is unlinked!", TAG, __func__);
+}
+
+bool PostProcPipe::IsRAWFormat(const BufferFormat &format) {
+  switch (format) {
+    case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
+    case BufferFormat::kRAW16:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool PostProcPipe::IsYUVFormat(const BufferFormat &format) {
+  switch (format) {
+    case BufferFormat::kNV12:
+    case BufferFormat::kNV21:
+    case BufferFormat::kNV12UBWC:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool PostProcPipe::IsJPEGFormat(const BufferFormat &format) {
+  switch (format) {
+    case BufferFormat::kBLOB:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool PostProcPipe::SupportsRAWFormat(const std::set<BufferFormat> &formats) {
+  if (formats.count(BufferFormat::kRAW10) != 0 ||
+      formats.count(BufferFormat::kRAW12) != 0 ||
+      formats.count(BufferFormat::kRAW16) != 0) {
+    return true;
+  }
+  return false;
+}
+
+bool PostProcPipe::SupportsYUVFormat(const std::set<BufferFormat> &formats) {
+  if (formats.count(BufferFormat::kNV12) != 0 ||
+      formats.count(BufferFormat::kNV21) != 0 ||
+      formats.count(BufferFormat::kNV12UBWC) != 0) {
+    return true;
+  }
+  return false;
+}
+
+bool PostProcPipe::SupportsJPEGFormat(const std::set<BufferFormat> &formats) {
+  if (formats.count(BufferFormat::kBLOB) != 0) {
+    return true;
+  }
+  return false;
 }
 
 status_t PostProcPipe::Start() {
@@ -229,10 +404,8 @@ status_t PostProcPipe::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 }
 
 void PostProcPipe::AddResult(const void* result) {
-  for (auto iter : pipe_) {
-    if (iter.get() != nullptr) {
-      iter->AddResult(result);
-    }
+  for (auto const& node : pipe_) {
+    node->AddResult(result);
   }
 }
 

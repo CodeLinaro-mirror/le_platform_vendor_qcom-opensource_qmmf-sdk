@@ -31,7 +31,6 @@
 
 #include <utils/Log.h>
 #include <utils/String8.h>
-#include <utils/Errors.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>

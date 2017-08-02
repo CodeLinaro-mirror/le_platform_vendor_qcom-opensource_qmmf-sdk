@@ -42,6 +42,7 @@
 #include <system/graphics.h>
 #include <system/window.h>
 #include <utils/List.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "common/qmmf_log.h"
 #include "qmmf-sdk/qmmf_codec.h"
@@ -85,6 +86,77 @@ struct StreamBuffer {
     stream << "needs_return[" << ::std::boolalpha << needs_return
            << ::std::noboolalpha << "] ";
     return stream.str();
+  }
+};
+
+class Common {
+ public:
+  /** FromQmmfToHalFormat
+   *
+   * Translates QMMF format to HAL format
+   *
+   * return: HAL format
+   **/
+  static int32_t FromQmmfToHalFormat(const BufferFormat &format) {
+    switch (format) {
+      case BufferFormat::kBLOB:
+        return HAL_PIXEL_FORMAT_BLOB;
+        break;
+      case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV12:
+        return HAL_PIXEL_FORMAT_YCbCr_420_888;
+        break;
+      case BufferFormat::kNV21:
+        return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        break;
+      case BufferFormat::kRAW10:
+        return HAL_PIXEL_FORMAT_RAW10;
+        break;
+      case BufferFormat::kRAW12:
+        return HAL_PIXEL_FORMAT_RAW12;
+        break;
+      case BufferFormat::kRAW16:
+        return HAL_PIXEL_FORMAT_RAW16;
+        break;
+      default:
+        /* Format not supported */
+        return -1;
+    }
+  }
+
+  /** FromHalToQmmfFormat
+   *
+   * Translates HAL format to QMMF format
+   *
+   * return: QMMF format
+   **/
+  static BufferFormat FromHalToQmmfFormat(const int32_t &format) {
+    switch (format) {
+      case HAL_PIXEL_FORMAT_BLOB:
+        return BufferFormat::kBLOB;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
+        return BufferFormat::kNV12UBWC;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        return BufferFormat::kNV12;
+        break;
+      case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+        return BufferFormat::kNV21;
+        break;
+      case HAL_PIXEL_FORMAT_RAW10:
+        return BufferFormat::kRAW10;
+        break;
+      case HAL_PIXEL_FORMAT_RAW12:
+        return BufferFormat::kRAW12;
+        break;
+      case HAL_PIXEL_FORMAT_RAW16:
+        return BufferFormat::kRAW16;
+        break;
+      default:
+        /* Format not supported */
+        return BufferFormat::kUnsupported;
+    }
   }
 };
 
