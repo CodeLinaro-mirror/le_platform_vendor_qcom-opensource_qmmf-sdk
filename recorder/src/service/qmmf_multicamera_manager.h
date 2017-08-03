@@ -115,6 +115,8 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
+  void ResultCallback(uint32_t camera_id, const CameraMetadata &meta);
+
   status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
   int32_t ImageToHalFormat(const ImageFormat &image);
@@ -143,6 +145,7 @@ class MultiCameraManager : public CameraInterface {
   CameraStartParam         multicam_start_params_;
   MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
+  ResultCb                 result_cb_;
 
   //Non zsl capture request.
   ImageParam               snapshot_param_;

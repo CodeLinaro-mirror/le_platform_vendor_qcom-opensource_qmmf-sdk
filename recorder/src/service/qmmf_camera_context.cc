@@ -1559,8 +1559,8 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
   }
 
   if (((streaming_request_id_ == result.resultExtras.requestId) ||
-      (previous_streaming_request_id_ == result.resultExtras.requestId)) &&
-      (nullptr != result_cb_)) {
+      (previous_streaming_request_id_ == result.resultExtras.requestId) ||
+      snapshot_request_id_.size() > 0) && (nullptr != result_cb_)) {
     result_cb_(camera_id_, result.metadata);
   }
   if (camera_start_params_.zsl_mode) {
