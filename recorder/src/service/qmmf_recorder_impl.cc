@@ -221,10 +221,12 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
             client_id, session_id);
           // Carry-on even stop session fails.
         }
-        for (auto track : session.second) {
-          uint32_t client_track_id  = std::get<0>(track);
-          uint32_t service_track_id  = std::get<1>(track);
-          TrackInfo track_info      = std::get<2>(track);
+       std::vector<TrackTuple>::iterator track = session.second.end();
+        while (track != session.second.begin()) {
+          --track;
+          uint32_t client_track_id  = std::get<0>(*track);
+          uint32_t service_track_id  = std::get<1>(*track);
+          TrackInfo track_info      = std::get<2>(*track);
           QMMF_INFO("%s:%s: Track to Delete, client_id(%d):session_id(%d), "
               "client_track_id(%d):service_track_id(%x)", TAG, __func__,
               client_id, session_id, client_track_id, service_track_id);
@@ -607,11 +609,13 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
   QMMF_INFO("%s:%s: client_id(%d):session_id(%d), number of tracks(%d) to stop",
       TAG, __func__, client_id, session_id, tracks_in_session.size());
   // All the tracks associated to one session starts together.
-  for(auto track : tracks_in_session) {
 
-    uint32_t client_track_id  = std::get<0>(track);
-    uint32_t service_track_id = std::get<1>(track);
-    TrackInfo track_info      = std::get<2>(track);
+  std::vector<TrackTuple>::iterator track = tracks_in_session.end();
+  while (track != tracks_in_session.begin()) {
+    --track;
+    uint32_t client_track_id  = std::get<0>(*track);
+    uint32_t service_track_id = std::get<1>(*track);
+    TrackInfo track_info      = std::get<2>(*track);
     QMMF_INFO("%s:%s: Track to Stop, client_id(%d):session_id(%d), "
         "client_track_id(%d):service_track_id(%x)", TAG, __func__, client_id,
         session_id, client_track_id, service_track_id);
