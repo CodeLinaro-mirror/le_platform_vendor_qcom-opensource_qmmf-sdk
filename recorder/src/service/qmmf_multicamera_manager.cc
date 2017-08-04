@@ -247,7 +247,13 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
 
+  // Always use synchronized request for capture.
   std::vector<CameraMetadata> capture_meta = meta;
+
+  const uint8_t sync_req = 1;
+  capture_meta[0].update(qcamera::QCAMERA3_DUALCAM_SYNCHRONIZED_REQUEST,
+                         &sync_req, 1);
+
   for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
