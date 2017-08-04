@@ -144,7 +144,6 @@ JpegEncoder::JpegEncoder() :
   if (cfg->params_.encode_thumbnail) {
     cfg->params_.num_tmb_bufs = cfg->params_.num_src_bufs;
   }
-  cfg->params_.quality = 95;
   cfg->params_.thumb_quality = 75;
 
   cfg->job_.encode_job.dst_index = 0;
@@ -234,7 +233,8 @@ void JpegEncoder::FillImgData(const CameraBufferMetaData& source_info) {
   cfg->pic_size_.h = source_info.plane_info[0].height;
 }
 
-void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t *jpeg_size) {
+void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t *jpeg_size,
+                          const uint32_t jpeg_quality) {
   JE_GET_PARAMS(cfg);
   std::lock_guard<std::mutex> al(cfg->encode_lock_);
   job_result_ptr_ = NULL;
@@ -245,6 +245,7 @@ void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t *jpeg_size) {
   }
 
   FillImgData(in_buffer.source_info);
+  cfg->params_.quality = jpeg_quality;
   cfg->params_.src_main_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.src_thumb_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.dest_buf[0].buf_vaddr = in_buffer.out_data[0];
