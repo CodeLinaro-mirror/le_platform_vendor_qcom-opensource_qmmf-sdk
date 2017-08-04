@@ -59,6 +59,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
                            const PostProcParam& output,
                            const uint32_t frame_rate,
                            const uint32_t num_images,
+                           const uint32_t jpeg_quality,
                            const void* static_meta,
                            const PostProcCb& cb,
                            const void* context) {
@@ -84,6 +85,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
   capture_client_cb_ = cb;
   input_stream_id_ = stream_id;
   num_images_ = num_images;
+  jpeg_quality_ = jpeg_quality;
 
   ready_to_start_ = true;
 
@@ -145,7 +147,8 @@ void CameraJpeg::Process(StreamBuffer& in_buffer,
     img_buffer.img_data[0] = (uint8_t*)buf_vaaddr;
     img_buffer.out_data[0] = (uint8_t*)out_vaaddr;
     img_buffer.source_info = in_buffer.info;
-    auto buf_vaddr = jpeg_encoder_->Encode(img_buffer, &jpeg_size);
+    auto buf_vaddr = jpeg_encoder_->Encode(img_buffer, &jpeg_size,
+                                           jpeg_quality_);
 
     memcpy(buf_vaaddr, buf_vaddr, jpeg_size);
     munmap(buf_vaaddr, in_buffer.size);

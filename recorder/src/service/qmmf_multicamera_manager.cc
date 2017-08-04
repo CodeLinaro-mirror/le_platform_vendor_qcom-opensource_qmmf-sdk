@@ -247,7 +247,13 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
 
+  // Always use synchronized request for capture.
   std::vector<CameraMetadata> capture_meta = meta;
+
+  const uint8_t sync_req = 1;
+  capture_meta[0].update(qcamera::QCAMERA3_DUALCAM_SYNCHRONIZED_REQUEST,
+                         &sync_req, 1);
+
   for (size_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
 
@@ -766,7 +772,8 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
                                        multicam_start_params_.frame_rate, 1,
-                                       nullptr, jpeg_cb, nullptr);
+                                       param.image_quality, nullptr, jpeg_cb,
+                                       nullptr);
   if (ret < NO_ERROR) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;

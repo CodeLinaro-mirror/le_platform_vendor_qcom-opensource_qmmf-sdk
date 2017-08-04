@@ -66,7 +66,8 @@ public:
 
   ~JpegEncoder();
 
-  void *Encode(const snapshot_info& in_buffer, size_t *jpeg_size);
+  void *Encode(const snapshot_info& in_buffer, size_t *jpeg_size,
+               const uint32_t jpeg_quality);
 
   static JpegEncoder *getInstance();
 
