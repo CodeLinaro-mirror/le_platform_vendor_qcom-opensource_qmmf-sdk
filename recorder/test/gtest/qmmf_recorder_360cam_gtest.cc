@@ -8434,6 +8434,119 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* Stitched480pEncTrackAndPrintLumaValues: This case will test a MultiCamera
+*                                         session with one 960x480 h264
+*                                         encodded track and print luma values.
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartVideoTrack
+*  - Print Luma Values
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  int32_t stream_width = 960;
+  int32_t stream_height = 480;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret =
+      recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+  CameraResultCb result_cb = [&](uint32_t camera_id,
+                                 const CameraMetadata &result) {
+    CameraResultCallbackHandler(camera_id, result);
+  };
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_, result_cb);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  video_track_param.camera_id = multicam_id_;
+  video_track_param.width = stream_width;
+  video_track_param.height = stream_height;
+  video_track_param.frame_rate = 30;
+  video_track_param.format_type = format_type;
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level = AVCLevelType::kLevel4;
+
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    Stream360DumpInfo dumpinfo = {video_track_param.format_type, video_track_id,
+                                  stream_width, stream_height};
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  sleep(10);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 void Recorder360Gtest::RecorderCallbackHandler(EventType event_type,
                                             void *event_data,
                                             size_t event_data_size) {
@@ -8448,15 +8561,35 @@ void Recorder360Gtest::SessionCallbackHandler(EventType event_type,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void Recorder360Gtest::CameraResultCallbackHandler(uint32_t camera_id,
-                                                const CameraMetadata &result) {
-  fprintf(stderr,"%s: camera_id: %d\n", __func__, camera_id);
-  camera_metadata_ro_entry entry;
-  entry = result.find(ANDROID_CONTROL_AWB_MODE);
-  if (0 < entry.count) {
-    fprintf(stderr,"%s: AWB mode: %d\n", __func__, *entry.data.u8);
-  } else {
-    fprintf(stderr,"%s: No AWB mode tag\n", __func__);
+void Recorder360Gtest::CameraResultCallbackHandler(
+    uint32_t camera_id, const CameraMetadata &result) {
+  {
+    static uint32_t count = 1;
+    if (count%30 == 0) {
+      if (result.exists(QCAMERA3_TARGET_LUMA)) {
+        auto entry = result.find(QCAMERA3_TARGET_LUMA);
+        TEST_INFO("%s:%s: Target Luma Value: %f", TAG, __func__,
+                  entry.data.f[0]);
+      } else {
+        TEST_DBG("%s:%s QCAMERA3_TARGET_LUMA does not exists", TAG, __func__);
+      }
+      if (result.exists(QCAMERA3_CURRENT_LUMA)) {
+        auto entry = result.find(QCAMERA3_CURRENT_LUMA);
+        TEST_INFO("%s:%s: Current Luma Value: %f", TAG, __func__,
+                  entry.data.f[0]);
+      } else {
+        TEST_DBG("%s:%s QCAMERA3_CURRENT_LUMA does not exists", TAG, __func__);
+      }
+      if (result.exists(QCAMERA3_LUMA_RANGE)) {
+        auto entry = result.find(QCAMERA3_LUMA_RANGE);
+        TEST_INFO("%s:%s: Target Luma Range: [%f - %f]", TAG, __func__,
+                  entry.data.f[0], entry.data.f[1]);
+
+      } else {
+        TEST_DBG("%s:%s QCAMERA3_LUMA_RANGE does not exists", TAG, __func__);
+      }
+    }
+    ++count;
   }
 }
 
