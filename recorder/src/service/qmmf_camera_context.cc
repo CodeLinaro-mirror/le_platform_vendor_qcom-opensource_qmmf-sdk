@@ -424,7 +424,7 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
       format = HAL_PIXEL_FORMAT_BLOB;
       break;
     case ImageFormat::kNV12:
-      format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+      format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
       break;
     case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
@@ -692,11 +692,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
   }
 
   sp<CameraPort> port;
-  if (param.low_power_mode) {
-    port = new CameraPort(param, batch, CameraPortType::kPreview, this);
-  } else {
-    port = new CameraPort(param, batch, CameraPortType::kVideo, this);
-  }
+  port = new CameraPort(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
 
   auto ret = port->Init();
