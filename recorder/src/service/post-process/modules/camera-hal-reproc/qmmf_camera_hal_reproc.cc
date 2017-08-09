@@ -386,26 +386,13 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     }
   }
 
+  // meta is missing append to queue directly
   if (append) {
-    // meta is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.buffer = buf;
     new_entry.timestamp = buf.timestamp;
     new_entry.metadata.clear();
     reproc_partial_list_.push_back(new_entry);
-  } else {
-    // clean up older metadata in partial list
-    if (!reproc_partial_list_.empty()) {
-      auto it = reproc_partial_list_.begin();
-      auto end = reproc_partial_list_.end();
-      while (it != end) {
-        if (it->timestamp >= buf.timestamp) {
-          // clean up only first entries which has lower than buf time stamp
-          break;
-        }
-        it = reproc_partial_list_.erase(it);
-      }
-    }
   }
 }
 
