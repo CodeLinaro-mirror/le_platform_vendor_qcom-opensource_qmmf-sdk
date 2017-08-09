@@ -93,9 +93,9 @@ class Utils {
    **/
   static std::string GetAlgLibFolder() {
 #ifdef ANDROID_LIBPATH
-    return "/vendor/lib/qmmf/alg-plugins/";
+    return "/vendor/lib/qmmf-algs/";
 #else
-    return "/usr/lib/qmmf/alg-plugins/";
+    return "/usr/lib/qmmf-algs/";
 #endif
   }
 
