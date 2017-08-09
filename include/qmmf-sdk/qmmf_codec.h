@@ -544,7 +544,6 @@ enum class AACFormat {
   kADTS,
   kADIF,
   kRaw,
-  kMP4FF,
 };
 
 enum class AACMode {
