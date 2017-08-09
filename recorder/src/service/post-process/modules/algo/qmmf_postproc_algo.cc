@@ -341,21 +341,15 @@ status_t PostProcAlg::PrepareAlgBuffer(
     uint32_t offset = 0;
     std::vector<BufferPlane> planes;
     for (uint32_t i = 0; i < stream_buffer.info.num_planes; i++) {
-      // gralloc report stride in pixels except mipi formats, because
-      // mipi stride cannot be represent in pixels.
-      uint32_t stride_in_bytes = stream_buffer.info.plane_info[i].stride;
-      if (stream_buffer.info.format == BufferFormat::kRAW16) {
-        stride_in_bytes *= 2; // two bytes per pixel
-      }
       BufferPlane plane(stream_buffer.info.plane_info[i].width,
                         stream_buffer.info.plane_info[i].height,
-                        stride_in_bytes,
+                        stream_buffer.info.plane_info[i].stride,
                         offset,
                         stream_buffer.info.plane_info[i].scanline *
-                            stride_in_bytes);
+                            stream_buffer.info.plane_info[i].stride);
       planes.push_back(plane);
       offset += stream_buffer.info.plane_info[i].scanline *
-          stride_in_bytes;
+          stream_buffer.info.plane_info[i].stride;
     }
 
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
