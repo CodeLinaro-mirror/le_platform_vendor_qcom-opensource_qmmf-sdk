@@ -1739,8 +1739,7 @@ CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param) 
   stream_param.height = reproc_in_param.height;
 
   if (stream_param.format == HAL_PIXEL_FORMAT_RAW10 ||
-      stream_param.format == HAL_PIXEL_FORMAT_RAW12 ||
-      stream_param.format == HAL_PIXEL_FORMAT_RAW16) {
+      stream_param.format == HAL_PIXEL_FORMAT_RAW12) {
     camera_metadata_entry_t entry;
     if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
