@@ -414,7 +414,7 @@ status_t InputHandler::MapBuf(StreamBuffer& buffer) {
     return BAD_VALUE;
   }
 
-  QMMF_DEBUG("%s:%s:%s buffer.fd=%d buffer.size=%d", TAG, __func__,
+  QMMF_INFO("%s:%s:%s buffer.fd=%d buffer.size=%d", TAG, __func__,
       node_->GetName().c_str(), buffer.fd, buffer.size);
 
   if (mapped_buffs_.count(buffer.fd) == 0) {

@@ -167,7 +167,7 @@ class Recorder {
   /// \brief Set plugin specific configuration data.
   ///
   /// This is an async API.
-  status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
+  status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
 
   /// \brief Creates an audio track and associates it to the session id provided.
   /// User must specify the unqiue track_id for the session.
