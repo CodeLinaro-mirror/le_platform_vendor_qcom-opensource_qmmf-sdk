@@ -39,8 +39,9 @@ namespace qmmf {
 
 namespace recorder {
 
-PostProcTest::PostProcTest()
-    : reprocess_flag_(false),
+PostProcTest::PostProcTest(int32_t Id)
+    : id_(Id),
+      reprocess_flag_(false),
       ready_to_start_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -52,9 +53,13 @@ PostProcTest::~PostProcTest() {
 }
 
 status_t PostProcTest::Create(const int32_t stream_id,
+                              const PostProcCreateParam& input,
+                              const PostProcCreateParam& output,
                               const uint32_t frame_rate,
                               const uint32_t num_images,
-                              const void* context) {
+                              const void* static_meta,
+                              const void* context,
+                              int32_t &out_stream_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (ready_to_start_) {
@@ -69,7 +74,9 @@ status_t PostProcTest::Create(const int32_t stream_id,
 
   ready_to_start_ = true;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit reproc_ID: %d", TAG, __func__, id_);
+  out_stream_id = id_;
+
   return NO_ERROR;
 }
 
@@ -81,15 +88,8 @@ PostProcCreateParam PostProcTest::GetOutput(const PostProcCreateParam &in) {
   return in;
 }
 
-status_t PostProcTest::ValidateInput(const PostProcCreateParam &input) {
-  return NO_ERROR;
-}
-
-status_t PostProcTest::ValidateOutput(const PostProcCreateParam &output) {
-  return NO_ERROR;
-}
-
 status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
+  caps.output_buff_        = 0;
   caps.min_width_          = 160;
   caps.min_height_         = 120;
   caps.max_width_          = 5104;
@@ -98,9 +98,13 @@ status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
   caps.crop_support_       = false;
   caps.scale_support_      = false;
   caps.inplace_processing_ = true;
+  caps.lib_version_        = "1.0";
 
-  caps.formats_.insert(BufferFormat::kNV12);
-  caps.formats_.insert(BufferFormat::kNV21);
+  caps.in_formats_.push_back(BufferFormat::kNV12);
+  caps.in_formats_.push_back(BufferFormat::kNV21);
+
+  caps.out_formats_.push_back(BufferFormat::kNV12);
+  caps.out_formats_.push_back(BufferFormat::kNV21);
 
   return NO_ERROR;
 }

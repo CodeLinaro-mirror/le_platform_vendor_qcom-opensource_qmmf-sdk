@@ -85,17 +85,6 @@ class RecorderImpl {
 
   status_t ResumeSession(const uint32_t client_id, const uint32_t session_id);
 
-  status_t GetSupportedPlugins(const uint32_t client_id,
-                               SupportedPlugins *plugins);
-
-  status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
-                        const PluginInfo &plugin);
-
-  status_t DeletePlugin(const uint32_t client_id, const uint32_t &uid);
-
-  status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
-                        const std::string &json_config);
-
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,

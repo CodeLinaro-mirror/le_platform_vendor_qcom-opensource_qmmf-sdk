@@ -68,11 +68,18 @@ MemPool::~MemPool() {
   QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
 }
 
-int32_t MemPool::Initialize(const MemPoolParams &params) {
+int32_t MemPool::Initialize(uint32_t width, uint32_t height, int32_t  format,
+                            int32_t  gralloc_flags, uint32_t max_buffer_count,
+                            uint32_t max_size) {
   status_t ret = NO_ERROR;
   hw_module_t const *module = nullptr;
 
-  params_ = params;
+  init_params_.width = width;
+  init_params_.height = height;
+  init_params_.format = format;
+  init_params_.gralloc_flags = gralloc_flags;
+  init_params_.max_buffer_count = max_buffer_count;
+  init_params_.max_size = max_size;
 
   ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
   if ((NO_ERROR != ret) || (nullptr == module)) {
@@ -96,8 +103,8 @@ int32_t MemPool::Initialize(const MemPoolParams &params) {
             gralloc_device_->common.module->name);
 
   // Allocate gralloc slots.
-  if (params_.max_buffer_count > 0) {
-    gralloc_slots_ = new buffer_handle_t[params_.max_buffer_count];
+  if (init_params_.max_buffer_count > 0) {
+    gralloc_slots_ = new buffer_handle_t[init_params_.max_buffer_count];
     if (gralloc_slots_ == nullptr) {
       QMMF_ERROR("%s:%s: Unable to allocate buffer handles!", TAG, __func__);
       ret = NO_MEMORY;
@@ -151,9 +158,9 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     return NO_ERROR;
   }
 
-  if (pending_buffer_count_ == params_.max_buffer_count) {
+  if (pending_buffer_count_ == init_params_.max_buffer_count) {
     QMMF_VERBOSE("%s:%s: Already retrieved maximum buffers (%d), waiting"
-        " on a free one", TAG, __func__, params_.max_buffer_count);
+        " on a free one", TAG, __func__, init_params_.max_buffer_count);
 
     ret = wait_for_buffer_.waitRelative(buffer_lock_, kBufferWaitTimeout);
     if (ret == TIMED_OUT) {
@@ -196,7 +203,7 @@ status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {
       }
     }
   } else if ((nullptr == handle) &&
-             (buffers_allocated_ < params_.max_buffer_count)) {
+             (buffers_allocated_ < init_params_.max_buffer_count)) {
     ret = AllocGrallocBuffer(&handle);
     if (NO_ERROR != ret) {
       return ret;
@@ -255,7 +262,7 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
       info.num_planes = 1;
-      info.plane_info[0].width = params_.max_size;
+      info.plane_info[0].width = init_params_.max_size;
       info.plane_info[0].height = 1;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
@@ -264,60 +271,60 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
       info.format = BufferFormat::kNV12;
       info.num_planes = 2;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
-      info.plane_info[1].width = params_.width;
-      info.plane_info[1].height = params_.height/2;
+      info.plane_info[1].width = init_params_.width;
+      info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
       info.num_planes = 2;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
-      info.plane_info[1].width = params_.width;
-      info.plane_info[1].height = params_.height/2;
+      info.plane_info[1].width = init_params_.width;
+      info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
       info.num_planes = 2;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
-      info.plane_info[1].width = params_.width;
-      info.plane_info[1].height = params_.height/2;
+      info.plane_info[1].width = init_params_.width;
+      info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
       info.format = BufferFormat::kRAW10;
       info.num_planes = 1;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
       break;
     case HAL_PIXEL_FORMAT_RAW12:
       info.format = BufferFormat::kRAW12;
       info.num_planes = 1;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
       break;
     case HAL_PIXEL_FORMAT_RAW16:
       info.format = BufferFormat::kRAW16;
       info.num_planes = 1;
-      info.plane_info[0].width = params_.width;
-      info.plane_info[0].height = params_.height;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
       break;
@@ -333,14 +340,15 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
 status_t MemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
 
   status_t ret      = NO_ERROR;
-  uint32_t width    = params_.width;
-  uint32_t height   = params_.height;
-  int32_t  format   = params_.format;
-  int32_t  usage    = params_.gralloc_flags;
-  uint32_t max_size = params_.max_size;
+  uint32_t width    = init_params_.width;
+  uint32_t height   = init_params_.height;
+  int32_t  format   = init_params_.format;
+  int32_t  usage    = init_params_.gralloc_flags;
+  uint32_t max_size = init_params_.max_size;
 
   // Filter out any usage bits that shouldn't be passed to the gralloc module.
   usage &= GRALLOC_USAGE_ALLOC_MASK;
+  usage |= GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_OFTEN;
 
   if (!width || !height) {
     width = height = 1;

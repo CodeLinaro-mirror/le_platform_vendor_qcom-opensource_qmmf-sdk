@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cerrno>
 #include <cstdint>
 #include <memory>

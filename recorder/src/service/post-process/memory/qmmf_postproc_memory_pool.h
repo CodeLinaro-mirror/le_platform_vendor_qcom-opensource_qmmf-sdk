@@ -60,7 +60,9 @@ class MemPool : public RefBase {
 
    ~MemPool();
 
-   int32_t Initialize(const MemPoolParams &params);
+   int32_t Initialize(uint32_t width, uint32_t height, int32_t  format,
+                      int32_t  gralloc_flags, uint32_t max_buffer_count,
+                      uint32_t max_size);
 
    status_t ReturnBufferLocked(const StreamBuffer &buffer);
 
@@ -83,7 +85,7 @@ class MemPool : public RefBase {
    uint32_t                      pending_buffer_count_;
    KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
 
-   MemPoolParams                 params_;
+   MemPoolParams                 init_params_;
    Mutex                         buffer_lock_;
    Condition                     wait_for_buffer_;
 

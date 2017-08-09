@@ -61,9 +61,13 @@ class CameraHalReproc : public IPostProcModule {
    ~CameraHalReproc();
 
    status_t Create(const int32_t stream_id,
+                   const PostProcCreateParam& input,
+                   const PostProcCreateParam& output,
                    const uint32_t frame_rate,
                    const uint32_t num_images,
-                   const void* context) override;
+                   const void* static_data,
+                   const void* context,
+                   int32_t &out_stream_id) override;
 
    status_t Delete() override;
 
@@ -84,11 +88,7 @@ class CameraHalReproc : public IPostProcModule {
 
    PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
 
-   PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
-
-   status_t ValidateInput(const PostProcCreateParam &input) override;
-
-   status_t ValidateOutput(const PostProcCreateParam &output) override;
+   PostProcCreateParam GetOutput(const PostProcCreateParam &in) override;
 
    status_t GetCapabilities(PostProcCaps &caps) override;
 
@@ -110,7 +110,8 @@ class CameraHalReproc : public IPostProcModule {
 
    void ReprocessCallback(StreamBuffer buffer);
 
-   status_t ValidateInput(const PostProcCreateParam& input,
+   status_t ValidateInput(const CameraMetadata& meta,
+                          const PostProcCreateParam& input,
                           const PostProcCreateParam& output);
 
    status_t StartProcessing();
@@ -130,9 +131,6 @@ class CameraHalReproc : public IPostProcModule {
 
    int32_t                      input_stream_id_;
    Camera3Request               reprocess_request_;
-
-   PostProcCreateParam          input_param_;
-   PostProcCreateParam          output_param_;
 
    std::list<StreamBuffer>      input_buffer_;
    std::list<StreamBuffer>      input_buffer_done_;

@@ -459,8 +459,7 @@ enum class BufferFormat {
   kBLOB,
   kRAW10,
   kRAW12,
-  kRAW16,
-  kUnsupported,
+  kRAW16
 };
 
 struct CameraBufferMetaData {

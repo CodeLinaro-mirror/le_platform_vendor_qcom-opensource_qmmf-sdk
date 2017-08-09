@@ -34,7 +34,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <set>
 
 #include "qmmf_alg_utils.h"
 
@@ -250,7 +249,7 @@ class BufferRequirements {
       uint32_t max_width, uint32_t max_height,
       bool cached, uint32_t count, uint32_t stride_alignment,
       uint32_t plane_alignment,
-      std::set<PixelFormat> supported_pixel_formats)
+      std::vector<PixelFormat> supported_pixel_formats)
       : min_width_(min_width),
         min_height_(min_height),
         max_width_(max_width),
@@ -297,7 +296,7 @@ class BufferRequirements {
   uint32_t count_;
   uint32_t stride_alignment_;
   uint32_t plane_alignment_;
-  std::set<PixelFormat> pixel_formats_;
+  std::vector<PixelFormat> pixel_formats_;
 };
 
 /** BufferPlane:

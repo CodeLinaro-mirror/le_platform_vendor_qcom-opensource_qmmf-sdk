@@ -75,14 +75,6 @@ class CameraSource {
                                 const void *param,
                                 const uint32_t param_size);
 
-  status_t GetSupportedPlugins(SupportedPlugins *plugins);
-
-  status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
-
-  status_t DeletePlugin(const uint32_t &uid);
-
-  status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
-
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
@@ -163,8 +155,6 @@ class CameraSource {
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
-
-  sp<PostProcFactory> factory_;
 
   // Not allowed
   CameraSource();

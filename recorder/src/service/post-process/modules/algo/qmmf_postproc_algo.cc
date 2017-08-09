@@ -41,8 +41,9 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-PostProcAlg::PostProcAlg(std::string lib)
-    : Lib_(lib),
+PostProcAlg::PostProcAlg(int32_t Id, std::string lib)
+    : id_(Id),
+      Lib_(lib),
       reprocess_flag_(false),
       ready_to_start_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
@@ -51,7 +52,7 @@ PostProcAlg::PostProcAlg(std::string lib)
     Utils::LoadLib(Lib_, lib_handle_);
 
     QmmfAlgLoadPlugin LoadPluginFunc;
-    Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
+    Utils::LoadLibHandler(lib_handle_, QMMF_ALFO_LIB_LOAD_FUNC, LoadPluginFunc);
     std::vector<uint8_t> calibration_data;
     algo_ = LoadPluginFunc(calibration_data);
   } catch (const std::exception &e) {
@@ -79,9 +80,13 @@ PostProcAlg::~PostProcAlg() {
 }
 
 status_t PostProcAlg::Create(const int32_t stream_id,
+                             const PostProcCreateParam& input,
+                             const PostProcCreateParam& output,
                              const uint32_t frame_rate,
                              const uint32_t num_images,
-                             const void* context) {
+                             const void* static_meta,
+                             const void* context,
+                             int32_t &out_stream_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (ready_to_start_) {
@@ -98,14 +103,15 @@ status_t PostProcAlg::Create(const int32_t stream_id,
 
   ready_to_start_ = true;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit reproc_ID: %d", TAG, __func__, id_);
+  out_stream_id = id_;
 
   return NO_ERROR;
 }
 
 PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
   Requirements requirements;
-  input_param_ = output_param_ = out;
+  PostProcCreateParam in = out;
 
   requirements.width_    = out.width;
   requirements.height_   = out.height;
@@ -117,105 +123,23 @@ PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
   std::vector<Requirements> alg_out = {requirements};
   requirements = algo_->GetInputRequirements(alg_out);
 
-  input_param_.width    = requirements.width_;
-  input_param_.height   = requirements.height_;
-  input_param_.stride   = requirements.stride_;
-  input_param_.scanline = requirements.scanline_;
+  in.width    = requirements.width_;
+  in.height   = requirements.height_;
+  in.stride   = requirements.stride_;
+  in.scanline = requirements.scanline_;
   //in.format   = GetQmmfFormat(algo_params.formats_.front());
 
-  return input_param_;
+  return in;
 }
 
 PostProcCreateParam PostProcAlg::GetOutput(const PostProcCreateParam &in) {
-  Capabilities caps = algo_->GetCaps();
-  if (caps.scale_support_) return output_param_;
-
-  output_param_ = in;
-  return output_param_;
-}
-
-status_t PostProcAlg::ValidateInput(const PostProcCreateParam &input) {
-  Capabilities caps = algo_->GetCaps();
-
-  if (input.width < caps.in_buffer_requirements_.min_width_ ||
-      input.width > caps.in_buffer_requirements_.max_width_ ||
-      input.height < caps.in_buffer_requirements_.min_height_ ||
-      input.height > caps.in_buffer_requirements_.max_height_) {
-    QMMF_ERROR("%s:%s: Input dimensions not supported", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  PixelFormat pix_fmt;
-  switch (input.format) {
-    case HAL_PIXEL_FORMAT_YCbCr_420_888:
-      pix_fmt = kNv12;
-      break;
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-      pix_fmt = kNv21;
-      break;
-    case HAL_PIXEL_FORMAT_BLOB:
-      pix_fmt = kJpeg;
-      break;
-    case HAL_PIXEL_FORMAT_RAW10:
-      pix_fmt = kRawBggrMipi10;
-      break;
-    case HAL_PIXEL_FORMAT_RAW12:
-      pix_fmt = kRawBggrMipi12;
-      break;
-    default:
-      pix_fmt = kNv12;
-  }
-
-  if (caps.in_buffer_requirements_.pixel_formats_.count(pix_fmt) == 0) {
-    QMMF_ERROR("%s:%s: Input format not supported", TAG, __func__);
-    return BAD_TYPE;
-  }
-
-  return NO_ERROR;
-}
-
-status_t PostProcAlg::ValidateOutput(const PostProcCreateParam &output) {
-  Capabilities caps = algo_->GetCaps();
-
-  if (output.width < caps.out_buffer_requirements_.min_width_ ||
-      output.width > caps.out_buffer_requirements_.max_width_ ||
-      output.height < caps.out_buffer_requirements_.min_height_ ||
-      output.height > caps.out_buffer_requirements_.max_height_) {
-    QMMF_ERROR("%s:%s: Input dimensions not supported", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  PixelFormat pix_fmt;
-  switch (output.format) {
-    case HAL_PIXEL_FORMAT_YCbCr_420_888:
-      pix_fmt = kNv12;
-      break;
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-      pix_fmt = kNv21;
-      break;
-    case HAL_PIXEL_FORMAT_BLOB:
-      pix_fmt = kJpeg;
-      break;
-    case HAL_PIXEL_FORMAT_RAW10:
-      pix_fmt = kRawBggrMipi10;
-      break;
-    case HAL_PIXEL_FORMAT_RAW12:
-      pix_fmt = kRawBggrMipi12;
-      break;
-    default:
-      pix_fmt = kNv12;
-  }
-
-  if (caps.out_buffer_requirements_.pixel_formats_.count(pix_fmt) == 0) {
-    QMMF_ERROR("%s:%s: Input format not supported", TAG, __func__);
-    return BAD_TYPE;
-  }
-
-  return NO_ERROR;
+  PostProcCreateParam out = in;
+  // todo: remove GetOutput API. GetInput should be enough.
+  return out;
 }
 
 status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
-  Capabilities algo_caps = algo_->GetCaps();
+  qmmf_alg_plugin::Capabilities algo_caps = algo_->GetCaps();
 
   caps.output_buff_        = algo_caps.out_buffer_requirements_.count_;
   caps.min_width_          = algo_caps.out_buffer_requirements_.min_width_;
@@ -225,34 +149,39 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   caps.crop_support_       = algo_caps.crop_support_;
   caps.scale_support_      = algo_caps.scale_support_;
   caps.inplace_processing_ = algo_caps.inplace_processing_;
+  caps.lib_version_        = algo_caps.lib_version_;
   caps.usage_              = 0;
 
+  for (auto fmt : algo_caps.in_buffer_requirements_.pixel_formats_) {
+    caps.in_formats_.push_back(GetQmmfFormat(fmt));
+  }
+
   for (auto fmt : algo_caps.out_buffer_requirements_.pixel_formats_) {
-    caps.formats_.insert(GetQmmfFormat(fmt));
+    caps.out_formats_.push_back(GetQmmfFormat(fmt));
   }
   return NO_ERROR;
 }
 
 status_t PostProcAlg::Start() {
-  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
   if (!ready_to_start_) {
     return BAD_VALUE;
   }
 
   reprocess_flag_ = true;
 
-  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t PostProcAlg::Stop() {
-  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Enter stop Id_: %d", TAG, __func__, id_);
 
   ready_to_start_ = false;
 
   reprocess_flag_ = false;
 
-  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+  QMMF_INFO("%s:%s: Exit stop Id_: %d", TAG, __func__, id_);
   return NO_ERROR;
 }
 

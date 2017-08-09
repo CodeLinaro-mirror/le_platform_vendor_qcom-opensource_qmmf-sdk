@@ -44,7 +44,6 @@
 #ifdef ENABLE_360
 #include "recorder/src/service/qmmf_multicamera_manager.h"
 #endif
-#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 
 namespace qmmf {
 
@@ -80,7 +79,6 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  factory_ = PostProcFactory::getInstance();
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -91,8 +89,6 @@ CameraSource::~CameraSource() {
   if (!camera_map_.isEmpty()) {
     camera_map_.clear();
   }
-  PostProcFactory::releaseInstance();
-  factory_ = nullptr;
   instance_ = nullptr;
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
@@ -227,63 +223,6 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                          param, param_size);
 #endif
   return ret;
-}
-
-status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
-
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-
-  auto ret = factory_->GetSupportedPlugins(plugins);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetSupportedPlugins Failed!", TAG, __func__);
-    return ret;
-  }
-
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
-
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-
-  auto ret = factory_->CreatePlugin(uid, plugin);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CreatePlugin Failed!", TAG, __func__);
-    return ret;
-  }
-
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeletePlugin(const uint32_t &uid) {
-
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-
-  auto ret = factory_->DeletePlugin(uid);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: DeletePlugin Failed!", TAG, __func__);
-    return ret;
-  }
-
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigPlugin(const uint32_t &uid,
-                                    const std::string &json_config) {
-
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-
-  auto ret = factory_->ConfigPlugin(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ConfigPlugin Failed!", TAG, __func__);
-    return ret;
-  }
-
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,

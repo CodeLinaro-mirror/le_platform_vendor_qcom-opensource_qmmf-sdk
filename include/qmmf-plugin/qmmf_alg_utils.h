@@ -89,20 +89,6 @@ class Utils {
 #endif
   }
 
-  /** GetAlgLibFolder
-   *
-   * Returns QMMF algorithm libraries folder
-   *
-   * return: algorithm libraries folder
-   **/
-  static std::string GetAlgLibFolder() {
-#ifdef ANDROID
-    return "/vendor/lib/qmmf-algs/";
-#else
-    return "/usr/lib/qmmf-algs/";
-#endif
-  }
-
   /** MakeDivisibleBy
    *    @val: value
    *    @div: divider
