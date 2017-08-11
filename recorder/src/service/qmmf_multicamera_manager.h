@@ -249,7 +249,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   };
 
   StitchingBase(InitParams &param);
-  ~StitchingBase();
+  virtual ~StitchingBase();
 
   status_t Initialize();
   status_t Configure(GrallocMemory::BufferParams &param);

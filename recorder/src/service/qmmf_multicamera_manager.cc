@@ -66,7 +66,27 @@ MultiCameraManager::MultiCameraManager()
     jpeg_encoding_enabled_(false),
     client_snapshot_cb_(nullptr) {}
 
-MultiCameraManager::~MultiCameraManager() {}
+MultiCameraManager::~MultiCameraManager() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  stream_stitch_algos_.clear();
+  snapshot_stitch_algo_.clear();
+
+  // Close cameras backwards since first camera is master camera.
+  while (!camera_contexts_.isEmpty()) {
+    uint32_t cam_id = camera_contexts_.keyAt(camera_contexts_.size() - 1);
+    QMMF_INFO("%s:%s camera id(%d) to be closed", TAG, __func__, cam_id);
+
+    auto ret = camera_contexts_.editValueFor(cam_id)->CloseCamera(cam_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: CloseCamera(%d) failed!", TAG, __func__, cam_id);
+    }
+    camera_contexts_.removeItem(cam_id);
+  }
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+}
 
 status_t MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t>
                                                camera_ids,
@@ -1349,6 +1369,7 @@ StitchingBase::~StitchingBase() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
+  RequestExitAndWait();
   DeInitLibrary();
 
   unsynced_buffer_map_.clear();
