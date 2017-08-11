@@ -66,6 +66,7 @@ CameraJpeg::CameraJpeg()
 
 CameraJpeg::~CameraJpeg() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  Delete();
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
