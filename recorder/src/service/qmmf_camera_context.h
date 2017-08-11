@@ -278,7 +278,6 @@ class CameraContext : public CameraInterface,
 
 enum class CameraPortType {
   kVideo,
-  kPreview,
   kZSL,
 };
 
