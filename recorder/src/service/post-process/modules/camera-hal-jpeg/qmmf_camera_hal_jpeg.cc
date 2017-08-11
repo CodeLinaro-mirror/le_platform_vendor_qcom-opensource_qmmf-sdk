@@ -208,7 +208,8 @@ status_t PostProcHalJpeg::ValidateInput(const PostProcCreateParam &input) {
   entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
   for (uint32_t i = 0 ; i < entry.count; i++) {
     if (entry.data.i32[i] == input.format &&
-        HAL_PIXEL_FORMAT_BLOB == input.format) {
+        ((HAL_PIXEL_FORMAT_YCbCr_420_888 == input.format) ||
+         (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == input.format) )) {
       supported = true;
       break;
     }
