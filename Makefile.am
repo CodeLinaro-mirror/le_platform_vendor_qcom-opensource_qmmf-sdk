@@ -30,7 +30,6 @@ BUILD_COMPONENTS += player/test/gtest
 BUILD_COMPONENTS += system/src/client
 BUILD_COMPONENTS += system/src/service
 BUILD_COMPONENTS += system/test/samples
-BUILD_COMPONENTS += player/test/transcode_app
 BUILD_COMPONENTS += qmmf-server
 
 
