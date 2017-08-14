@@ -57,10 +57,8 @@ class PostProcAlg : public IPostProcModule,
 
   ~PostProcAlg();
 
-  status_t Create(const int32_t stream_id,
-                  const uint32_t frame_rate,
-                  const uint32_t num_images,
-                  const void* context) override;
+  status_t Initialize(const PostProcIOParam &in_param,
+                      const PostProcIOParam &out_param) override;
 
   status_t Delete() override;
 
@@ -75,15 +73,11 @@ class PostProcAlg : public IPostProcModule,
 
   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
-  status_t Start() override;
+  status_t Start(const int32_t stream_id) override;
 
   status_t Stop() override;
 
   PostProcIOParam GetInput(const PostProcIOParam &out) override;
-
-  PostProcIOParam GetOutput(const PostProcIOParam &in) override;
-
-  status_t ValidateInput(const PostProcIOParam &input) override;
 
   status_t ValidateOutput(const PostProcIOParam &output) override;
 
@@ -115,9 +109,6 @@ class PostProcAlg : public IPostProcModule,
   IPostProcEventListener            *listener_;
   void*                             lib_handle_;
   IAlgPlugin                        *algo_;
-
-  PostProcIOParam                   input_param_;
-  PostProcIOParam                   output_param_;
 
   std::map<int32_t, StreamBuffer>   buffs_;
   std::mutex                        buffs_lock_;

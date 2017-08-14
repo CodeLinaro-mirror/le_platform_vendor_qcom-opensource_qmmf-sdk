@@ -74,9 +74,8 @@ PostProcNode::~PostProcNode() {
   QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
 }
 
-status_t PostProcNode::Initialize(int32_t in_stream_id,
-                                  uint32_t max_buffer_count,
-                                  int32_t  usage) {
+status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
+                                  const PostProcIOParam &out_param) {
   QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::CREATED) {
@@ -85,15 +84,15 @@ status_t PostProcNode::Initialize(int32_t in_stream_id,
   }
 
   memset(&mem_pool_params_, 0x0, sizeof(mem_pool_params_));
-  mem_pool_params_.width = output_param_.width;
-  mem_pool_params_.height = output_param_.height;
-  mem_pool_params_.format = Common::FromQmmfToHalFormat(output_param_.format);
+  mem_pool_params_.width = out_param.width;
+  mem_pool_params_.height = out_param.height;
+  mem_pool_params_.format = Common::FromQmmfToHalFormat(out_param.format);
 
-  mem_pool_params_.max_buffer_count = max_buffer_count;
-  mem_pool_params_.gralloc_flags = usage;
+  mem_pool_params_.max_buffer_count = out_param.buffer_count;
+  mem_pool_params_.gralloc_flags = out_param.gralloc_flags;
 
-  if (output_param_.format == BufferFormat::kBLOB) {
-    mem_pool_params_.max_size = output_param_.width * output_param_.height;
+  if (out_param.format == BufferFormat::kBLOB) {
+    mem_pool_params_.max_size = out_param.width * out_param.height;
   }
   auto ret = mem_pool_->Initialize(mem_pool_params_);
   if (ret != NO_ERROR) {
@@ -103,12 +102,11 @@ status_t PostProcNode::Initialize(int32_t in_stream_id,
   }
 
   QMMF_INFO("%s:%s:%s: Input:  dim: %dx%d fmt: %x", TAG, __func__, name_.c_str(),
-      input_param_.width, input_param_.height, input_param_.format);
+      in_param.width, in_param.height, in_param.format);
   QMMF_INFO("%s:%s:%s: Output: dim: %dx%d fmt: %x", TAG, __func__, name_.c_str(),
-      output_param_.width, output_param_.height, output_param_.format);
+      out_param.width, out_param.height, out_param.format);
 
-  ret = module_->Create(in_stream_id, output_param_.frame_rate,
-                        max_buffer_count, this);
+  ret = module_->Initialize(in_param, out_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s:%s: fail to create ret: %d", TAG, __func__,
         name_.c_str(), ret);
@@ -136,21 +134,7 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
 
 PostProcIOParam PostProcNode::GetInput(const PostProcIOParam &out) {
   QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
-  output_param_ = out; // todo remove: real input/output should be pass to init
-  input_param_ = module_->GetInput(out);
-  return input_param_;
-}
-
-PostProcIOParam PostProcNode::GetOutput(const PostProcIOParam &in) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
-  input_param_ = in; // todo remove: real input/output should be pass to init
-  output_param_ = module_->GetOutput(in);
-  return output_param_;
-}
-
-status_t PostProcNode::ValidateInput(const PostProcIOParam &in) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
-  return module_->ValidateInput(in);
+  return module_->GetInput(out);
 }
 
 status_t PostProcNode::ValidateOutput(const PostProcIOParam &out) {
@@ -203,7 +187,7 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-status_t PostProcNode::Start() {
+status_t PostProcNode::Start(const int32_t stream_id) {
   QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
@@ -219,7 +203,7 @@ status_t PostProcNode::Start() {
 
   state_ = PostProcNodeState::STARTING;
 
-  ret = module_->Start();
+  ret = module_->Start(stream_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s:%s: fail to start module ret: %d", TAG, __func__,
         name_.c_str(), ret);

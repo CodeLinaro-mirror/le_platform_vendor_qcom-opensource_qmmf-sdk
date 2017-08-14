@@ -214,15 +214,15 @@ class CameraContext : public CameraInterface,
 
   void DeletePort(const uint32_t track_id);
 
-  status_t PostProcCreate(const std::vector<uint32_t> &plugins);
-
   status_t PostProcDelete();
 
-  status_t PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
+  status_t PostProcCreatePipeAndUpdateStreams(
+                                      CameraStreamParameters& stream_param,
                                       uint32_t image_quality,
-                                      uint32_t frame_rate);
+                                      uint32_t frame_rate,
+                                      const std::vector<uint32_t> &plugins);
 
-  int32_t PostProcInit(int32_t stream_id, const PipeIOParam &input);
+  int32_t PostProcStart(int32_t stream_id);
 
   status_t PostProcAddResult(const CaptureResult &result);
 

@@ -136,18 +136,12 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    ~PostProcNode();
 
-
-   status_t Initialize(int32_t stream_id,
-                       uint32_t max_buffer_count,
-                       int32_t usage);
+   status_t Initialize(const PostProcIOParam &in_param,
+                       const PostProcIOParam &out_param);
 
    status_t Configure(const std::string &config_json_data);
 
    PostProcIOParam GetInput(const PostProcIOParam &out);
-
-   PostProcIOParam GetOutput(const PostProcIOParam &in);
-
-   status_t ValidateInput(const PostProcIOParam &in);
 
    status_t ValidateOutput(const PostProcIOParam &out);
 
@@ -167,15 +161,13 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    void AddResult(const void* result);
 
-   status_t Start();
+   status_t Start(const int32_t stream_id);
 
    status_t Stop();
 
    std::string& GetName() { return name_; }
 
    uint32_t GetId() { return id_; };
-
-   PostProcReqs GetRequirements() { return reqs_; }
 
    PostProcCaps GetCapabilities() { return caps_; }
 
@@ -195,14 +187,10 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    sp<MemPool>                       mem_pool_;
    sp<IPostProcModule>               module_;
 
-   PostProcIOParam                   input_param_;
-   PostProcIOParam                   output_param_;
-
    MemPoolParams                     mem_pool_params_;
 
    int32_t                           id_;
    std::string                       name_;
-   PostProcReqs                      reqs_;
    PostProcCaps                      caps_;
 
    PostProcNodeState                 state_;

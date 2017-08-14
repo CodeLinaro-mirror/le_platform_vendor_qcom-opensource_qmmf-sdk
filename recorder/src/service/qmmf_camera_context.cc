@@ -150,16 +150,14 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.format       = ImageToHalFormat(param.image_format);
   stream_param.width        = param.width;
   stream_param.height       = param.height;
-  stream_param.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
   stream_param.bufferCount  = sequence_cnt_;
 
   if (postproc_enable_) {
-    ret = PostProcCreate(capture_plugins_);
-    assert(ret == NO_ERROR);
-
-    ret = PostProcUpdateStreamParams(stream_param, param.image_quality,
-                                     camera_start_params_.frame_rate);
+    ret = PostProcCreatePipeAndUpdateStreams(stream_param, param.image_quality,
+                            camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
   }
 
@@ -178,13 +176,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_request_.streamIds.add(stream_id);
 
   if (postproc_enable_) {
-    PipeIOParam in_param;
-    in_param.width = stream_param.width;
-    in_param.height = stream_param.height;
-    in_param.format = stream_param.format;
-    in_param.frame_rate = camera_start_params_.frame_rate;
-
-    ret = PostProcInit(stream_id, in_param);
+    ret = PostProcStart(stream_id);
     assert(ret == NO_ERROR);
   }
   return ret;
@@ -1691,17 +1683,6 @@ void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
   ReturnStreamBuffer(buffer);
 }
 
-status_t CameraContext::PostProcCreate(const std::vector<uint32_t> &plugins) {
-
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-
-  postproc_pipe_ = new PostProcPipe(this, plugins);
-  assert(postproc_pipe_.get() != nullptr);
-
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
-}
-
 status_t CameraContext::PostProcDelete() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
@@ -1717,10 +1698,15 @@ status_t CameraContext::PostProcDelete() {
   return NO_ERROR;
 }
 
-status_t
-CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
-                                          uint32_t image_quality,
-                                          uint32_t frame_rate) {
+status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
+                                        CameraStreamParameters& stream_param,
+                                        uint32_t image_quality,
+                                        uint32_t frame_rate,
+                                        const std::vector<uint32_t> &plugins) {
+
+  postproc_pipe_ = new PostProcPipe(this);
+  assert(postproc_pipe_.get() != nullptr);
+
   PipeIOParam out_param;
   out_param.width = stream_param.width;
   out_param.height = stream_param.height;
@@ -1731,7 +1717,7 @@ CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
   out_param.buffer_count = stream_param.bufferCount;
 
   PipeIOParam in_param;
-  auto ret = postproc_pipe_->GetInput(in_param, out_param);
+  auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);
   if (ret != NO_ERROR) {
     return ret;
   }
@@ -1746,18 +1732,10 @@ CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param,
   return NO_ERROR;
 }
 
-int32_t CameraContext::PostProcInit(int32_t stream_id,
-                                    const PipeIOParam &input) {
-
-  auto ret = postproc_pipe_->Init(stream_id, input);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Failed to init post proc pipe!", TAG, __func__);
-    return ret;
-  }
-
+int32_t CameraContext::PostProcStart(int32_t stream_id) {
   postproc_pipe_->AddConsumer(GetConsumerIntf());
   AttachConsumer(postproc_pipe_->GetConsumerIntf());
-  postproc_pipe_->Start();
+  postproc_pipe_->Start(stream_id);
 
   return NO_ERROR;
 }
@@ -1833,7 +1811,7 @@ status_t CameraPort::Init() {
 
   if (context_->video_plugins_.count(port_id_) != 0) {
     auto port_plugins = context_->video_plugins_.at(port_id_);
-    postproc_pipe_ = new PostProcPipe(context_, port_plugins);
+    postproc_pipe_ = new PostProcPipe(context_);
     assert(postproc_pipe_.get() != nullptr);
 
     PipeIOParam out_param;
@@ -1846,7 +1824,7 @@ status_t CameraPort::Init() {
     out_param.buffer_count = cam_stream_params_.bufferCount;
 
     PipeIOParam in_param;
-    auto ret = postproc_pipe_->GetInput(in_param, out_param);
+    auto ret = postproc_pipe_->CreatePipe(out_param, port_plugins, in_param);
     if (ret != NO_ERROR) {
       return ret;
     }
@@ -1867,18 +1845,6 @@ status_t CameraPort::Init() {
   camera_stream_id_ = stream_id;
 
   if (context_->video_plugins_.count(port_id_) != 0) {
-    PipeIOParam in_param;
-    in_param.width = cam_stream_params_.width;
-    in_param.height = cam_stream_params_.height;
-    in_param.format = cam_stream_params_.format;
-    in_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
-
-    ret = postproc_pipe_->Init(stream_id, in_param);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Failed to init post proc pipe!", TAG, __func__);
-      return ret;
-    }
-
     sp<IBufferConsumer>& consumer = postproc_pipe_->GetConsumerIntf();
     buffer_producer_impl_->AddConsumer(consumer);
     consumer->SetProducerHandle(buffer_producer_impl_);
@@ -1923,7 +1889,7 @@ status_t CameraPort::Start() {
   }
 
   if (postproc_pipe_.get() != nullptr) {
-    postproc_pipe_->Start();
+    postproc_pipe_->Start(camera_stream_id_);
   }
 
   //TODO: protect it with lock.

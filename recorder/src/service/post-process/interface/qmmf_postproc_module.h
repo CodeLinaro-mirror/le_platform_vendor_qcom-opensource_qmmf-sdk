@@ -71,24 +71,6 @@ struct PostProcIOParam {
   uint32_t     buffer_count;
 };
 
-/** PostProcReqs:
- *    @formats_: supported input formats
- *    @min_width_: min supported input frame width dimension
- *    @min_height_: min supported input frame height dimension
- *    @max_width_: max supported input frame width dimension
- *    @max_height_: max supported input frame height dimension
- *
- *  This class defines the post processing module requirements
- **/
-struct PostProcReqs {
-  std::set<BufferFormat> formats_;
-  uint32_t               min_width_;
-  uint32_t               min_height_;
-  uint32_t               max_width_;
-  uint32_t               max_height_;
-};
-
-
 /** PostProcCaps:
  *    @internal_buff: internal buffers
  *    @formats_: supported output formats
@@ -156,10 +138,8 @@ class IPostProcModule : public RefBase {
 
    virtual ~IPostProcModule() {};
 
-   virtual status_t Create(const int32_t stream_id,
-                           const uint32_t frame_rate,
-                           const uint32_t num_images,
-                           const void* context) = 0;
+   virtual status_t Initialize(const PostProcIOParam &in_param,
+                               const PostProcIOParam &out_param) = 0;
 
    virtual status_t Delete() = 0;
 
@@ -174,15 +154,11 @@ class IPostProcModule : public RefBase {
 
    virtual void AddResult(const void* result) = 0;
 
-   virtual status_t Start() = 0;
+   virtual status_t Start(const int32_t stream_id) = 0;
 
    virtual status_t Stop() = 0;
 
    virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
-
-   virtual PostProcIOParam GetOutput(const PostProcIOParam &in) = 0;
-
-   virtual status_t ValidateInput(const PostProcIOParam &input) = 0;
 
    virtual status_t ValidateOutput(const PostProcIOParam &output) = 0;
 

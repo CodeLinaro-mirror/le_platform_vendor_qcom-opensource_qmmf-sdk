@@ -84,10 +84,8 @@ PostProcAlg::~PostProcAlg() {
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
-status_t PostProcAlg::Create(const int32_t stream_id,
-                             const uint32_t frame_rate,
-                             const uint32_t num_images,
-                             const void* context) {
+status_t PostProcAlg::Initialize(const PostProcIOParam &in_param,
+                                 const PostProcIOParam &out_param) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (ready_to_start_) {
@@ -111,9 +109,10 @@ status_t PostProcAlg::Create(const int32_t stream_id,
 
 PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   Requirements requirements;
-  input_param_ = output_param_ = out;
+  PostProcIOParam input_param = out;
+
   if (pass_through_) {
-    return input_param_;
+    return input_param;
   }
 
   requirements.width_    = out.width;
@@ -125,36 +124,13 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   std::vector<Requirements> alg_out = {requirements};
   requirements = algo_->GetInputRequirements(alg_out);
 
-  input_param_.width    = requirements.width_;
-  input_param_.height   = requirements.height_;
-  input_param_.stride   = requirements.stride_;
-  input_param_.scanline = requirements.scanline_;
-  input_param_.format   = GetQmmfFormat(requirements.formats_.front());
+  input_param.width    = requirements.width_;
+  input_param.height   = requirements.height_;
+  input_param.stride   = requirements.stride_;
+  input_param.scanline = requirements.scanline_;
+  input_param.format   = GetQmmfFormat(requirements.formats_.front());
 
-  return input_param_;
-}
-
-PostProcIOParam PostProcAlg::GetOutput(const PostProcIOParam &in) {
-  Capabilities caps = algo_->GetCaps();
-  if (pass_through_ == false && caps.scale_support_ == true) {
-    return output_param_;
-  }
-
-  output_param_ = in;
-  return output_param_;
-}
-
-status_t PostProcAlg::ValidateInput(const PostProcIOParam &input) {
-  Capabilities caps = algo_->GetCaps();
-
-  if (caps.in_buffer_requirements_.pixel_formats_.
-        count(GetAlgFormat(input.format)) == 0) {
-    QMMF_ERROR("%s:%s: Input format %d alg %x not supported", TAG, __func__,
-        input.format, (unsigned int)GetAlgFormat(input.format));
-    return BAD_TYPE;
-  }
-
-  return NO_ERROR;
+  return input_param;
 }
 
 status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
@@ -197,7 +173,7 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcAlg::Start() {
+status_t PostProcAlg::Start(const int32_t stream_id) {
   QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
   if (!ready_to_start_) {
     return BAD_VALUE;
@@ -462,7 +438,7 @@ StreamBuffer PostProcAlg::GetStreamBuffer(const AlgBuffer &algo_buf) {
     assert(0);
   }
 
-  StreamBuffer stream_buf = buffs_[fd];
+  StreamBuffer stream_buf = buffs_.at(fd);
   buffs_.erase(fd);
 
   return stream_buf;

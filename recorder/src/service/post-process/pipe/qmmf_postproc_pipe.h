@@ -67,13 +67,12 @@ class PostProcPipe : public virtual  RefBase {
 
  public:
 
-   PostProcPipe(IPostProc* context, const std::vector<uint32_t> &plugins);
+   PostProcPipe(IPostProc* context);
 
    ~PostProcPipe();
 
-   status_t Init(int32_t stream_id, const PipeIOParam &input);
-
-   status_t GetInput(PipeIOParam &input, const PipeIOParam &output);
+   status_t CreatePipe(const PipeIOParam &pipe_out_param,
+       const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -81,7 +80,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void AddResult(const void* result);
 
-   status_t Start();
+   status_t Start(const int32_t stream_id);
 
    status_t Stop();
 
@@ -95,11 +94,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void UnlinkPipe(sp<IBufferConsumer>& consumer);
 
-   sp<PostProcNode> FindInternalNode(const PostProcIOParam &param,
-                                     const PostProcCaps &caps);
-
-   sp<PostProcNode> FindInternalNode(const PostProcIOParam &param,
-                                     const PostProcReqs &reqs);
+   sp<PostProcNode> FindInternalNode(const PostProcIOParam &output);
 
    bool IsRAWFormat(const BufferFormat &format);
 
@@ -107,22 +102,23 @@ class PostProcPipe : public virtual  RefBase {
 
    bool IsJPEGFormat(const BufferFormat &format);
 
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const BufferFormat &format);
+
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const int32_t format);
+
    bool SupportsRAWFormat(const std::set<BufferFormat> &formats);
 
    bool SupportsYUVFormat(const std::set<BufferFormat> &formats);
 
    bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
-   PipeIOParam                   input_param_;
-   PipeIOParam                   output_param_;
-
    PostProcPipeState             state_;
 
    std::vector<sp<PostProcNode>> pipe_;
 
    IPostProc*                    context_;
-
-   sp<IBufferConsumer>           pipe_consumer_;
 
    sp<PostProcFactory>           factory_;
 

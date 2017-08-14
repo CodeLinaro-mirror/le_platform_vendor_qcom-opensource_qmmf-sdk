@@ -103,148 +103,31 @@ void PostProcHalJpeg::ReprocessCallback(StreamBuffer in_buff) {
   }
 
   // last frame
-  if (++burst_cnt_ == num_images_) {
+  if (++burst_cnt_ == output_param_.buffer_count) {
     ReturnAllInputBuffers();
     burst_cnt_= 0;
     reprocess_flag_ = false;
   }
 }
 
-status_t PostProcHalJpeg::Create(const int32_t stream_id,
-                                 const uint32_t frame_rate,
-                                 const uint32_t num_images,
-                                 const void* context) {
-  int32_t ret = NO_ERROR;
-  int32_t stream_id_p;
-
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (reprocess_flag_) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (NO_ERROR != ValidateInput(input_param_, output_param_)){
+status_t PostProcHalJpeg::Initialize(const PostProcIOParam &in_param,
+                                     const PostProcIOParam &out_param) {
+  auto ret = ValidateInput(in_param, out_param);
+  if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
     return BAD_VALUE;
   }
 
-  Mutex::Autolock lock(reprocess_lock_);
-
-  input_stream_id_ = stream_id;
-  num_images_ = num_images;
-  burst_cnt_ = 0;
-
-  CameraInputStreamParameters inputStreamParams = {};
-  inputStreamParams.format = Common::FromQmmfToHalFormat(input_param_.format);
-  inputStreamParams.width = input_param_.width;
-  inputStreamParams.height = input_param_.height;
-  inputStreamParams.get_input_buffer = [&] (StreamBuffer &buffer)
-      { GetInputBuffer(buffer); };
-  inputStreamParams.return_input_buffer  = [&] (StreamBuffer &buffer)
-      { ReturnInputBuffer(buffer); };
-  ret = context_->CreateDeviceInputStream(inputStreamParams, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-
-  CameraStreamParameters streamParams = {};
-  streamParams.bufferCount = num_images;
-  streamParams.format = Common::FromQmmfToHalFormat(output_param_.format);
-  streamParams.width = output_param_.width;
-  streamParams.height = output_param_.height;
-  streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  streamParams.cb = [&](StreamBuffer buffer) { ReprocessCallback(buffer); };
-  ret = context_->CreateDeviceStream(streamParams, frame_rate, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-  ready_to_start_ = true;
-
-  return ret;
+  input_param_ = in_param;
+  output_param_ = out_param;
+  return NO_ERROR;
 }
 
 PostProcIOParam PostProcHalJpeg::GetInput(const PostProcIOParam &out) {
-  // Save the output parameters as well, we will need them later.
-  input_param_ = output_param_ = out;
-  input_param_.format =
-    Common::FromHalToQmmfFormat(HAL_PIXEL_FORMAT_YCbCr_420_888);
-  return input_param_;
-}
-
-// TODO: add additional checks
-PostProcIOParam PostProcHalJpeg::GetOutput(const PostProcIOParam &in) {
-  // This module has scale support and we already have the output.
-  input_param_ = in;
-  return output_param_;
-}
-
-status_t PostProcHalJpeg::ValidateInput(const PostProcIOParam &input) {
-  CameraMetadata meta = context_->GetCameraStaticMeta();
-  int32_t hal_format = Common::FromQmmfToHalFormat(input.format);
-  bool supported = false;
-
-  camera_metadata_entry_t entry;
-  if (!meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
-    QMMF_ERROR("%s: HAL does not report supported formats!", __func__);
-    return NAME_NOT_FOUND;
-  }
-
-  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
-    return NAME_NOT_FOUND;
-  }
-
-  entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
-  for (uint32_t i = 0 ; i < entry.count; i++) {
-    if (entry.data.i32[i] == hal_format &&
-        ((HAL_PIXEL_FORMAT_YCbCr_420_888 == hal_format) ||
-         (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == hal_format) )) {
-      supported = true;
-      break;
-    }
-  }
-
-  if (!supported) {
-    QMMF_ERROR("%s: Input format(%d) not supported", __func__, hal_format);
-    return BAD_TYPE;
-  }
-  supported = false;
-
-  uint32_t w = 0, h = 0, scalar_format = 0, config_type = 0;
-  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  for (uint32_t i = 0 ; i < entry.count; i += 4) {
-    scalar_format = entry.data.i32[i];
-    config_type = entry.data.i32[i+3];
-    if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == scalar_format &&
-        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT == config_type) {
-      w = entry.data.i32[i+1];
-      h = entry.data.i32[i+2];
-      if(w == input.width && h == input.height) {
-        supported = true;
-        break;
-      }
-    }
-  }
-
-  if (!supported) {
-    QMMF_ERROR("%s: Input dimensions(%dx%d) not supported", __func__,
-        input.width, input.height);
-    return BAD_VALUE;
-  }
-
-  return NO_ERROR;
+  PostProcIOParam input_param = out;
+  input_param.format =
+      Common::FromHalToQmmfFormat(HAL_PIXEL_FORMAT_YCbCr_420_888);
+  return input_param;
 }
 
 status_t PostProcHalJpeg::ValidateInput(const PostProcIOParam& input,
@@ -353,8 +236,61 @@ status_t PostProcHalJpeg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcHalJpeg::Start() {
-  return NO_ERROR;
+status_t PostProcHalJpeg::Start(const int32_t stream_id) {
+  int32_t ret = NO_ERROR;
+  int32_t stream_id_p;
+
+  if (ready_to_start_) {
+    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  if (reprocess_flag_) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  Mutex::Autolock lock(reprocess_lock_);
+
+  input_stream_id_ = stream_id;
+  burst_cnt_ = 0;
+
+  CameraInputStreamParameters inputStreamParams = {};
+  inputStreamParams.format = Common::FromQmmfToHalFormat(input_param_.format);
+  inputStreamParams.width = input_param_.width;
+  inputStreamParams.height = input_param_.height;
+  inputStreamParams.get_input_buffer = [&] (StreamBuffer &buffer)
+      { GetInputBuffer(buffer); };
+  inputStreamParams.return_input_buffer  = [&] (StreamBuffer &buffer)
+      { ReturnInputBuffer(buffer); };
+  ret = context_->CreateDeviceInputStream(inputStreamParams, &stream_id_p);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
+               __func__, ret);
+    return ret;
+  }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
+
+  CameraStreamParameters streamParams = {};
+  streamParams.bufferCount = output_param_.buffer_count;
+  streamParams.format = Common::FromQmmfToHalFormat(output_param_.format);
+  streamParams.width = output_param_.width;
+  streamParams.height = output_param_.height;
+  streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  streamParams.cb = [&](StreamBuffer buffer) { ReprocessCallback(buffer); };
+  ret = context_->CreateDeviceStream(streamParams, output_param_.frame_rate,
+                                     &stream_id_p);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
+               __func__, ret);
+    return ret;
+  }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
+  ready_to_start_ = true;
+
+  return ret;
 }
 
 status_t PostProcHalJpeg::Stop() {
@@ -460,7 +396,7 @@ void PostProcHalJpeg::AddBuff(StreamBuffer in_buff) {
     }
   }
 
-  if (input_burst_queue_.size() >= num_images_) {
+  if (input_burst_queue_.size() >= output_param_.buffer_count) {
     if (StartProcessing() != NO_ERROR) {
       QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
           __func__);
@@ -515,7 +451,7 @@ void PostProcHalJpeg::AddResult(const void* result_in) {
     }
   }
 
-  if (input_burst_queue_.size() >= num_images_) {
+  if (input_burst_queue_.size() >= output_param_.buffer_count) {
     if (StartProcessing() != NO_ERROR) {
       QMMF_ERROR("%s: Failed: Wrong state. Reprocess is not started.\n",
           __func__);
