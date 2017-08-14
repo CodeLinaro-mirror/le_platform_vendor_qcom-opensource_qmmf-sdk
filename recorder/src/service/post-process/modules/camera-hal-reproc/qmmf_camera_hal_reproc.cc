@@ -189,7 +189,7 @@ PostProcCreateParam CameraHalReproc::GetInput(const PostProcCreateParam &out) {
     }
   }
   // work around since HAL does not report supported formats correctly
-  in.format = HAL_PIXEL_FORMAT_RAW10;
+  in.format = HAL_PIXEL_FORMAT_RAW12;
 
   entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
   for (int32_t i = ((int32_t)entry.count) - 2; i >= 0; i -= 2) {
