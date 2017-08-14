@@ -94,8 +94,6 @@ class CameraHalReproc : public IPostProcModule {
 
  private:
 
-   static const int64_t kMetaTimeout = 1000000000; // 1 second
-
    struct ReprocessBundle {
      StreamBuffer   buffer;
      CameraMetadata metadata;
