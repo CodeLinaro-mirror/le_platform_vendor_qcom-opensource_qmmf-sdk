@@ -79,7 +79,6 @@ using ::std::setbase;
 using ::std::shared_ptr;
 using ::std::string;
 using ::std::stringstream;
-using ::std::underlying_type;
 using ::std::vector;
 
 template<class T>
@@ -899,13 +898,6 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
     return ret;
   }
 
-  if (codec_param.video_dec_param.enable_downscalar &&
-      codec_param.video_dec_param.enable_vqzip_extradata) {
-    QMMF_ERROR("%s:%s Venus Downscalar and SEI extradata can not be enabled together",
-               TAG, __func__);
-    return -1;
-  }
-
   if (codec_param.video_dec_param.enable_downscalar) {
     QMMF_INFO("%s:%s Enabling downcalar", TAG, __func__);
     QOMX_INDEXDOWNSCALAR downscalar_params;
@@ -917,20 +909,6 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
         reinterpret_cast<OMX_PTR>(&downscalar_params));
     if (ret != 0) {
       QMMF_ERROR("%s:%s Failed to Enable Downscalar", TAG, __func__);
-      return ret;
-    }
-  }
-
-  if (codec_param.video_dec_param.enable_vqzip_extradata) {
-    QMMF_INFO("%s:%s Enabling SEI extradata for VQZIP", TAG, __func__);
-    OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
-    InitOMXParams(&enable_sei_params);
-    enable_sei_params.bEnable = OMX_TRUE;
-    ret = omx_client_->SetParameter(
-        static_cast<OMX_INDEXTYPE>(OMX_QTIIndexParamVQZIPSEIType),
-        reinterpret_cast<OMX_PTR>(&enable_sei_params));
-    if (ret != 0) {
-      QMMF_ERROR("%s:%s Failed to set the SEI extradata for Decoder", TAG, __func__);
       return ret;
     }
   }
@@ -1634,9 +1612,10 @@ status_t AVCodec::GetBufferRequirements(uint32_t port_type, uint32_t *buf_count,
 }
 
 status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
-  QMMF_INFO("%s:%s Enter", TAG, __func__);
 
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
+
   uint32_t frame_rate = ceil(param.video_enc_param.frame_rate);
   uint32_t iframe_interval = param.video_enc_param.codec_param.avc.idr_interval;
 
@@ -1644,9 +1623,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   InitOMXParams(&h264_type);
   h264_type.nPortIndex = kPortIndexOutput;
 
-  ret = omx_client_->GetParameter(OMX_IndexParamVideoAvc,
-                                  reinterpret_cast<void*>(&h264_type));
-  if (ret != 0) {
+  ret = omx_client_->GetParameter(OMX_IndexParamVideoAvc, &h264_type);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get AVC video param", TAG, __func__);
     return ret;
   }
@@ -1654,31 +1632,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   h264_type.nAllowedPictureTypes =
       OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
   h264_type.eProfile =
-      static_cast<OMX_VIDEO_AVCPROFILETYPE>(QmmftoOmxProfile(param));
-  h264_type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(QmmftoOmxLevel(param));
-
-  if (param.video_enc_param.do_vqzip) {
-      if ((param.video_enc_param.codec_param.avc.profile !=
-           param.video_enc_param.vqzip_params.avc_vqzip_info.profile) ||
-          (param.video_enc_param.codec_param.avc.level !=
-           param.video_enc_param.vqzip_params.avc_vqzip_info.level)) {
-        QMMF_ERROR("%s:%s values of profile/level in vqzip_params and the codec_param differ",
-                   TAG, __func__);
-        return -1;
-      } else {
-        OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
-        InitOMXParams(&enable_sei_params);
-        enable_sei_params.bEnable = OMX_TRUE;
-        ret = omx_client_->SetParameter(
-            static_cast<OMX_INDEXTYPE>(OMX_QTIIndexParamVQZIPSEIType),
-            reinterpret_cast<OMX_PTR>(&enable_sei_params));
-        if (ret != 0) {
-          QMMF_ERROR("%s:%s Failed to Set SEI extradata data for Encoder",
-                     TAG, __func__);
-          return ret;
-        }
-      }
-  }
+      static_cast<OMX_VIDEO_AVCPROFILETYPE>(GetVideoProfile(param));
+  h264_type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(GetVideoLevel(param));
 
   if(h264_type.eProfile == OMX_VIDEO_AVCProfileBaseline) {
     h264_type.nSliceHeaderSpacing = 0;
@@ -1691,15 +1646,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     }
     h264_type.nRefIdx10ActiveMinus1 = 0;
     h264_type.nRefIdx11ActiveMinus1 = 0;
-    // A moment of truth: By default all the AVC videos(recorded through qmmf-sdk)
-    // having Baseline as the profile are using CAVALC instead of CABAC.
-    // Hence this is_cabac_used will always be false here
-    if (param.video_enc_param.do_vqzip)
-      h264_type.bEntropyCodingCABAC =
-          param.video_enc_param.vqzip_params.avc_vqzip_info.is_cabac_used ?
-          OMX_TRUE : OMX_FALSE;
-    else
-      h264_type.bEntropyCodingCABAC = OMX_FALSE;
+    h264_type.bEntropyCodingCABAC = OMX_FALSE;
     h264_type.bWeightedPPrediction = OMX_FALSE;
     h264_type.bconstIpred = OMX_FALSE;
     h264_type.bDirect8x8Inference = OMX_FALSE;
@@ -1715,15 +1662,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
     h264_type.nRefIdx10ActiveMinus1 = 0;
     h264_type.nRefIdx11ActiveMinus1 = 0;
-    // A moment of truth: By default all the AVC videos(recorded through qmmf-sdk)
-    // having the profile other than Baseline are using CABAC.
-    // Hence this is_cabac_used will always be true here
-    if (param.video_enc_param.do_vqzip)
-        h264_type.bEntropyCodingCABAC =
-            param.video_enc_param.vqzip_params.avc_vqzip_info.is_cabac_used ?
-            OMX_TRUE : OMX_FALSE;
-    else
-      h264_type.bEntropyCodingCABAC = OMX_TRUE;
+    h264_type.bEntropyCodingCABAC = OMX_TRUE;
     h264_type.bWeightedPPrediction = OMX_TRUE;
     h264_type.bconstIpred = OMX_TRUE;
     h264_type.bDirect8x8Inference = OMX_TRUE;
@@ -1743,9 +1682,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   h264_type.bMBAFF = OMX_FALSE;
   h264_type.eLoopFilterMode = OMX_VIDEO_AVCLoopFilterEnable;
 
-  ret = omx_client_->SetParameter(OMX_IndexParamVideoAvc,
-                                  reinterpret_cast<void*>(&h264_type));
-  if (ret != 0) {
+  ret = omx_client_->SetParameter(OMX_IndexParamVideoAvc, &h264_type);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to set AVC codec parameter", TAG, __func__);
     return ret;
   }
@@ -1755,9 +1693,10 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
 }
 
 status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
-  QMMF_INFO("%s:%s Enter", TAG, __func__);
 
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
+
   uint32_t frame_rate = ceil(param.video_enc_param.frame_rate);
   uint32_t iframe_interval = param.video_enc_param.codec_param.hevc.idr_interval;
 
@@ -1765,23 +1704,21 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
   InitOMXParams(&hevc_type);
   hevc_type.nPortIndex = kPortIndexOutput;
 
-  ret = omx_client_->GetParameter(
-      static_cast<OMX_INDEXTYPE>(OMX_IndexParamVideoHevc),
-      reinterpret_cast<void*>(&hevc_type));
-  if (ret != 0) {
+  ret = omx_client_->GetParameter((OMX_INDEXTYPE)OMX_IndexParamVideoHevc,
+                                  &hevc_type);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get HEVC video param", TAG, __func__);
     return ret;
   }
 
   hevc_type.eProfile =
-      static_cast<OMX_VIDEO_HEVCPROFILETYPE>(QmmftoOmxProfile(param));
+      static_cast<OMX_VIDEO_HEVCPROFILETYPE>(GetVideoProfile(param));
   hevc_type.eLevel =
-      static_cast<OMX_VIDEO_HEVCLEVELTYPE>(QmmftoOmxLevel(param));
+      static_cast<OMX_VIDEO_HEVCLEVELTYPE>(GetVideoLevel(param));
 
-  ret = omx_client_->SetParameter(
-      static_cast<OMX_INDEXTYPE>(OMX_IndexParamVideoHevc),
-      reinterpret_cast<void*>(&hevc_type));
-  if (ret != 0) {
+  ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_IndexParamVideoHevc,
+                                   &hevc_type);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get HEVC video param", TAG, __func__);
     return ret;
   }
@@ -1792,36 +1729,30 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
   ret = omx_client_->GetConfig(
       static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
       reinterpret_cast<OMX_PTR>(&intra));
-  if (ret != 0) {
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to get video intra period", TAG, __func__);
     return ret;
   }
-  intra.nPFrames = frame_rate * iframe_interval;
-  // TODO: remove hard code B frame value
+   intra.nPFrames = frame_rate*iframe_interval;
+   //TODO: remove hard code B frame value
   intra.nBFrames = 0;
   ret = omx_client_->SetConfig(
-      static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
-      reinterpret_cast<OMX_PTR>(&intra));
-  if (ret != 0) {
+          (OMX_INDEXTYPE)QOMX_IndexConfigVideoIntraperiod,
+          (OMX_PTR)&intra);
+  if (ret != OK) {
     QMMF_ERROR("%s:%s Failed to set video intra period", TAG, __func__);
     return ret;
-  }
-
-  if (param.video_enc_param.do_vqzip) {
-    QMMF_ERROR("%s:%s VQZip feature is not supported for HEVC encoded videos",
-               TAG, __func__);
-    return -1;
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
-status_t AVCodec::QmmftoOmxProfile(CodecParam& param) {
+status_t AVCodec::GetVideoProfile(CodecParam& param) {
 
   int32_t profile = -1;
   VideoFormat codec_format = param.video_enc_param.format_type;
-  switch (codec_format) {
+  switch(codec_format) {
     case VideoFormat::kAVC:
       switch(param.video_enc_param.codec_param.avc.profile) {
         case AVCProfileType::kBaseline:
@@ -1835,15 +1766,13 @@ status_t AVCodec::QmmftoOmxProfile(CodecParam& param) {
           break;
       }
       break;
-
     case VideoFormat::kHEVC:
-      switch (param.video_enc_param.codec_param.hevc.profile) {
+      switch(param.video_enc_param.codec_param.hevc.profile) {
         case HEVCProfileType::kMain:
           profile = OMX_VIDEO_HEVCProfileMain;
           break;
       }
       break;
-
     default:
       QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       break;
@@ -1851,60 +1780,13 @@ status_t AVCodec::QmmftoOmxProfile(CodecParam& param) {
   return profile;
 }
 
-status_t AVCodec::OmxtoQmmfProfile(const VideoFormat format,
-                                  const int32_t profile, void *param) {
-
-  switch (format) {
-    case VideoFormat::kAVC: {
-      AVCProfileType* avc_profile = reinterpret_cast<AVCProfileType*>(param);
-      switch (profile) {
-        case OMX_VIDEO_AVCProfileBaseline:
-          *avc_profile = AVCProfileType::kBaseline;
-          break;
-        case OMX_VIDEO_AVCProfileMain:
-          *avc_profile = AVCProfileType::kMain;
-          break;
-        case OMX_VIDEO_AVCProfileHigh:
-          *avc_profile = AVCProfileType::kHigh;
-          break;
-        default:
-          QMMF_ERROR("%s:%s Unknown Profile from OMX %d", TAG, __func__,
-                     profile);
-          return -1;
-      }
-      break;
-    }
-
-    case VideoFormat::kHEVC: {
-      HEVCProfileType* hevc_profile = reinterpret_cast<HEVCProfileType*>
-                                                      (param);
-      switch (profile) {
-        case OMX_VIDEO_HEVCProfileMain:
-          *hevc_profile = HEVCProfileType::kMain;
-          break;
-        default:
-          QMMF_ERROR("%s:%s Unknown Profile from OMX %d", TAG, __func__,
-                     profile);
-          return -1;
-      }
-      break;
-    }
-
-    default:
-      QMMF_ERROR("%s:%s Unknown VideoFormat(%d)", TAG, __func__,
-                 static_cast<underlying_type<VideoFormat>::type>(format));
-      return -1;
-  }
-  return 0;
-}
-
-status_t AVCodec::QmmftoOmxLevel(CodecParam& param) {
+status_t AVCodec::GetVideoLevel(CodecParam& param) {
 
   int32_t level = -1;
   VideoFormat codec_format = param.video_enc_param.format_type;
-  switch (codec_format) {
+  switch(codec_format) {
     case VideoFormat::kAVC:
-      switch (param.video_enc_param.codec_param.avc.level) {
+      switch(param.video_enc_param.codec_param.avc.level) {
         case AVCLevelType::kLevel1:
           level = OMX_VIDEO_AVCLevel1;
           break;
@@ -1949,9 +1831,8 @@ status_t AVCodec::QmmftoOmxLevel(CodecParam& param) {
           break;
       }
       break;
-
     case VideoFormat::kHEVC:
-        switch (param.video_enc_param.codec_param.hevc.level) {
+        switch(param.video_enc_param.codec_param.hevc.level) {
           case HEVCLevelType::kLevel3:
             level = OMX_VIDEO_HEVCMainTierLevel3;
             break;
@@ -1969,100 +1850,11 @@ status_t AVCodec::QmmftoOmxLevel(CodecParam& param) {
             break;
         }
         break;
-
     default:
       QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       break;
   }
   return level;
-}
-
-status_t AVCodec::OmxtoQmmfLevel(const VideoFormat format, const int32_t level,
-                                void *param) {
-  switch (format) {
-    case VideoFormat::kAVC: {
-      AVCLevelType* avc_level = reinterpret_cast<AVCLevelType*>(param);
-      switch (level) {
-        case OMX_VIDEO_AVCLevel1:
-          *avc_level = AVCLevelType::kLevel1;
-          break;
-        case OMX_VIDEO_AVCLevel13:
-          *avc_level = AVCLevelType::kLevel1_3;
-          break;
-        case OMX_VIDEO_AVCLevel2:
-          *avc_level = AVCLevelType::kLevel2;
-          break;
-        case OMX_VIDEO_AVCLevel21:
-          *avc_level = AVCLevelType::kLevel2_1;
-          break;
-        case OMX_VIDEO_AVCLevel22:
-          *avc_level = AVCLevelType::kLevel2_2;
-          break;
-        case OMX_VIDEO_AVCLevel3:
-          *avc_level = AVCLevelType::kLevel3;
-          break;
-        case OMX_VIDEO_AVCLevel31:
-          *avc_level = AVCLevelType::kLevel3_1;
-          break;
-        case OMX_VIDEO_AVCLevel32:
-          *avc_level = AVCLevelType::kLevel3_2;
-          break;
-        case OMX_VIDEO_AVCLevel4:
-          *avc_level = AVCLevelType::kLevel4;
-          break;
-        case OMX_VIDEO_AVCLevel41:
-          *avc_level = AVCLevelType::kLevel4_1;
-          break;
-        case OMX_VIDEO_AVCLevel42:
-          *avc_level = AVCLevelType::kLevel4_2;
-          break;
-        case OMX_VIDEO_AVCLevel5:
-          *avc_level = AVCLevelType::kLevel5;
-          break;
-        case OMX_VIDEO_AVCLevel51:
-          *avc_level =  AVCLevelType::kLevel5_1;
-          break;
-        case OMX_VIDEO_AVCLevel52:
-          *avc_level = AVCLevelType::kLevel5_2;
-          break;
-        default:
-          QMMF_ERROR("%s:%s Unknown level from OMX %d", TAG, __func__, level);
-          return -1;
-      }
-      break;
-    }
-
-    case VideoFormat::kHEVC: {
-      HEVCLevelType* hevc_level = reinterpret_cast<HEVCLevelType*>(param);
-      switch (level) {
-        case OMX_VIDEO_HEVCMainTierLevel3:
-          *hevc_level = HEVCLevelType::kLevel3;
-          break;
-        case OMX_VIDEO_HEVCMainTierLevel4:
-          *hevc_level = HEVCLevelType::kLevel4;
-          break;
-        case OMX_VIDEO_HEVCMainTierLevel5:
-          *hevc_level = HEVCLevelType::kLevel5;
-          break;
-        case OMX_VIDEO_HEVCMainTierLevel41:
-          *hevc_level = HEVCLevelType::kLevel5_1;
-          break;
-        case OMX_VIDEO_HEVCMainTierLevel52:
-          *hevc_level = HEVCLevelType::kLevel5_2;
-          break;
-        default:
-          QMMF_ERROR("%s:%s Unknown level from OMX %d", TAG, __func__, level);
-          return -1;
-      }
-      break;
-    }
-
-    default:
-      QMMF_ERROR("%s:%s Unknown VideoFormat(%d)", TAG, __func__,
-                 static_cast<underlying_type<VideoFormat>::type>(format));
-      return -1;
-  }
-  return 0;
 }
 
 OMX_ERRORTYPE AVCodec::ConfigureSAR(uint32_t width, uint32_t height) {
@@ -2101,11 +1893,6 @@ status_t AVCodec::ConfigureBitrate(CodecParam& param) {
     default:
       QMMF_ERROR("%s:%s Unknown codec type(%d)", TAG, __func__, codec_format);
       return -1;
-  }
-
-  if (param.video_enc_param.do_vqzip && mode != VideoRateControlType::kDisable) {
-    QMMF_ERROR("%s:%s RC shold be disabled in VQZip", TAG, __func__);
-    return -1;
   }
 
   OMX_VIDEO_CONTROLRATETYPE control_rate;
@@ -2296,7 +2083,6 @@ status_t AVCodec::ReleaseBuffer() {
   output_source_ = nullptr;
   port_status_ = true;
 
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
 }
 
@@ -2816,87 +2602,6 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
     QMMF_ERROR("%s:%s Failed to set codec param of type(%d)", TAG, __func__,
         param_type);
     return ret;
-  }
-
-  QMMF_INFO("%s:%s Exit", TAG, __func__);
-  return ret;
-}
-
-status_t AVCodec::GetParameters(const CodecParamType param_type,
-                                void *codec_param, size_t *param_size) {
-  QMMF_INFO("%s:%s Enter", TAG, __func__);
-
-  status_t ret = 0;
-  if (codec_param == nullptr || param_size == nullptr) {
-    QMMF_ERROR("%s:%s Invalid Parameters", TAG, __func__);
-    return -1;
-  }
-
-  switch (param_type) {
-    case CodecParamType::kVQZipInfo: {
-      VQZipInfo* vqzip_info = reinterpret_cast<VQZipInfo*>(codec_param);
-      switch (vqzip_info->format) {
-        case VideoFormat::kAVC: {
-          OMX_VIDEO_PARAM_PROFILELEVELTYPE avc_profile_level;
-          InitOMXParams(&avc_profile_level);
-          ret = omx_client_->GetParameter(
-              OMX_IndexParamVideoProfileLevelCurrent,
-              reinterpret_cast<OMX_PTR>(&avc_profile_level));
-          if (ret != 0) {
-            QMMF_ERROR("%s:%s Failed to Get Profile and Level Values from OMX",
-                       TAG, __func__);
-            return ret;
-          }
-
-          ret = OmxtoQmmfProfile(
-              VideoFormat::kAVC, avc_profile_level.eProfile,
-              reinterpret_cast<void*>
-                              (&(vqzip_info->avc_vqzip_info.profile)));
-          if (ret != 0) {
-            QMMF_ERROR("%s:%s Failed to Get Profile and Level Values from OMX",
-                       TAG, __func__);
-            return ret;
-          }
-
-          ret = OmxtoQmmfLevel(
-              VideoFormat::kAVC, avc_profile_level.eLevel,
-              reinterpret_cast<void*>(&(vqzip_info->avc_vqzip_info.level)));
-          if (ret != 0) {
-            QMMF_ERROR("%s:%s Failed to Get Profile and Level Values from OMX",
-                       TAG, __func__);
-            return ret;
-          }
-
-          QOMX_VIDEO_H264ENTROPYCODINGTYPE h264_cabac_info;
-          InitOMXParams(&h264_cabac_info);
-          ret = omx_client_->GetConfig(
-              static_cast<OMX_INDEXTYPE>
-                         (OMX_QcomIndexConfigH264EntropyCodingCabac),
-              reinterpret_cast<OMX_PTR>(&h264_cabac_info));
-          if (ret != 0) {
-            QMMF_ERROR("%s:%s Failed to get the Cabac Info for H264 from OMX",
-                       TAG, __func__);
-            return ret;
-          }
-
-          vqzip_info->avc_vqzip_info.is_cabac_used = h264_cabac_info.bCabac;
-          *param_size = sizeof(*vqzip_info);
-          break;
-        }
-
-        default:
-          QMMF_ERROR("%s:%s VQZip feature is Supported only for AVC Format videos",
-                     TAG, __func__);
-          return -1;
-      }
-      break;
-    }
-
-    default:
-      QMMF_ERROR("%s:%s Unknown param type %d", TAG, __func__,
-                 static_cast<underlying_type<CodecParamType>::type>
-                            (param_type));
-      return -1;
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);

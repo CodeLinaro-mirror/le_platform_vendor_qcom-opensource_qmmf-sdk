@@ -584,7 +584,7 @@ void* TranscoderTrack::ReceiveOutput(void* arg) {
 
     fwrite(reinterpret_cast<void*>
                            (reinterpret_cast<uint32_t*>(buffer.GetVaddr()) +
-                            buffer.GetOffset()),
+                           buffer.GetOffset()),
            1, buffer.GetFilledSize(), file);
 
     ret = track->getOutputBufferSource()->QueueTranscodeBuffer(buffer);
@@ -832,51 +832,6 @@ status_t TranscoderTrack::ParseFile(const string& fileName) {
         }
       } else {
         QMMF_ERROR("%s:%s Unknown TranscodeType(%s)", TAG, __func__, value);
-        goto READ_FAILED;
-      }
-    } else if (!strncmp("EnableVQzip", key, strlen("EnableVQzip"))) {
-      params_.enable_vqzip = atoi(value);
-      if (params_.track_type == TranscodeType::kVideoDecodeVideoEncode &&
-          params_.enable_vqzip) {
-        QMMF_INFO("%s:%s Opening VQZipInfoExtractor", TAG, __func__);
-        VQZipInfoExtractor* vqzip_extractor =
-            new VQZipInfoExtractor(params_.source_params.video_dec_param,
-                                   m_sTrackInfo_, m_pDemux_);
-        ret = vqzip_extractor->Init();
-        if (ret != 0) {
-          QMMF_ERROR("%s:%s VQZipInfoExtractor Init Failed", TAG, __func__);
-          delete vqzip_extractor;
-          vqzip_extractor = nullptr;
-          goto READ_FAILED;
-        }
-        params_.sink_params.video_enc_param.vqzip_params.format =
-            VideoFormat::kAVC;
-        ret = vqzip_extractor->ExtractVQZipInfo(
-            &params_.sink_params.video_enc_param.vqzip_params);
-        if (ret != 0) {
-          QMMF_ERROR("%s:%s VQZipInfo Extraction Failed", TAG, __func__);
-          delete vqzip_extractor;
-          vqzip_extractor = nullptr;
-          goto READ_FAILED;
-        }
-        ret = vqzip_extractor->DeInit();
-         if (ret != 0) {
-          QMMF_ERROR("%s:%s VQZipInfoExtractor DeInit Failed", TAG, __func__);
-          delete vqzip_extractor;
-          vqzip_extractor = nullptr;
-          goto READ_FAILED;
-        }
-
-        delete vqzip_extractor;
-        vqzip_extractor = nullptr;
-
-        params_.source_params.video_dec_param.enable_vqzip_extradata = true;
-        params_.sink_params.video_enc_param.do_vqzip = true;
-
-      } else if (params_.track_type != TranscodeType::kVideoDecodeVideoEncode &&
-                 params_.enable_vqzip) {
-        QMMF_ERROR("%s:%s Wrong combination of TransCodeType and VQZip",
-                   TAG, __func__);
         goto READ_FAILED;
       }
     } else {
@@ -1212,31 +1167,8 @@ status_t TranscoderTrack::ParseFile(const string& fileName) {
     continue;
   }
 
-  if (params_.enable_vqzip) {
-    if ((params_.sink_params.video_enc_param.codec_param.avc.profile !=
-         params_.sink_params.video_enc_param.vqzip_params.avc_vqzip_info
-         .profile) ||
-        (params_.sink_params.video_enc_param.codec_param.avc.level !=
-         params_.sink_params.video_enc_param.vqzip_params.avc_vqzip_info
-         .level)) {
-      QMMF_WARN("%s:%s Using Profile and Level Values as the ones from VQZipInfoExtractor",
-                TAG, __func__);
-      params_.sink_params.video_enc_param.codec_param.avc.profile =
-          params_.sink_params.video_enc_param.vqzip_params.avc_vqzip_info.profile;
-      params_.sink_params.video_enc_param.codec_param.avc.level =
-          params_.sink_params.video_enc_param.vqzip_params.avc_vqzip_info.level;
-    }
-
-    if (params_.sink_params.video_enc_param.codec_param.avc.ratecontrol_type !=
-        VideoRateControlType::kDisable) {
-      QMMF_WARN("%s:%s Disabling the RC for VQZIP", TAG, __func__);
-      params_.sink_params.video_enc_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kDisable;
-    }
-  }
-
   // Print all the parameters
-  QMMF_INFO("%s:%s TransCodeParams[%s]",
+  QMMF_INFO("%s:%s TranscodeParams[%s]",
             TAG, __func__, params_.ToString().c_str());
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);

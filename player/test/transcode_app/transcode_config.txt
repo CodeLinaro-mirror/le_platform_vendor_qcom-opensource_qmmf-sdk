@@ -31,28 +31,27 @@
 
 \\TRACK-PARAMS-START
 InputFile          : /data/misc/qmmf/4K_input.mp4
-OutputFile         : /data/misc/qmmf/4K_output.h264
+OutputFile         : /data/misc/qmmf/1080p_output.h264
 TranscodeType      : VideoDecodeVideoEncode
-EnableVQzip        : 1
 \\TRACK-PARAMS-END
 
 \\SOURCE-PARAMS-START
 FPS                : 30
-Enable_Downscalar  : 0
+Enable_Downscalar  : 1
 Downscale_Width    : 1920
 Downscale_Height   : 1080
 \\SOURCE-PARAMS-END
 
 \\SINK-PARAMS-START
-Width              : 3840
-Height             : 2160
+Width              : 1920
+Height             : 1080
 FPS                : 30
 Codec              : AVC
 IFR                : 1
 Bitrate            : 10000000
 Profile            : BaseProfile
 Level              : Level-3
-RateControl        : RC_OFF
+RateControl        : VBR_CFR
 InitQpI            : 26
 InitQpP            : 26
 InitQpB            : 26

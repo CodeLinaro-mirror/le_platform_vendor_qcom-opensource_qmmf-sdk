@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -94,8 +94,6 @@ class AVCodec : public IAVCodec {
   status_t ReleaseBuffer() override;
   status_t SetParameters(CodecParamType param_type, void *codec_param,
                          size_t param_size) override;
-  status_t GetParameters(const CodecParamType param_type, void *codec_param,
-                         size_t *param_size) override;
   status_t StartCodec() override;
   status_t StopCodec() override;
   status_t PauseCodec() override;
@@ -126,12 +124,8 @@ class AVCodec : public IAVCodec {
   OMX_ERRORTYPE ConfigureSAR(uint32_t width, uint32_t height);
   status_t SetPortParams(OMX_U32 ePortIndex, OMX_U32 nWidth, OMX_U32 nHeight,
                          float nFrameRate);
-  status_t QmmftoOmxProfile(CodecParam& codec_param);
-  status_t OmxtoQmmfProfile(const VideoFormat format, const int32_t profile,
-                            void *param);
-  status_t QmmftoOmxLevel(CodecParam& codec_param);
-  status_t OmxtoQmmfLevel(const VideoFormat format, const int32_t level,
-                          void *param);
+  status_t GetVideoProfile(CodecParam& codec_param);
+  status_t GetVideoLevel(CodecParam& codec_param);
   OMX_ERRORTYPE prepareForAdaptivePlayback(OMX_U32 portIndex, OMX_BOOL enable,
                                            OMX_U32 maxFrameWidth,
                                            OMX_U32 maxFrameHeight);
