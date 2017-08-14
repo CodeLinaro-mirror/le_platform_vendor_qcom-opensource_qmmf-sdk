@@ -62,6 +62,7 @@ typedef int32_t status_t;
 
 enum class EventType {
   kServerDied = 1,
+  kCameraError = 2,
 };
 
 typedef std::function<void(EventType event_type, void *event_data,
@@ -73,6 +74,12 @@ typedef std::function<void(EventType event_type, void *event_data,
 /// Only error event types are expected as of now
 struct RecorderCb {
   EventCb event_cb;
+};
+
+/// \brief RecorderErrorData is used to determine the type of recorer errors.
+struct RecorderErrorData {
+  uint32_t        camera_id;
+  int32_t         error_code;
 };
 
 /// \brief Session cb is used to return state changes i.e. to indicate

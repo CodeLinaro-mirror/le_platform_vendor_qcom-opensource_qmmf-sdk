@@ -15,6 +15,7 @@ source_files += qmmf_audio_encoder_core.cc
 if ENABLE_360
 source_files += qmmf_jpeg_encoder.cc
 source_files += qmmf_camera_jpeg.cc
+source_files += qmmf_exif_generator.cc
 endif
 
 source_files += qmmf_camera_reprocess_impl.cc
