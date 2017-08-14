@@ -1558,6 +1558,9 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     assert(ret == NO_ERROR);
     sleep(5);
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    assert(ret == NO_ERROR);
   }
 
   ret = recorder_.StopSession(session_id, false);
@@ -1708,6 +1711,8 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
     assert(ret == NO_ERROR);
     sleep(5);
 
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    assert(ret == NO_ERROR);
   }
 
   ret = recorder_.StopSession(session_id, false);
