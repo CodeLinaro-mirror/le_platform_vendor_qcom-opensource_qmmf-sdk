@@ -140,6 +140,8 @@ class PostProcPipe : public virtual  RefBase {
 
    sp<PostProcFactory>           factory_;
 
+   bool                          use_hal_jpeg_;
+
 };
 
 }; //namespace recorder

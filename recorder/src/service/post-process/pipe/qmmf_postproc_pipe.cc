@@ -45,7 +45,8 @@ namespace recorder {
 PostProcPipe::PostProcPipe(IPostProc* context, const PostProcPipeType &type,
                            const std::vector<uint32_t> &plugins)
     : type_(type),
-      context_(context) {
+      context_(context),
+      use_hal_jpeg_(false) {
 
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
@@ -57,6 +58,10 @@ PostProcPipe::PostProcPipe(IPostProc* context, const PostProcPipeType &type,
     assert(node.get() != nullptr);
     pipe_.push_back(node);
   }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.haljpeg", prop_val, "0");
+  use_hal_jpeg_ = (0 == atoi(prop_val)) ? false : true;
 
   state_ = PostProcPipeState::CREATED;
   QMMF_VERBOSE("%s:%s: Exit (%p)", TAG, __func__, this);
@@ -84,7 +89,12 @@ status_t PostProcPipe::BeginInit(const PipeOutputParam &output) {
 
   /* If there are no plugins check if JPEG encoding is needed */
   if (pipe_.empty() && proc_param.format == BufferFormat::kBLOB) {
-    sp<PostProcNode> node = factory_->GetProcNode("JpegEncode", nullptr);
+    sp<PostProcNode> node;
+    if (use_hal_jpeg_) {
+      node = factory_->GetProcNode("HALJpegEncode", context_);
+    } else {
+      node = factory_->GetProcNode("JpegEncode", context_);
+    }
     pipe_.push_back(node);
   }
 
@@ -225,7 +235,11 @@ sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output,
   if (IsYUVFormat(output.format) && SupportsRAWFormat(caps.formats_)) {
     node = factory_->GetProcNode("HALReprocess", context_);
   } else if (IsJPEGFormat(output.format) && SupportsYUVFormat(caps.formats_)) {
-    node = factory_->GetProcNode("JpegEncode", nullptr);
+    if (use_hal_jpeg_) {
+      node = factory_->GetProcNode("HALJpegEncode", context_);
+    } else {
+      node = factory_->GetProcNode("JpegEncode", context_);
+    }
   }
 
   return node;
@@ -241,7 +255,11 @@ sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output,
     node = factory_->GetProcNode("HALReprocess", context_);
   } else if (IsYUVFormat(output.format) &&
       SupportsJPEGFormat(reqs.formats_)) {
-    node = factory_->GetProcNode("JpegEncode", nullptr);
+    if (use_hal_jpeg_) {
+      node = factory_->GetProcNode("HALJpegEncode", context_);
+    } else {
+      node = factory_->GetProcNode("JpegEncode", context_);
+    }
   }
 
   return node;
