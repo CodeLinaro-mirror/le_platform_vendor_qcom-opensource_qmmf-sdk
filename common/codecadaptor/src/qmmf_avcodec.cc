@@ -519,15 +519,15 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
         param.bEnable = OMX_TRUE;
       }
 
-      OMX_QCOM_VIDEO_CONFIG_AUD param_aud;
+      OMX_QCOM_VIDEO_CONFIG_H264_AUD param_aud;
       memset(&param_aud, 0, sizeof(param_aud));
-      param_aud.nSize = sizeof(OMX_QCOM_VIDEO_CONFIG_AUD);
+      param_aud.nSize = sizeof(OMX_QCOM_VIDEO_CONFIG_H264_AUD);
       param_aud.bEnable = OMX_FALSE;
       if (codec_param.video_enc_param.codec_param.avc.insert_aud_delimiter) {
         param_aud.bEnable = OMX_TRUE;
       }
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_QcomIndexParamAUDelimiter,
+                (OMX_INDEXTYPE)OMX_QcomIndexParamH264AUDelimiter,
                 (OMX_PTR)&param_aud);
       if (ret != OMX_ErrorNone) {
           QMMF_ERROR("%s:%s Failed to configure AUD delimiter",
