@@ -37,10 +37,16 @@ namespace qmmf {
 
 namespace recorder {
 
+const uint32_t PostProcJpeg::kMinWidth  = 160;
+const uint32_t PostProcJpeg::kMinHeight = 120;
+const uint32_t PostProcJpeg::kMaxWidth  = 5104;
+const uint32_t PostProcJpeg::kMaxHeight = 4092;
+
+const int32_t PostProcJpeg::kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_888;
+const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
+
 PostProcJpeg::PostProcJpeg()
-    : reprocess_flag_(false),
-      ready_to_start_(false),
-      jpeg_encoder_(nullptr) {
+    : jpeg_encoder_(nullptr) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -53,58 +59,20 @@ PostProcJpeg::~PostProcJpeg() {
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
-status_t PostProcJpeg::Create(const int32_t stream_id,
-                              const uint32_t frame_rate,
-                              const uint32_t num_images,
-                              const void* context) {
+status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
+                                  const PostProcIOParam &out_param) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (reprocess_flag_) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  ready_to_start_ = true;
-
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
-PostProcCreateParam PostProcJpeg::GetInput(const PostProcCreateParam &out) {
-  input_param_ = output_param_ = out;
-  input_param_.format = kSupportedInputFormat;
-  return input_param_;
+PostProcIOParam PostProcJpeg::GetInput(const PostProcIOParam &out) {
+  PostProcIOParam input_param = out;
+  input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
+  return input_param;
 }
 
-PostProcCreateParam PostProcJpeg::GetOutput(const PostProcCreateParam &in) {
-  output_param_ = input_param_ = in;
-  output_param_.format = kSupportedOutputFormat;
-  return output_param_;
-}
-
-status_t PostProcJpeg::ValidateInput(const PostProcCreateParam &input) {
-  if (input.format != kSupportedInputFormat) {
-    QMMF_ERROR("%s: Input format(%d) not supported", __func__, input.format);
-    return BAD_TYPE;
-  }
-
-  if ((input.width < kMinWidth || input.width > kMaxWidth) ||
-      (input.height < kMinHeight || input.height > kMaxHeight)) {
-    QMMF_ERROR("%s: Input dimensions(%dx%d) not supported", __func__,
-        input.width, input.height);
-    return BAD_VALUE;
-  }
-
-  return NO_ERROR;
-}
-
-status_t PostProcJpeg::ValidateOutput(const PostProcCreateParam &output) {
-  if (output.format != kSupportedOutputFormat) {
+status_t PostProcJpeg::ValidateOutput(const PostProcIOParam &output) {
+  if (output.format != Common::FromHalToQmmfFormat(kSupportedOutputFormat)) {
     QMMF_ERROR("%s: Output format(%d) not supported", __func__, output.format);
     return BAD_TYPE;
   }
@@ -135,35 +103,18 @@ status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::Start() {
+status_t PostProcJpeg::Start(const int32_t stream_id) {
   QMMF_VERBOSE("%s:%s: Enter %p", TAG, __func__, this);
-  if (!ready_to_start_) {
-    return BAD_VALUE;
-  }
-
-  reprocess_flag_ = true;
-
-  QMMF_VERBOSE("%s:%s: Exit %p", TAG, __func__, this);
   return NO_ERROR;
 }
 
 status_t PostProcJpeg::Stop() {
   QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
-  ready_to_start_ = false;
-
-  reprocess_flag_ = false;
-
-  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
   return NO_ERROR;
 }
 
 status_t PostProcJpeg::Delete() {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
-
-  reprocess_flag_ = false;
-  ready_to_start_ = false;
-
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  QMMF_VERBOSE("%s:%s: Enter %p", TAG, __func__, this);
   return NO_ERROR;
 }
 

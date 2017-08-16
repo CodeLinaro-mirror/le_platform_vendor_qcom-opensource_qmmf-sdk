@@ -49,12 +49,9 @@ class PostProcFactory : public RefBase {
    static sp<PostProcFactory> getInstance();
 
    static void releaseInstance();
-
-   int32_t GetUniqueId();
-
    status_t GetSupportedPlugins(SupportedPlugins *plugins);
 
-   status_t CreatePlugin(uint32_t *uid, const PluginInfo &info);
+   status_t CreatePlugin(uint32_t &uid, const PluginInfo &info);
 
    status_t DeletePlugin(const uint32_t &uid);
 
@@ -71,6 +68,8 @@ class PostProcFactory : public RefBase {
    PostProcFactory();
 
    ~PostProcFactory();
+
+   int32_t GetUniqueId();
 
    bool IsPlugin(std::string entry);
 

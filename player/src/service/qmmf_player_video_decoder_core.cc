@@ -953,8 +953,9 @@ status_t VideoTrackDecoder::ReconfigOutputPort(void* arg) {
       QMMF_ERROR("%s:%s Unknown PortReconfigType", TAG, __func__);
       assert(0);
   }
-  return ret;
   QMMF_INFO("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+
+  return ret;
 }
 
 status_t VideoTrackDecoder::ReleaseOutputBuffers() {

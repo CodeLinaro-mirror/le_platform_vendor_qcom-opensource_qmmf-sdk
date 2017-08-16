@@ -248,7 +248,7 @@ status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
-  auto ret = factory_->CreatePlugin(uid, plugin);
+  auto ret = factory_->CreatePlugin(*uid, plugin);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreatePlugin Failed!", TAG, __func__);
     return ret;
