@@ -195,7 +195,7 @@ sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output) {
     node = factory_->GetProcNode("HALReprocess", context_);
   } else if (IsJPEGFormat(output.format)) {
     if (use_hal_jpeg_) {
-      node = factory_->GetProcNode("HALJpegEncode", context_);
+      node = factory_->GetProcNode("HALReprocess", context_);
     } else {
       node = factory_->GetProcNode("JpegEncode", context_);
     }
