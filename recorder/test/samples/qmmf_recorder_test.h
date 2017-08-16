@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -48,6 +49,7 @@
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+#include <linux/input.h>
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -239,6 +241,7 @@ struct TrackInfo {
         device_id(device_id) {}
 };
 
+
 struct RGBAValues {
   double red;
   double green;
@@ -381,6 +384,9 @@ typedef struct ROIRegion {
     rgb_color[0] = rgb_color[1] = rgb_color[2] = 1;
   }
 } ROIRegion;
+
+typedef std::chrono::high_resolution_clock clk;
+typedef std::chrono::milliseconds milliseconds;
 
 class RecorderTest {
  public:
@@ -540,7 +546,11 @@ class RecorderTest {
   // Auto Mode
   int32_t ParseAutoModeParams(int32_t argc, char *argv[],
                               VideoTrackCreateParam *track_param);
-  int32_t RunAutoMode(int32_t argc, char *argv[]);
+
+  int32_t RunAutoMode(int32_t argc, char* argv[]);
+
+  int32_t RunWarmBootMode(int32_t argc, char* argv[]);
+
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
@@ -587,6 +597,12 @@ class RecorderTest {
   void InitSupportedBinningCorrectionModes();
   int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
 
+  int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
+                                  TrackInfo* track_info);
+  bool IsKeyEventShort(const milliseconds keypress_duration);
+  int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
+  int32_t StopRecording();
+
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
@@ -600,6 +616,7 @@ class RecorderTest {
   uint32_t preview_session_id_;
   SnapshotType snapshot_choice_;
 
+  uint32_t current_session_id_;
   bool use_display;
   bool dump_aec_awb_stats_;
   bool dump_histogram_stats_;
@@ -611,6 +628,7 @@ class RecorderTest {
   ::std::mutex callback_lock_;
   uint32_t num_images_;
   bool aec_converged_;
+  bool in_suspend_;
 
   int32_t ltr_count_;
 
