@@ -398,6 +398,12 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
         ret = CaptureImage(client_id, camera_id, param,
                            num_images, meta_array);
+
+        // Clear the metadata buffers and free all storage used by it
+        for (auto meta:meta_array) {
+          meta.clear();
+        }
+
         reply->writeInt32(ret);
         return ret;
       }
