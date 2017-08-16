@@ -43,18 +43,14 @@ class PostProcTest : public IPostProcModule {
 
  public:
 
-   PostProcTest(int32_t Id);
+   PostProcTest();
 
    ~PostProcTest();
 
    status_t Create(const int32_t stream_id,
-                   const PostProcCreateParam& input,
-                   const PostProcCreateParam& output,
                    const uint32_t frame_rate,
                    const uint32_t num_images,
-                   const void* static_meta,
-                   const void* context,
-                   int32_t &out_stream_id) override;
+                   const void* context) override;
 
    status_t Delete() override;
 
@@ -75,7 +71,11 @@ class PostProcTest : public IPostProcModule {
 
    PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
 
-   PostProcCreateParam GetOutput(const PostProcCreateParam &in) override;
+   PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
+
+   status_t ValidateInput(const PostProcCreateParam &input) override;
+
+   status_t ValidateOutput(const PostProcCreateParam &output) override;
 
    status_t GetCapabilities(PostProcCaps &caps) override;
 

@@ -66,6 +66,10 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_STOP_SESSION,
   RECORDER_PAUSE_SESSION,
   RECORDER_RESUME_SESSION,
+  RECORDER_GET_SUPPORTED_PLUGINS,
+  RECORDER_CREATE_PLUGIN,
+  RECORDER_DELETE_PLUGIN,
+  RECORDER_CONFIGURE_PLUGIN,
   RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
   RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS,
@@ -178,6 +182,18 @@ class IRecorderService : public IInterface {
 
   virtual status_t ResumeSession(const uint32_t client_id,
                                  const uint32_t session_id) = 0;
+
+  virtual status_t GetSupportedPlugins(const uint32_t client_id,
+                                       SupportedPlugins *plugins) = 0;
+
+  virtual status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
+                                const PluginInfo &plugin) = 0;
+
+  virtual status_t DeletePlugin(const uint32_t client_id,
+                                const uint32_t &uid) = 0;
+
+  virtual status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
+                                const std::string &json_config) = 0;
 
   virtual status_t CreateAudioTrack(const uint32_t client_id,
                                     const uint32_t session_id,

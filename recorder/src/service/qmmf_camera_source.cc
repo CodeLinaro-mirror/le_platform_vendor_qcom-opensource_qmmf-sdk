@@ -44,6 +44,7 @@
 #ifdef ENABLE_360
 #include "recorder/src/service/qmmf_multicamera_manager.h"
 #endif
+#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 
 namespace qmmf {
 
@@ -79,6 +80,7 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  factory_ = PostProcFactory::getInstance();
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -89,13 +91,16 @@ CameraSource::~CameraSource() {
   if (!camera_map_.isEmpty()) {
     camera_map_.clear();
   }
+  PostProcFactory::releaseInstance();
+  factory_ = nullptr;
   instance_ = nullptr;
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
 status_t CameraSource::StartCamera(const uint32_t camera_id,
                                    const CameraStartParam &param,
-                                   const ResultCb &cb) {
+                                   const ResultCb &cb,
+                                   const ErrorCb &errcb) {
 
   QMMF_INFO("%s:%s: Camera Id(%u) to open!", TAG, __func__, camera_id);
   QMMF_KPI_DETAIL();
@@ -130,7 +135,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     camera_map_.add(camera_id, camera);
   }
 
-  auto ret = camera->OpenCamera(camera_id, param, cb);
+  auto ret = camera->OpenCamera(camera_id, param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);
@@ -223,6 +228,63 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                          param, param_size);
 #endif
   return ret;
+}
+
+status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  auto ret = factory_->GetSupportedPlugins(plugins);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: GetSupportedPlugins Failed!", TAG, __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  auto ret = factory_->CreatePlugin(uid, plugin);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: CreatePlugin Failed!", TAG, __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t CameraSource::DeletePlugin(const uint32_t &uid) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  auto ret = factory_->DeletePlugin(uid);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: DeletePlugin Failed!", TAG, __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t CameraSource::ConfigPlugin(const uint32_t &uid,
+                                    const std::string &json_config) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+
+  auto ret = factory_->ConfigPlugin(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: ConfigPlugin Failed!", TAG, __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
@@ -748,7 +810,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
-      enable_overlay_(false),
+      active_overlays_(0),
       input_count_(0),
       count_(0),
       pending_encodes_per_frame_ratio_(0.0),
@@ -1169,7 +1231,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s:%s: track_id(%x) size = %d", TAG, __func__, TrackId(),
       buffer.size);
 
-  if (enable_overlay_) {
+  if (active_overlays_ > 0) {
     OverlayTargetBuffer overlay_buf;
     //TODO: get format from streamBuffer.
     overlay_buf.format    = TargetBufferFormat::kYUVNV12;
@@ -1387,7 +1449,7 @@ status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
     QMMF_ERROR("%s:%s: enableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  enable_overlay_ = true;
+  ++active_overlays_;
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }
@@ -1400,7 +1462,7 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
     QMMF_ERROR("%s:%s: disableOverlayItem failed!", TAG, __func__);
     return BAD_VALUE;
   }
-  enable_overlay_ = false;
+  --active_overlays_;
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
   return ret;
 }

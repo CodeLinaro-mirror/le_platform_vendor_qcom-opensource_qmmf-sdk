@@ -44,9 +44,12 @@ class IBufferConsumer;
 class CameraInterface : public virtual RefBase {
  public:
 
+  virtual ~CameraInterface() {};
+
   virtual status_t OpenCamera(const uint32_t camera_id,
                               const CameraStartParam &param,
-                              const ResultCb &cb = nullptr) = 0;
+                              const ResultCb &cb = nullptr,
+                              const ErrorCb &errcb = nullptr) = 0;
 
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 

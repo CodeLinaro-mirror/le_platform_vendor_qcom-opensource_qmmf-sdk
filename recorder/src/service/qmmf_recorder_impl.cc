@@ -302,8 +302,14 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
       const CameraMetadata &result) {
         CameraResultCallback(client_id, camera_id, result);
       };
+
+  ErrorCb errcb = [ this, client_id ] (RecorderErrorData &error) {
+        CameraErrorCallback(client_id, error);
+      };
+
   auto ret = camera_source_->StartCamera(camera_id, param,
-                                         enable_result_cb ? cb : nullptr);
+                                         enable_result_cb ? cb : nullptr,
+                                         errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: StartCamera Failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -869,6 +875,93 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
   QMMF_DEBUG("%s:%s: Exit client_id(%d):session_id(%d)", TAG, __func__,
       client_id, session_id);
   return ret;
+}
+
+status_t RecorderImpl::GetSupportedPlugins(const uint32_t client_id,
+                                           SupportedPlugins *plugins) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
+        TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetSupportedPlugins(plugins);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: client_id(%d): GetSupportedPlugins failed!", TAG,
+        __func__, client_id);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::CreatePlugin(const uint32_t client_id, uint32_t *uid,
+                                    const PluginInfo &plugin) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
+        TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->CreatePlugin(uid, plugin);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: client_id(%d): CreatePlugin %s failed!", TAG, __func__,
+        client_id, plugin.name.c_str());
+    return ret;
+  }
+  QMMF_INFO("%s:%s: client_id(%d): Plugin %s created uid(%d)", TAG, __func__,
+      client_id, plugin.name.c_str(), *uid);
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::DeletePlugin(const uint32_t client_id,
+                                    const uint32_t &uid) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
+        TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->DeletePlugin(uid);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: client_id(%d):DeletePlugin uid(%d) failed!", TAG, __func__,
+        client_id, uid);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
+                                    const uint32_t &uid,
+                                    const std::string &json_config) {
+  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s:%s: Invalid client_id(%d), Not in connected client list!",
+        TAG, __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->ConfigPlugin(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: client_id(%d): ConfigPlugin uid(%d) failed!", TAG,
+        __func__, client_id, uid);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  return NO_ERROR;
 }
 
 status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
@@ -1775,6 +1868,15 @@ void RecorderImpl::CameraResultCallback(uint32_t remote_client_id,
   assert(remote_cb_handle_ != nullptr);
   assert(remote_client_id > 0);
   remote_cb_handle_(remote_client_id)->NotifyCameraResult(camera_id, result);
+}
+
+void RecorderImpl::CameraErrorCallback(uint32_t remote_client_id,
+                                       RecorderErrorData &error) {
+  assert(remote_cb_handle_ != nullptr);
+  assert(remote_client_id > 0);
+  remote_cb_handle_(remote_client_id)->NotifyRecorderEvent(
+      EventType::kCameraError, reinterpret_cast<void*>(&error),
+      sizeof(RecorderErrorData));
 }
 
 bool RecorderImpl::IsClientValid(const uint32_t client_id) {

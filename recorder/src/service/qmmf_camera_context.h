@@ -77,7 +77,8 @@ class CameraContext : public CameraInterface,
   ~CameraContext();
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
-                      const ResultCb &cb = nullptr) override;
+                      const ResultCb &cb = nullptr,
+                      const ErrorCb &errcb = nullptr) override;
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
@@ -213,15 +214,16 @@ class CameraContext : public CameraInterface,
 
   void DeletePort(const uint32_t track_id);
 
-  status_t PostProcInit(const ImageParam &param);
+  status_t PostProcCreate(const std::vector<uint32_t> &plugins);
+
+  status_t PostProcDelete();
+
+  status_t PostProcBeginInit(const PipeOutputParam &output);
 
   status_t PostProcUpdateStreamParams(CameraStreamParameters& stream_param);
 
-  status_t PostProcCreate(CameraStreamParameters &stream_param,
-                        const ImageParam &param,
-                        int32_t stream_id);
-
-  status_t PostProcDelete();
+  int32_t PostProcEndInit(int32_t stream_id, uint32_t max_buffer_count,
+                          const PipeInputParam &input);
 
   status_t PostProcAddResult(const CaptureResult &result);
 
@@ -231,6 +233,8 @@ class CameraContext : public CameraInterface,
   Mutex                    device_access_lock_;
   CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
+
+  std::vector<uint32_t>    capture_plugins_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
@@ -249,11 +253,15 @@ class CameraContext : public CameraInterface,
   bool                     cancel_capture_ = false;
 
   ResultCb                 result_cb_;
+  ErrorCb                  error_cb_;
   Vector<int32_t>          supported_fps_;
   sp<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
   Vector<sp<CameraPort> > active_ports_;
+
+  // Map of <port_id and PostProc plugins>
+  std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
 
   // Maps of buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
@@ -280,18 +288,10 @@ class CameraContext : public CameraInterface,
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
 
-  struct ReprocessConfig {
-    ReprocessConfig() : edge_smooth_enable_(false),
-                        bayer_lcac_enable_(false) {}
-
-    bool     edge_smooth_enable_;
-    bool     bayer_lcac_enable_;
-  } reprocess_config_;
 };
 
 enum class CameraPortType {
   kVideo,
-  kPreview,
   kZSL,
 };
 

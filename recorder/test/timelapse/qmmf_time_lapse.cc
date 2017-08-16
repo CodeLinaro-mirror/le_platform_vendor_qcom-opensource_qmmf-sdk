@@ -28,7 +28,6 @@
 */
 
 #include <inttypes.h>
-#include <utils/Errors.h>
 #include <utils/String8.h>
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_time_lapse.h"
