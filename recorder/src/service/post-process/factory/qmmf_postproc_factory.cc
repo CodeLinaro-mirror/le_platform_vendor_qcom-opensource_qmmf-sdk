@@ -203,8 +203,6 @@ PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
 
   if (name == "JpegEncode") {
     module = new PostProcJpeg();
-  } else if (name == "HALJpegEncode") {
-    module = new PostProcHalJpeg(context);
   } else if (name == "HALReprocess") {
     module = new CameraHalReproc(context);
   } else if (name == "Test") {
