@@ -204,24 +204,21 @@ class RecorderImpl {
                                 const uint32_t param_size);
 
   // Data callback handlers.
-  void VideoTrackBufferCallback(uint32_t remote_client_id, uint32_t session_id,
-                                uint32_t client_track_id,
-                                std::vector<BnBuffer>& buffers,
-                                std::vector<MetaData>& meta_buffers);
+  void VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
+                          uint32_t track_id, std::vector<BnBuffer>& buffers,
+                          std::vector<MetaData>& meta_buffers);
 
-  void AudioTrackBufferCallback(uint32_t remote_client_id, uint32_t session_id,
-                                uint32_t client_track_id,
-                                std::vector<BnBuffer>& buffers,
-                                std::vector<MetaData>& meta_buffers);
+  void AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
+                          uint32_t track_id, std::vector<BnBuffer>& buffers,
+                          std::vector<MetaData>& meta_buffers);
 
-  void SnapshotCallback(uint32_t remote_client_id, uint32_t camera_id,
-                        uint32_t count, BnBuffer& buffer, MetaData& meta_data);
+  void CameraSnapshotCb(uint32_t client_id, uint32_t camera_id, uint32_t count,
+                        BnBuffer& buffer, MetaData& meta_data);
 
-  void CameraResultCallback(uint32_t remote_client_id, uint32_t camera_id,
-                            const CameraMetadata &result);
+  void CameraResultCb(uint32_t client_id, uint32_t camera_id,
+                      const CameraMetadata &result);
 
-  void CameraErrorCallback(uint32_t client_id,
-                           RecorderErrorData &error);
+  void CameraErrorCb(uint32_t client_id, RecorderErrorData &error);
 
  private:
 
