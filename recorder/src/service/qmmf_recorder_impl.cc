@@ -308,13 +308,13 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
     }
   }
   assert(camera_source_ != nullptr);
-  ResultCb cb = [ this, client_id ] (uint32_t camera_id,
-      const CameraMetadata &result) {
-        CameraResultCallback(client_id, camera_id, result);
+  ResultCb cb = [ this, client_id ]
+      (uint32_t camera_id, const CameraMetadata &result) {
+        CameraResultCb(client_id, camera_id, result);
       };
 
   ErrorCb errcb = [ this, client_id ] (RecorderErrorData &error) {
-        CameraErrorCallback(client_id, error);
+        CameraErrorCb(client_id, error);
       };
 
   auto ret = camera_source_->StartCamera(camera_id, param,
@@ -1011,8 +1011,8 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
   audio_track_params.params   = param;
   audio_track_params.data_cb  = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          AudioTrackBufferCallback(client_id, session_id, track_id, buffers,
-                                   meta_buffers);
+          AudioTrackBufferCb(client_id, session_id, track_id,
+                             buffers, meta_buffers);
       };
 
   assert(audio_source_ != nullptr);
@@ -1160,8 +1160,8 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   video_track_params.extra_param = empty_extra_params;
   video_track_params.data_cb     = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          VideoTrackBufferCallback(client_id, session_id, track_id,
-                                   buffers, meta_buffers);
+          VideoTrackBufferCb(client_id, session_id, track_id,
+                             buffers, meta_buffers);
       };
   // Create Camera track first.
   assert(camera_source_ != nullptr);
@@ -1253,8 +1253,8 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   video_track_params.extra_param = extra_param;
   video_track_params.data_cb     = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          VideoTrackBufferCallback(client_id, session_id, track_id,
-                                   buffers, meta_buffers);
+          VideoTrackBufferCb(client_id, session_id, track_id,
+                             buffers, meta_buffers);
       };
   // Create Camera track first.
   assert(camera_source_ != nullptr);
@@ -1520,7 +1520,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
   assert(camera_source_ != nullptr);
   SnapshotCb cb = [ this, client_id ] (uint32_t camera_id,
       uint32_t count, BnBuffer& buf, MetaData& meta_data) {
-          SnapshotCallback(client_id, camera_id, count, buf, meta_data);
+          CameraSnapshotCb(client_id, camera_id, count, buf, meta_data);
       };
   auto ret = camera_source_->CaptureImage(camera_id, param, num_images,
                                           meta, cb);
@@ -1841,67 +1841,79 @@ status_t RecorderImpl::ConfigureMultiCamera(const uint32_t client_id,
 }
 
 // Data callback handlers.
-void RecorderImpl::VideoTrackBufferCallback(uint32_t remote_client_id,
-                                            uint32_t session_id,
-                                            uint32_t client_track_id,
-                                            std::vector<BnBuffer>& buffers,
-                                            std::vector<MetaData>&
-                                            meta_buffers) {
+void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
+                                      uint32_t track_id,
+                                      std::vector<BnBuffer>& buffers,
+                                      std::vector<MetaData>& meta_buffers) {
 
+  QMMF_DEBUG("%s:%s Enter client_id(%u), session_id(%u), track_id(%u)", TAG,
+      __func__, client_id, session_id, track_id);
   assert(remote_cb_handle_ != nullptr);
-  assert(remote_client_id > 0);
+  assert(client_id > 0);
 
   std::lock_guard<std::mutex> lock(client_died_lock_);
   if (client_died_) {
-    ReturnTrackBuffer(remote_client_id, session_id, client_track_id, buffers);
+    ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
-    remote_cb_handle_(remote_client_id)->NotifyVideoTrackData(client_track_id,
-        buffers, meta_buffers);
+    remote_cb_handle_(client_id)->NotifyVideoTrackData(track_id, buffers,
+                                                       meta_buffers);
   }
+  QMMF_DEBUG("%s:%s Exit client_id(%u), session_id(%u), track_id(%u)", TAG,
+      __func__, client_id, session_id, track_id);
 }
 
-void RecorderImpl::AudioTrackBufferCallback(uint32_t remote_client_id,
-                                            uint32_t session_id,
-                                            uint32_t client_track_id,
-                                            std::vector<BnBuffer>& buffers,
-                                            std::vector<MetaData>&
-                                            meta_buffers) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  for (const BnBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
-                 buffer.ToString().c_str());
+void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
+                                      uint32_t track_id,
+                                      std::vector<BnBuffer>& buffers,
+                                      std::vector<MetaData>& meta_buffers) {
+
+  QMMF_DEBUG("%s:%s Enter client_id(%u), session_id(%u), track_id(%u)", TAG,
+      __func__, client_id, session_id, track_id);
   assert(remote_cb_handle_ != nullptr);
-  assert(remote_client_id > 0);
+  assert(client_id > 0);
 
   std::lock_guard<std::mutex> lock(client_died_lock_);
   if (client_died_) {
-    ReturnTrackBuffer(remote_client_id, session_id, client_track_id, buffers);
+    ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
-    remote_cb_handle_(remote_client_id)->NotifyAudioTrackData(client_track_id,
-        buffers, meta_buffers);
+    remote_cb_handle_(client_id)->NotifyAudioTrackData(track_id, buffers,
+                                                       meta_buffers);
   }
+  QMMF_DEBUG("%s:%s Exit client_id(%u), session_id(%u), track_id(%u)", TAG,
+      __func__, client_id, session_id, track_id);
 }
 
-void RecorderImpl::SnapshotCallback(uint32_t remote_client_id,
-                                    uint32_t camera_id, uint32_t count,
-                                    BnBuffer& buffer, MetaData& meta_data) {
+void RecorderImpl::CameraSnapshotCb(uint32_t client_id, uint32_t camera_id,
+                                    uint32_t count, BnBuffer& buffer,
+                                    MetaData& meta_data) {
 
+  QMMF_DEBUG("%s:%s Enter client_id(%u), camera_id(%u), count(%u)", TAG,
+      __func__, client_id, camera_id, count);
   assert(remote_cb_handle_ != nullptr);
-  assert(remote_client_id > 0);
-  remote_cb_handle_(remote_client_id)->NotifySnapshotData(camera_id, count,
-                                                          buffer, meta_data);
+  assert(client_id > 0);
+
+  remote_cb_handle_(client_id)->NotifySnapshotData(camera_id, count,
+                                                   buffer, meta_data);
+  QMMF_DEBUG("%s:%s Exit client_id(%u), camera_id(%u), count(%u)", TAG,
+      __func__, client_id, camera_id, count);
 }
 
-void RecorderImpl::CameraResultCallback(uint32_t remote_client_id,
-                                        uint32_t camera_id,
-                                        const CameraMetadata &result) {
+void RecorderImpl::CameraResultCb(uint32_t client_id, uint32_t camera_id,
+                                  const CameraMetadata &result) {
+
+  QMMF_DEBUG("%s:%s Enter client_id(%u), camera_id(%u)", TAG, __func__,
+      client_id, camera_id);
   assert(remote_cb_handle_ != nullptr);
-  assert(remote_client_id > 0);
-  remote_cb_handle_(remote_client_id)->NotifyCameraResult(camera_id, result);
+  assert(client_id > 0);
+
+  remote_cb_handle_(client_id)->NotifyCameraResult(camera_id, result);
+  QMMF_DEBUG("%s:%s Exit client_id(%u), camera_id(%u)", TAG, __func__,
+      client_id, camera_id);
 }
 
-void RecorderImpl::CameraErrorCallback(uint32_t remote_client_id,
-                                       RecorderErrorData &error) {
+void RecorderImpl::CameraErrorCb(uint32_t remote_client_id,
+                                 RecorderErrorData &error) {
+
   assert(remote_cb_handle_ != nullptr);
   assert(remote_client_id > 0);
   remote_cb_handle_(remote_client_id)->NotifyRecorderEvent(
