@@ -145,6 +145,18 @@ using ::qmmf::display::SurfaceFormat;
 // Prop to set frequency of YUV data dumping
 #define PROP_DUMP_FRAME_FREQ   "persist.qmmf.rec.test.dumpfreq"
 
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef CLIP
+#define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
+#endif
+
 enum class AfMode {
   kNone,
   kOff,
@@ -190,6 +202,7 @@ struct TrackInfo {
   float     fps;
   TrackType track_type;
   uint32_t  bitrate;
+  int32_t  ltr_count;
   uint32_t  session_id;
   uint32_t  track_id;
   int32_t   camera_id;
@@ -250,6 +263,13 @@ enum class TNRTuningCmd {
   kExit                        = 'X',
   kTNRIntensity                = '1',
   kMotionDetectionSensitivity  = '2'
+};
+
+enum AutoModeOptions : char {
+  kWidth      = 'w',
+  kHeight     = 'h',
+  kFps        = 'f',
+  kTrackType  = 't'
 };
 
 class TestTrack;
@@ -322,6 +342,17 @@ class DumpBitStream {
 
   int32_t file_fd_;
 };
+
+typedef struct ROIRegion {
+  int32_t roi_coordinates[5];
+  int32_t rgb_color[3];
+  ROIRegion() {
+    roi_coordinates[0] = roi_coordinates[1] = roi_coordinates[2] =
+    roi_coordinates[3] = roi_coordinates[4] = 1;
+
+    rgb_color[0] = rgb_color[1] = rgb_color[2] = 1;
+  }
+} ROIRegion;
 
 class RecorderTest {
  public:
@@ -419,6 +450,12 @@ class RecorderTest {
 
   status_t DisableOverlay();
 
+  status_t HandleAWBROIRequest();
+
+  void GetMaxResolutionTrack(TrackInfo &);
+
+  void PrintAWBROIHelp();
+
   void printInitParamAndTtrackInfo(
                                    const TestInitParams& initParams,
                                    const std::vector<TrackInfo>& infos);
@@ -473,7 +510,9 @@ class RecorderTest {
   }
 
   // Auto Mode
-  int32_t RunAutoMode();
+  int32_t ParseAutoModeParams(int32_t argc, char *argv[],
+                              VideoTrackCreateParam *track_param);
+  int32_t RunAutoMode(int32_t argc, char *argv[]);
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
@@ -501,6 +540,7 @@ class RecorderTest {
   uint32_t dump_frame_freq_;
 
  private:
+  ROIRegion roi_region_;
   Recorder recorder_;
 
   friend class CmdMenu;
@@ -544,9 +584,13 @@ class RecorderTest {
   uint32_t num_images_;
   bool aec_converged_;
 
+  int32_t ltr_count_;
+
   std::mutex               snapshot_wait_lock_;
   std::condition_variable  snapshot_wait_signal_;
   uint32_t                 burst_snapshot_count_;
+  std::mutex               error_lock_;
+  bool                     camera_error_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -589,6 +633,8 @@ class TestTrack {
   status_t StartDisplay(DisplayType display_type);
 
   status_t StopDisplay(DisplayType display_type);
+
+  const TrackInfo& GetTrackHandle(){return track_info_;}
 
  private:
 
@@ -685,6 +731,7 @@ public:
         CHOOSE_CAMERA_CMD                       = 'C',
         SET_ANTIBANDING_MODE_CMD                = 'W',
         BINNING_CORRECTION_CMD                  = '#',
+        AWB_ROI_CMD                             = '$',
         NEXT_CMD                                = '\n',
         INVALID_CMD                             = '0'
     };

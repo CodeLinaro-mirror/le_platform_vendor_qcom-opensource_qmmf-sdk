@@ -72,16 +72,17 @@ class MultiCameraManager : public CameraInterface {
                                 const void *param, const size_t param_size);
 
   status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
-                      const ResultCb &cb = nullptr) override;
+                      const ResultCb &cb = nullptr,
+                      const ErrorCb &errcb = nullptr) override;
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
   status_t WaitAecToConverge(nsecs_t timeout) override;
 
-  status_t SetUpCapture(const ImageParam &param) override;
+  status_t SetUpCapture(const ImageParam &param,
+                        const uint32_t num_images) override;
 
-  status_t CaptureImage(const uint32_t num_images,
-                        const std::vector<CameraMetadata> &meta,
+  status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;
@@ -117,6 +118,8 @@ class MultiCameraManager : public CameraInterface {
   Vector<int32_t>& GetSupportedFps() override;
 
  private:
+  void ResultCallback(uint32_t camera_id, const CameraMetadata &meta);
+
   status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
   int32_t ImageToHalFormat(const ImageFormat &image);
@@ -145,6 +148,8 @@ class MultiCameraManager : public CameraInterface {
   CameraStartParam         multicam_start_params_;
   MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
+  ResultCb                 result_cb_;
+  ErrorCb                  error_cb_;
 
   //Non zsl capture request.
   ImageParam               snapshot_param_;
@@ -244,7 +249,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   };
 
   StitchingBase(InitParams &param);
-  ~StitchingBase();
+  virtual ~StitchingBase();
 
   status_t Initialize();
   status_t Configure(GrallocMemory::BufferParams &param);
@@ -382,10 +387,13 @@ class StreamStitching : public StitchingBase {
   status_t ReturnBufferToCamera(StreamBuffer &buffer) override;
 
  private:
+  bool IsConnected(const sp<IBufferConsumer>& consumer);
+
   sp<IBufferProducer>      buffer_producer_impl_;
-  sp<IBufferConsumer>      buffer_consumer_impl_;
 
   Mutex                    consumer_lock_;
+
+  std::map<uintptr_t, sp<IBufferConsumer> > stitching_consumers_;
 
   // Map of camera id and it's corresponding buffer consumer.
   KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;

@@ -31,11 +31,13 @@
 
 #include <sys/types.h>
 
-#include <cstdint>
+#include <cstddef>
+#include <memory>
 #include <iomanip>
 #include <functional>
 #include <sstream>
 #include <string>
+#include <cstdint>
 #include <type_traits>
 #include <vector>
 
@@ -60,6 +62,7 @@ typedef int32_t status_t;
 
 enum class EventType {
   kServerDied = 1,
+  kCameraError = 2,
 };
 
 typedef std::function<void(EventType event_type, void *event_data,
@@ -71,6 +74,12 @@ typedef std::function<void(EventType event_type, void *event_data,
 /// Only error event types are expected as of now
 struct RecorderCb {
   EventCb event_cb;
+};
+
+/// \brief RecorderErrorData is used to determine the type of recorer errors.
+struct RecorderErrorData {
+  uint32_t        camera_id;
+  int32_t         error_code;
 };
 
 /// \brief Session cb is used to return state changes i.e. to indicate
@@ -103,6 +112,78 @@ struct MetaData {
   uint32_t video_frame_type_info;
   uint32_t cam_meta_frame_number;
 };
+
+/// \brief Plugin related information exposed to the client
+///
+/// \param name: plugin name
+/// \param version: version of the underlying library
+/// \param togglable: indicating whether runtime enable/disable is supported
+struct PluginInfo {
+  std::string name;
+  float       version;
+  bool        togglable;
+
+  PluginInfo()
+    : name(), version(0.0), togglable(false) {}
+
+  PluginInfo(const std::string name,
+             const float version,
+             const bool togglable)
+    : name(name),
+      version(version),
+      togglable(togglable) {}
+
+  PluginInfo(const void *blob, const size_t size) { FromBlob(blob, size); }
+
+  std::string ToString(uint32_t indent = 0) const {
+    std::stringstream indentation;
+    for (uint32_t i = 0; i < indent; i++) indentation << '\t';
+    indent++;
+
+    std::stringstream stream;
+    stream << indentation.str()
+           << "\"name\" : " << name << '\n';
+    stream << indentation.str()
+           << "\"version\" : " << version << '\n';
+    stream << indentation.str()
+           << "\"togglable\" : " << togglable << '\n';
+    return stream.str();
+  }
+
+  std::shared_ptr<void> ToBlob() const {
+    std::shared_ptr<void> blob(new uint8_t[Size()]);
+
+    uintptr_t dest = reinterpret_cast<uintptr_t>(blob.get());
+    memcpy(reinterpret_cast<void *>(dest), name.data(), name.size());
+
+    dest += name.size();
+    memcpy(reinterpret_cast<void *>(dest), &version, sizeof(version));
+
+    dest += sizeof(version);
+    memcpy(reinterpret_cast<void *>(dest), &togglable, sizeof(togglable));
+
+    return blob;
+  }
+
+  void FromBlob(const void *blob, const size_t size) {
+    size_t name_size = size - sizeof(version) - sizeof(togglable);
+
+    uintptr_t src = reinterpret_cast<uintptr_t>(blob);
+    name.assign(reinterpret_cast<const char *>(src), name_size);
+
+    src += name_size;
+    memcpy(&version, reinterpret_cast<void *>(src), sizeof(version));
+
+    src += sizeof(version);
+    memcpy(&togglable, reinterpret_cast<void *>(src), sizeof(togglable));
+  }
+
+  size_t Size() const {
+    return (name.size() + sizeof(version) + sizeof(togglable));
+  }
+};
+
+typedef std::vector<PluginInfo> SupportedPlugins;
 
 /// \brief Both data and event callbacks should be set by the client.
 /// event_cb is called to notify track specific errors and data_cb
@@ -180,6 +261,8 @@ struct VideoTrackCreateParam {
   VideoFormat      format_type;
   VideoCodecParams codec_param;
   bool             low_power_mode;
+  bool             do_vqzip;
+  VQZipInfo        vqzip_params;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -192,6 +275,9 @@ struct VideoTrackCreateParam {
                          (format_type)
            << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
+    stream << "do_vqzip[" << ::std::boolalpha << do_vqzip
+           << ::std::noboolalpha << "] ";
+    stream << "vqzip_params[" << vqzip_params.ToString() << "]";
     return stream.str();
   }
 };

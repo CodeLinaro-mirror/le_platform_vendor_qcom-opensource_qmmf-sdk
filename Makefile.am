@@ -9,11 +9,11 @@ BUILD_COMPONENTS += common/avqueue
 BUILD_COMPONENTS += plugins
 BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += display/src/client
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/copy
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/simple
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/camera-hal
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/jpeg-encoder
-BUILD_COMPONENTS += recorder/src/service/camera-reprocess/modules/haze-buster
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/algo
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-jpeg
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-reproc
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/jpeg-encoder
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/test
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest
@@ -30,6 +30,7 @@ BUILD_COMPONENTS += player/test/gtest
 BUILD_COMPONENTS += system/src/client
 BUILD_COMPONENTS += system/src/service
 BUILD_COMPONENTS += system/test/samples
+BUILD_COMPONENTS += player/test/transcode_app
 BUILD_COMPONENTS += qmmf-server
 
 

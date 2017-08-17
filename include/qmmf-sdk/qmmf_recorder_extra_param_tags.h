@@ -39,6 +39,7 @@ enum ParamTag {
   QMMF_SOURCE_SURFACE_DESCRIPTOR = (1 << 16),
   QMMF_SURFACE_CROP,
   QMMF_MULTICAM_STITCH_CONFIG,
+  QMMF_POSTPROCESS_PLUGIN,
 };
 
 enum class TransformFlags {
@@ -122,6 +123,15 @@ struct MultiCamStitchConfig : DataTagBase {
     : DataTagBase(QMMF_MULTICAM_STITCH_CONFIG),
       mode(StitchingMode::k360Default),
       flags(TransformFlags::kNone) {}
+};
+
+struct PostprocPlugin : DataTagBase {
+  // Unique id of the plugin.
+  uint32_t uid;     // Default: 0
+
+  PostprocPlugin()
+    : DataTagBase(QMMF_POSTPROCESS_PLUGIN),
+      uid(0) {}
 };
 
 }; //namespace recorder.

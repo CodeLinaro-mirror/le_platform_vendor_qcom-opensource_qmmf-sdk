@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#define TAG "CameraSimple"
+
+#include <sys/mman.h>
+
+#include "recorder/src/service/qmmf_recorder_utils.h"
+
+#include "qmmf_postproc_test.h"
+
+namespace qmmf {
+
+namespace recorder {
+
+PostProcTest::PostProcTest()
+    : reprocess_flag_(false),
+      ready_to_start_(false) {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+}
+
+PostProcTest::~PostProcTest() {
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+}
+
+status_t PostProcTest::Create(const int32_t stream_id,
+                              const uint32_t frame_rate,
+                              const uint32_t num_images,
+                              const void* context) {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  if (ready_to_start_) {
+    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  if (reprocess_flag_) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  ready_to_start_ = true;
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+PostProcCreateParam PostProcTest::GetInput(const PostProcCreateParam &out) {
+  return out;
+}
+
+PostProcCreateParam PostProcTest::GetOutput(const PostProcCreateParam &in) {
+  return in;
+}
+
+status_t PostProcTest::ValidateInput(const PostProcCreateParam &input) {
+  return NO_ERROR;
+}
+
+status_t PostProcTest::ValidateOutput(const PostProcCreateParam &output) {
+  return NO_ERROR;
+}
+
+status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
+  caps.min_width_          = 160;
+  caps.min_height_         = 120;
+  caps.max_width_          = 5104;
+  caps.max_height_         = 4092;
+  caps.usage_              = 0;
+  caps.crop_support_       = false;
+  caps.scale_support_      = false;
+  caps.inplace_processing_ = true;
+
+  caps.formats_.insert(BufferFormat::kNV12);
+  caps.formats_.insert(BufferFormat::kNV21);
+
+  return NO_ERROR;
+}
+
+status_t PostProcTest::Start() {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  if (!ready_to_start_) {
+    return BAD_VALUE;
+  }
+
+  reprocess_flag_ = true;
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t PostProcTest::Stop() {
+  QMMF_INFO("%s:%s: Enter stop Id_: %d", TAG, __func__, id_);
+
+  ready_to_start_ = false;
+
+  reprocess_flag_ = false;
+
+  QMMF_INFO("%s:%s: Exit stop Id_: %d", TAG, __func__, id_);
+  return NO_ERROR;
+}
+
+status_t PostProcTest::Delete() {
+  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+
+  reprocess_flag_ = false;
+  ready_to_start_ = false;
+
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t PostProcTest::Configure(const std::string config_json_data) {
+  return NO_ERROR;
+}
+
+status_t PostProcTest::Process(
+    const std::vector<StreamBuffer> &in_buffers,
+    const std::vector<StreamBuffer> &out_buffers) {
+
+  QMMF_INFO("%s:%s: Simple done", TAG, __func__);
+
+  // no process call directly client
+  for (auto buf : in_buffers) {
+    Listener_->OnFrameReady(buf);
+  }
+
+  return NO_ERROR;
+}
+
+}; // namespace recoder
+
+}; // namespace qmmf

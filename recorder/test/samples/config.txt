@@ -17,6 +17,8 @@
  * BinningCorrect  : 1 (enable binning correction), 0 (disable binning correction).
  * TrackType       : YUV(Track YUV format stream), AVC(Track AVC format stream),
  *                 : HEVC(Track HEVC format stream), RAW(Track RAW format stream).
+ * LTRCount        : LTR count for track[AVC/HEVC]. Should be in range [1-4].
+ *                 : Default is 0(disabled).
  * CamLowPowerMode : 0 (with post processing), 1 (without post processing)
  */
 
@@ -39,6 +41,7 @@ Height            : 2160
 FPS               : 30
 Bitrate           : 8000000
 TrackType         : AVC
+LTRCount          : 0
 CamLowPowerMode   : 0
 
 #Second Stream Encoder Params

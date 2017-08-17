@@ -97,6 +97,8 @@ typedef std::function<void(uint32_t camera_id,
 typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
     RemoteCallbackHandle;
 
+typedef std::function<void(RecorderErrorData &error)> ErrorCb;
+
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
   VideoExtraParam        extra_param;

@@ -44,18 +44,21 @@ class IBufferConsumer;
 class CameraInterface : public virtual RefBase {
  public:
 
+  virtual ~CameraInterface() {};
+
   virtual status_t OpenCamera(const uint32_t camera_id,
                               const CameraStartParam &param,
-                              const ResultCb &cb = nullptr) = 0;
+                              const ResultCb &cb = nullptr,
+                              const ErrorCb &errcb = nullptr) = 0;
 
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 
   virtual status_t WaitAecToConverge(nsecs_t timeout) = 0;
 
-  virtual status_t SetUpCapture(const ImageParam &param) = 0;
+  virtual status_t SetUpCapture(const ImageParam &param,
+                                const uint32_t num_images) = 0;
 
-  virtual status_t CaptureImage(const uint32_t num_images,
-                                const std::vector<CameraMetadata> &meta,
+  virtual status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
   virtual status_t ConfigImageCapture(const ImageConfigParam &config) = 0;

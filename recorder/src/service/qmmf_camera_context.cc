@@ -57,15 +57,16 @@ float CameraContext::kHFRBatchModeThreshold = 120.0f;
 const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
 CameraContext::CameraContext()
-    : ReprocessPlugin<CameraContext>(this),
+    : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
       previous_streaming_request_id_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
-      reprocess_enable_(false),
+      postproc_enable_(false),
       result_cb_(nullptr),
+      error_cb_(nullptr),
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1) {
@@ -131,8 +132,10 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     }
     snapshot_request_.streamIds.clear();
 
-    ReprocDelete();
+    PostProcDelete();
   }
+
+  postproc_enable_ = IsPostProcNeeded(param);
 
   CameraStreamParameters stream_param;
   memset(&stream_param, 0x0, sizeof(stream_param));
@@ -144,20 +147,33 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     return ret;
   }
 
-  reprocess_enable_ = IsReprocessNeed(param);
-
   stream_param.format       = ImageToHalFormat(param.image_format);
   stream_param.width        = param.width;
   stream_param.height       = param.height;
   stream_param.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
-  if (reprocess_enable_) {
-    stream_param.bufferCount  = SNAPSHOT_STREAM_BUFFER_COUNT;
-    stream_param.format       = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  stream_param.bufferCount  = sequence_cnt_;
+
+  if (postproc_enable_) {
+    ret = PostProcCreate(capture_plugins_);
+    assert(ret == NO_ERROR);
+
+    PipeOutputParam out_param;
+    out_param.width = stream_param.width;
+    out_param.height = stream_param.height;
+    out_param.format = stream_param.format;
+    out_param.frame_rate = camera_start_params_.frame_rate;
+    out_param.image_quality = param.image_quality;
+
+    ret = PostProcBeginInit(out_param);
+    assert(ret == NO_ERROR);
+
+    ret = PostProcUpdateStreamParams(stream_param);
+    assert(ret == NO_ERROR);
   }
 
-  QMMF_INFO("%s:%s: W(%d) & H(%d)", TAG, __func__, stream_param.width,
-            stream_param.height);
+  QMMF_INFO("%s:%s: W(%d) & H(%d) Fmt(0x%x)", TAG, __func__, stream_param.width,
+            stream_param.height, stream_param.format);
 
   ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
                            &stream_id);
@@ -170,8 +186,14 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_param_ = param;
   snapshot_request_.streamIds.add(stream_id);
 
-  if (reprocess_enable_) {
-    ret = ReprocCreate(stream_param, stream_id);
+  if (postproc_enable_) {
+    PipeInputParam in_param;
+    in_param.width = stream_param.width;
+    in_param.height = stream_param.height;
+    in_param.format = stream_param.format;
+    in_param.frame_rate = camera_start_params_.frame_rate;
+
+    ret = PostProcEndInit(stream_id, sequence_cnt_, in_param);
     assert(ret == NO_ERROR);
   }
   return ret;
@@ -179,7 +201,8 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
 status_t CameraContext::DeleteSnapshotStream() {
 
-  bool cache = (reprocess_enable_ || (streaming_request_id_ == -1));
+  QMMF_INFO("%s:%s Enter", TAG, __func__);
+  bool cache = (postproc_enable_ || (streaming_request_id_ == -1));
   if (!snapshot_request_.streamIds.isEmpty()) {
     auto ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
     if (NO_ERROR != ret) {
@@ -189,14 +212,17 @@ status_t CameraContext::DeleteSnapshotStream() {
     }
     snapshot_request_.streamIds.clear();
   }
-  ReprocDelete();
-
+  if (postproc_enable_) {
+    PostProcDelete();
+  }
+  QMMF_INFO("%s:%s Exit", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,
                                    const CameraStartParam &param,
-                                   const ResultCb &cb) {
+                                   const ResultCb &cb,
+                                   const ErrorCb &errcb) {
 
   uint32_t ret = NO_ERROR;
   bool match_camera_id = false;
@@ -333,6 +359,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   result_cb_ = cb;
+  error_cb_ = errcb;
   sensor_vendor_mode_ = param.getSensorVendorMode();
 
   return ret;
@@ -424,7 +451,7 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
       format = HAL_PIXEL_FORMAT_BLOB;
       break;
     case ImageFormat::kNV12:
-      format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+      format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
       break;
     case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
@@ -445,24 +472,32 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
   return format;
 }
 
-bool CameraContext::IsReprocessNeed(const ImageParam &param) {
-  return ((sequence_cnt_ > 1) && (param.image_format == ImageFormat::kJPEG));
+bool CameraContext::IsPostProcNeeded(const ImageParam &param) {
+  if (((sequence_cnt_ > 1) && (param.image_format == ImageFormat::kJPEG)) ||
+      !capture_plugins_.empty()) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void CameraContext::ReprocessCaptureCallback(StreamBuffer buffer) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+
+  QMMF_INFO("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
+      buffer.timestamp);
+
   if (GetNumConsumer() > 0) {
     NotifyBuffer(buffer);
   } else {
     // Return the buffer back to the camera.
     ReturnStreamBuffer(buffer);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 std::function<void(StreamBuffer buffer)>
     CameraContext::GetStreamCb(const ImageParam &param) {
-  if (reprocess_enable_) {
+  if (postproc_enable_) {
     return [=](StreamBuffer buffer) { ReprocessCaptureCallback (buffer); };
   } else {
     return [=](StreamBuffer buffer) { SnapshotCaptureCallback (buffer); };
@@ -485,13 +520,15 @@ status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetUpCapture(const ImageParam &param) {
+status_t CameraContext::SetUpCapture(const ImageParam &param,
+                                     const uint32_t num_images) {
 
   if (!camera_start_params_.zsl_mode) {
+    sequence_cnt_ = num_images;
     bool reconfigure_needed = snapshot_request_.streamIds.isEmpty() ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
-                              (reprocess_enable_ != IsReprocessNeed(param));
+                              (postproc_enable_ != IsPostProcNeeded(param));
     snapshot_param_ = param;
 
     if (reconfigure_needed) {
@@ -522,8 +559,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param) {
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const uint32_t num_images,
-                                     const std::vector<CameraMetadata> &meta,
+status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
@@ -536,7 +572,7 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
     uint8_t jpeg_quality = snapshot_param_.image_quality;
     List<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
-    for (uint32_t i = 0; i < num_images; i++) {
+    for (uint32_t i = 0; i < sequence_cnt_; i++) {
       if (it != meta.end()) {
         snapshot_request_.metadata.clear();
         snapshot_request_.metadata.append(*it++);
@@ -544,7 +580,6 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
       requests.push_back(snapshot_request_);
     }
-    sequence_cnt_ = num_images;
 
     auto request_id = camera_device_->SubmitRequestList(requests, false,
                                                         &last_frame_mumber);
@@ -559,13 +594,25 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
       return ret;
     }
   }
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
+  capture_plugins_.clear();
 
-  // Not Implemented
+  if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
+    for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
+      PostprocPlugin plugin;
+      config.Fetch(QMMF_POSTPROCESS_PLUGIN, plugin, i);
+      if (plugin.uid == 0) {
+        QMMF_ERROR("%s:%s: Invalid plugin parameters!", TAG, __func__);
+        return BAD_VALUE;
+      }
+      capture_plugins_.push_back(plugin.uid);
+    }
+  }
+
   return NO_ERROR;
 }
 
@@ -695,12 +742,24 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
   }
 
   sp<CameraPort> port;
-  if (param.low_power_mode) {
-    port = new CameraPort(param, batch, CameraPortType::kPreview, this);
-  } else {
-    port = new CameraPort(param, batch, CameraPortType::kVideo, this);
-  }
+  port = new CameraPort(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
+
+  if (extra_param.Exists(QMMF_POSTPROCESS_PLUGIN)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_POSTPROCESS_PLUGIN);
+    std::vector<uint32_t> plugin_uids;
+
+    for (size_t i = 0; i < entry_count; ++i) {
+      PostprocPlugin plugin;
+      extra_param.Fetch(QMMF_POSTPROCESS_PLUGIN, plugin, i);
+      if (plugin.uid == 0) {
+        QMMF_ERROR("%s:%s: Invalid plugin parameters!", TAG, __func__);
+        return BAD_VALUE;
+      }
+      plugin_uids.push_back(plugin.uid);
+    }
+    video_plugins_.emplace(port->GetPortId(), plugin_uids);
+  }
 
   auto ret = port->Init();
   if(ret != NO_ERROR) {
@@ -748,6 +807,9 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
     // deleted once consumers count would become zero.
     return NO_ERROR;
   }
+
+  // Remove the cached plugins for this track
+  video_plugins_.erase(track_id);
 
   auto ret = port->DeInit();
   assert(ret == NO_ERROR);
@@ -914,8 +976,8 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
   status_t ret = NO_ERROR;
   if (stream_id != snapshot_request_.streamIds[0]) {
-    if (reproc_pipe_.get() != nullptr) {
-      reproc_pipe_->PipeNotifyBufferReturn(buffer);
+    if (postproc_pipe_.get() != nullptr) {
+      postproc_pipe_->PipeNotifyBufferReturn(buffer);
     }
   } else {
     ret = ReturnStreamBuffer(buffer);
@@ -995,7 +1057,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
         is_constrained_mode = true;
       }
     }
-    QMMF_INFO("%s:%s: is_constrained_mode(%d)", TAG, __func__,
+    QMMF_VERBOSE("%s:%s: is_constrained_mode(%d)", TAG, __func__,
         is_constrained_mode);
     bool is_raw_only = false;
     if (params.format == HAL_PIXEL_FORMAT_RAW10) {
@@ -1129,6 +1191,10 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   // Append static meta data.
   request.metadata.append(static_meta_);
   return ret;
+}
+
+CameraMetadata CameraContext::GetCameraStaticMeta() {
+  return static_meta_;
 }
 
 status_t CameraContext::UpdateRequest(bool is_streaming) {
@@ -1529,6 +1595,12 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
 
   QMMF_WARN("%s:%s: Camera Client: error_code: %d\n", TAG, __func__,
             error_code);
+  if (nullptr != error_cb_) {
+    RecorderErrorData error_data {};
+    error_data.camera_id = camera_id_;
+    error_data.error_code = error_code;
+    error_cb_(error_data);
+  }
 }
 
 void CameraContext::CameraIdleCb() {
@@ -1564,8 +1636,8 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
   }
 
   if (((streaming_request_id_ == result.resultExtras.requestId) ||
-      (previous_streaming_request_id_ == result.resultExtras.requestId)) &&
-      (nullptr != result_cb_)) {
+      (previous_streaming_request_id_ == result.resultExtras.requestId) ||
+      snapshot_request_id_.size() > 0) && (nullptr != result_cb_)) {
     result_cb_(camera_id_, result.metadata);
   }
   if (camera_start_params_.zsl_mode) {
@@ -1573,8 +1645,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
     zsl_port->HandleZSLCaptureResult(result);
   }
-
-  ReprocAddResult(result);
+  PostProcAddResult(result);
 }
 
 CameraPort* CameraContext::GetPort(const uint32_t track_id) {
@@ -1614,57 +1685,109 @@ void CameraContext::DeletePort(const uint32_t track_id) {
 }
 
 void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
+
+  QMMF_DEBUG("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
+      buffer.timestamp);
   SnapshotCaptureCallback(buffer);
 }
 
 void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
 
-  QMMF_DEBUG("%s:%s: %d: StreamBuffer(0x%p) Cameback to CameraPort", TAG,
-       __func__, __LINE__, buffer.handle);
+  QMMF_DEBUG("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
+      buffer.timestamp);
   ReturnStreamBuffer(buffer);
 }
 
-status_t CameraContext::ReprocCreate(CameraStreamParameters &stream_param,
-                                     int32_t stream_id) {
+status_t CameraContext::PostProcCreate(const std::vector<uint32_t> &plugins) {
 
-  reproc_pipe_ = new ReprocessPipe(this);
-  assert(reproc_pipe_.get() != nullptr);
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-  const char* pipe_1_[] = {"JpegEncode"};
-  const uint32_t pipe_size = sizeof(pipe_1_)/sizeof(pipe_1_[0]);
-  auto reproc_id = reproc_pipe_->Create(stream_id, pipe_1_, pipe_size,
-                                        stream_param, &static_meta_);
-  assert(reproc_id >= 0);
+  PostProcPipeType pipe_type = PostProcPipeType::kSnapshot;
+  postproc_pipe_ = new PostProcPipe(this, pipe_type, plugins);
+  assert(postproc_pipe_.get() != nullptr);
 
-  reproc_pipe_->AddConsumer(GetConsumerIntf());
-  AddConsumer(reproc_pipe_->GetConsumerIntf());
-  reproc_pipe_->Start();
-
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
-status_t CameraContext::ReprocDelete() {
-  if (reproc_pipe_.get() != nullptr) {
-    RemoveConsumer(reproc_pipe_->GetConsumerIntf());
-    reproc_pipe_->RemoveConsumer(GetConsumerIntf());
-    reproc_pipe_->Stop();
-    reproc_pipe_.clear();
+status_t CameraContext::PostProcDelete() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->Stop();
+    postproc_pipe_->RemoveConsumer(GetConsumerIntf());
+    DetachConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_.clear();
   }
+
+  postproc_pipe_.clear();
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
-status_t CameraContext::ReprocAddResult(const CaptureResult &result) {
-  if (sequence_cnt_ > 1 && burst_cnt_ < sequence_cnt_ ) {
-    for (auto id : snapshot_request_id_) {
-      if (id == result.resultExtras.requestId) {
-        QMMF_INFO("%s:%s: found snapshot request id %d", TAG,__func__, id);
-        if (reproc_pipe_.get() != nullptr) {
-          reproc_pipe_->AddResult(const_cast<void*>
-                                    (static_cast<void const*>(&result)));
-        }
+status_t CameraContext::PostProcBeginInit(const PipeOutputParam &output) {
+
+  return postproc_pipe_->BeginInit(output);
+}
+
+status_t
+CameraContext::PostProcUpdateStreamParams(CameraStreamParameters& stream_param) {
+
+  PipeInputParam reproc_in_param;
+  auto ret = postproc_pipe_->GetInput(reproc_in_param);
+  assert(ret == NO_ERROR);
+
+  stream_param.format = reproc_in_param.format;
+  stream_param.width  = reproc_in_param.width;
+  stream_param.height = reproc_in_param.height;
+
+  if (stream_param.format == HAL_PIXEL_FORMAT_RAW10 ||
+      stream_param.format == HAL_PIXEL_FORMAT_RAW12 ||
+      stream_param.format == HAL_PIXEL_FORMAT_RAW16) {
+    camera_metadata_entry_t entry;
+    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        stream_param.width = entry.data.i32[i+0];
+        stream_param.height = entry.data.i32[i+1];
+        QMMF_INFO("%s:%s: (%d) Supported RAW RDI W(%d):H(%d)", TAG, __func__,
+            i, stream_param.width, stream_param.height);
       }
     }
   }
+
+  QMMF_INFO("%s:%s: input dim %dx%d format %x ", TAG, __func__,
+      stream_param.width, stream_param.height, stream_param.format);
+
+  return NO_ERROR;
+}
+
+int32_t CameraContext::PostProcEndInit(int32_t stream_id,
+                                     uint32_t max_buffer_count,
+                                     const PipeInputParam &input) {
+
+  auto reproc_id = postproc_pipe_->EndInit(stream_id, input, max_buffer_count);
+  if(reproc_id < 0) {
+    QMMF_ERROR("%s:%s: Failed to init reprocess pipe!", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  postproc_pipe_->AddConsumer(GetConsumerIntf());
+  AttachConsumer(postproc_pipe_->GetConsumerIntf());
+  postproc_pipe_->Start();
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::PostProcAddResult(const CaptureResult &result) {
+  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->AddResult(const_cast<void*>
+                              (static_cast<void const*> (&result)));
+  }
+  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
 
@@ -1710,8 +1833,11 @@ status_t CameraPort::Init() {
   cam_stream_params_.grallocFlags =
       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
+  PostProcPipeType pipe_type;
+
   if (params_.low_power_mode) {
       cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
+      pipe_type = PostProcPipeType::kPreview;
   } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
@@ -1720,11 +1846,38 @@ status_t CameraPort::Init() {
         && params_.cam_stream_dim.height == 2160) {
       cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
     }
+    pipe_type = PostProcPipeType::kVideo;
   }
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
   assert(context_ != nullptr);
+
+  if (context_->video_plugins_.count(port_id_) != 0) {
+    auto port_plugins = context_->video_plugins_.at(port_id_);
+    postproc_pipe_ = new PostProcPipe(context_, pipe_type, port_plugins);
+    assert(postproc_pipe_.get() != nullptr);
+
+    PipeOutputParam out_param;
+    out_param.width = cam_stream_params_.width;
+    out_param.height = cam_stream_params_.height;
+    out_param.format = cam_stream_params_.format;
+    out_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
+    out_param.image_quality = 100;
+
+    auto ret = postproc_pipe_->BeginInit(out_param);
+    assert(ret == NO_ERROR);
+
+    PipeInputParam in_param;
+    ret = postproc_pipe_->GetInput(in_param);
+    assert(ret == NO_ERROR);
+
+    // Update stream parameters
+    cam_stream_params_.format = in_param.format;
+    cam_stream_params_.width  = in_param.width;
+    cam_stream_params_.height = in_param.height;
+  }
+
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
                                           params_.frame_rate, &stream_id);
@@ -1734,27 +1887,24 @@ status_t CameraPort::Init() {
   }
   camera_stream_id_ = stream_id;
 
-  // Get pipe nodes
-  char prop[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmfalg.HazeBuster.en", prop, "0");
-  uint32_t haze_buster_en = atoi(prop);
+  if (context_->video_plugins_.count(port_id_) != 0) {
+    PipeInputParam in_param;
+    in_param.width = cam_stream_params_.width;
+    in_param.height = cam_stream_params_.height;
+    in_param.format = cam_stream_params_.format;
+    in_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
 
-  if (haze_buster_en) {
-    const char* pipe[] = {"HazeBuster"};
-    uint32_t pipe_size = sizeof(pipe)/sizeof(pipe[0]);
+    auto reproc_id = postproc_pipe_->EndInit(stream_id, in_param,
+                                             cam_stream_params_.bufferCount);
+    if(reproc_id < 0) {
+      QMMF_ERROR("%s:%s: Failed to init post proc pipe!", TAG, __func__);
+      return BAD_VALUE;
+    }
 
-    reproc_pipe_ = new ReprocessPipe(context_);
-    assert(reproc_pipe_.get() != nullptr);
-    CameraMetadata static_meta; // TODO
-    auto reproc_id = reproc_pipe_->Create(stream_id, pipe, pipe_size,
-                                          cam_stream_params_, &static_meta);
-    assert(reproc_id >= 0);
-
-    sp<IBufferConsumer>& consumer = reproc_pipe_->GetConsumerIntf();
+    sp<IBufferConsumer>& consumer = postproc_pipe_->GetConsumerIntf();
     buffer_producer_impl_->AddConsumer(consumer);
     consumer->SetProducerHandle(buffer_producer_impl_);
   }
-
   port_state_ = PortState::PORT_CREATED;
 
   QMMF_INFO("%s:%s: Camera Device Stream(%d) is created Succussfully!", TAG,
@@ -1770,9 +1920,9 @@ status_t CameraPort::DeInit() {
   assert(ready_to_start_ == false);
   assert(context_ != nullptr);
 
-  if (reproc_pipe_.get() != nullptr) {
-    buffer_producer_impl_->RemoveConsumer(reproc_pipe_->GetConsumerIntf());
-    reproc_pipe_.clear();
+  if (postproc_pipe_.get() != nullptr) {
+    buffer_producer_impl_->RemoveConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_.clear();
   }
 
   auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);
@@ -1794,8 +1944,8 @@ status_t CameraPort::Start() {
     return NO_ERROR;
   }
 
-  if (reproc_pipe_.get() != nullptr) {
-    reproc_pipe_->Start();
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->Start();
   }
 
   //TODO: protect it with lock.
@@ -1839,8 +1989,8 @@ status_t CameraPort::Stop() {
     return ret;
   }
 
-  if (reproc_pipe_.get() != nullptr) {
-    reproc_pipe_->Stop();
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->Stop();
   }
   QMMF_INFO("%s:%s: track_id(%x):Port(%p) Stopped Succussfully!", TAG,
       __func__, port_id_, this);
@@ -1860,8 +2010,8 @@ status_t CameraPort::AddConsumer(sp<IBufferConsumer>& consumer) {
     return ALREADY_EXISTS;
   }
 
-  if (reproc_pipe_.get() != nullptr) {
-    reproc_pipe_->AddConsumer(consumer);
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->AddConsumer(consumer);
   } else {
     // Add consumer to port's producer interface.
     assert(buffer_producer_impl_.get() != nullptr);
@@ -1876,7 +2026,6 @@ status_t CameraPort::AddConsumer(sp<IBufferConsumer>& consumer) {
 }
 
 status_t CameraPort::RemoveConsumer(sp<IBufferConsumer>& consumer) {
-
   std::lock_guard<std::mutex> lock(consumer_lock_);
   assert(consumer.get() != nullptr);
   if (!IsConsumerConnected(consumer)) {
@@ -1885,8 +2034,8 @@ status_t CameraPort::RemoveConsumer(sp<IBufferConsumer>& consumer) {
     return BAD_VALUE;
   }
 
-  if (reproc_pipe_.get() != nullptr) {
-    reproc_pipe_->RemoveConsumer(consumer);
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->RemoveConsumer(consumer);
   } else {
     // Remove consumer from port's producer interface.
     assert(buffer_producer_impl_.get() != nullptr);

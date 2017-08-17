@@ -63,7 +63,8 @@ class CameraSource {
   ~CameraSource();
 
   status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
-                       const ResultCb &cb = nullptr);
+                       const ResultCb &cb = nullptr,
+                       const ErrorCb &errcb = nullptr);
 
   status_t StopCamera(const uint32_t camera_id);
 
@@ -74,6 +75,14 @@ class CameraSource {
                                 const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
+
+  status_t GetSupportedPlugins(SupportedPlugins *plugins);
+
+  status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
+
+  status_t DeletePlugin(const uint32_t &uid);
+
+  status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
 
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
@@ -155,6 +164,8 @@ class CameraSource {
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
+
+  sp<PostProcFactory> factory_;
 
   // Not allowed
   CameraSource();
@@ -275,7 +286,7 @@ class TrackSource : public ICodecSource {
   sp<CameraInterface>   camera_interface_;
 
   Overlay  overlay_;
-  bool     enable_overlay_;
+  uint32_t active_overlays_;
 
   float   source_frame_rate_;
   float   input_frame_rate_;
