@@ -30,6 +30,7 @@ LOCAL_SRC_FILES += qmmf_recorder_ion.cc
 LOCAL_SRC_FILES += qmmf_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_camera_source.cc
 LOCAL_SRC_FILES += qmmf_camera_context.cc
+LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
 LOCAL_SRC_FILES += qmmf_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
@@ -52,7 +53,7 @@ LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
-LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
+LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
 
 LOCAL_MODULE = libqmmf_recorder_service
 

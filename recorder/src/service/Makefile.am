@@ -24,6 +24,7 @@ source_files += post-process/node/qmmf_postproc_node.cc
 source_files += post-process/memory/qmmf_postproc_memory_pool.cc
 source_files += post-process/pipe/qmmf_postproc_pipe.cc
 source_files += post-process/common/qmmf_postproc_thread.cc
+source_files += qmmf_camera_rescaler.cc
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so
@@ -47,7 +48,7 @@ endif
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-libqmmf_recorder_service_la_LDFLAGS  += -lhardware
+libqmmf_recorder_service_la_LDFLAGS  += -lhardware -lfastcvopt -lC2D2
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_adaptor.la

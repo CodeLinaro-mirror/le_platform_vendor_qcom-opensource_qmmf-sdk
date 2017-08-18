@@ -327,6 +327,16 @@ class TSKeyedVector {
     map_.clear();
   }
 
+  bool IsExist(const StreamBuffer& buffer) {
+    ::std::lock_guard<::std::mutex> lg(lock_);
+    auto search = map_.find(buffer.handle);
+    if(search != map_.end()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
  private:
   ::std::map<T1, T2> map_;
   ::std::mutex lock_;

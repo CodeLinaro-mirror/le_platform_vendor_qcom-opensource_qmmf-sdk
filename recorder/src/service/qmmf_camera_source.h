@@ -38,8 +38,11 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_camera_context.h"
+#include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 namespace qmmf {
 
@@ -157,6 +160,22 @@ class CameraSource {
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
   uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
 
+  bool ValidateSlaveTrackParam(
+    const VideoTrackParams& slave_track,
+    const VideoTrackParams& master_track);
+
+  bool CheckLinkedStream(
+    const VideoTrackParams& slave_track,
+    const VideoTrackParams& master_track);
+
+  status_t GetSlaveStreamMasterTrackId(const VideoTrackParams& params,
+                                      int32_t& track_id_master_);
+
+  status_t GetSourceTrackParam(const VideoTrackParams& params,
+                               SourceVideoTrack& surface_video_copy);
+
+  bool IsCopyStream(const VideoTrackParams& params);
+
   // Map of camera id and CameraContext.
   DefaultKeyedVector<uint32_t, sp<CameraInterface>> camera_map_;
 
@@ -172,6 +191,8 @@ class CameraSource {
   CameraSource(const CameraSource&);
   CameraSource& operator=(const CameraSource&);
   static CameraSource* instance_;
+  std::map<int32_t, sp<CameraRescaler> > rescalers_;
+
 };
 
 // This class is behaves as producer and consumer both, at one end it takes
@@ -237,6 +258,27 @@ class TrackSource : public ICodecSource {
 
   void EnableFrameRepeat(const bool enable_frame_repeat);
 
+  void NotifyBufferReturned(StreamBuffer& buffer);
+
+  //status_t GetStreamParam(CameraStreamParam& stream_param);
+
+  status_t InitCopy(std::shared_ptr<TrackSource> track_source,
+                    const sp<CameraRescaler>& rescaler,
+                    int32_t port_track_id,
+                    int32_t track_id_master);
+
+  bool IsConnectedToCameraPort() { return connected_tocamera_port_;};
+
+  bool IsSlaveTrack() {return slave_track_source_; };
+
+  int32_t GetMasterTrackId();
+
+  int32_t GetCameraPortId();
+
+  status_t AddConsumer(const sp<IBufferConsumer>& consumer);
+
+  status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
+
  private:
 
   // Method to provide consumer interface, it would be used by producer to
@@ -258,6 +300,9 @@ class TrackSource : public ICodecSource {
 #endif
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
+
+  bool IsNeedScaler(const VideoTrackParams& slave_track,
+                    const VideoTrackParams& master_track);
 
   VideoTrackParams    track_params_;
   sp<IBufferConsumer> buffer_consumer_impl_;
@@ -306,6 +351,22 @@ class TrackSource : public ICodecSource {
   uint64_t   frame_repeat_ts_curr_;
   bool       enable_frame_repeat_;
   std::mutex frame_repeat_lock_;
+  sp<CameraRescaler>  rescaler_;
+  CameraStreamParam stream_param_;
+
+  bool  connected_tocamera_port_;
+  bool  slave_track_source_;
+
+  int32_t track_id_master_;
+  int32_t port_track_id_;
+
+  sp<IBufferProducer>    buffer_producer_impl_;
+  std::mutex             consumer_lock_;
+  std::shared_ptr<TrackSource> master_track_;
+
+  std::map<buffer_handle_t, uint32_t >  buffer_map_;
+  std::map<buffer_handle_t, StreamBuffer > stream_buffer_map_;
+
 };
 
 }; //namespace recorder

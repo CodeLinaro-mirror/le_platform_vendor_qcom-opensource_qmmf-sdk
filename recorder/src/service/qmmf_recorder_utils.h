@@ -176,8 +176,11 @@ void BufferProducerImpl<_type>::NotifyBufferReturned(StreamBuffer& buffer) {
 
   Mutex::Autolock autoLock(buffer_return_lock_);
 
-  QMMF_VERBOSE("%s:%s: Buffer is back to Producer Intf,buffer(0x%p) RefCount=%d",
-      TAG, __func__, buffer.handle, buffer_map_.ValueFor(buffer));
+   if (!buffer_map_.IsExist(buffer)) {
+    QMMF_INFO("%s:%s: Warning Buffer is already returned (%p)",
+        TAG, __func__, buffer.handle);
+    return;
+  }
 
   assert(buffer_map_.ValueFor(buffer) > 0);
 
