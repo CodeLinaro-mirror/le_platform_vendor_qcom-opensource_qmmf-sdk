@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -62,6 +62,7 @@ using ::std::function;
 using ::std::map;
 using ::std::mutex;
 using ::std::queue;
+using ::std::string;
 using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
@@ -521,6 +522,48 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
     default:
       QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
                  static_cast<int>(state_));
+      return -ENOSYS;
+      break;
+  }
+
+  switch (type) {
+    case AudioParamType::kVolume:
+      {
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+        float volume = static_cast<float>(data.volume) / 100.0;
+
+        int result = qahw_out_set_volume(qahw_stream_, volume, volume);
+        if (result != 0) {
+          QMMF_ERROR("%s: %s() failed to set volume[%f]: %d[%s]",
+                     TAG, __func__, volume, result, strerror(result));
+          return result;
+        }
+#endif
+      }
+      break;
+    case AudioParamType::kDevice:
+      QMMF_WARN("%s: %s() invalid operation", TAG, __func__);
+      break;
+    case AudioParamType::kCustom:
+      {
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
+        string keyvalue = data.custom.key;
+        keyvalue.append("=");
+        keyvalue.append(data.custom.value);
+
+        int result = qahw_out_set_parameters(qahw_stream_, keyvalue.c_str());
+        if (result != 0) {
+          QMMF_ERROR("%s: %s() failed to set custom parameter[%s]: %d[%s]",
+                     TAG, __func__, keyvalue.c_str(), result,
+                     strerror(result));
+          return result;
+        }
+#endif
+      }
+      break;
+    default:
+      QMMF_ERROR("%s: %s() unknown parameter: %d", TAG, __func__,
+                 static_cast<int>(type));
       return -ENOSYS;
       break;
   }

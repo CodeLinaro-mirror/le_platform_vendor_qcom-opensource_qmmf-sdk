@@ -345,6 +345,25 @@ status_t SystemClient::PlayTone(const vector<DeviceId>& devices,
   return result;
 }
 
+status_t SystemClient::Mute(const DeviceId device, const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+  lock_guard<mutex> lock(lock_);
+
+  if (system_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  status_t result = system_service_->Mute(system_handle_, device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Mute failed: %d", TAG, __func__, result);
+
+  return result;
+}
+
 void SystemClient::NotifySystemEvent(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
@@ -616,6 +635,28 @@ class BpSystemService: public BpInterface<ISystemService> {
                        input, &output);
 
     blob.release();
+    return output.readInt32();
+  }
+
+  status_t Mute(const SystemHandle system_handle,
+                const DeviceId device,
+                const bool mute) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+                 system_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+    QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+                 mute ? "true" : "false");
+    Parcel input, output;
+
+    input.writeInterfaceToken(ISystemService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(system_handle));
+    input.writeInt32(static_cast<int32_t>(device));
+    input.writeInt32(static_cast<int32_t>(mute));
+
+    remote()->transact(static_cast<uint32_t>(SystemServiceCommand::kSystemMute),
+                       input, &output);
+
     return output.readInt32();
   }
 };

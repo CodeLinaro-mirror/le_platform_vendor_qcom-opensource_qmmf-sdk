@@ -56,6 +56,7 @@ enum class SystemServiceCommand {
   kSystemQueryDeviceCapabilities,
   kSystemQueryCodecInfo,
   kSystemPlayTone,
+  kSystemMute,
 };
 
 enum class SystemServiceCallbackCommand {
@@ -108,6 +109,10 @@ class ISystemService : public ::android::IInterface {
   virtual status_t PlayTone(const SystemHandle system_handle,
                             const ::std::vector<DeviceId>& devices,
                             const Tone& tone) = 0;
+
+  virtual status_t Mute(const SystemHandle system_handle,
+                        const DeviceId device,
+                        const bool mute) = 0;
 };
 
 // this class is responsible to provide callbacks from system service

@@ -69,6 +69,8 @@ class SystemClient {
                     const Tone& tone,
                     const ToneCb& callback);
 
+  status_t Mute(const DeviceId device, const bool mute);
+
   // callbacks from service
   void NotifySystemEvent(const int32_t error);
   void NotifyTriggerEvent(const int32_t error, const BufferDescriptor& buffer);

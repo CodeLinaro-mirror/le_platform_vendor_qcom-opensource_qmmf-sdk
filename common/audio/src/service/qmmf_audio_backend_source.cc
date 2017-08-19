@@ -593,14 +593,14 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
       break;
     case AudioParamType::kCustom:
       {
+#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
         string keyvalue = data.custom.key;
         keyvalue.append("=");
         keyvalue.append(data.custom.value);
 
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
         int result = qahw_in_set_parameters(qahw_stream_, keyvalue.c_str());
         if (result != 0) {
-          QMMF_ERROR("%s: %s() failed to set custom parameter[%s]: %s[%s]",
+          QMMF_ERROR("%s: %s() failed to set custom parameter[%s]: %d[%s]",
                      TAG, __func__, keyvalue.c_str(), result,
                      strerror(result));
           return result;

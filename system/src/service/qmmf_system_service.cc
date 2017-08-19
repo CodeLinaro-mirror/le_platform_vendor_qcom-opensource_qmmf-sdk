@@ -341,6 +341,24 @@ status_t SystemService::PlayTone(const SystemHandle system_handle,
   return result;
 }
 
+status_t SystemService::Mute(const SystemHandle system_handle,
+                             const DeviceId device,
+                             const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+               system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+
+  status_t result = system_impl_.Mute(system_handle, device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() impl->Mute failed: %d", TAG, __func__,
+               result);
+
+  return result;
+}
+
 status_t SystemService::onTransact(uint32_t code, const Parcel& input,
                                    Parcel* output, uint32_t flags) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
@@ -528,6 +546,25 @@ status_t SystemService::onTransact(uint32_t code, const Parcel& input,
       status_t result = PlayTone(system_handle, devices, tone);
 
       blob.release();
+      output->writeInt32(result);
+      break;
+    }
+
+    case SystemServiceCommand::kSystemMute: {
+      SystemHandle system_handle = static_cast<SystemHandle>(input.readInt32());
+
+      DeviceId device = static_cast<DeviceId>(input.readInt32());
+      bool mute = static_cast<bool>(input.readInt32());
+
+      QMMF_DEBUG("%s: %s-SystemMute() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: system_handle[%d]",
+                   TAG, __func__, system_handle);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: device[%d]",
+                   TAG, __func__, device);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: mute[%s]", TAG, __func__,
+                   mute ? "true" : "false");
+      status_t result = Mute(system_handle, device, mute);
+
       output->writeInt32(result);
       break;
     }

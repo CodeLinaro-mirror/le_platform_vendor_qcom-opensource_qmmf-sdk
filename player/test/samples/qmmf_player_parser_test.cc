@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -105,6 +105,7 @@ void PlayerTest::videotrackcb(EventType event_type,
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false),
       start_again_(false),paused_(false),
+      volume_(100),
       current_state_("Idle") {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -253,6 +254,14 @@ int32_t PlayerTest::Start() {
   }
   stopped_ = false;
   paused_ = false;
+
+  uint32_t track_id_1 = 1;
+  ret = player_.SetAudioTrackParam(track_id_1,
+                                   CodecParamType::kAudioVolumeParamType,
+                                   &volume_, sizeof(volume_));
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s:%s Failed to set volume", TAG, __func__);
+  }
 
   ret = pthread_create(&start_thread_id, NULL, PlayerTest::StartPlaying,
       (void*)this);
@@ -462,6 +471,34 @@ int32_t PlayerTest::Delete() {
   return ret;
 }
 
+int32_t PlayerTest::AdjustVolume(const int32_t adjustment) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  auto ret = 0;
+
+  volume_ += adjustment;
+
+  // clip volume
+  if (volume_ > 100)
+    volume_ = 100;
+  else if (volume_ < 0)
+    volume_ = 0;
+
+  printf("\n\nTone Volume is %d\n\n", volume_);
+
+  if (strcmp(current_state_,"Started") == 0) {
+    uint32_t track_id_1 = 1;
+    ret = player_.SetAudioTrackParam(track_id_1,
+                                     CodecParamType::kAudioVolumeParamType,
+                                     &volume_, sizeof(volume_));
+    if (ret != NO_ERROR) {
+      TEST_ERROR("%s:%s Failed to adjust volume", TAG, __func__);
+    }
+  }
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 void CmdMenu::PrintMenu() {
 
   printf("\n\n=========== PLAYER TEST MENU ===================\n\n");
@@ -476,6 +513,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
+  printf("   %c. Volume Up\n", CmdMenu::VOLUME_UP_CMD);
+  printf("   %c. Volume Down\n", CmdMenu::VOLUME_DOWN_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
@@ -560,6 +599,14 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::DELETE_CMD: {
         test_context.Delete();
+      }
+      break;
+      case CmdMenu::VOLUME_UP_CMD: {
+        test_context.AdjustVolume(1);
+      }
+      break;
+      case CmdMenu::VOLUME_DOWN_CMD: {
+        test_context.AdjustVolume(-1);
       }
       break;
       case CmdMenu::NEXT_CMD: {

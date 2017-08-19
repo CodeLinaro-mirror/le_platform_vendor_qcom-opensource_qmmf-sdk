@@ -250,5 +250,22 @@ status_t SystemImplementation::PlayTone(const SystemHandle system_handle,
   return result;
 }
 
+status_t SystemImplementation::Mute(const SystemHandle system_handle,
+                                        const DeviceId device,
+                                        const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+               system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+
+  status_t result = devices_.Mute(system_handle, device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() failed to apply mute: %d", TAG, __func__, result);
+
+  return result;
+}
+
 }; // namespace system
 }; // namespace qmmf

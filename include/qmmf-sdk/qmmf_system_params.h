@@ -98,6 +98,7 @@ struct TriggerConfig {
 struct Tone {
   uint32_t delay;  // milliseconds
   uint32_t loop_num;
+  uint32_t volume;
   uint32_t size;
   void*    buffer;
 
@@ -105,6 +106,7 @@ struct Tone {
     ::std::stringstream stream;
     stream << "delay[" << delay << "] ";
     stream << "loop_num[" << loop_num << "] ";
+    stream << "volume[" << volume << "] ";
     stream << "size[" << size << "] ";
     stream << "buffer[" << buffer << "]";
     return stream.str();

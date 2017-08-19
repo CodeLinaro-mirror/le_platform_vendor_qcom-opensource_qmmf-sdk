@@ -169,6 +169,27 @@ status_t AudioSink::DeleteTrackSink(uint32_t track_id) {
   return ret;
 }
 
+status_t AudioSink::SetAudioTrackSinkParams(uint32_t track_id,
+                                            CodecParamType param_type,
+                                            void* param,
+                                            uint32_t param_size) {
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
+  assert(track_sink.get() != NULL);
+
+  auto ret =  track_sink->SetAudioSinkParams(param_type, param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s:%s: track_id(%d) SetAudioSinkParams failed!", TAG, __func__,
+     track_id);
+   return ret;
+  }
+
+  QMMF_INFO("%s:%s: track_id(%d) SetAudioSinkParams Successful!", TAG,
+     __func__, track_id);
+  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 AudioTrackSink::AudioTrackSink()
     : end_point_(nullptr), stopplayback_(false),
       paused_(false), decoded_frame_number_(0),
@@ -406,6 +427,27 @@ status_t AudioTrackSink::DeleteSink() {
     QMMF_ERROR("%s:%s: track_id(%d) Disconnect failed!", TAG, __func__,
         TrackId());
     return ret;
+  }
+
+  QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
+  return ret;
+}
+
+status_t AudioTrackSink::SetAudioSinkParams(CodecParamType param_type,
+                                            void* param,
+                                            uint32_t param_size) {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+  auto ret = 0;
+
+  if (param_type == CodecParamType::kAudioVolumeParamType) {
+    uint32_t* volume_ptr = reinterpret_cast<uint32_t*>(param);
+    ret = end_point_->SetParam(AudioParamType::kVolume, *volume_ptr);
+    assert(ret == NO_ERROR);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d) SetAudioSinkParams failed!", TAG, __func__,
+          TrackId());
+      return ret;
+    }
   }
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
