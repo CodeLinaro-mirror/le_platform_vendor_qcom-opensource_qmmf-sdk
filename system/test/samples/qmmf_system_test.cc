@@ -80,6 +80,9 @@ static const char* kDefaultFilePrefix = "/data/misc/qmmf/system_test";
 
 SystemTest::SystemTest()
     : filename_prefix_(kDefaultFilePrefix),
+      multi_tone_(false),
+      tone_volume_(100),
+      mic_mute_(false),
       thread_(nullptr) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_INFO("%s: %s() test instantiated", TAG, __func__);
@@ -256,6 +259,34 @@ void SystemTest::PlayTone(const bool multi_tone) {
   assert(thread_ != nullptr);
 }
 
+void SystemTest::AdjustToneVolume(const int32_t adjustment) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  tone_volume_ += adjustment;
+
+  // clip volume
+  if (tone_volume_ > 100)
+    tone_volume_ = 100;
+  else if (tone_volume_ < 0)
+    tone_volume_ = 0;
+
+  cout << endl;
+  cout << "Tone Volume is " << tone_volume_ << endl;
+}
+
+void SystemTest::ToggleMicMute() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  mic_mute_ = !mic_mute_;
+
+  status_t result = system_.Mute(static_cast<DeviceId>(AudioDeviceId::kBuiltIn),
+                                 mic_mute_);
+  assert(result == 0);
+
+  cout << endl;
+  cout << "Microphone mute is " << (mic_mute_ ? "enabled" : "disabled") << endl;
+}
+
 void SystemTest::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
@@ -363,6 +394,7 @@ void SystemTest::ToneThread() {
     tone.delay = 0;
     tone.loop_num = 1;
   }
+  tone.volume = static_cast<uint32_t>(tone_volume_);
   tone.size = buffer_size;
   tone.buffer = buffer;
 
@@ -419,6 +451,12 @@ void CommandMenu::PrintMenu() {
     cout << static_cast<char>(Command::kPlayTone) << ". Play Tone" << endl;
     cout << static_cast<char>(Command::kPlayMultiTone)
          << ". Play Multiple Tones" << endl;
+    cout << static_cast<char>(Command::kToneVolumeUp)
+         << ". Increase Tone Volume" << endl;
+    cout << static_cast<char>(Command::kToneVolumeDown)
+         << ". Decrease Tone Volume" << endl;
+    cout << static_cast<char>(Command::kToggleMicMute)
+         << ". Toggle Microphone Mute" << endl;
     cout << static_cast<char>(Command::kExit) << ". Exit" << endl;
 
     cout << endl;
@@ -476,6 +514,15 @@ int main(const int argc, const char * const argv[]) {
         break;
       case CommandMenu::Command::kPlayMultiTone:
         test.PlayTone(true);
+        break;
+      case CommandMenu::Command::kToneVolumeUp:
+        test.AdjustToneVolume(1);
+        break;
+      case CommandMenu::Command::kToneVolumeDown:
+        test.AdjustToneVolume(-1);
+        break;
+      case CommandMenu::Command::kToggleMicMute:
+        test.ToggleMicMute();
         break;
       case CommandMenu::Command::kExit:
         test.Disconnect();

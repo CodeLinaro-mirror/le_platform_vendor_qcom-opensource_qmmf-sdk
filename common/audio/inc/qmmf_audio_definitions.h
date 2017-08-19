@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -252,6 +252,7 @@ struct AudioMetadata {
 
 enum class AudioParamType {
   kVolume,
+  kMute,
   kDevice,
   kCustom,
 };
@@ -312,6 +313,7 @@ union AudioParamData {
       case AudioParamType::kVolume:
         stream << "error[" << volume << "]";
         break;
+      case AudioParamType::kMute:
       case AudioParamType::kDevice:
         stream << "device[" << device.ToString() << "]";
         break;
@@ -333,6 +335,7 @@ union AudioParamData {
       case AudioParamType::kVolume:
         parcel->writeInt32(volume);
         break;
+      case AudioParamType::kMute:
       case AudioParamType::kDevice:
         device.ToParcel(parcel);
         break;
@@ -348,6 +351,7 @@ union AudioParamData {
       case AudioParamType::kVolume:
         volume = parcel.readInt32();
         break;
+      case AudioParamType::kMute:
       case AudioParamType::kDevice:
         device.FromParcel(parcel);
         break;

@@ -215,12 +215,27 @@ status_t System::PlayTone(const vector<DeviceId>& devices,
   QMMF_VERBOSE("%s: %s() INPARAM: tone[%s]", TAG, __func__,
                tone.ToString().c_str());
   assert(system_client_ != nullptr);
+  assert(tone.volume <= 100);
   assert(tone.buffer != nullptr);
   assert(tone.size <= 192000);
 
   status_t result = system_client_->PlayTone(devices, tone, callback);
   if (result < 0)
     QMMF_ERROR("%s: %s() client->PlayTone failed: %d", TAG, __func__, result);
+
+  return result;
+}
+
+status_t System::Mute(const DeviceId device, const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+  assert(system_client_ != nullptr);
+
+  status_t result = system_client_->Mute(device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() client->Mute failed: %d", TAG, __func__, result);
 
   return result;
 }

@@ -75,6 +75,10 @@ class SystemImplementation {
                     const ::std::vector<DeviceId>& devices,
                     const Tone& tone);
 
+  status_t Mute(const SystemHandle system_handle,
+                const DeviceId device,
+                const bool mute);
+
  private:
   static const SystemHandle kSystemHandleMax;
 

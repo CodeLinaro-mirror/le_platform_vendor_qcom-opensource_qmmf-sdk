@@ -78,6 +78,10 @@ class SystemService : public ::android::BnInterface<ISystemService>
                     const ::std::vector<DeviceId>& devices,
                     const Tone& tone) override;
 
+  status_t Mute(const SystemHandle system_handle,
+                const DeviceId device,
+                const bool mute) override;
+
   // methods of BnInterface<ISystemService>
   int32_t onTransact(uint32_t code, const ::android::Parcel& data,
                      ::android::Parcel* reply, uint32_t flags = 0) override;

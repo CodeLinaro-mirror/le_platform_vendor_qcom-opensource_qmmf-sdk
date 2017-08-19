@@ -98,6 +98,7 @@ struct ToneInternal : public Tone {
                 ::android::Parcel::WritableBlob* blob) const {
     parcel->writeUint32(delay);
     parcel->writeUint32(loop_num);
+    parcel->writeUint32(volume);
     parcel->writeUint32(size);
     parcel->writeBlob(size, false, blob);
     memcpy(blob->data(), buffer, size);
@@ -107,6 +108,7 @@ struct ToneInternal : public Tone {
                                  ::android::Parcel::ReadableBlob* blob) {
     delay = parcel.readUint32();
     loop_num = parcel.readUint32();
+    volume = parcel.readUint32();
     size = parcel.readUint32();
     parcel.readBlob(size, blob);
     buffer = const_cast<void*>(blob->data());

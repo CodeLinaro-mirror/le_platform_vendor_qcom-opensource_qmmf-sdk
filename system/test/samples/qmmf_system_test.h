@@ -59,6 +59,8 @@ class SystemTest
   void EnableSoundTriggerLAB();
   void DisableSoundTrigger();
   void PlayTone(const bool multi_tone);
+  void AdjustToneVolume(const int32_t adjustment);
+  void ToggleMicMute();
 
  private:
   enum class SystemMessageType {
@@ -84,6 +86,8 @@ class SystemTest
   SystemTestWav wav_;
   ::std::string filename_prefix_;
   bool multi_tone_;
+  int32_t tone_volume_;
+  bool mic_mute_;
 
   ::std::thread* thread_;
   ::std::mutex message_lock_;
@@ -109,6 +113,9 @@ class CommandMenu {
     kDisableSoundTrigger   = '7',
     kPlayTone              = '8',
     kPlayMultiTone         = '9',
+    kToneVolumeUp          = 'U',
+    kToneVolumeDown        = 'D',
+    kToggleMicMute         = 'M',
     kExit                  = 'X',
     kInvalid               = '0'
   };

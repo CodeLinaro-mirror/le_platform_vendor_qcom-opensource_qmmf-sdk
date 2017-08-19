@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -688,8 +688,12 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
 
   for(size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kAudio) {
-      ret = audio_decoder_core_->SetAudioTrackDecoderParams(
-          tracks_[i].track_id,type, param, param_size);
+      if (type == CodecParamType::kAudioVolumeParamType)
+        ret = audio_sink_->SetAudioTrackSinkParams(tracks_[i].track_id, type,
+                                                   param, param_size);
+      else
+        ret = audio_decoder_core_->SetAudioTrackDecoderParams(
+            tracks_[i].track_id, type, param, param_size);
     }
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -553,13 +553,13 @@ int32_t AudioEndPointClient::SetParam(const AudioParamType type,
   lock_guard<mutex> lock(lock_);
 
   switch (state_) {
+    case AudioState::kConnect:
     case AudioState::kIdle:
     case AudioState::kRunning:
     case AudioState::kPaused:
       // proceed
       break;
     case AudioState::kNew:
-    case AudioState::kConnect:
       QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
                  __func__, static_cast<int>(state_));
       return -ENOSYS;

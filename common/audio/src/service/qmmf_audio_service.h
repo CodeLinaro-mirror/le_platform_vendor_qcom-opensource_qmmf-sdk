@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -111,6 +111,8 @@ class AudioService : public ::android::BnInterface<IAudioService>
   AudioFrontend audio_frontend_;
   DeathNotifierMap death_notifiers_;
   ClientHandlerMap client_handlers_;
+
+  bool mic_mute_;
 
   // disable copy, assignment, and move
   AudioService(const AudioService&) = delete;

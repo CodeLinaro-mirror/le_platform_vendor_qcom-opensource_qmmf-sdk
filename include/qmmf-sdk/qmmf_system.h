@@ -118,6 +118,10 @@ class System {
                     const Tone& tone,
                     const ToneCb& callback);
 
+  // Enables or disables the mute status of the specified device.  Affects all
+  // tracks associated with that device.
+  status_t Mute(const DeviceId device, const bool mute);
+
 private:
   SystemClient* system_client_;
 };

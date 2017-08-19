@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -49,6 +49,7 @@ using ::qmmf::common::audio::AudioBuffer;
 using ::qmmf::common::audio::AudioEventHandler;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioParamType;
 
 #define NUMBER_OF_SINK_BUFFERS 4
 
@@ -72,6 +73,11 @@ class AudioSink {
   status_t StopTrackSink(uint32_t track_id);
 
   status_t DeleteTrackSink(uint32_t track_id);
+
+  status_t SetAudioTrackSinkParams(uint32_t track_id,
+                                   CodecParamType param_type,
+                                   void* param,
+                                   uint32_t param_size);
 
  private:
   AudioSink();
@@ -100,6 +106,10 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   status_t ResumeSink();
 
   status_t DeleteSink();
+
+  status_t SetAudioSinkParams(CodecParamType param_type,
+                              void* param,
+                              uint32_t param_size);
 
   void AddBufferList(::android::Vector<::qmmf::avcodec::CodecBuffer>& list);
 

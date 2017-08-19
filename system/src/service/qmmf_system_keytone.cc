@@ -58,6 +58,7 @@ using ::qmmf::common::audio::AudioFlag;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioParamType;
 using ::std::chrono::milliseconds;
 using ::std::mutex;
 using ::std::thread;
@@ -170,6 +171,7 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
   tone_.size = tone.size;
   tone_.loop_num = tone.loop_num;
   tone_.delay = tone.delay;
+  tone_.volume = tone.volume;
 
   while (!messages_.empty())
     messages_.pop();
@@ -284,6 +286,11 @@ void SystemKeytone::Thread() {
       error_detected = true;
       break;
     }
+
+    result = end_point_->SetParam(AudioParamType::kVolume, tone_.volume);
+    if (result < 0)
+      QMMF_ERROR("%s: %s() endpoint->SetParam failed: %d[%s]", TAG, __func__,
+                 result, strerror(result));
 
     result = end_point_->SendBuffers(buffers);
     if (result < 0) {
