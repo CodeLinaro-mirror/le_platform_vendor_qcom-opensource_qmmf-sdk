@@ -3835,6 +3835,8 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
       buffer.data, written_len, file_path.string());
 
+  fclose(file);
+
   return NO_ERROR;
 }
 

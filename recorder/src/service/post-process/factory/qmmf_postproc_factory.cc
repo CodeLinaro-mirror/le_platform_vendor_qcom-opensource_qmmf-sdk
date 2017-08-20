@@ -125,15 +125,15 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
 }
 
 status_t
-PostProcFactory::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
+PostProcFactory::CreatePlugin(uint32_t &uid, const PluginInfo &plugin) {
   if (plugin_libraries_.find(plugin.name) != plugin_libraries_.end()) {
-    *uid = GetUniqueId();
+    uid = GetUniqueId();
     std::string library = plugin_libraries_.at(plugin.name);
 
     sp<IPostProcModule> module = new PostProcAlg(library);
     if (module.get() != nullptr) {
-      sp<PostProcNode> node = new PostProcNode(*uid, plugin.name, module);
-      plugin_nodes_.emplace(*uid, node);
+      sp<PostProcNode> node = new PostProcNode(uid, plugin.name, module);
+      plugin_nodes_.emplace(uid, node);
     } else {
       QMMF_ERROR("%s: Failed to create plugin: %s", __func__,
           plugin.name.c_str());

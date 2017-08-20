@@ -42,25 +42,16 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
-struct PipeInputParam {
+struct PipeIOParam {
   uint32_t width;
   uint32_t height;
-  uint32_t frame_rate;
-  int32_t format;
-};
-
-struct PipeOutputParam {
-  uint32_t width;
-  uint32_t height;
+  uint32_t stride;
+  uint32_t scanline;
   uint32_t frame_rate;
   int32_t format;
   uint32_t image_quality;
-};
-
-enum class PostProcPipeType {
-  kVideo,
-  kPreview,
-  kSnapshot,
+  int32_t gralloc_flags;
+  uint32_t buffer_count;
 };
 
 enum class PostProcPipeState {
@@ -76,17 +67,12 @@ class PostProcPipe : public virtual  RefBase {
 
  public:
 
-   PostProcPipe(IPostProc* context, const PostProcPipeType &type,
-                const std::vector<uint32_t> &plugins);
+   PostProcPipe(IPostProc* context);
 
    ~PostProcPipe();
 
-   status_t BeginInit(const PipeOutputParam &output);
-
-   int32_t EndInit(int32_t stream_id, const PipeInputParam &input,
-                   uint32_t max_buffer_count);
-
-   status_t GetInput(PipeInputParam &input);
+   status_t CreatePipe(const PipeIOParam &pipe_out_param,
+       const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -94,7 +80,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void AddResult(const void* result);
 
-   status_t Start();
+   status_t Start(const int32_t stream_id);
 
    status_t Stop();
 
@@ -108,11 +94,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void UnlinkPipe(sp<IBufferConsumer>& consumer);
 
-   sp<PostProcNode> FindInternalNode(const PostProcIOParam &param,
-                                     const PostProcCaps &caps);
-
-   sp<PostProcNode> FindInternalNode(const PostProcIOParam &param,
-                                     const PostProcReqs &reqs);
+   sp<PostProcNode> FindInternalNode(const PostProcIOParam &output);
 
    bool IsRAWFormat(const BufferFormat &format);
 
@@ -120,25 +102,27 @@ class PostProcPipe : public virtual  RefBase {
 
    bool IsJPEGFormat(const BufferFormat &format);
 
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const BufferFormat &format);
+
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const int32_t format);
+
    bool SupportsRAWFormat(const std::set<BufferFormat> &formats);
 
    bool SupportsYUVFormat(const std::set<BufferFormat> &formats);
 
    bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
-   PipeInputParam                input_param_;
-   PipeOutputParam               output_param_;
-
    PostProcPipeState             state_;
-   PostProcPipeType              type_;
 
    std::vector<sp<PostProcNode>> pipe_;
 
    IPostProc*                    context_;
 
-   sp<IBufferConsumer>           pipe_consumer_;
-
    sp<PostProcFactory>           factory_;
+
+   bool                          use_hal_jpeg_;
 
 };
 
