@@ -48,33 +48,28 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-// Need to use unified qmmf format (BufferFormat?)
-struct PostProcCreateParam {
-  uint32_t     stride;
-  uint32_t     scanline;
+/** PostProcIOParam:
+ *    @width: Width in pixels
+ *    @height: Height in pixels
+ *    @stride: Stride in bytes
+ *    @scanline: Scanline in lines
+ *    @frame_rate: Frame rate
+ *    @format: QMMF image format
+ *    @gralloc_flags: output buffers gralloc flags
+ *    @buffer_count: output buffer count
+ *
+ *  This class defines module input and output parameters
+ **/
+struct PostProcIOParam {
   uint32_t     width;
   uint32_t     height;
-  int32_t      format;
+  uint32_t     stride;
+  uint32_t     scanline;
+  uint32_t     frame_rate;
+  BufferFormat format;
+  int32_t      gralloc_flags;
+  uint32_t     buffer_count;
 };
-
-
-/** PostProcReqs:
- *    @formats_: supported input formats
- *    @min_width_: min supported input frame width dimension
- *    @min_height_: min supported input frame height dimension
- *    @max_width_: max supported input frame width dimension
- *    @max_height_: max supported input frame height dimension
- *
- *  This class defines the post processing module requirements
- **/
-struct PostProcReqs {
-  std::set<BufferFormat> formats_;
-  uint32_t               min_width_;
-  uint32_t               min_height_;
-  uint32_t               max_width_;
-  uint32_t               max_height_;
-};
-
 
 /** PostProcCaps:
  *    @internal_buff: internal buffers
@@ -143,10 +138,8 @@ class IPostProcModule : public RefBase {
 
    virtual ~IPostProcModule() {};
 
-   virtual status_t Create(const int32_t stream_id,
-                           const uint32_t frame_rate,
-                           const uint32_t num_images,
-                           const void* context) = 0;
+   virtual status_t Initialize(const PostProcIOParam &in_param,
+                               const PostProcIOParam &out_param) = 0;
 
    virtual status_t Delete() = 0;
 
@@ -161,17 +154,13 @@ class IPostProcModule : public RefBase {
 
    virtual void AddResult(const void* result) = 0;
 
-   virtual status_t Start() = 0;
+   virtual status_t Start(const int32_t stream_id) = 0;
 
    virtual status_t Stop() = 0;
 
-   virtual PostProcCreateParam GetInput(const PostProcCreateParam &out) = 0;
+   virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
 
-   virtual PostProcCreateParam GetOutput(const PostProcCreateParam &in) = 0;
-
-   virtual status_t ValidateInput(const PostProcCreateParam &input) = 0;
-
-   virtual status_t ValidateOutput(const PostProcCreateParam &output) = 0;
+   virtual status_t ValidateOutput(const PostProcIOParam &output) = 0;
 
    virtual status_t GetCapabilities(PostProcCaps &caps) = 0;
 };

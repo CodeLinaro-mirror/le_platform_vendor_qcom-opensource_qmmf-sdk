@@ -48,10 +48,8 @@ class PostProcJpeg : public IPostProcModule {
 
   ~PostProcJpeg();
 
-  status_t Create(const int32_t stream_id,
-                  const uint32_t frame_rate,
-                  const uint32_t num_images,
-                  const void* context) override;
+  status_t Initialize(const PostProcIOParam &in_param,
+                      const PostProcIOParam &out_param) override;
 
   status_t Delete() override;
 
@@ -66,38 +64,28 @@ class PostProcJpeg : public IPostProcModule {
 
   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
-  status_t Start() override;
+  status_t Start(const int32_t stream_id) override;
 
   status_t Stop() override;
 
-  PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
+  PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
-  PostProcCreateParam GetOutput(const PostProcCreateParam &in)override;
-
-  status_t ValidateInput(const PostProcCreateParam &input) override;
-
-  status_t ValidateOutput(const PostProcCreateParam &output) override;
+  status_t ValidateOutput(const PostProcIOParam &output) override;
 
   status_t GetCapabilities(PostProcCaps &caps) override;
 
  private:
 
-  bool                           reprocess_flag_;
-  bool                           ready_to_start_;
-
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
-  PostProcCreateParam            input_param_;
-  PostProcCreateParam            output_param_;
+  static const uint32_t          kMinWidth;
+  static const uint32_t          kMinHeight;
+  static const uint32_t          kMaxWidth;
+  static const uint32_t          kMaxHeight;
 
-  static const uint32_t kMinWidth  = 160;
-  static const uint32_t kMinHeight = 120;
-  static const uint32_t kMaxWidth  = 5104;
-  static const uint32_t kMaxHeight = 4092;
-
-  static const int32_t kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  static const int32_t kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
+  static const int32_t           kSupportedInputFormat;
+  static const int32_t           kSupportedOutputFormat;
 };
 
 }; //namespace recorder

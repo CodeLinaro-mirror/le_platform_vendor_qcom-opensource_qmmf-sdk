@@ -40,6 +40,7 @@ enum ParamTag {
   QMMF_SURFACE_CROP,
   QMMF_MULTICAM_STITCH_CONFIG,
   QMMF_POSTPROCESS_PLUGIN,
+  QMMF_SOURCE_VIDEO_TRACK_ID,
 };
 
 enum class TransformFlags {
@@ -132,6 +133,13 @@ struct PostprocPlugin : DataTagBase {
   PostprocPlugin()
     : DataTagBase(QMMF_POSTPROCESS_PLUGIN),
       uid(0) {}
+};
+
+struct SourceVideoTrack : DataTagBase {
+  int32_t source_track_id;  // Default: -1
+  SourceVideoTrack()
+    : DataTagBase(QMMF_SOURCE_VIDEO_TRACK_ID),
+      source_track_id(-1) {}
 };
 
 }; //namespace recorder.
