@@ -30,7 +30,9 @@
 #ifndef QMMF_TIME_LAPSE_H_
 #define QMMF_TIME_LAPSE_H_
 
-#include <utils/Condition.h>
+#include <mutex>
+#include <condition_variable>
+
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_display.h>
@@ -111,11 +113,12 @@ class TimeLapse {
   uint32_t              session_id_;
   uint64_t              last_capture_ts_;
   uint64_t              snapshot_count_;
-  Condition             lapse_cond_;
-  Mutex                 lapse_lock_;
-  Condition             snapshot_cond_;
-  Mutex                 snapshot_lock_;
 
+  std::mutex               lapse_lock_;
+  std::condition_variable  lapse_cond_;
+
+  std::mutex               snapshot_lock_;
+  std::condition_variable  snapshot_cond_;
 
   static const uint32_t kPreviewTrackId;
 

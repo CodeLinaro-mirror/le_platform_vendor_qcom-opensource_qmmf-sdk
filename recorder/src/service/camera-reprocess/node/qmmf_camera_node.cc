@@ -246,7 +246,7 @@ status_t ReprocessNode::ReturnBuffers() {
     QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
     return INVALID_OPERATION;
   }
-  Mutex::Autolock lock(wait_lock_);
+  std::lock_guard<std::mutex> lock(wait_lock_);
   for (auto iter : buffer_list_) {
     StreamBuffer buf = iter;
     NotifyBufferReturned(buf);
@@ -280,7 +280,6 @@ void ReprocessNode::AddResult(const void* result) {
 }
 
 bool ReprocessNode::ThreadLoop() {
-  status_t ret = NO_ERROR;
 
   {
     Mutex::Autolock lock(stop_lock_);
@@ -291,10 +290,12 @@ bool ReprocessNode::ThreadLoop() {
 
   StreamBuffer buffer;
   {
-    Mutex::Autolock lock(wait_lock_);
-    if (buffer_list_.empty() && state_ == ReprocessNodeState::READYTOSTART) {
-      ret = wait_for_frames_.waitRelative(wait_lock_, kFrameTimeout);
-      if (ret == TIMED_OUT) {
+    std::unique_lock<std::mutex> lock(wait_lock_);
+    std::chrono::nanoseconds wait_time(kFrameTimeout);
+
+    while (buffer_list_.empty() && state_ == ReprocessNodeState::READYTOSTART) {
+      auto ret = wait_for_frames_.wait_for(lock, wait_time);
+      if (ret == std::cv_status::timeout) {
         QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
         return true;
       }
@@ -353,9 +354,9 @@ void ReprocessNode::ReprocessLibCallback(StreamBuffer in_buff,
     NotifyBufferReturn(in_buff);
   }
 
-  Mutex::Autolock lock(wait_lock_);
+  std::lock_guard<std::mutex> lock(wait_lock_);
   buffer_list_.push_back(out_buff);
-  wait_for_frames_.signal();
+  wait_for_frames_.notify_one();
 }
 
 status_t ReprocessNode::GetBuffer(StreamBuffer* buffer) {

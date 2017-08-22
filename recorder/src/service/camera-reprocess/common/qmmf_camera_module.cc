@@ -30,7 +30,6 @@
 #define TAG "CameraModule"
 
 #include <sys/mman.h>
-#include <utils/Condition.h>
 #include <utils/Mutex.h>
 
 #include "qmmf_camera_module.h"
@@ -140,7 +139,7 @@ status_t CameraModule::Stop() {
   memset(&b, 0x0, sizeof(b));
   b.fd = -1;
 
-  Mutex::Autolock lock(wait_lock_);
+  std::lock_guard<std::mutex> lock(wait_lock_);
   auto iter = input_buffer_.begin();
   while (iter != input_buffer_.end()) {
     buffer = *iter;
@@ -185,9 +184,9 @@ status_t CameraModule::Delete() {
 }
 
 void CameraModule::AddBuff(StreamBuffer in_buff) {
-  Mutex::Autolock lock(wait_lock_);
+  std::lock_guard<std::mutex> lock(wait_lock_);
   input_buffer_.push_back(in_buff);
-  wait_for_buffer_.signal();
+  wait_for_buffer_.notify_one();
 }
 
 void CameraModule::AddResult(const void* result) {
@@ -236,10 +235,12 @@ bool CameraModule::ThreadLoop() {
 
   StreamBuffer buffer;
   {
-    Mutex::Autolock lock(wait_lock_);
-    if (input_buffer_.empty()) {
-      auto ret = wait_for_buffer_.waitRelative(wait_lock_, kFrameTimeout);
-      if (ret == TIMED_OUT) {
+    std::unique_lock<std::mutex> lock(wait_lock_);
+    std::chrono::nanoseconds wait_time(kFrameTimeout);
+
+    while (input_buffer_.empty()) {
+      auto ret = wait_for_buffer_.wait_for(lock, wait_time);
+      if (ret == std::cv_status::timeout) {
         QMMF_VERBOSE("%s:%s: Wait for frame available timed out Copy",
             TAG, __func__);
         return true;

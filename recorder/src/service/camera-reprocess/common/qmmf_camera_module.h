@@ -29,7 +29,9 @@
 
 #pragma once
 
-#include <utils/Condition.h>
+#include <mutex>
+#include <condition_variable>
+
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 
@@ -89,17 +91,18 @@ class CameraModule : public Callbacks,
 
   bool ThreadLoop() override;
 
-  String8                name_;
-  int32_t                id_;
+  String8                  name_;
+  int32_t                  id_;
 
-  bool                   reprocess_flag_;
-  bool                   ready_to_start_;
+  bool                     reprocess_flag_;
+  bool                     ready_to_start_;
 
-  Condition              wait_for_buffer_;
-  Mutex                  wait_lock_;
-  List<StreamBuffer>     input_buffer_;
+  List<StreamBuffer>       input_buffer_;
 
-  static const nsecs_t kFrameTimeout  = 50000000;  // 50 ms.
+  std::mutex               wait_lock_;
+  std::condition_variable  wait_for_buffer_;
+
+  static const uint32_t kFrameTimeout  = 50000000;  // 50 ms.
 
   KeyedVector<uint32_t, map_data_t> mapped_buffs_;
 
