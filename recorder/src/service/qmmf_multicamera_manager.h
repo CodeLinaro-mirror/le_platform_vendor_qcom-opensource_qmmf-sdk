@@ -144,7 +144,7 @@ class MultiCameraManager : public CameraInterface {
   status_t FillCropMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
-  CameraStartParam         multicam_start_params_;
+  CameraStartParam         start_params_;
   MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
   ResultCb                 result_cb_;

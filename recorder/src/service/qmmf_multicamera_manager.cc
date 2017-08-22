@@ -30,12 +30,14 @@
 #define TAG "RecorderMultiCameraManager"
 
 #include <algorithm>
+#include <future>
+#include <functional>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
+#include <cinttypes>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <inttypes.h>
-#include <cstdlib>
-#include <stdio.h>
-#include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -57,7 +59,7 @@ static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
-    multicam_start_params_{},
+    start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
     result_cb_(nullptr),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
@@ -135,30 +137,24 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   QMMF_INFO("%s:%s: Total Number of cameras to be open(%d)", TAG, __func__,
       camera_ids.size());
 
+  // Status(std::future) from asynchronous tasks for each camera(uint32_t).
+  std::vector<std::tuple<uint32_t, std::future<status_t>>> results;
+
+  // Open cameras in separate asynchronous tasks.
   for (auto const& cam_id : camera_ids) {
-    if (camera_contexts_.indexOfKey(cam_id) >= 0) {
-      QMMF_WARN("%s:%s: Camera Id(%u) is already open, skipping!", TAG,
-          __func__, cam_id);
-      continue;
-    }
-    QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, cam_id);
+    sp<CameraContext> context = new CameraContext();
+    camera_contexts_.add(cam_id, context);
 
     ResultCb result_cb = [this] (uint32_t camera_id,
       const CameraMetadata &meta) { ResultCallback(camera_id, meta); };
 
-    sp<CameraContext> camera_context = new CameraContext();
-    ret = camera_context->OpenCamera(cam_id, param, result_cb);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: OpenCamera(%d) failed!", TAG, __func__, cam_id);
-      camera_context.clear();
-      return NO_INIT;
-    }
-    camera_contexts_.add(cam_id, camera_context);
+    auto future = std::async(std::launch::async, &CameraContext::OpenCamera,
+                             context.get(), cam_id, param, result_cb);
+    results.push_back(std::make_tuple(cam_id, std::move(future)));
   }
 
-  result_cb_ = cb;
-  multicam_start_params_ = param;
-  supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
+  start_params_ = param;
+  result_cb_    = cb;
 
   StitchingBase::InitParams algo_param {};
   algo_param.multicam_id = virtual_camera_id_;
@@ -184,8 +180,19 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return NO_INIT;
   }
 
+  // Wait for all asynchronous tasks to complete and return status.
+  for (auto& result : results) {
+    auto camera_id = std::get<0>(result);
+    auto future = std::move(std::get<1>(result));
+
+    if (future.get() != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to open camera(%d)!", TAG, __func__, camera_id);
+      ret |= NO_INIT;
+    }
+  }
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
@@ -251,7 +258,7 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
   std::lock_guard<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
-  if (multicam_start_params_.zsl_mode) {
+  if (start_params_.zsl_mode) {
     QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
     return BAD_VALUE;
   }
@@ -717,7 +724,7 @@ status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
 CameraStartParam& MultiCameraManager::GetCameraStartParam() {
 
-  return multicam_start_params_;
+  return start_params_;
 }
 
 Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
@@ -798,7 +805,7 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
   out.format = ImageToHalFormat(ImageFormat::kJPEG);
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
-                                       multicam_start_params_.frame_rate, 1,
+                                       start_params_.frame_rate, 1,
                                        param.image_quality, nullptr, jpeg_cb,
                                        nullptr);
   if (ret < NO_ERROR) {
