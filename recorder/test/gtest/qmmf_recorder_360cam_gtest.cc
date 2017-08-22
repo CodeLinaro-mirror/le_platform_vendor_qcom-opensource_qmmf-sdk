@@ -11170,6 +11170,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.height = 720;
     video_track_param.frame_rate = 24;
     video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.low_power_mode = true;
 
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
