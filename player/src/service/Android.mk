@@ -20,10 +20,12 @@ LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
 LOCAL_SRC_FILES := qmmf_player_service.cc
 LOCAL_SRC_FILES += qmmf_player_impl.cc
 LOCAL_SRC_FILES += qmmf_player_common.cc
+LOCAL_SRC_FILES += qmmf_player_ion.cc
 LOCAL_SRC_FILES += qmmf_player_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_player_audio_decoder_core.cc
 LOCAL_SRC_FILES += qmmf_player_video_decoder_core.cc
 LOCAL_SRC_FILES += qmmf_player_audio_sink.cc
+LOCAL_SRC_FILES += qmmf_player_audio_raw_sink.cc
 LOCAL_SRC_FILES += qmmf_player_video_sink.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_player_client libqmmf_codec_adaptor

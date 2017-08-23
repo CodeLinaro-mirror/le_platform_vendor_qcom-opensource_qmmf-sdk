@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -261,6 +261,9 @@ status_t Player::SetAudioTrackParam(uint32_t track_id,
                                     void *param,
                                     size_t param_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+               static_cast<int>(type));
+  QMMF_VERBOSE("%s: %s() INPARAM: param_size[%zu]", TAG, __func__, param_size);
   assert(player_client_ != nullptr);
 
   auto ret = player_client_->SetAudioTrackParam(track_id, type, param,

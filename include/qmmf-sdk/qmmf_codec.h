@@ -492,6 +492,7 @@ enum class AudioFormat {
   kAAC,
   kAMR,
   kG711,
+  kMP3,
 };
 
 union CodecFormat {

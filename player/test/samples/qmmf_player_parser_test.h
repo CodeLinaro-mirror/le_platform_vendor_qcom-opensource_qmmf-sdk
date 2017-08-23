@@ -42,9 +42,11 @@ using namespace player;
 using namespace android;
 
 enum class AudioFileType{
+  kPCM,
   kAAC,
   kAMR,
-  kG711
+  kG711,
+  kMP3,
 };
 
 enum class PlayerState
@@ -103,7 +105,7 @@ class PlayerTest {
 
   static void* StartPlaying(void* ptr);
 
-  int32_t StopPlaying();
+  int32_t StopPlaying(bool do_flush);
 
   char *            filename_;
   AudioFileType     filetype_;
@@ -122,9 +124,11 @@ class PlayerTest {
   pthread_t         start_thread_id;
   int32_t           volume_;
 
+  PCMfileIO*        pcm_file_io_;
   AACfileIO*        aac_file_io_;
   G711fileIO*       g711_file_io_;
   AMRfileIO*        amr_file_io_;
+  MP3fileIO*        mp3_file_io_;
 
   std::map<uint32_t, const char *>  statemap_;
   const char*                       player_test_event_[2];

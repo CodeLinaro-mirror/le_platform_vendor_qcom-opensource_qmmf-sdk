@@ -78,13 +78,6 @@ enum class VideoCodecType {
     kJPEG
 };
 
-enum class AudioCodecType {
-    kPCM,
-    kAAC,
-    kAMR,
-    kG711
-};
-
 // Video track create time parameters
 // buffer_size and num_buffers is an optional parameter if the clients
 // know what the optimal size for the track input buffers are.
@@ -143,9 +136,28 @@ typedef struct AudioTrackCreateParam {
     uint32_t channels;
     uint32_t bit_depth;
     uint32_t bitrate;
-    AudioCodecType codec;
+    AudioFormat codec;
     AudioCodecParams codec_params;
     AudioOutSubtype out_device;
+
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "buffer_size[" << buffer_size << "] ";
+      stream << "num_buffers[" << num_buffers << "] ";
+      stream << "sample_rate[" << sample_rate << "] ";
+      stream << "channels[" << channels << "] ";
+      stream << "bit_depth[" << bit_depth << "] ";
+      stream << "bitrate[" << bitrate << "] ";
+      stream << "codec["
+             << static_cast<::std::underlying_type<AudioFormat>::type>(codec)
+             << "] ";
+      stream << "codec_params[" << codec_params.ToString(codec) << "] ";
+      stream << "out_device["
+             << static_cast<::std::underlying_type<AudioOutSubtype>::type>
+                           (out_device)
+             << "]";
+      return stream.str();
+    }
 } AudioTrackCreateParam;
 
 typedef struct PictureParam {

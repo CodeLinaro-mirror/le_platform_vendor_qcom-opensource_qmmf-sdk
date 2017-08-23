@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -71,12 +71,17 @@ class AudioBackendSink : public IAudioBackend {
   int32_t GetRenderedPosition(uint32_t* frames,
                               uint64_t* time);
 
+  static int CallbackEntry(qahw_stream_callback_event_t event,
+                           void* param,
+                           void* cookie);
+
  private:
   enum class AudioMessageType {
     kMessageStop,
     kMessagePause,
     kMessageResume,
     kMessageBuffer,
+    kMessageOffload,
   };
 
   struct AudioMessage {
@@ -91,6 +96,8 @@ class AudioBackendSink : public IAudioBackend {
   static void ThreadEntry(AudioBackendSink* backend);
   void Thread();
 
+  int Callback(qahw_stream_callback_event_t event, void* param);
+
   AudioHandle audio_handle_;
   AudioState state_;
 
@@ -101,6 +108,10 @@ class AudioBackendSink : public IAudioBackend {
   ::std::mutex message_lock_;
   ::std::queue<AudioMessage> messages_;
   ::std::condition_variable signal_;
+
+  bool using_offload_;
+  ::std::mutex drain_lock_;
+  ::std::condition_variable drain_signal_;
 
   qahw_module_handle_t* qahw_module_;
   qahw_stream_handle_t* qahw_stream_;

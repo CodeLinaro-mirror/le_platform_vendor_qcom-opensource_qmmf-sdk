@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -30,6 +30,10 @@
 #pragma once
 
 #include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
 #include "qmmf-sdk/qmmf_player_params.h"
 
 // Enable this define to dump audio bitstream from demuxer
@@ -79,6 +83,13 @@ struct AudioTrackParams {
   AudioTrackCreateParam    params;
   uint32_t                 track_id;
   //buffer_callback        data_cb;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "params[" << params.ToString() << "] ";
+    stream << "track_id[" << track_id << "]";
+    return stream.str();
+  }
 };
 
 struct VideoTrackParams {
@@ -95,6 +106,19 @@ struct AVCodecBuffer {
   uint32_t flag;
   uint32_t fd;
   uint32_t buf_id;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "data[" << data << "] ";
+    stream << "frame_length[" << frame_length << "] ";
+    stream << "filled_length[" << filled_length << "] ";
+    stream << "time_stamp[" << time_stamp << "] ";
+    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
+           << "] ";
+    stream << "fd[" << fd << "] ";
+    stream << "buf_id[" << buf_id << "]";
+    return stream.str();
+  }
 };
 
 struct Event{

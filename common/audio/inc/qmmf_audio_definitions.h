@@ -195,9 +195,9 @@ struct AudioMetadata {
            << "] ";
     stream << "num_channels[" << num_channels << "] ";
     stream << "sample_rate[" << sample_rate << "] ";
-    stream << "sample_size[" << sample_size << "]";
-    stream << "codec[" << codec << "]";
-    stream << "codec_params[" << codec_params.ToString(format) << "]";
+    stream << "sample_size[" << sample_size << "] ";
+    stream << "codec[" << codec << "] ";
+    stream << "codec_params[" << codec_params.ToString(format) << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
     return stream.str();
@@ -222,6 +222,9 @@ struct AudioMetadata {
       case AudioFormat::kG711:
         G711ParamsInternal(codec_params.g711).ToParcel(parcel);
         break;
+      case AudioFormat::kMP3:
+        // nothing to write
+        break;
     }
     parcel->writeUint32(flags);
   }
@@ -244,6 +247,9 @@ struct AudioMetadata {
         break;
       case AudioFormat::kG711:
         codec_params.g711 = G711ParamsInternal().FromParcel(parcel);
+        break;
+      case AudioFormat::kMP3:
+        // nothing to read
         break;
     }
     flags = parcel.readUint32();
@@ -311,7 +317,7 @@ union AudioParamData {
     ::std::stringstream stream;
     switch (key) {
       case AudioParamType::kVolume:
-        stream << "error[" << volume << "]";
+        stream << "volume[" << volume << "]";
         break;
       case AudioParamType::kMute:
       case AudioParamType::kDevice:

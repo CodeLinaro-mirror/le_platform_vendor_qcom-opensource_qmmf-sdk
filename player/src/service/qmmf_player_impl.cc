@@ -52,7 +52,7 @@ PlayerImpl* PlayerImpl::CreatePlayer() {
 
 PlayerImpl::PlayerImpl()
     : audio_decoder_core_(nullptr), video_decoder_core_(nullptr),
-      audio_sink_(nullptr), video_sink_(nullptr),
+      audio_sink_(nullptr), audio_raw_sink_(nullptr), video_sink_(nullptr),
       current_state_(PlayerState::QPLAYER_STATE_IDLE),
       trick_mode_speed_(TrickModeSpeed::kSpeed_1x),
       trick_mode_dir_(TrickModeDirection::kNormalForward)
@@ -77,6 +77,11 @@ PlayerImpl::~PlayerImpl() {
   if (audio_sink_) {
     delete audio_sink_;
     audio_sink_ = nullptr;
+  }
+
+  if (audio_raw_sink_) {
+    delete audio_raw_sink_;
+    audio_raw_sink_ = nullptr;
   }
 
   if (video_sink_) {
@@ -118,6 +123,14 @@ status_t PlayerImpl::Connect(sp<RemoteCallBack>& remote_cb) {
   QMMF_INFO("%s:%s: AudioSink Instance Created Successfully!", TAG,
        __func__);
 
+  audio_raw_sink_ = AudioRawSink::CreateAudioRawSink();
+  if (!audio_raw_sink_) {
+    QMMF_ERROR("%s:%s: Can't Create AudioRawSink Instance!", TAG, __func__);
+    return NO_MEMORY;
+  }
+  QMMF_INFO("%s:%s: AudioRawSink Instance Created Successfully!", TAG,
+       __func__);
+
   video_sink_ = VideoSink::CreateVideoSink();
   if (!video_sink_) {
     QMMF_ERROR("%s:%s: Can't Create VideoSink Instance!", TAG, __func__);
@@ -148,6 +161,11 @@ status_t PlayerImpl::Disconnect() {
     audio_sink_ = nullptr;
   }
 
+  if (audio_raw_sink_) {
+    delete audio_raw_sink_;
+    audio_raw_sink_ = nullptr;
+  }
+
   if (video_sink_) {
     delete video_sink_;
     video_sink_ = nullptr;
@@ -171,26 +189,45 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
 
   DebugAudioTrackCreateParam(__func__, param);
 
-  result = audio_decoder_core_->CreateAudioTrack(audio_track_param);
-  if(result != NO_ERROR) {
-      QMMF_ERROR("%s:%s: CreateAudioTrack failed!", TAG, __func__);
-      return BAD_VALUE;
+  if (param.codec == AudioFormat::kAAC ||
+      param.codec == AudioFormat::kAMR ||
+      param.codec == AudioFormat::kG711) {
+    result = audio_decoder_core_->CreateAudioTrack(audio_track_param);
+    if (result != NO_ERROR) {
+        QMMF_ERROR("%s:%s: CreateAudioTrack failed!", TAG, __func__);
+        return BAD_VALUE;
+    }
   }
 
-  assert(audio_sink_ != nullptr);
-  audio_sink_->CreateTrackSink(track_id, audio_track_param);
-  if(result != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Audio CreateTrackSink id(%d) failed!", TAG, __func__,
-              track_id);
-    return BAD_VALUE;
+  if (param.codec == AudioFormat::kAAC ||
+      param.codec == AudioFormat::kAMR ||
+      param.codec == AudioFormat::kG711) {
+    assert(audio_sink_ != nullptr);
+    audio_sink_->CreateTrackSink(track_id, audio_track_param);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Audio CreateTrackSink id(%d) failed!", TAG, __func__,
+                track_id);
+      return BAD_VALUE;
+    }
+    QMMF_INFO("%s:%s: AudioTrackSink for track_id(%d) Added Successfully in AudioSink",
+              TAG, __func__, track_id);
+  } else {
+    assert(audio_raw_sink_ != nullptr);
+    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: AudioRaw CreateTrackSink id(%d) failed!", TAG, __func__,
+                track_id);
+      return BAD_VALUE;
+    }
+    QMMF_INFO("%s:%s: AudioRawTrackSink for track_id(%d) Added Successfully in AudioSink",
+              TAG, __func__, track_id);
   }
-  QMMF_INFO("%s:%s: AudioTrackSink for track_id(%d) Added Successfully in"
-    "AudioSink", TAG, __func__, track_id);
 
   TrackInfo track_info;
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kAudio;
+  track_info.codec        = param.codec;
   tracks_.push_back(track_info);
   track_map_.add(track_id, track_info);
 
@@ -243,15 +280,32 @@ status_t PlayerImpl::DeleteAudioTrack(uint32_t track_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   status_t result;
 
-  assert(audio_sink_ != nullptr);
-  result = audio_sink_->DeleteTrackSink(track_id);
-  if (result != NO_ERROR) {
-    QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSink failed: %d", TAG,
-               __func__, track_id, result);
-    return result;
+  TrackInfo track = track_map_.valueFor(track_id);
+  if (track.codec == AudioFormat::kAAC ||
+      track.codec == AudioFormat::kAMR ||
+      track.codec == AudioFormat::kG711) {
+    assert(audio_sink_ != nullptr);
+    result = audio_sink_->DeleteTrackSink(track_id);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSink failed: %d", TAG,
+                 __func__, track_id, result);
+      return result;
+    }
+  } else {
+    assert(audio_raw_sink_ != nullptr);
+    result = audio_raw_sink_->DeleteTrackSink(track_id);
+    if (result != NO_ERROR) {
+      QMMF_ERROR("%s:%s: track_id(%d) DeleteTrackSink failed: %d", TAG,
+                 __func__, track_id, result);
+      return result;
+    }
   }
 
-  audio_decoder_core_->DeleteTrackDecoder(track_id);
+  if (track.codec == AudioFormat::kAAC ||
+      track.codec == AudioFormat::kAMR ||
+      track.codec == AudioFormat::kG711)
+    audio_decoder_core_->DeleteTrackDecoder(track_id);
+
   track_map_.removeItem(track_id);
 
   auto it = std::find_if(tracks_.begin(), tracks_.end(),
@@ -305,8 +359,14 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
 
     } else if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kAudio)) {
-      ret = audio_decoder_core_->DequeueTrackInputBuffer(
-          tracks_[i].track_id, buffers);
+      if (tracks_[i].codec == AudioFormat::kAAC ||
+          tracks_[i].codec == AudioFormat::kAMR ||
+          tracks_[i].codec == AudioFormat::kG711)
+        ret = audio_decoder_core_->DequeueTrackInputBuffer(tracks_[i].track_id,
+                                                           buffers);
+      else
+        ret = audio_raw_sink_->DequeueTrackInputBuffer(tracks_[i].track_id,
+                                                       buffers);
     }
   }
 
@@ -333,8 +393,14 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
 
     } else if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kAudio)) {
-      ret = audio_decoder_core_->QueueTrackInputBuffer(
-         tracks_[i].track_id, buffers);
+      if (tracks_[i].codec == AudioFormat::kAAC ||
+          tracks_[i].codec == AudioFormat::kAMR ||
+          tracks_[i].codec == AudioFormat::kG711)
+        ret = audio_decoder_core_->QueueTrackInputBuffer(tracks_[i].track_id,
+                                                         buffers);
+      else
+        ret = audio_raw_sink_->QueueTrackInputBuffer(tracks_[i].track_id,
+                                                     buffers);
     }
   }
 
@@ -367,8 +433,11 @@ status_t PlayerImpl::Prepare() {
           ret = video_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
              video_sink_->GetTrackSink(tracks_[i].track_id));
         } else if (tracks_[i].type == TrackType::kAudio) {
-          ret = audio_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
-             audio_sink_->GetTrackSink(tracks_[i].track_id));
+          if (tracks_[i].codec == AudioFormat::kAAC ||
+              tracks_[i].codec == AudioFormat::kAMR ||
+              tracks_[i].codec == AudioFormat::kG711)
+            ret = audio_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
+               audio_sink_->GetTrackSink(tracks_[i].track_id));
         }
       }
 
@@ -419,7 +488,12 @@ status_t PlayerImpl::Start() {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
-        ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+        else
+          ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
       }
     }
 
@@ -450,6 +524,8 @@ status_t PlayerImpl::Start() {
 
 status_t PlayerImpl::Stop(bool do_flush) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: do_flush[%s]", TAG, __func__,
+               do_flush ? "true" : "false");
   Mutex::Autolock lock(state_lock_);
 
   status_t ret = NO_ERROR;
@@ -472,8 +548,13 @@ status_t PlayerImpl::Stop(bool do_flush) {
         ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
            do_flush);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
-        ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
-           do_flush);
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
+                                                      do_flush);
+        else
+          ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id, do_flush);
       }
     }
 
@@ -522,7 +603,12 @@ status_t PlayerImpl::Pause() {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
-        ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+        else
+          ret = audio_raw_sink_->PauseTrackSink(tracks_[i].track_id);
       }
     }
 
@@ -571,7 +657,12 @@ status_t PlayerImpl::Resume() {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
-        ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+        else
+          ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
       }
     }
 
@@ -642,13 +733,25 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
   if ((speed == TrickModeSpeed::kSpeed_1x) &&
       (dir == TrickModeDirection::kNormalForward)) {
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks_[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+      if (tracks_[i].type == TrackType::kAudio) {
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+        else
+          ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+      }
     }
   } else { // other than normal playback audio will always be stopped
     for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks_[i].type == TrackType::kAudio)
-        ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id, false);
+      if (tracks_[i].type == TrackType::kAudio) {
+        if (tracks_[i].codec == AudioFormat::kAAC ||
+            tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711)
+          ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id, false);
+        else
+          ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id, false);
+      }
     }
   }
 
@@ -682,18 +785,28 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
                                         void *param,
                                         size_t param_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+               static_cast<int>(type));
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%zu]", TAG, __func__, param_size);
   status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks_.size();
 
   for(size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kAudio) {
-      if (type == CodecParamType::kAudioVolumeParamType)
-        ret = audio_sink_->SetAudioTrackSinkParams(tracks_[i].track_id, type,
-                                                   param, param_size);
-      else
-        ret = audio_decoder_core_->SetAudioTrackDecoderParams(
-            tracks_[i].track_id, type, param, param_size);
+      if (tracks_[i].codec == AudioFormat::kAAC ||
+          tracks_[i].codec == AudioFormat::kAMR ||
+          tracks_[i].codec == AudioFormat::kG711) {
+        if (type == CodecParamType::kAudioVolumeParamType)
+          ret = audio_sink_->SetAudioTrackSinkParams(tracks_[i].track_id, type,
+                                                     param, param_size);
+        else
+          ret = audio_decoder_core_->SetAudioTrackDecoderParams(
+              tracks_[i].track_id, type, param, param_size);
+      } else {
+        ret = audio_raw_sink_->SetAudioTrackSinkParams(tracks_[i].track_id,
+                                                       type, param, param_size);
+      }
     }
   }
 

@@ -377,16 +377,16 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
       break;
     case CodecType::kAudioDecoder:
       switch(codec_param.audio_dec_param.codec) {
-        case ::qmmf::player::AudioCodecType::kAAC:
+        case ::qmmf::AudioFormat::kAAC:
           component_name.appendFormat("OMX.qcom.audio.decoder.multiaac");
           break;
-        case ::qmmf::player::AudioCodecType::kAMR:
+        case ::qmmf::AudioFormat::kAMR:
           if (codec_param.audio_dec_param.codec_params.amr.isWAMR)
             component_name.appendFormat("OMX.qcom.audio.decoder.amrwb");
           else
             component_name.appendFormat("OMX.qcom.audio.decoder.amrnb");
           break;
-        case ::qmmf::player::AudioCodecType::kG711:
+        case ::qmmf::AudioFormat::kG711:
           switch(codec_param.audio_dec_param.codec_params.g711.mode) {
             case G711Mode::kALaw:
               component_name.appendFormat("OMX.qcom.audio.decoder.g711alaw");
@@ -1427,7 +1427,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
 
   //Confuguring Input Port Parameters
   switch (codec_param.audio_dec_param.codec) {
-    case ::qmmf::player::AudioCodecType::kAAC: {
+    case ::qmmf::AudioFormat::kAAC: {
       // set the AAC Input parameters
       OMX_AUDIO_PARAM_AACPROFILETYPE aac_params;
       InitOMXParams(&aac_params);
@@ -1484,7 +1484,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
       break;
     }
 
-    case ::qmmf::player::AudioCodecType::kAMR:
+    case ::qmmf::AudioFormat::kAMR:
       // set the AMR output parameters
       OMX_AUDIO_PARAM_AMRTYPE amr_params;
       InitOMXParams(&amr_params);
@@ -1502,7 +1502,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
         return ::android::FAILED_TRANSACTION;
       }
       break;
-    case ::qmmf::player::AudioCodecType::kG711:
+    case ::qmmf::AudioFormat::kG711:
       // set the G711 output parameters
       OMX_AUDIO_PARAM_G711TYPE g711_params;
       InitOMXParams(&g711_params);
