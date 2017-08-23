@@ -105,7 +105,7 @@ void PlayerTest::videotrackcb(EventType event_type,
 PlayerTest::PlayerTest()
     : filename_(nullptr), stopped_(false),
       start_again_(false),paused_(false),
-      volume_(100),
+      volume_(40),
       current_state_("Idle") {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
@@ -200,6 +200,14 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
 
   switch(filetype_)
   {
+    case AudioFileType::kPCM:
+      pcm_file_io_ = new PCMfileIO(filename_);
+      result = pcm_file_io_->Fillparams(&audio_track_param_);
+      if (result != NO_ERROR) {
+        TEST_INFO("%s:%s Could not fill the PCM params", TAG, __func__);
+      }
+      break;
+
     case AudioFileType::kAAC:
       aac_file_io_ = new AACfileIO(filename_);
       result = aac_file_io_->Fillparams(&audio_track_param_);
@@ -221,6 +229,14 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_) {
       result = amr_file_io_->Fillparams(&audio_track_param_);
       if (result != NO_ERROR) {
         TEST_INFO("%s:%s Could not fill the AMR params", TAG, __func__);
+      }
+      break;
+
+    case AudioFileType::kMP3:
+      mp3_file_io_ = new MP3fileIO(filename_);
+      result = mp3_file_io_->Fillparams(&audio_track_param_);
+      if (result != NO_ERROR) {
+        TEST_INFO("%s:%s Could not fill the MP3 params", TAG, __func__);
       }
       break;
 
@@ -311,6 +327,12 @@ void * PlayerTest::StartPlaying(void *ptr) {
 
     switch(playertest->filetype_)
     {
+      case AudioFileType::kPCM:
+        //For PCM
+        result = playertest->pcm_file_io_->GetFrames(
+            (void*)buffers[0].data,buffers[0].size,&bytes_read);
+        break;
+
       case AudioFileType::kAAC:
         //For AAC
         result = playertest->aac_file_io_->GetFrames(
@@ -329,6 +351,12 @@ void * PlayerTest::StartPlaying(void *ptr) {
             (void*)buffers[0].data,buffers[0].size,&num_frames_read,&bytes_read);
         break;
 
+      case AudioFileType::kMP3:
+        //For MP3
+        result = playertest->mp3_file_io_->GetFrames(
+            (void*)buffers[0].data,buffers[0].size,&bytes_read);
+        break;
+
        default:
          break;
     }
@@ -344,12 +372,11 @@ void * PlayerTest::StartPlaying(void *ptr) {
       assert(NO_ERROR == ret);
       buffers.clear();
 
-      {
-        std::lock_guard<std::mutex> lock(playertest->state_change_lock_);
-        playertest->stopped_ = true;
-      }
+      if (playertest->stopped_)
+        playertest->StopPlaying(false);
+      else
+        playertest->StopPlaying(true);
 
-      playertest->StopPlaying();
       break;
     }
 
@@ -379,18 +406,21 @@ int32_t PlayerTest::Stop() {
   return 0;
 }
 
-int32_t PlayerTest::StopPlaying() {
+int32_t PlayerTest::StopPlaying(bool do_flush) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   std::lock_guard<std::mutex> lock(state_change_lock_);
   auto ret = 0;
 
-  ret = player_.Stop(false);
+  ret = player_.Stop(do_flush);
   if (ret != NO_ERROR) {
     TEST_ERROR("%s:%s Failed to Stop", TAG, __func__);
   }
 
   switch(filetype_)
   {
+    case AudioFileType::kPCM:
+      delete pcm_file_io_;
+      break;
     case AudioFileType::kAAC:
       delete aac_file_io_;
       break;
@@ -399,6 +429,9 @@ int32_t PlayerTest::StopPlaying() {
       break;
     case AudioFileType::kAMR:
       delete amr_file_io_;
+      break;
+    case AudioFileType::kMP3:
+      delete mp3_file_io_;
       break;
   }
   start_again_ = true;
@@ -544,7 +577,10 @@ int main(int argc,char *argv[]) {
 
     TEST_INFO("%s: exten is: %s", TAG, extn);
 
-    if (strcmp(extn, ".aac") == 0)
+    if (strcmp(extn, ".wav") == 0)
+      test_context.filetype_ = AudioFileType::kPCM;
+
+    else if (strcmp(extn, ".aac") == 0)
       test_context.filetype_ = AudioFileType::kAAC;
 
     else if (strcmp(extn, ".g711") ==0)
@@ -553,14 +589,17 @@ int main(int argc,char *argv[]) {
     else if (strcmp(extn, ".amr") == 0)
       test_context.filetype_ = AudioFileType::kAMR;
 
+    else if (strcmp(extn, ".mp3") == 0)
+      test_context.filetype_ = AudioFileType::kMP3;
+
     else {
       TEST_ERROR("%s:%s %s extn not supported, supported extn are"
-          ".aac, .amr, .g711", TAG,__func__,extn);
+          ".wav, .aac, .amr, .g711, .mp3", TAG,__func__,extn);
       exit_test = true;
         }
   } else {
     TEST_INFO("%s:%s Give some file to play, supported extn"
-        "are .aac, .amr, .g711 ", TAG,__func__);
+        "are .wav, .aac, .amr, .g711, .mp3", TAG,__func__);
     exit_test = true;
   }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -330,7 +330,7 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
       TEST_DBG("%s:%s aac codec profile : %u format : %d ", TAG, __func__,
           aac_codec_data.ucAACProfile,
           static_cast<uint32_t>(aac_codec_data.eAACStreamFormat));
-      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAAC;
+      audio_track_param_.codec       = AudioFormat::kAAC;
       audio_track_param_.codec_params.aac.bit_rate =
           m_sTrackInfo_.sAudio.ulBitRate;
       audio_track_param_.codec_params.aac.format   = AACFormat::kRaw;
@@ -340,12 +340,12 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param_,
         audio_track_param_.sample_rate  = m_sTrackInfo_.sAudio.ulSampleRate * 2;
       }
     } else if (m_sTrackInfo_.sAudio.ulCodecType == 7) {
-      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.codec       = AudioFormat::kAMR;
       audio_track_param_.sample_rate = 16000;
       audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 0;
     } else if (m_sTrackInfo_.sAudio.ulCodecType == 45) {
-      audio_track_param_.codec       = (AudioCodecType)AudioFormat::kAMR;
+      audio_track_param_.codec       = AudioFormat::kAMR;
       audio_track_param_.sample_rate = 16000;
       audio_track_param_.channels    = 1;
       audio_track_param_.codec_params.amr.isWAMR   = 1;

@@ -1,10 +1,12 @@
 source_files = qmmf_player_service.cc
 source_files += qmmf_player_impl.cc
 source_files += qmmf_player_common.cc
+source_files += qmmf_player_ion.cc
 source_files += qmmf_player_remote_cb.cc
 source_files += qmmf_player_audio_decoder_core.cc
 source_files += qmmf_player_video_decoder_core.cc
 source_files += qmmf_player_audio_sink.cc
+source_files += qmmf_player_audio_raw_sink.cc
 source_files += qmmf_player_video_sink.cc
 
 # Build qmmf player service library

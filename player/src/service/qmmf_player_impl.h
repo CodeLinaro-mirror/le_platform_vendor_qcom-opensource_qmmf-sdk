@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -42,6 +42,7 @@
 #include "player/src/service/qmmf_player_audio_decoder_core.h"
 #include "player/src/service/qmmf_player_video_decoder_core.h"
 #include "player/src/service/qmmf_player_audio_sink.h"
+#include "player/src/service/qmmf_player_audio_raw_sink.h"
 #include "player/src/service/qmmf_player_video_sink.h"
 #include "common/qmmf_log.h"
 
@@ -144,6 +145,7 @@ class PlayerImpl {
   typedef struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
+    AudioFormat      codec;
   } TrackInfo;
 
   uint32_t            unique_id_;
@@ -152,6 +154,7 @@ class PlayerImpl {
   AudioDecoderCore*   audio_decoder_core_;
   VideoDecoderCore*   video_decoder_core_;
   AudioSink*          audio_sink_;
+  AudioRawSink*       audio_raw_sink_;
   VideoSink*          video_sink_;
 
   PlayerState         current_state_;

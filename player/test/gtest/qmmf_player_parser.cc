@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -219,7 +219,7 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate = sr;
   params->channels    = channel;
   params->bit_depth   = 16;
-  params->codec       = (AudioCodecType)AudioFormat::kAAC;
+  params->codec       = AudioFormat::kAAC;
   params->codec_params.aac.bit_rate = 55000;
   params->codec_params.aac.format = AACFormat::kADTS;
 
@@ -354,7 +354,7 @@ status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate = sr;
   params->channels    = channel;
   params->bit_depth   = 16;
-  params->codec       = (AudioCodecType)AudioFormat::kG711;
+  params->codec       = AudioFormat::kG711;
   TEST_INFO(" %s:%s:%s Channel = %d, sampling rate = %d",TAG,TAG4,__func__,channel,sr);
 
   if(g711hdr.audio_format == FORMAT_MULAW){
@@ -520,7 +520,7 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate               = sr;
   params->channels                  = channel;
   params->bit_depth                 = 16;
-  params->codec                     = (AudioCodecType)AudioFormat::kAMR;
+  params->codec                     = AudioFormat::kAMR;
   params->codec_params.amr.isWAMR   = mIsWide;
 
   if(mIsWide){
