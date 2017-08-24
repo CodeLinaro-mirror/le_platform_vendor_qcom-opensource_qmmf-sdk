@@ -32,6 +32,7 @@
 #include <queue>
 #include <map>
 #include <set>
+#include <future>
 #include <mutex>
 #include <condition_variable>
 
@@ -289,6 +290,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   struct StitchLibInterface {
     void        *handle;
     void        *context;
+    bool        initialized;
     bool        configured;
     qmmf_alg_status_t (*init)(void **handle,
                               qmmf_alg_blob_t *calibration_data);
@@ -349,6 +351,8 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // The maximum interval in which two frames are thought of as syncable.
   // It is calculated, based on the frame rate.
   int32_t timestamp_max_delta_;
+
+  std::future<status_t>    init_library_status_;
 
   std::mutex               register_buffer_lock_;
 

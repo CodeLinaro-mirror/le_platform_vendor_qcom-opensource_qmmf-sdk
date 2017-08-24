@@ -30,7 +30,6 @@
 #define TAG "RecorderMultiCameraManager"
 
 #include <algorithm>
-#include <future>
 #include <functional>
 #include <cstdlib>
 #include <cstdio>
@@ -1392,24 +1391,23 @@ StitchingBase::~StitchingBase() {
 
 status_t StitchingBase::Initialize() {
 
-  status_t ret = NO_ERROR;
   if (nullptr != memory_pool_.get()) {
     QMMF_WARN("%s:%s: Memory pool already initialized", TAG, __func__);
-    return ret;
+    return NO_ERROR;
   }
   memory_pool_ = new GrallocMemory();
 
-  ret = memory_pool_->Initialize();
+  auto ret = memory_pool_->Initialize();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Unable to create memory pool!", TAG, __func__);
     return ret;
   }
 
-  ret = InitLibrary();
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to open algorithm library!", TAG, __func__);
-  }
-  return ret;
+  init_library_status_ = std::async(
+      std::launch::async, &StitchingBase::InitLibrary, this
+  );
+
+  return NO_ERROR;
 }
 
 status_t StitchingBase::Configure(GrallocMemory::BufferParams &param) {
@@ -1457,6 +1455,14 @@ bool StitchingBase::ThreadLoop() {
       input_buffers.push_back(synced_buffer_queue_.front().valueFor(id));
     }
     synced_buffer_queue_.pop();
+  }
+
+  if (!stitch_lib_.initialized) {
+    if (init_library_status_.get() != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to load algorithm library!", TAG, __func__);
+      return false;
+    }
+    stitch_lib_.initialized = true;
   }
 
   // TODO: add some logic for more than 1 output buffer
