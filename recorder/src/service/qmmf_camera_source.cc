@@ -29,21 +29,18 @@
 
 #define TAG "RecorderCameraSource"
 
-#include <memory>
-
-#include <sys/time.h>
-#include <math.h>
+#include <cmath>
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mman.h>
-#include <mutex>
+#include <sys/time.h>
 
-#include "recorder/src/service/qmmf_camera_source.h"
-#include "recorder/src/service/qmmf_recorder_common.h"
-#include "recorder/src/service/qmmf_recorder_utils.h"
 #ifdef ENABLE_360
 #include "recorder/src/service/qmmf_multicamera_manager.h"
 #endif
+#include "recorder/src/service/qmmf_camera_source.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_recorder_utils.h"
 
 namespace qmmf {
 
