@@ -188,6 +188,8 @@ class CameraContext : public CameraInterface,
 
   status_t CaptureZSLImage();
 
+  status_t SetFlushMode();
+
   //Camera client callbacks.
   void SnapshotCaptureCallback(int32_t stream_id, StreamBuffer buffer);
 
@@ -276,9 +278,9 @@ class CameraContext : public CameraInterface,
 
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
+  bool                     flush_mode_set_;
 
   static const uint32_t kSyncFrameWaitDuration = 500000000; // 500 ms.
-
 };
 
 enum class CameraPortType {

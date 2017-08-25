@@ -368,15 +368,16 @@ int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
 }
 
 int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
+  QMMF_DEBUG("%s:%s Enter", TAG, __func__);
   status_t res;
 
   if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
-    QMMF_ERROR("%s: Not idle\n", __func__);
+    QMMF_ERROR("%s:%s Not idle!", TAG, __func__);
     return -ENOSYS;
   }
 
   if (!reconfig_) {
-    QMMF_ERROR("%s: Skipping config, no stream changes\n", __func__);
+    QMMF_ERROR("%s:%s Skipping config, no stream changes\n", TAG, __func__);
     return 0;
   }
 
@@ -397,7 +398,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
     camera3_stream_t *outputStream;
     outputStream = streams_.editValueAt(i)->BeginConfigure();
     if (outputStream == NULL) {
-      QMMF_ERROR("%s: Can't start stream configuration\n", __func__);
+      QMMF_ERROR("%s:%s Can't start stream configuration\n", TAG, __func__);
       return -ENOSYS;
     }
     streams.add(outputStream);
@@ -419,8 +420,8 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
       if (stream->IsConfigureActive()) {
         res = stream->AbortConfigure();
         if (0 != res) {
-          QMMF_ERROR("Can't abort stream %d configure: %s (%d)\n",
-                     stream->GetId(), strerror(-res), res);
+          QMMF_ERROR("%s:%s:Can't abort stream %d configure: %s (%d)\n", TAG,
+                     __func__, stream->GetId(), strerror(-res), res);
           return res;
         }
       }
@@ -431,8 +432,8 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
 
     return -EINVAL;
   } else if (0 != res) {
-    QMMF_ERROR("%s: Unable to configure streams with HAL: %s (%d)\n", __func__,
-               strerror(-res), res);
+    QMMF_ERROR("%s:%s Unable to configure streams with HAL: %s (%d)\n", TAG,
+               __func__, strerror(-res), res);
     return res;
   }
 
@@ -442,9 +443,9 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
       res = outputStream->EndConfigure();
       if (0 != res) {
         QMMF_ERROR(
-            "%s: Unable to complete stream configuration"
+            "%s:%s Unable to complete stream configuration"
             "%d: %s (%d)\n",
-            __func__, outputStream->GetId(), strerror(-res), res);
+            TAG, __func__, outputStream->GetId(), strerror(-res), res);
         return res;
       }
     }
@@ -463,11 +464,13 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
 
   }
   deleted_streams_.clear();
-
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return 0;
 }
 
 int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
+
+  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   int32_t res = 0;
   Camera3Stream *stream;
   int32_t outputStreamIdx;
@@ -486,15 +489,6 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     case STATE_NOT_CONFIGURED:
     case STATE_CONFIGURED:
     case STATE_RUNNING:
-      if (!cache) {
-        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
-            __func__);
-        res = InternalPauseAndWaitLocked();
-        if (0 != res) {
-          SET_ERR_L("Can't pause captures to reconfigure streams!");
-          goto exit;
-        }
-      }
       break;
     default:
       QMMF_ERROR("%s: Unknown state: %d\n", __func__, state_);
@@ -507,26 +501,40 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
   } else {
     outputStreamIdx = streams_.indexOfKey(streamId);
     if (outputStreamIdx == -ENOENT) {
-      QMMF_ERROR("%s: Stream %d does not exist\n", __func__, streamId);
+      QMMF_ERROR("%s:%s Stream %d does not exist\n", TAG, __func__, streamId);
       res = -EINVAL;
       goto exit;
     }
 
     stream = streams_.editValueAt(outputStreamIdx);
     if (request_handler_.IsStreamActive(*stream)) {
-      QMMF_ERROR("%s: Stream %d still has pending requests\n", __func__,
+      QMMF_ERROR("%s:%s Stream %d still has pending requests\n", TAG, __func__,
                  streamId);
       res = -ENOSYS;
       goto exit;
     }
 
     streams_.removeItem(streamId);
-
     res = stream->Close();
     if (0 != res) {
-      QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
+      QMMF_ERROR("%s:%s Can't close deleted stream %d\n", TAG, __func__,
+          streamId);
     }
+    QMMF_INFO("%s:%s: streamId(%d) removed and closed and left number of"
+        " stream(%d)!!", TAG, __func__, streamId, streams_.size());
+
     if (!cache && !streams_.isEmpty()) {
+        // This is the case when stream reconfiguration is required while other
+        // streams are still active.
+        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
+            __func__);
+        res = InternalPauseAndWaitLocked();
+        if (0 != res) {
+          SET_ERR_L("Can't pause captures to reconfigure streams!");
+          QMMF_ERROR("%s:%s: Can't pause captures to reconfigure streams!", TAG,
+              __func__);
+          goto exit;
+        }
       reconfig_ = true;
       res = ConfigureStreamsLocked();
       if (0 != res) {
@@ -535,7 +543,11 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
         goto exit;
       }
       InternalResumeLocked();
-    } else {
+    } else if (streams_.isEmpty()) {
+        QMMF_INFO("%s:%s: Number of streams left is zero, call HAL "
+          "Flush", TAG, __func__);
+        device_->ops->flush(device_);
+      } else {
       // In this scenario stream will be cached and will not trigger stream
       // reconfiguration. reconfiguration will be triggered in next round of
       // updating streaming capture request - creating a brand new stream or
@@ -1792,6 +1804,7 @@ void Camera3DeviceClient::NotifyStatus(bool idle) {
 }
 
 int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
+
   int32_t res;
   pthread_mutex_lock(&lock_);
 
@@ -1807,17 +1820,13 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
   pthread_mutex_unlock(&lock_);
 
   res = device_->ops->flush(device_);
-
   pthread_mutex_lock(&lock_);
-
   if (0 == res) {
     repeating_requests_.clear();
   }
-
 exit:
 
   pthread_mutex_unlock(&lock_);
-
   return res;
 }
 
@@ -1860,6 +1869,7 @@ void Camera3DeviceClient::InternalUpdateStatusLocked(State state) {
 }
 
 int32_t Camera3DeviceClient::InternalPauseAndWaitLocked() {
+
   request_handler_.TogglePause(true);
   pause_state_notify_ = true;
 
@@ -1867,7 +1877,6 @@ int32_t Camera3DeviceClient::InternalPauseAndWaitLocked() {
   if (0 != res) {
     SET_ERR_L("Can't idle device in %f seconds!", WAIT_FOR_SHUTDOWN / 1e9);
   }
-
   return res;
 }
 
