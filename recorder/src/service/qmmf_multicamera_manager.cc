@@ -344,9 +344,10 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     snapshot_stitch_algo_->Run();
   }
 
+  auto streams = active_streams_;
   if (reconfigure_needed) {
     // Stop all active streams.
-    for (auto const& track_id : active_streams_) {
+    for (auto const& track_id : streams) {
       StopStream(track_id);
     }
   }
@@ -363,7 +364,7 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
 
   if (reconfigure_needed) {
     // Resume all previously active streams.
-    for (auto const& track_id : active_streams_) {
+    for (auto const& track_id : streams) {
       StartStream(track_id);
     }
     // Wait avoid capturing black frames
@@ -490,7 +491,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
 
 
   // Stop all active streams.
-  for (auto const& track_id : active_streams_) {
+  auto streams = active_streams_;
+  for (auto const& track_id : streams) {
     StopStream(track_id);
   }
 
@@ -522,10 +524,9 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
   }
 
   // Resume all previously active streams.
-  for (auto const& track_id : active_streams_) {
+  for (auto const& track_id : streams) {
     StartStream(track_id);
   }
-  active_streams_.push_back(param.id);
   return NO_ERROR;
 }
 
@@ -547,8 +548,6 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
-  auto track = find(active_streams_.begin(), active_streams_.end(), track_id);
-  active_streams_.erase(track);
   return NO_ERROR;
 }
 
@@ -624,6 +623,9 @@ status_t MultiCameraManager::StartStream(const uint32_t track_id) {
       return ret;
     }
   }
+  if (active_streams_.count(track_id) == 0) {
+    active_streams_.emplace(track_id);
+  }
   return ret;
 }
 
@@ -646,6 +648,9 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
       QMMF_ERROR("%s:%s: StopStream Failed!", TAG, __func__);
       return ret;
     }
+  }
+  if (active_streams_.count(track_id) != 0) {
+    active_streams_.erase(track_id);
   }
   return ret;
 }
