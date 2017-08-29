@@ -60,7 +60,7 @@ namespace display {
 /* handle to a specific display client/service connection */
 typedef int32_t DisplayHandle;
 
-#define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.msm8953.so"
+#define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.default.so"
 
 }; //namespace display.
 
