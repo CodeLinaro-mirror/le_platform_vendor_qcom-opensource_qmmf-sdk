@@ -280,7 +280,7 @@ status_t PostProcHalJpeg::Start(const int32_t stream_id) {
   streamParams.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
   streamParams.cb = [&](StreamBuffer buffer) { ReprocessCallback(buffer); };
   ret = context_->CreateDeviceStream(streamParams, output_param_.frame_rate,
-                                     &stream_id_p, true);
+                                     &stream_id_p);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
                __func__, ret);

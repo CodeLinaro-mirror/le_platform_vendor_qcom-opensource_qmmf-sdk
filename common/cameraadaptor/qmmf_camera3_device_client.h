@@ -68,8 +68,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t OpenCamera(uint32_t idx);
   int32_t BeginConfigure() { return 0; }
   int32_t EndConfigure(bool isConstrainedHighSpeed = false,
-                       bool isRawOnly = false, uint32_t batch_size = 1,
-                       bool is_pp_enabled = true);
+                       bool isRawOnly = false,
+                       uint32_t batch_size = 1);
 
   int32_t DeleteStream(int streamId, bool cache);
   int32_t CreateStream(const CameraStreamParameters &outputConfiguration);
@@ -143,8 +143,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t ConfigureStreams(bool isConstrainedHighSpeed = false,
                            bool isRawOnly = false,
-                           uint32_t batch_size = 1,bool is_pp_enabled = true);
-  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true);
+                           uint32_t batch_size = 1);
+  int32_t ConfigureStreamsLocked();
 
   void SetErrorState(const char *fmt, ...);
   void SetErrorStateV(const char *fmt, va_list args);

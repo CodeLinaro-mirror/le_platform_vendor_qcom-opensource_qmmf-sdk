@@ -313,7 +313,7 @@ status_t CameraHalReproc::Start(const int32_t stream_id) {
       { ReprocessCallback(buffer); };
   ret = context_->CreateDeviceStream(out_stream_params,
                                      output_param_.frame_rate,
-                                     &stream_id_p, true);
+                                     &stream_id_p);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
                __func__, ret);

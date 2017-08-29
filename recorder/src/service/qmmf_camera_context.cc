@@ -165,7 +165,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
             stream_param.height, stream_param.format);
 
   ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
-                           &stream_id, true);
+                           &stream_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Failed creating snapshot stream: %d!",
                TAG, __func__, ret);
@@ -988,8 +988,7 @@ Vector<int32_t>& CameraContext::GetSupportedFps() {
 
 status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
-                                           int32_t* stream_id,
-                                           bool is_pp_enabled) {
+                                           int32_t* stream_id) {
 
   Mutex::Autolock lock(device_access_lock_);
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
@@ -1047,9 +1046,8 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     if (params.format == HAL_PIXEL_FORMAT_RAW10) {
       is_raw_only = true;
     }
-
     ret = camera_device_->EndConfigure(is_constrained_mode, is_raw_only,
-                                       batch_size_, is_pp_enabled);
+                                       batch_size_);
     assert(ret == NO_ERROR);
   }
 
@@ -1794,11 +1792,9 @@ status_t CameraPort::Init() {
   cam_stream_params_.grallocFlags =
       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
-  bool is_pp_enabled = true;
+
   if (params_.low_power_mode) {
-      cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
-      is_pp_enabled  = false;
   } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
@@ -1808,6 +1804,7 @@ status_t CameraPort::Init() {
       cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
     }
   }
+
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
   assert(context_ != nullptr);
@@ -1840,8 +1837,7 @@ status_t CameraPort::Init() {
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.frame_rate, &stream_id,
-                                          is_pp_enabled);
+                                          params_.frame_rate, &stream_id);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s:%s: CreateDeviceStream failed!!", TAG, __func__);
     return BAD_VALUE;
@@ -2287,8 +2283,7 @@ status_t ZslPort::SetUpZSL() {
 
   ret = context_->CreateDeviceStream(zsl_stream_params,
                                      cam_start_param.frame_rate,
-                                     &camera_stream_id_,
-                                     true);
+                                     &camera_stream_id_);
   if (NO_ERROR != ret || camera_stream_id_ < 0) {
     QMMF_ERROR("%s:%s: CreateDeviceStream failed!", TAG, __func__);
     return ret;
