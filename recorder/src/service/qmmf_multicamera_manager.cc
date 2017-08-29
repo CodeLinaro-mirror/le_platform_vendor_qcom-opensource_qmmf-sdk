@@ -552,6 +552,16 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
 
   status_t ret = NO_ERROR;
 
+  // Delete the streams backwards since first camera is master camera
+  // and need to be stopped last.
+  for (ssize_t idx = camera_contexts_.size() - 1; idx >= 0; --idx) {
+    ret = DeleteCameraStream(idx, track_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: DeleteCameraStream Failed!", TAG, __func__);
+      return ret;
+    }
+  }
+
   sp<StreamStitching> stitching_algo = stream_stitch_algos_.valueFor(track_id);
   for (uint32_t i = 0; i < camera_contexts_.size(); ++i) {
     sp<CameraContext> camera_context = camera_contexts_.valueAt(i);
@@ -564,16 +574,6 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
     ret = camera_context->RemoveConsumer(track_id, consumer);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: RemoveConsumer Failed!", TAG, __func__);
-      return ret;
-    }
-  }
-
-  // Delete the streams backwards since first camera is master camera
-  // and need to be stopped last.
-  for (ssize_t idx = camera_contexts_.size() - 1; idx >= 0; --idx) {
-    ret = DeleteCameraStream(idx, track_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: DeleteCameraStream Failed!", TAG, __func__);
       return ret;
     }
   }
