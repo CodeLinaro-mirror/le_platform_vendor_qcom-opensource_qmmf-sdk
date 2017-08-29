@@ -2053,19 +2053,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          stream_width,
+                                          stream_height,
+                                          stream_fps };
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            stream_width,
-                                            stream_height,
-                                            stream_fps };
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width  = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
     video_track_param.width       = stream_width;
     video_track_param.height      = stream_height;
     video_track_param.low_power_mode = false;
@@ -2241,19 +2240,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width  = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
     video_track_param.width       = stream_width;
     video_track_param.height      = stream_height;
     video_track_param.frame_rate  = stream_fps;
@@ -2435,19 +2433,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
@@ -2643,19 +2640,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
@@ -3599,19 +3596,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -3923,19 +3920,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -4314,19 +4311,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -4723,19 +4720,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -5142,19 +5139,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -5554,19 +5551,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -5791,19 +5788,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -5906,18 +5903,11 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
     video_track_param.codec_param.avc.ltr_count = 0;
     video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
-    if (dump_bitstream_.IsEnabled()) {
-      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
-                                    video_track_id_480p, stream_width,
-                                    stream_height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
-    }
     video_track_cb.data_cb = [&, session_id](
-            uint32_t track_id, std::vector<BufferDescriptor> buffers,
-            std::vector<MetaData> meta_buffers) {
-            VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
-        };
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -6067,19 +6057,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -6182,17 +6171,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.codec_param.avc.ltr_count = 0;
     video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
-    if (dump_bitstream_.IsEnabled()) {
-      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
-                                    video_track_id_480p, stream_width,
-                                    stream_height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
-    }
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -6218,7 +6200,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -6547,19 +6529,19 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   assert(session_id > 0);
   assert(ret == NO_ERROR);
-
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          3840,
+                                          1920,
+                                          stream_fps};
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
               test_info_->name(), i);
-    VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
-                                            3840,
-                                            1920,
-                                            stream_fps};
+
     // Set parameters for and create 3840x1920 h264 encoded track.
     stream_width = 3840;
     stream_height = 1920;
-    format_type = VideoFormat::kAVC;
+
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = stream_width;
     video_track_param.height = stream_height;
@@ -6662,17 +6644,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.codec_param.avc.ltr_count = 0;
     video_track_param.codec_param.avc.insert_aud_delimiter = true;
 
-    if (dump_bitstream_.IsEnabled()) {
-      Stream360DumpInfo dumpinfo = {video_track_param.format_type,
-                                    video_track_id_480p, stream_width,
-                                    stream_height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
-    }
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
