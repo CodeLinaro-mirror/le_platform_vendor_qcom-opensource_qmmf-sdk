@@ -372,6 +372,7 @@ struct VideoTrackCreateParam {
   }
 
   void setJPEGDefaultParam() {
+
     codec_param.jpeg.enable_thumbnail = false;
     codec_param.jpeg.quality = 95;
     codec_param.jpeg.thumbnail_quality = 75;

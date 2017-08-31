@@ -1384,12 +1384,11 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
         TrackId(), frames_received_.Size());
 
     auto stream_buffer = frames_received_.Begin();
-
     buffer.data =
         const_cast<void*>(reinterpret_cast<const void*>(stream_buffer->handle));
     buffer.fd = stream_buffer->fd;
     buffer.capacity = stream_buffer->frame_length;
-    buffer.size = stream_buffer->filled_length;
+    buffer.size = stream_buffer->size;
     buffer.timestamp = stream_buffer->timestamp;
     buffer.flag = stream_buffer->flags;
 
@@ -1475,8 +1474,9 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     Mutex::Autolock lock(eos_lock_);
     if (eos_acked_ && IsStop()) {
       auto track_format = track_params_.params.format_type;
-      if (track_format == VideoFormat::kAVC
-          || track_format == VideoFormat::kHEVC) {
+      if (track_format == VideoFormat::kAVC ||
+          track_format == VideoFormat::kHEVC ||
+          track_format == VideoFormat::kJPEG) {
         // Return buffer if track is stoped and EOS is acknowledged by AVCodec.
         QMMF_INFO("%s:%s: Track(%x) Stoped and eos is acked!", TAG, __func__,
           TrackId());
