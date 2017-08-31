@@ -30,12 +30,13 @@
 #define TAG "RecorderMultiCameraManager"
 
 #include <algorithm>
+#include <functional>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
+#include <cinttypes>
 #include <fcntl.h>
 #include <dlfcn.h>
-#include <inttypes.h>
-#include <cstdlib>
-#include <stdio.h>
-#include <math.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -57,7 +58,7 @@ static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
-    multicam_start_params_{},
+    start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
     result_cb_(nullptr),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
@@ -135,30 +136,24 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   QMMF_INFO("%s:%s: Total Number of cameras to be open(%d)", TAG, __func__,
       camera_ids.size());
 
+  // Status(std::future) from asynchronous tasks for each camera(uint32_t).
+  std::vector<std::tuple<uint32_t, std::future<status_t>>> results;
+
+  // Open cameras in separate asynchronous tasks.
   for (auto const& cam_id : camera_ids) {
-    if (camera_contexts_.indexOfKey(cam_id) >= 0) {
-      QMMF_WARN("%s:%s: Camera Id(%u) is already open, skipping!", TAG,
-          __func__, cam_id);
-      continue;
-    }
-    QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, cam_id);
+    sp<CameraContext> context = new CameraContext();
+    camera_contexts_.add(cam_id, context);
 
     ResultCb result_cb = [this] (uint32_t camera_id,
       const CameraMetadata &meta) { ResultCallback(camera_id, meta); };
 
-    sp<CameraContext> camera_context = new CameraContext();
-    ret = camera_context->OpenCamera(cam_id, param, result_cb);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: OpenCamera(%d) failed!", TAG, __func__, cam_id);
-      camera_context.clear();
-      return NO_INIT;
-    }
-    camera_contexts_.add(cam_id, camera_context);
+    auto future = std::async(std::launch::async, &CameraContext::OpenCamera,
+                             context.get(), cam_id, param, result_cb);
+    results.push_back(std::make_tuple(cam_id, std::move(future)));
   }
 
-  result_cb_ = cb;
-  multicam_start_params_ = param;
-  supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
+  start_params_ = param;
+  result_cb_    = cb;
 
   StitchingBase::InitParams algo_param {};
   algo_param.multicam_id = virtual_camera_id_;
@@ -184,8 +179,19 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return NO_INIT;
   }
 
+  // Wait for all asynchronous tasks to complete and return status.
+  for (auto& result : results) {
+    auto camera_id = std::get<0>(result);
+    auto future = std::move(std::get<1>(result));
+
+    if (future.get() != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to open camera(%d)!", TAG, __func__, camera_id);
+      ret |= NO_INIT;
+    }
+  }
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
@@ -231,7 +237,7 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
 }
 
-status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
+status_t MultiCameraManager::WaitAecToConverge(const uint32_t timeout) {
 
   // Since both cameras are in sync we need to wait Aec
   // to converge only on main camera
@@ -248,10 +254,10 @@ status_t MultiCameraManager::WaitAecToConverge(nsecs_t timeout) {
 status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
                                           std::vector<CameraMetadata> &meta,
                                           const StreamSnapshotCb& cb) {
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
-  if (multicam_start_params_.zsl_mode) {
+  if (start_params_.zsl_mode) {
     QMMF_ERROR("%s:%s: ZSL not supported!", TAG, __func__);
     return BAD_VALUE;
   }
@@ -298,7 +304,7 @@ status_t MultiCameraManager::CaptureImage(const uint32_t num_images, const
 
 status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
 
-  Mutex::Autolock lock(lock_);
+  std::lock_guard<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
   bool reconfigure_needed = (snapshot_param_.width != param.width) ||
@@ -372,30 +378,31 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
 
 status_t MultiCameraManager::CancelCaptureImage() {
 
-  status_t ret = NO_ERROR;
   snapshot_stitch_algo_->RequestExitAndWait();
 
   {
     // Wait for all currently processed buffers to return.
-    Mutex::Autolock lock(jpeg_lock_);
+    std::unique_lock<std::mutex> lock(jpeg_lock_);
+    std::chrono::nanoseconds wait_time(kWaitJPEGTimeout);
+
     while (!jpeg_buffers_map_.isEmpty()) {
-      ret = wait_for_jpeg_.waitRelative(jpeg_lock_, kWaitJPEGTimeout);
-      if (TIMED_OUT == ret) {
-        QMMF_ERROR("%s%s: Wait for jpeg buffers timed out", TAG, __func__);
-        return ret;
+      auto ret = wait_for_jpeg_.wait_for(lock, wait_time);
+      if (ret == std::cv_status::timeout) {
+        QMMF_ERROR("%s%s: Wait for jpeg buffers timed out!", TAG, __func__);
+        return TIMED_OUT;
       }
     }
   }
 
   for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
+    auto ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG, __func__,
           camera_contexts_.keyAt(i));
       return ret;
     }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
@@ -716,7 +723,7 @@ status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
 CameraStartParam& MultiCameraManager::GetCameraStartParam() {
 
-  return multicam_start_params_;
+  return start_params_;
 }
 
 Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
@@ -797,7 +804,7 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
   out.format = ImageToHalFormat(ImageFormat::kJPEG);
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
-                                       multicam_start_params_.frame_rate, 1,
+                                       start_params_.frame_rate, 1,
                                        param.image_quality, nullptr, jpeg_cb,
                                        nullptr);
   if (ret < NO_ERROR) {
@@ -877,7 +884,7 @@ void MultiCameraManager::OnJpegImageAvailable(StreamBuffer in_buffer,
   // Map output(encoded) buffer's fd to StreamBuffer. This is needed to
   // return encoded buffers to their owners on ReturnImageCaptureBuffer.
   {
-    Mutex::Autolock lock(jpeg_lock_);
+    std::lock_guard<std::mutex> lock(jpeg_lock_);
     jpeg_buffers_map_.add(out_buffer.fd, out_buffer);
   }
 
@@ -903,9 +910,9 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
     return ret;
   }
   {
-    Mutex::Autolock lock(jpeg_lock_);
+    std::lock_guard<std::mutex> lock(jpeg_lock_);
     jpeg_buffers_map_.removeItem(buffer_id);
-    wait_for_jpeg_.signal();
+    wait_for_jpeg_.notify_one();
   }
   return NO_ERROR;
 }
@@ -1341,24 +1348,23 @@ StitchingBase::~StitchingBase() {
 
 status_t StitchingBase::Initialize() {
 
-  status_t ret = NO_ERROR;
   if (nullptr != memory_pool_.get()) {
     QMMF_WARN("%s:%s: Memory pool already initialized", TAG, __func__);
-    return ret;
+    return NO_ERROR;
   }
   memory_pool_ = new GrallocMemory();
 
-  ret = memory_pool_->Initialize();
+  auto ret = memory_pool_->Initialize();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Unable to create memory pool!", TAG, __func__);
     return ret;
   }
 
-  ret = InitLibrary();
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to open algorithm library!", TAG, __func__);
-  }
-  return ret;
+  init_library_status_ = std::async(
+      std::launch::async, &StitchingBase::InitLibrary, this
+  );
+
+  return NO_ERROR;
 }
 
 status_t StitchingBase::Configure(GrallocMemory::BufferParams &param) {
@@ -1382,31 +1388,25 @@ void StitchingBase::RequestExitAndWait() {
 
 bool StitchingBase::ThreadLoop() {
 
-  status_t ret = NO_ERROR;
   Vector<StreamBuffer> input_buffers, output_buffers;
-
   {
-    Mutex::Autolock lock(sync_lock_);
     // If there aren't any pending synchronized buffers waiting to go through
     // stitch processing, wait until such buffer becomes available.
-    if (synced_buffer_queue_.empty() && !stop_frame_sync_) {
-      if (use_frame_sync_timeout) {
-        ret = wait_for_sync_frames_.waitRelative(sync_lock_, kFrameSyncTimeout);
-      } else {
-        ret = wait_for_sync_frames_.wait(sync_lock_);
-      }
-      if (NO_ERROR != ret) {
-        QMMF_DEBUG("%s:%s: Wait for frame available failed, ret(%d)", TAG,
-            __func__, ret);
-        return true;
-      }
-    }
+    std::unique_lock<std::mutex> lock(sync_lock_);
+    std::chrono::nanoseconds wait_time(kFrameSyncTimeout);
 
-   // Exit from thread loop if frame sync is stopped
-   if (stop_frame_sync_) {
-      // Exit from thread loop if frame sync is stopped
-      return false;
+    while (synced_buffer_queue_.empty() && !stop_frame_sync_) {
+      if (use_frame_sync_timeout) {
+        auto ret = wait_for_sync_frames_.wait_for(lock, wait_time);
+        if (ret == std::cv_status::timeout) {
+          QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG,__func__);
+        }
+      } else {
+        wait_for_sync_frames_.wait(lock);
+      }
     }
+    // Exit from thread loop if frame sync is stopped
+    if (stop_frame_sync_) return false;
 
     for (auto const& id : params_.camera_ids) {
       input_buffers.push_back(synced_buffer_queue_.front().valueFor(id));
@@ -1414,10 +1414,18 @@ bool StitchingBase::ThreadLoop() {
     synced_buffer_queue_.pop();
   }
 
+  if (!stitch_lib_.initialized) {
+    if (init_library_status_.get() != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to load algorithm library!", TAG, __func__);
+      return false;
+    }
+    stitch_lib_.initialized = true;
+  }
+
   // TODO: add some logic for more than 1 output buffer
   StreamBuffer b {};
 
-  ret = memory_pool_->GetBuffer(b.handle);
+  auto ret = memory_pool_->GetBuffer(b.handle);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Unable to retrieve gralloc buffer", TAG, __func__);
     return true;
@@ -1447,7 +1455,7 @@ bool StitchingBase::ThreadLoop() {
   }
 
   {
-    Mutex::Autolock lock(buffers_lock_);
+    std::lock_guard<std::mutex> lock(buffers_lock_);
     for (auto const& buffer : input_buffers) {
       std::pair<buffer_handle_t, StreamBuffer> pair (buffer.handle, buffer);
       process_buffers_map_.insert(pair);
@@ -1560,9 +1568,9 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     unsynced_buffers->removeItemsAt(0, match_idx);
   }
 
-  Mutex::Autolock lock(sync_lock_);
+  std::lock_guard<std::mutex> lock(sync_lock_);
   synced_buffer_queue_.push(synced_frames);
-  wait_for_sync_frames_.signal();
+  wait_for_sync_frames_.notify_one();
 
   return NO_ERROR;
 }
@@ -1581,9 +1589,9 @@ status_t StitchingBase::StopFrameSync() {
   status_t ret = NO_ERROR;
   {
     //First signal the thread to not wait on frames
-    Mutex::Autolock sync_lock(sync_lock_);
+    std::lock_guard<std::mutex> lock(sync_lock_);
     stop_frame_sync_ = true;
-    wait_for_sync_frames_.signal();
+    wait_for_sync_frames_.notify_one();
   }
   // We need to wait thread to exit to avoid ace between
   // flush and ongoing processing in the thread
@@ -1598,13 +1606,13 @@ status_t StitchingBase::StopFrameSync() {
     }
   }
   {
-    Mutex::Autolock lock(sync_lock_);
     // Return all synced but unconsumed buffers back to the camera contexts.
+    std::lock_guard<std::mutex> lock(sync_lock_);
+
     while (!synced_buffer_queue_.empty()) {
       for (auto const& id : params_.camera_ids) {
         StreamBuffer &buffer = synced_buffer_queue_.front().editValueFor(id);
-        ret = ReturnBufferToCamera(buffer);
-        if (NO_ERROR != ret) {
+        if (ReturnBufferToCamera(buffer) != NO_ERROR) {
           QMMF_ERROR("%s:%s: Failed to return buffer %p for camera %d", TAG,
               __func__, buffer.handle, id);
         }
@@ -1614,23 +1622,26 @@ status_t StitchingBase::StopFrameSync() {
   }
   // Flush all pending buffers from the library.
   FlushLibrary();
+
   // Wait for all currently processed buffers to return.
-  Mutex::Autolock lock(buffers_lock_);
+  std::unique_lock<std::mutex> lock(buffers_lock_);
+  std::chrono::nanoseconds wait_time(kWaitBuffersTimeout);
+
   while (!process_buffers_map_.empty()) {
-    ret = wait_for_buffers_.waitRelative(buffers_lock_, kWaitBuffersTimeout);
-    if (TIMED_OUT == ret) {
+    auto ret = wait_for_buffers_.wait_for(lock, wait_time);
+    if (ret == std::cv_status::timeout) {
       QMMF_ERROR("%s%s: Wait for processed buffers timed out", TAG, __func__);
-      break;
+      return TIMED_OUT;
     }
   }
-  return ret;
+  return NO_ERROR;
 }
 
 status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
                                               qmmf_alg_status_t status) {
 
   status_t ret = NO_ERROR;
-  Mutex::Autolock lock(buffers_lock_);
+  std::lock_guard<std::mutex> lock(buffers_lock_);
   if (process_buffers_map_.find(handle) == process_buffers_map_.end()) {
     QMMF_ERROR("%s:%s: Buffer %p not registered", TAG, __func__, handle);
     return BAD_VALUE;
@@ -1650,7 +1661,7 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
     ret = ReturnBufferToCamera(buffer);
   }
   process_buffers_map_.erase(handle);
-  wait_for_buffers_.signal();
+  wait_for_buffers_.notify_one();
 
   return ret;
 }
@@ -2180,35 +2191,36 @@ status_t GrallocMemory::Configure(BufferParams &params) {
 
 status_t GrallocMemory::GetBuffer(buffer_handle_t &buffer) {
 
-  status_t ret = NO_ERROR;
-  Mutex::Autolock lock(buffer_lock_);
+  std::unique_lock<std::mutex> lock(buffer_lock_);
+  std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
 
-  if (pending_buffer_count_ == params_.max_buffer_count) {
+  while (pending_buffer_count_ == params_.max_buffer_count) {
     QMMF_VERBOSE("%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one", __func__, params_.max_buffer_count);
 
-    ret = wait_for_buffer_.waitRelative(buffer_lock_, kBufferWaitTimeout);
-    if (ret == TIMED_OUT) {
+    auto ret = wait_for_buffer_.wait_for(lock, wait_time);
+    if (ret == std::cv_status::timeout) {
       QMMF_ERROR("%s: Wait for output buffer return timed out", __func__);
-      return ret;
+      return TIMED_OUT;
     }
   }
-  ret = GetBufferLocked(buffer);
+  auto ret = GetBufferLocked(buffer);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to retrieve output buffer", __func__);
+    return ret;
   }
 
-  return ret;
+  return NO_ERROR;
 }
 
 status_t GrallocMemory::ReturnBuffer(const buffer_handle_t &buffer) {
 
-  Mutex::Autolock lock(buffer_lock_);
+  std::lock_guard<std::mutex> lock(buffer_lock_);
   QMMF_DEBUG("%s: Buffer(%p) returned to memory pool", __func__, buffer);
 
   status_t ret = ReturnBufferLocked(buffer);
   if (ret == NO_ERROR) {
-    wait_for_buffer_.signal();
+    wait_for_buffer_.notify_one();
   }
   return ret;
 }
@@ -2289,7 +2301,7 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
   }
 
   {
-    Mutex::Autolock lock(buffer_lock_);
+    std::lock_guard<std::mutex> lock(buffer_lock_);
     bool is_valid_handle = false;
     for (uint32_t i = 0; i < buffers_allocated_; ++i) {
       if (gralloc_slots_[i] == buffer) {

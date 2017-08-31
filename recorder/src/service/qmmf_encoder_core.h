@@ -29,6 +29,8 @@
 
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
 #include <memory>
 #include <vector>
 #include <sys/time.h>
@@ -145,10 +147,7 @@ class TrackEncoder : public ICodecSource {
 
   TSQueue<BufferDescriptor>  output_free_buffer_queue_;
   TSQueue<BufferDescriptor>  output_occupy_buffer_queue_;
-  Mutex                      lock_;
-  Condition                  wait_for_frame_;
   int32_t                    ion_device_;
-  Mutex                      queue_lock_;
   bool                       eos_atoutput_;
 #ifdef DUMP_BITSTREAM
   int32_t                    file_fd_;
@@ -163,6 +162,9 @@ class TrackEncoder : public ICodecSource {
 
   // FD and IonHandle map
   ::std::map<int32_t, struct ion_handle_data> fd_ion_handle_map_;
+
+  std::mutex                 queue_lock_;
+  std::condition_variable    wait_for_frame_;
 };
 
 }; // namespace recorder

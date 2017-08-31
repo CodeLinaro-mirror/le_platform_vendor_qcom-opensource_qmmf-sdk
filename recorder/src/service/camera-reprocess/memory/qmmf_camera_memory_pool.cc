@@ -129,8 +129,7 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
     QMMF_ERROR("%s:%s: Not expecting any buffers!", TAG, __func__);
     return INVALID_OPERATION;
   }
-
-  Mutex::Autolock lock(buffer_lock_);
+  std::lock_guard<std::mutex> lock(buffer_lock_);
 
   int32_t idx = gralloc_buffers_.indexOfKey(buffer.handle);
   if (-ENOENT == idx) {
@@ -142,14 +141,14 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
   gralloc_buffers_.replaceValueFor(buffer.handle, true);
   pending_buffer_count_--;
 
-  wait_for_buffer_.signal();
+  wait_for_buffer_.notify_one();
   return NO_ERROR;
 }
 
 status_t MemPool::GetBuffer(StreamBuffer* buffer) {
 
-  status_t ret = NO_ERROR;
-  Mutex::Autolock lock(buffer_lock_);
+  std::unique_lock<std::mutex> lock(buffer_lock_);
+  std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
 
   if (gralloc_slots_ == nullptr) {
     buffer->fd = -1;
@@ -160,19 +159,20 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     QMMF_VERBOSE("%s:%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one", TAG, __func__, init_params_.max_buffer_count);
 
-    ret = wait_for_buffer_.waitRelative(buffer_lock_, kBufferWaitTimeout);
-    if (ret == TIMED_OUT) {
+    auto ret = wait_for_buffer_.wait_for(lock, wait_time);
+    if (ret == std::cv_status::timeout) {
       QMMF_ERROR("%s:%s: Wait for output buffer return timed out", TAG,
                  __func__);
-      return ret;
+      return TIMED_OUT;
     }
   }
-  ret = GetBufferLocked(buffer);
+  auto ret = GetBufferLocked(buffer);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to retrieve output buffer", TAG, __func__);
+    return ret;
   }
 
-  return ret;
+  return NO_ERROR;
 }
 
 status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {

@@ -415,13 +415,13 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
   QMMF_INFO("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   if (is_force_cleanup) {
     QMMF_INFO("%s:%s track_id(%x) Force cleanup", TAG, __func__, TrackId());
-    Mutex::Autolock lock(queue_lock_);
+    std::lock_guard<std::mutex> lock(queue_lock_);
     is_force_cleanup_ = true;
     List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.notify_one();
     }
   }
   assert(avcodec_ != nullptr);
@@ -502,11 +502,11 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
 
   // Give available free buffer to encoder to use on output port.
-  if(output_free_buffer_queue_.Size() <= 0) {
+  while (output_free_buffer_queue_.Size() <= 0) {
     QMMF_DEBUG("%s:%s track_id(%x) No buffer available to notify,"
       " Wait for new buffer", TAG, __func__, TrackId());
-    Mutex::Autolock autoLock(lock_);
-    wait_for_frame_.wait(lock_);
+    std::unique_lock<std::mutex> lock(queue_lock_);
+    wait_for_frame_.wait(lock);
     //TODO: change simple wait to relative wait.
   }
 
@@ -525,7 +525,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
 
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
-    Mutex::Autolock lock(queue_lock_);
+    std::lock_guard<std::mutex> lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
   QMMF_DEBUG("%s:%s track_id(%x) Sending buffer(0x%p) fd(%d) for FTB", TAG,
@@ -581,7 +581,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
       QMMF_VERBOSE("%s:%s track_id(%x) Buffer found", TAG, __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.notify_one();
       found = true;
       break;
     }
@@ -594,7 +594,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
     //  buffer with EOS is already notified to application before setting
     //  eos_atoutput_ to true.
     {
-      Mutex::Autolock lock(queue_lock_);
+      std::lock_guard<std::mutex> lock(queue_lock_);
       List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if (((*it).data) == (codec_buffer.data)) {
@@ -640,7 +640,7 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
     QMMF_DEBUG("%s:%s track_id(%x) output_occupy_buffer_queue_.size(%d)",
         TAG, __func__, TrackId(), output_occupy_buffer_queue_.Size());
     {
-      Mutex::Autolock lock(queue_lock_);
+      std::lock_guard<std::mutex> lock(queue_lock_);
       List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
       for (; it != output_occupy_buffer_queue_.End(); ++it) {
         if ((*it).fd == static_cast<int32_t>(iter.buffer_id)) {
@@ -651,7 +651,7 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
           output_free_buffer_queue_.PushBack((*it));
           // Erase buffer from occupy queue.
           output_occupy_buffer_queue_.Erase(it);
-          wait_for_frame_.signal();
+          wait_for_frame_.notify_one();
           match = true;
           break;
         }
@@ -683,7 +683,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   }
 
   {
-    Mutex::Autolock lock(queue_lock_);
+    std::lock_guard<std::mutex> lock(queue_lock_);
     if (is_force_cleanup_) {
       QMMF_WARN("%s:%s: Force cleanup is triggered! client may not exist!",
         TAG, __func__);
