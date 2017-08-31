@@ -117,13 +117,13 @@ void ExifGenerator::WriteExifTag(qmmf_exif_tag_t *tag) {
   tag_id = tag->id & 0xFFFF;
 
   WriteShort(tag_id, exif_buffer_, &current_offset_);
-  WriteShort(static_cast<uint16_t>(tag->entry.type), exif_buffer_, &current_offset_);
+  WriteShort(static_cast<uint16_t>(tag->type), exif_buffer_, &current_offset_);
   WriteLong(static_cast<int32_t>(tag->entry.count), exif_buffer_,
             &current_offset_);
 
   // Calculate the size of the information that need's to be written
   // in tag's data field, based on the count and size of the data.
-  write_length = tag_type_sizes[tag->entry.type] * tag->entry.count;
+  write_length = tag_type_sizes[tag->type] * tag->entry.count;
   QMMF_VERBOSE("%s: %s write_length %d", TAG, __func__, write_length);
 
   // Write tag's data value, depending on the size of the info.
@@ -196,37 +196,37 @@ void ExifGenerator::WriteGpsIfd() {
   if (gps_coords_present_) {
     tag.entry.count = ARRAY_SIZE(tag_values_.latitude);
     tag.entry.data._rats = tag_values_.latitude;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
     tag.id = QMMF_EXIFTAGID_GPS_LATITUDE;
     WriteExifTag(&tag);
 
     tag.entry.count = ARRAY_SIZE(tag_values_.latitude_reference);
     tag.entry.data._ascii = tag_values_.latitude_reference;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
     tag.id = QMMF_EXIFTAGID_GPS_LATITUDE_REF;
     WriteExifTag(&tag);
 
     tag.entry.count = ARRAY_SIZE(tag_values_.longitude);
     tag.entry.data._rats = tag_values_.longitude;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
     tag.id = QMMF_EXIFTAGID_GPS_LONGITUDE;
     WriteExifTag(&tag);
 
     tag.entry.count = ARRAY_SIZE(tag_values_.longitude_reference);
     tag.entry.data._ascii = tag_values_.longitude_reference;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
     tag.id = QMMF_EXIFTAGID_GPS_LONGITUDE_REF;
     WriteExifTag(&tag);
 
     tag.entry.count = 1;
     tag.entry.data._rat = tag_values_.altitude;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
     tag.id = QMMF_EXIFTAGID_GPS_ALTITUDE;
     WriteExifTag(&tag);
 
     tag.entry.count = 1;
     tag.entry.data._byte = tag_values_.altitude_reference;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_BYTE;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_BYTE;
     tag.id = QMMF_EXIFTAGID_GPS_ALTITUDE_REF;
     WriteExifTag(&tag);
   }
@@ -234,13 +234,13 @@ void ExifGenerator::WriteGpsIfd() {
   if (gps_timestamp_present_) {
     tag.entry.count = 3;
     tag.entry.data._rats = tag_values_.gps_timestamp;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
     tag.id = QMMF_EXIFTAGID_GPS_TIMESTAMP;
     WriteExifTag(&tag);
 
     tag.entry.count = (uint32_t)(strlen(tag_values_.gps_datestamp) + 1);
     tag.entry.data._ascii = tag_values_.gps_datestamp;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
     tag.id = QMMF_EXIFTAGID_GPS_DATESTAMP;
     WriteExifTag(&tag);
   }
@@ -248,7 +248,7 @@ void ExifGenerator::WriteGpsIfd() {
   if (gps_proc_method_present_) {
     tag.entry.count = gps_proc_method_size_;
     tag.entry.data._ascii = tag_values_.gps_processing_method;
-    tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+    tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
     tag.id = QMMF_EXIFTAGID_GPS_PROCESSINGMETHOD;
     WriteExifTag(&tag);
   }
@@ -264,14 +264,14 @@ void ExifGenerator::WriteInteropIfd() {
   tag_count_offset_ = current_offset_;
   current_offset_ += 2;
 
-  tag.entry.type = QMMF_EXIF_ASCII;
+  tag.type = QMMF_EXIF_ASCII;
   tag.entry.copy = 0;
   tag.entry.count = 4;
   tag.entry.data._ascii = (char*)kDefaultVersionName;
   tag.id = QMMF_CONSTRUCT_TAGID(QMMF_EXIF_TAG_MAX_OFFSET, 0x0001);
   WriteExifTag(&tag);
 
-  tag.entry.type = QMMF_EXIF_UNDEFINED;
+  tag.type = QMMF_EXIF_UNDEFINED;
   tag.entry.copy = 0;
   tag.entry.count = 4;
   tag.entry.data._ascii = (char*)kDefaultVersion;
@@ -297,19 +297,19 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = 1;
   tag.entry.data._rat = tag_values_.exposure_time;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
   tag.id = QMMF_EXIFTAGID_EXPOSURE_TIME;
   WriteExifTag(&tag);
 
   tag.entry.count = 1;
   tag.entry.data._rat = tag_values_.aperture;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
   tag.id = QMMF_EXIFTAGID_F_NUMBER;
   WriteExifTag(&tag);
 
   tag.entry.count = 1;
   tag.entry.data._short = tag_values_.iso_speed;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
   tag.id = QMMF_EXIFTAGID_ISO_SPEED_RATING;
   WriteExifTag(&tag);
 
@@ -319,7 +319,7 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = static_cast<uint32_t>(date_time.length() + 1);
   tag.entry.data._ascii = const_cast<char *>(date_time.c_str());
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
   tag.id = QMMF_EXIFTAGID_DATE_TIME;
   WriteExifTag(&tag);
 
@@ -331,7 +331,7 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = 1;
   tag.entry.data._rat = tag_values_.aperture;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_RATIONAL;
   tag.id = QMMF_EXIFTAGID_APERTURE;
   WriteExifTag(&tag);
 
@@ -341,7 +341,7 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = static_cast<uint32_t>(subsec_time.length() + 1);
   tag.entry.data._ascii = const_cast<char *>(subsec_time.c_str());
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
   tag.id = QMMF_EXIFTAGID_SUBSEC_TIME;
   WriteExifTag(&tag);
 
@@ -353,7 +353,7 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = 1;
   tag.entry.data._long = width_;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_LONG;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_LONG;
   tag.id = QMMF_EXIFTAGID_EXIF_PIXEL_X_DIMENSION;
   WriteExifTag(&tag);
 
@@ -368,13 +368,13 @@ void ExifGenerator::WriteExifIfd() {
 
   tag.entry.count = 1;
   tag.entry.data._short = tag_values_.aeMode;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
   tag.id = QMMF_EXIFTAGID_EXPOSURE_MODE;
   WriteExifTag(&tag);
 
   tag.entry.count = 1;
   tag.entry.data._short = tag_values_.awb_mode;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_SHORT;
   tag.id = QMMF_EXIFTAGID_WHITE_BALANCE;
   WriteExifTag(&tag);
 
@@ -394,26 +394,26 @@ void ExifGenerator::Write0thIfd() {
 
   tag.entry.count = static_cast<uint32_t>(vendor_name_.length() + 1);
   tag.entry.data._ascii = const_cast<char *>(vendor_name_.c_str());
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
   tag.id = QMMF_EXIFTAGID_MAKE;
   WriteExifTag(&tag);
 
   tag.entry.count = static_cast<uint32_t>(product_name_.length() + 1);
   tag.entry.data._ascii = const_cast<char *>(product_name_.c_str());
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
   tag.id = QMMF_EXIFTAGID_MODEL;
   WriteExifTag(&tag);
 
   tag.entry.count = static_cast<uint32_t>(product_name_.length() + 1);
   tag.entry.data._ascii = const_cast<char *>(product_name_.c_str());
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIF_ASCII;
   tag.id = QMMF_EXIFTAGID_SOFTWARE;
   WriteExifTag(&tag);
 
   exif_ifd_pointer_offset_ = current_offset_;
   tag.entry.count = 1;
   tag.entry.data._long = 0;
-  tag.entry.type = (qmmf_exif_tag_type_t)QMMF_EXIFTAGTYPE_EXIF_IFD_PTR;
+  tag.type = (qmmf_exif_tag_type_t)QMMF_EXIFTAGTYPE_EXIF_IFD_PTR;
   tag.id = QMMF_EXIFTAGID_EXIF_IFD_PTR;
   WriteExifTag(&tag);
 
@@ -742,10 +742,9 @@ uint32_t ExifGenerator::WriteExifData() {
 
 void ExifGenerator::WriteTagValue(qmmf_exif_tag_t *tag, unsigned char *buffer,
                                   uint32_t *offset) {
-  uint32_t write_length = tag_type_sizes[tag->entry.type] * tag->entry.count;
+  uint32_t write_length = tag_type_sizes[tag->type] * tag->entry.count;
 
-  if (tag->entry.type == QMMF_EXIF_ASCII ||
-      tag->entry.type == QMMF_EXIF_UNDEFINED) {
+  if (tag->type == QMMF_EXIF_ASCII || tag->type == QMMF_EXIF_UNDEFINED) {
     if (write_length < 4) {
         WriteNBytes(reinterpret_cast<uint8_t *>(tag->entry.data._ascii),
                     write_length, buffer, offset);
@@ -755,7 +754,7 @@ void ExifGenerator::WriteTagValue(qmmf_exif_tag_t *tag, unsigned char *buffer,
     }
   } else if (tag->entry.count > 1) {
     for (uint32_t i = 0; i < tag->entry.count; ++i) {
-      switch (tag->entry.type) {
+      switch (tag->type) {
       case QMMF_EXIF_BYTE:
         WriteByte((uint8_t) tag->entry.data._bytes[i], buffer, offset);
         break;
@@ -791,7 +790,7 @@ void ExifGenerator::WriteTagValue(qmmf_exif_tag_t *tag, unsigned char *buffer,
       }
     }
   } else {
-    switch (tag->entry.type) {
+    switch (tag->type) {
     case QMMF_EXIF_BYTE:
       WriteByte((uint8_t) tag->entry.data._byte, buffer, offset);
       break;

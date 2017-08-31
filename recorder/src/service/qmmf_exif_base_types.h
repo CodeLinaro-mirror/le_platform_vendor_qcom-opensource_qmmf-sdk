@@ -88,7 +88,6 @@ typedef enum {
 typedef uint32_t qmmf_exif_tag_id_t;
 
 typedef struct {
-  qmmf_exif_tag_type_t type;
   uint8_t copy;
   uint32_t count;
   union {
@@ -110,8 +109,9 @@ typedef struct {
 } qmmf_exif_tag_entry_t;
 
 typedef struct {
-  qmmf_exif_tag_entry_t entry;
   qmmf_exif_tag_id_t id;
+  qmmf_exif_tag_type_t type;
+  qmmf_exif_tag_entry_t entry;
 } qmmf_exif_tag_t;
 
 struct ExifTagValues {

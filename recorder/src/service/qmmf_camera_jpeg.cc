@@ -350,10 +350,10 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
   status_t res = NO_ERROR;
   uint32_t tag_data_offset;
 
-  switch (tag->entry.type) {
+  switch (tag->type) {
   case QMMF_EXIF_SHORT:
     tag->entry.data._short = readU16(binary, offset);
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+    constructExifTag(tag->id, tag->entry.count, tag->type,
         &tag->entry.data._short);
     offset += kTagDataSize;
     break;
@@ -366,7 +366,7 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
     } else if (tag->id == QMMF_EXIFTAGID_INTEROP_IFD_PTR) {
       interop_ifd_ptr_offset_ = tag->entry.data._long + 10;
     } else {
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+      constructExifTag(tag->id, tag->entry.count, tag->type,
         &tag->entry.data._long);
     }
     offset += kTagDataSize;
@@ -382,13 +382,13 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
         tag->entry.data._rats[i].denom = readU32(binary, tag_data_offset);
         tag_data_offset += kTagDataSize;
       }
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+      constructExifTag(tag->id, tag->entry.count, tag->type,
         tag->entry.data._rats);
     } else {
       tag->entry.data._rat.num = readU32(binary, tag_data_offset);
       tag_data_offset += kTagDataSize;
       tag->entry.data._rat.denom = readU32(binary, tag_data_offset);
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+      constructExifTag(tag->id, tag->entry.count, tag->type,
           &tag->entry.data._rat);
     }
     offset += kTagDataSize;
@@ -407,13 +407,13 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
       tag->entry.data._ascii = new char[tag->entry.count];
       memcpy(tag->entry.data._ascii, binary + tag_data_offset, tag->entry.count);
     }
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+    constructExifTag(tag->id, tag->entry.count, tag->type,
         tag->entry.data._ascii);
     offset += kTagDataSize;
     break;
   case QMMF_EXIF_BYTE:
     tag->entry.data._byte = (uint8_t) ((uint8_t) binary[offset] << 8);
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
+    constructExifTag(tag->id, tag->entry.count, tag->type,
         &tag->entry.data._byte);
     offset += kTagDataSize;
     break;
@@ -523,7 +523,7 @@ status_t CameraJpeg::parseIfd(const uint8_t *binary, uint32_t &offset) {
     exif_id = readU16(binary, offset);
     offset += kTagIdSize;
     tag.id = getTagIdByExifId(exif_id);
-    tag.entry.type = (qmmf_exif_tag_type_t) readU16(binary, offset);
+    tag.type = (qmmf_exif_tag_type_t) readU16(binary, offset);
     offset += kTagTypeSize;
     tag.entry.count = readU32(binary, offset);
     offset += kTagCountSize;
@@ -637,7 +637,7 @@ void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
   qmmf_exif_tag_t tag;
   memset(&tag, 0, sizeof(qmmf_exif_tag_t));
   tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
+  tag.type = (qmmf_exif_tag_type_t) type;
   tag.entry.count = count;
   tag.entry.data._byte = *data;
   exif_entities_.push_back(tag);
@@ -648,7 +648,7 @@ void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
   qmmf_exif_tag_t tag;
   memset(&tag, 0, sizeof(qmmf_exif_tag_t));
   tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
+  tag.type = (qmmf_exif_tag_type_t) type;
   tag.entry.count = count;
   tag.entry.data._short = *data;
   exif_entities_.push_back(tag);
@@ -659,7 +659,7 @@ void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
   qmmf_exif_tag_t tag;
   memset(&tag, 0, sizeof(qmmf_exif_tag_t));
   tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
+  tag.type = (qmmf_exif_tag_type_t) type;
   tag.entry.count = count;
   tag.entry.data._long = *data;
   exif_entities_.push_back(tag);
@@ -670,7 +670,7 @@ void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
   qmmf_exif_tag_t tag;
   memset(&tag, 0, sizeof(qmmf_exif_tag_t));
   tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
+  tag.type = (qmmf_exif_tag_type_t) type;
   tag.entry.count = count;
   if (count > 1) {
     tag.entry.data._rats = data;
@@ -685,7 +685,7 @@ void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
   qmmf_exif_tag_t tag;
   memset(&tag, 0, sizeof(qmmf_exif_tag_t));
   tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
+  tag.type = (qmmf_exif_tag_type_t) type;
   tag.entry.count = count;
   tag.entry.data._ascii = data;
   exif_entities_.push_back(tag);
