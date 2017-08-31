@@ -1339,7 +1339,6 @@ TEST_F(RecorderGtest, 4KSnapshot) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
-
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     assert(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
@@ -2831,8 +2830,368 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
 }
 
 /*
+* SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps:
+*                            This test will test session with one 1080p H264 30
+*                            fps, 1080p Mjpeg 10 fps and 1080p Jpeg encode with
+*                            one fps
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack for h264,mjpeg
+*  - StartVideoTrack
+*  - Take snapshot
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param_1{camera_id_, format_type, 1920, 1080,
+                                            30};
+  uint32_t video_track_id_1 = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {format_type, video_track_id_1, width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_1,
+                                   video_track_param_1, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id_1);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  uint32_t video_track_id_mjpeg = 2;
+  VideoTrackCreateParam video_track_param_2{camera_id_, VideoFormat::kJPEG,
+                                            1920, 1080, 10};
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, video_track_id_mjpeg, width,
+                               height};
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackTwoEncDataCb(session_id, video_track_id_mjpeg, buffers,
+                           meta_buffers);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_mjpeg,
+                                   video_track_param_2, video_track_cb);
+  assert(ret == NO_ERROR);
+  track_ids.push_back(video_track_id_mjpeg);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+  sleep(2);
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+  std::vector<CameraMetadata> meta_array;
+  meta_array.push_back(meta);
+  for (uint32_t i = 1; i <= record_duration_; i++) {
+    ImageParam image_param;
+    memset(&image_param, 0x0, sizeof image_param);
+    image_param.width = 1920;
+    image_param.height = 1080;
+    image_param.image_format = ImageFormat::kJPEG;
+    image_param.image_quality = 95;
+
+    ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
+                               BufferDescriptor buffer,
+                               MetaData meta_data) -> void {
+      SnapshotCb(camera_id, image_count, buffer, meta_data);
+    };
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    sleep(1);
+  }
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1);
+  assert(ret == NO_ERROR);
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_mjpeg);
+  assert(ret == NO_ERROR);
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+  dump_bitstream_.CloseAll();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith1080Enc30fps1080pMJpeg10fps:
+*                            This test will test session with one 1080p H264 30
+*                            fps and 1080p Mjpeg 10 fps.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack for h264,mjpeg
+*  - StartVideoTrack
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param_1{camera_id_, format_type, 1920,
+                                              1080, 30};
+    uint32_t video_track_id_1 = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {format_type, video_track_id_1, width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1,
+                                     video_track_param_1, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_1);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    uint32_t video_track_id_mjpeg = 2;
+    VideoTrackCreateParam video_track_param_2{camera_id_, VideoFormat::kJPEG,
+                                              1920, 1080, 10};
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, video_track_id_mjpeg,
+                                 width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(session_id, video_track_id_mjpeg, buffers,
+                             meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_mjpeg,
+                                     video_track_param_2, video_track_cb);
+    assert(ret == NO_ERROR);
+    track_ids.push_back(video_track_id_mjpeg);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_mjpeg);
+    assert(ret == NO_ERROR);
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+    dump_bitstream_.CloseAll();
+  }
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith4kMJpeg: This test will test session with one 4k
+*                     jpeg encoded track.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartVideoTrack
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(RecorderGtest, SessionWith4kMJpeg) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kJPEG;
+  uint32_t width = 3840;
+  uint32_t height = 2160;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            width, /* Width */
+                                            height,  /* Height */
+                                            30 /* FPS */};
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWith4kp30fpsEncTrack: This test will test session with one 4k
-* 30fps h264 track.
+*                              30fps h264 track.
 * Api test sequence:
 *  - StartCamera
 *  - CreateSession
@@ -11444,9 +11803,7 @@ void RecorderGtest::CameraResultCallbackHandler(uint32_t camera_id,
 void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
-
   TEST_DBG("%s:%s: Enter track_id: %d", TAG, __func__, track_id);
-
   if (is_dump_yuv_enabled_) {
     static uint32_t id = 0;
     static uint32_t id2 = 0;
@@ -11458,8 +11815,8 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     if (id == dump_yuv_freq_ || id2 == dump_yuv_freq_) {
       String8 file_path;
       size_t written_len;
-      file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv", track_id,
-          buffers[0].timestamp);
+      file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv",
+                             track_id, buffers[0].timestamp);
 
       FILE *file = fopen(file_path.string(), "w+");
       if (!file) {
@@ -11511,6 +11868,7 @@ void RecorderGtest::VideoTrackOneEncDataCb(uint32_t session_id,
 
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
+
 
 void RecorderGtest::VideoTrackTwoEncDataCb(uint32_t session_id,
                                            uint32_t track_id,
@@ -11977,6 +12335,9 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
       break;
     case VideoFormat::kHEVC:
       type_string = "h265";
+      break;
+    case VideoFormat::kJPEG:
+      type_string = "mjpg";
       break;
     default:
       type_string = "bin";

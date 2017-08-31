@@ -295,9 +295,9 @@ TrackEncoder::~TrackEncoder() {
   output_buffer_list_.clear();
   output_ion_list_.clear();
 
-  if(avcodec_ != nullptr)
+  if(avcodec_ != nullptr) {
     delete avcodec_;
-
+  }
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -307,8 +307,11 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
 
   QMMF_INFO("%s:%s: Enter track_id(%x)", TAG, __func__, track_params.track_id);
   track_params_ = track_params;
-
-  avcodec_ = new AVCodec();
+  if (track_params.params.format_type == VideoFormat::kJPEG) {
+    avcodec_ = new JPEGEncoder();
+  } else {
+    avcodec_ = new AVCodec();
+  }
   if(avcodec_ == nullptr) {
     QMMF_ERROR("%s:%s: track_id(%x) AVCodec failed", TAG, __func__,
         track_params.track_id);
@@ -323,9 +326,13 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
   QMMF_INFO("%s:%s: track_id(%x) W(%d) H(%d) format_type(%d)", TAG, __func__,
       track_params.track_id, track_params.params.width,
       track_params.params.height, track_params.params.format_type);
+  auto ret = 0;
+  CodecMimeType mime_type =
+      (track_params.params.format_type == VideoFormat::kJPEG)
+          ? CodecMimeType::kMimeTypeJPEG
+          : CodecMimeType::kMimeTypeVideoEncAVC;
 
-  auto ret = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeVideoEncAVC,
-                                      codec_param);
+  ret = avcodec_->ConfigureCodec(mime_type, codec_param);
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s:%s track_id(%x) Failed to configure AVCodec!", TAG, __func__,
