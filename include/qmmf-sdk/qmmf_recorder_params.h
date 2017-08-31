@@ -279,6 +279,9 @@ struct VideoTrackCreateParam {
       case VideoFormat::kHEVC:
         setHEVCDefaultVideoParam();
         break;
+      case VideoFormat::kJPEG:
+        setJPEGDefaultParam();
+        break;
       default: {
         // Nothing to do for other formats
       }
@@ -367,6 +370,15 @@ struct VideoTrackCreateParam {
     codec_param.hevc.sar_width = 0;
     codec_param.hevc.sar_height = 0;
   }
+
+  void setJPEGDefaultParam() {
+    codec_param.jpeg.enable_thumbnail = false;
+    codec_param.jpeg.quality = 95;
+    codec_param.jpeg.thumbnail_quality = 75;
+    codec_param.jpeg.thumbnail_height = 240;
+    codec_param.jpeg.thumbnail_width = 320;
+  }
+
 };
 
 /// \brief Result callback passed to StartCamera API
