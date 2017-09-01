@@ -158,15 +158,16 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
   CameraMetadata meta;
   {
     std::unique_lock<std::mutex> lock(result_lock_);
-     while (results_.count(in_buffer.timestamp) == 0) {
-       std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
-       auto ret = wait_for_result_.wait_for(lock, timeout);
-       if (std::cv_status::timeout == ret) {
-          QMMF_ERROR("%s%s: Wait for jpeg result timed out", TAG, __func__);
-          break;
-       }
-     }
-     meta = results_.at(in_buffer.timestamp);
+    while (results_.count(in_buffer.timestamp) == 0) {
+      std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
+      auto ret = wait_for_result_.wait_for(lock, timeout);
+      if (std::cv_status::timeout == ret) {
+        QMMF_ERROR("%s%s: Wait for jpeg result timed out", TAG, __func__);
+        break;
+      }
+    }
+    meta = results_.at(in_buffer.timestamp);
+    results_.erase(in_buffer.timestamp);
   }
 
   snapshot_info img_buffer;
@@ -176,7 +177,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       int exif_size = Generate(meta, vendor_name_, product_name_,
                                out_buffer.info.plane_info[0].width,
                                out_buffer.info.plane_info[0].height,
-                               exif_buffer, kMaxExifApp1Length);
+                               exif_buffer);
       convertExifBinaryToExifInfoStruct(exif_buffer);
 
       delete[] exif_buffer;
@@ -215,11 +216,6 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     QMMF_INFO("%s:%s: SKIPP JPEG", TAG, __func__);
   }
 
-  if (!meta.isEmpty()) {
-    std::unique_lock<std::mutex> lock(result_lock_);
-    results_.erase(in_buffer.timestamp);
-  }
-
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -250,13 +246,23 @@ void CameraJpeg::AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) {
 void CameraJpeg::AddResult(const void* result) {
 
   CameraMetadata meta = *(reinterpret_cast<const CameraMetadata *>(result));
+
+  if (meta.exists(ANDROID_CONTROL_CAPTURE_INTENT)) {
+    auto cature_intent = meta.find(ANDROID_CONTROL_CAPTURE_INTENT).data.u8[0];
+    if (cature_intent != ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) {
+      QMMF_DEBUG("%s:%s Metadata is not related to a still capture!",
+          TAG, __func__);
+      return;
+    }
+  }
+
   if (!meta.exists(ANDROID_SENSOR_TIMESTAMP)) {
     QMMF_ERROR("%s:%s Sensor timestamp tag missing in result!", TAG, __func__);
     return;
   }
-  int64_t timestamp = meta.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
+  auto timestamp = meta.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
 
-  std::unique_lock<std::mutex> lock(result_lock_);
+  std::lock_guard<std::mutex> lock(result_lock_);
   results_.emplace(timestamp, meta);
   wait_for_result_.notify_all();
 }
