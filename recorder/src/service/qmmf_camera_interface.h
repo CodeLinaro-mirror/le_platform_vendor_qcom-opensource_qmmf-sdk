@@ -53,7 +53,7 @@ class CameraInterface : public virtual RefBase {
 
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 
-  virtual status_t WaitAecToConverge(nsecs_t timeout) = 0;
+  virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
   virtual status_t SetUpCapture(const ImageParam &param,
                                 const uint32_t num_images) = 0;
