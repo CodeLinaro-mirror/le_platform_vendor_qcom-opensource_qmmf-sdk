@@ -394,6 +394,23 @@ struct CameraStartParam {
   uint32_t frame_rate;
   uint32_t flags;
 
+  CameraStartParam()
+      : zsl_mode(false),
+        zsl_queue_depth(10),
+        zsl_width(3840),
+        zsl_height(2160),
+        frame_rate(30),
+        flags(0) {}
+
+  CameraStartParam(bool zsl_mode, uint32_t zsl_queue_depth, uint32_t zsl_width,
+                   uint32_t zsl_height, uint32_t frame_rate, uint32_t flags)
+      : zsl_mode(zsl_mode),
+        zsl_queue_depth(zsl_queue_depth),
+        zsl_width(zsl_width),
+        zsl_height(zsl_height),
+        frame_rate(frame_rate),
+        flags(flags) {}
+
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "zsl_mode[" << ::std::boolalpha << zsl_mode << ::std::noboolalpha
