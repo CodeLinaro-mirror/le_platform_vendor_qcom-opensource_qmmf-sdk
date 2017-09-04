@@ -298,7 +298,7 @@ int32_t TimeLapse::StartTimeLapseModeTwo() {
 int32_t TimeLapse::StartCamera() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
   int32_t ret;
-  CameraStartParam camera_start_params{false, 0, 0, 30, 0};
+  CameraStartParam camera_start_params{false, 0, 0, 0, 30, 0};
 
   ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
   if (NO_ERROR != ret) {
