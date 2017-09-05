@@ -93,6 +93,7 @@ RecorderTest::RecorderTest() :
             dump_histogram_stats_(false),
             num_images_(0),
             aec_converged_(false),
+            in_suspend_(true),
             ltr_count_(0),
             camera_error_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
@@ -4474,6 +4475,311 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
   ALOGD("%s: Exit ",__func__);
 }
 
+int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
+                                              TrackInfo *track_info) {
+  TEST_INFO("%s: Enter ", __func__);
+
+  if (argc != 10) {
+    return -EINVAL;
+  }
+
+  int32_t val, opt;
+  optind = 2;
+  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
+    switch (opt) {
+      case AutoModeOptions::kWidth:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid width = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->width = val;
+      }
+      break;
+      case AutoModeOptions::kHeight:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid height = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->height = val;
+      }
+      break;
+      case AutoModeOptions::kFps:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid FPS = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->fps = val;
+      }
+      break;
+      case AutoModeOptions::kTrackType:
+      {
+        if (!strcmp(optarg, "AVC")) {
+          track_info->track_type = TrackType::kVideoAVC;
+        } else if (!strcmp(optarg, "HEVC")) {
+          track_info->track_type = TrackType::kVideoHEVC;
+        } else {
+          TEST_ERROR("%s:%s: Invalid TrackType = %s", TAG, __func__, optarg);
+          return -EINVAL;
+        }
+      }
+      break;
+      default:
+        return -EINVAL;
+    }
+  }
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+bool RecorderTest::IsKeyEventShort(const milliseconds keypress_duration) {
+
+  const uint32_t kLongPressDuration = 300;
+
+  if(keypress_duration < static_cast<milliseconds>(kLongPressDuration)) {
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+int32_t RecorderTest::StartRecording(
+    const VideoTrackCreateParam &video_track_param) {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+  TrackCb video_track_cb;
+  SessionCb session_status_cb;
+  CameraStartParam camera_params;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StartCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  session_status_cb.event_cb = [&](EventType event_type, void *event_data,
+                                   size_t event_data_size) {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateSession(session_status_cb, &current_session_id_);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s CreateSession failed!!", TAG, __func__);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  video_track_cb.data_cb = [&](uint32_t track_id,
+                               std::vector<BufferDescriptor> buffers,
+                               std::vector<MetaData> meta_buffers) {
+    recorder_.ReturnTrackBuffer(current_session_id_, 1, buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t data_size) {};
+
+  ret = recorder_.CreateVideoTrack(current_session_id_, 1, video_track_param,
+                                   video_track_cb);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s CreateVideoTrack failed!!", TAG, __func__);
+    recorder_.StopSession(current_session_id_, true);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  ret = recorder_.StartSession(current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StartSession failed!!", TAG, __func__);
+    recorder_.DeleteVideoTrack(current_session_id_, 1);
+    recorder_.StopSession(current_session_id_, true /*flush buffers*/);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  in_suspend_ = false;
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+int32_t RecorderTest::StopRecording() {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+
+  ret = recorder_.StopSession(current_session_id_, true /*flush buffers*/);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StopSession failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.DeleteVideoTrack(current_session_id_, 1);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s DeleteVideoTrack Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.DeleteSession(current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s DeleteSession Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StopCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  in_suspend_ = true;
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+  struct input_event ev;
+  unsigned int n = 0;
+  const char *input_device = "/dev/input/event0";
+  const char *wake_lock_node = "/sys/power/wake_lock";
+  const char *wake_unlock_node = "/sys/power/wake_unlock";
+  const char *buf = "qmmf_wakelock";
+
+  clk::time_point keypressed;
+  clk::time_point keyreleased;
+  milliseconds keypress_duration;
+
+  in_suspend_ = true;
+  int resume_fd = open(wake_lock_node, O_WRONLY);
+  if (resume_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening WAKE_LOCK_NODE node", TAG, __func__);
+    exit(2);
+  }
+  int suspend_fd = open(wake_unlock_node, O_WRONLY);
+  if (suspend_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening WAKE_UNLOCK_NODE node", TAG, __func__);
+    exit(2);
+  }
+  int input_fd = open(input_device, O_RDONLY);
+  if (input_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening input key device node ... Exiting", TAG,
+          __func__);
+    exit(2);
+  }
+  errno = 0;
+  if (write(resume_fd, buf, strlen(buf)) == -1) {
+    TEST_ERROR("First Write to resume_fd failed %d (%s)\n", errno, strerror(errno));
+    exit(2);
+  }
+
+  TrackInfo track_info;
+
+  if (argc > 2) {
+    ret = ParseWarmBootTestParams(argc, argv, &track_info);
+    if (ret != 0) {
+      TEST_ERROR(
+          "%s :%s:Usage: recorder_test testwarmboot -w <width> -h <height>"
+          " -f <fps> -t <AVC/HEVC>",
+          TAG, __func__);
+      TEST_INFO("%s:%s: Switching to default param", TAG, __func__);
+    }
+  }
+
+  ret = Connect();
+  if (NO_ERROR != ret) {
+    TEST_INFO("%s:%s Connect Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  VideoFormat videoformat = (track_info.track_type == TrackType::kVideoAVC)
+                                ? VideoFormat::kAVC
+                                : VideoFormat::kHEVC;
+  VideoTrackCreateParam video_track_param{camera_id_, videoformat,
+                                          track_info.width, track_info.height,
+                                          track_info.fps};
+
+  ret = StartRecording(video_track_param);
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s:%s StartRecording Failed!!", TAG, __func__);
+    goto exit;
+  }
+
+  while ((n = read(input_fd, &ev, sizeof(struct input_event))) > 0) {
+    if (n < sizeof(struct input_event)) {
+      TEST_ERROR("%s:%s Error reading input event", TAG, __func__);
+      exit(2);
+    }
+    if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
+      keypressed = clk::now();
+    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
+        keyreleased = clk::now();
+        keypress_duration =
+          std::chrono::duration_cast<milliseconds>(keyreleased - keypressed);
+        if (IsKeyEventShort(keypress_duration))
+          continue;
+        if (in_suspend_ == false) {
+          printf("LongKeyPress detected, going to suspend\n");
+          ret = StopRecording();
+          if (NO_ERROR != ret) {
+            TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
+            exit(2);
+          }
+          errno = 0;
+          if (write(suspend_fd, buf, strlen(buf)) == -1) {
+            printf("Failed to write suspend_fd %d (%s)\n", errno, strerror(errno));
+            exit(2);
+          }
+        } else {
+            printf("LongKeyPress detected, going to resume\n");
+            errno = 0;
+            if (write(resume_fd, buf, strlen(buf)) == -1) {
+              printf("Failed to write resume_fd %d (%s)\n", errno,
+                     strerror(errno));
+              exit(2);
+            }
+            ret = StartRecording(video_track_param);
+            if (NO_ERROR != ret) {
+              TEST_ERROR("%s:%s StartRecording Failed!!", TAG, __func__);
+              goto exit;
+            }
+          }
+      }
+  }
+
+  if (in_suspend_ == false) {
+    ret = StopRecording();
+    if (NO_ERROR != ret) {
+      TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
+    }
+  }
+
+exit:
+
+  ret = Disconnect();
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+  }
+
+  close(resume_fd);
+  close(suspend_fd);
+  close(input_fd);
+  TEST_INFO("%s: Exit ", __func__);
+
+  return 0;
+}
+
 int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
   ALOGD("%s: Enter ",__func__);
 
@@ -5716,11 +6022,13 @@ int main(int argc,char *argv[]) {
 
   RecorderTest test_context;
 
-  if(argc > 1) {
-    if(strcmp(argv[1], "-a") == 0) {
+  if (argc > 1) {
+    if (strcmp(argv[1], "-a") == 0) {
       return test_context.RunAutoMode(argc, argv);
-    }
-    return test_context.RunFromConfig(argc, argv);
+    } else if (strcmp(argv[1], "--testwarmboot") == 0) {
+      return test_context.RunWarmBootMode(argc, argv);
+    } else
+      return test_context.RunFromConfig(argc, argv);
   }
 
   CmdMenu cmd_menu(test_context);
