@@ -190,6 +190,52 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
 }
 
 /*
+* StartStopMultuCamera: This test case will test Start & StopCamera Api.
+* Api test sequence:
+*   loop Start {
+*   ------------------
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - StopCamera
+*   ------------------
+*   } loop End
+*/
+TEST_F(Recorder360Gtest, StartStopMultiCamera) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+
+  assert(ret == NO_ERROR);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr,
+                                         0);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+    assert(ret == NO_ERROR);
+    sleep(2);
+
+    ret = recorder_.StopCamera(multicam_id_);
+    assert(ret == NO_ERROR);
+
+  }
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * Stitched6KSnapshot: This case will test a MultiCamera capture for stitched
 *                     6K JPEG snapshot.
 * Api test sequence:
@@ -6003,9 +6049,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 *                            This case will test a MultiCamera session with
 *                            one 3840x1920 h264 encoded with source surface
 *                            downscaled with SW TNR enabled track; one 960X480
-*                            h264 encode track; and one 1920x960 YUV track ; 
+*                            h264 encode track; and one 1920x960 YUV track ;
 *                            all tracks  configured to produce stitched frames.
-*                            TNR will only be applied on the 4k stream. Usecase also 
+*                            TNR will only be applied on the 4k stream. Usecase also
 *                            includes five Blob type Overlays.
 * Api test sequence:
 *  - CreateMultiCamera
@@ -7083,7 +7129,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
       source_surface.flags = TransformFlags::kNone;
       extra_param.Update(QMMF_SOURCE_SURFACE_DESCRIPTOR, source_surface, i);
     }
-    
+
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
