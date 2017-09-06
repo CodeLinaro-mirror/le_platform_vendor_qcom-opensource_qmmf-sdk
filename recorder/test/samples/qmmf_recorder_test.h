@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -48,6 +49,7 @@
 #include <QCamera3VendorTags.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
+#include <linux/input.h>
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -208,7 +210,37 @@ struct TrackInfo {
   int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+
+  TrackInfo()
+      : width(3840),
+        height(2160),
+        fps(30),
+        track_type(TrackType::kVideoAVC),
+        bitrate(6000000),
+        ltr_count(0),
+        session_id(-1),
+        track_id(1),
+        camera_id(0),
+        low_power_mode(0),
+        device_id(0) {}
+
+  TrackInfo(uint32_t width, uint32_t height, float fps, TrackType track_type,
+            uint32_t bitrate, int32_t ltr_count, uint32_t session_id,
+            uint32_t track_id, int32_t camera_id, uint32_t low_power_mode,
+            DeviceId device_id)
+      : width(width),
+        height(height),
+        fps(fps),
+        track_type(track_type),
+        bitrate(bitrate),
+        ltr_count(ltr_count),
+        session_id(session_id),
+        track_id(track_id),
+        camera_id(camera_id),
+        low_power_mode(low_power_mode),
+        device_id(device_id) {}
 };
+
 
 struct RGBAValues {
   double red;
@@ -352,6 +384,9 @@ typedef struct ROIRegion {
     rgb_color[0] = rgb_color[1] = rgb_color[2] = 1;
   }
 } ROIRegion;
+
+typedef std::chrono::high_resolution_clock clk;
+typedef std::chrono::milliseconds milliseconds;
 
 class RecorderTest {
  public:
@@ -511,7 +546,11 @@ class RecorderTest {
   // Auto Mode
   int32_t ParseAutoModeParams(int32_t argc, char *argv[],
                               VideoTrackCreateParam *track_param);
-  int32_t RunAutoMode(int32_t argc, char *argv[]);
+
+  int32_t RunAutoMode(int32_t argc, char* argv[]);
+
+  int32_t RunWarmBootMode(int32_t argc, char* argv[]);
+
   // Config file related.
   int32_t RunFromConfig(int32_t argc, char *argv[]);
 
@@ -558,6 +597,12 @@ class RecorderTest {
   void InitSupportedBinningCorrectionModes();
   int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
 
+  int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
+                                  TrackInfo* track_info);
+  bool IsKeyEventShort(const milliseconds keypress_duration);
+  int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
+  int32_t StopRecording();
+
   nr_modes_map supported_nr_modes_;
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
@@ -571,6 +616,7 @@ class RecorderTest {
   uint32_t preview_session_id_;
   SnapshotType snapshot_choice_;
 
+  uint32_t current_session_id_;
   bool use_display;
   bool dump_aec_awb_stats_;
   bool dump_histogram_stats_;
@@ -582,6 +628,7 @@ class RecorderTest {
   ::std::mutex callback_lock_;
   uint32_t num_images_;
   bool aec_converged_;
+  bool in_suspend_;
 
   int32_t ltr_count_;
 

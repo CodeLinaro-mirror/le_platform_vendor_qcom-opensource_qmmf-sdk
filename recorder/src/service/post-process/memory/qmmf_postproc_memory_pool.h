@@ -30,7 +30,6 @@
 #pragma once
 
 #include <libgralloc/gralloc_priv.h>
-#include <utils/Condition.h>
 #include <utils/KeyedVector.h>
 #include <utils/Mutex.h>
 #include <memory>
@@ -83,11 +82,12 @@ class MemPool : public RefBase {
    uint32_t                      pending_buffer_count_;
    KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
 
-   MemPoolParams                 params_;
-   Mutex                         buffer_lock_;
-   Condition                     wait_for_buffer_;
+   MemPoolParams            params_;
 
-   static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
+   std::mutex               buffer_lock_;
+   std::condition_variable  wait_for_buffer_;
+
+   static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
 
 }; //namespace recorder

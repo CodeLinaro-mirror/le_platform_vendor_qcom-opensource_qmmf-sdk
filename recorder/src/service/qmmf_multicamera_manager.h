@@ -32,6 +32,9 @@
 #include <queue>
 #include <map>
 #include <set>
+#include <future>
+#include <mutex>
+#include <condition_variable>
 
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
@@ -77,7 +80,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t WaitAecToConverge(nsecs_t timeout) override;
+  status_t WaitAecToConverge(const uint32_t timeout) override;
 
   status_t SetUpCapture(const ImageParam &param,
                         const uint32_t num_images) override;
@@ -145,7 +148,7 @@ class MultiCameraManager : public CameraInterface {
   status_t FillCropMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
-  CameraStartParam         multicam_start_params_;
+  CameraStartParam         start_params_;
   MultiCameraConfigType    multicam_type_;
   Vector<int32_t>          supported_fps_;
   ResultCb                 result_cb_;
@@ -179,13 +182,13 @@ class MultiCameraManager : public CameraInterface {
   // Map of output_buffer's fd to StreamBuffer
   KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_map_;
 
-  Mutex                    jpeg_lock_;
-  Condition                wait_for_jpeg_;
+  std::mutex               jpeg_lock_;
+  std::condition_variable  wait_for_jpeg_;
 
-  Mutex                    lock_;
+  std::mutex               lock_;
 
-  static const nsecs_t kWaitJPEGTimeout = 100000000; // 100 ms
-  static const nsecs_t kAecConvergeTimeout = 200000000; // 200 ms
+  static const uint32_t kWaitJPEGTimeout = 100000000; // 100 ms
+  static const uint32_t kAecConvergeTimeout = 500000000; // 500 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
@@ -232,10 +235,10 @@ class GrallocMemory : public RefBase {
   // to be used.
   KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
 
-  Mutex                    buffer_lock_;
-  Condition                wait_for_buffer_;
+  std::mutex               buffer_lock_;
+  std::condition_variable  wait_for_buffer_;
 
-  static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
+  static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
 
 class StitchingBase : public Camera3Thread, public RefBase  {
@@ -287,6 +290,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   struct StitchLibInterface {
     void        *handle;
     void        *context;
+    bool        initialized;
     bool        configured;
     qmmf_alg_status_t (*init)(void **handle,
                               qmmf_alg_blob_t *calibration_data);
@@ -348,16 +352,18 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // It is calculated, based on the frame rate.
   int32_t timestamp_max_delta_;
 
+  std::future<status_t>    init_library_status_;
+
   std::mutex               register_buffer_lock_;
 
-  Mutex                    buffers_lock_;
-  Condition                wait_for_buffers_;
+  std::mutex               buffers_lock_;
+  std::condition_variable  wait_for_buffers_;
 
-  Mutex                    sync_lock_;
-  Condition                wait_for_sync_frames_;
+  std::mutex               sync_lock_;
+  std::condition_variable  wait_for_sync_frames_;
 
-  static const nsecs_t kWaitBuffersTimeout = 100000000; // 100 ms
-  static const nsecs_t kFrameSyncTimeout   = 50000000;  // 50 ms
+  static const uint32_t kWaitBuffersTimeout = 100000000; // 100 ms
+  static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 };
