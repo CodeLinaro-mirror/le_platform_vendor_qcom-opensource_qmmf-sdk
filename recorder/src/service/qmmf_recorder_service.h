@@ -182,7 +182,7 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  CameraMetadata &meta) override;
 
   status_t CreateOverlayObject(const uint32_t client_id,
                                const uint32_t track_id, OverlayParam *param,
