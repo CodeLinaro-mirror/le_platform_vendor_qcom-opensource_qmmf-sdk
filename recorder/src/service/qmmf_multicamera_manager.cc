@@ -1119,7 +1119,7 @@ void SnapshotStitching::FrameAvailableCb(uint32_t count,
                                          StreamBuffer &buffer) {
 
   Mutex::Autolock lock(frame_lock_);
-  QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %" PRId64 " is available", TAG,
+  QMMF_DEBUG("%s:%s: Camera %u: Snapshot Frame %d is available", TAG,
       __func__, buffer.camera_id, buffer.frame_number);
 
   // Handling input buffers from camera contexts.
