@@ -1571,11 +1571,13 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   DumpYUV(buffer);
 #endif
 
-  std::unique_lock<std::mutex> lock(lock_);
-  uint32_t value = buffer_map_.at(buffer.handle);
-  buffer_map_[buffer.handle] = buffer_producer_impl_->GetNumConsumer() + value;
-  if (buffer_producer_impl_->GetNumConsumer() > 0) {
-    buffer_producer_impl_->NotifyBuffer(buffer);
+  {
+    std::unique_lock<std::mutex> lock(lock_);
+    auto val = buffer_map_.at(buffer.handle);
+    buffer_map_[buffer.handle] = buffer_producer_impl_->GetNumConsumer() + val;
+    if (buffer_producer_impl_->GetNumConsumer() > 0) {
+      buffer_producer_impl_->NotifyBuffer(buffer);
+    }
   }
 
   // If format type is YUV or BAYER then give callback from this point, do not
@@ -1588,6 +1590,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     if (IsStop()) {
       QMMF_DEBUG("%s:%s: track_id(%x) Stop is triggred, Stop giving raw buffer"
           " to client!", TAG, __func__, TrackId());
+      std::unique_lock<std::mutex> lock(lock_);
       ReturnBufferToProducer(buffer);
       return;
     }
