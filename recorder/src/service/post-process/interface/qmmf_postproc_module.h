@@ -32,6 +32,7 @@
 #include <functional>
 #include <utils/RefBase.h>
 #include <vector>
+#include <set>
 
 #include "qmmf-plugin/qmmf_alg_plugin.h"
 
@@ -47,44 +48,55 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-struct PostProcCreateParam {
-  uint32_t stride;
-  uint32_t scanline;
-  uint32_t width;
-  uint32_t height;
-  int32_t  format;
+/** PostProcIOParam:
+ *    @width: Width in pixels
+ *    @height: Height in pixels
+ *    @stride: Stride in bytes
+ *    @scanline: Scanline in lines
+ *    @frame_rate: Frame rate
+ *    @format: QMMF image format
+ *    @gralloc_flags: output buffers gralloc flags
+ *    @buffer_count: output buffer count
+ *
+ *  This class defines module input and output parameters
+ **/
+struct PostProcIOParam {
+  uint32_t     width;
+  uint32_t     height;
+  uint32_t     stride;
+  uint32_t     scanline;
+  uint32_t     frame_rate;
+  BufferFormat format;
+  int32_t      gralloc_flags;
+  uint32_t     buffer_count;
 };
-
 
 /** PostProcCaps:
  *    @internal_buff: internal buffers
- *    @in_formats_: supported input formats
- *    @out_formats_: supported output formats
- *    @min_width_: min supported frame width dimension
- *    @min_height_: min supported frame height dimension
- *    @max_width_: max supported frame width dimension
- *    @max_height_: max supported frame height dimension
+ *    @formats_: supported output formats
+ *    @min_width_: min supported output frame width dimension
+ *    @min_height_: min supported output frame height dimension
+ *    @max_width_: max supported output frame width dimension
+ *    @max_height_: max supported output frame height dimension
+ *    @history_buffer_count_: additional internal buffers
  *    @crop_support_: image crop capability flag
  *    @scale_support_: image scale capability flag
  *    @inplace_processing_: inplace processing is required
- *    @lib_version_: library version
  *    @usage_: specific for allocator usage flags
  *
  *  This class defines the post processing module capabilities
  **/
 struct PostProcCaps {
-  uint32_t                  output_buff_;
-  std::vector<BufferFormat> in_formats_;
-  std::vector<BufferFormat> out_formats_;
-  uint32_t                  min_width_;
-  uint32_t                  min_height_;
-  uint32_t                  max_width_;
-  uint32_t                  max_height_;
-  bool                      crop_support_;
-  bool                      scale_support_;
-  bool                      inplace_processing_;
-  std::string               lib_version_;
-  uint32_t                  usage_;
+  uint32_t               output_buff_;
+  std::set<BufferFormat> formats_;
+  uint32_t               min_width_;
+  uint32_t               min_height_;
+  uint32_t               max_width_;
+  uint32_t               max_height_;
+  bool                   crop_support_;
+  bool                   scale_support_;
+  bool                   inplace_processing_;
+  uint32_t               usage_;
 };
 
 
@@ -126,14 +138,8 @@ class IPostProcModule : public RefBase {
 
    virtual ~IPostProcModule() {};
 
-   virtual status_t Create(const int32_t stream_id,
-                           const PostProcCreateParam& input,
-                           const PostProcCreateParam& output,
-                           const uint32_t frame_rate,
-                           const uint32_t num_images,
-                           const void* static_data,
-                           const void* context,
-                           int32_t &out_stream_id) = 0;
+   virtual status_t Initialize(const PostProcIOParam &in_param,
+                               const PostProcIOParam &out_param) = 0;
 
    virtual status_t Delete() = 0;
 
@@ -148,13 +154,13 @@ class IPostProcModule : public RefBase {
 
    virtual void AddResult(const void* result) = 0;
 
-   virtual status_t Start() = 0;
+   virtual status_t Start(const int32_t stream_id) = 0;
 
    virtual status_t Stop() = 0;
 
-   virtual PostProcCreateParam GetInput(const PostProcCreateParam &out) = 0;
+   virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
 
-   virtual PostProcCreateParam GetOutput(const PostProcCreateParam &in) = 0;
+   virtual status_t ValidateOutput(const PostProcIOParam &output) = 0;
 
    virtual status_t GetCapabilities(PostProcCaps &caps) = 0;
 };

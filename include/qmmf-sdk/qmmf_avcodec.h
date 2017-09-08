@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -99,6 +99,10 @@ class IAVCodec {
   /// \brief This API will set codec run time parameter.
   virtual status_t SetParameters(CodecParamType param_type, void *codec_param,
                                  size_t param_size) = 0;
+
+  /// \brief This API will query codec run time parameter.
+  virtual status_t GetParameters(const CodecParamType param_type,
+                                 void *codec_param, size_t *param_size) = 0;
 
   /// \brief This API will move the codec in executing state and create two
   /// thread, one for inpurt port and one for output port.

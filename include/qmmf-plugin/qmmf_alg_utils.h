@@ -82,10 +82,20 @@ class Utils {
    * return: data folder
    **/
   static std::string GetDataFolder() {
-#ifdef ANDROID
     return "/data/misc/qmmf/";
+  }
+
+  /** GetAlgLibFolder
+   *
+   * Returns QMMF algorithm libraries folder
+   *
+   * return: algorithm libraries folder
+   **/
+  static std::string GetAlgLibFolder() {
+#ifdef ANDROID_LIBPATH
+    return "/vendor/lib/qmmf/alg-plugins/";
 #else
-    return QMMF_PROPERTIES_DIRECTORY;
+    return "/usr/lib/qmmf/alg-plugins/";
 #endif
   }
 

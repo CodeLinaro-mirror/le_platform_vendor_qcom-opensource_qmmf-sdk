@@ -40,8 +40,7 @@ namespace recorder {
 
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
-      ready_to_start_(false),
-      supportStreamId_(-1) {
+      ready_to_start_(false) {
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -91,81 +90,21 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
   listener_->OnFrameReady(in_buff);
 }
 
-status_t CameraHalReproc::Create(const int32_t stream_id,
-                                 const PostProcCreateParam& input,
-                                 const PostProcCreateParam& output,
-                                 const uint32_t frame_rate,
-                                 const uint32_t num_images,
-                                 const void* static_meta,
-                                 const void* context,
-                                 int32_t &out_stream_id) {
-
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret = NO_ERROR;
-  int32_t stream_id_p;
-
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  ret = ValidateInput(*const_cast<CameraMetadata*>(
-                      static_cast<const CameraMetadata*>(static_meta)),
-                      input, output);
+status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
+                                     const PostProcIOParam &out_param) {
+  auto ret = ValidateInput(in_param, out_param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
     return BAD_VALUE;
   }
 
-  std::lock_guard<std::mutex> lock(module_lock_);
-
-  input_stream_id_ = stream_id;
-
-  CameraInputStreamParameters input_stream_params;
-  memset(&input_stream_params, 0, sizeof(input_stream_params));
-  input_stream_params.format   = input.format;
-  input_stream_params.width    = input.width;
-  input_stream_params.height   = input.height;
-  input_stream_params.get_input_buffer = [&] (StreamBuffer &buffer)
-      { GetInputBuffer(buffer); };
-  input_stream_params.return_input_buffer = [&] (StreamBuffer &buffer)
-      { ReturnInputBuffer(buffer); };
-  ret = context_->CreateDeviceInputStream(input_stream_params, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-
-  CameraStreamParameters output_stream_params;
-  memset(&output_stream_params, 0, sizeof(output_stream_params));
-  output_stream_params.bufferCount  = num_images;
-  output_stream_params.format       = output.format;
-  output_stream_params.width        = output.width;
-  output_stream_params.height       = output.height;
-  output_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  output_stream_params.cb = [&](StreamBuffer buffer)
-      { ReprocessCallback(buffer); };
-  ret = context_->CreateDeviceStream(output_stream_params,
-                                     frame_rate,
-                                     &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
-               __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-  out_stream_id = stream_id_p;
-
-  ready_to_start_ = true;
-  return ret;
+  input_param_ = in_param;
+  output_param_ = out_param;
+  return NO_ERROR;
 }
 
-PostProcCreateParam CameraHalReproc::GetInput(const PostProcCreateParam &out) {
-  PostProcCreateParam in = out;
+PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
+  PostProcIOParam input_param = out;
 
   CameraMetadata meta = context_->GetCameraStaticMeta();
 
@@ -181,59 +120,211 @@ PostProcCreateParam CameraHalReproc::GetInput(const PostProcCreateParam &out) {
   }
 
   entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
-  for (uint32_t i = 0 ; i < entry.count; i++) {
-    if (entry.data.i32[i] == HAL_PIXEL_FORMAT_RAW10 ||
-        entry.data.i32[i] == HAL_PIXEL_FORMAT_RAW12) {
-      in.format = entry.data.i32[i];
+  uint32_t i;
+  for (i = 0; i < entry.count; i++) {
+    if (entry.data.i32[i] == HAL_PIXEL_FORMAT_RAW16) {
+      input_param.format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
       break;
     }
   }
-  // work around since HAL does not report supported formats correctly
-  in.format = HAL_PIXEL_FORMAT_RAW12;
-
-  entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-  for (int32_t i = ((int32_t)entry.count) - 2; i >= 0; i -= 2) {
-    in.width = entry.data.i32[i+0];
-    in.height = entry.data.i32[i+1];
-    break;
+  if (i == entry.count) {
+    QMMF_ERROR("%s: Hal does not support required format\n", __func__);
+    assert(0);
   }
 
-  QMMF_VERBOSE("%s:%s: input dim %dx%d format %x RAW10 %x RAW12 %x", TAG,
-    __func__, in.width, in.height, in.format,
-    HAL_PIXEL_FORMAT_RAW10, HAL_PIXEL_FORMAT_RAW12);
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+  for (i = 0; i < entry.count; i += 2) {
+    input_param.width = entry.data.i32[i + 0];
+    input_param.height = entry.data.i32[i + 1];
+    if (input_param.width >= out.width &&
+        input_param.height >= out.height) {
+      break;
+    }
+  }
+  if (i >= entry.count) {
+    QMMF_ERROR("%s: Required resolution %dx%d is not supported. Max: %dx%d\n",
+      __func__, out.width, out.height, input_param.width, input_param.height);
+    assert(0);
+  }
 
-  return in;
+  QMMF_VERBOSE("%s:%s: input dim %dx%d format %x RAW10 %x RAW12 %x RAW16 %x",
+    TAG, __func__, input_param.width, input_param.height, input_param.format,
+    BufferFormat::kRAW10, BufferFormat::kRAW12, BufferFormat::kRAW16);
+
+  return input_param;
 }
 
-PostProcCreateParam CameraHalReproc::GetOutput(const PostProcCreateParam &in) {
-  PostProcCreateParam out = in;
-  out.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  return out;
+status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
+                                        const PostProcIOParam& output) {
+  camera_metadata_entry_t entry;
+  int32_t in_format, num_output_formats;
+
+  CameraMetadata static_meta = context_->GetCameraStaticMeta();
+
+  if (static_meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
+    entry = static_meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      in_format = entry.data.i32[i++];
+      num_output_formats = entry.data.i32[i++];
+      if (in_format != Common::FromQmmfToHalFormat(input.format)) {
+        i +=  (num_output_formats - 1);
+        continue;
+      }
+      for (int32_t f = 0; f < num_output_formats; f++) {
+        i += f;
+        if (Common::FromQmmfToHalFormat(output.format) == entry.data.i32[i])
+          return NO_ERROR;
+      }
+    }
+  } else {
+    QMMF_ERROR("%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
+        __func__);
+  }
+
+  QMMF_ERROR("%s: Failed: input format: 0x%x out format 0x%x\n",  __func__,
+      input.format, output.format);
+
+  return BAD_VALUE;
+}
+
+status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
+  CameraMetadata meta = context_->GetCameraStaticMeta();
+  int32_t hal_format = Common::FromQmmfToHalFormat(output.format);
+  bool supported = false;
+
+  camera_metadata_entry_t entry;
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
+    QMMF_ERROR("%s: HAL does not report supported formats!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+  for (uint32_t i = 0 ; i < entry.count; i++) {
+    if (entry.data.i32[i] == hal_format &&
+        HAL_PIXEL_FORMAT_YCbCr_420_888 == hal_format) {
+      supported = true;
+      break;
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Output format(%d) not supported", __func__, output.format);
+    return BAD_TYPE;
+  }
+  supported = false;
+
+  uint32_t w = 0, h = 0, scalar_format = 0, config_type = 0;
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  for (uint32_t i = 0 ; i < entry.count; i += 4) {
+    scalar_format = entry.data.i32[i];
+    config_type = entry.data.i32[i+3];
+    if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == scalar_format &&
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == config_type) {
+      w = entry.data.i32[i+1];
+      h = entry.data.i32[i+2];
+      if(w == output.width && h == output.height) {
+        supported = true;
+        break;
+      }
+    }
+  }
+
+  if (!supported) {
+    QMMF_ERROR("%s: Output dimensions(%dx%d) not supported", __func__,
+        output.width, output.height);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
 }
 
 status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
+  CameraMetadata static_meta = context_->GetCameraStaticMeta();
+
+  if (!static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
+    return NAME_NOT_FOUND;
+  }
+
+  camera_metadata_entry_t entry;
+  entry = static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+  for (uint32_t i = 0 ; i < entry.count; i += 2) {
+    caps.min_width_  = entry.data.i32[i+0];
+    caps.min_height_ = entry.data.i32[i+1];
+    caps.max_width_  = entry.data.i32[i+0];
+    caps.max_height_ = entry.data.i32[i+1];
+  }
+
   caps.output_buff_        = 0;
-  caps.min_width_          = 160;
-  caps.min_height_         = 120;
-  caps.max_width_          = 5104;
-  caps.max_height_         = 4092;
-  caps.usage_              = 0;
   caps.crop_support_       = false;
   caps.inplace_processing_ = false;
-  caps.lib_version_        = "1.0";
   caps.scale_support_      = true;
+  caps.usage_              = 0;
 
-  caps.in_formats_.push_back(BufferFormat::kRAW10);
-  caps.in_formats_.push_back(BufferFormat::kRAW12);
-
-  caps.out_formats_.push_back(BufferFormat::kNV12);
-  caps.out_formats_.push_back(BufferFormat::kNV21);
+  caps.formats_.insert(BufferFormat::kNV12);
+  caps.formats_.insert(BufferFormat::kNV21);
 
   return NO_ERROR;
 }
 
-status_t CameraHalReproc::Start() {
-  return NO_ERROR;
+status_t CameraHalReproc::Start(const int32_t stream_id) {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+  int32_t stream_id_p;
+
+  if (ready_to_start_) {
+    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  std::lock_guard<std::mutex> lock(module_lock_);
+
+  input_stream_id_ = stream_id;
+
+  CameraInputStreamParameters in_stream_params = {};
+  in_stream_params.format = Common::FromQmmfToHalFormat(input_param_.format);
+  in_stream_params.width = input_param_.width;
+  in_stream_params.height = input_param_.height;
+  in_stream_params.get_input_buffer = [&] (StreamBuffer &buffer)
+      { GetInputBuffer(buffer); };
+  in_stream_params.return_input_buffer = [&] (StreamBuffer &buffer)
+      { ReturnInputBuffer(buffer); };
+  ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
+               __func__, ret);
+    return ret;
+  }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
+
+  CameraStreamParameters out_stream_params = {};
+  out_stream_params.bufferCount = output_param_.buffer_count;
+  out_stream_params.format = Common::FromQmmfToHalFormat(output_param_.format);
+  out_stream_params.width = output_param_.width;
+  out_stream_params.height = output_param_.height;
+  out_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  out_stream_params.cb = [&](StreamBuffer buffer)
+      { ReprocessCallback(buffer); };
+  ret = context_->CreateDeviceStream(out_stream_params,
+                                     output_param_.frame_rate,
+                                     &stream_id_p, true);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
+               __func__, ret);
+    return ret;
+  }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
+
+  ready_to_start_ = true;
+
+  return ret;
 }
 
 status_t CameraHalReproc::Stop() {
@@ -310,13 +401,26 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     }
   }
 
-  // meta is missing append to queue directly
   if (append) {
+    // meta is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.buffer = buf;
     new_entry.timestamp = buf.timestamp;
     new_entry.metadata.clear();
     reproc_partial_list_.push_back(new_entry);
+  } else {
+    // clean up older metadata in partial list
+    if (!reproc_partial_list_.empty()) {
+      auto it = reproc_partial_list_.begin();
+      auto end = reproc_partial_list_.end();
+      while (it != end) {
+        if (it->timestamp >= buf.timestamp) {
+          // clean up only first entries which has lower than buf time stamp
+          break;
+        }
+        it = reproc_partial_list_.erase(it);
+      }
+    }
   }
 }
 
@@ -348,13 +452,27 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
     }
   }
 
-  // Buffer is missing append to queue directly
   if (append) {
+    // Buffer is missing append to queue directly
     ReprocessBundle new_entry;
     new_entry.metadata.append(metadata);
     new_entry.timestamp = timestamp;
     memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
     reproc_partial_list_.push_back(new_entry);
+  } else {
+    // clean up older metadata in partial list
+    if (!reproc_partial_list_.empty()) {
+      int64_t timeout = timestamp - kMetaTimeout;
+      auto it = reproc_partial_list_.begin();
+      auto end = reproc_partial_list_.end();
+      while (it != end) {
+        if (it->timestamp >= timeout) {
+          // clean up only first entries which has lower than timeout timestamp
+          break;
+        }
+        it = reproc_partial_list_.erase(it);
+      }
+    }
   }
 }
 
@@ -379,7 +497,7 @@ status_t CameraHalReproc::StartProcessing() {
 
   std::lock_guard<std::mutex> lock(reproc_lock_);
   if (reproc_ready_list_.empty()) {
-    QMMF_INFO("%s:%s: no reprocess bundle", TAG, __func__);
+    QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
     return NO_ERROR;
   }
 
@@ -399,38 +517,6 @@ status_t CameraHalReproc::StartProcessing() {
   }
 
   return NO_ERROR;
-}
-
-status_t CameraHalReproc::ValidateInput(const CameraMetadata& static_meta,
-                                        const PostProcCreateParam& input,
-                                        const PostProcCreateParam& output) {
-  camera_metadata_ro_entry_t entry;
-  int32_t in_format, num_output_formats;
-
-  if (static_meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
-    entry = static_meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
-    for (uint32_t i = 0 ; i < entry.count; i++) {
-      in_format = entry.data.i32[i++];
-      num_output_formats = entry.data.i32[i++];
-      if (in_format != input.format) {
-        i +=  (num_output_formats - 1);
-        continue;
-      }
-      for (int32_t f = 0; f < num_output_formats; f++) {
-        i += f;
-        if (output.format == entry.data.i32[i])
-          return NO_ERROR;
-      }
-    }
-  } else {
-    QMMF_ERROR("%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
-        __func__);
-  }
-
-  QMMF_ERROR("%s: Failed: input format: 0x%x out format 0x%x\n",  __func__,
-      input.format, output.format);
-
-  return BAD_VALUE;
 }
 
 }; // namespace recoder

@@ -85,6 +85,17 @@ class RecorderImpl {
 
   status_t ResumeSession(const uint32_t client_id, const uint32_t session_id);
 
+  status_t GetSupportedPlugins(const uint32_t client_id,
+                               SupportedPlugins *plugins);
+
+  status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
+                        const PluginInfo &plugin);
+
+  status_t DeletePlugin(const uint32_t client_id, const uint32_t &uid);
+
+  status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
+                        const std::string &json_config);
+
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
@@ -193,12 +204,12 @@ class RecorderImpl {
                                 const uint32_t param_size);
 
   // Data callback handlers.
-  void VideoTrackBufferCallback(uint32_t remote_client_id,
+  void VideoTrackBufferCallback(uint32_t remote_client_id, uint32_t session_id,
                                 uint32_t client_track_id,
                                 std::vector<BnBuffer>& buffers,
                                 std::vector<MetaData>& meta_buffers);
 
-  void AudioTrackBufferCallback(uint32_t remote_client_id,
+  void AudioTrackBufferCallback(uint32_t remote_client_id, uint32_t session_id,
                                 uint32_t client_track_id,
                                 std::vector<BnBuffer>& buffers,
                                 std::vector<MetaData>& meta_buffers);
@@ -208,6 +219,9 @@ class RecorderImpl {
 
   void CameraResultCallback(uint32_t remote_client_id, uint32_t camera_id,
                             const CameraMetadata &result);
+
+  void CameraErrorCallback(uint32_t client_id,
+                           RecorderErrorData &error);
 
  private:
 
@@ -259,13 +273,16 @@ class RecorderImpl {
   // <client id, <session_id, vector<client track id, service track id> > >
   typedef std::map<uint32_t, SessionTrackMap> ClientSessionMap;
 
-  ClientSessionMap client_session_map_;
-  std::mutex       client_session_lock_;
+  ClientSessionMap      client_session_map_;
+  std::mutex            client_session_lock_;
 
   // <client id, vector<camera ids> >
   typedef std::map<uint32_t, std::vector<uint32_t> > ClientCameraIdMap;
-  ClientCameraIdMap client_cameraid_map_;
-  std::mutex        camera_map_lock_;
+  ClientCameraIdMap     client_cameraid_map_;
+  std::mutex            camera_map_lock_;
+
+  bool                  client_died_;
+  std::mutex            client_died_lock_;
 
   // Not allowed
   RecorderImpl();

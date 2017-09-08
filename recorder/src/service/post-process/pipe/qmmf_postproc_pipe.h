@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "../node/qmmf_postproc_node.h"
+#include "../factory/qmmf_postproc_factory.h"
 
 namespace qmmf {
 
@@ -41,9 +42,23 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
+struct PipeIOParam {
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
+  uint32_t scanline;
+  uint32_t frame_rate;
+  int32_t format;
+  uint32_t image_quality;
+  int32_t gralloc_flags;
+  uint32_t buffer_count;
+};
+
 enum class PostProcPipeState {
   CREATED,
+  INITIALIZE,
   INITIALIZED,
+  CONFIGURED,
   READYTOSTART,
   READYTOSTOP,
 };
@@ -52,18 +67,12 @@ class PostProcPipe : public virtual  RefBase {
 
  public:
 
-   PostProcPipe(IPostProc * context,
-                const std::vector<std::string> &pipe);
+   PostProcPipe(IPostProc* context);
 
    ~PostProcPipe();
 
-   PostProcCreateParam GetInput(PostProcCreateParam &out);
-
-   status_t CreatePipe(int32_t in_stream_id,
-                       CameraStreamParameters &stream_param,
-                       const ImageParam &param,
-                       void* static_meta,
-                       int32_t &out_stream_id);
+   status_t CreatePipe(const PipeIOParam &pipe_out_param,
+       const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
@@ -71,7 +80,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void AddResult(const void* result);
 
-   status_t Start();
+   status_t Start(const int32_t stream_id);
 
    status_t Stop();
 
@@ -85,7 +94,25 @@ class PostProcPipe : public virtual  RefBase {
 
    void UnlinkPipe(sp<IBufferConsumer>& consumer);
 
-   CameraStreamParameters        init_params_;
+   sp<PostProcNode> FindInternalNode(const PostProcIOParam &output);
+
+   bool IsRAWFormat(const BufferFormat &format);
+
+   bool IsYUVFormat(const BufferFormat &format);
+
+   bool IsJPEGFormat(const BufferFormat &format);
+
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const BufferFormat &format);
+
+   bool IsFormatSupported(const std::set<BufferFormat> &formats,
+                          const int32_t format);
+
+   bool SupportsRAWFormat(const std::set<BufferFormat> &formats);
+
+   bool SupportsYUVFormat(const std::set<BufferFormat> &formats);
+
+   bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
    PostProcPipeState             state_;
 
@@ -93,7 +120,9 @@ class PostProcPipe : public virtual  RefBase {
 
    IPostProc*                    context_;
 
-   sp<IBufferConsumer>           pipe_consumer_;
+   sp<PostProcFactory>           factory_;
+
+   bool                          use_hal_jpeg_;
 
 };
 

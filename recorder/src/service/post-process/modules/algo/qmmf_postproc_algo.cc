@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <iomanip>
 
 #include "qmmf_postproc_algo.h"
 
@@ -41,18 +42,18 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-PostProcAlg::PostProcAlg(int32_t Id, std::string lib)
-    : id_(Id),
-      Lib_(lib),
+PostProcAlg::PostProcAlg(std::string lib)
+    : Lib_(lib),
       reprocess_flag_(false),
-      ready_to_start_(false) {
+      ready_to_start_(false),
+      pass_through_(false) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   try {
     Utils::LoadLib(Lib_, lib_handle_);
 
     QmmfAlgLoadPlugin LoadPluginFunc;
-    Utils::LoadLibHandler(lib_handle_, QMMF_ALFO_LIB_LOAD_FUNC, LoadPluginFunc);
+    Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
     std::vector<uint8_t> calibration_data;
     algo_ = LoadPluginFunc(calibration_data);
   } catch (const std::exception &e) {
@@ -60,6 +61,11 @@ PostProcAlg::PostProcAlg(int32_t Id, std::string lib)
         Lib_.c_str(), e.what());
     throw e;
   }
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.skipalgo", prop_val, "0");
+  pass_through_ = (0 == atoi(prop_val)) ? false : true;
+
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -79,14 +85,8 @@ PostProcAlg::~PostProcAlg() {
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
-status_t PostProcAlg::Create(const int32_t stream_id,
-                             const PostProcCreateParam& input,
-                             const PostProcCreateParam& output,
-                             const uint32_t frame_rate,
-                             const uint32_t num_images,
-                             const void* static_meta,
-                             const void* context,
-                             int32_t &out_stream_id) {
+status_t PostProcAlg::Initialize(const PostProcIOParam &in_param,
+                                 const PostProcIOParam &out_param) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (ready_to_start_) {
@@ -103,43 +103,52 @@ status_t PostProcAlg::Create(const int32_t stream_id,
 
   ready_to_start_ = true;
 
-  QMMF_INFO("%s:%s: Exit reproc_ID: %d", TAG, __func__, id_);
-  out_stream_id = id_;
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
 
   return NO_ERROR;
 }
 
-PostProcCreateParam PostProcAlg::GetInput(const PostProcCreateParam &out) {
+PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   Requirements requirements;
-  PostProcCreateParam in = out;
+  PostProcIOParam input_param = out;
+
+  if (pass_through_) {
+    return input_param;
+  }
 
   requirements.width_    = out.width;
   requirements.height_   = out.height;
   requirements.stride_   = out.stride;
   requirements.scanline_ = out.scanline;
-  // todo: get work with qmmf format (PixelFormat) instead of HAL format
-  //algo_params.formats_.push_back(GetAlgFormat(out.format));
+  requirements.formats_.push_back(GetAlgFormat(out.format));
 
   std::vector<Requirements> alg_out = {requirements};
   requirements = algo_->GetInputRequirements(alg_out);
 
-  in.width    = requirements.width_;
-  in.height   = requirements.height_;
-  in.stride   = requirements.stride_;
-  in.scanline = requirements.scanline_;
-  //in.format   = GetQmmfFormat(algo_params.formats_.front());
+  input_param.width    = requirements.width_;
+  input_param.height   = requirements.height_;
+  input_param.stride   = requirements.stride_;
+  input_param.scanline = requirements.scanline_;
+  input_param.format   = GetQmmfFormat(requirements.formats_.front());
 
-  return in;
+  return input_param;
 }
 
-PostProcCreateParam PostProcAlg::GetOutput(const PostProcCreateParam &in) {
-  PostProcCreateParam out = in;
-  // todo: remove GetOutput API. GetInput should be enough.
-  return out;
+status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
+  Capabilities caps = algo_->GetCaps();
+
+  if (caps.out_buffer_requirements_.pixel_formats_.
+        count(GetAlgFormat(output.format)) == 0) {
+    QMMF_ERROR("%s:%s: Output format %d alg %x not supported", TAG, __func__,
+        output.format, (unsigned int)GetAlgFormat(output.format));
+    return BAD_TYPE;
+  }
+
+  return NO_ERROR;
 }
 
 status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
-  qmmf_alg_plugin::Capabilities algo_caps = algo_->GetCaps();
+  Capabilities algo_caps = algo_->GetCaps();
 
   caps.output_buff_        = algo_caps.out_buffer_requirements_.count_;
   caps.min_width_          = algo_caps.out_buffer_requirements_.min_width_;
@@ -149,39 +158,60 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   caps.crop_support_       = algo_caps.crop_support_;
   caps.scale_support_      = algo_caps.scale_support_;
   caps.inplace_processing_ = algo_caps.inplace_processing_;
-  caps.lib_version_        = algo_caps.lib_version_;
   caps.usage_              = 0;
 
-  for (auto fmt : algo_caps.in_buffer_requirements_.pixel_formats_) {
-    caps.in_formats_.push_back(GetQmmfFormat(fmt));
+  for (auto fmt : algo_caps.out_buffer_requirements_.pixel_formats_) {
+    caps.formats_.insert(GetQmmfFormat(fmt));
   }
 
-  for (auto fmt : algo_caps.out_buffer_requirements_.pixel_formats_) {
-    caps.out_formats_.push_back(GetQmmfFormat(fmt));
+  if (pass_through_) {
+    caps.output_buff_        = 0;
+    caps.crop_support_       = false;
+    caps.scale_support_      = false;
+    caps.inplace_processing_ = true;
   }
+
   return NO_ERROR;
 }
 
-status_t PostProcAlg::Start() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+status_t PostProcAlg::Start(const int32_t stream_id) {
+  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
   if (!ready_to_start_) {
     return BAD_VALUE;
   }
 
   reprocess_flag_ = true;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.dump.in", prop, "0");
+  if(atoi(prop) == 0) {
+    dump_in_frame_ = false;
+  } else {
+    dump_in_frame_ = true;
+    QMMF_INFO("%s:%s: Enable input frame dump", TAG, __func__);
+  }
+
+  property_get("persist.qmmf.postproc.dump.out", prop, "0");
+  if(atoi(prop) == 0) {
+    dump_out_frame_ = false;
+  } else {
+    dump_out_frame_ = true;
+    QMMF_INFO("%s:%s: Enable output frame dump", TAG, __func__);
+  }
+
+  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+
   return NO_ERROR;
 }
 
 status_t PostProcAlg::Stop() {
-  QMMF_INFO("%s:%s: Enter stop Id_: %d", TAG, __func__, id_);
+  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
 
   ready_to_start_ = false;
 
   reprocess_flag_ = false;
 
-  QMMF_INFO("%s:%s: Exit stop Id_: %d", TAG, __func__, id_);
+  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
   return NO_ERROR;
 }
 
@@ -215,6 +245,13 @@ status_t PostProcAlg::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
+  if (pass_through_) {
+    for (auto iter : in_buffers) {
+      listener_->OnFrameReady(iter);
+    }
+    return NO_ERROR;
+  }
+
   if (reprocess_flag_ == true) {
     std::vector<AlgBuffer> in_alg_buffers;
     auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
@@ -237,6 +274,12 @@ status_t PostProcAlg::Process(
       QMMF_ERROR("%s:%s: Error registering buffers exception: %s", TAG,
           __func__, e.what());
       throw e;
+    }
+
+    if (dump_in_frame_ == true) {
+      for (auto buf : in_alg_buffers) {
+        DumpFrame(buf, true);
+      }
     }
 
     try {
@@ -271,6 +314,9 @@ void PostProcAlg::OnFrameProcessed(const AlgBuffer &input_buffer) {
 }
 
 void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
+  if (dump_out_frame_ == true) {
+    DumpFrame(output_buffer, false);
+  }
 
   const std::vector<AlgBuffer> buffers = {output_buffer};
   algo_->UnregisterOutputBuffers(buffers);
@@ -341,17 +387,24 @@ status_t PostProcAlg::PrepareAlgBuffer(
     uint32_t offset = 0;
     std::vector<BufferPlane> planes;
     for (uint32_t i = 0; i < stream_buffer.info.num_planes; i++) {
+      // gralloc report stride in pixels except mipi formats, because
+      // mipi stride cannot be represent in pixels.
+      uint32_t stride_in_bytes = stream_buffer.info.plane_info[i].stride;
+      if (stream_buffer.info.format == BufferFormat::kRAW16) {
+        stride_in_bytes *= 2; // two bytes per pixel
+      }
       BufferPlane plane(stream_buffer.info.plane_info[i].width,
                         stream_buffer.info.plane_info[i].height,
-                        stream_buffer.info.plane_info[i].stride,
+                        stride_in_bytes,
                         offset,
                         stream_buffer.info.plane_info[i].scanline *
-                            stream_buffer.info.plane_info[i].stride);
+                            stride_in_bytes);
       planes.push_back(plane);
       offset += stream_buffer.info.plane_info[i].scanline *
-          stream_buffer.info.plane_info[i].stride;
+          stride_in_bytes;
     }
 
+    QMMF_INFO("%s:%s Buffer format: %d", TAG, __func__, stream_buffer.info.format);
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
                   stream_buffer.fd,
                   stream_buffer.size,
@@ -377,14 +430,122 @@ status_t PostProcAlg::PrepareAlgBuffer(
 }
 
 void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
-  std::string file_name =
-      std::string("/lcac_" ) + (buf.pix_fmt_ < kRawBggr12 ? "mipi10" : "mipi12") +
-      std::string("_dim_")    + std::to_string(buf.plane_[0].width_) +
-      std::string("x")        + std::to_string(buf.plane_[0].height_) +
-      std::string("_stride_") + std::to_string(buf.plane_[0].stride_) +
-      std::string("_frame_")  + std::to_string(buf.frame_number_) +
-      std::string("_")        + (input ? "input" : "output") +
-      std::string(".raw");
+  int32_t start = Lib_.find("libqmmf_alg_") + sizeof("libqmmf_alg_") - 1;
+  int32_t size = Lib_.find(".so") - start;
+
+  std::string module_name;
+  if (start < 0 || size < 0) {
+    module_name = "unknown";
+  } else {
+    module_name = Lib_.substr(start, size);
+  }
+
+  std::string file_name = "/data/misc/qmmf/img_algo_" + module_name + "_";
+
+  switch (buf.pix_fmt_) {
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+      file_name += "mipi10";
+      break;
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+      file_name += "mipi12";
+      break;
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+      file_name += "plain16_10bit";
+      break;
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+      file_name += "plain16_12bit";
+      break;
+    case kNv12:
+      file_name += "nv12";
+      break;
+    case kNv12UBWC:
+      file_name += "nv12bwc";
+      break;
+    case kNv21:
+      file_name += "nv21";
+      break;
+    case kNv21UBWC:
+      file_name += "nv21bwc";
+      break;
+    case kJpeg:
+      file_name += "jpeg";
+      break;
+    default:
+      std::stringstream sstream;
+      sstream << std::hex << buf.pix_fmt_;
+      file_name += sstream.str();
+      break;
+  }
+
+  file_name +=
+      "_dim_"      + std::to_string(buf.plane_[0].width_) +
+      "x"          + std::to_string(buf.plane_[0].height_) +
+      "_stride_"   + std::to_string(buf.plane_[0].stride_) +
+      "_scanline_" + std::to_string(buf.plane_[0].length_ /
+                                    buf.plane_[0].stride_) +
+      "_frame_"    + std::to_string(buf.frame_number_) +
+      "_"          + (input ? "input" : "output");
+
+  switch (buf.pix_fmt_) {
+    case kRawBggrMipi8:
+    case kRawGbrgMipi8:
+    case kRawGrbgMipi8:
+    case kRawRggbMipi8:
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+    case kRawBggr16:
+    case kRawGbrg16:
+    case kRawGrbg16:
+    case kRawRggb16:
+      file_name += ".raw";
+      break;
+    case kNv12:
+    case kNv12UBWC:
+    case kNv21:
+    case kNv21UBWC:
+    case kYuyv422i:
+    case kYvyu422i:
+    case kUyvy422i:
+    case kVyuy422i:
+    case kYuv420:
+    case kYvu420:
+    case kYuv420p:
+    case kYvu420p:
+      file_name += ".yuv";
+      break;
+    case kJpeg:
+      file_name += ".jpg";
+      break;
+    default:
+      file_name += ".bin";
+      break;
+  }
 
   FILE *file = fopen(file_name.c_str(), "w+");
   if (!file) {
@@ -398,7 +559,7 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     fclose(file);
     return;
   }
-  QMMF_INFO("%s: Dump %s frame to %s\n", __func__,
+  QMMF_INFO("%s:%s: Dump %s frame to %s\n", TAG, __func__,
       input ? "input" : "output", file_name.c_str());
 
   fclose(file);
@@ -413,7 +574,7 @@ StreamBuffer PostProcAlg::GetStreamBuffer(const AlgBuffer &algo_buf) {
     assert(0);
   }
 
-  StreamBuffer stream_buf = buffs_[fd];
+  StreamBuffer stream_buf = buffs_.at(fd);
   buffs_.erase(fd);
 
   return stream_buf;

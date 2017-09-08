@@ -22,6 +22,7 @@ BUILD_COMPONENTS += recorder/src/service
 BUILD_COMPONENTS += recorder/test/samples
 BUILD_COMPONENTS += recorder/test/gtest
 BUILD_COMPONENTS += recorder/test/timelapse
+BUILD_COMPONENTS += recorder/test/videotimelapse
 BUILD_COMPONENTS += player/src/client
 BUILD_COMPONENTS += player/src/service
 BUILD_COMPONENTS += player/test/demuxer
@@ -30,6 +31,7 @@ BUILD_COMPONENTS += player/test/gtest
 BUILD_COMPONENTS += system/src/client
 BUILD_COMPONENTS += system/src/service
 BUILD_COMPONENTS += system/test/samples
+BUILD_COMPONENTS += player/test/transcode_app
 BUILD_COMPONENTS += qmmf-server
 
 

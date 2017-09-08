@@ -427,6 +427,83 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
     return ret;
 }
 
+status_t RecorderClient::GetSupportedPlugins(SupportedPlugins *plugins)
+{
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_KPI_DETAIL();
+    Mutex::Autolock lock(lock_);
+
+    if (!CheckServiceStatus()) {
+      return NO_INIT;
+    }
+    assert(client_id_ > 0);
+    auto ret = recorder_service_->GetSupportedPlugins(client_id_, plugins);
+    if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s GetSupportedPlugins failed!", TAG, __func__);
+    }
+
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    return ret;
+}
+
+status_t RecorderClient::CreatePlugin(uint32_t *uid, const PluginInfo &plugin)
+{
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_KPI_DETAIL();
+    Mutex::Autolock lock(lock_);
+
+    if (!CheckServiceStatus()) {
+      return NO_INIT;
+    }
+    assert(client_id_ > 0);
+    auto ret = recorder_service_->CreatePlugin(client_id_, uid, plugin);
+    if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s CreatePlugin failed!", TAG, __func__);
+    }
+
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    return ret;
+}
+
+status_t RecorderClient::DeletePlugin(const uint32_t &uid)
+{
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_KPI_DETAIL();
+    Mutex::Autolock lock(lock_);
+
+    if (!CheckServiceStatus()) {
+      return NO_INIT;
+    }
+    assert(client_id_ > 0);
+    auto ret = recorder_service_->DeletePlugin(client_id_, uid);
+    if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s DeletePlugin failed!", TAG, __func__);
+    }
+
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    return ret;
+}
+
+status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
+                                      const std::string &json_config)
+{
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_KPI_DETAIL();
+    Mutex::Autolock lock(lock_);
+
+    if (!CheckServiceStatus()) {
+      return NO_INIT;
+    }
+    assert(client_id_ > 0);
+    auto ret = recorder_service_->ConfigPlugin(client_id_, uid, json_config);
+    if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s ConfigPlugin failed!", TAG, __func__);
+    }
+
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    return ret;
+}
+
 status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                                           const uint32_t track_id,
                                           const AudioTrackCreateParam& param,
@@ -1177,8 +1254,11 @@ void RecorderClient::ServiceDeathHandler() {
 
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  if (recorder_cb_.event_cb != nullptr) {
+    recorder_cb_.event_cb(event_type, event_data, event_data_size);
+  }
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
@@ -1542,6 +1622,74 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeUint32(session_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_RESUME_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t GetSupportedPlugins(const uint32_t client_id,
+                               SupportedPlugins *plugins) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_GET_SUPPORTED_PLUGINS), data, &reply);
+    uint32_t num_plugins;
+    reply.readUint32(&num_plugins);
+    for (uint32_t i = 0; i < num_plugins; i++)  {
+      uint32_t blob_size;
+      reply.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      reply.readBlob(blob_size, &blob);
+      PluginInfo plugin(blob.data(), blob_size);
+      plugins->push_back(plugin);
+      blob.release();
+    }
+    return reply.readInt32();
+  }
+
+  status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
+                        const PluginInfo &plugin) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    uint32_t blob_size = plugin.Size();
+    data.writeUint32(blob_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(blob_size, false, &blob);
+    memset(blob.data(), 0x0, blob_size);
+    memcpy(blob.data(), plugin.ToBlob().get(), blob_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_CREATE_PLUGIN), data, &reply);
+    auto ret = reply.readInt32();
+    *uid = reply.readUint32();
+    blob.release();
+    return ret;
+  }
+
+  status_t DeletePlugin(const uint32_t client_id, const uint32_t &uid) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(uid);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_DELETE_PLUGIN), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
+                        const std::string &json_config) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(uid);
+    size_t blob_size = json_config.size();
+    data.writeUint32(blob_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(blob_size, false, &blob);
+    memset(blob.data(), 0x0, blob_size);
+    memcpy(blob.data(), json_config.data(), blob_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_CONFIGURE_PLUGIN), data, &reply);
+    blob.release();
     return reply.readInt32();
   }
 
@@ -2042,8 +2190,10 @@ ServiceCallbackHandler::~ServiceCallbackHandler() {
 void ServiceCallbackHandler::NotifyRecorderEvent(EventType event_type,
                                                  void *event_data,
                                                  size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  assert(client_ != nullptr);
+  client_->NotifyRecorderEvent(event_type, event_data, event_data_size);
+  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
 void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
@@ -2137,6 +2287,28 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size) {
 
+    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    Parcel data, reply;
+
+    data.writeInterfaceToken(
+        IRecorderServiceCallback::getInterfaceDescriptor());
+    data.writeInt32(static_cast<underlying_type<EventType>::type>(event_type));
+    data.writeUint32(event_data_size);
+
+    android::Parcel::WritableBlob blob;
+    if (event_data_size) {
+      data.writeBlob(event_data_size, false, &blob);
+      memset(blob.data(), 0x0, event_data_size);
+      memcpy(blob.data(), event_data, event_data_size);
+    }
+    remote()->transact(
+        uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT),
+        data, &reply, IBinder::FLAG_ONEWAY);
+
+    if (event_data_size) {
+      blob.release();
+    }
+    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifySessionEvent(EventType event_type, void *event_data,
@@ -2336,8 +2508,24 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
 
   switch(code) {
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT: {
-    //TODO:
-        return NO_ERROR;
+      uint32_t event_data_size;
+      int32_t event_type;
+
+      data.readInt32(&event_type);
+      data.readUint32(&event_data_size);
+
+      android::Parcel::ReadableBlob blob;
+      void* event_data = nullptr;
+      if (event_data_size) {
+        data.readBlob(event_data_size, &blob);
+        event_data = const_cast<void*>(blob.data());
+      }
+      NotifyRecorderEvent(static_cast<EventType>(event_type), event_data,
+                          event_data_size);
+      if (event_data_size) {
+        blob.release();
+      }
+      return NO_ERROR;
     }
     break;
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_SESSION_EVENT: {

@@ -69,6 +69,14 @@ static const char* kDefaultHistogramStatsFilename =
 static const char* kDefaultAECAWBStatsFilename =
     "/data/AEC_AWB_stats.txt";
 
+const char kAutoModeArgs[] = {
+    AutoModeOptions::kWidth, ':',
+    AutoModeOptions::kHeight, ':',
+    AutoModeOptions::kFps, ':',
+    AutoModeOptions::kTrackType, ':',
+    '\n'
+};
+
 // Number of histogram color channels.
 // Currently 4: R, GR, GB, B
 static const int32_t kHistogramColorChannels = 4;
@@ -81,9 +89,13 @@ RecorderTest::RecorderTest() :
             session_enabled_(false),
             preview_session_id_(0),
             snapshot_choice_(SnapshotType::kNone),
+            dump_aec_awb_stats_(false),
+            dump_histogram_stats_(false),
             num_images_(0),
             aec_converged_(false),
-            ltr_count_(0) {
+            in_suspend_(true),
+            ltr_count_(0),
+            camera_error_(false) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   static_info_.clear();
   use_display = 0;
@@ -1465,19 +1477,23 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
     for (uint32_t i = 0; i < snapshot_info.count; i++) {
       meta_array.push_back(meta);
     }
-
-    TEST_INFO("CaptureImage size %dx%d images count %d\n",
-              image_param.width,image_param.height,snapshot_info.count);
-    ret = recorder_.CaptureImage(snapshot_info.camera_id, image_param,
-                                 snapshot_info.count,
-                                 meta_array, cb);
-    if(ret != 0) {
-      ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
-    }
-
+    int32_t repeat = snapshot_info.count;
     bool is_cancel_snapshot = false;
     is_cancel_snapshot = is_test_cancel_snapshot();
-    if (is_cancel_snapshot) {
+
+    do {
+      {
+        std::lock_guard<std::mutex> lk(error_lock_);
+        camera_error_ = false;
+      }
+      TEST_INFO("CaptureImage size %dx%d images count %d\n",
+                image_param.width,image_param.height,snapshot_info.count);
+      ret = recorder_.CaptureImage(snapshot_info.camera_id, image_param,
+                                   snapshot_info.count,
+                                   meta_array, cb);
+      if(ret != 0) {
+        ALOGE("%s:%s CaptureImage Failed", TAG, __func__);
+      }
       std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
       burst_snapshot_count_ = snapshot_info.count;
       uint32_t wait_time_secs = get_snapshot_cb_wait_time();
@@ -1487,7 +1503,17 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
            std::cv_status::timeout) {
            TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
       }
+      {
+        std::lock_guard<std::mutex> lk(error_lock_);
+        if (!camera_error_) {
+          TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+          break;
+        }
+      }
+      TEST_ERROR("%s:%s Restart TakeSnapshot", TAG, __func__);
+    } while (repeat-- > 0);
 
+    if (is_cancel_snapshot) {
       ret = CancelTakeSnapshot();
       if (ret != 0) {
         TEST_ERROR("%s:%s CancelTakeSnapshot Failed", TAG, __func__);
@@ -1661,15 +1687,30 @@ status_t RecorderTest::TakeSnapshot() {
       for (uint32_t i = 0; i < num_images_; i++) {
         meta_array.push_back(meta);
       }
-      ret = recorder_.CaptureImage(camera_id_, image_param, num_images_,
-                                   meta_array, cb);
-      if (ret != 0) {
-        ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
-      }
-      TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
-      unique_lock < mutex > lock(callback_lock_);
-      signal_cb_.wait(lock);
-      TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+
+      int32_t repeat = num_images_;
+      do {
+        {
+          std::lock_guard<std::mutex> lock(error_lock_);
+          camera_error_ = false;
+        }
+        ret = recorder_.CaptureImage(camera_id_, image_param, num_images_,
+                                     meta_array, cb);
+        if (ret != 0) {
+          ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
+        }
+        TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
+        unique_lock < mutex > lock(callback_lock_);
+        signal_cb_.wait(lock);
+        TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+        {
+          std::lock_guard<std::mutex> lock(error_lock_);
+          if (!camera_error_) {
+            TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+            break;
+          }
+        }
+      } while(repeat-- > 0);
     }
   } while ((input != '0'));
 
@@ -1917,7 +1958,6 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   tracks.push_back(yuv_1080p_track);
 
   sessions_.insert(std::make_pair(session_id, tracks));
-
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -2232,7 +2272,6 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   ret = yuv_720p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_720p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -2927,7 +2966,6 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_1080p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   use_display = 1;
@@ -2963,7 +3001,6 @@ status_t RecorderTest::Session1080pYUVTrackWithPreview() {
   ret = yuv_1080p_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(yuv_1080p_track);
-
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s:%s: Exit", TAG, __func__);
@@ -3417,6 +3454,201 @@ status_t RecorderTest::DeleteSession() {
   return 0;
 }
 
+void RecorderTest::GetMaxResolutionTrack(TrackInfo &result) {
+  if (sessions_.size() <= 0) {
+    TEST_ERROR("%s:%s: Application does not have the active session ", TAG,
+               __func__);
+  }
+  auto it_sessions = sessions_.begin();
+  auto it_testtrack = it_sessions->second;
+  uint32_t max_width = ((*it_testtrack.begin())->GetTrackHandle()).width;
+  result = (*it_testtrack.begin())->GetTrackHandle();
+  for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
+    auto it_test_track = it->second;
+    for (auto it_trackinfo = it_test_track.begin();
+         it_trackinfo != it_test_track.end(); ++it_trackinfo) {
+      TEST_DBG("%s:%s: Width:%u Height:%u ", TAG, __func__,
+                (*it_trackinfo)->GetTrackHandle().width,
+                (*it_trackinfo)->GetTrackHandle().height);
+      if (max_width < ((*it_trackinfo)->GetTrackHandle().width)) {
+        max_width = (*it_trackinfo)->GetTrackHandle().width;
+        result = (*it_trackinfo)->GetTrackHandle();
+      }
+    }
+  }
+}
+
+void RecorderTest::PrintAWBROIHelp() {
+  std::cout << " \nNote :" << std::endl;
+  std::cout << " Target color is color of ROI that user expect." << std::endl;
+  std::cout << " ROI should be selected such that there are no two colors in "
+               "that ROI."
+            << std::endl;
+  std::cout << " In ROI there should be only one color, and target color "
+               "specified should be the color which is expected color for user "
+               "in ROI."
+            << std::endl;
+  std::cout << " Procedure to test :" << std::endl;
+  std::cout << " - Enable the session in recorder_test" << std::endl;
+  std::cout << "   e.g. 1->3->6->A" << std::endl;
+  std::cout << " - Press '$' and get below option :" << std::endl;
+  std::cout << "   1. Enable ROI" << std::endl;
+  std::cout << "   2. Disable ROI" << std::endl;
+  std::cout << "   3. Help" << std::endl;
+  std::cout << "   X. Exit" << std::endl;
+  std::cout << " - Press '1 to enable ROI. below is the sample text to show "
+               "how to enter values :"
+            << std::endl;
+  std::cout << "  Enter Top Left Coordinate Values [x y] : 100 100"
+            << std::endl;
+  std::cout << "  Enter Bottom Right Coordinate Values [x y] : 200 200"
+            << std::endl;
+  std::cout << "  Enter RGB values [R G B] :255 1 1" << std::endl;
+  std::cout << " - Press '2' to disable ROI." << std::endl;
+  std::cout << " - Press 'X'/'x' to exit the ROI window.\n" << std::endl;
+}
+
+status_t RecorderTest::HandleAWBROIRequest() {
+  char input;
+  status_t status = -1;
+  int32_t full_fov_width, full_fov_height;
+  bool coordinate_correct = false;
+  int32_t top_left[2] = {0};
+  int32_t bottom_right[2] = {0};
+  bool color_correct = false;
+  CameraMetadata meta;
+  if (session_enabled_) {
+    if (static_info_.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+      auto active_array_size =
+          static_info_.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      if (!active_array_size.count) {
+        TEST_ERROR("%s:%s: Active sensor array size is missing!", TAG,
+                   __func__);
+        return status;
+      }
+      full_fov_width = active_array_size.data.i32[2];
+      full_fov_height = active_array_size.data.i32[3];
+    }
+    TrackInfo result;
+    memset(&result,0,sizeof(result));
+    GetMaxResolutionTrack(result);
+    int32_t max_roi_width_ = result.width;
+    int32_t max_roi_height_ = result.height;
+    do {
+      coordinate_correct = false;
+      color_correct = false;
+      std::cout << "  1. Enable ROI " << std::endl;
+      std::cout << "  2. Disable ROI " << std::endl;
+      std::cout << "  3. Help " << std::endl;
+      std::cout << "  X. Exit" << std::endl;
+      std::cin >> input;
+
+      switch (input) {
+        case '1':
+          std::cout << "  Max Width and Height supported is :["
+                    << max_roi_width_ << "][" << max_roi_height_ << "]"
+                    << "\n";
+
+          std::cout << "  Enter Top Left Coordinate Values [x y] : ";
+          std::cin >> top_left[0];
+          std::cin >> top_left[1];
+
+          std::cout << "\n  Enter Bottom Right Coordinate Values [x y] : ";
+          std::cin >> bottom_right[0];
+          std::cin >> bottom_right[1];
+
+          if ((top_left[0] >= 0 && top_left[0] <= max_roi_width_) &&
+              (top_left[1] >= 0 && top_left[1] <= max_roi_height_) &&
+              (bottom_right[0] > 0 && bottom_right[0] <= max_roi_width_) &&
+              (bottom_right[1] > 0 && bottom_right[1] <= max_roi_height_)) {
+            coordinate_correct = true;
+            roi_region_.roi_coordinates[0] =
+                top_left[0] * (full_fov_width / max_roi_width_);
+            roi_region_.roi_coordinates[1] =
+                top_left[1] * (full_fov_height / max_roi_height_);
+            roi_region_.roi_coordinates[2] =
+                bottom_right[0] * (full_fov_width / max_roi_width_);
+            roi_region_.roi_coordinates[3] =
+                bottom_right[1] * (full_fov_height / max_roi_height_);
+            roi_region_.roi_coordinates[4] = 1;  // Enable ROI
+          } else {
+            std::cout << "\n  Wrong Coordinates - Please enter ROI coordinates "
+                         "in range of :["
+                      << max_roi_width_ << "][" << max_roi_height_ << "]"
+                      << "\n";
+            break;
+          }
+
+          std::cout << "\n  Enter RGB values [R G B] :";
+          std::cin >> roi_region_.rgb_color[0];
+          std::cin >> roi_region_.rgb_color[1];
+          std::cin >> roi_region_.rgb_color[2];
+          std::cout << std::endl;
+          if ((roi_region_.rgb_color[0] >= 1 &&
+               roi_region_.rgb_color[0] <= 255) &&
+              (roi_region_.rgb_color[1] >= 1 &&
+               roi_region_.rgb_color[1] <= 255) &&
+              (roi_region_.rgb_color[2] >= 1 &&
+               roi_region_.rgb_color[2] <= 255)) {
+            color_correct = true;
+          } else {
+            std::cout << "\n Wrong Color Values - Please enter ROI color in "
+                         "range of :[1-255] \n";
+            break;
+          }
+          if (coordinate_correct && color_correct) {
+            meta.update(QCAMERA3_AWB_ROI_COLOR, roi_region_.rgb_color, 3);
+            meta.update(ANDROID_CONTROL_AWB_REGIONS,
+                        roi_region_.roi_coordinates, 5);
+            status = recorder_.SetCameraParam(camera_id_, meta);
+            if (status != 0) {
+              TEST_ERROR("%s:%s: Failed to set camera params", TAG, __func__);
+              return status;
+            }
+          }
+          break;
+        case '2':
+          status = recorder_.GetCameraParam(camera_id_, meta);
+          if (NO_ERROR == status) {
+            if (meta.exists(ANDROID_CONTROL_AWB_REGIONS)) {
+              TEST_DBG("%s:%s ANDROID_CONTROL_AWB_REGIONS Exists ", TAG,
+                       __func__);
+              roi_region_.roi_coordinates[4] = 0;  // Disable ROI
+              meta.update(ANDROID_CONTROL_AWB_REGIONS,
+                          roi_region_.roi_coordinates, 5);
+              status = recorder_.SetCameraParam(camera_id_, meta);
+              if (status != 0) {
+                TEST_ERROR("%s:%s: Failed to set camera params", TAG, __func__);
+                return status;
+              }
+            } else {
+              TEST_DBG("%s:%s ANDROID_CONTROL_AWB_REGIONS Does not Exists ",
+                       TAG, __func__);
+              return status;
+            }
+          } else {
+            TEST_ERROR("%s:%s: Failed to Get camera params", TAG, __func__);
+            return status;
+          }
+          break;
+        case '3':
+          PrintAWBROIHelp();
+          break;
+        case 'X':
+        case 'x':
+          break;
+        default:
+          std::cout
+              << " \n Wrong option selected - Please Enter value between 1-3 "
+              << std::endl;
+      }
+    } while (input != 'X' && input != 'x');
+  } else {
+    TEST_ERROR("%s:%s: No session found for ROI to apply", TAG, __func__);
+  }
+  return status;
+}
+
 void RecorderTest::SnapshotCb(uint32_t camera_id,
                               uint32_t image_sequence_count,
                               BufferDescriptor buffer, MetaData meta_data) {
@@ -3497,6 +3729,10 @@ void RecorderTest::RecorderEventCallbackHandler(EventType event_type,
     // qmmf-server runs as a daemon and gets restarted automatically, on death
     // event application can cleanup all its resources and connect again.
     TEST_WARN("%s:%s: Recorder Service died!", TAG, __func__);
+  } else if (event_type == EventType::kCameraError) {
+    TEST_INFO("%s:%s: Found CameraError", TAG, __func__);
+    std::lock_guard<std::mutex> lock(error_lock_);
+    camera_error_ = true;
   }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -3599,6 +3835,8 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   TEST_DBG("%s:%s: total written_len = %d", TAG, __func__, written_len);
   TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
       buffer.data, written_len, file_path.string());
+
+  fclose(file);
 
   return NO_ERROR;
 }
@@ -4156,72 +4394,440 @@ READ_FAILED:
   return -1;
 }
 
-int32_t RecorderTest::RunAutoMode() {
+int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
+                                          char *argv[],
+                                          VideoTrackCreateParam *track_param) {
   ALOGD("%s: Enter ",__func__);
 
-  auto ret = Connect();
-  if (NO_ERROR  != ret) {
-    ALOGE("%s:%s Connect Failed!!", TAG, __func__);
+  if (argc != 10) {
+    return -EINVAL;
+  }
+
+  int32_t val, opt;
+  optind = 2;
+  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
+    switch (opt) {
+      case AutoModeOptions::kWidth:
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid width = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_param->width = val;
+        break;
+      case AutoModeOptions::kHeight:
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid height = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_param->height = val;
+        break;
+      case AutoModeOptions::kFps:
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid FPS = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_param->frame_rate = val;
+        break;
+      case AutoModeOptions::kTrackType:
+        if (!strcmp(optarg, "AVC")) {
+          track_param->format_type = VideoFormat::kAVC;
+        } else if (!strcmp(optarg, "HEVC")) {
+          track_param->format_type = VideoFormat::kHEVC;
+        } else {
+          TEST_ERROR("%s:%s: Invalid TrackType = %s", TAG, __func__, optarg);
+          return -EINVAL;
+        }
+        break;
+      default:
+        return -EINVAL;
+    }
+  }
+
+  track_param->camera_id   = camera_id_;
+  track_param->codec_param.avc.idr_interval = 1;
+  track_param->codec_param.avc.bitrate      = 10000000;
+  track_param->codec_param.avc.profile = AVCProfileType::kHigh;
+  track_param->codec_param.avc.level   = AVCLevelType::kLevel3;
+  track_param->codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kMaxBitrate;
+  track_param->codec_param.avc.qp_params.enable_init_qp = true;
+  track_param->codec_param.avc.qp_params.init_qp.init_IQP = 27;
+  track_param->codec_param.avc.qp_params.init_qp.init_PQP = 28;
+  track_param->codec_param.avc.qp_params.init_qp.init_BQP = 28;
+  track_param->codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+  track_param->codec_param.avc.qp_params.enable_qp_range = true;
+  track_param->codec_param.avc.qp_params.qp_range.min_QP = 10;
+  track_param->codec_param.avc.qp_params.qp_range.max_QP = 51;
+  track_param->codec_param.avc.qp_params.enable_qp_IBP_range = true;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
+  track_param->codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+  track_param->codec_param.avc.ltr_count = 4;
+  track_param->codec_param.avc.insert_aud_delimiter = true;
+
+  return 0;
+  ALOGD("%s: Exit ",__func__);
+}
+
+int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
+                                              TrackInfo *track_info) {
+  TEST_INFO("%s: Enter ", __func__);
+
+  if (argc != 10) {
+    return -EINVAL;
+  }
+
+  int32_t val, opt;
+  optind = 2;
+  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
+    switch (opt) {
+      case AutoModeOptions::kWidth:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid width = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->width = val;
+      }
+      break;
+      case AutoModeOptions::kHeight:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid height = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->height = val;
+      }
+      break;
+      case AutoModeOptions::kFps:
+      {
+        val = atoi(optarg);
+        if (val < 0) {
+          TEST_ERROR("%s:%s: Invalid FPS = %d", TAG, __func__, val);
+          return -EINVAL;
+        }
+        track_info->fps = val;
+      }
+      break;
+      case AutoModeOptions::kTrackType:
+      {
+        if (!strcmp(optarg, "AVC")) {
+          track_info->track_type = TrackType::kVideoAVC;
+        } else if (!strcmp(optarg, "HEVC")) {
+          track_info->track_type = TrackType::kVideoHEVC;
+        } else {
+          TEST_ERROR("%s:%s: Invalid TrackType = %s", TAG, __func__, optarg);
+          return -EINVAL;
+        }
+      }
+      break;
+      default:
+        return -EINVAL;
+    }
+  }
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+bool RecorderTest::IsKeyEventShort(const milliseconds keypress_duration) {
+
+  const uint32_t kLongPressDuration = 300;
+
+  if(keypress_duration < static_cast<milliseconds>(kLongPressDuration)) {
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+int32_t RecorderTest::StartRecording(
+    const VideoTrackCreateParam &video_track_param) {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+  TrackCb video_track_cb;
+  SessionCb session_status_cb;
+  CameraStartParam camera_params;
+
+  ret = recorder_.StartCamera(camera_id_, camera_params);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StartCamera Failed!!", TAG, __func__);
     return ret;
   }
 
+  session_status_cb.event_cb = [&](EventType event_type, void *event_data,
+                                   size_t event_data_size) {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateSession(session_status_cb, &current_session_id_);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s CreateSession failed!!", TAG, __func__);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  video_track_cb.data_cb = [&](uint32_t track_id,
+                               std::vector<BufferDescriptor> buffers,
+                               std::vector<MetaData> meta_buffers) {
+    recorder_.ReturnTrackBuffer(current_session_id_, 1, buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t data_size) {};
+
+  ret = recorder_.CreateVideoTrack(current_session_id_, 1, video_track_param,
+                                   video_track_cb);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s CreateVideoTrack failed!!", TAG, __func__);
+    recorder_.StopSession(current_session_id_, true);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  ret = recorder_.StartSession(current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StartSession failed!!", TAG, __func__);
+    recorder_.DeleteVideoTrack(current_session_id_, 1);
+    recorder_.StopSession(current_session_id_, true /*flush buffers*/);
+    recorder_.StopCamera(camera_id_);
+    return ret;
+  }
+
+  in_suspend_ = false;
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+int32_t RecorderTest::StopRecording() {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+
+  ret = recorder_.StopSession(current_session_id_, true /*flush buffers*/);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StopSession failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.DeleteVideoTrack(current_session_id_, 1);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s DeleteVideoTrack Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.DeleteSession(current_session_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s DeleteSession Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s StopCamera Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  in_suspend_ = true;
+  TEST_INFO("%s: Exit ", __func__);
+  return 0;
+}
+
+int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  int32_t ret;
+  struct input_event ev;
+  unsigned int n = 0;
+  const char *input_device = "/dev/input/event0";
+  const char *wake_lock_node = "/sys/power/wake_lock";
+  const char *wake_unlock_node = "/sys/power/wake_unlock";
+  const char *buf = "qmmf_wakelock";
+
+  clk::time_point keypressed;
+  clk::time_point keyreleased;
+  milliseconds keypress_duration;
+
+  in_suspend_ = true;
+  int resume_fd = open(wake_lock_node, O_WRONLY);
+  if (resume_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening WAKE_LOCK_NODE node", TAG, __func__);
+    exit(2);
+  }
+  int suspend_fd = open(wake_unlock_node, O_WRONLY);
+  if (suspend_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening WAKE_UNLOCK_NODE node", TAG, __func__);
+    exit(2);
+  }
+  int input_fd = open(input_device, O_RDONLY);
+  if (input_fd == -1) {
+    TEST_ERROR("%s:%s Error in opening input key device node ... Exiting", TAG,
+          __func__);
+    exit(2);
+  }
+  errno = 0;
+  if (write(resume_fd, buf, strlen(buf)) == -1) {
+    TEST_ERROR("First Write to resume_fd failed %d (%s)\n", errno, strerror(errno));
+    exit(2);
+  }
+
+  TrackInfo track_info;
+
+  if (argc > 2) {
+    ret = ParseWarmBootTestParams(argc, argv, &track_info);
+    if (ret != 0) {
+      TEST_ERROR(
+          "%s :%s:Usage: recorder_test testwarmboot -w <width> -h <height>"
+          " -f <fps> -t <AVC/HEVC>",
+          TAG, __func__);
+      TEST_INFO("%s:%s: Switching to default param", TAG, __func__);
+    }
+  }
+
+  ret = Connect();
+  if (NO_ERROR != ret) {
+    TEST_INFO("%s:%s Connect Failed!!", TAG, __func__);
+    return ret;
+  }
+
+  VideoFormat videoformat = (track_info.track_type == TrackType::kVideoAVC)
+                                ? VideoFormat::kAVC
+                                : VideoFormat::kHEVC;
+  VideoTrackCreateParam video_track_param{camera_id_, videoformat,
+                                          track_info.width, track_info.height,
+                                          track_info.fps};
+
+  ret = StartRecording(video_track_param);
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s:%s StartRecording Failed!!", TAG, __func__);
+    goto exit;
+  }
+
+  while ((n = read(input_fd, &ev, sizeof(struct input_event))) > 0) {
+    if (n < sizeof(struct input_event)) {
+      TEST_ERROR("%s:%s Error reading input event", TAG, __func__);
+      exit(2);
+    }
+    if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
+      keypressed = clk::now();
+    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
+        keyreleased = clk::now();
+        keypress_duration =
+          std::chrono::duration_cast<milliseconds>(keyreleased - keypressed);
+        if (IsKeyEventShort(keypress_duration))
+          continue;
+        if (in_suspend_ == false) {
+          printf("LongKeyPress detected, going to suspend\n");
+          ret = StopRecording();
+          if (NO_ERROR != ret) {
+            TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
+            exit(2);
+          }
+          errno = 0;
+          if (write(suspend_fd, buf, strlen(buf)) == -1) {
+            printf("Failed to write suspend_fd %d (%s)\n", errno, strerror(errno));
+            exit(2);
+          }
+        } else {
+            printf("LongKeyPress detected, going to resume\n");
+            errno = 0;
+            if (write(resume_fd, buf, strlen(buf)) == -1) {
+              printf("Failed to write resume_fd %d (%s)\n", errno,
+                     strerror(errno));
+              exit(2);
+            }
+            ret = StartRecording(video_track_param);
+            if (NO_ERROR != ret) {
+              TEST_ERROR("%s:%s StartRecording Failed!!", TAG, __func__);
+              goto exit;
+            }
+          }
+      }
+  }
+
+  if (in_suspend_ == false) {
+    ret = StopRecording();
+    if (NO_ERROR != ret) {
+      TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
+    }
+  }
+
+exit:
+
+  ret = Disconnect();
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+  }
+
+  close(resume_fd);
+  close(suspend_fd);
+  close(input_fd);
+  TEST_INFO("%s: Exit ", __func__);
+
+  return 0;
+}
+
+int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
+  ALOGD("%s: Enter ",__func__);
+
   CameraStartParam camera_params;
+  TrackCb video_track_cb;
+  SessionCb session_status_cb;
+  uint32_t session_id;
+  VideoTrackCreateParam video_track_param;
+  memset(&video_track_param, 0x0, sizeof video_track_param);
+
+  auto ret = ParseAutoModeParams(argc, argv, &video_track_param);
+  if (ret != 0) {
+    TEST_ERROR("%s :%s:Usage: recorder_test --auto -w <width> -h <height>"
+               " -f <fps> -t <AVC/HEVC>", TAG, __func__);
+    goto exit;
+  }
+
+  ret = Connect();
+  if (NO_ERROR  != ret) {
+    ALOGE("%s:%s Connect Failed!!", TAG, __func__);
+    goto exit;
+  }
+
   memset(&camera_params, 0x0, sizeof camera_params);
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = 30;
+  camera_params.frame_rate          = video_track_param.frame_rate;
   camera_params.flags               = 0x0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
   if(ret != 0) {
       ALOGE("%s:%s StartCamera Failed!!", TAG, __func__);
+      goto disconnect;
   }
 
-  SessionCb session_status_cb;
   session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
       size_t event_data_size) { SessionCallbackHandler(event_type,
       event_data, event_data_size); };
 
-  uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+  if(ret != 0) {
+    ALOGE("%s:%s CreateSession failed!!", TAG, __func__);
+    goto stop_camera;
+  }
 
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
-  video_track_param.camera_id   = camera_id_;
-  video_track_param.width       = 3840;
-  video_track_param.height      = 2160;
-  video_track_param.frame_rate  = 30;
-
-  video_track_param.format_type = VideoFormat::kAVC;
-  video_track_param.codec_param.avc.idr_interval = 1;
-  video_track_param.codec_param.avc.bitrate      = 10000000;
-  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
-  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-  video_track_param.codec_param.avc.ratecontrol_type =
-      VideoRateControlType::kMaxBitrate;
-  video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 27;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 28;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 28;
-  video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-  video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-  video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 10;
-  video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-  video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
-  video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-  video_track_param.codec_param.avc.ltr_count = ltr_count_;
-  video_track_param.codec_param.avc.insert_aud_delimiter = true;
-
-
-  TrackCb video_track_cb;
   video_track_cb.data_cb = [&] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers, std::vector<MetaData>
       meta_buffers) { recorder_.ReturnTrackBuffer(session_id, 1, buffers); };
@@ -4233,45 +4839,49 @@ int32_t RecorderTest::RunAutoMode() {
             1, video_track_param, video_track_cb);
 
   if(ret != 0) {
-      ALOGE("%s:%s CreateVideoTrack failed!!", TAG, __func__);
+    ALOGE("%s:%s CreateVideoTrack failed!!", TAG, __func__);
+    goto delete_session;
   }
 
   ret = recorder_.StartSession(session_id);
   if(ret != 0) {
-      ALOGE("%s:%s StartSession failed!!", TAG, __func__);
+    ALOGE("%s:%s StartSession failed!!", TAG, __func__);
+    goto delete_track;
   }
 
-  // Record video for 5 sec
-  sleep(5);
+  // Record video for 2 sec
+  sleep(2);
 
   ret = recorder_.StopSession(session_id, true /*flush buffers*/);
   if(ret != 0) {
-      ALOGE("%s:%s StopSession failed!!", TAG, __func__);
+    ALOGE("%s:%s StopSession failed!!", TAG, __func__);
   }
 
+delete_track:
   ret = recorder_.DeleteVideoTrack(session_id, 1);    //info.track_id = 1;
   if (ret != 0) {
-      ALOGE("%s:%s DeleteVideoTrack Failed!!", TAG, __func__);
-      return ret;
+    ALOGE("%s:%s DeleteVideoTrack Failed!!", TAG, __func__);
   }
 
+delete_session:
   ret = recorder_.DeleteSession(session_id);
   if (ret != 0) {
-      ALOGE("%s:%s DeleteSession Failed!!", TAG, __func__);
-      return ret;
+    ALOGE("%s:%s DeleteSession Failed!!", TAG, __func__);
   }
 
+stop_camera:
   ret = recorder_.StopCamera(camera_id_);
   if(ret != 0) {
     ALOGE("%s:%s StopCamera Failed!!", TAG, __func__);
   }
 
+disconnect:
   ret = Disconnect();
   if (NO_ERROR  != ret) {
-      ALOGE("%s:%s Disconnect Failed!!", TAG, __func__);
-      return ret;
+    ALOGE("%s:%s Disconnect Failed!!", TAG, __func__);
   }
 
+exit:
   ALOGD("%s: Exit ",__func__);
   return ret;
 }
@@ -5391,6 +6001,7 @@ void CmdMenu::PrintMenu() {
 
     printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
            ctx_.GetCurrentIRMode().c_str());
+    printf("   %c. Set AWB ROI\n", CmdMenu::AWB_ROI_CMD);
   }
   printf("   %c. Set Antibanding mode\n", CmdMenu::SET_ANTIBANDING_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
@@ -5411,11 +6022,13 @@ int main(int argc,char *argv[]) {
 
   RecorderTest test_context;
 
-  if(argc > 1) {
-    if(strcmp(argv[1], "--auto") == 0) {
-      return test_context.RunAutoMode();
-    }
-    return test_context.RunFromConfig(argc, argv);
+  if (argc > 1) {
+    if (strcmp(argv[1], "-a") == 0) {
+      return test_context.RunAutoMode(argc, argv);
+    } else if (strcmp(argv[1], "--testwarmboot") == 0) {
+      return test_context.RunWarmBootMode(argc, argv);
+    } else
+      return test_context.RunFromConfig(argc, argv);
   }
 
   CmdMenu cmd_menu(test_context);
@@ -5633,6 +6246,10 @@ int main(int argc,char *argv[]) {
       // 1080p@90FPS usecase is enabled through Menu
       case CmdMenu::BINNING_CORRECTION_CMD: {
         test_context.ToggleBinningCorrectionMode();
+      }
+      break;
+      case CmdMenu::AWB_ROI_CMD: {
+        test_context.HandleAWBROIRequest();
       }
       break;
       case CmdMenu::EXIT_CMD: {

@@ -108,8 +108,8 @@ struct FaceInfo {
 typedef struct StreamDumpInfo {
   VideoFormat   format;
   uint32_t      track_id;
-  int32_t       width;
-  int32_t       height;
+  uint32_t       width;
+  uint32_t       height;
 } StreamDumpInfo;
 
 struct RGBAValues {
@@ -151,7 +151,7 @@ class DumpBitStream {
 
 class RecorderGtest : public ::testing::Test {
  public:
-  RecorderGtest() : recorder_(), face_bbox_active_(false) {};
+  RecorderGtest() : recorder_(), face_bbox_active_(false), camera_error_(false) {};
 
   ~RecorderGtest() {};
 
@@ -271,5 +271,7 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_yuv_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+  std::mutex            error_lock_;
+  bool                  camera_error_;
 };
 

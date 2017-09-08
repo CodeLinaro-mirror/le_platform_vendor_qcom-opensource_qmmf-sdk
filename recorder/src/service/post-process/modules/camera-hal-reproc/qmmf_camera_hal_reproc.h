@@ -60,14 +60,8 @@ class CameraHalReproc : public IPostProcModule {
 
    ~CameraHalReproc();
 
-   status_t Create(const int32_t stream_id,
-                   const PostProcCreateParam& input,
-                   const PostProcCreateParam& output,
-                   const uint32_t frame_rate,
-                   const uint32_t num_images,
-                   const void* static_data,
-                   const void* context,
-                   int32_t &out_stream_id) override;
+   status_t Initialize(const PostProcIOParam &in_param,
+                       const PostProcIOParam &out_param) override;
 
    status_t Delete() override;
 
@@ -82,17 +76,19 @@ class CameraHalReproc : public IPostProcModule {
 
    status_t ReturnBuff(StreamBuffer &buffer) override;
 
-   status_t Start() override;
+   status_t Start(const int32_t stream_id) override;
 
    status_t Stop() override;
 
-   PostProcCreateParam GetInput(const PostProcCreateParam &out) override;
+   PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
-   PostProcCreateParam GetOutput(const PostProcCreateParam &in) override;
+   status_t ValidateOutput(const PostProcIOParam &output) override;
 
    status_t GetCapabilities(PostProcCaps &caps) override;
 
  private:
+
+   static const int64_t kMetaTimeout = 1000000000; // 1 second
 
    struct ReprocessBundle {
      StreamBuffer   buffer;
@@ -108,9 +104,8 @@ class CameraHalReproc : public IPostProcModule {
 
    void ReprocessCallback(StreamBuffer buffer);
 
-   status_t ValidateInput(const CameraMetadata& meta,
-                          const PostProcCreateParam& input,
-                          const PostProcCreateParam& output);
+   status_t ValidateInput(const PostProcIOParam& input,
+                          const PostProcIOParam& output);
 
    status_t StartProcessing();
 
@@ -125,10 +120,12 @@ class CameraHalReproc : public IPostProcModule {
 
    std::mutex                   module_lock_;
    bool                         ready_to_start_;
-   int32_t                      supportStreamId_;
-
    int32_t                      input_stream_id_;
+
    Camera3Request               reprocess_request_;
+
+   PostProcIOParam              input_param_;
+   PostProcIOParam              output_param_;
 
    std::list<StreamBuffer>      input_buffer_;
    std::list<StreamBuffer>      input_buffer_done_;

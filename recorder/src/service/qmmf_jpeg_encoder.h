@@ -32,7 +32,6 @@
 #include <mutex>
 #include <utils/Log.h>
 #include <utils/KeyedVector.h>
-#include <utils/Errors.h>
 
 #include "qmmf-sdk/qmmf_codec.h"
 
@@ -42,9 +41,11 @@ namespace jpegencoder {
 
 struct snapshot_info
 {
-    uint8_t *img_data[3];
-    uint8_t *out_data[3];
-    CameraBufferMetaData source_info;
+  uint8_t *img_data[3];
+  uint8_t *out_data[3];
+  CameraBufferMetaData source_info;
+  uint32_t exif_size;
+  void*    exif_data;
 };
 
 class JpegEncoder {
@@ -66,8 +67,8 @@ public:
 
   ~JpegEncoder();
 
-  void *Encode(const snapshot_info& in_buffer, size_t *jpeg_size,
-               const uint32_t jpeg_quality);
+  void *Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
+               const uint32_t quality);
 
   static JpegEncoder *getInstance();
 
@@ -75,6 +76,7 @@ public:
 
   static void EncodeCb(void *p_output, void *userData);
 
+  void *libjpeg_interface_;
 };
 
 }; //namespace jpegencoder ends here

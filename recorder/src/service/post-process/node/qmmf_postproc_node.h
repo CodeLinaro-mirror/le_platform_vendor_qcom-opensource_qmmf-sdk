@@ -34,6 +34,7 @@
 #include <map>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "common/qmmf_common_utils.h"
@@ -43,7 +44,6 @@
 #include "../plugin/qmmf_postproc_plugin.h"
 #include "../memory/qmmf_postproc_memory_pool.h"
 #include "../common/qmmf_postproc_thread.h"
-#include "../factory/qmmf_postproc_factory.h"
 
 namespace qmmf {
 
@@ -52,27 +52,6 @@ namespace recorder {
 class IBufferConsumer;
 class IBufferProducer;
 
-struct PostProcNodeCreate {
-  PostProcCreateParam   in;
-  PostProcCreateParam   out;
-  uint32_t              frame_rate;
-  uint32_t              max_buffer_count;
-};
-
-struct PostProcImgParams {
-  uint32_t           width;
-  uint32_t           height;
-  int32_t            format;
-  int32_t            gralloc_flags;
-  uint32_t           max_buffer_count;
-  uint32_t           max_size;
-  uint32_t           frame_rate;
-};
-
-struct PostProcNodeParams {
-  PostProcImgParams  in;
-  PostProcImgParams  out;
-};
 
 enum class PostProcNodeState {
   CREATED,
@@ -117,7 +96,7 @@ class InputHandler : public PostProcThread {
   static const nsecs_t              kFrameTimeout  = 50000000;  // 50 ms.
   PostProcNode                      *node_;
   std::map<uint32_t, map_data_t>    mapped_buffs_;
-  List<StreamBuffer>                bufs_list_;
+  std::deque<StreamBuffer>          bufs_list_;
   std::mutex                        wait_lock_;
   std::condition_variable           wait_;
 
@@ -153,17 +132,18 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    friend class OutputHandler;
 
  public:
-   PostProcNode(std::string name, IPostProc* context);
+   PostProcNode(int32_t Id, std::string name, sp<IPostProcModule> module);
 
    ~PostProcNode();
 
+   status_t Initialize(const PostProcIOParam &in_param,
+                       const PostProcIOParam &out_param);
 
-   status_t Initialize(int32_t in_stream_id,
-                       PostProcNodeParams& reproc_node_param,
-                       void* static_meta,
-                       int32_t &out_stream_id);
+   status_t Configure(const std::string &config_json_data);
 
-   PostProcCreateParam GetInput(const PostProcCreateParam &out);
+   PostProcIOParam GetInput(const PostProcIOParam &out);
+
+   status_t ValidateOutput(const PostProcIOParam &out);
 
    void OnFrameAvailable(StreamBuffer& buffer) override;
 
@@ -181,14 +161,15 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    void AddResult(const void* result);
 
-   void getDefaultParam(PostProcNodeParams& reproc_node_param,
-                        const PostProcNodeCreate& create_params);
-
-   status_t Start();
+   status_t Start(const int32_t stream_id);
 
    status_t Stop();
 
    std::string& GetName() { return name_; }
+
+   uint32_t GetId() { return id_; };
+
+   PostProcCaps GetCapabilities() { return caps_; }
 
  private:
 
@@ -204,10 +185,9 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    OutputHandler                     out_;
 
    sp<MemPool>                       mem_pool_;
-   sp<PostProcFactory>               reprocess_factory_;
    sp<IPostProcModule>               module_;
 
-   PostProcNodeParams                init_params_;
+   MemPoolParams                     mem_pool_params_;
 
    int32_t                           id_;
    std::string                       name_;
