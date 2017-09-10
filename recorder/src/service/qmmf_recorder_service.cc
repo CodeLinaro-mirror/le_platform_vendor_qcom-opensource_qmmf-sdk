@@ -395,6 +395,8 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           meta.clear();
           meta.append(m);
           meta_array.push_back(meta);
+          //We need to release this memory as meta.append() makes copy of this memory
+          free(m);
         }
         ret = CaptureImage(client_id, camera_id, param,
                            num_images, meta_array);
@@ -458,7 +460,8 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
 
         // Clear the metadata buffer and free all storage used by it
         meta.clear();
-
+        //We need to release this memory as meta.append() makes copy of this memory
+        free(m);
         reply->writeInt32(ret);
         return NO_ERROR;
       }
