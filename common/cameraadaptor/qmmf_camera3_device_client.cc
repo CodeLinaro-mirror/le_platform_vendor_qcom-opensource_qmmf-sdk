@@ -341,8 +341,8 @@ exit:
 }
 
 int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
-                                          bool isRawOnly,
-                                          uint32_t batch_size) {
+                                          bool isRawOnly, uint32_t batch_size,
+                                          bool is_pp_enabled) {
   if (NULL == camera_module_) {
     return -ENODEV;
   }
@@ -352,25 +352,27 @@ int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
     return -EINVAL;
   }
 
-  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly, batch_size);
+  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly, batch_size, is_pp_enabled);
 }
 
 int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
                                               bool isRawOnly,
-                                              uint32_t batch_size) {
+                                              uint32_t batch_size,
+                                              bool is_pp_enabled) {
   pthread_mutex_lock(&lock_);
 
   hfr_mode_enabled_ = isConstrainedHighSpeed;
   is_raw_only_ = isRawOnly;
   batch_size_ = batch_size;
-  bool res = ConfigureStreamsLocked();
+
+  bool res = ConfigureStreamsLocked(is_pp_enabled);
 
   pthread_mutex_unlock(&lock_);
 
   return res;
 }
 
-int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
+int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   status_t res;
 
   if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
@@ -389,12 +391,13 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
     config.operation_mode =
         CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   } else if (is_raw_only_) {
+    config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
+  } else if (!is_pp_enabled) {
     config.operation_mode =
-        QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
+        QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
   } else {
     config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
   }
-
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;

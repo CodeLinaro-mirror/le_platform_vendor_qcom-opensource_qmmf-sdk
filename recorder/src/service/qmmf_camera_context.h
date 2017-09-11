@@ -29,12 +29,12 @@
 
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
 #include <utils/RefBase.h>
 #include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
-#include <condition_variable>
-#include <utils/Condition.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
@@ -82,7 +82,7 @@ class CameraContext : public CameraInterface,
 
   status_t CloseCamera(const uint32_t camera_id) override;
 
-  status_t WaitAecToConverge(nsecs_t timeout_msec) override;
+  status_t WaitAecToConverge(const uint32_t timeout) override;
 
   status_t SetUpCapture(const ImageParam &param,
                         const uint32_t num_images) override;
@@ -128,7 +128,8 @@ class CameraContext : public CameraInterface,
                                    int32_t* stream_id);
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              uint32_t frame_rate, int32_t* stream_id);
+                              uint32_t frame_rate, int32_t* stream_id,
+                              bool is_pp_enabled = true);
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,
@@ -247,8 +248,6 @@ class CameraContext : public CameraInterface,
   uint32_t                 sequence_cnt_;
   uint32_t                 burst_cnt_;
   bool                     postproc_enable_;
-  std::mutex               capture_count_lock_;
-  std::condition_variable  capture_count_signal_;
   bool                     cancel_capture_ = false;
 
   ResultCb                 result_cb_;
@@ -278,14 +277,20 @@ class CameraContext : public CameraInterface,
   int32_t                  input_stream_id_;
   sp<PostProcPipe>         postproc_pipe_;
   SyncFrame                sync_frame_;
-  Condition                sync_frame_cond_;
-  Mutex                    sync_frame_lock_;
-  static const nsecs_t     kSyncFrameWaitDuration;
-  std::mutex               aec_lock_;
-  std::condition_variable  aec_signal_;
-  bool                     aec_done_ = false;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
+  bool                     aec_done_;
+
+  std::mutex               capture_count_lock_;
+  std::condition_variable  capture_count_signal_;
+
+  std::mutex               sync_frame_lock_;
+  std::condition_variable  sync_frame_cond_;
+
+  std::mutex               aec_lock_;
+  std::condition_variable  aec_signal_;
+
+  static const uint32_t kSyncFrameWaitDuration = 500000000; // 500 ms.
 
 };
 
