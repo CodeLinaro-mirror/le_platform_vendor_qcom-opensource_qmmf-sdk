@@ -200,7 +200,6 @@ status_t RecorderClient::Disconnect() {
     return NO_INIT;
   }
 
-  assert(client_id_ > 0);
   auto ret = recorder_service_->Disconnect(client_id_);
   if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
@@ -228,6 +227,7 @@ status_t RecorderClient::Disconnect() {
     close(ion_device_);
     ion_device_ = -1;
   }
+  client_id_ = 0;
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -294,7 +294,9 @@ status_t RecorderClient::CreateSession(const SessionCb& cb,
   if (NO_ERROR != ret) {
       QMMF_ERROR("%s:%s CreateSession failed!", TAG, __func__);
   }
-  assert(*session_id != 0);
+  if (*session_id == 0) {
+    return NO_INIT;
+  }
   session_cb_list_.add(*session_id, cb);
 
   Vector<uint32_t> tracks;
@@ -1160,6 +1162,7 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
 void RecorderClient::ServiceDeathHandler() {
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
 
+  Mutex::Autolock lock(lock_);
   int32_t ret = NO_ERROR;
   //Clear all pending buffers.
   for (size_t i = 0; i < track_buf_map_.size(); ++i) {
@@ -1564,7 +1567,6 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     uint32_t id;
     reply.readUint32(&id);
     *session_id = id;
-    assert(id != 0);
     return reply.readInt32();
   }
 
