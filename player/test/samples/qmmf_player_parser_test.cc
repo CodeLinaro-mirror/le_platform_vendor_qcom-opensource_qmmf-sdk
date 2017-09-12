@@ -366,7 +366,7 @@ void * PlayerTest::StartPlaying(void *ptr) {
     if (result != 0 || playertest->stopped_) {
       //EOF reached or Stopped
       TEST_INFO("%s:%s:File read completed result is %d", TAG, __func__, result);
-      buffers[0].flag = 1;
+      buffers[0].flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
       ret = playertest->player_.QueueInputBuffer(track_id_1,buffers,(void*)&val,
           sizeof (uint32_t),TrackMetaBufferType::kNone);
       assert(NO_ERROR == ret);

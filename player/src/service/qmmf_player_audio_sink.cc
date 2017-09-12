@@ -129,12 +129,12 @@ status_t AudioSink::StartTrackSink(uint32_t track_id) {
   return ret;
 }
 
-status_t AudioSink::StopTrackSink(uint32_t track_id) {
+status_t AudioSink::StopTrackSink(uint32_t track_id, bool do_flush) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
-  auto ret = track_sink->StopSink();
+  auto ret = track_sink->StopSink(do_flush);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
       track_id);
@@ -359,11 +359,13 @@ status_t AudioTrackSink::StartSink() {
   return ret;
 }
 
-status_t AudioTrackSink::StopSink() {
+status_t AudioTrackSink::StopSink(bool do_flush) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   std::lock_guard<std::mutex> lock(state_change_lock_);
 
-  stopplayback_ = true;
+  if (!do_flush)
+    stopplayback_ = true;
+
   QMMF_DEBUG("%s:%s: Total number of audio frames decoded %d", TAG, __func__,
       decoded_frame_number_);
   decoded_frame_number_ = 0;
@@ -372,7 +374,7 @@ status_t AudioTrackSink::StopSink() {
       total_bytes_decoded_);
   total_bytes_decoded_ = 0;
 
-  auto ret = end_point_->Stop(true);
+  auto ret = end_point_->Stop(do_flush);
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
@@ -515,11 +517,10 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   DumpPCMData(codec_buffer);
 #endif
 
-  if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stopplayback_ || !(codec_buffer.size) || paused_)) {
-    QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d"
-        " timestamps is %llu ",TAG, __func__, TrackId(), ++decoded_frame_number_,
-        codec_buffer.timestamp);
+  if (!(stopplayback_ || codec_buffer.size == 0 || paused_)) {
+    QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d timestamps is %llu ",
+               TAG, __func__, TrackId(), ++decoded_frame_number_,
+               codec_buffer.timestamp);
     FillSinkBuffer(codec_buffer);
   }
 
@@ -569,6 +570,10 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
 
   sinkbuffers[0].size = codec_buffer.size;
   sinkbuffers[0].capacity = codec_buffer.size;
+  sinkbuffers[0].flags = codec_buffer.flag;
+
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+    stopplayback_ = true;
 
   total_bytes_decoded_ = total_bytes_decoded_ + sinkbuffers[0].size;
 

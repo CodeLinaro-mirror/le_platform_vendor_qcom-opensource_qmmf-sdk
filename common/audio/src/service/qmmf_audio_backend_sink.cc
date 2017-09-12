@@ -833,7 +833,7 @@ void AudioBackendSink::Thread() {
       if (bytes_written == static_cast<size_t>(buffer.size)) {
         bytes_written = 0;
 
-        if (buffer.flags & 0x1)
+        if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
           eof_received = true;
 
         buffer.size = 0;

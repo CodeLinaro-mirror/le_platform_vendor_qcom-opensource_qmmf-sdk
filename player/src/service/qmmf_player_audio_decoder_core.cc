@@ -646,7 +646,7 @@ status_t AudioTrackDecoder::StopDecoder(bool do_flush) {
     return ret;
   }
 
-  ret = audio_track_sink_->StopSink();
+  ret = audio_track_sink_->StopSink(do_flush);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -763,17 +763,16 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
     frames_being_decoded_.PushBack(iter);
   }
   frames_to_decode_.Erase(frames_to_decode_.Begin());
-  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for"
-      " decoding ", TAG, __func__, TrackId(), (iter).data, (iter).fd);
+  QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for decoding ",
+             TAG, __func__, TrackId(), (iter).data, (iter).fd);
 
-  QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
-      " decoding ", TAG, __func__, TrackId(), (iter).frame_length, (iter).filled_length);
+  QMMF_DEBUG("%s:%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for decoding ",
+             TAG, __func__, TrackId(), (iter).frame_length,
+             (iter).filled_length);
 
-  //For EOS and stop case
-  if ((iter).flags == 1)
-  {
-     return -1;
-  }
+  // For EOS and stop case
+  if ((iter).flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+    return -1;
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
   return NO_ERROR;
