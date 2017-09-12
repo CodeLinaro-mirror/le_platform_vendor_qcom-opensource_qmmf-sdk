@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -41,6 +41,13 @@ enum class AudioState {
   kIdle,    // configured and stopped
   kRunning, // streaming
   kPaused,  // stopped with data retention
+};
+
+enum AudioHAL {
+  kPrimary = 0,
+  kA2DP,
+  kUSB,
+  kNum
 };
 
 // handle to a specific audio client/service connection

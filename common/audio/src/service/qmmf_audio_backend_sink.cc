@@ -83,7 +83,8 @@ AudioBackendSink::AudioBackendSink(const AudioHandle audio_handle,
 
 AudioBackendSink::~AudioBackendSink() {}
 
-int32_t AudioBackendSink::Open(const vector<DeviceId>& devices,
+int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
+                               const vector<DeviceId>& devices,
                                const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   for (const DeviceId device : devices)
@@ -111,26 +112,12 @@ int32_t AudioBackendSink::Open(const vector<DeviceId>& devices,
       break;
   }
 
-  int qahw_version = qahw_get_version();
-  if (qahw_version < QAHW_MODULE_API_VERSION_MIN) {
-    QMMF_ERROR("%s: %s() incorrect QAHW module version[%d]", TAG, __func__,
-               qahw_version);
-    return -EPERM;
-  }
-  QMMF_INFO("%s: %s() QAHW module version[%d]", TAG, __func__, qahw_version);
-
-  qahw_module_ = qahw_load_module(QAHW_MODULE_ID_PRIMARY);
+  qahw_module_ = const_cast<qahw_module_handle_t *>
+                           (modules[AudioHAL::kPrimary]);
   if (qahw_module_ == nullptr) {
-    QMMF_ERROR("%s: %s() failed to load QAHW module[%s]", TAG, __func__,
-               QAHW_MODULE_ID_PRIMARY);
+    QMMF_ERROR("%s: %s() QAHW module[%s] is not currently loaded",
+               TAG, __func__, QAHW_MODULE_ID_PRIMARY);
     return -ENOMEM;
-  }
-
-  result = qahw_init_check(qahw_module_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() QAHW module initialization failed: %d[%s]",
-               TAG, __func__, result, strerror(result));
-    return result;
   }
 
   if ((metadata.flags & static_cast<uint32_t>(AudioFlag::kFlagLowLatency)) == 0)
@@ -272,13 +259,6 @@ int32_t AudioBackendSink::Close() {
   result = qahw_close_output_stream(qahw_stream_);
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to close output stream: %d[%s]",
-               TAG, __func__, result, strerror(result));
-    return result;
-  }
-
-  result = qahw_unload_module(qahw_module_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to unload QAHW module: %d[%s]",
                TAG, __func__, result, strerror(result));
     return result;
   }
