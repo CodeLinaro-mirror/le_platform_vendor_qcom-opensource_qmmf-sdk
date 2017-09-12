@@ -788,7 +788,7 @@ void AudioRawTrackSink::Thread() {
         assert(false);
       }
 
-      if (buffer.flags & 0x1)
+      if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
         eof_received = true;
 
       av_buffers.pop();

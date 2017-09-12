@@ -70,7 +70,7 @@ class AudioSink {
 
   status_t StartTrackSink(uint32_t track_id);
 
-  status_t StopTrackSink(uint32_t track_id);
+  status_t StopTrackSink(uint32_t track_id, bool do_flush);
 
   status_t DeleteTrackSink(uint32_t track_id);
 
@@ -99,7 +99,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartSink();
 
-  status_t StopSink();
+  status_t StopSink(bool do_flush);
 
   status_t PauseSink();
 
