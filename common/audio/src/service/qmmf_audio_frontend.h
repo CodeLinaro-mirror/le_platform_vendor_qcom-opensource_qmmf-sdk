@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +31,9 @@
 
 #include <map>
 #include <vector>
+
+#include <mm-audio/qahw_api/inc/qahw_api.h>
+#include <mm-audio/qahw_api/inc/qahw_defs.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_backend.h"
@@ -79,6 +82,7 @@ class AudioFrontend {
   AudioErrorHandler error_handler_;
   AudioBufferHandler buffer_handler_;
   AudioBackendMap backends_;
+  qahw_module_handle_t* modules_[AudioHAL::kNum];
 
   // disable copy, assignment, and move
   AudioFrontend(const AudioFrontend&) = delete;

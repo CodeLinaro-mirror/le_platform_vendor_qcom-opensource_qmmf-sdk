@@ -53,7 +53,8 @@ class AudioBackendSink : public IAudioBackend {
                    const AudioBufferHandler& buffer_handler);
   ~AudioBackendSink();
 
-  int32_t Open(const ::std::vector<DeviceId>& devices,
+  int32_t Open(const qahw_module_handle_t * const modules[],
+               const ::std::vector<DeviceId>& devices,
                const AudioMetadata& metadata);
   int32_t Close();
 

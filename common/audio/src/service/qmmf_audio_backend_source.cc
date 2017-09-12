@@ -52,9 +52,6 @@
 #include "common/audio/src/service/qmmf_audio_common.h"
 #include "common/qmmf_log.h"
 
-// remove comment marker to mimic the AHAL instead of using it
-//#define AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-
 #define AUDIO_TIMESTAMP_ADJUST_PROPERTY   "persist.qmmf.timestamp.adjust"
 
 namespace qmmf {
@@ -90,7 +87,8 @@ AudioBackendSource::AudioBackendSource(const AudioHandle audio_handle,
 
 AudioBackendSource::~AudioBackendSource() {}
 
-int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
+int32_t AudioBackendSource::Open(const qahw_module_handle_t * const modules[],
+                                 const vector<DeviceId>& devices,
                                  const AudioMetadata& metadata) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   for (const DeviceId device : devices)
@@ -117,15 +115,6 @@ int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
       return -ENOSYS;
       break;
   }
-
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
-  int qahw_version = qahw_get_version();
-  if (qahw_version < QAHW_MODULE_API_VERSION_MIN) {
-    QMMF_ERROR("%s: %s() incorrect QAHW module version[%d]", TAG, __func__,
-               qahw_version);
-    return -EPERM;
-  }
-  QMMF_INFO("%s: %s() QAHW module version[%d]", TAG, __func__, qahw_version);
 
   audio_devices_t audio_devices = 0;
   for (const DeviceId device : devices) {
@@ -164,26 +153,20 @@ int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
     QMMF_INFO("%s: %s() constraining input devices to BT-A2DP only",
               TAG, __func__);
 
-    qahw_module_ = qahw_load_module(QAHW_MODULE_ID_A2DP);
+    qahw_module_ = const_cast<qahw_module_handle_t*>(modules[AudioHAL::kA2DP]);
     if (qahw_module_ == nullptr) {
-      QMMF_ERROR("%s: %s() failed to load QAHW module[%s]", TAG, __func__,
-                 QAHW_MODULE_ID_A2DP);
+      QMMF_ERROR("%s: %s() QAHW module[%s] is not currently loaded",
+                 TAG, __func__, QAHW_MODULE_ID_A2DP);
       return -ENOMEM;
     }
   } else {
-    qahw_module_ = qahw_load_module(QAHW_MODULE_ID_PRIMARY);
+    qahw_module_ = const_cast<qahw_module_handle_t*>
+                             (modules[AudioHAL::kPrimary]);
     if (qahw_module_ == nullptr) {
-      QMMF_ERROR("%s: %s() failed to load QAHW module[%s]", TAG, __func__,
-                 QAHW_MODULE_ID_PRIMARY);
+      QMMF_ERROR("%s: %s() QAHW module[%s] is not currently loaded",
+                 TAG, __func__, QAHW_MODULE_ID_PRIMARY);
       return -ENOMEM;
     }
-  }
-
-  result = qahw_init_check(qahw_module_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() QAHW module initialization failed: %d[%s]",
-               TAG, __func__, result, strerror(result));
-    return result;
   }
 
   audio_config_t config = AUDIO_CONFIG_INITIALIZER;
@@ -257,8 +240,6 @@ int32_t AudioBackendSource::Open(const vector<DeviceId>& devices,
     }
   }
 
-#endif
-
   state_ = AudioState::kIdle;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
              static_cast<int>(state_));
@@ -293,7 +274,6 @@ int32_t AudioBackendSource::Close() {
       break;
   }
 
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
   result = qahw_in_standby(qahw_stream_);
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to put input stream in standby: %d[%s]",
@@ -307,14 +287,6 @@ int32_t AudioBackendSource::Close() {
                TAG, __func__, result, strerror(result));
     return result;
   }
-
-  result = qahw_unload_module(qahw_module_);
-  if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to unload QAHW module: %d[%s]",
-               TAG, __func__, result, strerror(result));
-    return result;
-  }
-#endif
 
   state_ = AudioState::kNew;
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
@@ -548,11 +520,7 @@ int32_t AudioBackendSource::GetBufferSize(int32_t* buffer_size) {
       break;
   }
 
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
   *buffer_size = qahw_in_get_buffer_size(qahw_stream_);
-#else
-  *buffer_size = 16;
-#endif
 
   QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%d]", TAG, __func__,
                *buffer_size);
@@ -593,7 +561,6 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
       break;
     case AudioParamType::kCustom:
       {
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
         string keyvalue = data.custom.key;
         keyvalue.append("=");
         keyvalue.append(data.custom.value);
@@ -605,7 +572,6 @@ int32_t AudioBackendSource::SetParam(const AudioParamType type,
                      strerror(result));
           return result;
         }
-#endif
       }
       break;
     default:
@@ -693,7 +659,6 @@ void AudioBackendSource::Thread() {
       QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
                    TAG, __func__, buffer.ToString().c_str(), buffers.size());
 
-#ifndef AUDIO_BACKEND_PRIMARY_DEBUG_DATAFLOW
       qahw_in_buffer_t qahw_buffer;
       memset(&qahw_buffer, 0, sizeof(qahw_in_buffer_t));
       qahw_buffer.buffer = buffer.data;
@@ -708,12 +673,6 @@ void AudioBackendSource::Thread() {
       } else {
         buffer.size = result;
       }
-#else
-      memset(buffer.data, 0xFF, buffer.capacity);
-      memset(buffer.data, 0x11, 1);
-      buffer.size = buffer.capacity;
-      ::std::this_thread::sleep_for(::std::chrono::seconds(1));
-#endif
 
       // if filled, return timestamped buffer to client
       if (buffer.size > 0) {
