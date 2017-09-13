@@ -939,10 +939,12 @@ void PlayerTest::SetPosition() {
   uint64_t clip_duration = m_pDemux_->GetClipDuration();
 
   uint64_t time;
+  std::string str;
   printf("\n");
   printf("****** Seek *******\n");
   printf("Enter time between [0 to %llu sec] :: ", clip_duration / 1000000);
-  scanf("%llu", &time);
+  std::getline(std::cin, str);
+  time = std::stoul(str, nullptr, 10);
 
   FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(
       time * 1000, true, static_cast<int64_t>(current_time / 1000));
@@ -964,16 +966,18 @@ void PlayerTest::SetTrickMode() {
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kVideoOnly) {
     uint32_t dir, speed;
-
+    std::string str;
     printf("\n");
     printf("****** Set Trick Mode *******\n");
     printf(" Enter Trick Mode Type [Normal Playback->1, FF->2, SF->3, REW->4]): ");
-    scanf("%d", &dir);
+    std::getline(std::cin, str);
+    dir = std::stoul(str, nullptr, 10);
     printf(" Enter Trick Mode Speed/Factor ::"
       "\n ## For Normal Playback or REW -> 1 "
       "\n ## FF -> 2, 4, 8 "
       "\n ## SF -> 2, 3, 4, 8 : ");
-    scanf("%d", &speed);
+    std::getline(std::cin, str);
+    speed = std::stoul(str, nullptr, 10);
 
     if ((speed >= 1 && speed <= 8 && ((speed == 3 && dir == 3) || (!(speed
         & (speed - 1))))) && (dir >= 1 && dir <= 4)) {

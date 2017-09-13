@@ -897,13 +897,14 @@ int32_t RecorderTest::ChooseCamera() {
   // TODO - propagate num cameras
   int num_cameras = 3;
   int input;
-
+  std::string str;
   do {
     printf("\n");
     printf("****** Current Camera is 0 - %d *******\n", camera_id_);
     printf("    Choose Camera: 0 - %d\n", num_cameras-1);
     printf("\n");
-    scanf("%d", &input);
+    std::getline(std::cin, str);
+    input = std::stol(str, nullptr, 10);
   } while ((input > num_cameras - 1) || (input < 0));
   camera_id_ = input;
 
@@ -913,6 +914,7 @@ int32_t RecorderTest::ChooseCamera() {
 int32_t RecorderTest::SetAntibandingMode() {
 
   int input;
+  std::string str;
   uint8_t mode;
   CameraMetadata meta;
 
@@ -923,7 +925,8 @@ int32_t RecorderTest::SetAntibandingMode() {
   printf("  3. 60Hz\n" );
   printf("  4. Auto\n" );
   printf("  0. exit\n");
-  scanf("%d", &input);
+  std::getline(std::cin, str);
+  input = std::stol(str, nullptr, 10);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
 
   switch (input) {
@@ -3537,6 +3540,7 @@ status_t RecorderTest::SetParams() {
   uint32_t input;
   uint32_t value;
   float fps;
+  std::string str;
 
   do {
     printf("\n");
@@ -3553,21 +3557,24 @@ status_t RecorderTest::SetParams() {
     printf("  0. exit \n");
     printf("\n");
     printf("Enter set param option\n");
-    scanf("%d", &input);
+    std::getline(std::cin, str);
+    input = std::stoul(str, nullptr, 10);
 
     switch (input) {
       case 0:
         break;
       case 1:
         printf("Enter bitrate value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kBitRateType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
                                               sizeof(value));
         break;
       case 2:
         printf("Enter fps value\n");
-        scanf("%f", &fps);
+        std::getline(std::cin, str);
+        fps = std::stod(str, nullptr);
         param_type = CodecParamType::kFrameRateType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &fps,
                                               sizeof(fps));
@@ -3580,7 +3587,8 @@ status_t RecorderTest::SetParams() {
         break;
       case 4:
         printf("Enter number of P frame value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kIDRIntervalType;
         VideoEncIdrInterval idr_interval;
         idr_interval.num_pframes = value;
@@ -3596,14 +3604,16 @@ status_t RecorderTest::SetParams() {
         break;
       case 6:
         printf("Enter ltr mark id value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kMarkLtrType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
                                               sizeof(value));
         break;
       case 7:
         printf("Enter ltr use id value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kUseLtrType;
         VideoEncLtrUse ltr_use;
         ltr_use.id = value;
@@ -4833,7 +4843,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
   bool isStreamReadCompleted = false;
   const int MAX_LINE = 128;
   char line[MAX_LINE];
-  char value[50];
+  char *ptr = line;
+  char value[MAX_LINE];
   char key[25];
   uint32_t id = 0;
   int32_t camera_index = -1;
@@ -4845,8 +4856,9 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
   }
 
   while (fgets(line, MAX_LINE - 1, fp)) {
-    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ') continue;
-    strtok(line, "\n");
+    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
+      continue;
+    strtok_r(line, "\n", &ptr);
     memset(value, 0x0, sizeof(value));
     memset(key, 0x0, sizeof(key));
     if (isStreamReadCompleted) {
