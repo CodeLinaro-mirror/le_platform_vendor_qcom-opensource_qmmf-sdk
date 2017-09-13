@@ -88,8 +88,7 @@ DisplayClient::~DisplayClient()
 
     if (context_ == 0) {
       buf_info_map::iterator it;
-      for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-          ++it) {
+      for (it=buf_info_map_.begin(); it!=buf_info_map_.end(); it++) {
         if (it->second) {
           ret = munmap( it->second->pointer, it->second->frame_len);
           if(ret != 0) {
@@ -97,7 +96,6 @@ DisplayClient::~DisplayClient()
           }
           delete (it->second);
         }
-        buf_info_map_.erase(it);
       }
       buf_info_map_.clear();
     }
@@ -231,8 +229,7 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
 
   if (context_ == 0) {
     buf_info_map::iterator it;
-    for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-        ++it) {
+    for (it=buf_info_map_.begin(); it!=buf_info_map_.end(); it++) {
       if (it->second) {
         ret = munmap( it->second->pointer, it->second->frame_len);
         if(ret != 0) {
@@ -240,10 +237,10 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
         }
         delete (it->second);
       }
-      buf_info_map_.erase(it);
     }
     buf_info_map_.clear();
   }
+
   display_handle_=-1;
   QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
   return ret;
@@ -536,12 +533,6 @@ public:
     data.writeInt32(static_cast<int32_t>(display_handle));
     remote()->transact(uint32_t(QMMF_DISPLAY_SERVICE_CMDS::
         DISPLAY_DESTROY_DISPLAY), data, &reply);
-
-    ion_fd_map::iterator it_fd;
-    for (it_fd=ion_fd_mapping.begin();
-        it_fd!=ion_fd_mapping.end(); ++it_fd) {
-      ion_fd_mapping.erase(it_fd);
-    }
     ion_fd_mapping.clear();
     use_buffer_mapping.clear();
 
