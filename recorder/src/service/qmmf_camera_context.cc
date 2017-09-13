@@ -59,7 +59,6 @@ CameraContext::CameraContext()
     : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
-      previous_streaming_request_id_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -888,7 +887,6 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       auto ret = camera_device_->SubmitRequestList(request_list, true,
                                                    &last_frame_mumber);
       assert(ret >= 0);
-      previous_streaming_request_id_ = streaming_request_id_;
       streaming_request_id_ = ret;
     }
   } else {
@@ -1148,9 +1146,6 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
       ret = camera_device_->SubmitRequest(streaming_active_requests_[0], true,
                                           &last_frame_mumber);
       assert(ret >= 0);
-      if (streaming_request_id_ > -1) {
-        previous_streaming_request_id_ = streaming_request_id_;
-      }
       streaming_request_id_ = ret;
       ret = NO_ERROR;
     }
@@ -1315,9 +1310,6 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &sync_frame_.last_frame_id);
     assert(req_id >= 0);
-    if (streaming_request_id_ > -1) {
-      previous_streaming_request_id_ = streaming_request_id_;
-    }
     streaming_request_id_ = req_id;
 
     std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
@@ -1365,7 +1357,6 @@ status_t CameraContext::CancelRequest() {
   assert(ret == NO_ERROR);
 
   streaming_request_id_ = -1;
-  previous_streaming_request_id_ = -1;
   QMMF_INFO("%s:%s: Request cancelled last frame number: %lld\n", TAG,
       __func__, last_frame_mumber);
   return ret;
@@ -1616,10 +1607,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     QMMF_VERBOSE("%s:%s: MetaData FrameNumber=%d", TAG, __func__,
         result.metadata.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
   }
-
-  if (((streaming_request_id_ == result.resultExtras.requestId) ||
-      (previous_streaming_request_id_ == result.resultExtras.requestId) ||
-      snapshot_request_id_.size() > 0) && (nullptr != result_cb_)) {
+  if (nullptr != result_cb_) {
     result_cb_(camera_id_, result.metadata);
   }
   if (camera_start_params_.zsl_mode) {
