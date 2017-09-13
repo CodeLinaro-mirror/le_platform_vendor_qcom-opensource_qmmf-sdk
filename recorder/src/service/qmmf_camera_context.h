@@ -122,29 +122,29 @@ class CameraContext : public CameraInterface,
 
   Vector<int32_t>& GetSupportedFps() override;
 
-  status_t ReturnStreamBuffer(StreamBuffer buffer);
+  status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                   int32_t* stream_id);
+                                   int32_t* stream_id) override;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
                               uint32_t frame_rate, int32_t* stream_id,
-                              bool is_pp_enabled = true);
+                              bool is_pp_enabled = true) override;
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,
-                        int64_t *lastFrameNumber);
+                        int64_t *lastFrameNumber) override;
 
-  status_t DeleteDeviceStream(int32_t stream_id, bool cache);
+  status_t DeleteDeviceStream(int32_t stream_id, bool cache) override;
 
-  void OnFrameAvailable(StreamBuffer& buffer);
+  void OnFrameAvailable(StreamBuffer& buffer) override;
 
-  void NotifyBufferReturned(StreamBuffer& buffer);
+  void NotifyBufferReturned(StreamBuffer& buffer) override;
 
   status_t CreateCaptureRequest(Camera3Request& request,
-                                camera3_request_template_t template_type);
+                        camera3_request_template_t template_type) override;
 
-  CameraMetadata GetCameraStaticMeta();
+  CameraMetadata GetCameraStaticMeta() override;
 
  private:
 

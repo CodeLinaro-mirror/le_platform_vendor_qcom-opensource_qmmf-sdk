@@ -508,7 +508,8 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
       }
       VideoFormat fmt_type = track_info.video_params.params.format_type;
       if ( (fmt_type == VideoFormat::kHEVC) ||
-           (fmt_type == VideoFormat::kAVC) ) {
+           (fmt_type == VideoFormat::kAVC) ||
+           (fmt_type == VideoFormat::kJPEG)) {
         assert(encoder_core_ != nullptr);
         ret = encoder_core_->StartTrackEncoder(service_track_id);
         // Initial debug purpose.
@@ -642,7 +643,8 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
       }
       // Stop TrackEncoder
       VideoFormat fmt_type = track_info.video_params.params.format_type;
-      if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC)) {
+      if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC) ||
+          (fmt_type == VideoFormat::kJPEG)) {
         assert(encoder_core_ != nullptr);
         ret = encoder_core_->StopTrackEncoder(service_track_id,
                                               is_force_cleanup);
@@ -756,7 +758,8 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
       }
       VideoFormat fmt_type = track_info.video_params.params.format_type;
       if ( (fmt_type == VideoFormat::kHEVC) ||
-           (fmt_type == VideoFormat::kAVC) ) {
+           (fmt_type == VideoFormat::kAVC) ||
+           (fmt_type == VideoFormat::kJPEG)) {
         //TODO: Add logic to stop TrackEncoder
       }
 
@@ -848,7 +851,8 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
       }
       VideoFormat fmt_type = track_info.video_params.params.format_type;
       if ( (fmt_type == VideoFormat::kHEVC) ||
-           (fmt_type == VideoFormat::kAVC) ) {
+           (fmt_type == VideoFormat::kAVC) ||
+           (fmt_type == VideoFormat::kJPEG)) {
         //TODO: Add logic to resume TrackEncoder
       }
 
@@ -1175,9 +1179,9 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
 
   // If video codec type is set to YUV then no need to create Encoder instance.
   // direct YUV frame will go to client.
-  if ( (params.format_type == VideoFormat::kHEVC)
-      || (params.format_type == VideoFormat::kAVC) ) {
-
+  if ((params.format_type == VideoFormat::kHEVC) ||
+      (params.format_type == VideoFormat::kAVC) ||
+      (params.format_type == VideoFormat::kJPEG)) {
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != nullptr);
@@ -1268,9 +1272,9 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
 
   // If video codec type is set to YUV then no need to create Encoder instance.
   // direct YUV frame will go to client.
-  if ( (params.format_type == VideoFormat::kHEVC)
-      || (params.format_type == VideoFormat::kAVC) ) {
-
+  if ((params.format_type == VideoFormat::kHEVC) ||
+      (params.format_type == VideoFormat::kAVC) ||
+      (params.format_type == VideoFormat::kJPEG)) {
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != nullptr);
@@ -1358,8 +1362,8 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
   }
 
   VideoFormat fmt_type = track_info.video_params.params.format_type;
-  if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC)) {
-
+  if ((fmt_type == VideoFormat::kHEVC) || (fmt_type == VideoFormat::kAVC) ||
+      (fmt_type == VideoFormat::kJPEG)) {
     assert(encoder_core_ != nullptr);
     ret = encoder_core_->DeleteTrackEncoder(service_track_id);
     if (ret != NO_ERROR) {
@@ -1414,8 +1418,8 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
   if (track_info.type == TrackType::kVideo) {
 
     VideoFormat fmt_type = track_info.video_params.params.format_type;
-    if ( (fmt_type == VideoFormat::kAVC)
-         || (fmt_type == VideoFormat::kHEVC) ) {
+    if ((fmt_type == VideoFormat::kAVC) || (fmt_type == VideoFormat::kHEVC) ||
+        (fmt_type == VideoFormat::kJPEG)) {
       assert(encoder_core_ != nullptr);
       ret = encoder_core_->ReturnTrackBuffer(track_info.track_id, buffers);
       assert(ret == NO_ERROR);
