@@ -77,26 +77,30 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
       char const *err_str = dlerror();
       QMMF_ERROR("load: module=%s\n%s \n", GRALLOC_MODULE_PATH,
           err_str ? err_str : "unknown");
-      res = -EINVAL;
+      free(instance_);
+      instance_ = nullptr;
+      return nullptr;
     }
 
     hmi = (struct hw_module_t *)dlsym(handle, HAL_MODULE_INFO_SYM_AS_STR);
     if (hmi == nullptr) {
       QMMF_ERROR("load: couldn't find symbol %s\n", HAL_MODULE_INFO_SYM_AS_STR);
-      res = -EINVAL;
+      free(instance_);
+      instance_ = nullptr;
+      dlclose(handle);
+      return nullptr;
     }
 
     if (strcmp(GRALLOC_HARDWARE_MODULE_ID, hmi->id) != 0) {
       QMMF_ERROR("load: id=%s != hmi->id=%s\n", GRALLOC_HARDWARE_MODULE_ID,
           hmi->id);
-      res = -EINVAL;
+      return nullptr;
     }
 
     hmi->dso = handle;
-    res = 0;
 
-    hmi->methods->open(hmi, GRALLOC_HARDWARE_GPU0,
-                          (struct hw_device_t **)&instance_->gralloc_device_);
+    res = hmi->methods->open(hmi, GRALLOC_HARDWARE_GPU0,
+                             (struct hw_device_t**)&instance_->gralloc_device_);
     if (0 != res) {
       QMMF_ERROR("%s: Could not open Gralloc module: %s (%d) \n", __func__,
                  strerror(-res), res);
@@ -462,6 +466,13 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   }
   LayerStack* layer_stack = GetLayerStack(display_client_info->second->display_type,
       false);
+  if (layer_stack == nullptr) {
+    QMMF_ERROR("Layer Stack is null");
+    delete surfaceinfo;
+    FreeLayer(display_handle, *surface_id);
+    return -ENODATA;
+  }
+
   layer_stack->flags.flags=0;
   error = displayintf->Prepare(layer_stack);
   if (error != kErrorNone) {
@@ -952,7 +963,8 @@ void DisplayImpl::HandleVSync() {
 
     if (!is_first_commit_) {
       std::unique_lock<std::mutex> lg(vsync_callback_locker_);
-      if(vsync_callback_.wait_for(lg, microseconds(kHwVSyncTimeoutUs)) == cv_status::timeout) {
+      if(vsync_callback_.wait_for(lg, microseconds(kHwVSyncTimeoutUs)) ==
+         cv_status::timeout) {
         QMMF_ERROR("%s: Timed out since HW Vsync not received", __func__);
         for (auto& client_info_map_it : display_client_info_map_) {
           assert(client_info_map_it.second->remote_cb.get() != nullptr);
@@ -984,6 +996,10 @@ void DisplayImpl::HandleVSync() {
       }
 
       LayerStack* layer_stack = GetLayerStack(it->first, true);
+      if (layer_stack == nullptr) {
+        QMMF_ERROR("Layer Stack is null");
+        continue;
+      }
       if (layer_stack->layers.size()) {
         layer_stack->flags.flags = 0;
 

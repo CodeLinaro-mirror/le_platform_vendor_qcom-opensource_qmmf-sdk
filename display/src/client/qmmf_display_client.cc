@@ -137,7 +137,13 @@ status_t DisplayClient::Connect()
   }
 
   display_service_ = interface_cast<IDisplayService>(service_handle);
-  IInterface::asBinder(display_service_)->linkToDeath(death_notifier_);
+
+  auto ds_binder = IInterface::asBinder(display_service_);
+  if (ds_binder == nullptr) {
+    QMMF_ERROR("Binder is null");
+    return NO_INIT;
+  }
+  ds_binder->linkToDeath(death_notifier_);
 
   auto ret = display_service_->Connect();
   if(NO_ERROR != ret) {
@@ -164,8 +170,13 @@ status_t DisplayClient::Disconnect()
   }
 
   close(ion_device_);
-  display_service_->asBinder(display_service_)->
-      unlinkToDeath(death_notifier_);
+
+  auto ds_binder = display_service_->asBinder(display_service_);
+  if (ds_binder == nullptr) {
+    QMMF_ERROR("Display Service Binder is null");
+    return NO_INIT;
+  }
+  ds_binder->unlinkToDeath(death_notifier_);
 
   display_service_.clear();
   display_service_ = NULL;

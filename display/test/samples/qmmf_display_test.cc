@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -160,17 +160,20 @@ int32_t DisplayTest::DequeueSurfaceBuffer() {
   file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
   if (!file) {
     TEST_ERROR("%s: Unable to open file", __func__);
+    return -ENOENT;
   }
   int32_t offset=0;
-  for(uint32_t i=0;i<surface_buffer.plane_info[0].height;i++) {
-  fread((uint8_t*)surface_buffer.plane_info[0].buf +
-      surface_buffer.plane_info[0].offset + offset, sizeof(uint8_t),
-      surface_buffer.plane_info[0].width*4, file);
-  offset +=((surface_buffer.plane_info[0].width+(
-      (surface_buffer.plane_info[0].width%64)?(64-
-      (surface_buffer.plane_info[0].width%64)):0))*4);
+  for (uint32_t i = 0; i < surface_buffer.plane_info[0].height; i++) {
+    fread((uint8_t *)surface_buffer.plane_info[0].buf +
+              surface_buffer.plane_info[0].offset + offset,
+          sizeof(uint8_t), surface_buffer.plane_info[0].width * 4, file);
+    offset += ((surface_buffer.plane_info[0].width +
+                ((surface_buffer.plane_info[0].width % 64)
+                     ? (64 - (surface_buffer.plane_info[0].width % 64))
+                     : 0)) *
+               4);
   }
-  fclose (file);
+  fclose(file);
 
   TEST_INFO("%s: Exit", __func__);
   return 0;
