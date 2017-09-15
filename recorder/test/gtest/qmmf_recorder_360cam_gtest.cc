@@ -306,6 +306,98 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
 }
 
 /*
+* Stitched6KSnapshotWithThumbnails:
+*        This case will test a MultiCamera capture for stitched 6K JPEG
+*        snapshot with enabled primary and secondary thumbnails
+*
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  ImageConfigParam image_config;
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 95;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 480;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
+  ret = recorder_.ConfigImageCapture(multicam_id_, image_config);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 6080;
+  image_param.height        = 3040;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
+  assert(ret == NO_ERROR);
+
+  meta_array.push_back(meta);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(kDelayAfterSnapshot);
+  }
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
 * Stitched4KSnapshot: This case will test a MultiCamera capture for stitched
 *                     4K JPEG snapshot.
 * Api test sequence:

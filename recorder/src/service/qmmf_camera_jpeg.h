@@ -34,6 +34,7 @@
 #include <camera/CameraMetadata.h>
 #include <qcom/display/gralloc_priv.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
@@ -68,6 +69,8 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
                   const PostProcCb& cb,
                   const void* context) override;
   status_t Delete() override;
+
+  status_t Configure(const std::vector<ImageThumbnail> &thumbs);
 
   void Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer);
 
@@ -130,6 +133,8 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
 
   JpegEncoder*             jpeg_encoder_;
   PostProcCb               capture_client_cb_;
+
+  std::vector<jpeg_thumbnail> thumbnails;
 
   QCondition               wait_for_buffer_;
   std::mutex               buffer_lock_;

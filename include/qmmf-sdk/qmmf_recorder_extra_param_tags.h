@@ -43,6 +43,7 @@ enum ParamTag {
   QMMF_POSTPROCESS_FRAME_SKIP,
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
+  QMMF_IMAGE_THUMBNAIL,
   QMMF_SNAPSHOT_TYPE,
   QMMF_VIDEO_WAIT_AEC_MODE,
 };
@@ -167,6 +168,16 @@ struct VideoTimeLapse : DataTagBase {
   VideoTimeLapse()
     : DataTagBase(QMMF_VIDEO_TIMELAPSE_INTERVAL),
       time_interval(33) {}
+};
+
+struct ImageThumbnail : DataTagBase {
+  uint32_t width;   // Default: 0
+  uint32_t height;  // Default: 0
+  uint32_t quality; // Default: 75 (range: 0~100)
+
+  ImageThumbnail()
+    : DataTagBase(QMMF_IMAGE_THUMBNAIL),
+      width(0), height(0), quality(75) {}
 };
 
 struct SnapshotType : DataTagBase {

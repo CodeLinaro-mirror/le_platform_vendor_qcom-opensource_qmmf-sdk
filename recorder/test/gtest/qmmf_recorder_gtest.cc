@@ -108,6 +108,8 @@ void RecorderGtest::SetUp() {
   camera_id_ = atoi(prop_val);
   property_get(PROP_RECORD_DURATION, prop_val, DEFAULT_RECORD_DURATION);
   record_duration_ = atoi(prop_val);
+  property_get(PROP_DUMP_THUMBNAIL, prop_val, "0");
+  is_dump_thumb_enabled_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -1853,6 +1855,123 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* BurstSnapshotWithThumbnails: This test will test 1080p Burst jpg snapshot
+*                              with enabled first and secondary thumbnails.
+* Api test sequence:
+*  - StartCamera
+*  - CaptureImage - Burst 2 Jpgs
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  camera_start_params_.frame_rate = 30;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param{};
+  image_param.width         = 1920;
+  image_param.height        = 1080;
+  image_param.image_format  = ImageFormat::kJPEG;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 1920x1080 YUV res supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  TEST_INFO("%s:%s: Running Test(%s)", TAG, __func__,
+    test_info_->name());
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
+
+
+  ImageConfigParam image_config;
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 95;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  assert(ret == NO_ERROR);
+
+  uint32_t num_images = 2;
+  for (uint32_t i = 0; i < num_images; i++) {
+    meta_array.push_back(meta);
+  }
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    int32_t repeat = num_images;
+    do {
+      {
+        std::lock_guard<std::mutex> lock(error_lock_);
+        camera_error_ = false;
+      }
+      ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                   meta_array, cb);
+      assert(ret == NO_ERROR);
+
+      sleep(5);
+      {
+        std::lock_guard<std::mutex> lock(error_lock_);
+        if (!camera_error_) {
+          TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+          break;
+        }
+      }
+
+    } while(repeat-- > 0);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
 /*
 * BurstSnapshot: This test will test 4K Burst jpg snapshot.
 * Api test sequence:
@@ -13732,6 +13851,62 @@ status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
   return NO_ERROR;
 }
 
+status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
+                                      uint32_t image_sequence_count,
+                                      uint64_t tv_ms) {
+  uint8_t thumb_num = 0;
+  uint8_t *in_img = (uint8_t*)buffer.data;
+  uint32_t end_block = 0;
+  uint32_t start_block = 0;
+
+  for (uint32_t i = 0; i < buffer.size - 1; i++) {
+    if (in_img[i] == 0xFF) {
+      if ((in_img[i + 1] == 0xE1) || (in_img[i + 1] == 0xE2)) {
+        if (i < (buffer.size - 4)) { // prevent bad access
+          end_block = ((256UL * in_img[i + 2]) + in_img[i + 3]);
+          start_block = i;
+        } else {
+          break;
+        }
+      } else if (in_img[i + 1] == 0xD8) {
+        if (end_block != 0){
+          auto w_size = (end_block - (i - start_block)) + 2;
+          if ((i + w_size) > buffer.size) {
+            ALOGE("%s:%s: Unable to write. Overflow thumb file.", TAG, __func__);
+            break;
+          }
+
+          std::string thumb_path("/data/misc/qmmf/snapshot_");
+          thumb_path += std::to_string(image_sequence_count) + "_";
+          thumb_path += std::to_string(tv_ms) + "_thumb_";
+          thumb_path += std::to_string(thumb_num) + ".jpg";
+
+          FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
+          if (!thumb_file) {
+            ALOGE("%s:%s: Unable to open thumb_file(%s)", TAG, __func__,
+                thumb_path.c_str());
+            return BAD_VALUE;
+          }
+          auto len = fwrite(&in_img[i], sizeof(uint8_t), w_size, thumb_file);
+          TEST_INFO("%s:%s: Thumb (%d) Size(%u) Stored@(%s)\n", TAG,
+              __func__, i, len, thumb_path.c_str());
+          fclose(thumb_file);
+
+          i += (w_size - 2); //(end_block - start_block);
+          end_block = 0;
+          start_block = 0;
+          thumb_num++;
+          // max supported thumbnails is 2
+          if (thumb_num > 1 ){
+            break;
+          }
+        }
+      }
+    }
+  }
+  return NO_ERROR;
+}
+
 void RecorderGtest::ClearSessions() {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
@@ -13919,8 +14094,10 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
     }
 
     bool dump_file;
+    bool dump_thumbnail;
     if (cam_buf_meta.format == BufferFormat::kBLOB) {
       dump_file = (is_dump_jpeg_enabled_) ? true : false;
+      dump_thumbnail = (dump_file && is_dump_thumb_enabled_) ? true : false;
     } else {
       dump_file = (is_dump_raw_enabled_) ? true : false;
       fprintf(stderr, "\nRaw snapshot dumping enabled; "
@@ -13976,6 +14153,13 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
                 buffer.data, written_len, file_path.c_str());
+
+      if (dump_thumbnail) {
+        auto ret = DumpThumbnail(buffer, image_sequence_count, tv_ms);
+        if (ret != NO_ERROR) {
+          TEST_INFO("%s:%s: Dump thumbnail faile failed!\n", TAG, __func__);
+        }
+      }
 
     FAIL:
       if (file != NULL) {

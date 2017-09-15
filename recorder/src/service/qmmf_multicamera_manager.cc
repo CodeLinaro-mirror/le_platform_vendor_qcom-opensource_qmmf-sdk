@@ -386,7 +386,13 @@ status_t MultiCameraManager::CaptureImage(const std::vector<CameraMetadata>
 
 status_t MultiCameraManager::ConfigImageCapture(const ImageConfigParam &config) {
 
-  // Not Implemented
+  thumbnails_.clear();
+
+  for (size_t i = 0; i < config.EntryCount(QMMF_IMAGE_THUMBNAIL); i++) {
+    ImageThumbnail thumbnail;
+    config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnail, i);
+    thumbnails_.push_back(thumbnail);
+  }
   return NO_ERROR;
 }
 
@@ -856,6 +862,8 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;
   }
+
+  jpeg_encoder_->Configure(thumbnails_);
   jpeg_encoder_->Start();
 
   // Set buffer params for jpeg encoding.

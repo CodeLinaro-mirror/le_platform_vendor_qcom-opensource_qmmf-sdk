@@ -98,6 +98,8 @@ struct FaceInfo {
 #define PROP_CAMERA_ID              "persist.qmmf.rec.gtest.cameraid"
 // Prop to set recording duration in seconds
 #define PROP_RECORD_DURATION        "persist.qmmf.rec.gtest.recdur"
+// Prop to enable JPEG thumbnail dumping
+#define PROP_DUMP_THUMBNAIL         "persist.qmmf.rec.gtest.thumb"
 
 // Prop to set Track Resolutions and FPS
 #define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
@@ -235,6 +237,10 @@ class RecorderGtest : public ::testing::Test {
 
   status_t DumpQueue(AVQueue *queue, int32_t file_fd);
 
+  status_t DumpThumbnail(BufferDescriptor buffer,
+                         uint32_t image_sequence_count,
+                         uint64_t tv_ms);
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
@@ -292,6 +298,7 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_jpeg_enabled_;
   bool                  is_dump_raw_enabled_;
   bool                  is_dump_yuv_enabled_;
+  bool                  is_dump_thumb_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
   std::mutex            error_lock_;

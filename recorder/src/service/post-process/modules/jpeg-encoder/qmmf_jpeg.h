@@ -88,6 +88,8 @@ class PostProcJpeg : public IPostProcModule {
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
+  std::vector<reprocjpegencoder::JpegEncoder::jpeg_thumbnail> thumbnail_data_;
+
   std::mutex                     state_lock_;
   State                          state_;
   std::shared_ptr<void>          abort_;

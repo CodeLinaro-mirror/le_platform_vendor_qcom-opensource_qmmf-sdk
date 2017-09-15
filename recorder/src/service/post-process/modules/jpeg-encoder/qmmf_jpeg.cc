@@ -30,6 +30,8 @@
 #define TAG "RecorderJpeg"
 
 #include <sys/mman.h>
+#include <sstream>
+#include <json/json.h>
 
 #include "qmmf_jpeg.h"
 
@@ -67,6 +69,9 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::INITIALIZED;
+
+  thumbnail_data_.clear();
+
   return NO_ERROR;
 }
 
@@ -148,6 +153,37 @@ status_t PostProcJpeg::Delete() {
 }
 
 status_t PostProcJpeg::Configure(const std::string config_json_data) {
+  QMMF_VERBOSE("%s:%s: Enter %p", TAG, __func__, this);
+  Json::Reader r;
+  Json::Value root;
+
+  auto ret = r.parse(config_json_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s:%s: no json data", TAG, __func__);
+    return NO_ERROR;
+  }
+
+  if (!root.isMember("thumbnail") || root["thumbnail"].empty()) {
+    QMMF_INFO("%s:%s:no thumbnail configuration", TAG, __func__);
+    return NO_ERROR;
+  }
+
+  thumbnail_data_.clear();
+  for (Json::Value::ArrayIndex i = 0; i < root["thumbnail"].size(); i++) {
+    QMMF_INFO("%s:%s:add thumbnail[%d] dim %dx%d quality %d", TAG, __func__, i,
+        root["thumbnail"][i]["width"].asUInt(),
+        root["thumbnail"][i]["height"].asUInt(),
+        root["thumbnail"][i]["quality"].asUInt());
+
+    reprocjpegencoder::JpegEncoder::jpeg_thumbnail thumb(
+        root["thumbnail"][i]["width"].asUInt(),
+        root["thumbnail"][i]["height"].asUInt(),
+        root["thumbnail"][i]["quality"].asUInt());
+    thumbnail_data_.emplace_back(thumb);
+  }
+
+  QMMF_VERBOSE("%s:%s: Exit %p", TAG, __func__, this);
+
   return NO_ERROR;
 }
 
@@ -200,6 +236,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
     jpeg_encoder_->in_buffer_.img_data[0] = (uint8_t*)buf_vaaddr;
     jpeg_encoder_->in_buffer_.out_data[0] = (uint8_t*)out_vaaddr;
     jpeg_encoder_->in_buffer_.source_info = in_buffer.info;
+    jpeg_encoder_->in_buffer_.thumbnail_data = thumbnail_data_;
     auto buf_vaddr = jpeg_encoder_->Encode(&jpeg_size);
     if (!buf_vaddr) {
       QMMF_VERBOSE("%s:%s: Jpeg out buffer is NULL", TAG, __func__);

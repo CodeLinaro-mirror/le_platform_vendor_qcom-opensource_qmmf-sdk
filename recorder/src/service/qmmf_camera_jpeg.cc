@@ -145,6 +145,16 @@ status_t CameraJpeg::Delete() {
   return NO_ERROR;
 }
 
+status_t CameraJpeg::Configure(const std::vector<ImageThumbnail> &thumbs) {
+
+  thumbnails.clear();
+  for (auto const& thumb : thumbs) {
+    jpeg_thumbnail jpeg_thumbnail(thumb.width, thumb.height, thumb.quality);
+    thumbnails.push_back(jpeg_thumbnail);
+  }
+  return NO_ERROR;
+}
+
 void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
   QMMF_INFO("%s:%s: %d: Enter ", TAG, __func__, __LINE__);
 
@@ -194,6 +204,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     img_buffer.img_data[0] = static_cast<uint8_t*>(buf_vaaddr);
     img_buffer.out_data[0] = static_cast<uint8_t*>(out_vaaddr);
     img_buffer.source_info = in_buffer.info;
+    img_buffer.thumbnails = thumbnails;
     auto buf_vaddr = reinterpret_cast<uint8_t *>(
         jpeg_encoder_->Encode(img_buffer, jpeg_size, jpeg_quality_));
 

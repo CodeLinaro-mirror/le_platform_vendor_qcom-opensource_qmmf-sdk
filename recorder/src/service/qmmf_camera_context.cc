@@ -714,7 +714,6 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   pipe_config_json_data_.clear();
   Json::Value root(Json::objectValue);
 
-
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
       PostprocPlugin plugin;
@@ -737,6 +736,16 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       return INVALID_OPERATION;
     }
     new_snapshot_type_ = type.type;
+  }
+
+  if (config.Exists(QMMF_IMAGE_THUMBNAIL)) {
+    for (size_t i = 0; i < config.EntryCount(QMMF_IMAGE_THUMBNAIL); i++) {
+      ImageThumbnail thumbnail;
+      config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnail, i);
+      root["thumbnail"][i]["width"] = thumbnail.width;
+      root["thumbnail"][i]["height"] = thumbnail.height;
+      root["thumbnail"][i]["quality"] = thumbnail.quality;
+    }
   }
 
   if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
