@@ -41,6 +41,7 @@ enum ParamTag {
   QMMF_MULTICAM_STITCH_CONFIG,
   QMMF_POSTPROCESS_PLUGIN,
   QMMF_SOURCE_VIDEO_TRACK_ID,
+  QMMF_VIDEO_TIMELAPSE_INTERVAL,
 };
 
 enum class TransformFlags {
@@ -140,6 +141,13 @@ struct SourceVideoTrack : DataTagBase {
   SourceVideoTrack()
     : DataTagBase(QMMF_SOURCE_VIDEO_TRACK_ID),
       source_track_id(-1) {}
+};
+
+struct VideoTimeLapse : DataTagBase {
+  uint32_t time_interval;  // Default: 33ms
+  VideoTimeLapse()
+    : DataTagBase(QMMF_VIDEO_TIMELAPSE_INTERVAL),
+      time_interval(33) {}
 };
 
 }; //namespace recorder.
