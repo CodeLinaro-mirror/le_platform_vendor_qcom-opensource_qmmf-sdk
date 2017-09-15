@@ -369,6 +369,9 @@ class TrackSource : public ICodecSource {
   std::map<buffer_handle_t, uint32_t >  buffer_map_;
   std::map<buffer_handle_t, StreamBuffer > stream_buffer_map_;
 
+  bool time_lapse_mode_;
+  uint32_t time_lapse_interval_;
+  uint64_t time_stamp_;
 };
 
 }; //namespace recorder
