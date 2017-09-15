@@ -50,6 +50,7 @@ class AudioFrontend {
 
   void RegisterErrorHandler(const AudioErrorHandler& handler);
   void RegisterBufferHandler(const AudioBufferHandler& handler);
+  void RegisterStoppedHandler(const AudioStoppedHandler& handler);
 
   int32_t Connect(AudioHandle* audio_handle);
   int32_t Disconnect(const AudioHandle audio_handle);
@@ -59,7 +60,7 @@ class AudioFrontend {
                     const AudioMetadata& metadata);
 
   int32_t Start(const AudioHandle audio_handle);
-  int32_t Stop(const AudioHandle audio_handle, const bool flush);
+  int32_t Stop(const AudioHandle audio_handle);
   int32_t Pause(const AudioHandle audio_handle);
   int32_t Resume(const AudioHandle audio_handle);
 
@@ -81,6 +82,7 @@ class AudioFrontend {
   AudioHandle current_handle_;
   AudioErrorHandler error_handler_;
   AudioBufferHandler buffer_handler_;
+  AudioStoppedHandler stopped_handler_;
   AudioBackendMap backends_;
   qahw_module_handle_t* modules_[AudioHAL::kNum];
 

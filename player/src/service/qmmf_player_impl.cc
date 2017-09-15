@@ -36,11 +36,10 @@
 
 PlayerImpl* PlayerImpl::instance_ = nullptr;
 
-
 PlayerImpl* PlayerImpl::CreatePlayer() {
-  if(!instance_) {
+  if (!instance_) {
     instance_ = new PlayerImpl;
-    if(!instance_) {
+    if (!instance_) {
       QMMF_ERROR("%s:%s: Can't Create Player Instance!", TAG, __func__);
       return nullptr;
     }
@@ -199,11 +198,20 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
     }
   }
 
+  TrackCb track_cb;
+  track_cb.event_cb = [this] (uint32_t track_id,
+                              EventType event_type,
+                              void *event_data,
+                              size_t event_data_size) {
+    NotifyAudioTrackEventCallback(track_id, event_type, event_data,
+                                  event_data_size);
+  };
+
   if (param.codec == AudioFormat::kAAC ||
       param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
     assert(audio_sink_ != nullptr);
-    audio_sink_->CreateTrackSink(track_id, audio_track_param);
+    audio_sink_->CreateTrackSink(track_id, audio_track_param, track_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s:%s: Audio CreateTrackSink id(%d) failed!", TAG, __func__,
                 track_id);
@@ -213,7 +221,7 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
               TAG, __func__, track_id);
   } else {
     assert(audio_raw_sink_ != nullptr);
-    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param);
+    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param, track_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s:%s: AudioRaw CreateTrackSink id(%d) failed!", TAG, __func__,
                 track_id);
@@ -227,6 +235,7 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kAudio;
+  track_info.eos_rendered = false;
   track_info.codec        = param.codec;
   tracks_.push_back(track_info);
   track_map_.add(track_id, track_info);
@@ -249,14 +258,23 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   DebugVideoTrackCreateParam(__func__, param);
 
   result = video_decoder_core_->CreateVideoTrack(video_track_param);
-  if(result != NO_ERROR) {
+  if (result != NO_ERROR) {
       QMMF_ERROR("%s:%s: CreateVideoTrack failed!", TAG, __func__);
       return BAD_VALUE;
     }
 
+  TrackCb track_cb;
+  track_cb.event_cb = [this] (uint32_t track_id,
+                              EventType event_type,
+                              void *event_data,
+                              size_t event_data_size) {
+    NotifyVideoTrackEventCallback(track_id, event_type, event_data,
+                                  event_data_size);
+  };
+
   assert(video_sink_ != nullptr);
-  result = video_sink_->CreateTrackSink(track_id, video_track_param);
-  if(result != NO_ERROR) {
+  result = video_sink_->CreateTrackSink(track_id, video_track_param, track_cb);
+  if (result != NO_ERROR) {
      QMMF_ERROR("%s:%s: Video CreateTrackSink id(%d) failed!", TAG, __func__,
                track_id);
      return BAD_VALUE;
@@ -268,6 +286,7 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   memset(&track_info, 0x0, sizeof track_info);
   track_info.track_id     = track_id;
   track_info.type         = TrackType::kVideo;
+  track_info.eos_rendered = false;
   tracks_.push_back(track_info);
   track_map_.add(track_id, track_info);
 
@@ -350,7 +369,7 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
 
   size_t num_tracks = tracks_.size();
 
-  for(size_t i = 0; i < num_tracks; i++) {
+  for (size_t i = 0; i < num_tracks; i++) {
 
     if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kVideo)) {
@@ -384,7 +403,7 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
 
   size_t num_tracks = tracks_.size();
 
-  for(size_t i = 0; i < num_tracks; i++) {
+  for (size_t i = 0; i < num_tracks; i++) {
 
     if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kVideo)) {
@@ -415,10 +434,6 @@ status_t PlayerImpl::Prepare() {
 
   Mutex::Autolock lock(state_lock_);
 
-  Event event;
-  memset(&event,0x0,sizeof(Event));
-
-
   if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED))
     return NO_ERROR;
 
@@ -428,7 +443,7 @@ status_t PlayerImpl::Prepare() {
 
       size_t num_tracks = tracks_.size();
 
-      for(size_t i = 0; i < num_tracks; i++) {
+      for (size_t i = 0; i < num_tracks; i++) {
         if (tracks_[i].type == TrackType::kVideo) {
           ret = video_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
              video_sink_->GetTrackSink(tracks_[i].track_id));
@@ -442,25 +457,14 @@ status_t PlayerImpl::Prepare() {
       }
 
       if (ret != NO_ERROR) {
-           QMMF_INFO("%s:%s: Prepare failed!", TAG, __func__);
-           setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-           event.state = PlayerState::QPLAYER_STATE_ERROR;
-           QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-               EventType::kStateChanged, event.state);
-           NotifyPlayerEventCallback(EventType::kStateChanged,
-               &event,sizeof(Event));
-           return BAD_VALUE;
+         QMMF_ERROR("%s:%s: Prepare failed!", TAG, __func__);
+         setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
        } else {
-           QMMF_INFO("%s:%s: Prepare successs!", TAG, __func__);
-           setCurrentState(PlayerState::QPLAYER_STATE_PREPARED);
-           event.state = PlayerState::QPLAYER_STATE_PREPARED;
-           QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-               EventType::kStateChanged, event.state);
-           NotifyPlayerEventCallback(EventType::kStateChanged,&event,
-               sizeof(Event));
+         setCurrentState(PlayerState::QPLAYER_STATE_PREPARED);
        }
   }
 
+  QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
@@ -471,20 +475,17 @@ status_t PlayerImpl::Start() {
 
   Mutex::Autolock lock(state_lock_);
 
-  Event event;
-  memset(&event,0x0,sizeof(Event));
-
   if (current_state_ & PlayerState::QPLAYER_STATE_STARTED)
     return NO_ERROR;
 
-  if(current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
-      PlayerState::QPLAYER_STATE_PAUSED |
-      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED |
-      PlayerState::QPLAYER_STATE_STOPPED)) {
-
+  if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
+                        PlayerState::QPLAYER_STATE_PAUSED |
+                        PlayerState::QPLAYER_STATE_STOPPED)) {
     size_t num_tracks = tracks_.size();
 
-    for(size_t i = 0; i < num_tracks; i++) {
+    for (size_t i = 0; i < num_tracks; i++) {
+      track_map_.editValueFor(tracks_[i].track_id).eos_rendered = false;
+
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
@@ -498,85 +499,55 @@ status_t PlayerImpl::Start() {
     }
 
    if (ret != NO_ERROR) {
-     QMMF_INFO("%s:%s: Start failed!", TAG, __func__);
+     QMMF_ERROR("%s:%s: Start failed!", TAG, __func__);
      setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-     event.state = PlayerState::QPLAYER_STATE_ERROR;
-     QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-         EventType::kStateChanged, event.state);
-     NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-     return BAD_VALUE;
    } else {
-       QMMF_INFO("%s:%s: Start successs!", TAG, __func__);
-       setCurrentState(PlayerState::QPLAYER_STATE_STARTED);
-       event.state = PlayerState::QPLAYER_STATE_STARTED;
-       QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-           EventType::kStateChanged, event.state);
-       NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-     if (current_state_ & PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED)
-       QMMF_INFO("%s:%s: PlayBack completed", TAG, __func__);
+     setCurrentState(PlayerState::QPLAYER_STATE_STARTED);
    }
   }
 
-  QMMF_DEBUG("%s:%s: Start Called in %d", TAG, __func__, current_state_);
+  QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
-status_t PlayerImpl::Stop(bool do_flush) {
+status_t PlayerImpl::Stop() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: do_flush[%s]", TAG, __func__,
-               do_flush ? "true" : "false");
   Mutex::Autolock lock(state_lock_);
 
   status_t ret = NO_ERROR;
 
-  Event event;
-  memset(&event,0x0,sizeof(Event));
-
   if (current_state_ & (PlayerState::QPLAYER_STATE_STOPPED))
   return NO_ERROR;
 
-  if(current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
-      PlayerState::QPLAYER_STATE_STARTED |
-      PlayerState::QPLAYER_STATE_PAUSED |
-      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED)) {
-
+  if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
+                        PlayerState::QPLAYER_STATE_STARTED |
+                        PlayerState::QPLAYER_STATE_PAUSED |
+                        PlayerState::QPLAYER_STATE_DRAINED)) {
     size_t num_tracks = tracks_.size();
 
-    for(size_t i = 0; i < num_tracks; i++) {
+    for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
-           do_flush);
+        ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         if (tracks_[i].codec == AudioFormat::kAAC ||
             tracks_[i].codec == AudioFormat::kAMR ||
             tracks_[i].codec == AudioFormat::kG711)
-          ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
-                                                      do_flush);
+          ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
         else
-          ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id, do_flush);
+          ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
       }
     }
 
     if (ret != NO_ERROR) {
-      QMMF_INFO("%s:%s: Stop failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: Stop failed!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-      event.state = PlayerState::QPLAYER_STATE_ERROR;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-      return BAD_VALUE;
     } else {
-      QMMF_INFO("%s:%s: Stop successs!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_STOPPED);
-      event.state = PlayerState::QPLAYER_STATE_STOPPED;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-     }
+    }
   }
 
-  QMMF_DEBUG("%s:%s: Stop Called in %d", TAG, __func__, current_state_);
+  QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -587,19 +558,14 @@ status_t PlayerImpl::Pause() {
 
   status_t ret = NO_ERROR;
 
-  Event event;
-  memset(&event,0x0,sizeof(Event));
-
   if (current_state_ & (PlayerState::QPLAYER_STATE_PAUSED |
-      PlayerState::QPLAYER_STATE_STOPPED |
-      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED))
-   return NO_ERROR;
+                        PlayerState::QPLAYER_STATE_STOPPED))
+    return NO_ERROR;
 
-  if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED)) {
-
+  if (current_state_ & PlayerState::QPLAYER_STATE_STARTED) {
     size_t num_tracks = tracks_.size();
 
-    for(size_t i = 0; i < num_tracks; i++) {
+    for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
@@ -613,24 +579,14 @@ status_t PlayerImpl::Pause() {
     }
 
     if (ret != NO_ERROR) {
-      QMMF_INFO("%s:%s: Pause failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: Pause failed!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-      event.state = PlayerState::QPLAYER_STATE_ERROR;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-      return BAD_VALUE;
     } else {
-      QMMF_INFO("%s:%s: Pause successs!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_PAUSED);
-      event.state = PlayerState::QPLAYER_STATE_PAUSED;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
     }
   }
 
-  QMMF_DEBUG("%s:%s: Pause Called in %d", TAG, __func__, current_state_);
+  QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
@@ -641,19 +597,14 @@ status_t PlayerImpl::Resume() {
   Mutex::Autolock lock(state_lock_);
   status_t ret = NO_ERROR;
 
-  Event event;
-  memset(&event,0x0,sizeof(Event));
-
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
-      PlayerState::QPLAYER_STATE_STOPPED |
-      PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED))
+                        PlayerState::QPLAYER_STATE_STOPPED))
     return NO_ERROR;
 
-  if (current_state_ & (PlayerState::QPLAYER_STATE_PAUSED)) {
-
+  if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED) {
     size_t num_tracks = tracks_.size();
 
-    for(size_t i = 0; i < num_tracks; i++) {
+    for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
@@ -667,24 +618,14 @@ status_t PlayerImpl::Resume() {
     }
 
     if (ret != NO_ERROR) {
-      QMMF_INFO("%s:%s: Resume failed!", TAG, __func__);
+      QMMF_ERROR("%s:%s: Resume failed!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-      event.state = PlayerState::QPLAYER_STATE_ERROR;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
-      return BAD_VALUE;
     } else {
-      QMMF_INFO("%s:%s: Resume successs!", TAG, __func__);
       setCurrentState(PlayerState::QPLAYER_STATE_STARTED);
-      event.state = PlayerState::QPLAYER_STATE_STARTED;
-      QMMF_INFO("%s:%s: EventType: %d state: %d", TAG,__func__,
-          EventType::kStateChanged, event.state);
-      NotifyPlayerEventCallback(EventType::kStateChanged,&event,sizeof(Event));
     }
   }
 
-  QMMF_DEBUG("%s:%s: Resume Called in %d", TAG, __func__, current_state_);
+  QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -694,10 +635,8 @@ status_t PlayerImpl::SetPosition(int64_t seek_time) {
   Mutex::Autolock lock(state_lock_);
   status_t ret = NO_ERROR;
   if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
-    PlayerState::QPLAYER_STATE_STARTED |
-    PlayerState::QPLAYER_STATE_PAUSED |
-    PlayerState::QPLAYER_STATE_PLAYBACK_COMPLETED)) {
-
+                        PlayerState::QPLAYER_STATE_STARTED |
+                        PlayerState::QPLAYER_STATE_PAUSED)) {
     if (ret != NO_ERROR) {
       QMMF_INFO("%s:%s: SetPosition failed!", TAG, __func__);
       return BAD_VALUE;
@@ -722,7 +661,7 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
   size_t num_tracks = tracks_.size();
   assert(num_tracks != 0);
 
-  for(size_t i = 0; i < num_tracks; i++) {
+  for (size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kVideo) {
       ret = video_decoder_core_->SetTrackTrickMode(tracks_[i].track_id,
           speed, dir);
@@ -730,27 +669,30 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
   }
 
   // normal playback
-  if ((speed == TrickModeSpeed::kSpeed_1x) &&
-      (dir == TrickModeDirection::kNormalForward)) {
-    for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks_[i].type == TrackType::kAudio) {
-        if (tracks_[i].codec == AudioFormat::kAAC ||
-            tracks_[i].codec == AudioFormat::kAMR ||
-            tracks_[i].codec == AudioFormat::kG711)
-          ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
-        else
-          ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+  if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
+                       PlayerState::QPLAYER_STATE_PAUSED)) {
+    if ((speed == TrickModeSpeed::kSpeed_1x) &&
+        (dir == TrickModeDirection::kNormalForward)) {
+      for (size_t i = 0; i < num_tracks; i++) {
+        if (tracks_[i].type == TrackType::kAudio) {
+          if (tracks_[i].codec == AudioFormat::kAAC ||
+              tracks_[i].codec == AudioFormat::kAMR ||
+              tracks_[i].codec == AudioFormat::kG711)
+            ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+          else
+            ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+        }
       }
-    }
-  } else { // other than normal playback audio will always be stopped
-    for(size_t i = 0; i < num_tracks; i++) {
-      if (tracks_[i].type == TrackType::kAudio) {
-        if (tracks_[i].codec == AudioFormat::kAAC ||
-            tracks_[i].codec == AudioFormat::kAMR ||
-            tracks_[i].codec == AudioFormat::kG711)
-          ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id, false);
-        else
-          ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id, false);
+    } else { // other than normal playback audio will always be stopped
+      for (size_t i = 0; i < num_tracks; i++) {
+        if (tracks_[i].type == TrackType::kAudio) {
+          if (tracks_[i].codec == AudioFormat::kAAC ||
+              tracks_[i].codec == AudioFormat::kAMR ||
+              tracks_[i].codec == AudioFormat::kG711)
+            ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
+          else
+            ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
+        }
       }
     }
   }
@@ -792,7 +734,7 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
 
   size_t num_tracks = tracks_.size();
 
-  for(size_t i = 0; i < num_tracks; i++) {
+  for (size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kAudio) {
       if (tracks_[i].codec == AudioFormat::kAAC ||
           tracks_[i].codec == AudioFormat::kAMR ||
@@ -824,7 +766,7 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
 
   size_t num_tracks = tracks_.size();
 
-  for(size_t i = 0; i < num_tracks; i++) {
+  for (size_t i = 0; i < num_tracks; i++) {
      if (tracks_[i].type == TrackType::kVideo) {
        ret = video_decoder_core_->SetVideoTrackDecoderParams(
            tracks_[i].track_id,type, param, param_size);
@@ -857,18 +799,15 @@ void PlayerImpl::NotifyPlayerEventCallback(EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyPlayerEvent(event_type,event_data,event_data_size);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-}
 
-void PlayerImpl::NotifyVideoTrackDataCallback(
-    uint32_t track_id,
-    std::vector<BnTrackBuffer> &buffers,
-    void *meta_param, TrackMetaBufferType meta_type,
-    size_t meta_size) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyVideoTrackData(track_id,buffers,meta_param,meta_type,
-      meta_size);
+  if (event_type == EventType::kStopped) {
+    Mutex::Autolock lock(state_lock_);
+    setCurrentState(PlayerState::QPLAYER_STATE_DRAINED);
+    QMMF_DEBUG("%s:%s: state is now %d", TAG, __func__, current_state_);
+  }
+
+  remote_cb_->NotifyPlayerEvent(event_type, event_data, event_data_size);
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -877,19 +816,23 @@ void PlayerImpl::NotifyVideoTrackEventCallback(uint32_t track_id,
                                                void *event_data,
                                                size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyVideoTrackEvent(track_id,event_type,event_data,
-      event_data_size);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-}
+  remote_cb_->NotifyVideoTrackEvent(track_id, event_type, event_data,
+                                    event_data_size);
 
-void PlayerImpl::NotifyAudioTrackDataCallback(
-    uint32_t track_id,
-    std::vector<BnTrackBuffer> &buffers,
-    void *meta_param, TrackMetaBufferType meta_type,
-    size_t meta_size) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyAudioTrackData(track_id,buffers,meta_param,meta_type,
-      meta_size);
+  if (event_type == EventType::kEOSRendered)
+    track_map_.editValueFor(track_id).eos_rendered = true;
+
+  bool stopped = true;
+  for (uint32_t idx = 0; idx < track_map_.size(); ++idx)
+    if (!(track_map_[idx].eos_rendered))
+      if ((!IsTrickModeEnabled()) ||
+          (IsTrickModeEnabled() && track_map_[idx].type == TrackType::kVideo)) {
+        stopped = false;
+        break;
+      }
+  if (stopped)
+    NotifyPlayerEventCallback(EventType::kStopped, nullptr, 0);
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 
@@ -898,20 +841,21 @@ void PlayerImpl::NotifyAudioTrackEventCallback(uint32_t track_id,
                                                void *event_data,
                                                size_t event_data_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyAudioTrackEvent(track_id,event_type,event_data,
-      event_data_size);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-}
+  remote_cb_->NotifyAudioTrackEvent(track_id, event_type, event_data,
+                                    event_data_size);
 
-void PlayerImpl::NotifyDeleteAudioTrackCallback(uint32_t track_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyDeleteAudioTrack(track_id);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
-}
+  if (event_type == EventType::kEOSRendered)
+    track_map_.editValueFor(track_id).eos_rendered = true;
 
-void PlayerImpl::NotifyDeleteVideoTrackCallback(uint32_t track_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  remote_cb_->NotifyDeleteVideoTrack(track_id);
+  bool stopped = true;
+  for (uint32_t idx = 0; idx < track_map_.size(); ++idx)
+    if (!(track_map_[idx].eos_rendered)) {
+      stopped = false;
+      break;
+    }
+  if (stopped)
+    NotifyPlayerEventCallback(EventType::kStopped, nullptr, 0);
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
 }
 

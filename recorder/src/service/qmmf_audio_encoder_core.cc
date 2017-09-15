@@ -399,7 +399,7 @@ status_t AudioTrackEncoder::Start(const shared_ptr<ICodecSource> &track_source,
   return ::android::NO_ERROR;
 
 error_start_stop:
-  avcodec_->StopCodec();
+  avcodec_->StopCodec(true);
 
 error_start_buffers:
   while (!buffers_.empty())
@@ -430,7 +430,7 @@ status_t AudioTrackEncoder::Stop() {
     return ::android::NO_INIT;
   }
 
-  result = avcodec_->StopCodec();
+  result = avcodec_->StopCodec(true);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() avcodec->StopCodec failed: %d", TAG, __func__,
                result);

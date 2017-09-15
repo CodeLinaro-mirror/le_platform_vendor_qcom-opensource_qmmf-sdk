@@ -57,11 +57,13 @@ class AudioRawSink {
 
   virtual ~AudioRawSink();
 
-  status_t CreateTrackSink(uint32_t track_id, AudioTrackParams& param);
+  status_t CreateTrackSink(uint32_t track_id,
+                           AudioTrackParams& param,
+                           TrackCb& callback);
   status_t DeleteTrackSink(uint32_t track_id);
 
   status_t StartTrackSink(uint32_t track_id);
-  status_t StopTrackSink(uint32_t track_id, bool do_flush);
+  status_t StopTrackSink(uint32_t track_id);
   status_t PauseTrackSink(uint32_t track_id);
   status_t ResumeTrackSink(uint32_t track_id);
 
@@ -97,11 +99,11 @@ class AudioRawTrackSink {
   AudioRawTrackSink();
   virtual ~AudioRawTrackSink();
 
-  status_t Init(const AudioTrackParams& params);
+  status_t Init(const AudioTrackParams& params, TrackCb& callback);
   status_t DeInit();
 
   status_t StartSink();
-  status_t StopSink(bool do_flush);
+  status_t StopSink();
   status_t PauseSink();
   status_t ResumeSink();
 
@@ -126,7 +128,6 @@ class AudioRawTrackSink {
     union {
       ::qmmf::common::audio::AudioBuffer buffer;
       AVCodecBuffer av_buffer;
-      bool flush;
     };
   };
 
@@ -135,8 +136,10 @@ class AudioRawTrackSink {
 
   void ErrorHandler(const int32_t error);
   void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
+  void StoppedHandler();
 
   AudioTrackParams track_params_;
+  TrackCb callback_;
   ::std::mutex av_buffers_lock_;
   ::std::condition_variable buffer_signal_;
   ::std::queue<AVCodecBuffer> av_buffers_;

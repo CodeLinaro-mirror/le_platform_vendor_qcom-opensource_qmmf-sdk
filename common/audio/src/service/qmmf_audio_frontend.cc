@@ -135,6 +135,12 @@ void AudioFrontend::RegisterBufferHandler(const AudioBufferHandler& handler) {
   buffer_handler_ = handler;
 }
 
+void AudioFrontend::RegisterStoppedHandler(const AudioStoppedHandler& handler) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  stopped_handler_ = handler;
+}
+
 int32_t AudioFrontend::Connect(AudioHandle* audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
@@ -206,7 +212,7 @@ int32_t AudioFrontend::Configure(const AudioHandle audio_handle,
                                      buffer_handler_);
   } else if (type == AudioEndPointType::kSink) {
     backend = new AudioBackendSink(audio_handle, error_handler_,
-                                   buffer_handler_);
+                                   buffer_handler_, stopped_handler_);
   } else {
     QMMF_ERROR("%s: %s() invalid type given: %d", TAG, __func__,
                static_cast<int>(type));
@@ -249,12 +255,10 @@ int32_t AudioFrontend::Start(const AudioHandle audio_handle) {
   return result;
 }
 
-int32_t AudioFrontend::Stop(const AudioHandle audio_handle, const bool flush) {
+int32_t AudioFrontend::Stop(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
 
   AudioBackendMap::iterator backend_iterator = backends_.find(audio_handle);
   if (backend_iterator == backends_.end()) {
@@ -268,7 +272,7 @@ int32_t AudioFrontend::Stop(const AudioHandle audio_handle, const bool flush) {
     return -ENOSYS;
   }
 
-  int32_t result = backend_iterator->second->Stop(flush);
+  int32_t result = backend_iterator->second->Stop();
   if (result < 0)
     QMMF_ERROR("%s: %s() backend->Stop failed: %d", TAG, __func__, result);
 

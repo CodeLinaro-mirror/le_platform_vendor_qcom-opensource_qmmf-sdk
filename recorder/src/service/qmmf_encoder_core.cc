@@ -446,7 +446,7 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
     }
   }
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->StopCodec();
+  auto ret = avcodec_->StopCodec(true);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {

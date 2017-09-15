@@ -93,8 +93,22 @@ AudioService::AudioService() : mic_mute_(false) {
       client_handler_iterator->second->NotifyBufferEvent(buffer);
     };
 
+  AudioStoppedHandler stopped_handler =
+    [this](const AudioHandle audio_handle) -> void {
+      ClientHandlerMap::iterator client_handler_iterator =
+          client_handlers_.find(audio_handle);
+      if (client_handler_iterator == client_handlers_.end()) {
+        QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
+                   audio_handle);
+        return;
+      }
+
+      client_handler_iterator->second->NotifyStoppedEvent();
+    };
+
   audio_frontend_.RegisterErrorHandler(error_handler);
   audio_frontend_.RegisterBufferHandler(buffer_handler);
+  audio_frontend_.RegisterStoppedHandler(stopped_handler);
 
   QMMF_INFO("%s: %s() service instantiated", TAG, __func__);
 }
@@ -211,15 +225,13 @@ int32_t AudioService::Start(const AudioHandle audio_handle) {
   return result;
 }
 
-int32_t AudioService::Stop(const AudioHandle audio_handle, const bool flush) {
+int32_t AudioService::Stop(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
   lock_guard<mutex> lock(lock_);
 
-  int32_t result = audio_frontend_.Stop(audio_handle, flush);
+  int32_t result = audio_frontend_.Stop(audio_handle);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Stop failed: %d", TAG, __func__, result);
 
@@ -425,14 +437,11 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
 
     case AudioServiceCommand::kAudioStop: {
       AudioHandle audio_handle = static_cast<AudioHandle>(input.readInt32());
-      bool flush = static_cast<bool>(input.readInt32());
 
       QMMF_DEBUG("%s: %s-AudioStop() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioStop() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      QMMF_VERBOSE("%s: %s-AudioStop() INPARAM: flush[%s]", TAG, __func__,
-                   flush ? "true" : "false");
-      int32_t result = Stop(audio_handle, flush);
+      int32_t result = Stop(audio_handle);
 
       output->writeInt32(result);
       break;

@@ -87,7 +87,8 @@ AudioSink::~AudioSink() {
 }
 
 status_t AudioSink::CreateTrackSink(uint32_t track_id,
-                                    AudioTrackParams& param) {
+                                    AudioTrackParams& param,
+                                    TrackCb& callback) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   shared_ptr<AudioTrackSink> track_sink;
 
@@ -95,14 +96,13 @@ status_t AudioSink::CreateTrackSink(uint32_t track_id,
     track_sink = make_shared<AudioTrackSink>();
 
   audio_track_sinks.add(track_id,track_sink);
-  track_sink->Init(param);
-  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
+  track_sink->Init(param, callback);
 
+  QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return 0;
 }
 
-const shared_ptr<AudioTrackSink>& AudioSink::GetTrackSink(
-    uint32_t track_id) {
+const shared_ptr<AudioTrackSink>& AudioSink::GetTrackSink(uint32_t track_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   int32_t idx = audio_track_sinks.indexOfKey(track_id);
   assert(idx >= 0);
@@ -129,12 +129,12 @@ status_t AudioSink::StartTrackSink(uint32_t track_id) {
   return ret;
 }
 
-status_t AudioSink::StopTrackSink(uint32_t track_id, bool do_flush) {
+status_t AudioSink::StopTrackSink(uint32_t track_id) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   shared_ptr<AudioTrackSink> track_sink = audio_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
-  auto ret = track_sink->StopSink(do_flush);
+  auto ret = track_sink->StopSink();
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
       track_id);
@@ -247,8 +247,16 @@ void AudioTrackSink::BufferHandler(const AudioBuffer& buffer) {
   wait_for_sink_frame_.signal();
 }
 
-status_t AudioTrackSink::Init(AudioTrackParams& track_param) {
+void AudioTrackSink::StoppedHandler() {
+  QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
+
+  callback_.event_cb(TrackId(), EventType::kEOSRendered, nullptr, 0);
+}
+
+status_t AudioTrackSink::Init(AudioTrackParams& track_param, TrackCb& callback) {
   QMMF_INFO("%s:%s: Enter track_id(%d)", TAG, __func__, track_param.track_id);
+
+  callback_ = callback;
 
   track_params_.track_id = track_param.track_id;
 
@@ -290,6 +298,9 @@ status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
           break;
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
+          break;
+        case AudioEventType::kStopped:
+          StoppedHandler();
           break;
       }
     };
@@ -359,12 +370,11 @@ status_t AudioTrackSink::StartSink() {
   return ret;
 }
 
-status_t AudioTrackSink::StopSink(bool do_flush) {
+status_t AudioTrackSink::StopSink() {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
   std::lock_guard<std::mutex> lock(state_change_lock_);
 
-  if (!do_flush)
-    stopplayback_ = true;
+  stopplayback_ = true;
 
   QMMF_DEBUG("%s:%s: Total number of audio frames decoded %d", TAG, __func__,
       decoded_frame_number_);
@@ -374,7 +384,7 @@ status_t AudioTrackSink::StopSink(bool do_flush) {
       total_bytes_decoded_);
   total_bytes_decoded_ = 0;
 
-  auto ret = end_point_->Stop(do_flush);
+  auto ret = end_point_->Stop();
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: track_id(%d) StopSink failed!", TAG, __func__,
@@ -510,14 +520,14 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   assert(codec_buffer.data != NULL);
 
-  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(0x%p) from FBD", TAG,
-      __func__, TrackId(), codec_buffer.data);
+  QMMF_VERBOSE("%s:%s: track_id(%d) Received buffer(%s) from FBD",
+               TAG, __func__, TrackId(), codec_buffer.ToString().c_str());
 
 #ifdef DUMP_PCM_DATA
   DumpPCMData(codec_buffer);
 #endif
 
-  if (!(stopplayback_ || codec_buffer.size == 0 || paused_)) {
+  if (!(stopplayback_ || codec_buffer.capacity == 0 || paused_)) {
     QMMF_DEBUG("%s:%s: track_id(%d) For decoded/rendered audio frame number %d timestamps is %llu ",
                TAG, __func__, TrackId(), ++decoded_frame_number_,
                codec_buffer.timestamp);

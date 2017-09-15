@@ -114,6 +114,9 @@ status_t AudioEncodedTrackSource::Init() {
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
           break;
+        case AudioEventType::kStopped:
+          // TODO
+          break;
       }
     };
 
@@ -240,7 +243,7 @@ status_t AudioEncodedTrackSource::StopTrack() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
-  int32_t result = end_point_->Stop(true);
+  int32_t result = end_point_->Stop();
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
                result, strerror(result));

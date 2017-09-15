@@ -69,8 +69,8 @@ enum PlayerState
   QPLAYER_STATE_PREPARED = 1 << 1,
   QPLAYER_STATE_STARTED = 1 << 2,
   QPLAYER_STATE_PAUSED = 1 << 3,
-  QPLAYER_STATE_STOPPED =  1 << 4,
-  QPLAYER_STATE_PLAYBACK_COMPLETED = 1<< 5,
+  QPLAYER_STATE_DRAINED =  1 << 4,
+  QPLAYER_STATE_STOPPED =  1 << 5,
 };
 
 /*
@@ -121,7 +121,7 @@ struct AVCodecBuffer {
   }
 };
 
-struct Event{
+struct Event {
   PlayerState state;
 };
 

@@ -33,9 +33,9 @@
 
 #include <vector>
 
+#include "common/qmmf_log.h"
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/client/qmmf_system_client.h"
-#include "common/qmmf_log.h"
 
 namespace qmmf {
 namespace system {

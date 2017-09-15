@@ -333,10 +333,8 @@ int32_t AudioBackendSource::Start() {
   return 0;
 }
 
-int32_t AudioBackendSource::Stop(const bool flush) {
+int32_t AudioBackendSource::Stop() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
 
   switch (state_) {
     case AudioState::kNew:
@@ -359,7 +357,6 @@ int32_t AudioBackendSource::Stop(const bool flush) {
 
   AudioMessage message;
   message.type = AudioMessageType::kMessageStop;
-  message.flush = flush;
 
   message_lock_.lock();
   messages_.push(message);

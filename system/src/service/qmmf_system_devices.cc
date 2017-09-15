@@ -239,6 +239,7 @@ status_t SystemDevices::Mute(const SystemHandle system_handle,
       switch (event_type) {
         case AudioEventType::kError:
         case AudioEventType::kBuffer:
+        case AudioEventType::kStopped:
           // do nothing
           break;
       }

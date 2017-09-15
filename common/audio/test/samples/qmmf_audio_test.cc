@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -60,6 +60,7 @@ using ::qmmf::common::audio::AudioEventHandler;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioParamType;
 using ::qmmf::common::audio::BufferFlags;
 using ::std::cin;
 using ::std::condition_variable;
@@ -100,6 +101,9 @@ void AudioTest::Connect() {
           break;
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
+          break;
+        case AudioEventType::kStopped:
+          StoppedHandler();
           break;
       }
     };
@@ -187,12 +191,19 @@ void AudioTest::ConfigureSink() {
     result = ion_.Deallocate();
     assert(false);
   }
+
+  result = end_point_.SetParam(AudioParamType::kVolume, 20);
+  assert(result == 0);
 }
 
 void AudioTest::Start() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  assert(thread_ == nullptr);
+  if (thread_ != nullptr) {
+    thread_->join();
+    delete thread_;
+    thread_ = nullptr;
+  }
 
   int result = end_point_.Start();
   assert(result == 0);
@@ -215,7 +226,7 @@ void AudioTest::Stop() {
   message_lock_.unlock();
   signal_.notify_one();
 
-  int32_t result = end_point_.Stop(false);
+  int32_t result = end_point_.Stop();
   assert(result == 0);
 
   if (thread_ != nullptr) {
@@ -280,6 +291,22 @@ void AudioTest::BufferHandler(const AudioBuffer& buffer) {
   signal_.notify_one();
 }
 
+void AudioTest::StoppedHandler() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  if (thread_ != nullptr) {
+    thread_->join();
+    delete thread_;
+    thread_ = nullptr;
+  }
+
+  while (!messages_.empty())
+    messages_.pop();
+
+  cout << endl << "Playback has finished" << endl;
+  cout << endl << "Selection: ";
+}
+
 void AudioTest::StaticThreadEntry(AudioTest* test) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
@@ -297,6 +324,8 @@ void AudioTest::ThreadEntry() {
   }
 
   wav_.Close();
+
+  QMMF_DEBUG("%s: %s() thread execution finished", TAG, __func__);
 }
 
 void AudioTest::SourceThread() {
@@ -454,6 +483,8 @@ void AudioTest::SinkThread() {
 
         int32_t result = wav_.Read(&buffer);
         if (result == AudioTestWav::kEOF) {
+          QMMF_DEBUG("%s: %s() hit the end of file", TAG, __func__);
+          buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
           keep_running = false;
           break;
         }
