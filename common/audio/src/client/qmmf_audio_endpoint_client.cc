@@ -308,10 +308,8 @@ int32_t AudioEndPointClient::Start() {
   return result;
 }
 
-int32_t AudioEndPointClient::Stop(const bool flush) {
+int32_t AudioEndPointClient::Stop() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
   lock_guard<mutex> lock(lock_);
 
   switch (state_) {
@@ -338,7 +336,7 @@ int32_t AudioEndPointClient::Stop(const bool flush) {
     return -ENOSYS;
   }
 
-  int32_t result = audio_service_->Stop(audio_handle_, flush);
+  int32_t result = audio_service_->Stop(audio_handle_);
   if (result < 0) {
     QMMF_ERROR("%s: %s() service->Stop failed: %d", TAG, __func__, result);
   } else {
@@ -640,6 +638,16 @@ void AudioEndPointClient::NotifyBufferEvent(const AudioBuffer& buffer) {
   event_handler_(AudioEventType::kBuffer, AudioEventData(buffer));
 }
 
+void AudioEndPointClient::NotifyStoppedEvent() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  state_ = AudioState::kIdle;
+  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+             static_cast<int>(state_));
+
+  event_handler_(AudioEventType::kStopped, AudioEventData(0));
+}
+
 // Binder proxy implementation of IAudioService
 class BpAudioService: public BpInterface<IAudioService> {
  public:
@@ -726,17 +734,14 @@ class BpAudioService: public BpInterface<IAudioService> {
     return output.readInt32();
   }
 
-  int32_t Stop(const AudioHandle audio_handle, const bool flush) {
+  int32_t Stop(const AudioHandle audio_handle) {
     QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
     QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                  audio_handle);
-    QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-                 flush ? "true" : "false");
     Parcel input, output;
 
     input.writeInterfaceToken(IAudioService::getInterfaceDescriptor());
     input.writeInt32(static_cast<int32_t>(audio_handle));
-    input.writeInt32(static_cast<int32_t>(flush));
 
     remote()->transact(static_cast<uint32_t>(AudioServiceCommand::kAudioStop),
                        input, &output);
@@ -914,6 +919,15 @@ void ServiceCallbackHandler::NotifyBufferEvent(const AudioBuffer& buffer) {
     client_->NotifyBufferEvent(buffer);
 }
 
+void ServiceCallbackHandler::NotifyStoppedEvent() {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  if (client_ == nullptr)
+    QMMF_ERROR("%s: %s() no client to send notification to", TAG, __func__);
+  else
+    client_->NotifyStoppedEvent();
+}
+
 class BpAudioServiceCallback: public BpInterface<IAudioServiceCallback> {
  public:
   BpAudioServiceCallback(const sp<IBinder>& impl)
@@ -942,6 +956,16 @@ class BpAudioServiceCallback: public BpInterface<IAudioServiceCallback> {
 
     remote()->transact(static_cast<uint32_t>
         (AudioServiceCallbackCommand::kAudioNotifyBuffer), input, &output);
+  }
+
+  void NotifyStoppedEvent() {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    Parcel input, output;
+
+    input.writeInterfaceToken(IAudioServiceCallback::getInterfaceDescriptor());
+
+    remote()->transact(static_cast<uint32_t>
+        (AudioServiceCallbackCommand::kAudioNotifyStopped), input, &output);
   }
 };
 
@@ -976,6 +1000,12 @@ int32_t BnAudioServiceCallback::onTransact(uint32_t code, const Parcel& input,
       QMMF_VERBOSE("%s: %s-AudioNotifyBuffer() INPARAM: buffer[%s]", TAG,
                    __func__, buffer.ToString().c_str());
       NotifyBufferEvent(buffer);
+      break;
+    }
+
+    case AudioServiceCallbackCommand::kAudioNotifyStopped: {
+      QMMF_DEBUG("%s: %s-AudioNotifyStopped() TRACE", TAG, __func__);
+      NotifyStoppedEvent();
       break;
     }
 

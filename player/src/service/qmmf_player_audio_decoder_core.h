@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -69,7 +69,7 @@ class AudioDecoderCore {
 
   status_t StartTrackDecoder(uint32_t track_id);
 
-  status_t StopTrackDecoder(uint32_t track_id, bool do_flush);
+  status_t StopTrackDecoder(uint32_t track_id);
 
   status_t PauseTrackDecoder(uint32_t track_id);
 
@@ -116,7 +116,7 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartDecoder();
 
-  status_t StopDecoder(bool do_flush);
+  status_t StopDecoder();
 
   status_t PauseDecoder();
 
@@ -167,7 +167,6 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   typedef  struct ion_allocation_data IonHandleData;
   Vector<IonHandleData>     ion_handle_data;
 
-
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
 
   Mutex                     wait_for_empty_frame_lock_;
@@ -177,6 +176,7 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   Condition                 wait_for_frame_;
   int32_t                   ion_device_;
   Mutex                     queue_lock_;
+  bool                      stop_received_;
 
 #ifdef DUMP_PCM_DATA
   int32_t                   file_fd_audio_;

@@ -888,7 +888,7 @@ status_t CodecTest::StopCodec() {
     stop_ = true;
   }
 
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   assert(ret == OK);
 
   input_source_impl_->BufferStatus();

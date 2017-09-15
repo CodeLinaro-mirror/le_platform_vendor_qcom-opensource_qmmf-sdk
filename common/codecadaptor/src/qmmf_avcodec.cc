@@ -2537,7 +2537,7 @@ status_t AVCodec::StartCodec() {
   return ret;
 }
 
-status_t AVCodec::StopCodec() {
+status_t AVCodec::StopCodec(bool do_flush) {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
@@ -2550,6 +2550,11 @@ status_t AVCodec::StopCodec() {
   {
     Mutex::Autolock autoLock(input_stop_lock_);
     input_stop_ = true;
+  }
+
+  if (!do_flush) {
+    Mutex::Autolock autoLock(output_stop_lock_);
+    output_stop_ = true;
   }
 
   ret = pthread_join(deliver_input_thread_id_, nullptr);
@@ -2570,21 +2575,32 @@ status_t AVCodec::StopCodec() {
   }
 
   CodecCmdType cmd;
-  ret = signal_queue_.Pop(&cmd);
-  if (ret != OK) {
-    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
-        TAG, __func__, signal_queue_.Size());
-    return ret;
-  }
+  if (do_flush) {
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
 
-  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
-      __func__, signal_queue_.Size());
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
 
-  if((cmd.event_result != OMX_ErrorNone) ||
-     (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
-      QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
-          cmd.event_flags);
-      return OMX_ErrorUndefined;
+    if((cmd.event_result != OMX_ErrorNone) ||
+       (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
+        QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
+            cmd.event_flags);
+        return OMX_ErrorUndefined;
+    }
+  } else {
+    // the EOS may or may not be there depending on timing
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK)
+      QMMF_ERROR("%s:%s optional Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+    else
+      QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+          __func__, signal_queue_.Size());
   }
 
   ret =  SetState(OMX_StateIdle, OMX_TRUE);
@@ -2994,6 +3010,12 @@ void* AVCodec::DeliverInput(void *arg) {
   while(1) {
     memset(&stream_buffer, 0x0, sizeof(stream_buffer));
     ret = avcodec->getInputBufferSource()->GetBuffer(stream_buffer, nullptr);
+    QMMF_VERBOSE("%s:%s GetBuffer returned [%s]", TAG, __func__,
+                 stream_buffer.ToString().c_str());
+    if ((avcodec->format_type_ == CodecType::kAudioDecoder ||
+         avcodec->format_type_ == CodecType::kVideoDecoder) &&
+         stream_buffer.capacity == 0)
+      break;
     buffer_handle_t native_handle;
     memset(&native_handle, 0x0, sizeof native_handle);
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
@@ -3020,9 +3042,6 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
       buf_header->nFilledLen = stream_buffer.size;
       buf_header->nTimeStamp = stream_buffer.timestamp / 1000;
-    } else if(avcodec->format_type_ == CodecType::kAudioEncoder) {
-      buf_header->nFilledLen = stream_buffer.size;
-      buf_header->nTimeStamp  = stream_buffer.timestamp;
     } else {
       buf_header->nFilledLen = stream_buffer.size;
       buf_header->nTimeStamp = stream_buffer.timestamp;
@@ -3031,16 +3050,9 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder)
       QMMF_VERBOSE("%s:%s ETB buffer fd(%d), ts(%lld)", TAG, __func__,
                    native_handle->data[0], stream_buffer.timestamp);
-    else if(avcodec->format_type_ == CodecType::kAudioEncoder)
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld)", TAG, __func__,
-                   stream_buffer.data, stream_buffer.fd,
-                   stream_buffer.timestamp);
     else
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld) "
-                   "filled_length(%d) frame_length(%d)",
-                   TAG, __func__, stream_buffer.data, stream_buffer.fd,
-                   stream_buffer.timestamp, stream_buffer.size,
-                   stream_buffer.capacity);
+      QMMF_VERBOSE("%s:%s ETB buffer[%s]", TAG, __func__,
+                   stream_buffer.ToString().c_str());
     ret = avcodec->EmptyThisBuffer(buf_header);
     if(ret != 0) {
         QMMF_ERROR("%s:%s ETB failed for buffer(%p)", TAG, __func__,
@@ -3329,7 +3341,7 @@ status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous) {
   if(((state == OMX_StateLoaded) && (state_ != OMX_StateIdle)) ||
       ((state == OMX_StateExecuting) && (state_ != OMX_StateIdle))) {
     QMMF_ERROR("%s:%s Invalid state tranisition: state %s to %s", TAG, __func__,
-        OMX_STATE_NAME(state), OMX_STATE_NAME(state_));
+        OMX_STATE_NAME(state_), OMX_STATE_NAME(state));
     return OMX_ErrorIncorrectStateTransition;
   }
 
@@ -3877,17 +3889,10 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
     }
   }
 
-  if(avcodec->format_type_ == CodecType::kAudioDecoder) {
-    QMMF_DEBUG("%s:%s FBD buffer(%p), filled length(%d), ts(%lld)  offset(%d)"
-        "  flag(0x%x)", TAG, __func__, codec_buffer.data, codec_buffer.size,
-        codec_buffer.timestamp, codec_buffer.offset,
-        (unsigned int)buf_header->nFlags);
-  } else {
-    QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
-               codec_buffer.ToString().c_str());
-  }
-
+  QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
+             codec_buffer.ToString().c_str());
   avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
+
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }

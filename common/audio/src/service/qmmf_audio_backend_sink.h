@@ -50,7 +50,8 @@ class AudioBackendSink : public IAudioBackend {
  public:
   AudioBackendSink(const AudioHandle audio_handle,
                    const AudioErrorHandler& error_handler,
-                   const AudioBufferHandler& buffer_handler);
+                   const AudioBufferHandler& buffer_handler,
+                   const AudioStoppedHandler& stopped_handler);
   ~AudioBackendSink();
 
   int32_t Open(const qahw_module_handle_t * const modules[],
@@ -59,7 +60,7 @@ class AudioBackendSink : public IAudioBackend {
   int32_t Close();
 
   int32_t Start();
-  int32_t Stop(const bool flush);
+  int32_t Stop();
   int32_t Pause();
   int32_t Resume();
 
@@ -72,23 +73,19 @@ class AudioBackendSink : public IAudioBackend {
   int32_t GetRenderedPosition(uint32_t* frames,
                               uint64_t* time);
 
-  static int CallbackEntry(qahw_stream_callback_event_t event,
-                           void* param,
-                           void* cookie);
-
  private:
   enum class AudioMessageType {
     kMessageStop,
     kMessagePause,
     kMessageResume,
     kMessageBuffer,
-    kMessageOffload,
+    kMessageWriteDone,
+    kMessageFlushDone,
   };
 
   struct AudioMessage {
     AudioMessageType type;
     ::std::vector<AudioBuffer> buffers;
-    bool flush;
   };
 
   static const audio_io_handle_t kIOHandleMin;
@@ -97,6 +94,9 @@ class AudioBackendSink : public IAudioBackend {
   static void ThreadEntry(AudioBackendSink* backend);
   void Thread();
 
+  static int CallbackEntry(qahw_stream_callback_event_t event,
+                           void* param,
+                           void* cookie);
   int Callback(qahw_stream_callback_event_t event, void* param);
 
   AudioHandle audio_handle_;
@@ -104,6 +104,7 @@ class AudioBackendSink : public IAudioBackend {
 
   AudioErrorHandler error_handler_;
   AudioBufferHandler buffer_handler_;
+  AudioStoppedHandler stopped_handler_;
 
   ::std::thread* thread_;
   ::std::mutex message_lock_;
@@ -111,8 +112,6 @@ class AudioBackendSink : public IAudioBackend {
   ::std::condition_variable signal_;
 
   bool using_offload_;
-  ::std::mutex drain_lock_;
-  ::std::condition_variable drain_signal_;
 
   qahw_module_handle_t* qahw_module_;
   qahw_stream_handle_t* qahw_stream_;

@@ -109,6 +109,9 @@ status_t AudioRawTrackSource::Init() {
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
           break;
+        case AudioEventType::kStopped:
+          // TODO
+          break;
       }
     };
 
@@ -213,7 +216,7 @@ status_t AudioRawTrackSource::StartTrack() {
   thread_ = new thread(AudioRawTrackSource::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s: %s() could not instantiate thread", TAG, __func__);
-    end_point_->Stop(false);
+    end_point_->Stop();
     return ::android::NO_MEMORY;
   }
 
@@ -232,7 +235,7 @@ status_t AudioRawTrackSource::StopTrack() {
   message_lock_.unlock();
   signal_.notify_one();
 
-  int32_t result = end_point_->Stop(false);
+  int32_t result = end_point_->Stop();
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
                result, strerror(result));

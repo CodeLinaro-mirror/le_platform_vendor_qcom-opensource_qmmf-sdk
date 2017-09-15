@@ -57,6 +57,8 @@ typedef ::std::function<void(const AudioHandle audio_handle,
                              const int32_t error)> AudioErrorHandler;
 typedef ::std::function<void(const AudioHandle audio_handle,
                              const AudioBuffer& buffer)> AudioBufferHandler;
+typedef ::std::function<void(const AudioHandle audio_handle)>
+        AudioStoppedHandler;
 
 }; // namespace audio
 }; // namespace common

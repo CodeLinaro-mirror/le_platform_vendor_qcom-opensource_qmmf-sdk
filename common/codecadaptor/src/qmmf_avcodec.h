@@ -97,7 +97,7 @@ class AVCodec : public IAVCodec {
   status_t GetParameters(const CodecParamType param_type, void *codec_param,
                          size_t *param_size) override;
   status_t StartCodec() override;
-  status_t StopCodec() override;
+  status_t StopCodec(bool do_flush) override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
   status_t RegisterOutputBuffers(

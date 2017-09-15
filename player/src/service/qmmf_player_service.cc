@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -189,8 +189,9 @@ namespace player {
       {
         Mutex::Autolock lock(lock_);
 
-        for (size_t i = 0; i < vector_size; i++)
-        {
+        reply->writeUint32(buffers.size());
+
+        for (size_t i = 0; i < buffers.size(); i++) {
           uint32_t param_size = sizeof (AVCodecBuffer);
           reply->writeUint32(param_size);
           android::Parcel::WritableBlob blob;
@@ -296,9 +297,7 @@ namespace player {
 
     case PLAYER_STOP:
     {
-      int32_t do_flush;
-      data.readInt32(&do_flush);
-      ret = Stop(do_flush);
+      ret = Stop();
       reply->writeInt32(ret);
       return NO_ERROR;
     }
@@ -578,14 +577,14 @@ status_t PlayerService::Start() {
   return ret;
 }
 
-status_t PlayerService::Stop(bool do_flush) {
+status_t PlayerService::Stop() {
   QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
   if (!connected_)
     return NO_INIT;
 
   assert(player_ != NULL);
 
-  auto ret = player_->Stop(do_flush);
+  auto ret = player_->Stop();
   if (ret != NO_ERROR) {
     QMMF_INFO("%s:%s: Stop failed!", TAG, __func__);
     return BAD_VALUE;

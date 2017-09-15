@@ -64,7 +64,7 @@ class AudioService : public ::android::BnInterface<IAudioService>
                     const AudioMetadata& metadata) override;
 
   int32_t Start(const AudioHandle audio_handle) override;
-  int32_t Stop(const AudioHandle audio_handle, const bool flush) override;
+  int32_t Stop(const AudioHandle audio_handle) override;
   int32_t Pause(const AudioHandle audio_handle) override;
   int32_t Resume(const AudioHandle audio_handle) override;
 

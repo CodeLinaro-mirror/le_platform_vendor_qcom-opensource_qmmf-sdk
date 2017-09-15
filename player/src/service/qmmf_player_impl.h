@@ -61,79 +61,52 @@ class PlayerImpl {
   ~PlayerImpl();
 
   status_t Connect(sp<RemoteCallBack>& remote_cb);
-
   status_t Disconnect();
 
   status_t CreateAudioTrack(uint32_t track_id,
-                          AudioTrackCreateParam& param);
-
+                            AudioTrackCreateParam& param);
   status_t CreateVideoTrack(uint32_t track_id,
-                          VideoTrackCreateParam& param);
-
+                            VideoTrackCreateParam& param);
   status_t DeleteAudioTrack(uint32_t track_id);
-
   status_t DeleteVideoTrack(uint32_t track_id);
 
-  status_t Prepare();
 
   status_t DequeueInputBuffer(uint32_t track_id,
-                            std::vector<AVCodecBuffer>& buffers);
-
+                              std::vector<AVCodecBuffer>& buffers);
   status_t QueueInputBuffer(uint32_t track_id,
-                          std::vector<AVCodecBuffer>& buffers,
-                          void *meta_param,
-                          size_t meta_size ,
-                          TrackMetaBufferType meta_type);
+                            std::vector<AVCodecBuffer>& buffers,
+                            void *meta_param,
+                            size_t meta_size ,
+                            TrackMetaBufferType meta_type);
 
+  status_t Prepare();
   status_t Start();
-
-  status_t Stop(bool do_flush);
-
+  status_t Stop();
   status_t Pause();
-
   status_t Resume();
 
   status_t SetPosition(int64_t seek_time);
-
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   status_t GrabPicture(PictureParam param);
 
   status_t SetAudioTrackParam(uint32_t track_id,
-                            CodecParamType type,
-                            void *param,
-                            size_t param_size);
-
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size);
   status_t SetVideoTrackParam(uint32_t track_id,
-                            CodecParamType type,
-                            void *param,
-                            size_t param_size);
+                              CodecParamType type,
+                              void *param,
+                              size_t param_size);
 
   void setCurrentState(PlayerState state);
 
   void NotifyPlayerEventCallback(EventType event_type, void *event_data,
-                          size_t event_data_size);
-
-  void NotifyVideoTrackDataCallback(uint32_t track_id,
-                           std::vector<BnTrackBuffer> &buffers,
-                           void *meta_param, TrackMetaBufferType meta_type,
-                           size_t meta_size);
-
+                                 size_t event_data_size);
   void NotifyVideoTrackEventCallback(uint32_t track_id, EventType event_type,
-                            void *event_data, size_t event_data_size);
-
-  void NotifyAudioTrackDataCallback(uint32_t track_id,
-                           std::vector<BnTrackBuffer> &buffers,
-                           void *meta_param, TrackMetaBufferType meta_type,
-                           size_t meta_size);
-
+                                     void *event_data, size_t event_data_size);
   void NotifyAudioTrackEventCallback(uint32_t track_id, EventType event_type,
-                            void *event_data, size_t event_data_size);
-
-  void NotifyDeleteAudioTrackCallback(uint32_t track_id);
-
-  void NotifyDeleteVideoTrackCallback(uint32_t track_id);
-
+                                     void *event_data, size_t event_data_size);
   void NotifyGrabPictureDataCallback(BufferDescriptor& buffer);
 
  private:
@@ -142,11 +115,12 @@ class PlayerImpl {
 
   bool IsTrickModeEnabled();
 
-  typedef struct TrackInfo {
+  struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
+    bool             eos_rendered;
     AudioFormat      codec;
-  } TrackInfo;
+  };
 
   uint32_t            unique_id_;
   sp<RemoteCallBack>  remote_cb_;

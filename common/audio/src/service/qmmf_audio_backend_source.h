@@ -59,7 +59,7 @@ class AudioBackendSource : public IAudioBackend {
   int32_t Close();
 
   int32_t Start();
-  int32_t Stop(const bool flush);
+  int32_t Stop();
   int32_t Pause();
   int32_t Resume();
 
@@ -83,7 +83,6 @@ class AudioBackendSource : public IAudioBackend {
   struct AudioMessage {
     AudioMessageType type;
     ::std::vector<AudioBuffer> buffers;
-    bool flush;
   };
 
   static const audio_io_handle_t kIOHandleMin;

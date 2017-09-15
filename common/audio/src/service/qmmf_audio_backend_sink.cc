@@ -70,11 +70,14 @@ const audio_io_handle_t AudioBackendSink::kIOHandleMax = 899;
 
 AudioBackendSink::AudioBackendSink(const AudioHandle audio_handle,
                                    const AudioErrorHandler& error_handler,
-                                   const AudioBufferHandler& buffer_handler)
+                                   const AudioBufferHandler& buffer_handler,
+                                   const AudioStoppedHandler& stopped_handler)
     : audio_handle_(audio_handle),
       state_(AudioState::kNew),
       error_handler_(error_handler),
       buffer_handler_(buffer_handler),
+      stopped_handler_(stopped_handler),
+      thread_(nullptr),
       using_offload_(false),
       current_io_handle_(kIOHandleMin) {
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
@@ -256,6 +259,12 @@ int32_t AudioBackendSink::Close() {
       break;
   }
 
+  if (thread_ != nullptr) {
+    thread_->join();
+    delete thread_;
+    thread_ = nullptr;
+  }
+
   result = qahw_close_output_stream(qahw_stream_);
   if (result != 0) {
     QMMF_ERROR("%s: %s() failed to close output stream: %d[%s]",
@@ -292,6 +301,12 @@ int32_t AudioBackendSink::Start() {
       break;
   }
 
+  if (thread_ != nullptr) {
+    thread_->join();
+    delete thread_;
+    thread_ = nullptr;
+  }
+
   while (!messages_.empty())
     messages_.pop();
 
@@ -308,10 +323,8 @@ int32_t AudioBackendSink::Start() {
   return 0;
 }
 
-int32_t AudioBackendSink::Stop(const bool flush) {
+int32_t AudioBackendSink::Stop() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
 
   switch (state_) {
     case AudioState::kNew:
@@ -334,7 +347,6 @@ int32_t AudioBackendSink::Stop(const bool flush) {
 
   AudioMessage message;
   message.type = AudioMessageType::kMessageStop;
-  message.flush = flush;
 
   message_lock_.lock();
   messages_.push(message);
@@ -343,6 +355,7 @@ int32_t AudioBackendSink::Stop(const bool flush) {
 
   thread_->join();
   delete thread_;
+  thread_ = nullptr;
 
   while (!messages_.empty())
     messages_.pop();
@@ -665,7 +678,7 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
       QMMF_DEBUG("%s: %s() received WRITE_READY event", TAG, __func__);
       {
         AudioMessage message;
-        message.type = AudioMessageType::kMessageOffload;
+        message.type = AudioMessageType::kMessageWriteDone;
 
         message_lock_.lock();
         messages_.push(message);
@@ -676,7 +689,15 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
 
     case QAHW_STREAM_CBK_EVENT_DRAIN_READY:
       QMMF_DEBUG("%s: %s() received DRAIN_READY event", TAG, __func__);
-      drain_signal_.notify_one();
+      {
+        AudioMessage message;
+        message.type = AudioMessageType::kMessageFlushDone;
+
+        message_lock_.lock();
+        messages_.push(message);
+        message_lock_.unlock();
+        signal_.notify_one();
+      }
       break;
 
     case QAHW_STREAM_CBK_EVENT_ADSP:
@@ -685,7 +706,7 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
 
     case QAHW_STREAM_CBK_EVENT_ERROR:
       QMMF_ERROR("%s: %s() received ERROR event", TAG, __func__);
-      Stop(false);
+      Stop();
       break;
 
     default:
@@ -708,11 +729,12 @@ void AudioBackendSink::Thread() {
   int result;
 
   size_t bytes_written = 0;
-  bool pending_offload = false;
+  bool pending_write = false;
   bool stop_received = false;
   bool eof_received = false;
-  bool flush_requested = false;
   bool paused = false;
+  bool flushing = false;
+  bool pending_flush = false;
   bool keep_running = true;
   while (keep_running) {
     // wait until there is something to do
@@ -755,8 +777,8 @@ void AudioBackendSink::Thread() {
         case AudioMessageType::kMessageStop:
           QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
           paused = false;
+          eof_received = false;
           stop_received = true;
-          flush_requested = message.flush;
           break;
 
         case AudioMessageType::kMessageBuffer:
@@ -771,9 +793,14 @@ void AudioBackendSink::Thread() {
           }
           break;
 
-        case AudioMessageType::kMessageOffload:
-          QMMF_DEBUG("%s: %s-MessageOffload() TRACE", TAG, __func__);
-          pending_offload = false;
+        case AudioMessageType::kMessageWriteDone:
+          QMMF_DEBUG("%s: %s-MessageWriteDone() TRACE", TAG, __func__);
+          pending_write = false;
+          break;
+
+        case AudioMessageType::kMessageFlushDone:
+          QMMF_DEBUG("%s: %s-MessageFlushDone() TRACE", TAG, __func__);
+          keep_running = false;
           break;
       }
 
@@ -782,7 +809,8 @@ void AudioBackendSink::Thread() {
     message_lock_.unlock();
 
     // process the next pending buffer
-    if (!buffers.empty() && !paused && !pending_offload && keep_running) {
+    if (!buffers.empty() && !paused && !flushing && !pending_write &&
+        !stop_received && keep_running) {
       AudioBuffer& buffer = buffers.front();
       QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
                    TAG, __func__, buffer.ToString().c_str(), buffers.size());
@@ -800,7 +828,7 @@ void AudioBackendSink::Thread() {
         error_handler_(audio_handle_, result);
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
                  using_offload_) {
-        pending_offload = true;
+        pending_write = true;
         bytes_written += result;
       } else if (static_cast<size_t>(result) == qahw_buffer.bytes) {
         bytes_written += result;
@@ -827,24 +855,22 @@ void AudioBackendSink::Thread() {
       }
     }
 
-    // stop condition
-    if ((stop_received && !flush_requested) ||
-        (stop_received && flush_requested && eof_received))
-      keep_running = false;
-  }
+    // stop conditions
+    if (stop_received) keep_running = false;
+    else if (eof_received) flushing = true;
 
-  if (flush_requested) {
-    result = qahw_out_drain(qahw_stream_, QAHW_DRAIN_ALL);
-    if (result != 0) {
-      QMMF_ERROR("%s: %s() failed to drain the output stream: %d[%s]",
-                 TAG, __func__, result, strerror(result));
-      error_handler_(audio_handle_, result);
-    }
-
-    if (using_offload_) {
-      unique_lock<mutex> lk(drain_lock_);
-      while (drain_signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
-        QMMF_WARN("%s: %s() timed out on wait for drain", TAG, __func__);
+    if (flushing && !pending_flush) {
+      if (using_offload_) {
+        result = qahw_out_drain(qahw_stream_, QAHW_DRAIN_ALL);
+        if (result != 0) {
+          QMMF_ERROR("%s: %s() failed to drain the output stream: %d[%s]",
+                     TAG, __func__, result, strerror(result));
+          error_handler_(audio_handle_, result);
+        }
+        pending_flush = true;
+      } else {
+        keep_running = false;
+      }
     }
   }
 
@@ -853,6 +879,18 @@ void AudioBackendSink::Thread() {
     QMMF_ERROR("%s: %s() failed to put output stream in standby: %d[%s]",
                TAG, __func__, result, strerror(result));
     error_handler_(audio_handle_, result);
+  }
+
+  if (eof_received) {
+    while (!messages_.empty())
+      messages_.pop();
+
+    state_ = AudioState::kIdle;
+    QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+               static_cast<int>(state_));
+
+    // notify client that endpoint has stopped
+    stopped_handler_(audio_handle_);
   }
 }
 

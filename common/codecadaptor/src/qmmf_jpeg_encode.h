@@ -66,7 +66,7 @@ class JPEGEncoder : public IAVCodec {
 
   status_t StartCodec() override;
 
-  status_t StopCodec() override;
+  status_t StopCodec(bool do_flush) override;
 
   status_t PauseCodec() override;
 

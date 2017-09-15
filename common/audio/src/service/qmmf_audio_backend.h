@@ -50,7 +50,7 @@ class IAudioBackend {
   virtual int32_t Close() = 0;
 
   virtual int32_t Start() = 0;
-  virtual int32_t Stop(const bool flush) = 0;
+  virtual int32_t Stop() = 0;
   virtual int32_t Pause() = 0;
   virtual int32_t Resume() = 0;
 
@@ -60,8 +60,7 @@ class IAudioBackend {
   virtual int32_t GetBufferSize(int32_t* buffer_size) = 0;
   virtual int32_t SetParam(const AudioParamType type,
                            const AudioParamData& data) = 0;
-  virtual int32_t GetRenderedPosition(uint32_t* frames,
-                                      uint64_t* time) = 0;
+  virtual int32_t GetRenderedPosition(uint32_t* frames, uint64_t* time) = 0;
 };
 
 }; // namespace audio
