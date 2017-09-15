@@ -388,6 +388,8 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
     metadata.format = AudioFormat::kPCM;
   } else if (track_params_.params.codec == AudioFormat::kMP3) {
     metadata.format = AudioFormat::kMP3;
+  } else if (track_params_.params.codec == AudioFormat::kAAC) {
+    metadata.format = AudioFormat::kAAC;
   } else {
     QMMF_ERROR("%s: %s() invalid codec given %d", TAG, __func__,
                static_cast<int32_t>(track_params_.params.codec));
