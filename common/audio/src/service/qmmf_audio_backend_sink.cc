@@ -161,6 +161,63 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
       config.format = AUDIO_FORMAT_MP3;
       break;
 
+    case AudioFormat::kAAC:
+      switch (metadata.codec_params.aac.format) {
+        case AACFormat::kADTS:
+          switch (metadata.codec_params.aac.mode) {
+            case AACMode::kAALC:
+              config.format = AUDIO_FORMAT_AAC_ADTS_LC;
+              break;
+            case AACMode::kHEVC_v1:
+              config.format = AUDIO_FORMAT_AAC_ADTS_HE_V1;
+              break;
+            case AACMode::kHEVC_v2:
+              config.format = AUDIO_FORMAT_AAC_ADTS_HE_V2;
+              break;
+            default:
+              break;
+          }
+          break;
+
+        case AACFormat::kRaw:
+          switch (metadata.codec_params.aac.mode) {
+            case AACMode::kAALC:
+              config.format = AUDIO_FORMAT_AAC_LC;
+              break;
+            case AACMode::kHEVC_v1:
+              config.format = AUDIO_FORMAT_AAC_HE_V1;
+              break;
+            case AACMode::kHEVC_v2:
+              config.format = AUDIO_FORMAT_AAC_HE_V2;
+              break;
+            default:
+              break;
+          }
+          break;
+
+        case AACFormat::kMP4FF:
+          switch (metadata.codec_params.aac.mode) {
+            case AACMode::kAALC:
+              config.format = AUDIO_FORMAT_AAC_LATM_LC;
+              break;
+            case AACMode::kHEVC_v1:
+              config.format = AUDIO_FORMAT_AAC_LATM_HE_V1;
+              break;
+            case AACMode::kHEVC_v2:
+              config.format = AUDIO_FORMAT_AAC_LATM_HE_V2;
+              break;
+            default:
+              break;
+          }
+          break;
+
+        default:
+          QMMF_ERROR("%s: %s() invalid format: %d", TAG, __func__,
+                     static_cast<int32_t>(metadata.format));
+          return -EINVAL;
+      }
+      break;
+
     default:
       QMMF_ERROR("%s: %s() invalid format: %d", TAG, __func__,
                  static_cast<int32_t>(metadata.format));
