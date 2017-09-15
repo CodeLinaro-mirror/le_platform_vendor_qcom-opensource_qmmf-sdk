@@ -401,6 +401,7 @@ typedef std::function<void(uint32_t camera_id,
 /// parameter to camera
 struct CameraStartParam {
   bool     zsl_mode;
+  bool     enable_partial_metadata;
   uint32_t zsl_queue_depth;
   uint32_t zsl_width;
   uint32_t zsl_height;
@@ -409,15 +410,18 @@ struct CameraStartParam {
 
   CameraStartParam()
       : zsl_mode(false),
+        enable_partial_metadata(false),
         zsl_queue_depth(10),
         zsl_width(3840),
         zsl_height(2160),
         frame_rate(30),
         flags(0) {}
 
-  CameraStartParam(bool zsl_mode, uint32_t zsl_queue_depth, uint32_t zsl_width,
+  CameraStartParam(bool zsl_mode, bool enable_partial_metadata,
+                   uint32_t zsl_queue_depth, uint32_t zsl_width,
                    uint32_t zsl_height, uint32_t frame_rate, uint32_t flags)
       : zsl_mode(zsl_mode),
+        enable_partial_metadata(enable_partial_metadata),
         zsl_queue_depth(zsl_queue_depth),
         zsl_width(zsl_width),
         zsl_height(zsl_height),
@@ -428,6 +432,8 @@ struct CameraStartParam {
     ::std::stringstream stream;
     stream << "zsl_mode[" << ::std::boolalpha << zsl_mode << ::std::noboolalpha
            << "]";
+    stream << "enable_partial_metadata[" << ::std::boolalpha
+        << enable_partial_metadata << ::std::noboolalpha << "]";
     stream << "zsl_queue_depth[" << zsl_queue_depth << "] ";
     stream << "zsl_width[" << zsl_width << "] ";
     stream << "zsl_height[" << zsl_height << "] ";
