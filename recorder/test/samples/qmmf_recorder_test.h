@@ -620,7 +620,7 @@ class RecorderTest {
   uint32_t camera_id_;
   bool session_enabled_;
   CameraMetadata static_info_;
-  uint32_t preview_session_id_;
+  int32_t preview_session_id_;
   SnapshotType snapshot_choice_;
 
   uint32_t current_session_id_;
