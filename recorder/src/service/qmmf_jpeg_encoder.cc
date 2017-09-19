@@ -181,6 +181,10 @@ JpegEncoder::~JpegEncoder() {
   if (nullptr != libjpeg_interface_) {
     dlclose(libjpeg_interface_);
   }
+  if (cfg) {
+    delete cfg;
+    cfg = nullptr;
+  }
 }
 
 void JpegEncoder::FillImgData(const CameraBufferMetaData& source_info) {
