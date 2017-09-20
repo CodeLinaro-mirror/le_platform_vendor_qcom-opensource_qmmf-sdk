@@ -1970,7 +1970,8 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.frame_rate = frame_rate;
   out_param.image_quality = image_quality;
   out_param.gralloc_flags = stream_param.grallocFlags;
-  out_param.buffer_count = stream_param.bufferCount;
+  out_param.buffer_count = 2;
+  out_param.max_internal_buffers = 0; // unlimited
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);

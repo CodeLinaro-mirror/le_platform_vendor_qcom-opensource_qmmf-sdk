@@ -68,6 +68,13 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
 PostProcIOParam PostProcJpeg::GetInput(const PostProcIOParam &out) {
   PostProcIOParam input_param = out;
   input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
+
+  // set number of needed buffers for rotation if client does not limit it
+  if (out.buffer_max > 0 && out.buffer_max < kBufCount) {
+    input_param.buffer_count = out.buffer_max;
+  } else {
+    input_param.buffer_count = kBufCount;
+  }
   return input_param;
 }
 

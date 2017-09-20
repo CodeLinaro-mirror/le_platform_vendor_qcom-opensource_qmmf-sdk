@@ -41,6 +41,7 @@ namespace recorder {
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
       ready_to_start_(false),
+      batch_count_(1),
       frame_processing_(false),
       batch_processing_(false) {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
@@ -168,6 +169,13 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
           input_param.height);
       assert(0);
     }
+  }
+
+  // set number of needed buffers for rotation if client does not limit it
+  if (out.buffer_max > 0 && out.buffer_max < kBufCount) {
+    input_param.buffer_count = out.buffer_max;
+  } else {
+    input_param.buffer_count = kBufCount;
   }
 
   QMMF_VERBOSE("%s:%s: input dim %dx%d format %x", TAG, __func__,
@@ -563,9 +571,9 @@ status_t CameraHalReproc::StartProcessing() {
       return NO_ERROR;
     }
 
-    if (reproc_ready_list_.size() < output_param_.buffer_count) {
+    if (reproc_ready_list_.size() < batch_count_) {
       QMMF_DEBUG("%s:%s: Hold until entire batch is ready. Curr %d Batch %d",
-          TAG, __func__, reproc_ready_list_.size(), output_param_.buffer_count);
+          TAG, __func__, reproc_ready_list_.size(), batch_count_);
       return NO_ERROR;
     }
 
@@ -575,7 +583,7 @@ status_t CameraHalReproc::StartProcessing() {
     }
 
     // move one batch to temp list
-    for (uint32_t i = 0; i < output_param_.buffer_count; i++) {
+    for (uint32_t i = 0; i < batch_count_; i++) {
       reproc_batch_list_.push_back(reproc_ready_list_.front());
       reproc_ready_list_.pop_front();
     }

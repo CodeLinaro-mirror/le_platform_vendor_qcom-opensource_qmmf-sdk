@@ -55,7 +55,14 @@ status_t PostProcTest::Initialize(const PostProcIOParam &in_param,
 
 PostProcIOParam PostProcTest::GetInput(const PostProcIOParam &out) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  return out;
+  PostProcIOParam input_param = out;
+
+  input_param.buffer_count++;
+  if (out.buffer_max > 0 && out.buffer_max < input_param.buffer_count) {
+    input_param.buffer_count = out.buffer_max;
+  }
+
+  return input_param;
 }
 
 status_t PostProcTest::ValidateOutput(const PostProcIOParam &output) {

@@ -86,6 +86,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   node_out_param.frame_rate    = pipe_out_param.frame_rate;
   node_out_param.gralloc_flags = pipe_out_param.gralloc_flags;
   node_out_param.buffer_count  = pipe_out_param.buffer_count;
+  node_out_param.buffer_max    = pipe_out_param.max_internal_buffers;
   node_out_param.format = Common::FromHalToQmmfFormat(pipe_out_param.format);
 
   // Add format conversion node if pipe is empty

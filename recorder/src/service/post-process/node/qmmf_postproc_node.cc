@@ -440,8 +440,11 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
   }
 
   for (auto buff : in_buffs) {
+    status_t ret = NO_ERROR;
     StreamBuffer out_buff{};
-    auto ret = node_->mem_pool_->GetBuffer(&out_buff);
+    do {
+      ret = node_->mem_pool_->GetBuffer(&out_buff);
+    } while (ret == TIMED_OUT && node_->state_ == PostProcNodeState::ACTIVE);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s:%s: fail to get buffer", TAG, __func__,
           node_->name_.c_str());

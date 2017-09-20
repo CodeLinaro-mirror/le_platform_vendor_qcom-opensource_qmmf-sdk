@@ -73,6 +73,8 @@ class PostProcJpeg : public IPostProcModule {
 
  private:
 
+  static const int32_t kBufCount = 3; // count for buffer rotation
+
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 

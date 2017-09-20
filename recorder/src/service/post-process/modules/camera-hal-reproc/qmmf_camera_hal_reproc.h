@@ -89,6 +89,8 @@ class CameraHalReproc : public IPostProcModule {
 
    static const int64_t kMetaTimeout = 1000000000; // 1 second
 
+   static const int32_t kBufCount = 3; // count for buffer rotation
+
    struct ReprocessBundle {
      StreamBuffer   buffer;
      CameraMetadata metadata;
@@ -125,6 +127,7 @@ class CameraHalReproc : public IPostProcModule {
 
    std::mutex                   module_lock_;
    bool                         ready_to_start_;
+   uint32_t                     batch_count_;
 
    Camera3Request               reprocess_request_;
 
