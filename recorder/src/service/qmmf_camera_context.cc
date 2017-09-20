@@ -595,6 +595,8 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   capture_plugins_.clear();
+  pipe_config_json_data_.clear();
+
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
@@ -1834,6 +1836,11 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     return ret;
   }
 
+  ret = postproc_pipe_->Configure(pipe_config_json_data_);
+  if (ret != NO_ERROR) {
+    return ret;
+  }
+
   stream_param.format = in_param.format;
   stream_param.width  = in_param.width;
   stream_param.height = in_param.height;
@@ -1934,6 +1941,8 @@ status_t CameraPort::Init() {
     postproc_pipe_ = new PostProcPipe(context_);
     assert(postproc_pipe_.get() != nullptr);
 
+    pipe_config_json_data_.clear();
+
     PipeIOParam out_param;
     out_param.width = cam_stream_params_.width;
     out_param.height = cam_stream_params_.height;
@@ -1949,6 +1958,10 @@ status_t CameraPort::Init() {
       return ret;
     }
 
+    ret = postproc_pipe_->Configure(pipe_config_json_data_);
+    if (ret != NO_ERROR) {
+      return ret;
+    }
     // Update stream parameters
     cam_stream_params_.format = in_param.format;
     cam_stream_params_.width  = in_param.width;

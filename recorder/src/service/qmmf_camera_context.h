@@ -302,6 +302,8 @@ class CameraContext : public CameraInterface,
 
   static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
 
+  std::string              pipe_config_json_data_;
+
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
@@ -393,6 +395,8 @@ class CameraPort : public RefBase {
   std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
   Mutex                  stop_lock_;
+
+  std::string            pipe_config_json_data_;
 };
 
 class ZslPort : public CameraPort {
