@@ -379,6 +379,23 @@ void PostProcPipe::AddResult(const void* result) {
   }
 }
 
+status_t PostProcPipe::Configure(const std::string &config_json_data) {
+  status_t ret = NO_ERROR;
+  if (state_ != PostProcPipeState::INITIALIZED) {
+    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    return INVALID_OPERATION;
+  }
+
+  for (auto const& node : pipe_) {
+    ret = node->Configure(config_json_data);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Configuration failed for (%s) ret: %d", TAG, __func__,
+          node->GetName().c_str(), ret);
+    }
+  }
+  return ret;
+}
+
 }; //namespace recorder.
 
 }; //namespace qmmf.
