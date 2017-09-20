@@ -95,11 +95,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
         DisplayHandle display_handle = static_cast<DisplayHandle>
             (data.readInt32());
         ret = DestroyDisplay(display_handle);
-        ion_fd_map::iterator it_fd;
-        for (it_fd=ion_fd_mapping.begin();
-            it_fd!=ion_fd_mapping.end(); ++it_fd) {
-          ion_fd_mapping.erase(it_fd);
-        }
+        ion_fd_mapping.clear();
         reply->writeInt32(ret);
         return NO_ERROR;
     }
