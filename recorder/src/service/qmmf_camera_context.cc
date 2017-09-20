@@ -1724,6 +1724,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   stream_param.format = in_param.format;
   stream_param.width  = in_param.width;
   stream_param.height = in_param.height;
+  stream_param.grallocFlags |= in_param.gralloc_flags;
 
   QMMF_INFO("%s:%s: input dim %dx%d format %x ", TAG, __func__,
       stream_param.width, stream_param.height, stream_param.format);
