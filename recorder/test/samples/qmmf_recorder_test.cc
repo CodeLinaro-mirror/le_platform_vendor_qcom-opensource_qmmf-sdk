@@ -1803,7 +1803,7 @@ status_t RecorderTest::TakeSnapshot() {
           BufferDescriptor buffer, MetaData meta_data)
       { SnapshotCb(camera_id_, image_count, buffer, meta_data);};
       assert(ret == NO_ERROR);
-      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       assert(ret == NO_ERROR);
       if (!sessions_.size()) {
