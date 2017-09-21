@@ -87,7 +87,7 @@ static const int32_t kMaxLTRCount = 4;
 RecorderTest::RecorderTest() :
             camera_id_(0),
             session_enabled_(false),
-            preview_session_id_(0),
+            preview_session_id_(-1),
             snapshot_choice_(SnapshotType::kNone),
             dump_aec_awb_stats_(false),
             dump_histogram_stats_(false),
@@ -168,6 +168,12 @@ status_t RecorderTest::AddPreviewTrack() {
   SessionCb session_status_cb;
   uint32_t session_id;
   uint32_t track_id = 1;
+
+  if (preview_session_id_ > -1) {
+    TEST_INFO("%s:%s: Preview track is already added.", TAG, __func__);
+    return NO_ERROR;
+  }
+
   session_status_cb.event_cb = [] (EventType event_type, void *event_data,
     size_t event_data_size) {};
   status_t ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -208,6 +214,12 @@ status_t RecorderTest::AddPreviewTrack() {
 
 status_t RecorderTest::RemovePreviewTrack() {
   TEST_DBG("%s:%s: %d :Enter", TAG, __func__, preview_session_id_);
+
+  if (preview_session_id_ == -1) {
+    TEST_INFO("%s:%s: Preview Track is already removed!", TAG, __func__);
+    return NO_ERROR;
+  }
+
   status_t ret = recorder_.StopSession(preview_session_id_, true);
   if (ret != 0) {
     TEST_ERROR("%s:%s: Failed in stopping the session : ", TAG, __func__);
@@ -223,6 +235,7 @@ status_t RecorderTest::RemovePreviewTrack() {
     TEST_ERROR("%s:%s: Failed in deleting the session : ", TAG, __func__);
     return ret;
   }
+  preview_session_id_ = -1;
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1835,6 +1848,7 @@ status_t RecorderTest::TakeSnapshot() {
     }
   } while ((input != '0'));
 
+  RemovePreviewTrack();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -3826,12 +3840,6 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-  if (image_sequence_count == num_images_ - 1) {
-    if (snapshot_choice_ != SnapshotType::kRawRdi
-        && (session_enabled_ == false)) {
-      RemovePreviewTrack();
-    }
-  }
   std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
   if (image_sequence_count == burst_snapshot_count_ - 1) {
     snapshot_wait_signal_.notify_one();
