@@ -1925,26 +1925,28 @@ TEST_F(RecorderGtest, BurstSnapshot) {
     meta_array.push_back(meta);
   }
 
-  int32_t repeat = num_images;
-  do {
-    {
-      std::lock_guard<std::mutex> lock(error_lock_);
-      camera_error_ = false;
-    }
-    ret = recorder_.CaptureImage(camera_id_, image_param, num_images, meta_array,
-                                 cb);
-    assert(ret == NO_ERROR);
-
-    sleep(5);
-    {
-      std::lock_guard<std::mutex> lock(error_lock_);
-      if (!camera_error_) {
-        TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
-        break;
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    int32_t repeat = num_images;
+    do {
+      {
+        std::lock_guard<std::mutex> lock(error_lock_);
+        camera_error_ = false;
       }
-    }
+      ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                   meta_array, cb);
+      assert(ret == NO_ERROR);
 
-  } while(repeat-- > 0);
+      sleep(5);
+      {
+        std::lock_guard<std::mutex> lock(error_lock_);
+        if (!camera_error_) {
+          TEST_ERROR("%s:%s Capture Image Done", TAG, __func__);
+          break;
+        }
+      }
+    }while (repeat-- > 0);
+  }
 
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
