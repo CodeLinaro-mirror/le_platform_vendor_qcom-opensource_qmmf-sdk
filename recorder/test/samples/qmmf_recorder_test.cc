@@ -92,7 +92,6 @@ RecorderTest::RecorderTest() :
             dump_aec_awb_stats_(false),
             dump_histogram_stats_(false),
             num_images_(0),
-            aec_converged_(false),
             in_suspend_(true),
             ltr_count_(0),
             camera_error_(false) {
@@ -1786,13 +1785,6 @@ status_t RecorderTest::TakeSnapshot() {
         printf("Wrong value entered(%c)\n", input);
         flag_exit = true;
     }
-    if (snapshot_choice_ != SnapshotType::kRawRdi && (flag_exit != true)
-        && (session_enabled_ == false)) {
-      TEST_INFO("%s:%s: Checking For AEC Convergence ", TAG, __func__);
-      unique_lock < mutex > lk(message_lock_);
-      signal_.wait(lk);
-      TEST_INFO("%s:%s: AEC Convergence Done ", TAG, __func__);
-    }
     if (flag_exit != true) {
       ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
           BufferDescriptor buffer, MetaData meta_data)
@@ -1824,10 +1816,14 @@ status_t RecorderTest::TakeSnapshot() {
         if (ret != 0) {
           ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
         }
-        TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
-        unique_lock < mutex > lock(callback_lock_);
-        signal_cb_.wait(lock);
-        TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+        std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
+        uint32_t wait_time_secs = get_snapshot_cb_wait_time();
+        burst_snapshot_count_ = num_images_;
+        if (snapshot_wait_signal_.wait_for(lock,
+           std::chrono::milliseconds(wait_time_secs * 1000)) ==
+             std::cv_status::timeout) {
+             TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
+        }
         {
           std::lock_guard<std::mutex> lock(error_lock_);
           if (!camera_error_) {
@@ -3834,9 +3830,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
     if (snapshot_choice_ != SnapshotType::kRawRdi
         && (session_enabled_ == false)) {
       RemovePreviewTrack();
-      aec_converged_ = false;
     }
-    signal_cb_.notify_one();
   }
   std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
   if (image_sequence_count == burst_snapshot_count_ - 1) {
@@ -3877,21 +3871,6 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
 
   if(kpi_debug_mask) {
      kpi_marker_.CheckSwicthTime(result);
-  }
-  if (snapshot_choice_ != SnapshotType::kRawRdi) {
-    if (aec_converged_ == false) {
-      camera_metadata_ro_entry aec_stat;
-      aec_stat = result.find(ANDROID_CONTROL_AE_STATE);
-      if ((aec_stat.count > 0) && ((aec_stat.data.u8[0]
-          == ANDROID_CONTROL_AE_STATE_CONVERGED) || (aec_stat.data.u8[0]
-          == ANDROID_CONTROL_AE_STATE_LOCKED))) {
-        TEST_DBG("%s:%s: AEC Value Converged", TAG, __func__);
-        aec_converged_ = true;
-        signal_.notify_one();
-      } else {
-        TEST_DBG("%s:%s: AEC Value Still Not Converged", TAG, __func__);
-      }
-    }
   }
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);

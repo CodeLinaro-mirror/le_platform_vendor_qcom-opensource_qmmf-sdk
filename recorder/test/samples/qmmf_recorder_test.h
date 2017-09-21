@@ -634,7 +634,6 @@ class RecorderTest {
   ::std::condition_variable signal_cb_;
   ::std::mutex callback_lock_;
   uint32_t num_images_;
-  bool aec_converged_;
   bool in_suspend_;
 
   int32_t ltr_count_;
