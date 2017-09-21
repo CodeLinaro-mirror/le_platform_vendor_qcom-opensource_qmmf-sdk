@@ -979,7 +979,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       enable_frame_repeat_(0),
       rescaler_(nullptr),
       connected_tocamera_port_(true),
-      slave_track_source_(false) {
+      slave_track_source_(false),
+      time_lapse_mode_(false),
+      time_stamp_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -1010,6 +1012,14 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   property_get(PROP_DEBUG_FPS, prop_val, "1");
   debug_fps_ = atoi(prop_val);
 
+  if (track_params_.extra_param.Exists(QMMF_VIDEO_TIMELAPSE_INTERVAL) ) {
+     VideoTimeLapse timestamp;
+     track_params_.extra_param.Fetch(QMMF_SOURCE_VIDEO_TRACK_ID, timestamp);
+     time_lapse_interval_ = timestamp.time_interval;
+     time_lapse_mode_ = true;
+     QMMF_INFO("%s:%s: track_id(%x) TimeLapseMode enabled! interval(%u)", TAG,
+        __func__, TrackId(), time_lapse_interval_);
+  }
   QMMF_INFO("%s:%s: TrackSource (0x%p)", TAG, __func__, this);
 }
 
@@ -1392,23 +1402,32 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
     buffer.timestamp = stream_buffer->timestamp;
     buffer.flag = stream_buffer->flags;
 
-    uint64_t ts_factor = (stream_buffer->timestamp - frame_repeat_ts_prev_) /
-        stream_buffer->encodes_per_frame_count - kTsFactor;
-    if (stream_buffer->encodes_per_frame_count !=
-        stream_buffer->pending_encodes_per_frame) {
-      buffer.timestamp = frame_repeat_ts_curr_ + ts_factor;
-    }
-    frame_repeat_ts_curr_ = buffer.timestamp;
-
-    stream_buffer->pending_encodes_per_frame--;
-    if (!stream_buffer->pending_encodes_per_frame) {
+    if (time_lapse_mode_) {
       stream_buffer->needs_return = true;
-      frame_repeat_ts_prev_ = stream_buffer->timestamp;
-    }
-    frames_being_encoded_.PushBack((*stream_buffer));
-
-    if (!stream_buffer->pending_encodes_per_frame) {
+      frames_being_encoded_.PushBack((*stream_buffer));
       frames_received_.Erase(frames_received_.Begin());
+      time_stamp_ += time_lapse_interval_ * 1000000;
+      buffer.timestamp = time_stamp_;
+    } else {
+      buffer.timestamp = stream_buffer->timestamp;
+      uint64_t ts_factor = (stream_buffer->timestamp - frame_repeat_ts_prev_) /
+          stream_buffer->encodes_per_frame_count - kTsFactor;
+      if (stream_buffer->encodes_per_frame_count !=
+          stream_buffer->pending_encodes_per_frame) {
+        buffer.timestamp = frame_repeat_ts_curr_ + ts_factor;
+      }
+      frame_repeat_ts_curr_ = buffer.timestamp;
+
+      stream_buffer->pending_encodes_per_frame--;
+      if (!stream_buffer->pending_encodes_per_frame) {
+        stream_buffer->needs_return = true;
+        frame_repeat_ts_prev_ = stream_buffer->timestamp;
+      }
+      frames_being_encoded_.PushBack((*stream_buffer));
+
+      if (!stream_buffer->pending_encodes_per_frame) {
+        frames_received_.Erase(frames_received_.Begin());
+      }
     }
   }
 
@@ -1541,9 +1560,11 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     return;
   }
 
-  buffer.needs_return = false;
-  buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
-  buffer.encodes_per_frame_count = buffer.pending_encodes_per_frame;
+  if (!time_lapse_mode_) {
+    buffer.needs_return = false;
+    buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
+    buffer.encodes_per_frame_count = buffer.pending_encodes_per_frame;
+  }
 
   QMMF_VERBOSE("%s:%s: track_id(%d) numInts = %d", TAG, __func__, TrackId(),
       buffer.handle->numInts);
