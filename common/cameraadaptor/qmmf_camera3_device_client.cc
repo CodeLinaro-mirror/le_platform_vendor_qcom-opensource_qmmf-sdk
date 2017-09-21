@@ -862,29 +862,10 @@ bool Camera3DeviceClient::HandlePartialResult(
     uint32_t frameNumber, const CameraMetadata &partial,
     const CaptureResultExtras &resultExtras) {
 
-  bool completeResult = true;
-
-  uint8_t afMode, afState, aeState, awbState, awbMode;
-
-  completeResult &=
-      QueryPartialTag(partial, ANDROID_CONTROL_AWB_MODE, &awbMode, frameNumber);
-  completeResult &=
-      QueryPartialTag(partial, ANDROID_CONTROL_AF_MODE, &afMode, frameNumber);
-  completeResult &=
-      QueryPartialTag(partial, ANDROID_CONTROL_AE_STATE, &aeState, frameNumber);
-  completeResult &= QueryPartialTag(partial, ANDROID_CONTROL_AWB_STATE,
-                                    &awbState, frameNumber);
-  completeResult &=
-      QueryPartialTag(partial, ANDROID_CONTROL_AF_STATE, &afState, frameNumber);
-
-  if (!completeResult) {
-    return false;
-  }
-
   if (nullptr != client_cb_.resultCb) {
     CaptureResult captureResult;
     captureResult.resultExtras = resultExtras;
-    captureResult.metadata = CameraMetadata(10, 0);
+    captureResult.metadata = partial;
 
     if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
                           reinterpret_cast<int32_t *>(&frameNumber),
@@ -906,27 +887,6 @@ bool Camera3DeviceClient::HandlePartialResult(
                             frameNumber)) {
         return false;
       }
-    }
-
-    if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AWB_STATE,
-                          &awbState, frameNumber)) {
-      return false;
-    }
-    if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AF_MODE,
-                          &afMode, frameNumber)) {
-      return false;
-    }
-    if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AWB_MODE,
-                          &awbMode, frameNumber)) {
-      return false;
-    }
-    if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AF_STATE,
-                          &afState, frameNumber)) {
-      return false;
-    }
-    if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AE_STATE,
-                          &aeState, frameNumber)) {
-      return false;
     }
 
     client_cb_.resultCb(captureResult);
@@ -1082,11 +1042,9 @@ void Camera3DeviceClient::HandleCaptureResult(
     }
 
     if (isPartialResult) {
-      if (!request.partialResult.partial3AReceived) {
-        request.partialResult.partial3AReceived = HandlePartialResult(
-            frameNumber, request.partialResult.composedResult,
-            request.resultExtras);
-      }
+      request.partialResult.partial3AReceived = HandlePartialResult(
+          frameNumber, request.partialResult.composedResult,
+          request.resultExtras);
     }
   }
 

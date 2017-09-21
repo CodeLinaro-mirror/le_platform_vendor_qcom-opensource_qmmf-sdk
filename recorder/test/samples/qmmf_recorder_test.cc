@@ -1328,6 +1328,7 @@ status_t RecorderTest::StartCamera() {
   camera_params.zsl_height          = 2160;
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
+  camera_params.enable_partial_metadata  = false;
   CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
             CameraResultCallbackHandler(camera_id, result); };
