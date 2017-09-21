@@ -1889,10 +1889,17 @@ status_t CameraPort::Init() {
       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
 
   bool is_pp_enabled = true;
+  bool is_lpm_use_preview = false;
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.camera.lpm.preview", prop, "0");
+  is_lpm_use_preview = atoi(prop);
   if (params_.low_power_mode) {
-      cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-      cam_stream_params_.bufferCount  = PREVIEW_STREAM_BUFFER_COUNT;
-      is_pp_enabled  = false;
+      cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
+      if (!is_lpm_use_preview) {
+        cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+        is_pp_enabled = false;
+      }
   } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
