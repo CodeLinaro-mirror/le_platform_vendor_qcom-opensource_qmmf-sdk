@@ -63,13 +63,15 @@ enum class CodecMimeType {
   kMimeTypeAudioEncG711,
   kMimeTypeAudioDecAAC,
   kMimeTypeAudioDecAMR,
-  kMimeTypeAudioDecG711
+  kMimeTypeAudioDecG711,
+  kMimeTypeJPEG
 };
 
 enum class VideoFormat {
   kHEVC,
   kAVC,
   kYUV,
+  kJPEG,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
   kBayerIdeal,
@@ -298,8 +300,11 @@ struct HEVCParams {
 };
 
 struct JPEGParams {
-  int32_t quality;
-
+  uint32_t quality;
+  bool enable_thumbnail;
+  uint32_t thumbnail_width;
+  uint32_t thumbnail_height;
+  uint32_t thumbnail_quality;
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "quality[" << quality << "]";

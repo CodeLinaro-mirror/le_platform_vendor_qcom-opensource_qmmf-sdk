@@ -31,7 +31,6 @@
 
 #include <dirent.h>
 
-#include "../modules/camera-hal-jpeg/qmmf_camera_hal_jpeg.h"
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
 #include "../modules/test/qmmf_postproc_test.h"
@@ -203,8 +202,6 @@ PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
 
   if (name == "JpegEncode") {
     module = new PostProcJpeg();
-  } else if (name == "HALJpegEncode") {
-    module = new PostProcHalJpeg(context);
   } else if (name == "HALReprocess") {
     module = new CameraHalReproc(context);
   } else if (name == "Test") {

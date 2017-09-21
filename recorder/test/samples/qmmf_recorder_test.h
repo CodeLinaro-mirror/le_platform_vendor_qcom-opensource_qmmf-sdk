@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -315,6 +314,7 @@ class CmdMenu;
    bool                              tnr;
    bool                              vhdr;
    bool                              binning_correct;
+   bool                              video_stabilize;
    CameraInitInfo():
         camera_id(-1),
         camera_fps(0),
@@ -322,7 +322,8 @@ class CmdMenu;
         af_mode(AfMode::kOff),
         tnr(false),
         vhdr(false),
-        binning_correct(false) {};
+        binning_correct(false),
+        video_stabilize(false){};
  };
 
 class TestInitParams {
@@ -331,7 +332,6 @@ public:
     uint32_t                          recordTime;
     SnapshotInfo                      snapshot_info;
     std::vector<CameraInitInfo*>      cam_init_infos;
-
     TestInitParams() :
             num_cameras(1),
             recordTime(0),
@@ -385,8 +385,6 @@ typedef struct ROIRegion {
   }
 } ROIRegion;
 
-typedef std::chrono::high_resolution_clock clk;
-typedef std::chrono::milliseconds milliseconds;
 
 class RecorderTest {
  public:
@@ -507,12 +505,14 @@ class RecorderTest {
   int32_t ToggleIR();
   status_t ToggleAFMode(int32_t camera_id, const AfMode& af_mode);
   int32_t ToggleBinningCorrectionMode();
+  int32_t ToggleVideoStabilizationMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
   std::string GetCurrentBinningCorrectionMode(int32_t camera_id);
+  std::string GetCurrentVideoStabilizationMode(const int32_t& camera_id);
   status_t GetCurrentAFMode(int32_t& mode);
   status_t GetSharpnessStrength(int32_t &strength);
   status_t SetSharpnessStrength(const int32_t& val);
@@ -530,7 +530,7 @@ class RecorderTest {
   status_t GetRawHistogramStatistic(const CameraMetadata& meta);
   status_t GetRawAECAWBStatistic(const CameraMetadata& meta);
   status_t GetCurrentAFMode(int32_t camera_id, int32_t& mode);
-
+  status_t SetVideoStabilization(const int32_t& camera_id, const bool& mode);
   uint32_t get_snapshot_cb_wait_time() {
     char prop[PROPERTY_VALUE_MAX];
     property_get("persist.qmmf.rec.test.snaptime",prop,"10");
@@ -591,15 +591,17 @@ class RecorderTest {
   typedef std::map<int32_t, std::string>::iterator ir_modes_iter;
   typedef std::map<int32_t, std::string> bc_modes_map;
   typedef std::map<int32_t, std::string>::iterator bc_modes_iter;
+  typedef std::map<uint8_t, std::string> vs_modes_map;
+  typedef std::map<uint8_t, std::string>::iterator vs_modes_iter;
   void InitSupportedNRModes();
   void InitSupportedVHDRModes();
   void InitSupportedIRModes();
   void InitSupportedBinningCorrectionModes();
   int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
+  void InitSupportedVideoStabilizationModes();
 
   int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
                                   TrackInfo* track_info);
-  bool IsKeyEventShort(const milliseconds keypress_duration);
   int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
   int32_t StopRecording();
 
@@ -607,13 +609,14 @@ class RecorderTest {
   vhdr_modes_map supported_hdr_modes_;
   ir_modes_map supported_ir_modes_;
   bc_modes_map supported_bc_modes_;
+  vs_modes_map supported_vs_modes_;
 
   std::map<uint32_t, std::vector<TestTrack*> > sessions_;
   typedef std::map<uint32_t, std::vector<TestTrack*> >::iterator session_iter_;
   uint32_t camera_id_;
   bool session_enabled_;
   CameraMetadata static_info_;
-  uint32_t preview_session_id_;
+  int32_t preview_session_id_;
   SnapshotType snapshot_choice_;
 
   uint32_t current_session_id_;
@@ -627,7 +630,6 @@ class RecorderTest {
   ::std::condition_variable signal_cb_;
   ::std::mutex callback_lock_;
   uint32_t num_images_;
-  bool aec_converged_;
   bool in_suspend_;
 
   int32_t ltr_count_;
@@ -778,6 +780,7 @@ public:
         SET_ANTIBANDING_MODE_CMD                = 'W',
         BINNING_CORRECTION_CMD                  = '#',
         AWB_ROI_CMD                             = '$',
+        VIDEO_STABILZATION_CMD                  = '%',
         NEXT_CMD                                = '\n',
         INVALID_CMD                             = '0'
     };

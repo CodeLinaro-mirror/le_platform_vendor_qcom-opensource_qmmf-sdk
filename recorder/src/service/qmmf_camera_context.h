@@ -122,29 +122,29 @@ class CameraContext : public CameraInterface,
 
   Vector<int32_t>& GetSupportedFps() override;
 
-  status_t ReturnStreamBuffer(StreamBuffer buffer);
+  status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                   int32_t* stream_id);
+                                   int32_t* stream_id) override;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
                               uint32_t frame_rate, int32_t* stream_id,
-                              bool is_pp_enabled = true);
+                              bool is_pp_enabled = true) override;
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,
-                        int64_t *lastFrameNumber);
+                        int64_t *lastFrameNumber) override;
 
-  status_t DeleteDeviceStream(int32_t stream_id, bool cache);
+  status_t DeleteDeviceStream(int32_t stream_id, bool cache) override;
 
-  void OnFrameAvailable(StreamBuffer& buffer);
+  void OnFrameAvailable(StreamBuffer& buffer) override;
 
-  void NotifyBufferReturned(StreamBuffer& buffer);
+  void NotifyBufferReturned(StreamBuffer& buffer) override;
 
   status_t CreateCaptureRequest(Camera3Request& request,
-                                camera3_request_template_t template_type);
+                        camera3_request_template_t template_type) override;
 
-  CameraMetadata GetCameraStaticMeta();
+  CameraMetadata GetCameraStaticMeta() override;
 
  private:
 
@@ -227,6 +227,16 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcAddResult(const CaptureResult &result);
 
+  template <typename T>
+  bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,
+                       uint32_t frame_number);
+
+  template <typename T>
+  bool UpdatePartialTag(CameraMetadata &result, int32_t tag, const T *value,
+                        uint32_t frame_number);
+
+  void HandleFinalResult(const CaptureResult &capture_result);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
@@ -292,6 +302,9 @@ class CameraContext : public CameraInterface,
 
   static const uint32_t kSyncFrameWaitDuration = 500000000; // 500 ms.
 
+  bool                     partial_metadata_required_;
+  int32_t                  partial_result_count_;
+  std::mutex               partial_result_lock_;
 };
 
 enum class CameraPortType {

@@ -40,11 +40,13 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "common/codecadaptor/src/qmmf_jpeg_encode.h"
 
 namespace qmmf {
 
 namespace recorder {
 
+using  namespace qmmf::avcodec;
 class TrackEncoder;
 
 class EncoderCore {
@@ -140,7 +142,7 @@ class TrackEncoder : public ICodecSource {
   uint32_t TrackId() { return track_params_.track_id; }
 
   VideoTrackParams track_params_;
-  AVCodec*         avcodec_;
+  IAVCodec*        avcodec_;
 
   ::std::vector<BufferDescriptor> output_buffer_list_;
   ::std::vector<struct ion_handle_data> output_ion_list_;

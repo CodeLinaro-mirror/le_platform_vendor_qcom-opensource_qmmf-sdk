@@ -29,18 +29,22 @@
 #define TAG "QMMF_AVCodec"
 
 #include "qmmf-sdk/qmmf_avcodec.h"
-
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "common/codecadaptor/src/qmmf_jpeg_encode.h"
 
 namespace qmmf {
 namespace avcodec {
 
-IAVCodec* IAVCodec::CreateAVCodec() {
-  IAVCodec* instance = new AVCodec;
-  if (instance == nullptr)
-    QMMF_ERROR("%s: %s() can't instantiate AVCodec", TAG, __func__);
+IAVCodec* IAVCodec::CreateAVCodec(CodecMimeType mimetype) {
+  IAVCodec* instance = nullptr;
+  if (mimetype == CodecMimeType::kMimeTypeJPEG)
+    instance = new JPEGEncoder();
   else
-    QMMF_INFO("%s: %s() AVCodec successfully instantiated", TAG, __func__);
+    instance = new AVCodec();
+  if (instance == nullptr)
+    QMMF_ERROR("%s: %s() can't instantiate IAVCodec", TAG, __func__);
+  else
+    QMMF_INFO("%s: %s() IAVCodec successfully instantiated", TAG, __func__);
 
   return instance;
 }
