@@ -156,8 +156,8 @@ class CameraContext : public CameraInterface,
   };
 
   struct SyncFrame {
-    int64_t         last_frame_id;
-    Vector<int32_t> stream_ids;
+    int64_t           last_frame_id;
+    std::set<int32_t> stream_ids;
   };
 
   friend class CameraPort;

@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -386,8 +385,6 @@ typedef struct ROIRegion {
   }
 } ROIRegion;
 
-typedef std::chrono::high_resolution_clock clk;
-typedef std::chrono::milliseconds milliseconds;
 
 class RecorderTest {
  public:
@@ -605,7 +602,6 @@ class RecorderTest {
 
   int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
                                   TrackInfo* track_info);
-  bool IsKeyEventShort(const milliseconds keypress_duration);
   int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
   int32_t StopRecording();
 

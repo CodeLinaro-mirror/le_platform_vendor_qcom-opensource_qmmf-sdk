@@ -1803,7 +1803,7 @@ status_t RecorderTest::TakeSnapshot() {
           BufferDescriptor buffer, MetaData meta_data)
       { SnapshotCb(camera_id_, image_count, buffer, meta_data);};
       assert(ret == NO_ERROR);
-      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       assert(ret == NO_ERROR);
       if (!sessions_.size()) {
@@ -4674,18 +4674,6 @@ int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
   return 0;
 }
 
-bool RecorderTest::IsKeyEventShort(const milliseconds keypress_duration) {
-
-  const uint32_t kLongPressDuration = 300;
-
-  if(keypress_duration < static_cast<milliseconds>(kLongPressDuration)) {
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
 int32_t RecorderTest::StartRecording(
     const VideoTrackCreateParam &video_track_param) {
 
@@ -4794,9 +4782,6 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
   const char *wake_unlock_node = "/sys/power/wake_unlock";
   const char *buf = "qmmf_wakelock";
 
-  clk::time_point keypressed;
-  clk::time_point keyreleased;
-  milliseconds keypress_duration;
 
   in_suspend_ = true;
   int resume_fd = open(wake_lock_node, O_WRONLY);
@@ -4859,15 +4844,9 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
       exit(2);
     }
     if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
-      keypressed = clk::now();
-    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
-        keyreleased = clk::now();
-        keypress_duration =
-          std::chrono::duration_cast<milliseconds>(keyreleased - keypressed);
-        if (IsKeyEventShort(keypress_duration))
-          continue;
+
         if (in_suspend_ == false) {
-          printf("LongKeyPress detected, going to suspend\n");
+          printf("PowerKey Press detected, going to suspend\n");
           ret = StopRecording();
           if (NO_ERROR != ret) {
             TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
@@ -4879,7 +4858,7 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
             exit(2);
           }
         } else {
-            printf("LongKeyPress detected, going to resume\n");
+            printf("PowerKey Press detected, going to resume\n");
             errno = 0;
             if (write(resume_fd, buf, strlen(buf)) == -1) {
               printf("Failed to write resume_fd %d (%s)\n", errno,
