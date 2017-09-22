@@ -120,7 +120,7 @@ typedef struct {
 } CameraInputStreamParameters;
 
 enum {
-  NO_IN_FLIGHT_REPEATING_FRAMES = -1,
+  NO_IN_FLIGHT_REPEATING_FRAMES = 0,
 };
 
 }  // namespace cameraadaptor ends here
