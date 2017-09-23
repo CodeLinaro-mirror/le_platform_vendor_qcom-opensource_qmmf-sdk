@@ -712,7 +712,7 @@ int32_t Camera3DeviceClient::CreateStream(
 
   // Continue captures if active at start
   if (wasActive) {
-    res = ConfigureStreamsLocked();
+    res = ConfigureStreamsLocked(outputConfiguration.is_pp_enabled);
     if (0 != res) {
       QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);

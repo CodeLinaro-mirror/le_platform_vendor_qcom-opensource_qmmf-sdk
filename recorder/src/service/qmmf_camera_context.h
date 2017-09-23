@@ -128,8 +128,8 @@ class CameraContext : public CameraInterface,
                                    int32_t* stream_id) override;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              uint32_t frame_rate, int32_t* stream_id,
-                              bool is_pp_enabled = true) override;
+                              uint32_t frame_rate, int32_t* stream_id)
+                              override;
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,
