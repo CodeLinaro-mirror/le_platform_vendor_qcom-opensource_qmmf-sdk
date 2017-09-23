@@ -59,7 +59,6 @@ CameraContext::CameraContext()
     : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
-      previous_streaming_request_id_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -69,7 +68,9 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1),
-      aec_done_(false) {
+      aec_done_(false),
+      partial_metadata_required_(false),
+      partial_result_count_(0) {
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
 }
 
@@ -226,6 +227,10 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   camera_callbacks_.resultCb = [&] (const CaptureResult &result)
       { CameraResultCb(result); };
 
+  if (param.enable_partial_metadata) {
+    partial_metadata_required_ = true;
+  }
+
   camera_device_ = new Camera3DeviceClient(camera_callbacks_);
   if(!camera_device_.get()) {
     QMMF_ERROR("%s:%s: Can't Instantiate Camera3DeviceClient", TAG, __func__);
@@ -262,6 +267,14 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   InitSupportedFPS();
   assert(!supported_fps_.isEmpty());
   InitHFRModes();
+
+  {
+    camera_metadata_entry partial_result_count =
+        static_meta_.find(ANDROID_REQUEST_PARTIAL_RESULT_COUNT);
+    if (partial_result_count.count > 0) {
+      partial_result_count_ = partial_result_count.data.i32[0];
+    }
+  }
 
   ret = CreateCaptureRequest(snapshot_request_,
                              CAMERA3_TEMPLATE_STILL_CAPTURE);
@@ -888,7 +901,6 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       auto ret = camera_device_->SubmitRequestList(request_list, true,
                                                    &last_frame_mumber);
       assert(ret >= 0);
-      previous_streaming_request_id_ = streaming_request_id_;
       streaming_request_id_ = ret;
     }
   } else {
@@ -1148,9 +1160,6 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
       ret = camera_device_->SubmitRequest(streaming_active_requests_[0], true,
                                           &last_frame_mumber);
       assert(ret >= 0);
-      if (streaming_request_id_ > -1) {
-        previous_streaming_request_id_ = streaming_request_id_;
-      }
       streaming_request_id_ = ret;
       ret = NO_ERROR;
     }
@@ -1183,7 +1192,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   float max_fps = 0;
-  Vector<int32_t> removed_streams;
+  std::set<int32_t> removed_streams;
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -1240,15 +1249,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           req.streamIds.removeAt(idx);
           QMMF_INFO("%s:%s: cam_stream_id(%d) removed from Request!", TAG,
                       __func__, cam_stream_id);
-          bool is_present = false;
-          for (size_t j = 0; j < removed_streams.size(); j++) {
-            if (removed_streams[j] == cam_stream_id) {
-              is_present = true;
-              break;
-            }
-          }
-          if (!is_present) {
-            removed_streams.add(cam_stream_id);
+          if (removed_streams.count(cam_stream_id) == 0) {
+            removed_streams.emplace(cam_stream_id);
           }
           QMMF_INFO("%s:%s: removed_streams.size(%d)", TAG, __func__,
               removed_streams.size());
@@ -1308,20 +1310,17 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
     std::unique_lock<std::mutex> sync_lock(sync_frame_lock_);
-    if (!removed_streams.isEmpty()) {
+    if (!removed_streams.empty()) {
       sync_frame_.stream_ids.clear();
-      sync_frame_.stream_ids.appendVector(removed_streams);
+      sync_frame_.stream_ids = removed_streams;
     }
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &sync_frame_.last_frame_id);
     assert(req_id >= 0);
-    if (streaming_request_id_ > -1) {
-      previous_streaming_request_id_ = streaming_request_id_;
-    }
     streaming_request_id_ = req_id;
 
     std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
-    while (!sync_frame_.stream_ids.isEmpty()) {
+    while (!sync_frame_.stream_ids.empty()) {
       auto ret = sync_frame_cond_.wait_for(sync_lock, wait_time);
       if (ret == std::cv_status::timeout) {
         QMMF_WARN("%s:%s: Sync frame timed out!", TAG, __func__);
@@ -1365,7 +1364,6 @@ status_t CameraContext::CancelRequest() {
   assert(ret == NO_ERROR);
 
   streaming_request_id_ = -1;
-  previous_streaming_request_id_ = -1;
   QMMF_INFO("%s:%s: Request cancelled last frame number: %lld\n", TAG,
       __func__, last_frame_mumber);
   return ret;
@@ -1380,20 +1378,8 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
 
   std::lock_guard<std::mutex> lock(sync_frame_lock_);
   if (sync_frame_.last_frame_id == buffer.frame_number) {
-    if (!sync_frame_.stream_ids.isEmpty()) {
-      ssize_t idx = -1;
-      size_t count = sync_frame_.stream_ids.size();
-      for (size_t i = 0; i < count; i++) {
-        if (sync_frame_.stream_ids[i] == buffer.stream_id) {
-          idx = i;
-          break;
-        }
-      }
-      if (0 <= idx) {
-        sync_frame_.stream_ids.removeAt(idx);
-        sync_frame_cond_.notify_one();
-      }
-    }
+    sync_frame_.stream_ids.clear();
+    sync_frame_cond_.notify_one();
   }
 
   return ret;
@@ -1597,8 +1583,54 @@ void CameraContext::CameraPreparedCb(int32_t) {
 
 }
 
-void CameraContext::CameraResultCb(const CaptureResult &result) {
+template <typename T>
+bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
+                                     const T *value,
+                                     uint32_t frame_number) {
+  if (0 != result.update(tag, value, 1)) {
+    return false;
+  }
+  return true;
+}
 
+template <typename T>
+bool CameraContext::QueryPartialTag(const CameraMetadata &result,
+                                    int32_t tag, T *value,
+                                    uint32_t frame_number) {
+  (void)frame_number;
+
+  camera_metadata_ro_entry_t entry;
+
+  entry = result.find(tag);
+  if (entry.count == 0) {
+    return false;
+  }
+
+  if (sizeof(T) == sizeof(uint8_t)) {
+    *value = entry.data.u8[0];
+  } else if (sizeof(T) == sizeof(int32_t)) {
+    *value = entry.data.i32[0];
+  } else {
+    return false;
+  }
+  return true;
+}
+
+void CameraContext::HandleFinalResult(const CaptureResult &capture_result) {
+  if (nullptr != result_cb_) {
+    result_cb_(camera_id_, capture_result.metadata);
+  }
+
+  if (camera_start_params_.zsl_mode) {
+    assert(zsl_port_.get() != nullptr);
+    ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
+    zsl_port->HandleZSLCaptureResult(capture_result);
+  }
+  PostProcAddResult(capture_result);
+  return;
+}
+
+void CameraContext::CameraResultCb(const CaptureResult &result) {
   {
     std::lock_guard<std::mutex> lock(aec_lock_);
     if (!aec_done_) {
@@ -1617,17 +1649,81 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
         result.metadata.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
   }
 
-  if (((streaming_request_id_ == result.resultExtras.requestId) ||
-      (previous_streaming_request_id_ == result.resultExtras.requestId) ||
-      snapshot_request_id_.size() > 0) && (nullptr != result_cb_)) {
-    result_cb_(camera_id_, result.metadata);
+  std::lock_guard<std::mutex> lock(partial_result_lock_);
+
+  if (result.resultExtras.partialResultCount < partial_result_count_) {
+
+    bool complete_result = true;
+
+    uint8_t afMode, afState, aeState, awbState, awbMode;
+    auto frame_number  = result.resultExtras.frameNumber;
+
+    complete_result &=
+        QueryPartialTag(result.metadata, ANDROID_CONTROL_AWB_MODE,
+                        &awbMode, frame_number);
+    complete_result &=
+        QueryPartialTag(result.metadata, ANDROID_CONTROL_AF_MODE,
+                        &afMode, frame_number);
+    complete_result &=
+        QueryPartialTag(result.metadata, ANDROID_CONTROL_AE_STATE,
+                        &aeState, frame_number);
+    complete_result &= QueryPartialTag(result.metadata,
+                                       ANDROID_CONTROL_AWB_STATE,
+                                       &awbState, frame_number);
+    complete_result &=
+        QueryPartialTag(result.metadata, ANDROID_CONTROL_AF_STATE, &afState,
+                        frame_number);
+
+    if (!complete_result && partial_metadata_required_) {
+      if (nullptr != result_cb_) {
+        result_cb_(camera_id_, result.metadata);
+      }
+      return;
+    }
+
+    if (complete_result) {
+      CaptureResult captureResult;
+      captureResult.resultExtras = result.resultExtras;
+      captureResult.metadata = CameraMetadata(10, 0);
+
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
+                            reinterpret_cast<int32_t *>(&frame_number),
+                            frame_number)) {
+        return;
+      }
+
+      int32_t requestId = result.resultExtras.requestId;
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_ID,
+                            &requestId, frame_number)) {
+        return;
+      }
+
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AWB_STATE,
+                            &awbState, frame_number)) {
+        return;
+      }
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AF_MODE,
+                            &afMode, frame_number)) {
+        return;
+      }
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AWB_MODE,
+                            &awbMode, frame_number)) {
+        return;
+      }
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AF_STATE,
+                            &afState, frame_number)) {
+        return;
+      }
+      if (!UpdatePartialTag(captureResult.metadata, ANDROID_CONTROL_AE_STATE,
+                            &aeState, frame_number)) {
+        return;
+      }
+
+      HandleFinalResult(captureResult);
+    }
+  } else {
+    HandleFinalResult(result);
   }
-  if (camera_start_params_.zsl_mode) {
-    assert(zsl_port_.get() != nullptr);
-    ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
-    zsl_port->HandleZSLCaptureResult(result);
-  }
-  PostProcAddResult(result);
 }
 
 CameraPort* CameraContext::GetPort(const uint32_t track_id) {
@@ -1724,6 +1820,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   stream_param.format = in_param.format;
   stream_param.width  = in_param.width;
   stream_param.height = in_param.height;
+  stream_param.grallocFlags |= in_param.gralloc_flags;
 
   QMMF_INFO("%s:%s: input dim %dx%d format %x ", TAG, __func__,
       stream_param.width, stream_param.height, stream_param.format);

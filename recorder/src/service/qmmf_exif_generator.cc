@@ -51,10 +51,8 @@ static const uint32_t kASCIICharacterCodeSize = 8;
 
 ExifGenerator::ExifGenerator()
   : exif_buffer_(nullptr),
-    helper_buffer_(nullptr),
     width_(0),
     height_(0),
-    max_exif_size_(0),
     current_offset_(0),
     helper_buffer_offset_(0),
     tiff_header_begin_offset_(0),
@@ -71,9 +69,12 @@ ExifGenerator::ExifGenerator()
     overflow_flag_(false),
     gps_coords_present_(false),
     gps_timestamp_present_(false) {
+
+  helper_buffer_ = new unsigned char[kMaxExifApp1Length];
 }
 
 ExifGenerator::~ExifGenerator() {
+
   delete[] helper_buffer_;
 }
 
@@ -81,24 +82,19 @@ int32_t ExifGenerator::Generate(const CameraMetadata &meta,
                                 const std::string &vendor_name,
                                 const std::string &product_name,
                                 int32_t width, int32_t height,
-                                unsigned char *buffer, uint32_t size) {
+                                unsigned char *buffer) {
   if (buffer == nullptr) {
     QMMF_ERROR("%s: %s Invalid buffer passed for the addition of "
         "exif section outputBuf: %p.", TAG, __func__, buffer);
     return BAD_VALUE;
   }
+
+  memset(helper_buffer_, 0x0, kMaxExifApp1Length);
+
   exif_buffer_    = buffer;
-
-  helper_buffer_  = new unsigned char[size];
-  if (helper_buffer_ == nullptr) {
-    QMMF_ERROR("%s: %s Unable to allocate helper buffer!", TAG, __func__);
-    return NO_MEMORY;
-  }
-
   meta_           = &meta;
   vendor_name_    = vendor_name;
   product_name_   = product_name;
-  max_exif_size_  = size;
   width_          = width;
   height_         = height;
   current_offset_ = 0;
@@ -697,7 +693,8 @@ status_t ExifGenerator::ExtractExifTagValues() {
 
 uint32_t ExifGenerator::WriteExifData() {
   // Write APP1 marker
-  WriteShort((uint16_t) (0xFF00 | APP1_MARKER), exif_buffer_, &current_offset_);
+  WriteShort(static_cast<uint16_t>(0xFF00 | APP1_MARKER),
+             exif_buffer_, &current_offset_);
 
   // Leave space for writing the APP1 length,
   // remember the current offset as beginning
@@ -827,7 +824,7 @@ void ExifGenerator::WriteTagValue(qmmf_exif_tag_t *tag, unsigned char *buffer,
 
 void ExifGenerator::OverwriteShort(uint16_t value, uint8_t *buffer,
                                    uint32_t offset) {
-  if (offset + 1 >= max_exif_size_) {
+  if (offset + 1 >= kMaxExifApp1Length) {
     overflow_flag_ = true;
     return;
   }
@@ -837,7 +834,7 @@ void ExifGenerator::OverwriteShort(uint16_t value, uint8_t *buffer,
 
 void ExifGenerator::WriteByte(uint8_t value, uint8_t *buffer,
                               uint32_t *offset) {
-  if (*offset >= max_exif_size_) {
+  if (*offset >= kMaxExifApp1Length) {
       overflow_flag_ = true;
       return;
   }
@@ -847,7 +844,7 @@ void ExifGenerator::WriteByte(uint8_t value, uint8_t *buffer,
 
 void ExifGenerator::WriteShort(uint16_t value, uint8_t *buffer,
                                uint32_t *offset) {
-  if (*offset + 1 >= max_exif_size_) {
+  if (*offset + 1 >= kMaxExifApp1Length) {
       overflow_flag_ = true;
       return;
   }
@@ -858,7 +855,7 @@ void ExifGenerator::WriteShort(uint16_t value, uint8_t *buffer,
 
 void ExifGenerator::WriteLong(int32_t value, uint8_t *buffer,
                               uint32_t *offset) {
-  if (*offset + 3 >= max_exif_size_) {
+  if (*offset + 3 >= kMaxExifApp1Length) {
       overflow_flag_ = true;
       return;
   }
@@ -871,7 +868,7 @@ void ExifGenerator::WriteLong(int32_t value, uint8_t *buffer,
 
 void ExifGenerator::WriteNBytes(const uint8_t *data, uint32_t count,
                                 uint8_t* buffer, uint32_t *offset) {
-  if (*offset + count >= max_exif_size_) {
+  if (*offset + count >= kMaxExifApp1Length) {
       overflow_flag_ = true;
       return;
   }

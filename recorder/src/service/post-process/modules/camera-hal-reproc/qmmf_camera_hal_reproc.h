@@ -104,6 +104,10 @@ class CameraHalReproc : public IPostProcModule {
 
    void ReprocessCallback(StreamBuffer buffer);
 
+   status_t ValidateFormat(BufferFormat fmt);
+
+   status_t ValidateDimensions(uint32_t width, uint32_t height);
+
    status_t ValidateInput(const PostProcIOParam& input,
                           const PostProcIOParam& output);
 
@@ -118,9 +122,10 @@ class CameraHalReproc : public IPostProcModule {
    IPostProc*                   context_;
    IPostProcEventListener       *listener_;
 
+   CameraMetadata               static_meta_;
+
    std::mutex                   module_lock_;
    bool                         ready_to_start_;
-   int32_t                      input_stream_id_;
 
    Camera3Request               reprocess_request_;
 
@@ -129,10 +134,16 @@ class CameraHalReproc : public IPostProcModule {
 
    std::list<StreamBuffer>      input_buffer_;
    std::list<StreamBuffer>      input_buffer_done_;
+   std::mutex                   input_buffer_lock_;
 
    std::list<ReprocessBundle>   reproc_partial_list_;
    std::list<ReprocessBundle>   reproc_ready_list_;
    std::mutex                   reproc_lock_;
+
+   std::condition_variable      reproc_wait_;
+   std::mutex                   reproc_wait_lock_;
+   bool                         frame_processing_;
+   bool                         batch_processing_;
 };
 
 }; //namespace recorder

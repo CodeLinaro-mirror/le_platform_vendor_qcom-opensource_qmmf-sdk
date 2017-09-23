@@ -87,12 +87,11 @@ static const int32_t kMaxLTRCount = 4;
 RecorderTest::RecorderTest() :
             camera_id_(0),
             session_enabled_(false),
-            preview_session_id_(0),
+            preview_session_id_(-1),
             snapshot_choice_(SnapshotType::kNone),
             dump_aec_awb_stats_(false),
             dump_histogram_stats_(false),
             num_images_(0),
-            aec_converged_(false),
             in_suspend_(true),
             ltr_count_(0),
             camera_error_(false) {
@@ -169,6 +168,12 @@ status_t RecorderTest::AddPreviewTrack() {
   SessionCb session_status_cb;
   uint32_t session_id;
   uint32_t track_id = 1;
+
+  if (preview_session_id_ > -1) {
+    TEST_INFO("%s:%s: Preview track is already added.", TAG, __func__);
+    return NO_ERROR;
+  }
+
   session_status_cb.event_cb = [] (EventType event_type, void *event_data,
     size_t event_data_size) {};
   status_t ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -209,6 +214,12 @@ status_t RecorderTest::AddPreviewTrack() {
 
 status_t RecorderTest::RemovePreviewTrack() {
   TEST_DBG("%s:%s: %d :Enter", TAG, __func__, preview_session_id_);
+
+  if (preview_session_id_ == -1) {
+    TEST_INFO("%s:%s: Preview Track is already removed!", TAG, __func__);
+    return NO_ERROR;
+  }
+
   status_t ret = recorder_.StopSession(preview_session_id_, true);
   if (ret != 0) {
     TEST_ERROR("%s:%s: Failed in stopping the session : ", TAG, __func__);
@@ -224,6 +235,7 @@ status_t RecorderTest::RemovePreviewTrack() {
     TEST_ERROR("%s:%s: Failed in deleting the session : ", TAG, __func__);
     return ret;
   }
+  preview_session_id_ = -1;
   TEST_DBG("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -535,8 +547,8 @@ void RecorderTest::InitSupportedBinningCorrectionModes() {
           supported_bc_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
           break;
         default:
-          ALOGE("%s:%s Invalid binning correction mode: %d\n", TAG, __func__,
-                entry.data.i32[i]);
+          ALOGW("%s:%s Invalid binning correction mode: %d,continuing anyway\n"
+              , TAG, __func__, entry.data.i32[i]);
       }
     }
   }
@@ -619,6 +631,129 @@ int32_t RecorderTest::SetBinningCorrectionMode(int32_t camera_id,
   }
   meta.update(QCAMERA3_BINNING_CORRECTION_MODE, &binning_correction_mode, 1);
   ret = recorder_.SetCameraParam(camera_id, meta);
+
+  return ret;
+}
+
+void RecorderTest::InitSupportedVideoStabilizationModes() {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  camera_metadata_entry_t entry;
+  entry =
+      static_info_.find(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
+  if (entry.count > 0) {
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch(entry.data.u8[i]) {
+        case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF:
+          supported_vs_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
+          break;
+        case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON:
+          supported_vs_modes_.insert(std::make_pair(entry.data.u8[i], "On"));
+          break;
+        default:
+          ALOGW(
+              "%s:%s Invalid video stabilization mode: %d, continuing anyway\n",
+              TAG, __func__, entry.data.i32[i]);
+      }
+    }
+  }
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+int32_t RecorderTest::ToggleVideoStabilizationMode() {
+  CameraMetadata meta;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE)) {
+      uint8_t mode =
+          meta.find(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE).data.u8[0];
+      vs_modes_iter it = supported_vs_modes_.begin();
+      vs_modes_iter next;
+      while (it != supported_vs_modes_.end()) {
+        if ((*it).first == mode) {
+          it++;
+          if (it == supported_vs_modes_.end()) {
+            next = supported_vs_modes_.begin();
+          } else {
+            next = it;
+          }
+          meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
+                      &next->first, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (0 != status) {
+            ALOGE("%s:%s Failed to apply: %s\n",
+                  TAG, __func__, next->second.c_str());
+            return status;
+          }
+          break;
+        } else {
+          it++;
+        }
+      }
+    }
+  }
+
+  return status;
+}
+
+std::string RecorderTest::GetCurrentVideoStabilizationMode(const int32_t&
+                                                           camera_id) {
+  CameraMetadata meta;
+  std::string ret(FEATURE_NOT_AVAILABLE);
+  auto status = recorder_.GetCameraParam(camera_id, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE)) {
+      int32_t mode =
+          meta.find(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE).data.i32[0];
+      for (auto it : supported_vs_modes_) {
+        if ((it).first == mode) {
+          ret = (it).second;
+          break;
+        }
+      }
+    } else {
+      //In case camera didn't set default check if there are any
+      //modes supported. In case there are set the first available.
+      if (!supported_vs_modes_.empty()) {
+        vs_modes_iter start = supported_vs_modes_.begin();
+        meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
+                    &start->first, 1);
+        status = recorder_.SetCameraParam(camera_id, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s:%s Failed to apply: %s\n",
+                TAG, __func__, start->second.c_str());
+        }
+        ret = start->second;
+      }
+    }
+  }
+
+  return ret;
+}
+
+status_t RecorderTest::SetVideoStabilization(const int32_t& camera_id,
+                                             const bool& config) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  CameraMetadata meta;
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  if (ret != 0) {
+    TEST_ERROR("%s:%s: Exit - Failed to get camera params", TAG, __func__);
+    return ret;
+  }
+
+  if (meta.exists(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE)) {
+    uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
+    if (config) { //Enable Video stabilization
+      vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+    }
+    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+    ret = recorder_.SetCameraParam(camera_id, meta);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s Exit - Failed to set video stabilization\n",
+                 TAG, __func__);
+      return ret;
+    }
+  }
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -1328,6 +1463,7 @@ status_t RecorderTest::StartCamera() {
   camera_params.zsl_height          = 2160;
   camera_params.frame_rate          = 30;
   camera_params.flags               = 0x0;
+  camera_params.enable_partial_metadata  = false;
   CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
             CameraResultCallbackHandler(camera_id, result); };
@@ -1348,6 +1484,7 @@ status_t RecorderTest::StartCamera() {
     InitSupportedVHDRModes();
     InitSupportedIRModes();
     InitSupportedBinningCorrectionModes();
+    InitSupportedVideoStabilizationModes();
   }
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return 0;
@@ -1661,19 +1798,12 @@ status_t RecorderTest::TakeSnapshot() {
         printf("Wrong value entered(%c)\n", input);
         flag_exit = true;
     }
-    if (snapshot_choice_ != SnapshotType::kRawRdi && (flag_exit != true)
-        && (session_enabled_ == false)) {
-      TEST_INFO("%s:%s: Checking For AEC Convergence ", TAG, __func__);
-      unique_lock < mutex > lk(message_lock_);
-      signal_.wait(lk);
-      TEST_INFO("%s:%s: AEC Convergence Done ", TAG, __func__);
-    }
     if (flag_exit != true) {
       ImageCaptureCb cb = [&] (uint32_t camera_id_, uint32_t image_count,
           BufferDescriptor buffer, MetaData meta_data)
       { SnapshotCb(camera_id_, image_count, buffer, meta_data);};
       assert(ret == NO_ERROR);
-      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
+      uint8_t awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       assert(ret == NO_ERROR);
       if (!sessions_.size()) {
@@ -1699,10 +1829,14 @@ status_t RecorderTest::TakeSnapshot() {
         if (ret != 0) {
           ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
         }
-        TEST_INFO("%s:%s: Waiting for All SnapShotCallBack to Finish ", TAG, __func__);
-        unique_lock < mutex > lock(callback_lock_);
-        signal_cb_.wait(lock);
-        TEST_INFO("%s:%s: All SnapShotCallBack finished ", TAG, __func__);
+        std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
+        uint32_t wait_time_secs = get_snapshot_cb_wait_time();
+        burst_snapshot_count_ = num_images_;
+        if (snapshot_wait_signal_.wait_for(lock,
+           std::chrono::milliseconds(wait_time_secs * 1000)) ==
+             std::cv_status::timeout) {
+             TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
+        }
         {
           std::lock_guard<std::mutex> lock(error_lock_);
           if (!camera_error_) {
@@ -1714,6 +1848,7 @@ status_t RecorderTest::TakeSnapshot() {
     }
   } while ((input != '0'));
 
+  RemovePreviewTrack();
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -1958,6 +2093,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   tracks.push_back(yuv_1080p_track);
 
   sessions_.insert(std::make_pair(session_id, tracks));
+
   TEST_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
 }
@@ -3704,14 +3840,6 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-  if (image_sequence_count == num_images_ - 1) {
-    if (snapshot_choice_ != SnapshotType::kRawRdi
-        && (session_enabled_ == false)) {
-      RemovePreviewTrack();
-      aec_converged_ = false;
-    }
-    signal_cb_.notify_one();
-  }
   std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
   if (image_sequence_count == burst_snapshot_count_ - 1) {
     snapshot_wait_signal_.notify_one();
@@ -3751,21 +3879,6 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
 
   if(kpi_debug_mask) {
      kpi_marker_.CheckSwicthTime(result);
-  }
-  if (snapshot_choice_ != SnapshotType::kRawRdi) {
-    if (aec_converged_ == false) {
-      camera_metadata_ro_entry aec_stat;
-      aec_stat = result.find(ANDROID_CONTROL_AE_STATE);
-      if ((aec_stat.count > 0) && ((aec_stat.data.u8[0]
-          == ANDROID_CONTROL_AE_STATE_CONVERGED) || (aec_stat.data.u8[0]
-          == ANDROID_CONTROL_AE_STATE_LOCKED))) {
-        TEST_DBG("%s:%s: AEC Value Converged", TAG, __func__);
-        aec_converged_ = true;
-        signal_.notify_one();
-      } else {
-        TEST_DBG("%s:%s: AEC Value Still Not Converged", TAG, __func__);
-      }
-    }
   }
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);
@@ -3967,6 +4080,15 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
       }
     }
 
+    // Video Stabilization
+    if (current_camera_info->video_stabilize) {
+      ret = SetVideoStabilization(current_camera_id, true);
+      if(ret != 0) {
+        TEST_ERROR("%s:%s SetVideoStabilization to On Failed!!", TAG, __func__);
+        return ret;
+      }
+    }
+
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
     struct timeval tv;
@@ -4099,6 +4221,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         session_enabled_ = false;
       }
     }
+
     // StopSession - End
     printf("%s DeleteSession\n",__func__);
 
@@ -4119,6 +4242,15 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
       }
       delete tracks[i];
       tracks[i] = nullptr;
+    }
+    // Turn off Video stabilization if On
+    if (GetCurrentVideoStabilizationMode(camera_id[camera_idx]) !=
+            FEATURE_NOT_AVAILABLE) {
+      ret = SetVideoStabilization(camera_id[camera_idx],false);
+      if(ret != 0) {
+        TEST_ERROR("%s:%s SetVideoStabilization to OFF Failed!!", TAG, __func__);
+        return ret;
+      }
     }
     // Once all tracks are deleted successfully delete session.
     ret = recorder_.DeleteSession(session_id);
@@ -4141,6 +4273,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     }
   }
   // StopCamera - End
+
   printf("%s Disconnect\n",__func__);
 
   // Disconnect - Begin
@@ -4186,6 +4319,8 @@ void RecorderTest::printInitParamAndTtrackInfo(const TestInitParams& params,
              cameraInfo->camera_id, cameraInfo->vhdr);
        printf("camera(%d).binning_correct = %d\n",
              cameraInfo->camera_id, cameraInfo->binning_correct);
+       printf("camera(%d).video_stabilize = %d\n",
+                    cameraInfo->camera_id, cameraInfo->video_stabilize);
 
        for( uint32_t j = 0; j < infos.size(); j++) {
           track_info = &infos[j];
@@ -4342,6 +4477,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       current_camera_info->tnr = atoi(value)?true:false;
     } else if(!strncmp("BinningCorrect", key, strlen("BinningCorrect"))) {
       current_camera_info->binning_correct = atoi(value)?true:false;
+    } else if(!strncmp("VideoStabilize", key, strlen("VideoStablize"))) {
+      current_camera_info->video_stabilize = atoi(value)?true:false;
     } else if(!strncmp("Width", key, strlen("Width"))) {
       track_info.width = atoi(value);
     } else if(!strncmp("Height", key, strlen("Height"))) {
@@ -4537,18 +4674,6 @@ int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
   return 0;
 }
 
-bool RecorderTest::IsKeyEventShort(const milliseconds keypress_duration) {
-
-  const uint32_t kLongPressDuration = 300;
-
-  if(keypress_duration < static_cast<milliseconds>(kLongPressDuration)) {
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
 int32_t RecorderTest::StartRecording(
     const VideoTrackCreateParam &video_track_param) {
 
@@ -4657,9 +4782,6 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
   const char *wake_unlock_node = "/sys/power/wake_unlock";
   const char *buf = "qmmf_wakelock";
 
-  clk::time_point keypressed;
-  clk::time_point keyreleased;
-  milliseconds keypress_duration;
 
   in_suspend_ = true;
   int resume_fd = open(wake_lock_node, O_WRONLY);
@@ -4722,15 +4844,9 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
       exit(2);
     }
     if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
-      keypressed = clk::now();
-    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
-        keyreleased = clk::now();
-        keypress_duration =
-          std::chrono::duration_cast<milliseconds>(keyreleased - keypressed);
-        if (IsKeyEventShort(keypress_duration))
-          continue;
+
         if (in_suspend_ == false) {
-          printf("LongKeyPress detected, going to suspend\n");
+          printf("PowerKey Press detected, going to suspend\n");
           ret = StopRecording();
           if (NO_ERROR != ret) {
             TEST_ERROR("%s:%s StopRecording Failed!!", TAG, __func__);
@@ -4742,7 +4858,7 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
             exit(2);
           }
         } else {
-            printf("LongKeyPress detected, going to resume\n");
+            printf("PowerKey Press detected, going to resume\n");
             errno = 0;
             if (write(resume_fd, buf, strlen(buf)) == -1) {
               printf("Failed to write resume_fd %d (%s)\n", errno,
@@ -6002,6 +6118,11 @@ void CmdMenu::PrintMenu() {
     printf("   %c. IR: %s\n", CmdMenu::IR_MODE_CMD,
            ctx_.GetCurrentIRMode().c_str());
     printf("   %c. Set AWB ROI\n", CmdMenu::AWB_ROI_CMD);
+  } else {
+    printf("   %c. Toggle Video stabilization "
+           "[Use after create session (1080p ONLY!)]: %s\n",
+               CmdMenu::VIDEO_STABILZATION_CMD,
+               ctx_.GetCurrentVideoStabilizationMode(ctx_.camera_id_).c_str());
   }
   printf("   %c. Set Antibanding mode\n", CmdMenu::SET_ANTIBANDING_MODE_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
@@ -6250,6 +6371,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::AWB_ROI_CMD: {
         test_context.HandleAWBROIRequest();
+      }
+      break;
+      case CmdMenu::VIDEO_STABILZATION_CMD: {
+        test_context.ToggleVideoStabilizationMode();
       }
       break;
       case CmdMenu::EXIT_CMD: {

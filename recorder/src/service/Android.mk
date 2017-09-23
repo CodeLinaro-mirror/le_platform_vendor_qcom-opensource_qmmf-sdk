@@ -48,7 +48,6 @@ LOCAL_SRC_FILES += post-process/pipe/qmmf_postproc_pipe.cc
 LOCAL_SRC_FILES += post-process/common/qmmf_postproc_thread.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_algo libqmmf_jpeg
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client

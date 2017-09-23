@@ -15,6 +15,8 @@
  * TNR             : 1(Enable tnr), 0(Disable tnr)
  * VHDR            : 1(Enable vhdr), 0(Disable vhdr)
  * BinningCorrect  : 1 (enable binning correction), 0 (disable binning correction).
+ * VideoStabilize  : 1 (enable video stabilization),disabled by default.
+ *                 : Only 1080p resolutions are supported.
  * TrackType       : YUV(Track YUV format stream), AVC(Track AVC format stream),
  *                 : HEVC(Track HEVC format stream), RAW(Track RAW format stream).
  * LTRCount        : LTR count for track[AVC/HEVC]. Should be in range [1-4].
@@ -34,6 +36,7 @@ NumStream         : 2
 TNR               : 0
 VHDR              : 0
 BinningCorrect    : 0
+VideoStabilize    : 0
 
 #First Stream Encoder Params
 Width             : 3840

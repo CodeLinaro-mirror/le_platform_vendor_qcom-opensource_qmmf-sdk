@@ -128,7 +128,8 @@ class IAVCodec {
 
   virtual status_t Flush(uint32_t port_type) = 0;
 
-  static IAVCodec* CreateAVCodec();
+  static IAVCodec* CreateAVCodec(
+      CodecMimeType mimetype = CodecMimeType::kMimeTypeVideoEncAVC);
 };
 
 

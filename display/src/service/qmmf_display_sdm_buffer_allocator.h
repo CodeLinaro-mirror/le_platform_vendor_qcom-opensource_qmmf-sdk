@@ -56,7 +56,7 @@ class DisplayBufferAllocator : public BufferAllocator {
   DisplayError GetBufferInfo(BufferInfo *buffer_info, int32_t &aligned_width,
       int32_t &aligned_height);
   DisplayError GetAllocatedBufferInfo(const BufferConfig &buffer_config,
-                                      AllocatedBufferInfo *allocated_buffer_info);
+      AllocatedBufferInfo *allocated_buffer_info) override;
 
  private:
   struct MetaBufferInfo {
