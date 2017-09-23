@@ -365,6 +365,7 @@ status_t CameraHalReproc::Start(const int32_t stream_id) {
   out_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
   out_stream_params.cb = [&](StreamBuffer buffer)
       { ReprocessCallback(buffer); };
+  out_stream_params.is_pp_enabled = true;
 
   QMMF_VERBOSE("%s:%s: out stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d count %d",
     TAG, __func__, output_param_.width, output_param_.height,
@@ -372,7 +373,7 @@ status_t CameraHalReproc::Start(const int32_t stream_id) {
 
   ret = context_->CreateDeviceStream(out_stream_params,
                                      output_param_.frame_rate,
-                                     &stream_id_p, true);
+                                     &stream_id_p);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed to create output reprocess stream: %d\n",
         TAG, __func__, ret);
