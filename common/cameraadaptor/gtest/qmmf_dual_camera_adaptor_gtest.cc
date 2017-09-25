@@ -92,7 +92,7 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
        path.appendFormat("/data/misc/qmmf/frame_%d_dim_%dx%d.raw", buffer.frame_number,
           buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
     }
-    FILE *f = fopen(path.string(), "w+");
+    FILE *file = fopen(path.string(), "w+");
     uint8_t *mappedBuffer = NULL;
     auto ret = mapper->lock(mapper, buffer.handle, GRALLOC_USAGE_SW_READ_OFTEN, 0,
                       0, buffer.info.plane_info[0].width,
@@ -103,10 +103,12 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
              mappedBuffer, ret);
     }
     uint64_t size = buffer.size;
-    if (size != fwrite(mappedBuffer, sizeof(uint8_t), size, f)) {
-       ret = ferror(f);
-       printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
+    if ((file != nullptr) && (mappedBuffer != nullptr) && (size
+        != fwrite(mappedBuffer, sizeof(uint8_t), size, file))) {
+      ret = ferror(file);
+      printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
     }
+    fclose(file);
   }
 #else
   printf("%s: WARN: Not yet supported.", __func__);

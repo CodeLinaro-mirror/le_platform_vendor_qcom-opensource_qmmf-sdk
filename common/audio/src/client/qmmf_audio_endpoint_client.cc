@@ -157,7 +157,12 @@ int32_t AudioEndPointClient::Connect(const AudioEventHandler& handler) {
   }
 
   audio_service_ = interface_cast<IAudioService>(service_handle);
-  IInterface::asBinder(audio_service_)->linkToDeath(death_notifier_);
+  auto as_binder = IInterface::asBinder(audio_service_);
+  if (as_binder == nullptr) {
+    QMMF_ERROR("%s: audio_service_ binder is null", __func__);
+    return -EFAULT;
+  }
+  as_binder->linkToDeath(death_notifier_);
 
   sp<ServiceCallbackHandler> cb_handler = new ServiceCallbackHandler(this);
   int32_t result = audio_service_->Connect(cb_handler, &audio_handle_);
@@ -210,7 +215,9 @@ int32_t AudioEndPointClient::Disconnect() {
     QMMF_ERROR("%s() service->Disconnect failed: %d", __func__,
                result);
 
-  audio_service_->asBinder(audio_service_)->unlinkToDeath(death_notifier_);
+  auto as_binder = audio_service_->asBinder(audio_service_);
+  assert(as_binder != nullptr);
+  as_binder->unlinkToDeath(death_notifier_);
   audio_service_.clear();
   audio_service_ = nullptr;
 
