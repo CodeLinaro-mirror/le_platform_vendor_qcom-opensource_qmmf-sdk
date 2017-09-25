@@ -981,7 +981,8 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       connected_tocamera_port_(true),
       slave_track_source_(false),
       time_lapse_mode_(false),
-      time_stamp_(0) {
+      time_stamp_(0),
+      num_consumers_(0) {
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -1040,6 +1041,8 @@ status_t TrackSource::AddConsumer(const sp<IBufferConsumer>& consumer) {
   buffer_producer_impl_->AddConsumer(consumer);
   consumer->SetProducerHandle(buffer_producer_impl_);
 
+  num_consumers_ = buffer_producer_impl_->GetNumConsumer();
+
   QMMF_VERBOSE("%s:%s: Consumer(%p) has been added.", TAG, __func__,
       consumer.get());
   return NO_ERROR;
@@ -1054,6 +1057,8 @@ status_t TrackSource::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   }
 
   buffer_producer_impl_->RemoveConsumer(consumer);
+
+  num_consumers_ = buffer_producer_impl_->GetNumConsumer();
 
   return NO_ERROR;
 }
@@ -1593,10 +1598,13 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 #endif
 
   {
-    std::unique_lock<std::mutex> lock(lock_);
-    auto val = buffer_map_.at(buffer.handle);
-    buffer_map_[buffer.handle] = buffer_producer_impl_->GetNumConsumer() + val;
-    if (buffer_producer_impl_->GetNumConsumer() > 0) {
+    std::lock_guard<std::mutex> lk(consumer_lock_);
+    {
+      std::unique_lock<std::mutex> lock(lock_);
+      auto val = buffer_map_.at(buffer.handle);
+      buffer_map_[buffer.handle] = num_consumers_ + val;
+    }
+    if (num_consumers_ > 0) {
       buffer_producer_impl_->NotifyBuffer(buffer);
     }
   }
@@ -1917,7 +1925,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
       // Hold this buffer, do not return until its ref count is 1.
       uint32_t value = buffer_map_.at(buffer.handle);
       buffer_map_[buffer.handle] = --value;
-      if (buffer_producer_impl_->GetNumConsumer() == 0) {
+      if (num_consumers_ == 0) {
         stream_buffer_map_.erase(buffer.handle);
         buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
       }
