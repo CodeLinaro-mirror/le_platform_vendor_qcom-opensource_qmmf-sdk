@@ -372,6 +372,8 @@ class TrackSource : public ICodecSource {
   bool time_lapse_mode_;
   uint32_t time_lapse_interval_;
   uint64_t time_stamp_;
+
+  uint32_t num_consumers_;
 };
 
 }; //namespace recorder
