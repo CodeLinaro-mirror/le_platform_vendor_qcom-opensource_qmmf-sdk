@@ -154,6 +154,7 @@ class MultiCameraManager : public CameraInterface {
   ImageParam               snapshot_param_;
   uint32_t                 sequence_cnt_;
   bool                     jpeg_encoding_enabled_;
+  bool                     snapshot_configured_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
   sp<ICameraPostProcess>   jpeg_encoder_;

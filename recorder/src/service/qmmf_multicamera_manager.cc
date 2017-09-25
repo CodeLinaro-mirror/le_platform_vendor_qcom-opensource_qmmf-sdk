@@ -64,6 +64,7 @@ MultiCameraManager::MultiCameraManager()
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
+    snapshot_configured_(false),
     client_snapshot_cb_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {
@@ -308,7 +309,8 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
   status_t ret = NO_ERROR;
 
   bool reconfigure_needed = (snapshot_param_.width != param.width) ||
-                            (snapshot_param_.height != param.height);
+                            (snapshot_param_.height != param.height) ||
+                            !snapshot_configured_;
 
   ImageParam capture_param = snapshot_param_ = param;
   capture_param.image_format = (param.image_format == ImageFormat::kJPEG) ?
@@ -373,6 +375,7 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
       QMMF_WARN("%s:%s: AE failed to converge!", TAG, __func__);
     }
   }
+  snapshot_configured_ = true;
 
   return NO_ERROR;
 }
@@ -395,13 +398,33 @@ status_t MultiCameraManager::CancelCaptureImage() {
     }
   }
 
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    auto ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG, __func__,
-          camera_contexts_.keyAt(i));
-      return ret;
+  if (snapshot_configured_) {
+    auto streams = active_streams_;
+    status_t ret = NO_ERROR;
+
+    for (auto const& track_id : streams) {
+      ret = StopStream(track_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: StopStream %d Failed!", TAG, __func__, track_id);
+        return ret;
+      }
     }
+    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+      auto ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG,
+            __func__, camera_contexts_.keyAt(i));
+        return ret;
+      }
+    }
+    for (auto const& track_id : streams) {
+      ret = StartStream(track_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: StartStream %d Failed!", TAG, __func__, track_id);
+        return ret;
+      }
+    }
+    snapshot_configured_ = false;
   }
   return NO_ERROR;
 }
