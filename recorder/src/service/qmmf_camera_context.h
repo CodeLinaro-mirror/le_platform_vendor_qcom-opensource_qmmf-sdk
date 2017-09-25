@@ -51,7 +51,7 @@ using namespace cameraadaptor;
 #define VIDEO_STREAM_BUFFER_COUNT    11
 #define PREVIEW_STREAM_BUFFER_COUNT  10
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
-#define EXTRA_DCVS_BUFFERS            2
+#define EXTRA_DCVS_BUFFERS            4
 
 //FIXME: This is temporary change until necessary vendor mode changes are merged
 // in HAL3.
