@@ -1351,9 +1351,6 @@ StitchingBase::StitchingBase(InitParams &param)
     }
   }
 
-  // We need half the time for one frame 0.6sec/fps, but in nanoseconds.
-  timestamp_max_delta_ = (600000000 / params_.frame_rate);
-
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -1532,7 +1529,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
       const StreamBuffer &unsynced_frame = unsynced_buffers->itemAt(idx);
       timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
 
-      if (std::abs(timestamp_delta) < timestamp_max_delta_) {
+      if (std::abs(timestamp_delta) < kMaxTimestampDelta) {
         synced_frames.add(camera_id, unsynced_frame);
         matched_buffers.add(camera_id, idx);
         ++num_matched_frames;
