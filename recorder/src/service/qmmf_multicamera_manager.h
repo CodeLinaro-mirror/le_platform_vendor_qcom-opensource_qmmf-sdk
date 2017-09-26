@@ -349,10 +349,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // registered by the library.
   std::set<int32_t> registered_buffers_;
 
-  // The maximum interval in which two frames are thought of as syncable.
-  // It is calculated, based on the frame rate.
-  int32_t timestamp_max_delta_;
-
   std::future<status_t>    init_library_status_;
 
   std::mutex               register_buffer_lock_;
@@ -367,6 +363,9 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
+
+  // The maximum interval in which two frames are thought of as syncable.
+  static const int32_t kMaxTimestampDelta = 2000000; // 2 ms
 };
 
 class StreamStitching : public StitchingBase {
