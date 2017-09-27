@@ -297,6 +297,8 @@ class CameraContext : public CameraInterface,
   std::mutex               sync_frame_lock_;
   std::condition_variable  sync_frame_cond_;
 
+  std::mutex               request_submitted_lock_;
+
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
 
