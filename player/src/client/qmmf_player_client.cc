@@ -121,7 +121,12 @@ status_t PlayerClient::Connect(PlayerCb& cb) {
   }
 
   player_service_ = interface_cast<IPlayerService>(service_handle);
-  IInterface::asBinder(player_service_)->linkToDeath(death_notifier_);
+  auto ps_binder = IInterface::asBinder(player_service_);
+  if (ps_binder == nullptr) {
+    QMMF_ERROR("%s: Player Service Binder is null", __func__);
+    return -EFAULT;
+  }
+  ps_binder->linkToDeath(death_notifier_);
 
   sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
   auto ret = player_service_->Connect(handler);
@@ -150,7 +155,12 @@ status_t PlayerClient::Disconnect() {
     QMMF_ERROR("%s Disconnect failed!", __func__);
   }
 
-  player_service_->asBinder(player_service_)->unlinkToDeath(death_notifier_);
+  auto ps_binder = player_service_->asBinder(player_service_);
+  if (ps_binder == nullptr) {
+    QMMF_ERROR("%s: Player Service Binder is null", __func__);
+    return -EFAULT;
+  }
+  ps_binder->unlinkToDeath(death_notifier_);
 
   player_service_.clear();
   player_service_ = nullptr;
@@ -177,7 +187,10 @@ status_t PlayerClient::CreateAudioTrack(uint32_t track_id,
     return NO_INIT;
   }
 
-  assert(track_id != 0);
+  if (track_id == 0) {
+    QMMF_ERROR("%s: track_id is zero", __func__);
+    return BAD_VALUE;
+  }
 
   auto result = player_service_->CreateAudioTrack(track_id, param);
   if (result != NO_ERROR)
@@ -199,7 +212,10 @@ status_t PlayerClient::CreateVideoTrack(uint32_t track_id,
     return NO_INIT;
   }
 
-  assert(track_id != 0);
+  if (track_id == 0) {
+    QMMF_ERROR("%s: track_id is zero", __func__);
+    return BAD_VALUE;
+  }
 
   auto result = player_service_->CreateVideoTrack(track_id, param);
   if (result != NO_ERROR)
@@ -382,7 +398,10 @@ status_t PlayerClient::DequeueInputBuffer(
 
         if (buf_idx >= 0) {
           bufinfo = buf_map.valueFor(codecbuffer[i].buf_id);
-          assert(bufinfo.buf_id > 0);
+          if (bufinfo.buf_id <= 0) {
+            QMMF_ERROR("%s: buf_id is negative", __func__);
+            return BAD_VALUE;
+          }
           buffers[i].data   = bufinfo.vaddr;
           buffers[i].size   = codecbuffer[i].frame_length;
           buffers[i].buf_id = codecbuffer[i].buf_id;
@@ -399,7 +418,10 @@ status_t PlayerClient::DequeueInputBuffer(
       struct ion_fd_data ion_info_fd;
       memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
 
-      assert(codecbuffer[i].fd > 0);
+      if (codecbuffer[i].fd <= 0) {
+        QMMF_ERROR("%s: codecbuffer fd is negative", __func__);
+        return BAD_VALUE;
+      }
 
       ion_info_fd.fd = codecbuffer[i].fd;
       ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
@@ -410,7 +432,10 @@ status_t PlayerClient::DequeueInputBuffer(
       QMMF_VERBOSE("%s: ion_info_fd.fd =%d", __func__, ion_info_fd.fd);
       vaddr = mmap(nullptr, codecbuffer[i].frame_length, PROT_READ | PROT_WRITE,
                    MAP_SHARED, ion_info_fd.fd, 0);
-      assert(vaddr != nullptr);
+      if (vaddr == nullptr) {
+        QMMF_ERROR("%s: mmap failed", __func__);
+        return NO_MEMORY;
+      }
 
       bufinfo.vaddr      = vaddr;
       bufinfo.buf_id     = codecbuffer[i].buf_id;
@@ -926,7 +951,10 @@ class BpPlayerService : public BpInterface<IPlayerService>
     data.writeUint32(track_id);
 
     size_t size = buffers.size();
-    assert(size > 0);
+    if (size <= 0) {
+      QMMF_ERROR("%s: No buffers", __func__);
+      return NO_MEMORY;
+    }
     data.writeUint32(size);
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_DEQUEUE_INPUT_BUFFER), data, &reply);
@@ -946,7 +974,10 @@ class BpPlayerService : public BpInterface<IPlayerService>
         reply.readBlob(param_size, &blob);
         void* buffer = const_cast<void*>(blob.data());
         AVCodecBuffer track_buffer;
-        assert(param_size == sizeof(track_buffer));
+        if (param_size != sizeof(track_buffer)) {
+          QMMF_ERROR("%s: Invalid size", __func__);
+          return BAD_VALUE;
+        }
         memset(&track_buffer, 0x0, sizeof track_buffer);
         memcpy(&track_buffer, buffer, param_size);
 
@@ -1004,7 +1035,10 @@ class BpPlayerService : public BpInterface<IPlayerService>
 
     size_t size = buffers.size();
 
-    assert(size > 0);
+    if (size <= 0) {
+      QMMF_ERROR("%s: No buffers available", __func__);
+      return NO_MEMORY;
+    }
     data.writeUint32(size);
     for (size_t i = 0; i < size; i++) {
       uint32_t param_size = sizeof (AVCodecBuffer);

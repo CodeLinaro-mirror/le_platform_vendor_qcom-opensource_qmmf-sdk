@@ -451,10 +451,12 @@ bool VideoDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Video Decoding ********************************/
 
 VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
-    : output_buffer_count_(0),
+    : ion_handle_data_({}),
+      output_buffer_count_(0),
       output_buffer_size_(0),
       ion_device_(ion_device),
       stop_received_(false),
+      input_buffer_notify_params_({}),
       pause_(false) {
   QMMF_INFO("%s: Enter", __func__);
 
@@ -593,7 +595,7 @@ status_t VideoTrackDecoder::PreparePipeline(
   }
 
   for (auto& iter: input_buffer_list_) {
-    BufferDescriptor temp_buffer;
+    BufferDescriptor temp_buffer {};
     temp_buffer.data = iter.data;
     temp_in.push_back(temp_buffer);
   }
@@ -622,7 +624,7 @@ status_t VideoTrackDecoder::PreparePipeline(
   }
 
   for (auto& iter: output_buffer_list_) {
-    BufferDescriptor temp_buffer;
+    BufferDescriptor temp_buffer {};
     temp_buffer.fd = iter.fd;
     temp_buffer.capacity = iter.frame_length;
     temp_out.push_back(temp_buffer);
@@ -1147,7 +1149,7 @@ status_t VideoTrackDecoder::ReconfigOutputPort(void* arg) {
       }
       std::vector<BufferDescriptor> temp_out;
       for (auto& iter: output_buffer_list_) {
-        BufferDescriptor temp_buffer;
+        BufferDescriptor temp_buffer {};
         temp_buffer.fd = iter.fd;
         temp_buffer.capacity = iter.frame_length;
         temp_out.push_back(temp_buffer);
