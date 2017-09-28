@@ -77,6 +77,7 @@ public:
 
   static void EncodeCb(void *p_output, void *userData);
 
+  void *libjpeg_interface_;
 };
 
 }; //namespace jpegencoder ends here

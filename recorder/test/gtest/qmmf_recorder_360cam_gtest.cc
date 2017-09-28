@@ -191,6 +191,50 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
 }
 
 /*
+* StartStopMultuCamera: This test case will test Start & StopCamera Api.
+* Api test sequence:
+*   loop Start {
+*   ------------------
+*  - StartCamera
+*  - StopCamera
+*   ------------------
+*   } loop End
+*/
+TEST_F(Recorder360Gtest, StartStopMultiCamera) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+
+  assert(ret == NO_ERROR);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr,
+                                         0);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+    assert(ret == NO_ERROR);
+    sleep(2);
+
+    ret = recorder_.StopCamera(multicam_id_);
+    assert(ret == NO_ERROR);
+
+  }
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * Stitched6KSnapshot: This case will test a MultiCamera capture for stitched
 *                     6K JPEG snapshot.
 * Api test sequence:

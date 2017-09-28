@@ -107,19 +107,20 @@ void JpegEncoder::releaseInstance() {
 JpegEncoder::JpegEncoder() :
     cfg_(NULL),
     job_result_ptr_(NULL),
-    job_result_size_(0) {
+    job_result_size_(0),
+    libjpeg_interface_(nullptr) {
   cfg_ = new JpegEncoderParams;
   JE_GET_PARAMS(cfg);
   cfg->handle_ = 0;
   cfg->handle_ = 0;
   cfg->job_id_ = 0;
 
-  void *libjpeg_interface = dlopen("libmmjpeg_interface.so", RTLD_NOW);
-  if(!libjpeg_interface) {
+  libjpeg_interface_ = dlopen("libmmjpeg_interface.so", RTLD_NOW);
+  if (!libjpeg_interface_) {
     ALOGE("%s: could not open jpeg library", __func__);
   } else {
     cfg->jpeg_open_proc_ =
-        (jpeg_open_proc_t)dlsym(libjpeg_interface, "jpeg_open");
+        (jpeg_open_proc_t)dlsym(libjpeg_interface_, "jpeg_open");
     if(!cfg->jpeg_open_proc_) {
       ALOGE("%s: could not dlsym jpeg_open", __func__);
     }
@@ -177,6 +178,13 @@ JpegEncoder::JpegEncoder() :
 JpegEncoder::~JpegEncoder() {
   JE_GET_PARAMS(cfg);
   std::lock_guard<std::mutex> al(cfg->encode_lock_);
+  if (nullptr != libjpeg_interface_) {
+    dlclose(libjpeg_interface_);
+  }
+  if (cfg) {
+    delete cfg;
+    cfg = nullptr;
+  }
 }
 
 void JpegEncoder::FillImgData(const CameraBufferMetaData& source_info) {
