@@ -112,6 +112,7 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
       plugins->push_back(plugin_info);
       plugin_libraries_.emplace(plugin_info.name, library);
 
+      delete plugin;
       Utils::UnloadLib(lib_handle);
     } catch (const std::exception &e) {
       QMMF_ERROR("%s:%s: Error getting plugin info for %s exception: %s", TAG,
