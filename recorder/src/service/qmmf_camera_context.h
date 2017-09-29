@@ -155,11 +155,6 @@ class CameraContext : public CameraInterface,
     uint32_t framerate;
   };
 
-  struct SyncFrame {
-    int64_t           last_frame_id;
-    std::set<int32_t> stream_ids;
-  };
-
   friend class CameraPort;
   friend class ZslPort;
 
@@ -250,6 +245,12 @@ class CameraContext : public CameraInterface,
   int32_t                  streaming_request_id_;
   int32_t                  previous_streaming_request_id_;
 
+  // Map of stream id and it's last request frame number submitted to HAL.
+  std::map<int32_t, int64_t> last_frame_number_map_;
+
+  // Stream ids that have been removed from capture requests.
+  std::set<int32_t>        removed_stream_ids_;
+
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   Vector<int32_t>          snapshot_request_id_;
@@ -286,7 +287,6 @@ class CameraContext : public CameraInterface,
   DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
   sp<PostProcPipe>         postproc_pipe_;
-  SyncFrame                sync_frame_;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
   bool                     aec_done_;
@@ -294,13 +294,13 @@ class CameraContext : public CameraInterface,
   std::mutex               capture_count_lock_;
   std::condition_variable  capture_count_signal_;
 
-  std::mutex               sync_frame_lock_;
-  std::condition_variable  sync_frame_cond_;
+  std::mutex               pending_frames_lock_;
+  std::condition_variable  pending_frames_;
 
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
 
-  static const uint32_t kSyncFrameWaitDuration = 500000000; // 500 ms.
+  static const uint32_t    kSyncFrameWaitDuration = 500000000; // 500 ms.
 
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
