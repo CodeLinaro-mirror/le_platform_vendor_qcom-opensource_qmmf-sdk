@@ -1191,6 +1191,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   float max_fps = 0;
+  std::set<int32_t> stream_ids;
   std::set<int32_t> removed_streams;
 
   //Get all camera stream ids from all active ports which are ready to start.
@@ -1222,6 +1223,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
               streaming_active_requests_[0].metadata);
         }
       }
+      stream_ids.emplace(cam_stream_id);
     } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
 
       QMMF_INFO("%s:%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
@@ -1248,9 +1250,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           req.streamIds.removeAt(idx);
           QMMF_INFO("%s:%s: cam_stream_id(%d) removed from Request!", TAG,
                       __func__, cam_stream_id);
-          if (removed_streams.count(cam_stream_id) == 0) {
-            removed_streams.emplace(cam_stream_id);
-          }
+          removed_streams.emplace(cam_stream_id);
+          stream_ids.emplace(cam_stream_id);
           QMMF_INFO("%s:%s: removed_streams.size(%d)", TAG, __func__,
               removed_streams.size());
         }
@@ -1259,6 +1260,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
       }
+      stream_ids.emplace(cam_stream_id);
     }
   }
 
@@ -1285,10 +1287,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   QMMF_INFO("%s:%s: Number of streams(%d) to start", TAG, __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:%s:Cancelling the request, no pending stream!", TAG, __func__);
-    auto ret = CancelRequest();
-    assert (ret == NO_ERROR);
-    removed_streams.clear();
-    return ret;
+    return CancelRequest();
   }
 
   {
@@ -1298,31 +1297,49 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       fpsRange[0] = ceil(max_fps);
       fpsRange[1] = ceil(max_fps);
 
-      for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
+      for (size_t i = 0; i < streaming_active_requests_.size(); ++i) {
         streaming_active_requests_.editItemAt(i).metadata.update(
             ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
       }
     }
     List<Camera3Request> request_list;
-    for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
+    for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
-    std::unique_lock<std::mutex> sync_lock(sync_frame_lock_);
-    if (!removed_streams.empty()) {
-      sync_frame_.stream_ids.clear();
-      sync_frame_.stream_ids = removed_streams;
-    }
+    std::unique_lock<std::mutex> cond_lock(pending_frames_lock_);
+    int64_t last_frame_number;
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                    &sync_frame_.last_frame_id);
+                                                    &last_frame_number);
     assert(req_id >= 0);
     streaming_request_id_ = req_id;
 
-    std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
-    while (!sync_frame_.stream_ids.empty()) {
-      auto ret = sync_frame_cond_.wait_for(sync_lock, wait_time);
+    // Update the last submitted frame number for each stream id.
+    for (auto const& stream_id : stream_ids) {
+      if (last_frame_number_map_.count(stream_id) != 0 &&
+          last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        // Request was submitted successfully since previous call, update.
+        last_frame_number_map_[stream_id] = last_frame_number;
+      } else {
+        // Newly initiated stream, request hasn't yet been submitted to HAL.
+        last_frame_number_map_[stream_id] = NO_IN_FLIGHT_REPEATING_FRAMES;
+      }
+    }
+
+    // Update the stream ids that need to wait for frames to return.
+    for (auto const& stream_id : removed_streams) {
+      if (last_frame_number_map_[stream_id] != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        removed_stream_ids_.emplace(stream_id);
+      }
+    }
+
+    uint32_t pending_frames_timeout = kSyncFrameWaitDuration;
+    std::chrono::nanoseconds wait_time(pending_frames_timeout);
+    while (!removed_stream_ids_.empty()) {
+      auto ret = pending_frames_.wait_for(cond_lock, wait_time);
       if (ret == std::cv_status::timeout) {
-        QMMF_WARN("%s:%s: Sync frame timed out!", TAG, __func__);
+        QMMF_WARN("%s:%s: Waiting for submitted frames to return, timed out!",
+            TAG, __func__);
       }
     }
   }
@@ -1375,10 +1392,13 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
   auto ret = camera_device_->ReturnStreamBuffer(buffer);
   assert(ret == NO_ERROR);
 
-  std::lock_guard<std::mutex> lock(sync_frame_lock_);
-  if (sync_frame_.last_frame_id == buffer.frame_number) {
-    sync_frame_.stream_ids.clear();
-    sync_frame_cond_.notify_one();
+  std::lock_guard<std::mutex> lock(pending_frames_lock_);
+  if (removed_stream_ids_.count(buffer.stream_id) != 0) {
+    if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
+      removed_stream_ids_.erase(buffer.stream_id);
+      last_frame_number_map_.erase(buffer.stream_id);
+      pending_frames_.notify_one();
+    }
   }
 
   return ret;
