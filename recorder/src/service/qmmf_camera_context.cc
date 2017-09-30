@@ -1113,11 +1113,6 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
   int64_t last_frame_mumber;
   assert(camera_device_.get() != nullptr);
 
-  // Avoid Race Condition between SubmitRequestList and
-  // DeleteStream call, so making proper synchronization among them
-
-  std::unique_lock<std::mutex> dlock(request_submitted_lock_);
-
   bool resume_streaming = false;
   if (camera_start_params_.zsl_mode && zsl_port_.get() != nullptr
       && (0 <= streaming_request_id_)) {
@@ -1318,12 +1313,6 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       sync_frame_.stream_ids.clear();
       sync_frame_.stream_ids = removed_streams;
     }
-
-    // Avoid Race Condition between SubmitRequestList and DeleteStream call
-    // so making proper synchronization among them
-
-    std::unique_lock<std::mutex> dlock(request_submitted_lock_);
-
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &sync_frame_.last_frame_id);
     assert(req_id >= 0);
