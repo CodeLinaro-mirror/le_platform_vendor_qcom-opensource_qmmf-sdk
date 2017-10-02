@@ -534,7 +534,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
         return ret;
       }
       // Wait aec to converge after reconfiguration
-      WaitAecToConverge(kSyncFrameWaitDuration);
+      WaitAecToConverge(kWaitPendingFramesTimeout);
     }
   } else {
     if (ImageFormat::kJPEG != param.image_format) {
@@ -617,7 +617,7 @@ status_t CameraContext::CancelCaptureImage() {
 
   if (!snapshot_request_.streamIds.isEmpty() && !snapshot_request_id_.isEmpty()) {
     std::unique_lock<std::mutex> lock(capture_count_lock_);
-    std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
+    std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
 
     cancel_capture_ = true;
     while (sequence_cnt_ > 0) {
@@ -1307,36 +1307,34 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
-    std::unique_lock<std::mutex> cond_lock(pending_frames_lock_);
+    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
     int64_t last_frame_number;
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &last_frame_number);
     assert(req_id >= 0);
     streaming_request_id_ = req_id;
 
-    // Update the last submitted frame number for each stream id.
     for (auto const& stream_id : stream_ids) {
+      // Update the last submitted frame number for each stream id.
       if (last_frame_number_map_.count(stream_id) != 0 &&
           last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
         // Request was submitted successfully since previous call, update.
         last_frame_number_map_[stream_id] = last_frame_number;
-      } else {
+      } else if (last_frame_number_map_.count(stream_id) == 0) {
         // Newly initiated stream, request hasn't yet been submitted to HAL.
         last_frame_number_map_[stream_id] = NO_IN_FLIGHT_REPEATING_FRAMES;
       }
-    }
 
-    // Update the stream ids that need to wait for frames to return.
-    for (auto const& stream_id : removed_streams) {
-      if (last_frame_number_map_[stream_id] != NO_IN_FLIGHT_REPEATING_FRAMES) {
+      // Update the removed stream ids that need to wait for frames to return.
+      if (removed_streams.count(stream_id) != 0 &&
+          last_frame_number_map_[stream_id] != NO_IN_FLIGHT_REPEATING_FRAMES) {
         removed_stream_ids_.emplace(stream_id);
       }
     }
 
-    uint32_t pending_frames_timeout = kSyncFrameWaitDuration;
-    std::chrono::nanoseconds wait_time(pending_frames_timeout);
+    std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
     while (!removed_stream_ids_.empty()) {
-      auto ret = pending_frames_.wait_for(cond_lock, wait_time);
+      auto ret = pending_frames_.wait_for(pending_frames_lock, wait_time);
       if (ret == std::cv_status::timeout) {
         QMMF_WARN("%s:%s: Waiting for submitted frames to return, timed out!",
             TAG, __func__);
