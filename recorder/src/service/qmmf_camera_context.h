@@ -300,7 +300,7 @@ class CameraContext : public CameraInterface,
   std::mutex               aec_lock_;
   std::condition_variable  aec_signal_;
 
-  static const uint32_t    kSyncFrameWaitDuration = 500000000; // 500 ms.
+  static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
 
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
