@@ -1150,9 +1150,17 @@ status_t TrackSource::Init() {
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
-  stream_param.frame_rate       = track_params_.params.frame_rate;
-  stream_param.id               = track_params_.track_id;
-  stream_param.low_power_mode   = track_params_.params.low_power_mode;
+  stream_param.frame_rate     = track_params_.params.frame_rate;
+  stream_param.id             = track_params_.track_id;
+  stream_param.low_power_mode = track_params_.params.low_power_mode;
+
+  if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
+    VideoWaitAECMode wait_aec;
+    track_params_.extra_param.Fetch(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
+    stream_param.wait_aec_mode = wait_aec.enable;
+  } else {
+    stream_param.wait_aec_mode = false;
+  }
 
   assert(camera_interface_.get() != nullptr);
   auto ret = camera_interface_->CreateStream(stream_param,

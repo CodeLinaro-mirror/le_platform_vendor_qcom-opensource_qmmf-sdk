@@ -123,6 +123,7 @@ struct CameraStreamParam {
   float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;
+  bool               wait_aec_mode;
 };
 
 struct Buffer {
