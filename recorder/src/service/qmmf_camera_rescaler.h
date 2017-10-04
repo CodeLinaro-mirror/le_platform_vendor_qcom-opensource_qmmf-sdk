@@ -35,7 +35,6 @@
 #include <media/msm_media_info.h>
 #include <memory>
 #include <thread>
-#include <utils/RefBase.h>
 
 #include "common/qmmf_common_utils.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
@@ -231,8 +230,7 @@ class CameraRescalerBase : public CameraRescalerThread,
   IRescaler*                        rescaler_;
 };
 
-class CameraRescaler: public CameraRescalerBase,
-                      public RefBase {
+class CameraRescaler: public CameraRescalerBase {
  public:
 
   CameraRescaler();

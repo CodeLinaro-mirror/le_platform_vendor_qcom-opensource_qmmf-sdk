@@ -285,7 +285,7 @@ class CameraContext : public CameraInterface,
 
   std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
-  sp<PostProcPipe>         postproc_pipe_;
+  std::shared_ptr<PostProcPipe> postproc_pipe_;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
   bool                     aec_done_;
@@ -390,7 +390,7 @@ class CameraPort : public RefBase {
 
   std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
-  sp<PostProcPipe>       postproc_pipe_;
+  std::shared_ptr<PostProcPipe> postproc_pipe_;
   std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
   std::mutex             stop_lock_;

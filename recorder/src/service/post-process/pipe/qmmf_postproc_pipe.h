@@ -63,7 +63,7 @@ enum class PostProcPipeState {
   READYTOSTOP,
 };
 
-class PostProcPipe : public virtual  RefBase {
+class PostProcPipe {
 
  public:
 
@@ -96,7 +96,7 @@ class PostProcPipe : public virtual  RefBase {
 
    void UnlinkPipe(sp<IBufferConsumer>& consumer);
 
-   sp<PostProcNode> FindInternalNode(const PostProcIOParam &output);
+   std::shared_ptr<PostProcNode> FindInternalNode(const PostProcIOParam &output);
 
    bool IsRAWFormat(const BufferFormat &format);
 
@@ -118,11 +118,11 @@ class PostProcPipe : public virtual  RefBase {
 
    PostProcPipeState             state_;
 
-   std::vector<sp<PostProcNode>> pipe_;
+   std::vector<std::shared_ptr<PostProcNode>> pipe_;
 
    IPostProc*                    context_;
 
-   sp<PostProcFactory>           factory_;
+   std::shared_ptr<PostProcFactory> factory_;
 
    bool                          use_hal_jpeg_;
 

@@ -184,14 +184,14 @@ class CameraSource {
 
   SnapshotCb client_snapshot_cb_;
 
-  sp<PostProcFactory> factory_;
+  std::shared_ptr<PostProcFactory> factory_;
 
   // Not allowed
   CameraSource();
   CameraSource(const CameraSource&);
   CameraSource& operator=(const CameraSource&);
   static CameraSource* instance_;
-  std::map<int32_t, sp<CameraRescaler> > rescalers_;
+  std::map<int32_t, std::shared_ptr<CameraRescaler> > rescalers_;
 
 };
 
@@ -263,7 +263,7 @@ class TrackSource : public ICodecSource {
   //status_t GetStreamParam(CameraStreamParam& stream_param);
 
   status_t InitCopy(std::shared_ptr<TrackSource> track_source,
-                    const sp<CameraRescaler>& rescaler,
+                    const std::shared_ptr<CameraRescaler>& rescaler,
                     int32_t port_track_id,
                     int32_t track_id_master);
 
@@ -352,7 +352,7 @@ class TrackSource : public ICodecSource {
   uint64_t   frame_repeat_ts_curr_;
   bool       enable_frame_repeat_;
   std::mutex frame_repeat_lock_;
-  sp<CameraRescaler>  rescaler_;
+  std::shared_ptr<CameraRescaler>  rescaler_;
   CameraStreamParam stream_param_;
 
   bool  connected_tocamera_port_;

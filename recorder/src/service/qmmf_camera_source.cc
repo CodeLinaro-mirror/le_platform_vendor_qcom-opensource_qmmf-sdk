@@ -580,11 +580,11 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
 
   shared_ptr<TrackSource> master_track;
   if (copy_stream_mode) {
-    sp<CameraRescaler> rescaler;
+    std::shared_ptr<CameraRescaler> rescaler;
     if (linked_mode == false) {
       if (rescalers_.count(track_id_master) == 0 ||
          (port_track_id == track_id_master)) {
-        rescaler = new CameraRescaler();
+        rescaler = std::make_shared<CameraRescaler>();
         ret = rescaler->Init(track_params);
         if (ret != NO_ERROR) {
           rescaler = nullptr;
@@ -1112,7 +1112,7 @@ int32_t TrackSource::GetCameraPortId() {
 }
 
 status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
-                               const sp<CameraRescaler>& rescaler,
+                               const std::shared_ptr<CameraRescaler>& rescaler,
                                int32_t port_track_id,
                                int32_t track_id_master) {
 

@@ -160,7 +160,7 @@ class MultiCameraManager : public CameraInterface {
   bool                     snapshot_configured_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
-  sp<ICameraPostProcess>   jpeg_encoder_;
+  std::shared_ptr<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
   sp<GrallocMemory>        jpeg_memory_pool_;
 

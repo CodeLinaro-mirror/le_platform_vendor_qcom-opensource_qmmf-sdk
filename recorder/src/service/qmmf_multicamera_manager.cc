@@ -168,14 +168,14 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return ret;
   }
 
-  jpeg_encoder_ = new CameraJpeg();
+  jpeg_encoder_ = std::make_shared<CameraJpeg>();
   jpeg_memory_pool_ = new GrallocMemory();
   ret = jpeg_memory_pool_->Initialize();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Jpeg encoder's memory pool initialization failed!",
         TAG, __func__);
     jpeg_memory_pool_.clear();
-    jpeg_encoder_.clear();
+    jpeg_encoder_ = nullptr;
     return NO_INIT;
   }
 
@@ -229,7 +229,7 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     jpeg_encoding_enabled_ = false;
   }
   jpeg_memory_pool_.clear();
-  jpeg_encoder_.clear();
+  jpeg_encoder_ = nullptr;;
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;
