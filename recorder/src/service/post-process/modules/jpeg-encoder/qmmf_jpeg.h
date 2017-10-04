@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <utils/KeyedVector.h>
-
 #include "../../interface/qmmf_postproc_module.h"
 
 #include "qmmf_jpeg_core.h"

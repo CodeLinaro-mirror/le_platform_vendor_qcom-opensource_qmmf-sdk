@@ -39,7 +39,7 @@ namespace qmmf {
 namespace recorder {
 
 PostProcNode::PostProcNode(int32_t Id, std::string name,
-                           sp<IPostProcModule> module)
+                           std::shared_ptr<IPostProcModule> module)
     : PostProcPlugin<PostProcNode>(this),
       in_(this),
       out_(this),
@@ -51,7 +51,7 @@ PostProcNode::PostProcNode(int32_t Id, std::string name,
   module_->SetCallbacks(this);
   module_->GetCapabilities(caps_);
 
-  mem_pool_ = new MemPool();
+  mem_pool_ = std::make_shared<MemPool>();
 
   state_ = PostProcNodeState::CREATED;
   QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
@@ -68,7 +68,7 @@ PostProcNode::~PostProcNode() {
   module_->Delete();
 
   if (mem_pool_.get() != nullptr) {
-    mem_pool_.clear();
+    mem_pool_ = nullptr;
   }
 
   QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());

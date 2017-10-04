@@ -1808,10 +1808,9 @@ status_t CameraContext::PostProcDelete() {
     postproc_pipe_->Stop();
     postproc_pipe_->RemoveConsumer(GetConsumerIntf());
     DetachConsumer(postproc_pipe_->GetConsumerIntf());
-    postproc_pipe_.clear();
   }
 
-  postproc_pipe_.clear();
+  postproc_pipe_ = nullptr;
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
 }
@@ -1822,7 +1821,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
                                         uint32_t frame_rate,
                                         const std::vector<uint32_t> &plugins) {
 
-  postproc_pipe_ = new PostProcPipe(this);
+  postproc_pipe_ = std::make_shared<PostProcPipe>(this);
   assert(postproc_pipe_.get() != nullptr);
 
   PipeIOParam out_param;
@@ -1942,7 +1941,7 @@ status_t CameraPort::Init() {
 
   if (context_->video_plugins_.count(port_id_) != 0) {
     auto port_plugins = context_->video_plugins_.at(port_id_);
-    postproc_pipe_ = new PostProcPipe(context_);
+    postproc_pipe_ = std::make_shared<PostProcPipe>(context_);
     assert(postproc_pipe_.get() != nullptr);
 
     pipe_config_json_data_.clear();
@@ -2003,7 +2002,7 @@ status_t CameraPort::DeInit() {
 
   if (postproc_pipe_.get() != nullptr) {
     buffer_producer_impl_->RemoveConsumer(postproc_pipe_->GetConsumerIntf());
-    postproc_pipe_.clear();
+    postproc_pipe_ = nullptr;
   }
 
   auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);

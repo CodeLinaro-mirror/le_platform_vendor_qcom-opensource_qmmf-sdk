@@ -46,7 +46,7 @@ struct PostProcParam {
 typedef std::function
     <void(StreamBuffer in_buffer, StreamBuffer out_buffer)>  PostProcCb;
 
-class ICameraPostProcess : public virtual RefBase {
+class ICameraPostProcess {
 
  public:
 
