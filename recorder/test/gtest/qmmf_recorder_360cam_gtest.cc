@@ -13513,6 +13513,20 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
                                      video_track_cb);
     assert(ret == NO_ERROR);
 
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
+    int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
+    int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
+
+    ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
+                           crop_x, crop_y, crop_w, crop_h);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(multicam_id_, meta);
+    assert(ret == NO_ERROR);
+
     ret = recorder_.StartSession(session_id);
     assert(ret == NO_ERROR);
 
@@ -13650,7 +13664,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
     assert(ret == NO_ERROR);
 
     int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
-    int32_t crop_x = 560, crop_y = 440, crop_w = 1920, crop_h = 2160;
+    int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
 
     ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
                            crop_x, crop_y, crop_w, crop_h);
@@ -14000,7 +14014,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     assert(ret == NO_ERROR);
 
     int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
-    int32_t crop_x = 560, crop_y = 440, crop_w = 1920, crop_h = 2160;
+    int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
 
     ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
                            crop_x, crop_y, crop_w, crop_h);
