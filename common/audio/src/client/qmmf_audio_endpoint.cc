@@ -35,7 +35,7 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/client/qmmf_audio_endpoint_client.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {

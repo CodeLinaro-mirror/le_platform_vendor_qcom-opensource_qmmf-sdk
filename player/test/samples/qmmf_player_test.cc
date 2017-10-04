@@ -38,7 +38,7 @@
 #include <string.h>
 #include <fstream>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
 
 

@@ -36,7 +36,7 @@
 #include <chrono>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #include "../interface/qmmf_postproc.h"
 #include "../interface/qmmf_postproc_module.h"

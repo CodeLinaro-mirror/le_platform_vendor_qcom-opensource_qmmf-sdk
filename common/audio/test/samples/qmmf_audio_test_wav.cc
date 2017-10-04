@@ -39,7 +39,7 @@
 #include <string>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf_test {
 namespace common {

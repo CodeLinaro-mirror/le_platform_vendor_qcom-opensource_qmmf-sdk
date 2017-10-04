@@ -44,7 +44,7 @@
 
 #include <linux/msm_ion.h>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"

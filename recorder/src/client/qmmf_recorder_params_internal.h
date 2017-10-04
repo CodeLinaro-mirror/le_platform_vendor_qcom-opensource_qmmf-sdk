@@ -35,7 +35,7 @@
 
 #include <binder/Parcel.h>
 
-#include "common/qmmf_codec_internal.h"
+#include "common/utils/qmmf_codec_internal.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 
 namespace qmmf {

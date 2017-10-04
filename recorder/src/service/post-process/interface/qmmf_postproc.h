@@ -30,7 +30,7 @@
 #pragma once
 
 #include <functional>
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "common/cameraadaptor/qmmf_camera3_types.h"
 
 namespace qmmf {

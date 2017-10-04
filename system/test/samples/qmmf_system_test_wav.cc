@@ -38,7 +38,7 @@
 #include <cstdint>
 #include <string>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf_test {
 namespace system {

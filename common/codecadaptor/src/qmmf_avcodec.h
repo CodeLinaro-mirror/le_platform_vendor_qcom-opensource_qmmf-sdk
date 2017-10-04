@@ -43,7 +43,7 @@
 #include <libstagefrighthw/QComOMXMetadata.h>
 #include <media/hardware/HardwareAPI.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "qmmf-sdk/qmmf_avcodec_params.h"
 #include "qmmf-sdk/qmmf_avcodec.h"
 #include "qmmf_avcodec_common.h"

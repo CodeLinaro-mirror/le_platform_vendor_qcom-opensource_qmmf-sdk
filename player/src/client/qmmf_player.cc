@@ -29,13 +29,12 @@
 
 #define TAG "Player"
 
-#include "qmmf-sdk/qmmf_player.h"
-
 #include <binder/IPCThreadState.h>
+#include <qmmf-sdk/qmmf_player.h>
+#include <qmmf-sdk/qmmf_player_params.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "player/src/client/qmmf_player_client.h"
-#include "qmmf-sdk/qmmf_player_params.h"
 
 namespace qmmf {
 namespace player {

@@ -39,7 +39,7 @@
 #include <queue>
 
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"

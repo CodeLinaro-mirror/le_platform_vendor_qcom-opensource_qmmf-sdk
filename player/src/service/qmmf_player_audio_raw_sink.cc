@@ -29,8 +29,6 @@
 
 #define TAG "AudioRawSink"
 
-#include "player/src/service/qmmf_player_audio_raw_sink.h"
-
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -41,11 +39,12 @@
 #include <thread>
 #include <vector>
 
+#include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
-#include "common/qmmf_log.h"
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_ion.h"
+#include "player/src/service/qmmf_player_audio_raw_sink.h"
 
 #define NUMBER_OF_SINK_BUFFERS (4)
 

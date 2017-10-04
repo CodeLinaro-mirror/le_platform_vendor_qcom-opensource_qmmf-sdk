@@ -27,7 +27,7 @@
 #include <hardware/gralloc.h>
 #include <camera/CameraMetadata.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #define MAX_PLANE 3
 
