@@ -48,7 +48,7 @@
 #include <bitset>
 #include <iostream>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "qmmf-sdk/qmmf_avcodec.h"
 
 using namespace android;

@@ -151,6 +151,7 @@ AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
 
 AC_CONFIG_FILES([ \
     Makefile \
+    common/utils/Makefile \
     common/overlay/Makefile \
     common/cameraadaptor/Makefile \
     common/audio/src/client/Makefile \

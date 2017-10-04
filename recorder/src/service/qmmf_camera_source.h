@@ -41,6 +41,7 @@
 #include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "common/utils/qmmf_condition.h"
 
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 

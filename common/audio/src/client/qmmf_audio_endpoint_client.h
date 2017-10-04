@@ -39,7 +39,7 @@
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_service_interface.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {

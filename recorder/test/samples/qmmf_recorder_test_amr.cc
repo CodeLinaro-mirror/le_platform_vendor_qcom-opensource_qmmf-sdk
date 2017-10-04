@@ -45,7 +45,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 using ::qmmf::AudioFormat;
 using ::qmmf::BufferDescriptor;

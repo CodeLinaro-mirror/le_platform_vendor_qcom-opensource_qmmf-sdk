@@ -51,7 +51,7 @@
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_omx_client.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 #define OMX_SPEC_VERSION 0x00000101
 

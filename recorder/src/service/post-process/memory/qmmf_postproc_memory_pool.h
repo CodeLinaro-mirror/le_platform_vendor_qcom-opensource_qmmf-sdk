@@ -32,7 +32,7 @@
 #include <memory>
 #include <qcom/display/gralloc_priv.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #include "../plugin/qmmf_postproc_plugin.h"
 

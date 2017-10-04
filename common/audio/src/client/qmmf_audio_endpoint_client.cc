@@ -55,8 +55,8 @@
 #include <utils/String16.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/qmmf_device_internal.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_device_internal.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {

@@ -32,7 +32,7 @@
 #include <string.h>
 #include <cutils/properties.h>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "player/src/service/qmmf_player_common.h"
 
 namespace qmmf {
