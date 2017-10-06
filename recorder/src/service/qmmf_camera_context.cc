@@ -70,7 +70,8 @@ CameraContext::CameraContext()
       batch_stream_id_(-1),
       aec_done_(false),
       partial_metadata_required_(false),
-      partial_result_count_(0) {
+      partial_result_count_(0),
+      snapshot_type_(SnapshotMode::kStill) {
   camera_start_params_ = {};
 }
 
@@ -571,7 +572,21 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
         snapshot_request_.metadata.append(*it++);
       }
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+      uint32_t active_streamid_count = 0;
+      if (snapshot_type_ == SnapshotMode::kVideo) {
+        if (streaming_active_requests_.size() == 1) {
+          auto request = streaming_active_requests_[0];
+          for (auto stream_id : request.streamIds) {
+            snapshot_request_.streamIds.add(stream_id);
+            active_streamid_count++;
+          }
+        } else {
+          QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+        }
+      }
       requests.push_back(snapshot_request_);
+      snapshot_request_.streamIds.
+        resize(snapshot_request_.streamIds.size() - active_streamid_count);
     }
 
     auto request_id = camera_device_->SubmitRequestList(requests, false,
@@ -606,6 +621,12 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       }
       capture_plugins_.push_back(plugin.uid);
     }
+  }
+
+  if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
+    SnapshotType type;
+    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
+    snapshot_type_ = type.type;
   }
 
   return NO_ERROR;
@@ -1553,6 +1574,16 @@ status_t CameraContext::CaptureZSLImage() {
     reprocess_request.metadata = zsl_port->GetInputBuffer().result;
     reprocess_request.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality,
                                       1);
+    if (snapshot_type_ == SnapshotMode::kVideo) {
+      if (streaming_active_requests_.size() == 1) {
+        auto request = streaming_active_requests_[0];
+        for (auto stream_id : request.streamIds) {
+          reprocess_request.streamIds.add(stream_id);
+        }
+      } else {
+        QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+      }
+    }
     QMMF_INFO("%s:%s: Submit ZSL reprocess request!!", TAG, __func__);
     auto id = camera_device_->SubmitRequest(reprocess_request, false,
                                             &last_frame_mumber);
@@ -1563,6 +1594,19 @@ status_t CameraContext::CaptureZSLImage() {
     }
   } else {
     QMMF_INFO("%s:%s: Submit Reguar snapshot request!", TAG, __func__);
+
+    uint32_t active_streamid_count = 0;
+    if (snapshot_type_ == SnapshotMode::kVideo) {
+      if (streaming_active_requests_.size() == 1) {
+        auto request = streaming_active_requests_[0];
+        for (auto stream_id : request.streamIds) {
+          snapshot_request_.streamIds.add(stream_id);
+          active_streamid_count++;
+        }
+      } else {
+        QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+      }
+    }
     snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
     auto id = camera_device_->SubmitRequest(snapshot_request_,
                                             false,
@@ -1572,6 +1616,9 @@ status_t CameraContext::CaptureZSLImage() {
                  TAG, __func__, id);
       ret = UNKNOWN_ERROR;
     }
+
+    snapshot_request_.streamIds.
+      resize(snapshot_request_.streamIds.size() - active_streamid_count);
   }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
