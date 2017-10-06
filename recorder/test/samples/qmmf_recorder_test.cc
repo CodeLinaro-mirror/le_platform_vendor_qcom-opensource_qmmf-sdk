@@ -1632,11 +1632,9 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
       }
       std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
       burst_snapshot_count_ = snapshot_info.count;
-      uint32_t wait_time_secs = get_snapshot_cb_wait_time();
+      std::chrono::milliseconds wait_time(get_snapshot_cb_wait_time() * 1000);
 
-      if (snapshot_wait_signal_.wait_for(lock,
-         std::chrono::milliseconds(wait_time_secs * 1000)) ==
-           std::cv_status::timeout) {
+      if (snapshot_wait_signal_.WaitFor(lock, wait_time) != 0) {
            TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
       }
       {
@@ -1829,11 +1827,10 @@ status_t RecorderTest::TakeSnapshot() {
           ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
         }
         std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
-        uint32_t wait_time_secs = get_snapshot_cb_wait_time();
         burst_snapshot_count_ = num_images_;
-        if (snapshot_wait_signal_.wait_for(lock,
-           std::chrono::milliseconds(wait_time_secs * 1000)) ==
-             std::cv_status::timeout) {
+        std::chrono::milliseconds wait_time(get_snapshot_cb_wait_time() * 1000);
+
+        if (snapshot_wait_signal_.WaitFor(lock, wait_time) != 0) {
              TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
         }
         {
@@ -3879,7 +3876,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
   if (image_sequence_count == burst_snapshot_count_ - 1) {
-    snapshot_wait_signal_.notify_one();
+    snapshot_wait_signal_.Signal();
   }
 
   TEST_INFO("%s:%s Exit", TAG, __func__);

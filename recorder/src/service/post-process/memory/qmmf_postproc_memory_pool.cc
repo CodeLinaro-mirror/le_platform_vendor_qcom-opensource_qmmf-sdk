@@ -133,7 +133,7 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
   gralloc_buffers_[buffer.handle] = true;
   pending_buffer_count_--;
 
-  wait_for_buffer_.notify_one();
+  wait_for_buffer_.Signal();
   return NO_ERROR;
 }
 
@@ -153,8 +153,8 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     QMMF_VERBOSE("%s:%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one", TAG, __func__, params_.max_buffer_count);
 
-    auto ret = wait_for_buffer_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_for_buffer_.WaitFor(lock, wait_time);
+    if (ret != 0) {
       QMMF_ERROR("%s:%s: Wait for output buffer return timed out", TAG,
                  __func__);
       return TIMED_OUT;

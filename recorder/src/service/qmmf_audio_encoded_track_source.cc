@@ -32,7 +32,6 @@
 #include "recorder/src/service/qmmf_audio_track_source.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -41,10 +40,11 @@
 #include <thread>
 #include <vector>
 
+#include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_condition.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/utils/qmmf_log.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 
@@ -62,8 +62,6 @@ using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortEventType;
 using ::qmmf::avcodec::PortreconfigData;
 using ::std::chrono::seconds;
-using ::std::condition_variable;
-using ::std::cv_status;
 using ::std::mutex;
 using ::std::queue;
 using ::std::string;
@@ -312,7 +310,7 @@ status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
 
   while (buffers_.empty() && !stop_notify_received_) {
     unique_lock<mutex> lk(mutex_);
-    if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+    if (signal_.WaitFor(lk, seconds(1)) != 0)
       QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
   }
 
@@ -387,7 +385,7 @@ status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
           while (!buffers_.empty())
             buffers_.pop();
           mutex_.unlock();
-          signal_.notify_one();
+          signal_.Signal();
           QMMF_VERBOSE("%s: %s() emptied the buffer queue", TAG, __func__);
         }
         break;
@@ -447,7 +445,7 @@ void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
   mutex_.lock();
   buffers_.push(stream_buffer);
   mutex_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 }
 
 }; // namespace recorder

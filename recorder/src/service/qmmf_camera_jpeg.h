@@ -30,15 +30,15 @@
 #pragma once
 
 #include <mutex>
-#include <condition_variable>
 
 #include <camera/CameraMetadata.h>
 #include <qcom/display/gralloc_priv.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
+#include "common/utils/qmmf_condition.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/post-process/interface/qmmf_postproc_module.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
 #include "qmmf_jpeg_encoder.h"
 #include "qmmf_exif_generator.h"
@@ -131,10 +131,10 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
   JpegEncoder*             jpeg_encoder_;
   PostProcCb               capture_client_cb_;
 
-  std::condition_variable  wait_for_buffer_;
+  QCondition               wait_for_buffer_;
   std::mutex               buffer_lock_;
 
-  std::condition_variable  wait_for_result_;
+  QCondition               wait_for_result_;
   std::mutex               result_lock_;
 
   List<Buff>              input_buffer_;

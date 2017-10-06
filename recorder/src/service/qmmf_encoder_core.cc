@@ -436,7 +436,7 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
     for (; it != output_occupy_buffer_queue_.End(); ++it) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.notify_one();
+      wait_for_frame_.Signal();
     }
   }
   assert(avcodec_ != nullptr);
@@ -521,7 +521,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
     QMMF_DEBUG("%s:%s track_id(%x) No buffer available to notify,"
       " Wait for new buffer", TAG, __func__, TrackId());
     std::unique_lock<std::mutex> lock(queue_lock_);
-    wait_for_frame_.wait(lock);
+    wait_for_frame_.Wait(lock);
     //TODO: change simple wait to relative wait.
   }
 
@@ -597,7 +597,7 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
       QMMF_VERBOSE("%s:%s track_id(%x) Buffer found", TAG, __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.notify_one();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -670,7 +670,7 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
         output_free_buffer_queue_.PushBack((*it));
         // Erase buffer from occupy queue.
         output_occupy_buffer_queue_.Erase(it);
-        wait_for_frame_.notify_one();
+        wait_for_frame_.Signal();
         match = true;
         break;
       }

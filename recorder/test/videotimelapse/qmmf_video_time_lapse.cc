@@ -822,7 +822,7 @@ void EncoderSource::ConsumeBuffer(BufferDescriptor &buffer) {
            buffer.size);
 
   input_free_buffer_list_.push_back(buffer);
-  wait_for_frame_.notify_one();
+  wait_for_frame_.Signal();
 
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Exit", __func__);
 }
@@ -836,7 +836,7 @@ int32_t EncoderSource::GetBuffer(BufferDescriptor &codec_buffer,
   while (input_free_buffer_list_.size() <= 0) {
     ALOGW("EncoderSource:%s: No sanpshot available wait for snapshot",
           __func__);
-    wait_for_frame_.wait(lock);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor &buffer = *input_free_buffer_list_.begin();
@@ -986,7 +986,7 @@ int32_t EncoderSink::GetBuffer(BufferDescriptor &codec_buffer,
   std::unique_lock<mutex> lock(wait_for_frame_lock_);
   while (output_free_buffer_list_.size() <= 0) {
     ALOGW("%s: No buffer available to notify. Wait for new buffer", __func__);
-    wait_for_frame_.wait(lock);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor &buffer = *output_free_buffer_list_.begin();
@@ -1036,7 +1036,7 @@ int32_t EncoderSink::ReturnBuffer(BufferDescriptor &codec_buffer,
       if (((*it).data) == (codec_buffer.data)) {
         output_free_buffer_list_.push_back(*it);
         output_occupy_buffer_list_.erase(it);
-        wait_for_frame_.notify_one();
+        wait_for_frame_.Signal();
         found = true;
         break;
       }

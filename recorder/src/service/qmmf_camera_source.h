@@ -31,19 +31,17 @@
 
 #include <memory>
 #include <mutex>
-#include <condition_variable>
 
 #include <camera/CameraMetadata.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
+#include "common/utils/qmmf_condition.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_camera_rescaler.h"
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/utils/qmmf_condition.h"
-
-#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 namespace qmmf {
 
@@ -313,11 +311,11 @@ class TrackSource : public ICodecSource {
   std::mutex               eos_lock_;
 
   std::mutex               lock_;
-  std::condition_variable  wait_for_frame_;
+  QCondition               wait_for_frame_;
 
   // will be used till we make stop api as async.
   std::mutex               idle_lock_;
-  std::condition_variable  wait_for_idle_;
+  QCondition               wait_for_idle_;
 
   // Maps of Unique buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> buffer_list_;
