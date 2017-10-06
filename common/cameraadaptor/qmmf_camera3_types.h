@@ -50,6 +50,7 @@ typedef struct {
   int32_t grallocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
+  bool is_pp_enabled = true;
 } CameraStreamParameters;
 
 typedef struct Camera3Request_t {
