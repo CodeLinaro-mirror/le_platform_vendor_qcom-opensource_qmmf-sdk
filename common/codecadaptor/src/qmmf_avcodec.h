@@ -38,7 +38,6 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
-#include <utils/Condition.h>
 
 #include <libstagefrighthw/QComOMXMetadata.h>
 #include <media/hardware/HardwareAPI.h>
@@ -236,8 +235,8 @@ class AVCodec : public IAVCodec {
   // For Port Reconfig
   bool                      bPortReconfig_;
   ::android::Mutex          port_reconfig_lock_;
-  ::android::Mutex          threadrun_port_reconfig_lock_;
-  ::android::Condition      wait_for_threadrun;
+  std::mutex                threadrun_port_reconfig_lock_;
+  QCondition                wait_for_threadrun;
   CodecParam                codec_params_;
 };
 

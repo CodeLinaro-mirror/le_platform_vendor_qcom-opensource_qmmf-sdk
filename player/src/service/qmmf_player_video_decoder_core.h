@@ -178,12 +178,12 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   uint32_t                             output_buffer_count_;
   uint32_t                             output_buffer_size_;
 
-  Mutex                   wait_for_empty_frame_lock_;
-  Condition               wait_for_empty_frame_;
-  Mutex                   wait_for_frame_lock_;
-  Condition               wait_for_frame_;
+  std::mutex              wait_for_empty_frame_lock_;
+  QCondition              wait_for_empty_frame_;
+  std::mutex              wait_for_frame_lock_;
+  QCondition              wait_for_frame_;
   int32_t                 ion_device_;
-  Mutex                   queue_lock_;
+  std::mutex              queue_lock_;
 
 #ifdef DUMP_VIDEO_BITSTREAM
   int32_t                 file_fd_video_;
