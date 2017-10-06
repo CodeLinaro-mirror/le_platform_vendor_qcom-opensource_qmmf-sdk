@@ -242,9 +242,9 @@ void AudioTrackSink::BufferHandler(const AudioBuffer& buffer) {
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
 
-  Mutex::Autolock lock(sink_queue_lock_);
+  std::lock_guard<std::mutex> lock(sink_queue_lock_);
   sink_buffer_queue_.PushBack(buffer);
-  wait_for_sink_frame_.signal();
+  wait_for_sink_frame_.Signal();
 }
 
 void AudioTrackSink::StoppedHandler() {
@@ -494,8 +494,8 @@ status_t AudioTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_DEBUG("%s:%s track_id(%d) No buffer available to notify,"
       " Wait for new buffer", TAG, __func__, TrackId());
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   CodecBuffer iter = *output_free_buffer_queue_.Begin();
@@ -503,7 +503,7 @@ status_t AudioTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   codec_buffer.data = (iter).pointer;
   output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
   {
-    Mutex::Autolock lock(queue_lock_);
+    std::lock_guard<std::mutex> lock(queue_lock_);
     output_occupy_buffer_queue_.PushBack(iter);
   }
   QMMF_DEBUG("%s:%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB", TAG,
@@ -543,7 +543,7 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       QMMF_VERBOSE("%s:%s track_id(%d) Buffer found", TAG, __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -603,11 +603,11 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
   sinkbuffers.clear();
 
   if (paused_) {
-    Mutex::Autolock lock(sink_queue_lock_);
+    std::lock_guard<std::mutex> lock(sink_queue_lock_);
     sinkbuffers[0].size = 0;
     sinkbuffers[0].timestamp = 0;
     sink_buffer_queue_.PushBack(sinkbuffers[0]);
-    wait_for_sink_frame_.signal();
+    wait_for_sink_frame_.Signal();
   }
 
   QMMF_DEBUG("%s:%s: Exit track_id(%d)", TAG, __func__, TrackId());
@@ -621,8 +621,8 @@ int32_t AudioTrackSink::GetSinkBuffer(std::vector<AudioBuffer>& buffers) {
   if(sink_buffer_queue_.Size() <= 0) {
     QMMF_DEBUG("%s:%s track_id(%d) No buffer available for Audio sink,"
       " Wait for new buffer", TAG, __func__, TrackId());
-    Mutex::Autolock autoLock(sink_queue_lock_);
-    wait_for_sink_frame_.wait(sink_queue_lock_);
+    std::unique_lock<std::mutex> lock(sink_queue_lock_);
+    wait_for_sink_frame_.Wait(lock);
     //TODO: change simple wait to relative wait.
   }
 

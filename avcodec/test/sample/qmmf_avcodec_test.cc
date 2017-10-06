@@ -198,7 +198,7 @@ status_t CodecTest::StartCodec() {
   status_t ret = 0;
 
   {
-    Mutex::Autolock l(stop_lock_);
+    std::lock_guard<std::mutex> lock(stop_lock_);
     stop_ = false;
   }
 
@@ -215,7 +215,7 @@ status_t CodecTest::StopCodec() {
   status_t ret = 0;
 
   {
-    Mutex::Autolock l(stop_lock_);
+    std::lock_guard<std::mutex> lock(stop_lock_);
     stop_ = true;
   }
 
@@ -302,8 +302,8 @@ status_t CodecTest::SetCodecParameters() {
 
 bool CodecTest::IsStop() {
 
-   Mutex::Autolock l(stop_lock_);
-   return stop_;
+  std::lock_guard<std::mutex> lock(stop_lock_);
+  return stop_;
 }
 
 status_t CodecTest::AllocateBuffer(uint32_t index) {
@@ -816,8 +816,8 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
 
   if(input_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available. Wait for new buffer", TAG, __func__);
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
@@ -913,7 +913,7 @@ status_t InputCodecSourceImpl::ReturnBuffer(BufferDescriptor& buffer,
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
     if ((*it).data ==  buffer.data) {
       input_free_buffer_queue_.PushBack(*it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -981,8 +981,8 @@ status_t OutputCodecSourceImpl::GetBuffer(BufferDescriptor& codec_buffer,
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available to notify. Wait for new buffer", TAG,
         __func__);
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
@@ -1026,7 +1026,7 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
     if (((*it).data) ==  (codec_buffer.data)) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
