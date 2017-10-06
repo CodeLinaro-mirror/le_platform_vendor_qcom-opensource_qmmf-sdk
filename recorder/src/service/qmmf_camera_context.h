@@ -305,6 +305,7 @@ class CameraContext : public CameraInterface,
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
+  SnapshotMode             snapshot_type_;
 };
 
 enum class CameraPortType {
