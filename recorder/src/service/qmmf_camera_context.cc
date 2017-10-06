@@ -508,7 +508,7 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 
   aec_done_ = false;
   while (!aec_done_ && (streaming_request_id_ != -1)) {
-    if (aec_signal_.wait_for(lock, wait_time) == std::cv_status::timeout) {
+    if (aec_signal_.WaitFor(lock, wait_time) != 0) {
       QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
       return TIMED_OUT;
     }
@@ -629,8 +629,8 @@ status_t CameraContext::CancelCaptureImage() {
       QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
           __func__, sequence_cnt_);
 
-      auto ret = capture_count_signal_.wait_for(lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = capture_count_signal_.WaitFor(lock, wait_time);
+      if (ret != 0) {
         QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
         return TIMED_OUT;
       }
@@ -1341,8 +1341,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
     std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
     while (!removed_stream_ids_.empty()) {
-      auto ret = pending_frames_.wait_for(pending_frames_lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = pending_frames_.WaitFor(pending_frames_lock, wait_time);
+      if (ret != 0) {
         QMMF_WARN("%s:%s: Waiting for submitted frames to return, timed out!",
             TAG, __func__);
       }
@@ -1402,7 +1402,7 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
     if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
       removed_stream_ids_.erase(buffer.stream_id);
       last_frame_number_map_.erase(buffer.stream_id);
-      pending_frames_.notify_one();
+      pending_frames_.Signal();
     }
   }
 
@@ -1434,7 +1434,7 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
       camera_device_->ReturnStreamBuffer(buffer);
       if (sequence_cnt_ == 0) {
         QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
-        capture_count_signal_.notify_one();
+        capture_count_signal_.Signal();
       }
       return;
     }
@@ -1663,7 +1663,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
         if ((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED)) {
           aec_done_ = true;
-          aec_signal_.notify_one();
+          aec_signal_.Signal();
         }
       }
     }

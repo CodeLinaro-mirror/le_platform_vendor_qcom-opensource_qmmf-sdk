@@ -31,7 +31,6 @@
 
 #include "recorder/src/service/qmmf_audio_track_source.h"
 
-#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -60,7 +59,6 @@ using ::qmmf::common::audio::AudioEventData;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioParamCustomData;
 using ::qmmf::common::audio::AudioParamType;
-using ::std::condition_variable;
 using ::std::mutex;
 using ::std::queue;
 using ::std::string;
@@ -233,7 +231,7 @@ status_t AudioRawTrackSource::StopTrack() {
   message_lock_.lock();
   messages_.push(message);
   message_lock_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 
   int32_t result = end_point_->Stop();
   if (result < 0) {
@@ -264,7 +262,7 @@ status_t AudioRawTrackSource::PauseTrack() {
   message_lock_.lock();
   messages_.push(message);
   message_lock_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 
   int32_t result = end_point_->Pause();
   if (result < 0) {
@@ -293,7 +291,7 @@ status_t AudioRawTrackSource::ResumeTrack() {
   message_lock_.lock();
   messages_.push(message);
   message_lock_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 
   return ::android::NO_ERROR;
 }
@@ -333,7 +331,7 @@ status_t AudioRawTrackSource::ReturnTrackBuffer(
     message_lock_.lock();
     messages_.push(message);
     message_lock_.unlock();
-    signal_.notify_one();
+    signal_.Signal();
   }
 
   return ::android::NO_ERROR;
@@ -363,7 +361,7 @@ void AudioRawTrackSource::BufferHandler(const AudioBuffer& buffer) {
   message_lock_.lock();
   messages_.push(message);
   message_lock_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 }
 
 void AudioRawTrackSource::ThreadEntry(AudioRawTrackSource* source) {
@@ -398,7 +396,7 @@ void AudioRawTrackSource::Thread() {
     // wait until there is something to do
     if (bn_buffers.empty() && buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      signal_.wait(lk);
+      signal_.Wait(lk);
     }
 
     // process the next pending message

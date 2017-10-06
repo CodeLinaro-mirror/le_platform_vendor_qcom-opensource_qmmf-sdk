@@ -29,12 +29,12 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <string>
 #include <thread>
 
+#include "common/utils/qmmf_condition.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
@@ -108,7 +108,7 @@ class AudioRawTrackSource : public IAudioTrackSource {
   ::std::thread* thread_;
   ::std::mutex message_lock_;
   ::std::queue<AudioMessage> messages_;
-  ::std::condition_variable signal_;
+  QCondition signal_;
 
   // disable copy, assignment, and move
   AudioRawTrackSource(const AudioRawTrackSource&) = delete;
@@ -158,8 +158,8 @@ class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
   bool stop_called_;
   bool stop_notify_received_;
 
-  ::std::mutex mutex_;
-  ::std::condition_variable signal_;
+  std::mutex mutex_;
+  QCondition signal_;
 
   // disable copy, assignment, and move
   AudioEncodedTrackSource(const AudioEncodedTrackSource&) = delete;

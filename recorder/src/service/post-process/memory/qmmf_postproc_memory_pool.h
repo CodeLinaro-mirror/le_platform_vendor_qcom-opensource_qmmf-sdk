@@ -33,7 +33,7 @@
 #include <qcom/display/gralloc_priv.h>
 
 #include "common/utils/qmmf_common_utils.h"
-
+#include "common/utils/qmmf_condition.h"
 #include "../plugin/qmmf_postproc_plugin.h"
 
 namespace qmmf {
@@ -83,7 +83,7 @@ class MemPool {
    MemPoolParams            params_;
 
    std::mutex               buffer_lock_;
-   std::condition_variable  wait_for_buffer_;
+   QCondition               wait_for_buffer_;
 
    static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };

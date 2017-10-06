@@ -29,12 +29,12 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <queue>
 
+#include "common/utils/qmmf_condition.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -76,8 +76,8 @@ class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
   ::std::queue<BufferDescriptor> buffers_;
   RecorderIon ion_;
 
-  ::std::mutex mutex_;
-  ::std::condition_variable signal_;
+  std::mutex mutex_;
+  QCondition signal_;
 };
 
 class AudioEncoderCore {

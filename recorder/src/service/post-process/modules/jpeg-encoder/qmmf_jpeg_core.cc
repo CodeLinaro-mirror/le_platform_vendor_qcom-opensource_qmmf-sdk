@@ -29,13 +29,17 @@
 
 #define TAG "RecorderJpeg"
 
-#include <condition_variable>
+#include <mutex>
 #include <dlfcn.h>
+
 #include <hardware/camera3.h>
 #include <mm_jpeg_interface.h>
-#include <mutex>
 #include <qmmf_jpeg_core.h>
 #include <utils/Log.h>
+
+#include "common/utils/qmmf_condition.h"
+
+using namespace qmmf;
 
 typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
                                      mm_jpeg_mpo_ops_t *,
@@ -52,7 +56,7 @@ typedef struct {
   uint32_t job_id_;
   std::mutex encode_lock_;
   std::mutex enc_done_lock_;
-  std::condition_variable enc_done_cond_;
+  QCondition enc_done_cond_;
 } JpegEncoderParams;
 
 #define JE_GET_PARAMS(x) JpegEncoderParams *(x) = (JpegEncoderParams *)cfg_
@@ -271,7 +275,7 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
 
   if (!cfg->ops_.start_job(&cfg->job_, &cfg->job_id_)) {
     std::unique_lock<std::mutex> ul(cfg->enc_done_lock_);
-    cfg->enc_done_cond_.wait(ul);
+    cfg->enc_done_cond_.Wait(ul);
     ul.unlock();
 
     if (jpeg_size) {
@@ -311,7 +315,7 @@ void JpegEncoder::EncodeCb(void *p_output, void *userData) {
   enc->job_result_size_ = output->buf_filled_len;
 
   JpegEncoderParams *cfg = (JpegEncoderParams *)enc->cfg_;
-  cfg->enc_done_cond_.notify_one();
+  cfg->enc_done_cond_.Signal();
 }
 
 } //namespace reprocjpegencoder ends here
