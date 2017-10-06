@@ -1986,7 +1986,7 @@ status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
 
     std::string file_path(FRAME_DUMP_PATH);
     size_t written_len;
-    file_path += "/track_"; %x_%lld.yuv");
+    file_path += "/track_";
     file_path += std::to_string(TrackId()) + "_";
     file_path += std::to_string(buffer.timestamp);
     file_path += ".yuv";
