@@ -42,15 +42,15 @@ namespace qmmf {
 
 namespace recorder {
 
-sp<PostProcFactory> PostProcFactory::instance_ = nullptr;
+std::shared_ptr<PostProcFactory> PostProcFactory::instance_ = nullptr;
 int32_t PostProcFactory::ids_ = 0x00f00000;
 
 const std::string PostProcFactory::plugin_prefix = "libqmmf_alg";
 const std::string PostProcFactory::plugin_suffix = ".so";
 
-sp<PostProcFactory> PostProcFactory::getInstance() {
+std::shared_ptr<PostProcFactory> PostProcFactory::getInstance() {
   if (instance_.get() == nullptr) {
-    instance_ = new PostProcFactory();
+    instance_ = std::make_shared<PostProcFactory>();
   }
   return instance_;
 }
@@ -61,7 +61,7 @@ void PostProcFactory::releaseInstance() {
     QMMF_INFO("%s: Reset reprocess Ids.", __func__);
     ids_ = 0x00f00000;
   }
-  instance_.clear();
+  instance_ = nullptr;
 }
 
 PostProcFactory::PostProcFactory() {
@@ -112,6 +112,7 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
       plugins->push_back(plugin_info);
       plugin_libraries_.emplace(plugin_info.name, library);
 
+      delete plugin;
       Utils::UnloadLib(lib_handle);
     } catch (const std::exception &e) {
       QMMF_ERROR("%s:%s: Error getting plugin info for %s exception: %s", TAG,
@@ -129,9 +130,11 @@ PostProcFactory::CreatePlugin(uint32_t &uid, const PluginInfo &plugin) {
     uid = GetUniqueId();
     std::string library = plugin_libraries_.at(plugin.name);
 
-    sp<IPostProcModule> module = new PostProcAlg(library);
+    std::shared_ptr<IPostProcModule> module =
+        std::make_shared<PostProcAlg>(library);
     if (module.get() != nullptr) {
-      sp<PostProcNode> node = new PostProcNode(uid, plugin.name, module);
+      std::shared_ptr<PostProcNode> node =
+          std::make_shared<PostProcNode>(uid, plugin.name, module);
       plugin_nodes_.emplace(uid, node);
     } else {
       QMMF_ERROR("%s: Failed to create plugin: %s", __func__,
@@ -152,7 +155,7 @@ status_t PostProcFactory::DeletePlugin(const uint32_t &uid) {
       QMMF_ERROR("%s: Plugin(%d) is still used by a pipeline!", __func__, uid);
       return INVALID_OPERATION;
     }
-    plugin_nodes_.at(uid).clear();
+    plugin_nodes_.at(uid) = nullptr;
     plugin_nodes_.erase(uid);
   } else {
     QMMF_ERROR("%s: Invalid plugin uid: %d", __func__, uid);
@@ -178,9 +181,9 @@ status_t PostProcFactory::ConfigPlugin(const uint32_t &uid,
   return NO_ERROR;
 }
 
-sp<PostProcNode>
+std::shared_ptr<PostProcNode>
 PostProcFactory::GetProcNode(const uint32_t &uid) {
-  sp<PostProcNode> node;
+  std::shared_ptr<PostProcNode> node;
 
   if (plugin_nodes_.find(uid) != plugin_nodes_.end()) {
     if (plugin_nodes_in_use_.find(uid) == plugin_nodes_in_use_.end()) {
@@ -195,24 +198,24 @@ PostProcFactory::GetProcNode(const uint32_t &uid) {
   return node;
 }
 
-sp<PostProcNode>
+std::shared_ptr<PostProcNode>
 PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
-  sp<PostProcNode> node;
-  sp<IPostProcModule> module;
+  std::shared_ptr<PostProcNode> node;
+  std::shared_ptr<IPostProcModule> module;
 
   if (name == "JpegEncode") {
-    module = new PostProcJpeg();
+    module = std::make_shared<PostProcJpeg>();
   } else if (name == "HALReprocess") {
-    module = new CameraHalReproc(context);
+    module = std::make_shared<CameraHalReproc>(context);
   } else if (name == "Test") {
-    module = new PostProcTest();
+    module = std::make_shared<PostProcTest>();
   } else {
     QMMF_ERROR("%s: Invalid post process engine: %s", __func__, name.c_str());
     return node;
   }
 
   if (module.get() != nullptr) {
-    node = new PostProcNode(GetUniqueId(), name, module);
+    node = std::make_shared<PostProcNode>(GetUniqueId(), name, module);
     internal_nodes_.emplace(node->GetId(), node);
   } else {
     QMMF_ERROR("%s: Failed to create module: %s", __func__, name.c_str());

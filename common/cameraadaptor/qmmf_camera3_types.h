@@ -50,6 +50,7 @@ typedef struct {
   int32_t grallocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
+  bool is_pp_enabled = true;
 } CameraStreamParameters;
 
 typedef struct Camera3Request_t {
@@ -120,7 +121,7 @@ typedef struct {
 } CameraInputStreamParameters;
 
 enum {
-  NO_IN_FLIGHT_REPEATING_FRAMES = 0,
+  NO_IN_FLIGHT_REPEATING_FRAMES = -1,
 };
 
 }  // namespace cameraadaptor ends here

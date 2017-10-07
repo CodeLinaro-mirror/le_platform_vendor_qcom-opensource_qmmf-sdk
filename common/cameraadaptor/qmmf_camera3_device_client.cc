@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -712,7 +712,7 @@ int32_t Camera3DeviceClient::CreateStream(
 
   // Continue captures if active at start
   if (wasActive) {
-    res = ConfigureStreamsLocked();
+    res = ConfigureStreamsLocked(outputConfiguration.is_pp_enabled);
     if (0 != res) {
       QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
@@ -1418,12 +1418,12 @@ int32_t Camera3DeviceClient::GetCameraInfo(uint32_t idx, CameraMetadata *info) {
 int32_t Camera3DeviceClient::SubmitRequest(Camera3Request request,
                                            bool streaming,
                                            int64_t *lastFrameNumber) {
-  List<Camera3Request> requestList;
+  std::list<Camera3Request> requestList;
   requestList.push_back(request);
   return SubmitRequestList(requestList, streaming, lastFrameNumber);
 }
 
-int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
+int32_t Camera3DeviceClient::SubmitRequestList(std::list<Camera3Request> requests,
                                                bool streaming,
                                                int64_t *lastFrameNumber) {
   int32_t res = 0;
@@ -1459,7 +1459,7 @@ int32_t Camera3DeviceClient::SubmitRequestList(List<Camera3Request> requests,
       goto exit;
   }
 
-  for (List<Camera3Request>::iterator it = requests.begin();
+  for (std::list<Camera3Request>::iterator it = requests.begin();
        it != requests.end(); ++it) {
     Camera3Request request = *it;
     CameraMetadata metadata(request.metadata);

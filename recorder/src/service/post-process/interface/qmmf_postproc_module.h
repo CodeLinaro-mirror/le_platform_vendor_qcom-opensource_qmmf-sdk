@@ -30,7 +30,6 @@
 #pragma once
 
 #include <functional>
-#include <utils/RefBase.h>
 #include <vector>
 #include <set>
 
@@ -132,7 +131,7 @@ class IPostProcEventListener {
   virtual void OnError(RuntimeError err) = 0;
 };
 
-class IPostProcModule : public RefBase {
+class IPostProcModule {
 
  public:
 

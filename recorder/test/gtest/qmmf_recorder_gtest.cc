@@ -31,7 +31,6 @@
 
 
 #include <utils/Log.h>
-#include <utils/String8.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -10792,6 +10791,150 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
 }
 
 /*
+* SessionWith4kEncCopy720EncAndLinked720Enc: This test will test session with
+*  one 720p Enc track, and one linked Enc track.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+  float fps = 120;
+
+  camera_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  uint32_t video_track_id_720p_HFR_avc = 1;
+  uint32_t video_track_id_720p_avc     = 2;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {
+      VideoFormat::kAVC,
+      video_track_id_720p_HFR_avc, 1280, 720
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    assert(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {
+      VideoFormat::kAVC,
+      video_track_id_720p_avc, 1280, 720
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    assert(ret == NO_ERROR);
+  }
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                            1280,
+                                            720,
+                                            fps };
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_HFR_avc,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_720p_HFR_avc);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack surface_video_copy;
+    surface_video_copy.source_track_id = video_track_id_720p_HFR_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
+
+    video_track_param.format_type = VideoFormat::kAVC;
+    video_track_param.width       = 1280;
+    video_track_param.height      = 720;
+    video_track_param.frame_rate  = 30.0;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+            VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    assert(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_720p_avc);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_avc);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_HFR_avc);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionsWith1440pEncAndLinked1440pYUVTrackAndSessionWith1440Enc:
 *   This test will test one session with one 1440p Enc track & one linked
 *   1440p YUV track and second session with one 1440p Enc track.
@@ -12334,15 +12477,15 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       ++id2;
 
     if (id == dump_yuv_freq_ || id2 == dump_yuv_freq_) {
-      String8 file_path;
+      std::string file_path("/data/misc/qmmf/gtest_track_");
       size_t written_len;
-      file_path.appendFormat("/data/misc/qmmf/gtest_track_%d_%lld.yuv",
-                             track_id, buffers[0].timestamp);
-
-      FILE *file = fopen(file_path.string(), "w+");
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".yuv";
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -12355,7 +12498,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-        buffers[0].data, written_len, file_path.string());
+        buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
       if (file != NULL) {
@@ -12435,7 +12578,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
                                BufferDescriptor buffer, MetaData meta_data) {
 
   TEST_INFO("%s:%s Enter", TAG, __func__);
-  String8 file_path;
+
   size_t written_len;
 
   if (meta_data.meta_flag  &
@@ -12492,12 +12635,14 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
       struct timeval tv;
       gettimeofday(&tv, NULL);
       uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-      file_path.appendFormat("/data/misc/qmmf/snapshot_%u_%llu.%s", image_sequence_count,
-          tv_ms, ext_str);
-      FILE *file = fopen(file_path.string(), "w+");
+      std::string file_path("/data/misc/qmmf/snapshot_");
+      file_path += std::to_string(image_sequence_count) + "_";
+      file_path += std::to_string(tv_ms) + ".";
+      file_path += ext_str;
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -12509,7 +12654,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-                buffer.data, written_len, file_path.string());
+                buffer.data, written_len, file_path.c_str());
 
     FAIL:
       if (file != NULL) {
@@ -12864,12 +13009,13 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
       type_string = "bin";
       break;
   }
-  String8 extn(type_string);
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_track_%d_%dx%d.%s",
-                                  dumpinfo.track_id, dumpinfo.width,
-                                  dumpinfo.height, extn.string());
-  int32_t file_fd = open(bitstream_filepath.string(),
+  std::string extn(type_string);
+  std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
+  bitstream_filepath += std::to_string(dumpinfo.track_id) + "_";
+  bitstream_filepath += std::to_string(dumpinfo.width) + "x";
+  bitstream_filepath += std::to_string(dumpinfo.height) + ".";
+  bitstream_filepath += extn;
+  int32_t file_fd = open(bitstream_filepath.c_str(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd <= 0) {
     TEST_ERROR("%s:%s File open failed!", TAG, __func__);
