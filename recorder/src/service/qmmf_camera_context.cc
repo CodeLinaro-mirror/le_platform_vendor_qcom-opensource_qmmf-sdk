@@ -68,7 +68,8 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1),
-      aec_done_(false) {
+      aec_done_(false),
+      flush_mode_set_(false) {
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
 }
 
@@ -710,6 +711,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
     assert(ret == NO_ERROR);
     QMMF_INFO("%s:%s: Global Streaming Capture request created successfully!",
         TAG, __func__);
+    SetFlushMode();
   }
 
   streaming_active_requests_.editItemAt(0).metadata.update(
@@ -1002,7 +1004,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     zsl_port->ResumeZSL();
   }
 
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -1078,6 +1080,8 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
     assert(ret == NO_ERROR);
   }
 
+  size_t size = active_ports_.size();
+  QMMF_INFO("%s:%s: Number of active_ports(%d)", TAG, __func__, size);
   ret = camera_device_->DeleteStream(stream_id, cache);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: Camera Device Stream(%d) deleted successfully!", TAG,
@@ -1509,6 +1513,40 @@ status_t CameraContext::CaptureZSLImage() {
                  TAG, __func__, id);
       ret = UNKNOWN_ERROR;
     }
+  }
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
+status_t CameraContext::SetFlushMode() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+
+  if (!flush_mode_set_) {
+    // Set flush mode only once.
+    CameraMetadata meta;
+    ret = GetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: GetCameraParam Failed!", TAG, __func__,
+          camera_id_);
+      return ret;
+    }
+    uint8_t flush_restart_mode = 0;
+    ret = meta.update(QCAMERA3_HAL_FLUSH_RESTART_MODE, &flush_restart_mode, 1);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: Flush restart mode is failed!", TAG, __func__,
+          camera_id_);
+    }
+    ret = SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+          camera_id_);
+      return ret;
+    }
+    flush_mode_set_ = true;
+    QMMF_INFO("%s:%s: Camera %d: Flush mode is set!", TAG, __func__,
+        camera_id_);
   }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
