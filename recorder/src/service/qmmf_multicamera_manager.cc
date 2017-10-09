@@ -59,7 +59,6 @@ MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
     multicam_start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
-    result_cb_(nullptr),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
@@ -123,11 +122,8 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     }
     QMMF_INFO("%s:%s camera id(%d) to be open", TAG, __func__, cam_id);
 
-    ResultCb result_cb = [this] (uint32_t camera_id,
-      const CameraMetadata &meta) { ResultCallback(camera_id, meta); };
-
     sp<CameraContext> camera_context = new CameraContext();
-    ret = camera_context->OpenCamera(cam_id, param, result_cb);
+    ret = camera_context->OpenCamera(cam_id, param);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: OpenCamera(%d) failed!", TAG, __func__, cam_id);
       camera_context.clear();
@@ -136,7 +132,6 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     camera_contexts_.add(cam_id, camera_context);
   }
 
-  result_cb_ = cb;
   multicam_start_params_ = param;
   supported_fps_ = camera_contexts_.valueAt(0)->GetSupportedFps();
 
@@ -702,19 +697,6 @@ CameraStartParam& MultiCameraManager::GetCameraStartParam() {
 Vector<int32_t>& MultiCameraManager::GetSupportedFps() {
 
   return supported_fps_;
-}
-
-void MultiCameraManager::ResultCallback(uint32_t camera_id,
-                                        const CameraMetadata &meta) {
-
-  if (camera_id == 0) {
-    if (jpeg_encoding_enabled_) {
-      jpeg_encoder_->AddResult(&meta);
-    }
-    if (nullptr != result_cb_) {
-      result_cb_(virtual_camera_id_, meta);
-    }
-  }
 }
 
 status_t MultiCameraManager::SetDefaultSurfaceDim(uint32_t& w, uint32_t& h) {
