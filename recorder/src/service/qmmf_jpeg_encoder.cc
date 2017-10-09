@@ -231,14 +231,10 @@ void JpegEncoder::FillImgData(const CameraBufferMetaData& source_info) {
 
   cfg->pic_size_.w = source_info.plane_info[0].width;
   cfg->pic_size_.h = source_info.plane_info[0].height;
-
-  cfg->job_.encode_job.hal_version = CAM_HAL_V1;
-  cfg->job_.encode_job.cam_exif_params.sensor_params.sens_type =
-      (cam_sensor_t) 1;  /* CAM_SENSOR_YUV */
 }
 
-void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
-                          const uint32_t quality) {
+void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t *jpeg_size,
+                          const uint32_t jpeg_quality) {
   JE_GET_PARAMS(cfg);
   std::lock_guard<std::mutex> al(cfg->encode_lock_);
   job_result_ptr_ = NULL;
@@ -249,15 +245,11 @@ void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
   }
 
   FillImgData(in_buffer.source_info);
-  cfg->params_.quality = quality;
+  cfg->params_.quality = jpeg_quality;
   cfg->params_.src_main_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.src_thumb_buf[0].buf_vaddr = in_buffer.img_data[0];
   cfg->params_.dest_buf[0].buf_vaddr = in_buffer.out_data[0];
   cfg->job_id_ = 0;
-
-  cfg->job_.encode_job.exif_info.numOfEntries = in_buffer.exif_size;
-  cfg->job_.encode_job.exif_info.exif_data =
-      reinterpret_cast<QEXIF_INFO_DATA*>(in_buffer.exif_data);
 
   cfg->handle_ = cfg->jpeg_open_proc_(&cfg->ops_, NULL, cfg->pic_size_, NULL);
   if (cfg->handle_ == 0) {
@@ -277,8 +269,17 @@ void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
     std::unique_lock<std::mutex> ul(cfg->enc_done_lock_);
     cfg->enc_done_cond_.wait(ul);
     ul.unlock();
-    jpeg_size = job_result_size_;
 
+    if (jpeg_size) {
+      /* add a valid jpeg header */
+      camera3_jpeg_blob_t jpegHeader;
+      jpegHeader.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
+      jpegHeader.jpeg_size = (uint32_t) job_result_size_;
+      uint8_t *jpegEof = &cfg->params_.dest_buf[0].buf_vaddr[job_result_size_];
+      memcpy(jpegEof, &jpegHeader, sizeof(jpegHeader));
+
+      *jpeg_size = job_result_size_+sizeof(jpegHeader) ;
+    }
   } else {
     ALOGE("%s: could not start encode job", __func__);
     goto jpeg_encode_exit;
