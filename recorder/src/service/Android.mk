@@ -38,7 +38,6 @@ LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
-LOCAL_SRC_FILES += qmmf_exif_generator.cc
 LOCAL_SRC_FILES += qmmf_camera_reprocess_impl.cc
 LOCAL_SRC_FILES += camera-reprocess/factory/qmmf_camera_factory.cc
 LOCAL_SRC_FILES += camera-reprocess/node/qmmf_camera_node.cc
