@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <utils/List.h>
-#include <utils/Mutex.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/qmmf_common_utils.h"

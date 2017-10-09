@@ -3898,7 +3898,8 @@ void AVCodec::UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* buf_header) {
   bool found = false;
   if (format_type_ == CodecType::kVideoEncoder) {
     std::lock_guard<std::mutex> lock(queue_lock_);
-    List<OMX_BUFFERHEADERTYPE*>::iterator it = used_input_buffhdr_list_.Begin();
+    std::list<OMX_BUFFERHEADERTYPE*>::iterator it =
+        used_input_buffhdr_list_.Begin();
     for (; it != used_input_buffhdr_list_.End(); ++it) {
       if ((*it) == buf_header) {
         QMMF_VERBOSE("%s:%s Found the header!", TAG, __func__);
@@ -3913,7 +3914,8 @@ void AVCodec::UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* buf_header) {
     }
   } else if (format_type_ == CodecType::kVideoDecoder) {
     std::lock_guard<std::mutex> lock(queue_lock_output_);
-    List<OMX_BUFFERHEADERTYPE*>::iterator it = used_output_buffhdr_list_.Begin();
+    std::list<OMX_BUFFERHEADERTYPE*>::iterator it =
+        used_output_buffhdr_list_.Begin();
     for (; it != used_output_buffhdr_list_.End(); ++it) {
       if ((*it) == buf_header) {
         QMMF_VERBOSE("%s:%s Found the header!", TAG, __func__);

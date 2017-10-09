@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include <utils/RefBase.h>
-#include <utils/Log.h>
+#include <utils/Timers.h>
 #include <map>
 #include <mutex>
 #include <condition_variable>
@@ -126,13 +125,13 @@ class OutputHandler : public PostProcThread {
 };
 
 class PostProcNode : public PostProcPlugin<PostProcNode>,
-                     public IPostProcEventListener,
-                     public RefBase {
+                     public IPostProcEventListener {
    friend class InputHandler;
    friend class OutputHandler;
 
  public:
-   PostProcNode(int32_t Id, std::string name, sp<IPostProcModule> module);
+   PostProcNode(int32_t Id, std::string name,
+                std::shared_ptr<IPostProcModule> module);
 
    ~PostProcNode();
 
@@ -184,8 +183,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    InputHandler                      in_;
    OutputHandler                     out_;
 
-   sp<MemPool>                       mem_pool_;
-   sp<IPostProcModule>               module_;
+   std::shared_ptr<MemPool>          mem_pool_;
+   std::shared_ptr<IPostProcModule>  module_;
 
    MemPoolParams                     mem_pool_params_;
 

@@ -228,9 +228,9 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   RecorderImpl*       recorder_;
   // Map of client ids and their death notifiers.
-  DefaultKeyedVector<uint32_t, sp<DeathNotifier> > death_notifier_list_;
+  std::map<uint32_t, sp<DeathNotifier> > death_notifier_list_;
   // Map of client ids and their callback handlers.
-  DefaultKeyedVector<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
+  std::map<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
   uint32_t    unique_client_id_;
   std::mutex  lock_;
 };

@@ -36,7 +36,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include <utils/KeyedVector.h>
 #include <utils/Log.h>
 #include <libgralloc/gralloc_priv.h>
 
@@ -118,7 +117,7 @@ class MultiCameraManager : public CameraInterface {
 
   CameraStartParam& GetCameraStartParam() override;
 
-  Vector<int32_t>& GetSupportedFps() override;
+  std::vector<int32_t>& GetSupportedFps() override;
 
  private:
   void ResultCallback(uint32_t camera_id, const CameraMetadata &meta);
@@ -150,7 +149,7 @@ class MultiCameraManager : public CameraInterface {
   uint32_t                 virtual_camera_id_;
   CameraStartParam         start_params_;
   MultiCameraConfigType    multicam_type_;
-  Vector<int32_t>          supported_fps_;
+  std::vector<int32_t>     supported_fps_;
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
 
@@ -158,9 +157,10 @@ class MultiCameraManager : public CameraInterface {
   ImageParam               snapshot_param_;
   uint32_t                 sequence_cnt_;
   bool                     jpeg_encoding_enabled_;
+  bool                     snapshot_configured_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
-  sp<ICameraPostProcess>   jpeg_encoder_;
+  std::shared_ptr<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
   sp<GrallocMemory>        jpeg_memory_pool_;
 
@@ -171,16 +171,16 @@ class MultiCameraManager : public CameraInterface {
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
-  KeyedVector<uint32_t, Vector<uint32_t> > virtual_camera_map_;
+  std::map<uint32_t, std::vector<uint32_t> > virtual_camera_map_;
 
   // Map of camera id and CameraContext.
-  KeyedVector<uint32_t, sp<CameraContext>> camera_contexts_;
+  std::map<uint32_t, sp<CameraContext>> camera_contexts_;
 
   // Map of track id and StreamStitching class
-  KeyedVector<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
+  std::map<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
 
   // Map of output_buffer's fd to StreamBuffer
-  KeyedVector<uint32_t, StreamBuffer> jpeg_buffers_map_;
+  std::map<uint32_t, StreamBuffer> jpeg_buffers_map_;
 
   std::mutex               jpeg_lock_;
   std::condition_variable  wait_for_jpeg_;
@@ -233,7 +233,7 @@ class GrallocMemory : public RefBase {
   // Pool with allocated gralloc buffers, the bool value indicates
   // if the buffer has been returned to the producer and is available
   // to be used.
-  KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
+  std::map<buffer_handle_t, bool> gralloc_buffers_;
 
   std::mutex               buffer_lock_;
   std::condition_variable  wait_for_buffer_;
@@ -245,7 +245,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
  public:
   struct InitParams {
     uint32_t                       multicam_id;
-    Vector<uint32_t>               camera_ids;
+    std::vector<uint32_t>          camera_ids;
     MultiCameraConfigType          stitch_mode;
     std::map<int32_t, SurfaceCrop> surface_crop;
     uint32_t                       frame_rate;
@@ -279,12 +279,12 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   InitParams               params_;
   bool                     stop_frame_sync_;
   bool                     use_frame_sync_timeout;
-  String8                  *work_thread_name_;
+  std::string              work_thread_name_;
 
   uint32_t                 skip_camera_id_;
   bool                     single_camera_mode_;
 
-  Mutex                    frame_lock_;
+  std::mutex               frame_lock_;
 
  private:
   struct StitchLibInterface {
@@ -316,10 +316,10 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   status_t InitLibrary();
   status_t DeInitLibrary();
   status_t FlushLibrary();
-  status_t Configlibrary(Vector<StreamBuffer> &input_buffers,
-                         Vector<StreamBuffer> &output_buffers);
-  status_t ProcessBuffers(Vector<StreamBuffer> &input_buffers,
-                          Vector<StreamBuffer> &output_buffers);
+  status_t Configlibrary(std::vector<StreamBuffer> &input_buffers,
+                         std::vector<StreamBuffer> &output_buffers);
+  status_t ProcessBuffers(std::vector<StreamBuffer> &input_buffers,
+                          std::vector<StreamBuffer> &output_buffers);
   status_t ParseCalibFile(void **data, uint32_t &size);
   status_t PopulateImageFormat(qmmf_alg_format_t &fmt,
                                const StreamBuffer *buffer);
@@ -335,11 +335,11 @@ class StitchingBase : public Camera3Thread, public RefBase  {
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.
-  KeyedVector<uint32_t, Vector<StreamBuffer> > unsynced_buffer_map_;
+  std::map<uint32_t, std::vector<StreamBuffer> > unsynced_buffer_map_;
 
   // List with buffers ready to go through stitch processing.
   // The uint32_t is the camera id to which this buffer belongs to.
-  std::queue<KeyedVector<uint32_t, StreamBuffer> > synced_buffer_queue_;
+  std::queue<std::map<uint32_t, StreamBuffer> > synced_buffer_queue_;
 
   // Map of the stream buffers that are given to the library for processing.
   std::map<buffer_handle_t, StreamBuffer> process_buffers_map_;
@@ -347,10 +347,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // List containing all gralloc buffers file descriptors that have been
   // registered by the library.
   std::set<int32_t> registered_buffers_;
-
-  // The maximum interval in which two frames are thought of as syncable.
-  // It is calculated, based on the frame rate.
-  int32_t timestamp_max_delta_;
 
   std::future<status_t>    init_library_status_;
 
@@ -366,6 +362,9 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
+
+  // The maximum interval in which two frames are thought of as syncable.
+  static const int32_t kMaxTimestampDelta = 2000000; // 2 ms
 };
 
 class StreamStitching : public StitchingBase {
@@ -397,18 +396,18 @@ class StreamStitching : public StitchingBase {
 
   sp<IBufferProducer>      buffer_producer_impl_;
 
-  Mutex                    consumer_lock_;
+  std::mutex               consumer_lock_;
 
   std::map<uintptr_t, sp<IBufferConsumer> > stitching_consumers_;
 
   // Map of camera id and it's corresponding buffer consumer.
-  KeyedVector<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
+  std::map<uint32_t, sp<IBufferConsumer> > camera_consumers_map_;
 };
 
 class SnapshotStitching : public StitchingBase {
  public:
   SnapshotStitching(InitParams &param,
-                    KeyedVector<uint32_t, sp<CameraContext> > &contexts);
+                    std::map<uint32_t, sp<CameraContext> > &contexts);
   ~SnapshotStitching();
 
   void SetClientCallback(const StreamSnapshotCb& cb) {
@@ -427,13 +426,13 @@ class SnapshotStitching : public StitchingBase {
 
  private:
   // Maps of buffer Id and Buffer.
-  KeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
   // Map of camera id and CameraContext taken from MultiCameraManager.
-  KeyedVector<uint32_t, sp<CameraContext> > camera_contexts_;
+  std::map<uint32_t, sp<CameraContext> > camera_contexts_;
 
   StreamSnapshotCb         client_snapshot_cb_;
-  Mutex                    snapshot_lock;
+  std::mutex               snapshot_lock_;
 };
 
 }; // recorder.

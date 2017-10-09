@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -463,7 +463,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s:%s: Enter track_id(%d)", TAG, __func__, TrackId());
 
-  List<CodecBuffer>::iterator it = (output_occupy_buffer_queue_).Begin();
+  std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     QMMF_DEBUG("%s:%s track_id(%d) Checking match %d vs %d ", TAG,

@@ -35,8 +35,6 @@
 #include <vector>
 #include <sys/time.h>
 
-#include <utils/KeyedVector.h>
-
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
@@ -76,7 +74,7 @@ class EncoderCore {
   bool isTrackValid(uint32_t track_id);
 
   // vector <track_id, shared_ptr<TrackEncoder> >
-  DefaultKeyedVector<uint32_t, ::std::shared_ptr<TrackEncoder>> track_encoders_;
+  std::map<uint32_t, ::std::shared_ptr<TrackEncoder>> track_encoders_;
 
   int32_t ion_device_;
 

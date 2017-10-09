@@ -29,8 +29,6 @@
 
 #define TAG "RecorderPostProcPipe"
 
-#include <utils/Vector.h>
-
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
 #include "../interface/qmmf_postproc.h"
@@ -49,7 +47,7 @@ PostProcPipe::PostProcPipe(IPostProc* context)
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
 
   factory_ = PostProcFactory::getInstance();
-  assert(factory_ != nullptr);
+  assert(factory_.get() != nullptr);
 
   char prop_val[PROPERTY_VALUE_MAX];
   property_get("persist.qmmf.postproc.haljpeg", prop_val, "0");
@@ -75,7 +73,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
                                   PipeIOParam &pipe_in_param) {
   // Add all required plugins to pipe
   for (auto& plugin_uid : plugins) {
-    sp<PostProcNode> node = factory_->GetProcNode(plugin_uid);
+    std::shared_ptr<PostProcNode> node = factory_->GetProcNode(plugin_uid);
     assert(node.get() != nullptr);
     pipe_.push_back(node);
   }
@@ -92,7 +90,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
 
   // Add format conversion node if pipe is empty
   if (pipe_.empty()) {
-    sp<PostProcNode> node = FindInternalNode(node_out_param);
+    std::shared_ptr<PostProcNode> node = FindInternalNode(node_out_param);
     assert(node.get() != nullptr);
     QMMF_VERBOSE("%s:%s: insert helper node %s", TAG, __func__,
         node->GetName().c_str());
@@ -108,7 +106,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   // Check if output format is supported by last node in pipe
   PostProcCaps caps = pipe_.back()->GetCapabilities();
   if (!IsFormatSupported(caps.formats_, pipe_out_param.format)) {
-    sp<PostProcNode> node = FindInternalNode(node_out_param);
+    std::shared_ptr<PostProcNode> node = FindInternalNode(node_out_param);
     assert(node.get() != nullptr);
     QMMF_VERBOSE("%s:%s: insert helper node %s", TAG, __func__,
         node->GetName().c_str());
@@ -117,7 +115,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
 
   // Backward iteration over the pipe
   ssize_t idx = pipe_.size() - 1;
-  sp<PostProcNode> node;
+  std::shared_ptr<PostProcNode> node;
 
   // Validate pipeline and create internal processing nodes if necessary
   while (idx >= 0) {
@@ -127,7 +125,8 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     auto ret = node->ValidateOutput(node_out_param);
     if (ret == BAD_TYPE) {
       // Unsupported format, try to fix this
-      sp<PostProcNode> new_node = FindInternalNode(node_out_param);
+      std::shared_ptr<PostProcNode> new_node =
+          FindInternalNode(node_out_param);
       if (new_node.get() == nullptr) {
         QMMF_ERROR("%s:%s: Node format incompatibility!", TAG, __func__);
         return ret;
@@ -187,8 +186,9 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   return NO_ERROR;
 }
 
-sp<PostProcNode> PostProcPipe::FindInternalNode(const PostProcIOParam &output) {
-  sp<PostProcNode> node;
+std::shared_ptr<PostProcNode>
+PostProcPipe::FindInternalNode(const PostProcIOParam &output) {
+  std::shared_ptr<PostProcNode> node;
 
   /* Check if a RAW re-processing or JPEG encoding node is required */
   if (IsYUVFormat(output.format)) {
@@ -377,6 +377,23 @@ void PostProcPipe::AddResult(const void* result) {
   for (auto const& node : pipe_) {
     node->AddResult(result);
   }
+}
+
+status_t PostProcPipe::Configure(const std::string &config_json_data) {
+  status_t ret = NO_ERROR;
+  if (state_ != PostProcPipeState::INITIALIZED) {
+    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    return INVALID_OPERATION;
+  }
+
+  for (auto const& node : pipe_) {
+    ret = node->Configure(config_json_data);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Configuration failed for (%s) ret: %d", TAG, __func__,
+          node->GetName().c_str(), ret);
+    }
+  }
+  return ret;
 }
 
 }; //namespace recorder.

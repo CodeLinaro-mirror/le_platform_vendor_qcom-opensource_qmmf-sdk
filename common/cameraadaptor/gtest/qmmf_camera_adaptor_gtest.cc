@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -2676,7 +2676,7 @@ TEST_F(Camera3Gtest, HFRVideo1080p60FPS) {
   video_request.metadata.update(QCAMERA3_VENDOR_SENSOR_MODE,
                                 &sensor_vendor_mode, 1);
 
-  List<Camera3Request> requests;
+  std::list<Camera3Request> requests;
   requests.push_back(video_request);
 
   ret = device_client_->SubmitRequestList(requests, true, &last_frame_number);
@@ -2780,7 +2780,7 @@ TEST_F(Camera3Gtest, HFRVideo720p120FPS) {
 
   videoRequest.metadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange,
                                2);
-  List<Camera3Request> requests;
+  std::list<Camera3Request> requests;
   for (int32_t i = 0; i < batchSize; i++) {
     requests.push_back(videoRequest);
   }
@@ -3247,7 +3247,7 @@ TEST_F(Camera3Gtest, SnapshotBurstBracketing) {
 
   Camera3Request previewRequest;
   Camera3Request captureRequest;
-  List<Camera3Request> burstRequests;
+  std::list<Camera3Request> burstRequests;
   int64_t lastFrameNumber;
   int32_t previewStreamId, previewRequestId;
   int32_t snapshotStreamId;

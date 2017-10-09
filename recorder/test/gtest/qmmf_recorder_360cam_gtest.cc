@@ -30,7 +30,6 @@
 #define TAG "Recorder360GTest"
 
 #include <utils/Log.h>
-#include <utils/String8.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -17666,6 +17665,155 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
 }
 
 /*
+* Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture:
+*        This case will test a MultiCamera session with one 960x480 h264 encoded
+*        track and 6k snapshot, configured to produce stitched frames
+*
+*
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartVideoTrack
+*   loop Start {
+*   --------------------
+*   - Capture Snapshot
+*   - Cancel Capture Snapshot
+*   --------------------
+*   } loop End
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kYUV;
+  uint32_t stream_width  = 960;
+  uint32_t stream_height = 480;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
+                                       nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+ SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          stream_width,
+                                          stream_height,
+                                          30};
+  // Set media profiles
+  video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+  video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    Stream360DumpInfo dumpinfo = {
+      video_track_param.format_type,
+      video_track_id,
+      stream_width,
+      stream_height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    assert(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ImageParam image_param;
+  memset(&image_param, 0x0, sizeof image_param);
+  image_param.width         = 6080;
+  image_param.height        = 3040;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
+  assert(ret == NO_ERROR);
+
+  meta_array.push_back(meta);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(kDelayAfterSnapshot);
+
+    // Call CancelCaptureImage every 5th capture.
+    if ((i % 5) == 0) {
+      ret = recorder_.CancelCaptureImage(multicam_id_);
+      assert(ret == NO_ERROR);
+    }
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * Stitched480pEncTrackAndPrintLumaValues: This case will test a MultiCamera
 *                                         session with one 960x480 h264
 *                                         encodded track and print luma values.
@@ -17824,22 +17972,21 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
                                         uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
-
+  size_t written_len;
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-
   if (is_dump_yuv_enabled_) {
     static uint32_t id = 0;
     ++id;
     if (id == dump_yuv_freq_) {
-      String8 file_path;
-      size_t written_len;
-      file_path.appendFormat("/data/misc/qmmf/gtest_360_track_%d_%lld.yuv",
-          track_id, buffers[0].timestamp);
+      std::string file_path("/data/misc/qmmf/gtest_360_track_");
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".yuv";
 
-      FILE *file = fopen(file_path.string(), "w+");
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -17852,7 +17999,7 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-          buffers[0].data, written_len, file_path.string());
+          buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
       if (file != NULL) {
@@ -17930,7 +18077,7 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
                                BufferDescriptor buffer, MetaData meta_data) {
 
   TEST_INFO("%s:%s Enter", TAG, __func__);
-  String8 file_path;
+
   size_t written_len;
   const char* ext_str;
 
@@ -17984,12 +18131,15 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
       struct timeval tv;
       gettimeofday(&tv, NULL);
       uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-      file_path.appendFormat("/data/misc/qmmf/snapshot_360_%u_%llu.%s",
-          image_sequence_count, tv_ms, ext_str);
-      FILE *file = fopen(file_path.string(), "w+");
+      std::string file_path("/data/misc/qmmf/snapshot_360_");
+      file_path += std::to_string(image_sequence_count) + "_";
+      file_path += std::to_string(tv_ms) + ".";
+      file_path += ext_str;
+
+      FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
         TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
-            file_path.string());
+            file_path.c_str());
         goto FAIL;
       }
 
@@ -18001,7 +18151,7 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
         goto FAIL;
       }
       TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-                buffer.data, written_len, file_path.string());
+                buffer.data, written_len, file_path.c_str());
 
     FAIL:
       if (file != nullptr) {
@@ -18115,12 +18265,13 @@ status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
       type_string = "bin";
       break;
   }
-  String8 extn(type_string);
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/misc/qmmf/gtest_360_track_%d_%dx%d.%s",
-                                  dumpinfo.track_id, dumpinfo.width,
-                                  dumpinfo.height, extn.string());
-  int32_t file_fd = open(bitstream_filepath.string(),
+  std::string extn(type_string);
+  std::string bitstream_filepath("/data/misc/qmmf/gtest_360_track_");
+  bitstream_filepath +=std::to_string(dumpinfo.track_id) + "_";
+  bitstream_filepath += std::to_string(dumpinfo.width) + "_";
+  bitstream_filepath += std::to_string(dumpinfo.height) + ".";
+  bitstream_filepath += extn;
+  int32_t file_fd = open(bitstream_filepath.c_str(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd <= 0) {
     TEST_ERROR("%s:%s File open failed!", TAG, __func__);
