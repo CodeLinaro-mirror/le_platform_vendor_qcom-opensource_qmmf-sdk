@@ -5217,6 +5217,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
       video_track_param.codec_param.avc.ltr_count = track_info.ltr_count;
       video_track_param.codec_param.avc.insert_aud_delimiter = true;
+      video_track_param.codec_param.avc.prepend_sps_pps_to_idr = true;
       break;
       case TrackType::kVideoHEVC:
       video_track_param.format_type = VideoFormat::kHEVC;
@@ -5245,6 +5246,8 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
       video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
       video_track_param.codec_param.hevc.ltr_count = track_info.ltr_count;
+      video_track_param.codec_param.hevc.insert_aud_delimiter = true;
+      video_track_param.codec_param.hevc.prepend_sps_pps_to_idr = true;
       break;
       case TrackType::kVideoYUV:
       case TrackType::kVideoPreview:
