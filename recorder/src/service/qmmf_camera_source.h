@@ -177,7 +177,7 @@ class CameraSource {
   bool IsCopyStream(const VideoTrackParams& params);
 
   // Map of camera id and CameraContext.
-  std::map<uint32_t, sp<CameraInterface>> camera_map_;
+  std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
 
   // Map of track it and TrackSources.
   std::map<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
@@ -201,7 +201,7 @@ class CameraSource {
 class TrackSource : public ICodecSource {
  public:
   TrackSource(const VideoTrackParams& params,
-              const sp<CameraInterface>& camera_intf);
+              const std::shared_ptr<CameraInterface>& camera_intf);
 
   ~TrackSource();
 
@@ -329,7 +329,7 @@ class TrackSource : public ICodecSource {
   // List of buffers held by encoder.
   TSQueue<StreamBuffer> frames_being_encoded_;
 
-  sp<CameraInterface>   camera_interface_;
+  std::shared_ptr<CameraInterface>   camera_interface_;
 
   Overlay  overlay_;
   uint32_t active_overlays_;

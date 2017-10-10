@@ -331,7 +331,8 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     zsl_param.cam_stream_dim.height = param.zsl_height;
     zsl_param.frame_rate            = param.frame_rate;
     zsl_param.low_power_mode        = false;
-    zsl_port_ = new ZslPort(const_cast<CameraStreamParam&>(zsl_param), 1,
+    zsl_port_ =
+        std::make_shared<ZslPort>(const_cast<CameraStreamParam&>(zsl_param), 1,
         CameraPortType::kZSL, this);
     assert(zsl_port_.get() != nullptr);
 
@@ -339,7 +340,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     if(ret != NO_ERROR) {
       QMMF_ERROR("%s:%s: CameraPort is not initialized in ZSL mode!", TAG,
           __func__);
-      zsl_port_.clear();
+      zsl_port_ = nullptr;
       return BAD_VALUE;
     }
 
@@ -654,7 +655,7 @@ void CameraContext::RestoreBatchStreamId(CameraPort* port) {
   }
 }
 
-void CameraContext::StoreBatchStreamId(sp<CameraPort>& port) {
+void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
   assert(port.get() != nullptr);
   if (port->GetPortBatchSize() > 1) {
     if (batch_stream_id_ > -1) {
@@ -736,8 +737,8 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
     return BAD_VALUE;
   }
 
-  sp<CameraPort> port;
-  port = new CameraPort(param, batch, CameraPortType::kVideo, this);
+  std::shared_ptr<CameraPort> port =
+      std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
 
   if (extra_param.Exists(QMMF_POSTPROCESS_PLUGIN)) {
@@ -1202,7 +1203,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   QMMF_INFO("%s:%s: Number of active_ports(%d)", TAG, __func__, size);
 
   for (size_t i = 0; i < size; i++) {
-    sp<CameraPort> port = active_ports_[i];
+    std::shared_ptr<CameraPort> port = active_ports_[i];
     assert(port != nullptr);
 
     int32_t cam_stream_id = port->GetCameraStreamId();
@@ -1756,7 +1757,7 @@ CameraPort* CameraContext::GetPort(const uint32_t track_id) {
     auto type = iter->GetPortType();
     if (track_id == iter->GetPortId() && (type != CameraPortType::kZSL)) {
       QMMF_INFO("%s:%s: Found the port for id(0%x)", TAG, __func__, track_id);
-      port = iter.get();
+      port = static_cast<CameraPort*>(iter.get());
       break;
     }
   }
