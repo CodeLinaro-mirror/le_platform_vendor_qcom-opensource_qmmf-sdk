@@ -40,7 +40,7 @@ namespace recorder {
 
 class IBufferConsumer;
 
-class CameraInterface : public virtual RefBase {
+class CameraInterface {
  public:
 
   virtual ~CameraInterface() {};

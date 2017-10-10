@@ -107,7 +107,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
 #endif
 
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
 
   if (is_virtual_camera_id) {
     if (camera_map_.end() == camera_map_.find(camera_id)) {
@@ -122,7 +122,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
           camera_id);
       return BAD_VALUE;
     }
-    camera = new CameraContext();
+    camera = std::make_shared<CameraContext>();
     if (!camera.get()) {
       QMMF_ERROR("%s:%s: Can't Instantiate CameraDevice(%d)!!", TAG,
           __func__, camera_id);
@@ -137,7 +137,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     QMMF_ERROR("%s:%s: CameraDevice:OpenCamera(%d)failed!", TAG, __func__,
         camera_id);
     if (!is_virtual_camera_id) {
-      camera.clear();
+      camera = nullptr;
       auto it = camera_map_.find(camera_id);
       if (camera_map_.end() != it) {
         camera_map_.erase(it);
@@ -161,7 +161,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   for (auto it = camera_map_.begin(); it != camera_map_.end(); ++it) {
     if (camera_id == it->first) {
       match = true;
-      sp<CameraInterface> camera = it->second;
+      std::shared_ptr<CameraInterface> camera = it->second;
       ret = camera->CloseCamera(camera_id);
       assert(ret == NO_ERROR);
       camera_map_.erase(it);
@@ -183,7 +183,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   QMMF_KPI_DETAIL();
 #ifdef ENABLE_360
-  sp<CameraInterface> multi_camera = new MultiCameraManager();
+  std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
   if (!multi_camera.get()) {
     QMMF_ERROR("%s:%s: Can't Instantiate MultiCameraDevice!!", TAG, __func__);
     return NO_MEMORY;
@@ -195,7 +195,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   auto ret = camera_mgr->CreateMultiCamera(camera_ids, virtual_camera_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: CreateMultiCamera Failed!", TAG, __func__);
-    multi_camera.clear();
+    multi_camera = nullptr;
     return NO_INIT;
   }
   // Adds only virtual cameras. Virtual camera is a camera used
@@ -220,7 +220,7 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
     return BAD_VALUE;
   }
 
-  sp<CameraInterface> multi_camera;
+  std::shared_ptr<CameraInterface> multi_camera;
   assert(camera_map_.find(virtual_camera_id) != camera_map_.end());
   multi_camera = camera_map_.find(virtual_camera_id)->second;
   MultiCameraManager *camera_mgr =
@@ -299,7 +299,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   QMMF_KPI_DETAIL();
 
   bool match = false;
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
   for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
     if (camera_id == it->first) {
         match = true;
@@ -338,7 +338,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
   for (auto i = camera_map_.begin(); i != camera_map_.end(); ++i) {
     if (camera_id == i->first) {
         match = true;
@@ -368,7 +368,7 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
   QMMF_KPI_DETAIL();
 
   bool match = false;
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
   for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
     if (camera_id == it->first) {
       match = true;
@@ -395,7 +395,7 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
 
   bool match = false;
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
   for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
     if (camera_id == it->first) {
       match = true;
@@ -508,7 +508,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   // Find out the camera context corresponding to camera id where track has to
   // be created.
   bool match = false;
-  sp<CameraInterface> camera;
+  std::shared_ptr<CameraInterface> camera;
   for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
     if (track_params.params.camera_id == it->first) {
       match = true;
@@ -726,7 +726,7 @@ status_t CameraSource::SetCameraParam(const uint32_t camera_id,
 
   auto it = camera_map_.find(camera_id);
   assert(it != camera_map_.end());
-  sp<CameraInterface> camera = it->second;
+  std::shared_ptr<CameraInterface> camera = it->second;
 
   return camera->SetCameraParam(meta);
 }
@@ -736,7 +736,7 @@ status_t CameraSource::GetCameraParam(const uint32_t camera_id,
 
   auto it = camera_map_.find(camera_id);
   assert(it != camera_map_.end());
-  sp<CameraInterface> camera = it->second;
+  std::shared_ptr<CameraInterface> camera = it->second;
 
   return camera->GetCameraParam(meta);
 }
@@ -746,7 +746,7 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
 
   auto it = camera_map_.find(camera_id);
   assert(it != camera_map_.end());
-  sp<CameraInterface> camera = it->second;
+  std::shared_ptr<CameraInterface> camera = it->second;
 
   return camera->GetDefaultCaptureParam(meta);
 }
@@ -998,7 +998,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 }
 
 TrackSource::TrackSource(const VideoTrackParams& params,
-                         const sp<CameraInterface>& camera_intf)
+                         const std::shared_ptr<CameraInterface>& camera_intf)
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
