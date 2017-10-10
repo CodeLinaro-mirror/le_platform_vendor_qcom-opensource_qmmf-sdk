@@ -29,6 +29,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <condition_variable>
+
 #include <utils/RefBase.h>
 #include <utils/String8.h>
 
@@ -137,10 +140,11 @@ class ReprocessNode : public CameraThread,
    ReprocessNodeParams           init_params_;
    ReprocessNodeState            state_;
    Vector<StreamBuffer>          buffer_list_;
-   Mutex                         wait_lock_;
-   Condition                     wait_for_frames_;
 
-   static const nsecs_t kFrameTimeout  = 50000000;  // 50 ms.
+   std::mutex                    wait_lock_;
+   std::condition_variable       wait_for_frames_;
+
+   static const uint32_t kFrameTimeout  = 50000000;  // 50 ms.
 
    int32_t                       reprocess_stream_id_;
    sp<CameraModule>              camera_module_;

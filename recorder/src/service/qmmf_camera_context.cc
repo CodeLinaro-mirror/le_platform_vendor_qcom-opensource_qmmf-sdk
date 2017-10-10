@@ -30,11 +30,11 @@
 #define TAG "RecorderCameraContext"
 
 #include <algorithm>
+#include <chrono>
 #include <fcntl.h>
 #include <math.h>
 #include <sys/mman.h>
 #include <QCamera3VendorTags.h>
-#include <chrono>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -54,7 +54,6 @@ float CameraContext::kHFRBatchModeThreshold = 90.0f;
 #else
 float CameraContext::kHFRBatchModeThreshold = 120.0f;
 #endif
-const nsecs_t CameraContext::kSyncFrameWaitDuration = 500000000; // 500 ms.
 
 CameraContext::CameraContext()
     : ReprocessPlugin<CameraContext>(this),
@@ -68,7 +67,9 @@ CameraContext::CameraContext()
       result_cb_(nullptr),
       hfr_supported_(false),
       batch_size_(1),
-      batch_stream_id_(-1) {
+      batch_stream_id_(-1),
+      aec_done_(false),
+      flush_mode_set_(false) {
   memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
 }
 
@@ -472,18 +473,17 @@ std::function<void(int32_t stream_id, StreamBuffer buffer)>
   }
 }
 
-status_t CameraContext::WaitAecToConverge(nsecs_t timeout) {
+status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 
   std::unique_lock<std::mutex> lock(aec_lock_);
-  if (streaming_request_id_ != -1) {
-    aec_done_ = true;
-    int32_t wait_time = timeout / 100000;
-    if (aec_signal_.wait_for(lock,
-      std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
+  std::chrono::nanoseconds wait_time(timeout);
+
+  aec_done_ = false;
+  while (!aec_done_ && (streaming_request_id_ != -1)) {
+    if (aec_signal_.wait_for(lock, wait_time) == std::cv_status::timeout) {
       QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
       return TIMED_OUT;
     }
-    aec_done_ = false;
   }
   return NO_ERROR;
 }
@@ -569,32 +569,30 @@ status_t CameraContext::ConfigImageCapture(const ImageParam &param) {
 status_t CameraContext::CancelCaptureImage() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret = NO_ERROR;
 
-  if (!snapshot_request_.streamIds.isEmpty() && snapshot_request_id_.size() > 0) {
-
+  if (!snapshot_request_.streamIds.isEmpty() && !snapshot_request_id_.isEmpty()) {
     std::unique_lock<std::mutex> lock(capture_count_lock_);
-    {
-      cancel_capture_ = true;
-      if (sequence_cnt_ > 0) {
-        // Single or Burst capture is not complete yet, wait till pending
-        // buffers (for pending count) are returned.
-        QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
-            __func__, sequence_cnt_);
-        int32_t wait_time = sequence_cnt_ * (kSyncFrameWaitDuration/1000000);
-        if (capture_count_signal_.wait_for(lock,
-            std::chrono::milliseconds(wait_time)) == std::cv_status::timeout) {
-          QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
-          return UNKNOWN_ERROR;
-        }
+    std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
+
+    cancel_capture_ = true;
+    while (sequence_cnt_ > 0) {
+      // Single or Burst capture is not complete yet, wait till pending
+      // buffers (for pending count) are returned.
+      QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
+          __func__, sequence_cnt_);
+
+      auto ret = capture_count_signal_.wait_for(lock, wait_time);
+      if (ret == std::cv_status::timeout) {
+        QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
+        return TIMED_OUT;
       }
-      assert(sequence_cnt_ == 0);
     }
     DeleteSnapshotStream();
   }
   cancel_capture_ = false;
+
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
-  return ret;
+  return NO_ERROR;
 }
 
 void CameraContext::RestoreBatchStreamId(CameraPort* port) {
@@ -713,6 +711,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
     assert(ret == NO_ERROR);
     QMMF_INFO("%s:%s: Global Streaming Capture request created successfully!",
         TAG, __func__);
+    SetFlushMode();
   }
 
   streaming_active_requests_.editItemAt(0).metadata.update(
@@ -1005,7 +1004,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     zsl_port->ResumeZSL();
   }
 
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
   return ret;
 }
 
@@ -1081,6 +1080,8 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
     assert(ret == NO_ERROR);
   }
 
+  size_t size = active_ports_.size();
+  QMMF_INFO("%s:%s: Number of active_ports(%d)", TAG, __func__, size);
   ret = camera_device_->DeleteStream(stream_id, cache);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s:%s: Camera Device Stream(%d) deleted successfully!", TAG,
@@ -1127,7 +1128,6 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
 status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
-  int32_t ret = NO_ERROR;
   float max_fps = 0;
   Vector<int32_t> removed_streams;
 
@@ -1230,7 +1230,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   QMMF_INFO("%s:%s: Number of streams(%d) to start", TAG, __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:%s:Cancelling the request, no pending stream!", TAG, __func__);
-    ret = CancelRequest();
+    auto ret = CancelRequest();
     assert (ret == NO_ERROR);
     removed_streams.clear();
     return ret;
@@ -1253,24 +1253,24 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
-    Mutex::Autolock sync_lock(sync_frame_lock_);
+    std::unique_lock<std::mutex> sync_lock(sync_frame_lock_);
     if (!removed_streams.isEmpty()) {
       sync_frame_.stream_ids.clear();
       sync_frame_.stream_ids.appendVector(removed_streams);
     }
-    auto ret = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                 &sync_frame_.last_frame_id);
-    assert(ret >= 0);
+    auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
+                                                    &sync_frame_.last_frame_id);
+    assert(req_id >= 0);
     if (streaming_request_id_ > -1) {
       previous_streaming_request_id_ = streaming_request_id_;
     }
-    streaming_request_id_ = ret;
+    streaming_request_id_ = req_id;
+
+    std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
     while (!sync_frame_.stream_ids.isEmpty()) {
-      auto stat = sync_frame_cond_.waitRelative(sync_frame_lock_,
-                                                kSyncFrameWaitDuration);
-      if (NO_ERROR == ret) {
-          QMMF_ERROR("%s:%s: Sync frame condition failed: %d\n",
-                     TAG, __func__, stat);
+      auto ret = sync_frame_cond_.wait_for(sync_lock, wait_time);
+      if (ret == std::cv_status::timeout) {
+        QMMF_WARN("%s:%s: Sync frame timed out!", TAG, __func__);
       }
     }
   }
@@ -1278,7 +1278,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       " request_id(%d) batches: %d", TAG, __func__, size, streaming_request_id_,
       streaming_active_requests_.size());
 
-  return ret;
+  return NO_ERROR;
 }
 
 int32_t CameraContext::SubmitRequest(Camera3Request request,
@@ -1325,7 +1325,7 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
   auto ret = camera_device_->ReturnStreamBuffer(stream_id, buffer);
   assert(ret == NO_ERROR);
 
-  Mutex::Autolock lock(sync_frame_lock_);
+  std::lock_guard<std::mutex> lock(sync_frame_lock_);
   if (sync_frame_.last_frame_id == buffer.frame_number) {
     if (!sync_frame_.stream_ids.isEmpty()) {
       ssize_t idx = -1;
@@ -1338,7 +1338,7 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
       }
       if (0 <= idx) {
         sync_frame_.stream_ids.removeAt(idx);
-        sync_frame_cond_.signal();
+        sync_frame_cond_.notify_one();
       }
     }
   }
@@ -1518,6 +1518,40 @@ status_t CameraContext::CaptureZSLImage() {
   return ret;
 }
 
+status_t CameraContext::SetFlushMode() {
+
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+
+  if (!flush_mode_set_) {
+    // Set flush mode only once.
+    CameraMetadata meta;
+    ret = GetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: GetCameraParam Failed!", TAG, __func__,
+          camera_id_);
+      return ret;
+    }
+    uint8_t flush_restart_mode = 0;
+    ret = meta.update(QCAMERA3_HAL_FLUSH_RESTART_MODE, &flush_restart_mode, 1);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: Flush restart mode is failed!", TAG, __func__,
+          camera_id_);
+    }
+    ret = SetCameraParam(meta);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Camera %d: SetCameraParam Failed!", TAG, __func__,
+          camera_id_);
+      return ret;
+    }
+    flush_mode_set_ = true;
+    QMMF_INFO("%s:%s: Camera %d: Flush mode is set!", TAG, __func__,
+        camera_id_);
+  }
+  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 //Camera device callbacks
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
@@ -1543,11 +1577,12 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
 
   {
     std::lock_guard<std::mutex> lock(aec_lock_);
-    if (aec_done_) {
+    if (!aec_done_) {
       if (result.metadata.exists(ANDROID_CONTROL_AE_STATE)) {
         uint8_t aec = result.metadata.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
         if ((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED)) {
+          aec_done_ = true;
           aec_signal_.notify_one();
         }
       }
@@ -1559,8 +1594,8 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
   }
 
   if (((streaming_request_id_ == result.resultExtras.requestId) ||
-      (previous_streaming_request_id_ == result.resultExtras.requestId)) &&
-      (nullptr != result_cb_)) {
+      (previous_streaming_request_id_ == result.resultExtras.requestId) ||
+      snapshot_request_id_.size() > 0) && (nullptr != result_cb_)) {
     result_cb_(camera_id_, result.metadata);
   }
   if (camera_start_params_.zsl_mode) {

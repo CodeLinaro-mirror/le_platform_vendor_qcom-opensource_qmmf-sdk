@@ -59,7 +59,8 @@ RecorderImpl::RecorderImpl()
     camera_source_(nullptr),
     encoder_core_(nullptr),
     audio_source_(nullptr),
-    audio_encoder_core_(nullptr) {
+    audio_encoder_core_(nullptr),
+    client_died_(false) {
 
     QMMF_INFO("%s:%s: Enter", TAG, __func__);
     QMMF_INFO("%s:%s: Exit", TAG, __func__);
@@ -203,6 +204,13 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
       // then micro restart is the only option left.
       QMMF_INFO("%s:%s: triggering force cleanup for dead client(%d)", TAG,
         __func__, client_id);
+      {
+        // Raise the client_died_ flag in order to signal the audio/video
+        // track callbacks to return the buffers from where they originated.
+        std::lock_guard<std::mutex> lock(client_died_lock_);
+        client_died_ = true;
+      }
+
       for (auto session : session_track_map) {
         auto session_id = session.first;
         ret = StopSession(client_id, session_id, false, true);
@@ -882,9 +890,9 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
   memset(&audio_track_params, 0x00, sizeof audio_track_params);
   audio_track_params.track_id = service_track_id;
   audio_track_params.params   = param;
-  audio_track_params.data_cb  = [this, client_id, track_id]
+  audio_track_params.data_cb  = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          AudioTrackBufferCallback(client_id, track_id, buffers,
+          AudioTrackBufferCallback(client_id, session_id, track_id, buffers,
                                    meta_buffers);
       };
 
@@ -1029,9 +1037,9 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   video_track_params.track_id    = service_track_id;
   video_track_params.params      = params;
   video_track_params.extra_param = empty_extra_params;
-  video_track_params.data_cb     = [this, client_id, track_id]
+  video_track_params.data_cb     = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          VideoTrackBufferCallback(client_id, track_id,
+          VideoTrackBufferCallback(client_id, session_id, track_id,
                                    buffers, meta_buffers);
       };
   // Create Camera track first.
@@ -1123,9 +1131,9 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   video_track_params.track_id    = service_track_id;
   video_track_params.params      = params;
   video_track_params.extra_param = extra_param;
-  video_track_params.data_cb     = [this, client_id, track_id]
+  video_track_params.data_cb     = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
-          VideoTrackBufferCallback(client_id, track_id,
+          VideoTrackBufferCallback(client_id, session_id, track_id,
                                    buffers, meta_buffers);
       };
   // Create Camera track first.
@@ -1702,6 +1710,7 @@ status_t RecorderImpl::ConfigureMultiCamera(const uint32_t client_id,
 
 // Data callback handlers.
 void RecorderImpl::VideoTrackBufferCallback(uint32_t remote_client_id,
+                                            uint32_t session_id,
                                             uint32_t client_track_id,
                                             std::vector<BnBuffer>& buffers,
                                             std::vector<MetaData>&
@@ -1709,11 +1718,18 @@ void RecorderImpl::VideoTrackBufferCallback(uint32_t remote_client_id,
 
   assert(remote_cb_handle_ != nullptr);
   assert(remote_client_id > 0);
-  remote_cb_handle_(remote_client_id)->NotifyVideoTrackData(client_track_id,
-      buffers, meta_buffers);
+
+  std::lock_guard<std::mutex> lock(client_died_lock_);
+  if (client_died_) {
+    ReturnTrackBuffer(remote_client_id, session_id, client_track_id, buffers);
+  } else {
+    remote_cb_handle_(remote_client_id)->NotifyVideoTrackData(client_track_id,
+        buffers, meta_buffers);
+  }
 }
 
 void RecorderImpl::AudioTrackBufferCallback(uint32_t remote_client_id,
+                                            uint32_t session_id,
                                             uint32_t client_track_id,
                                             std::vector<BnBuffer>& buffers,
                                             std::vector<MetaData>&
@@ -1724,8 +1740,14 @@ void RecorderImpl::AudioTrackBufferCallback(uint32_t remote_client_id,
                  buffer.ToString().c_str());
   assert(remote_cb_handle_ != nullptr);
   assert(remote_client_id > 0);
-  remote_cb_handle_(remote_client_id)->NotifyAudioTrackData(client_track_id,
-      buffers, meta_buffers);
+
+  std::lock_guard<std::mutex> lock(client_died_lock_);
+  if (client_died_) {
+    ReturnTrackBuffer(remote_client_id, session_id, client_track_id, buffers);
+  } else {
+    remote_cb_handle_(remote_client_id)->NotifyAudioTrackData(client_track_id,
+        buffers, meta_buffers);
+  }
 }
 
 void RecorderImpl::SnapshotCallback(uint32_t remote_client_id,

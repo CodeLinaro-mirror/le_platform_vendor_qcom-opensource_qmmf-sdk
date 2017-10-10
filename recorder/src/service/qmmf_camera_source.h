@@ -30,10 +30,11 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
+#include <condition_variable>
 
 #include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
-#include <utils/Condition.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
@@ -246,16 +247,17 @@ class TrackSource : public ICodecSource {
 
   VideoTrackParams    track_params_;
   sp<IBufferConsumer> buffer_consumer_impl_;
-  Condition           wait_for_frame_;
-  Mutex               lock_;
   bool                is_stop_;
   Mutex               stop_lock_;
   bool                eos_acked_;
   Mutex               eos_lock_;
 
+  std::mutex               lock_;
+  std::condition_variable  wait_for_frame_;
+
   // will be used till we make stop api as async.
-  Condition           wait_for_idle_;
-  Mutex               idle_lock_;
+  std::mutex               idle_lock_;
+  std::condition_variable  wait_for_idle_;
 
   // Maps of Unique buffer Id and Buffer.
   DefaultKeyedVector<uint32_t, StreamBuffer> buffer_list_;
