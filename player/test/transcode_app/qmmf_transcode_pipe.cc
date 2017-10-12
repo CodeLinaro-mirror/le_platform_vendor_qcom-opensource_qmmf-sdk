@@ -486,18 +486,10 @@ status_t TranscoderPipe::TranscoderPipeIn::NotifyPortEvent(
                        TAG, __func__);
             return ret;
           }
-          it = free_buffer_queue_.Begin();
-          for (; it != free_buffer_queue_.End(); ++it) {
-            if (it->GetOwner() == BufferOwner::kTranscoderPipeIn) {
-              free_buffer_queue_.Erase(it);
-            }
-          }
-          it = occupy_buffer_queue_.Begin();
-          for (; it != occupy_buffer_queue_.End(); ++it) {
-            if (it->GetOwner() == BufferOwner::kTranscoderPipeIn) {
-              occupy_buffer_queue_.Erase(it);
-            }
-          }
+
+          free_buffer_queue_.Clear();
+          occupy_buffer_queue_.Clear();
+
           for (auto& iter : buffer_list_) {
             free_buffer_queue_.PushBack(iter);
           }
