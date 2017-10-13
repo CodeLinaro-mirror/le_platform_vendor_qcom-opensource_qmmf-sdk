@@ -714,9 +714,10 @@ void AudioRawTrackSink::Thread() {
   bool keep_running = true;
   while (keep_running) {
     // wait until there is something to do
-    if (av_buffers.empty() && buffers.empty() && messages_.empty()) {
+    if (av_buffers.empty() && buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      signal_.wait(lk);
+      if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
+        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
     }
 
     // process the next pending message

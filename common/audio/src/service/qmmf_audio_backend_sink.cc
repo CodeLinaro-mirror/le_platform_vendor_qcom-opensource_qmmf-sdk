@@ -247,6 +247,7 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
         return -EINVAL;
     }
     config.offload_info.usage = AUDIO_USAGE_MEDIA;
+    config.offload_info.is_streaming = true;
   }
 
   // use the next available io_handle
