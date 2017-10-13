@@ -108,7 +108,7 @@ void RecorderGtest::SetUp() {
   property_get(PROP_RECORD_DURATION, prop_val, DEFAULT_RECORD_DURATION);
   record_duration_ = atoi(prop_val);
 
-  memset(&camera_start_params_, 0x0, sizeof camera_start_params_);
+  camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
   camera_start_params_.zsl_queue_depth  = kZslQDepth;
   camera_start_params_.zsl_width        = kZslWidth;
@@ -550,8 +550,7 @@ TEST_F(RecorderGtest, 1080pZSLCapture) {
 
   sleep(3);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -675,8 +674,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
 
   sleep(3);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -801,8 +799,7 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
 
   sleep(5);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -936,8 +933,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
 
   sleep(5);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1093,8 +1089,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
 
   sleep(5);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1297,8 +1292,7 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   // Record for sometime
   sleep(1);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1435,8 +1429,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
   // Record for sometime
   sleep(1);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1597,8 +1590,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
   // Record for sometime
   sleep(1);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1757,8 +1749,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
   // Record for sometime
   sleep(1);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1880,8 +1871,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1983,8 +1973,7 @@ TEST_F(RecorderGtest, MaxSnapshotThumb) {
   assert(ret == NO_ERROR);
 
   int32_t thumb_size[2] = {0,0};
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.image_format  = ImageFormat::kJPEG;
   image_param.image_quality = 95;
 
@@ -2089,8 +2078,7 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kNV12;
@@ -2186,8 +2174,7 @@ TEST_F(RecorderGtest, RawBayerRDI10Snapshot) {
     }
   }
   assert(w > 0 && h > 0);
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width        = w; // 5344
   image_param.height       = h; // 4016
   image_param.image_format = ImageFormat::kBayerRDI10BIT;
@@ -2258,8 +2245,7 @@ TEST_F(RecorderGtest, RawBayerRDI12Snapshot) {
     }
   }
   assert(w > 0 && h > 0);
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width        = w;
   image_param.height       = h;
   image_param.image_format = ImageFormat::kBayerRDI12BIT;
@@ -2936,8 +2922,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
   for (uint32_t i = 1; i <= record_duration_; i++) {
-    ImageParam image_param;
-    memset(&image_param, 0x0, sizeof image_param);
+    ImageParam image_param{};
     image_param.width = 1920;
     image_param.height = 1080;
     image_param.image_format = ImageFormat::kJPEG;
@@ -3561,8 +3546,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   sleep(30);
 
   //Take snapshot
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -3807,8 +3791,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     sleep(30);
 
     //Take snapshot
-    ImageParam image_param;
-    memset(&image_param, 0x0, sizeof image_param);
+    ImageParam image_param{};
     image_param.width         = 1920;
     image_param.height        = 1080;
     image_param.image_format  = ImageFormat::kJPEG;
@@ -4085,8 +4068,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   sleep(20);
 
   //Take snapshot
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -4274,8 +4256,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   sleep(30);
 
   //Take snapshot
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -5709,8 +5690,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   sleep(30);
 
   //Take snapshot
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -6584,8 +6564,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     // Take Snapshot
     TEST_INFO("%s:%s: Taking Snapshot", TAG, __func__);
 
-    ImageParam image_param;
-    memset(&image_param, 0x0, sizeof image_param);
+    ImageParam image_param{};
     image_param.width         = 1920;
     image_param.height        = 1080;
     image_param.image_format  = ImageFormat::kNV12;
@@ -6867,9 +6846,8 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   assert(ret == NO_ERROR);
 
   // Create Static Image type overlay.
-  OverlayParam object_params;
+  OverlayParam object_params{};
   uint32_t static_img_id;
-  memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kBottomRight;
   std::string str("/etc/overlay_test.rgba");
@@ -6887,7 +6865,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
       test_info_->name(), i);
 
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
                                            object_params);
     assert(ret == 0);
@@ -7032,8 +7010,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   assert(ret == NO_ERROR);
 
   // Create Date & Time type overlay.
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
+  OverlayParam object_params{};
   object_params.type = OverlayType::kDateType;
   object_params.location = OverlayLocationType::kBottomLeft;
   object_params.color    = COLOR_DARK_GRAY;
@@ -7052,7 +7029,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
       test_info_->name(), i);
 
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     ret = recorder_.GetOverlayObjectParams(video_track_id, date_time_id,
                                            object_params);
     assert(ret == 0);
@@ -7214,8 +7191,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   assert(ret == NO_ERROR);
 
   // Create BoundingBox type overlay.
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
+  OverlayParam object_params{};
   object_params.type  = OverlayType::kBoundingBox;
   object_params.color = COLOR_LIGHT_GREEN;
   // Dummy coordinates for test purpose.
@@ -7375,8 +7351,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   assert(ret == NO_ERROR);
 
   // Create BoundingBox type overlay.
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
+  OverlayParam object_params{};
   object_params.type  = OverlayType::kBoundingBox;
   object_params.color = COLOR_LIGHT_GREEN;
   // Dummy coordinates for test purpose.
@@ -7536,8 +7511,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   assert(ret == NO_ERROR);
 
   // Create UserText type overlay.
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
+  OverlayParam object_params{};
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kTopRight;
   object_params.color    = COLOR_LIGHT_BLUE;
@@ -7556,7 +7530,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
       test_info_->name(), i);
 
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     ret = recorder_.GetOverlayObjectParams(video_track_id, user_text_id,
                                            object_params);
     assert(ret == 0);
@@ -7717,8 +7691,7 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   assert(ret == NO_ERROR);
 
   // Create BoundingBox type overlay.
-  OverlayParam object_params;
-  memset(&object_params, 0x0, sizeof object_params);
+  OverlayParam object_params{};
   object_params.type  = OverlayType::kPrivacyMask;
   object_params.color = 0xFF9933FF; //Fill mask with color.
   // Dummy coordinates for test purpose.
@@ -7881,14 +7854,13 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
   assert(ret == NO_ERROR);
 
   // Create Static Image blob type overlay.
-  OverlayParam object_params;
+  OverlayParam object_params{};
   uint32_t static_img_id;
   char * image_buffer;
   uint32_t image_size;
   int32_t image_width;
   int32_t image_height;
   // Create Image buffer blob type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kRandom;
   object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8088,14 +8060,13 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   assert(ret == NO_ERROR);
 
   // Create Static Image blob type overlay.
-  OverlayParam object_params;
+  OverlayParam object_params{};
   uint32_t static_img_id;
   char * image_buffer;
   uint32_t image_size;
   int32_t image_width;
   int32_t image_height;
   // Create Image buffer blob type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kRandom;
   object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8986,8 +8957,7 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -9144,8 +9114,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
 
   sleep(3);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -9312,8 +9281,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
 
   sleep(3);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -9511,8 +9479,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   // Record for sometime
   sleep(5);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -9643,8 +9610,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   assert(session_id > 0);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = width;
   image_param.height        = height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -12954,7 +12920,7 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
         // Create BoundingBox type overlay.
         std::string bb_text("Face");
         uint32_t bbox_id;
-        memset(&object_params, 0x0, sizeof object_params);
+        object_params = {};
         object_params.type  = OverlayType::kBoundingBox;
         object_params.color = COLOR_LIGHT_GREEN;
         object_params.dst_rect.start_x = info.face_rect[i].left;
@@ -13050,8 +13016,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   cairo_move_to (cr_context_, x_date, y_date);
 
   // Draw date.
-  RGBAValues text_color;
-  memset(&text_color, 0x0, sizeof text_color);
+  RGBAValues text_color{};
   ExtractColorValues(0x0000CCFF, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
@@ -13091,8 +13056,6 @@ void RecorderGtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 }
 
 void RecorderGtest::ClearSurface() {
-  RGBAValues bg_color;
-  memset(&bg_color, 0x0, sizeof bg_color);
 #if USE_SKIA
 
 #elif USE_CAIRO

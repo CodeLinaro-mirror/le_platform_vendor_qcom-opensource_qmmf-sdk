@@ -85,6 +85,7 @@ status_t AudioRawTrackSource::Init() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
   int32_t result;
+  AudioMetadata metadata{};
 
   if (end_point_ != nullptr) {
     QMMF_ERROR("%s: %s() endpoint already exists", TAG, __func__);
@@ -120,8 +121,6 @@ status_t AudioRawTrackSource::Init() {
     goto error_free;
   }
 
-  AudioMetadata metadata;
-  memset(&metadata, 0x0, sizeof metadata);
   metadata.format = AudioFormat::kPCM;
   metadata.num_channels = track_params_.params.channels;
   metadata.sample_rate = track_params_.params.sample_rate;
@@ -457,8 +456,7 @@ void AudioRawTrackSource::Thread() {
       std::vector<BnBuffer> bn_buffers;
       bn_buffers.push_back(bn_buffer);
 
-      MetaData meta_data;
-      memset(&meta_data, 0x0, sizeof meta_data);
+      MetaData meta_data{};
       meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kNone);
       std::vector<MetaData> meta_buffers;
       meta_buffers.push_back(meta_data);

@@ -1011,8 +1011,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
       "service_track_id(%x)", TAG, __func__, client_id, session_id, track_id,
       service_track_id);
 
-  AudioTrackParams audio_track_params;
-  memset(&audio_track_params, 0x00, sizeof audio_track_params);
+  AudioTrackParams audio_track_params{};
   audio_track_params.track_id = service_track_id;
   audio_track_params.params   = param;
   audio_track_params.data_cb  = [this, client_id, session_id, track_id]
@@ -1045,8 +1044,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
     }
   }
   // Assosiate track to session.
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
+  TrackInfo track_info{};
   track_info.track_id     = service_track_id;
   track_info.type         = TrackType::kAudio;
   track_info.audio_params = audio_track_params;
@@ -1159,8 +1157,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
       service_track_id);
   VideoExtraParam empty_extra_params;
 
-  VideoTrackParams video_track_params;
-  memset(&video_track_params, 0x0, sizeof video_track_params);
+  VideoTrackParams video_track_params{};
   video_track_params.track_id    = service_track_id;
   video_track_params.params      = params;
   video_track_params.extra_param = empty_extra_params;
@@ -1201,8 +1198,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   }
 
   // Assosiate track to session.
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
+  TrackInfo track_info{};
   track_info.track_id     = service_track_id;
   track_info.type         = TrackType::kVideo;
   track_info.video_params = video_track_params;
@@ -1252,8 +1248,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
       "service_track_id(%x)", TAG, __func__, client_id, session_id, track_id,
       service_track_id);
 
-  VideoTrackParams video_track_params;
-  memset(&video_track_params, 0x0, sizeof video_track_params);
+  VideoTrackParams video_track_params{};
   video_track_params.track_id    = service_track_id;
   video_track_params.params      = params;
   video_track_params.extra_param = extra_param;
@@ -1294,8 +1289,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   }
 
   // Assosiate track to session.
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof track_info);
+  TrackInfo track_info{};
   track_info.track_id     = service_track_id;
   track_info.type         = TrackType::kVideo;
   track_info.video_params = video_track_params;

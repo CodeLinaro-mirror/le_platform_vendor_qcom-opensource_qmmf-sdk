@@ -552,8 +552,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&client_id);
         data.readUint32(&track_id);
         data.readUint32(&overlay_id);
-        OverlayParam overlay_param;
-        memset(&overlay_param, 0x0, sizeof overlay_param);
+        OverlayParam overlay_param{};
         ret = GetOverlayObjectParams(client_id, track_id, overlay_id,
                                      overlay_param);
         reply->writeInt32(ret);

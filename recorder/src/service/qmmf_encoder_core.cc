@@ -267,7 +267,7 @@ TrackEncoder::TrackEncoder(int32_t ion_device)
   property_get(PROP_DEBUG_FPS, prop_val, "1");
   debug_fps_ = atoi(prop_val);
 
-  memset(&track_params_, 0x0, sizeof track_params_);
+  track_params_ = {};
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -317,8 +317,7 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
     return NO_MEMORY;
   }
 
-  CodecParam codec_param;
-  memset(&codec_param, 0x0, sizeof(codec_param));
+  CodecParam codec_param{};
 
   codec_param.video_enc_param = track_params.params;
 
@@ -697,8 +696,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   assert(track_params_.data_cb != nullptr);
 
   bool found = false;
-  BnBuffer bn_buffer;
-  memset(&bn_buffer, 0x0, sizeof bn_buffer);
+  BnBuffer bn_buffer{};
 
   if(codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
     eos_atoutput_ = true;
@@ -738,8 +736,7 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
 
-  MetaData meta_data;
-  memset(&meta_data, 0x0, sizeof meta_data);
+  MetaData meta_data{};
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kVideoFrameType);
 
   if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagIDRFrame))
@@ -791,10 +788,9 @@ status_t TrackEncoder::AllocOutputPortBufs() {
 
   for(uint32_t i = 0; i < count; i++) {
 
-    BufferDescriptor buffer;
+    BufferDescriptor buffer{};
     struct ion_handle_data ionHandleData;
     vaddr = NULL;
-    memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ion_fddata, 0x0, sizeof(ion_fddata));
     memset(&ionHandleData, 0x0, sizeof(ionHandleData));

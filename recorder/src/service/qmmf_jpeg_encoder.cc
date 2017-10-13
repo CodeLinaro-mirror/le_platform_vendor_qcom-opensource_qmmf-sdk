@@ -131,8 +131,8 @@ JpegEncoder::JpegEncoder() :
   }
 
   // setup internal config structures. performed only once
-  memset(&cfg->params_, 0, sizeof(cfg->params_));
-  memset(&cfg->job_, 0, sizeof(cfg->job_));
+  cfg->params_ = {};
+  cfg->job_ = {};
 
   cfg->params_.jpeg_cb = EncodeCbGlobal;
   cfg->params_.userdata = this;

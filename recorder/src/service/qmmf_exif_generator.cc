@@ -183,8 +183,7 @@ void ExifGenerator::EndWritingIfd() {
 }
 
 void ExifGenerator::WriteGpsIfd() {
-  qmmf_exif_tag_t tag;
-  memset(&tag, 0, sizeof(qmmf_exif_tag_t));
+  qmmf_exif_tag_t tag{};
   tag_count_ = 0;
   tag_count_offset_ = current_offset_;
   current_offset_ += 2;
@@ -254,8 +253,7 @@ void ExifGenerator::WriteGpsIfd() {
 }
 
 void ExifGenerator::WriteInteropIfd() {
-  qmmf_exif_tag_t tag;
-  memset(&tag, 0, sizeof(qmmf_exif_tag_t));
+  qmmf_exif_tag_t tag{};
   tag_count_ = 0;
   tag_count_offset_ = current_offset_;
   current_offset_ += 2;
@@ -285,8 +283,7 @@ void ExifGenerator::WriteInteropIfd() {
 }
 
 void ExifGenerator::WriteExifIfd() {
-  qmmf_exif_tag_t tag;
-  memset(&tag, 0, sizeof(qmmf_exif_tag_t));
+  qmmf_exif_tag_t tag{};
   tag_count_ = 0;
   tag_count_offset_ = current_offset_;
   current_offset_ += 2;
@@ -382,8 +379,7 @@ void ExifGenerator::WriteExifIfd() {
 }
 
 void ExifGenerator::Write0thIfd() {
-  qmmf_exif_tag_t tag;
-  memset(&tag, 0, sizeof(qmmf_exif_tag_t));
+  qmmf_exif_tag_t tag{};
   tag_count_ = 0;
   tag_count_offset_ = current_offset_;
   current_offset_ += 2;
@@ -714,7 +710,7 @@ uint32_t ExifGenerator::WriteExifData() {
 
   // Write Ifds - write all the tags (corresponding to each idf),
   // that were set to the output binary file.
-  memset(&tag_values_, 0, sizeof(ExifTagValues));
+  tag_values_ = {};
   status_t res = ExtractExifTagValues();
   if (res != NO_ERROR) {
     QMMF_ERROR("%s: %s Error extracting exif tag values!\n", TAG, __func__);

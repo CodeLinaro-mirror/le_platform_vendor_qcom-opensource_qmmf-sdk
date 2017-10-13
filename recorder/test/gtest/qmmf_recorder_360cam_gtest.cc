@@ -98,7 +98,7 @@ void Recorder360Gtest::SetUp() {
   multicam_id_ = 0;
   multicam_type_ = MultiCameraConfigType::k360Stitch;
 
-  memset(&multicam_start_params_, 0x0, sizeof multicam_start_params_);
+  multicam_start_params_ = {};
   multicam_start_params_.zsl_mode         = false;
   multicam_start_params_.zsl_queue_depth  = 10;
   multicam_start_params_.zsl_width        = kZslWidth;
@@ -264,8 +264,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -336,8 +335,7 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 1920;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -408,8 +406,7 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1920;
   image_param.height        = 960;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -480,8 +477,7 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1440;
   image_param.height        = 720;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -3091,10 +3087,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     ret = recorder_.SetCameraParam(multicam_id_, meta);
     assert(ret == NO_ERROR);
 
-    OverlayParam object_params;
+    OverlayParam object_params{};
 
     // 1. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3112,7 +3107,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_1);
 
     // 2. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3130,7 +3125,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_2);
 
     // 3. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3148,7 +3143,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_3);
 
     // 4. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x660066FF; //Purple
@@ -3168,7 +3163,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(user_text_id_0);
 
     // 5. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x33CC00FF; //Green
@@ -3188,7 +3183,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(user_text_id_1);
 
     // 6. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x33CC00FF; //Green
@@ -3208,7 +3203,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(user_text_id_2);
 
     // 7. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x33CC00FF; //Green
@@ -3229,7 +3224,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
 
     // 8. Create Static Image type overlay.
     uint32_t static_img_id;
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kBottomRight;
     std::string str("/etc/overlay_test.rgba");
@@ -3245,7 +3240,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(static_img_id);
 
     // 9. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x189BF2FF; //Light Green
@@ -3265,7 +3260,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     overlay_ids_.push_back(user_text_id_4);
 
     // 10. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x189BF2FF; //Light Green
@@ -3471,7 +3466,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
    char * image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -3508,7 +3503,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
 
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -3545,7 +3540,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
 
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -3581,7 +3576,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -3617,7 +3612,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -3854,7 +3849,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     OverlayParam object_params;
 
     // 1. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3872,7 +3867,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_1);
 
     // 2. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3890,7 +3885,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_2);
 
     // 3. Create PrivacyMask type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kPrivacyMask;
     object_params.color = 0x4C4C4CFF; //Fill mask with color.
     // Dummy coordinates for test purpose.
@@ -3908,7 +3903,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     overlay_ids_.push_back(privacy_mask_id_3);
 
     // 4. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x660066FF; //Purple
@@ -3929,7 +3924,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
 
     // 5. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x33CC00FF; //Green
@@ -3950,7 +3945,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
 
     // 6. Create UserText type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kUserText;
     object_params.location = OverlayLocationType::kRandom;
     object_params.color = 0x33CC00FF; //Green
@@ -3971,7 +3966,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
     // 7. Create Static Image type overlay.
     uint32_t static_img_id;
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kBottomRight;
     std::string str("/etc/overlay_test.rgba");
@@ -4184,7 +4179,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     char * image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4220,7 +4215,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4257,7 +4252,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
 
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4293,7 +4288,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4329,7 +4324,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4591,7 +4586,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4627,7 +4622,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4663,7 +4658,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4699,7 +4694,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -4735,7 +4730,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5010,7 +5005,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5046,7 +5041,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5082,7 +5077,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5118,7 +5113,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5154,7 +5149,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5429,7 +5424,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5465,7 +5460,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5501,7 +5496,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5537,7 +5532,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5573,7 +5568,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6410,7 +6405,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6446,7 +6441,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6482,7 +6477,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6518,7 +6513,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6554,7 +6549,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6890,7 +6885,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6926,7 +6921,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6962,7 +6957,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -6998,7 +6993,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7034,7 +7029,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7625,7 +7620,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7661,7 +7656,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7697,7 +7692,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7733,7 +7728,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -7769,7 +7764,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8094,7 +8089,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8130,7 +8125,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8166,7 +8161,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8202,7 +8197,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8238,7 +8233,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8564,7 +8559,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8600,7 +8595,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8636,7 +8631,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8672,7 +8667,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -8708,7 +8703,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9034,7 +9029,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9070,7 +9065,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9106,7 +9101,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9142,7 +9137,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9178,7 +9173,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9501,7 +9496,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9537,7 +9532,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9573,7 +9568,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9609,7 +9604,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9645,7 +9640,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -9970,7 +9965,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10006,7 +10001,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10042,7 +10037,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10078,7 +10073,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10114,7 +10109,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10416,7 +10411,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10452,7 +10447,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10488,7 +10483,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10524,7 +10519,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10560,7 +10555,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10884,7 +10879,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10920,7 +10915,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10956,7 +10951,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -10992,7 +10987,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11028,7 +11023,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11176,8 +11171,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
         test_info_->name(), i);
 
-    VideoTrackCreateParam master_video_track_param;
-    memset(&master_video_track_param, 0x0, sizeof master_video_track_param);
+    VideoTrackCreateParam master_video_track_param{};
 
     master_video_track_param.camera_id   = multicam_id_;
     master_video_track_param.width       = 3840;
@@ -11251,8 +11245,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     // Second Track
     uint32_t video_track_id_480p = 2;
 
-    VideoTrackCreateParam second_video_track_param;
-    memset(&second_video_track_param, 0x0, sizeof second_video_track_param);
+    VideoTrackCreateParam second_video_track_param{};
     second_video_track_param.camera_id = multicam_id_;
     second_video_track_param.width = 960;
     second_video_track_param.height = 480;
@@ -11319,8 +11312,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
 
-    VideoTrackCreateParam video_track_param;
-    memset(&video_track_param, 0x0, sizeof video_track_param);
+    VideoTrackCreateParam video_track_param{};
     video_track_param.camera_id = multicam_id_;
     video_track_param.width = 1440;
     video_track_param.height = 720;
@@ -11370,7 +11362,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     char *image_buffer5;
 
     // 1. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11406,7 +11398,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_1);
 
     // 2. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11442,7 +11434,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_2);
 
     // 3. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11478,7 +11470,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_3);
 
     // 4. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11514,7 +11506,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     overlay_ids_.push_back(usertxt_blob_id_4);
 
     // 5. Create buffer blob type overlay.
-    memset(&object_params, 0x0, sizeof object_params);
+    object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kRandom;
     object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -11978,8 +11970,7 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -12052,8 +12043,7 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 3840;
   image_param.height        = 1920;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -12126,8 +12116,7 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1920;
   image_param.height        = 960;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -12200,8 +12189,7 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 1440;
   image_param.height        = 720;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -13812,7 +13800,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     stream_width  = 1280;
     stream_height = 640;
 
-    memset(&video_track_param, 0x0, sizeof video_track_param);
+    video_track_param = {};
     video_track_param.camera_id     = multicam_id_;
     video_track_param.width         = stream_width;
     video_track_param.height        = stream_height;
@@ -17194,8 +17182,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -17334,8 +17321,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -17473,8 +17459,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -17613,8 +17598,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -17756,8 +17740,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
   ret = recorder_.StartSession(session_id);
   assert(ret == NO_ERROR);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = 6080;
   image_param.height        = 3040;
   image_param.image_format  = ImageFormat::kJPEG;

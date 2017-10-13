@@ -181,8 +181,7 @@ status_t RecorderTest::AddPreviewTrack() {
     return ret;
   }
   preview_session_id_ = session_id;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof(video_track_param));
+  VideoTrackCreateParam video_track_param{};
   video_track_param.camera_id = camera_id_;
   video_track_param.width = 640;
   video_track_param.height = 480;
@@ -1454,8 +1453,7 @@ status_t RecorderTest::StartCamera() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  CameraStartParam camera_params;
-  memset(&camera_params, 0x0, sizeof camera_params);
+  CameraStartParam camera_params{};
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
@@ -1513,8 +1511,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
   ret = recorder_.GetDefaultCaptureParam(snapshot_info.camera_id, meta);
   assert(ret == 0);
 
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
 
   image_param.width = snapshot_info.width;
   image_param.height = snapshot_info.height;
@@ -1695,8 +1692,7 @@ status_t RecorderTest::TakeSnapshot() {
     std::cout << "  Enter option:" << std::endl;
     std::cin >> input;
     uint32_t w, h;
-    ImageParam image_param;
-    memset(&image_param, 0x0, sizeof image_param);
+    ImageParam image_param{};
     switch (input) {
       case '0':
         flag_exit = true;
@@ -1853,8 +1849,7 @@ status_t RecorderTest::StartMultiCameraMode() {
 
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
-  CameraStartParam camera_params;
-  memset(&camera_params, 0x0, sizeof camera_params);
+  CameraStartParam camera_params{};
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
@@ -1896,8 +1891,7 @@ status_t RecorderTest::StartMultiCameraMode() {
   std::vector<TestTrack*> session0_tracks;
 
   TestTrack *rdi_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = raw_width;
   info.height     = raw_height;
   info.track_id   = 1;
@@ -1939,7 +1933,7 @@ status_t RecorderTest::StartMultiCameraMode() {
   std::vector<TestTrack*> session2_tracks;
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 3840;
   info.height     = 2160;
   info.track_id   = 2;
@@ -1978,7 +1972,7 @@ status_t RecorderTest::StartMultiCameraMode() {
   std::vector<TestTrack*> session3_tracks;
 
   TestTrack *yuv_stereo_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1280;
   info.height     = 480;
   info.track_id   = 3;
@@ -2061,8 +2055,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *yuv_4k_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 3840;
   info.height     = 2160;
   info.track_id   = 1;
@@ -2076,7 +2069,7 @@ status_t RecorderTest::Session4KAnd1080pYUVTracks() {
   tracks.push_back(yuv_4k_track);
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 2;
@@ -2109,8 +2102,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
   TestTrack *video_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 3840;
   info.height     = 2160;
   info.track_id   = 1;
@@ -2146,8 +2138,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   std::vector<TestTrack*> tracks;
 
   TestTrack *enc_1080p_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -2161,7 +2152,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   tracks.push_back(enc_1080p_track);
 
   TestTrack *audio_aac_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
@@ -2193,8 +2184,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   std::vector<TestTrack*> tracks;
 
   TestTrack *enc_1080p_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -2208,7 +2198,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
   tracks.push_back(enc_1080p_track);
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 2;
@@ -2242,8 +2232,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   std::vector<TestTrack*> tracks;
 
   TestTrack *enc_1080p_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 3840;
   info.height     = 2160;
   info.track_id   = 1;
@@ -2257,7 +2246,7 @@ status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
   tracks.push_back(enc_1080p_track);
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 2;
@@ -2292,8 +2281,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   std::vector<TestTrack*> tracks;
 
   TestTrack *yuv_4k_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 3840;
   info.height     = 2160;
   info.track_id   = 1;
@@ -2306,7 +2294,7 @@ status_t RecorderTest::Session4KYUVAnd1080pEncTracks(const TrackType&
   tracks.push_back(yuv_4k_track);
 
   TestTrack *enc_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 2;
@@ -2341,8 +2329,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   std::vector<TestTrack*> tracks;
 
   TestTrack *enc_1080p_track1 = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -2356,7 +2343,7 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   tracks.push_back(enc_1080p_track1);
 
   TestTrack *enc_1080p_track2 = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 2;
@@ -2391,8 +2378,7 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   std::vector<TestTrack*> tracks;
 
   TestTrack *yuv_720p_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 1280;
   info.height     = 720;
   info.track_id   = 1;
@@ -2426,8 +2412,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   std::vector<TestTrack*> tracks;
 
   TestTrack *enc_1080p_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -2441,7 +2426,7 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   tracks.push_back(enc_1080p_track);
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
+  info = {};
   info.width          = 1920;
   info.height         = 1080;
   info.track_id       = 2;
@@ -2475,8 +2460,7 @@ status_t RecorderTest::CreateAudioPCMTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2508,8 +2492,7 @@ status_t RecorderTest::CreateAudio2PCMTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track1 = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2548,8 +2531,7 @@ status_t RecorderTest::CreateAudioSCOTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_sco_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2580,8 +2562,7 @@ status_t RecorderTest::CreateAudioPCMSCOTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2621,8 +2602,7 @@ status_t RecorderTest::CreateAudioA2DPTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_a2dp_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2653,8 +2633,7 @@ status_t RecorderTest::CreateAudioPCMA2DPTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2694,8 +2673,7 @@ status_t RecorderTest::CreateAudioAACTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_aac_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
@@ -2727,8 +2705,7 @@ status_t RecorderTest::CreateAudio2AACTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_aac_track1 = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAAC;
   info.session_id = session_id;
@@ -2766,8 +2743,7 @@ status_t RecorderTest::CreateAudioPCMAACTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2807,8 +2783,7 @@ status_t RecorderTest::CreateAudioAMRTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_amr_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
@@ -2840,8 +2815,7 @@ status_t RecorderTest::CreateAudio2AMRTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_amr_track1 = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioAMR;
   info.session_id = session_id;
@@ -2879,8 +2853,7 @@ status_t RecorderTest::CreateAudioPCMAMRTrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -2920,8 +2893,7 @@ status_t RecorderTest::CreateAudioG711Track() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_g711_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
@@ -2953,8 +2925,7 @@ status_t RecorderTest::CreateAudio2G711Track() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_g711_track1 = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioG711;
   info.session_id = session_id;
@@ -2992,8 +2963,7 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.track_id   = 101;
   info.track_type = TrackType::kAudioPCM;
   info.session_id = session_id;
@@ -3087,8 +3057,7 @@ status_t RecorderTest::SessionRDITrack() {
   std::vector<TestTrack*> tracks;
 
   TestTrack *rdi_track = new TestTrack(this);
-  TrackInfo info;
-  memset(&info, 0x0, sizeof info);
+  TrackInfo info{};
   info.width      = raw_width;
   info.height     = raw_height;
   info.track_id   = 1;
@@ -3122,10 +3091,9 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
   std::vector<TestTrack*> tracks;
-  TrackInfo info;
+  TrackInfo info{};
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -3158,10 +3126,9 @@ status_t RecorderTest::Session1080pYUVTrackWithPreview() {
   TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
 
   std::vector<TestTrack*> tracks;
-  TrackInfo info;
+  TrackInfo info{};
 
   TestTrack *yuv_1080p_track = new TestTrack(this);
-  memset(&info, 0x0, sizeof info);
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
@@ -3699,8 +3666,7 @@ status_t RecorderTest::HandleAWBROIRequest() {
       full_fov_width = active_array_size.data.i32[2];
       full_fov_height = active_array_size.data.i32[3];
     }
-    TrackInfo result;
-    memset(&result,0,sizeof(result));
+    TrackInfo result{};
     GetMaxResolutionTrack(result);
     int32_t max_roi_width_ = result.width;
     int32_t max_roi_height_ = result.height;
@@ -4027,8 +3993,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   // StartCamera - Begin
   // TODO: this parameters to be configured from config file
   // once the proper lower layer support for zsl is added
-  CameraStartParam camera_params;
-  memset(&camera_params, 0x0, sizeof camera_params);
+  CameraStartParam camera_params{};
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
@@ -4085,8 +4050,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
            //Test audio AAC track
            //TODO: To be removed when support added in config file
            TestTrack *audio_aac_track = new TestTrack(this);
-           TrackInfo info;
-           memset(&info, 0x0, sizeof info);
+           TrackInfo info{};
            info.track_id   = 101;
            info.track_type = TrackType::kAudioAAC;
            info.session_id = session_id;
@@ -4373,8 +4337,7 @@ void RecorderTest::printInitParamAndTtrackInfo(const TestInitParams& params,
 int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
                                   std::vector<TrackInfo>* infos) {
   FILE *fp;
-  TrackInfo track_info;
-  memset(&track_info, 0x0, sizeof(track_info));
+  TrackInfo track_info{};
   bool isStreamReadCompleted = false;
   const int MAX_LINE = 128;
   char line[MAX_LINE];
@@ -4396,7 +4359,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     memset(value, 0x0, sizeof(value));
     memset(key, 0x0, sizeof(key));
     if(isStreamReadCompleted) {
-      memset(&track_info, 0x0, sizeof(track_info));
+      track_info = {};
       isStreamReadCompleted = false;
     }
     int len = strlen(line);
@@ -4933,12 +4896,11 @@ exit:
 int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
   ALOGD("%s: Enter ",__func__);
 
-  CameraStartParam camera_params;
+  CameraStartParam camera_params{};
   TrackCb video_track_cb;
   SessionCb session_status_cb;
   uint32_t session_id;
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  VideoTrackCreateParam video_track_param{};
 
   auto ret = ParseAutoModeParams(argc, argv, &video_track_param);
   if (ret != 0) {
@@ -4953,7 +4915,6 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
     goto exit;
   }
 
-  memset(&camera_params, 0x0, sizeof camera_params);
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
@@ -5192,7 +5153,7 @@ TestTrack::TestTrack(RecorderTest* recorder_test)
     : recorder_test_(recorder_test), num_yuv_frames_(0),
       display_started_(0) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
-  memset(&track_info_, 0x0, sizeof track_info_);
+  track_info_ = {};
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
@@ -5216,8 +5177,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     float fps = track_info.fps;
     uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
-    VideoTrackCreateParam video_track_param;
-    memset(&video_track_param, 0x0, sizeof video_track_param);
+    VideoTrackCreateParam video_track_param{};
     video_track_param.camera_id   = track_info.camera_id;
     video_track_param.width       = track_info.width;
     video_track_param.height      = track_info.height;
@@ -5311,8 +5271,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     assert(ret == 0);
   } else {
     // Create AudioTrack
-    AudioTrackCreateParam audio_track_params;
-    memset(&audio_track_params, 0x0, sizeof audio_track_params);
+    AudioTrackCreateParam audio_track_params{};
     audio_track_params.in_devices_num = 0;
     audio_track_params.in_devices[audio_track_params.in_devices_num++] =
         track_info.device_id;
@@ -5463,9 +5422,8 @@ status_t TestTrack::EnableOverlay() {
 
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = 0;
-  OverlayParam object_params;
+  OverlayParam object_params{};
   // Create Image buffer blob type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kRandom;
   object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5512,7 +5470,7 @@ status_t TestTrack::EnableOverlay() {
   overlay_ids_.push_back(image_id);
 
   // Create user text buffer blob type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kRandom;
   object_params.image_info.image_type = OverlayImageType::kBlobType;
@@ -5550,7 +5508,7 @@ status_t TestTrack::EnableOverlay() {
   overlay_ids_.push_back(usertxt_blob_id);
 
   // Create Static Image type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kRandom;
   object_params.image_info.image_type = OverlayImageType::kFilePath;
@@ -5575,7 +5533,7 @@ status_t TestTrack::EnableOverlay() {
   // One track can have multiple types of overlay.
   overlay_ids_.push_back(object_id);
   // Create Date & Time type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type = OverlayType::kDateType;
   object_params.location = OverlayLocationType::kRandom;
   object_params.dst_rect.start_x = 1100;
@@ -5599,7 +5557,7 @@ status_t TestTrack::EnableOverlay() {
   overlay_ids_.push_back(date_time_id);
 
   // Create BoundingBox type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type  = OverlayType::kBoundingBox;
   object_params.color = 0x33CC00FF; //Light Green
   // Dummy coordinates for test purpose.
@@ -5620,7 +5578,7 @@ status_t TestTrack::EnableOverlay() {
   overlay_ids_.push_back(bbox_id);
 
   // Create UserText type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kRandom;
   object_params.color = 0x189BF2FF; //Light Blue
@@ -5642,7 +5600,7 @@ status_t TestTrack::EnableOverlay() {
   overlay_ids_.push_back(user_text_id);
 
   // Create PrivacyMask type overlay.
-  memset(&object_params, 0x0, sizeof object_params);
+  object_params = {};
   object_params.type = OverlayType::kPrivacyMask;
   object_params.color = 0xFF9933FF; //Fill mask with color.
   // Dummy coordinates for test purpose.
@@ -5733,8 +5691,7 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
   cairo_move_to (cr_context_, x_text, y_text);
 
   // Draw Text.
-  RGBAValues text_color;
-  memset(&text_color, 0x0, sizeof text_color);
+  RGBAValues text_color{};
   ExtractColorValues(0x189BF2FF, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
@@ -5880,7 +5837,7 @@ void TestTrack::DisplayVSyncHandler(int64_t time_stamp) {
 status_t TestTrack::StartDisplay(DisplayType display_type) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   int32_t res = 0;
-  SurfaceConfig surface_config;
+  SurfaceConfig surface_config{};
   DisplayCb  display_status_cb;
 
   display_= new Display();
@@ -5898,8 +5855,6 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
 
   res = display_->CreateDisplay(display_type, display_status_cb);
   assert(res == 0);
-
-  memset(&surface_config, 0x0, sizeof surface_config);
 
   surface_config.width = track_info_.width;
   surface_config.height = track_info_.height;

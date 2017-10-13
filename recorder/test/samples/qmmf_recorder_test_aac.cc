@@ -141,8 +141,7 @@ int32_t RecorderTestAac::Write(const BufferDescriptor& buffer) {
   }
 
   if (params_.codec_params.aac.format == AACFormat::kRaw) {
-    AacRawHeader header;
-    memset(&header, 0x0, sizeof header);
+    AacRawHeader header{};
 
     header.sync = 0xFFF;
     header.id = 1;
