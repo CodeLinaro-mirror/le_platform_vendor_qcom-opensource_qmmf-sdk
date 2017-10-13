@@ -514,10 +514,9 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
 
   if (append) {
     // Buffer is missing append to queue directly
-    ReprocessBundle new_entry;
+    ReprocessBundle new_entry{};
     new_entry.metadata.append(metadata);
     new_entry.timestamp = timestamp;
-    memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
     reproc_partial_list_.push_back(new_entry);
   } else {
     // clean up older metadata in partial list

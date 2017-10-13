@@ -303,7 +303,6 @@ status_t AudioTrackEncoder::Init(const AudioTrackParams& track_params) {
   QMMF_VERBOSE("%s: %s() INPARAM: track_params[%s]", TAG, __func__,
                track_params.ToString().c_str());
 
-  memset(&track_params_, 0x0, sizeof track_params_);
   track_params_ = track_params;
 
   return ::android::NO_ERROR;
@@ -324,8 +323,7 @@ status_t AudioTrackEncoder::Start(const shared_ptr<ICodecSource> &track_source,
     return ::android::NO_MEMORY;
   }
 
-  CodecParam codec_param;
-  memset(&codec_param, 0x0, sizeof(codec_param));
+  CodecParam codec_param{};
   codec_param.audio_enc_param = track_params_.params;
 
   result = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeAudioEncAAC,
@@ -531,8 +529,7 @@ status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   assert(codec_buffer.data != nullptr);
 
-  BnBuffer bn_buffer;
-  memset(&bn_buffer, 0x0, sizeof bn_buffer);
+  BnBuffer bn_buffer{};
 
   int32_t result = ion_.Export(codec_buffer, &bn_buffer);
   if (result < 0) {
@@ -543,8 +540,7 @@ status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
 
-  MetaData meta_data;
-  memset(&meta_data, 0x0, sizeof meta_data);
+  MetaData meta_data{};
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kNone);
   std::vector<MetaData> meta_buffers;
   meta_buffers.push_back(meta_data);
@@ -571,8 +567,7 @@ status_t AudioTrackEncoder::OnBufferReturnFromClient(
                  bn_buffer.ToString().c_str());
 
   for (const BnBuffer& bn_buffer : bn_buffers) {
-    BufferDescriptor codec_buffer;
-    memset(&codec_buffer, 0x0, sizeof codec_buffer);
+    BufferDescriptor codec_buffer{};
 
     int32_t result = ion_.Import(bn_buffer, &codec_buffer);
     if (result < 0) {

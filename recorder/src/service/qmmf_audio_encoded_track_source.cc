@@ -90,6 +90,7 @@ status_t AudioEncodedTrackSource::Init() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
   int32_t result;
+  AudioMetadata metadata{};
 
   if (end_point_ != nullptr) {
     QMMF_ERROR("%s: %s() endpoint already exists", TAG, __func__);
@@ -125,8 +126,6 @@ status_t AudioEncodedTrackSource::Init() {
     goto error_init_free;
   }
 
-  AudioMetadata metadata;
-  memset(&metadata, 0x0, sizeof metadata);
   metadata.format = AudioFormat::kPCM;
   metadata.num_channels = track_params_.params.channels;
   metadata.sample_rate = track_params_.params.sample_rate;
@@ -345,8 +344,7 @@ status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
     return ::android::NO_ERROR;
   }
 
-  AudioBuffer audio_buffer;
-  memset(&audio_buffer, 0x00, sizeof audio_buffer);
+  AudioBuffer audio_buffer{};
   result = ion_.Import(buffer, &audio_buffer);
   if (result < 0) {
     QMMF_ERROR("%s: %s() ion->Import failed: %d[%s]", TAG, __func__, result,
@@ -435,8 +433,7 @@ void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
   QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
                buffer.ToString().c_str());
 
-  BufferDescriptor stream_buffer;
-  memset(&stream_buffer, 0x00, sizeof stream_buffer);
+  BufferDescriptor stream_buffer{};
   int32_t result = ion_.Export(buffer, &stream_buffer);
   if (result < 0)
     QMMF_ERROR("%s: %s() ion->Export failed: %d[%s]", TAG, __func__, result,

@@ -71,7 +71,7 @@ CameraContext::CameraContext()
       aec_done_(false),
       partial_metadata_required_(false),
       partial_result_count_(0) {
-  memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
+  camera_start_params_ = {};
 }
 
 CameraContext::~CameraContext() {
@@ -138,8 +138,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   postproc_enable_ = IsPostProcNeeded(param);
 
-  CameraStreamParameters stream_param;
-  memset(&stream_param, 0x0, sizeof(stream_param));
+  CameraStreamParameters stream_param{};
 
   ret = ValidateResolution(param.image_format, param.width, param.height);
   if (ret != NO_ERROR) {
@@ -213,7 +212,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   uint32_t num_camera = 0;
 
   //Setup Camera3DeviceClient callbacks.
-  memset(&camera_callbacks_, 0x0, sizeof camera_callbacks_);
   camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
       const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
 
@@ -295,8 +293,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     //size. We cannot re-configure streams dynamically during
     //re-processing as this could have impact on the already
     //cached ZSL buffers and they may fail re-process.
-    ImageParam image_param;
-    memset(&image_param, 0, sizeof(image_param));
+    ImageParam image_param{};
     image_param.width = param.zsl_width;
     image_param.height = param.zsl_height;
     image_param.image_format = ImageFormat::kJPEG;
@@ -1903,7 +1900,7 @@ CameraPort::~CameraPort() {
 
 status_t CameraPort::Init() {
 
-  memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
+  cam_stream_params_ = {};
   if (params_.cam_stream_format == CameraStreamFormat::kRAW10) {
     cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
   } else if (params_.cam_stream_format == CameraStreamFormat::kRAW12) {
@@ -2319,9 +2316,8 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
     }
 
     {
-      ZSLEntry entry;
+      ZSLEntry entry{};
       entry.timestamp = -1;
-      memset(&entry.buffer, 0, sizeof(entry.buffer));
 
       std::lock_guard<std::mutex> l(zsl_queue_lock_);
       if (zsl_running_) {
@@ -2341,10 +2337,9 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
 
         if (append) {
           //Buffer is missing append to queue directly
-          ZSLEntry new_entry;
+          ZSLEntry new_entry{};
           new_entry.result.append(result.metadata);
           new_entry.timestamp = timestamp;
-          memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
           zsl_queue_.push_back(new_entry);
         }
 
@@ -2406,8 +2401,7 @@ status_t ZslPort::SetUpZSL() {
     return ret;
   }
 
-  CameraStreamParameters zsl_stream_params;
-  memset(&zsl_stream_params, 0x0, sizeof(zsl_stream_params));
+  CameraStreamParameters zsl_stream_params{};
   zsl_stream_params.bufferCount = cam_start_param.zsl_queue_depth +
                                   VIDEO_STREAM_BUFFER_COUNT;
   zsl_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
@@ -2427,8 +2421,7 @@ status_t ZslPort::SetUpZSL() {
   }
 
   // Create Input stream for reprocess.
-  CameraInputStreamParameters input_stream_params;
-  memset(&input_stream_params, 0x0, sizeof input_stream_params);
+  CameraInputStreamParameters input_stream_params{};
   input_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   input_stream_params.width  = cam_start_param.zsl_width;
   input_stream_params.height = cam_start_param.zsl_height;
