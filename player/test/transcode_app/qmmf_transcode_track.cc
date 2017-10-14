@@ -152,16 +152,16 @@ status_t TranscoderTrack::FillParams() {
     audio_track_param_.bit_depth = 16;  // TODO: m_sTrackInfo_.sAudio.ulBitDepth;
 
     if (m_sTrackInfo_.sAudio.ulCodecType == FILE_SOURCE_MN_TYPE_AAC) {
-      audio_track_param_.codec = ::qmmf::player::AudioCodecType::kAAC;
+      audio_track_param_.codec = ::qmmf::AudioFormat::kAAC;
       audio_track_param_.codec_params.aac.bit_rate =
           m_sTrackInfo_.sAudio.ulBitRate;
       audio_track_param_.codec_params.aac.format = AACFormat::kRaw;
       audio_track_param_.codec_params.aac.mode = AACMode::kAALC;
     } else if (m_sTrackInfo_.sAudio.ulCodecType == FILE_SOURCE_MN_TYPE_CONC_AMR) {
-      audio_track_param_.codec = ::qmmf::player::AudioCodecType::kAMR;
+      audio_track_param_.codec = ::qmmf::AudioFormat::kAMR;
       audio_track_param_.codec_params.amr.isWAMR = 0;
     } else if (m_sTrackInfo_.sAudio.ulCodecType == FILE_SOURCE_MN_TYPE_AMR_WB) {
-      audio_track_param_.codec = ::qmmf::player::AudioCodecType::kAMR;
+      audio_track_param_.codec = ::qmmf::AudioFormat::kAMR;
       audio_track_param_.codec_params.amr.isWAMR = 1;
     }
     audio_track_param_.out_device = AudioOutSubtype::kBuiltIn;

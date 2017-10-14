@@ -408,7 +408,7 @@ int32_t TimeLapse::StopAVCodec() {
 
   encoder_source_->SetEOS();
 
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   if (NO_ERROR != ret) {
     ALOGE("%s: StopCodec Failed", __func__);
     return ret;

@@ -514,7 +514,7 @@ status_t JPEGEncoder::StartCodec() {
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::StopCodec() {
+status_t JPEGEncoder::StopCodec(bool do_flush) {
   std::lock_guard<std::mutex> l(stop_jpeg_mutex_);
   stop_jpeg_ = true;
   jpeg_thread_id_.join();

@@ -538,7 +538,7 @@ TEST_F(CodecGtest, StartStopCodec) {
     assert(ret == OK);
     sleep(kRecordDuration*60);
 
-    ret = avcodec_->StopCodec();
+    ret = avcodec_->StopCodec(true);
     assert(ret == OK);
 
     input_source_impl_->BufferStatus();
@@ -569,7 +569,7 @@ TEST_F(CodecGtest, CreateDeleteCodec) {
     assert(ret == OK);
     sleep(kRecordDuration*60);
 
-    ret = avcodec_->StopCodec();
+    ret = avcodec_->StopCodec(true);
     assert(ret == OK);
 
     input_source_impl_->BufferStatus();

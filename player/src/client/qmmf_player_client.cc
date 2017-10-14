@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -356,8 +356,9 @@ status_t PlayerClient::DequeueInputBuffer(
 
   auto ret = player_service_->DequeueInputBuffer(track_id, codecbuffer);
 
-  {
-    Mutex::Autolock lock(lock_);
+  if (codecbuffer.size() == 0) {
+    buffers.clear();
+  } else {
     for (size_t i = 0; i < codecbuffer.size(); i++) {
 
     BufInfo bufinfo;
@@ -452,6 +453,8 @@ status_t PlayerClient::DequeueInputBuffer(
       codecbuffer.clear();
     }
   }
+
+  QMMF_VERBOSE("%s:%s: buffers.size()=%d", TAG, __func__, buffers.size());
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   return ret;
 }
@@ -462,7 +465,6 @@ status_t PlayerClient::QueueInputBuffer(uint32_t track_id,
                                         size_t meta_size,
                                         TrackMetaBufferType meta_type) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  Mutex::Autolock lock(lock_);
 
   auto ret = 0;
 
@@ -534,7 +536,7 @@ status_t PlayerClient::Start() {
   return ret;
 }
 
-status_t PlayerClient::Stop(bool do_flush) {
+status_t PlayerClient::Stop() {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   Mutex::Autolock lock(lock_);
 
@@ -542,7 +544,7 @@ status_t PlayerClient::Stop(bool do_flush) {
     return NO_INIT;
   }
 
-  auto ret = player_service_->Stop(do_flush);
+  auto ret = player_service_->Stop();
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s:%s Stop failed: %d", TAG, __func__, ret);
   }
@@ -700,31 +702,14 @@ void PlayerClient::NotifyPlayerEvent(EventType event_type,
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void PlayerClient::NotifyVideoTrackData(
-    uint32_t track_id,
-    std::vector<BnTrackBuffer> &buffers,
-    void *meta_param,
-    TrackMetaBufferType meta_type,
-    size_t meta_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
 void PlayerClient::NotifyVideoTrackEvent(uint32_t track_id,
                                          EventType event_type,
                                          void *event_data,
                                          size_t event_data_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void PlayerClient::NotifyAudioTrackData(
-    uint32_t track_id,
-    const std::vector<BnTrackBuffer> &buffers,
-    void *meta_param,
-    TrackMetaBufferType meta_type,
-    size_t meta_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  if (track_cb_list_.indexOfKey(track_id) >= 0)
+    track_cb_list_.valueFor(track_id).event_cb(track_id, event_type, event_data,
+                                               event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -733,16 +718,9 @@ void PlayerClient::NotifyAudioTrackEvent(uint32_t track_id,
                                          void *event_data,
                                          size_t event_data_size) {
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void PlayerClient::NotifyDeleteAudioTrack(uint32_t track_id) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void PlayerClient::NotifyDeleteVideoTrack(uint32_t track_id) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  if (track_cb_list_.indexOfKey(track_id) >= 0)
+    track_cb_list_.valueFor(track_id).event_cb(track_id, event_type, event_data,
+                                               event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -933,8 +911,11 @@ class BpPlayerService : public BpInterface<IPlayerService>
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_DEQUEUE_INPUT_BUFFER), data, &reply);
     int32_t ret = reply.readInt32();
+    size = reply.readUint32();
 
-    {
+    if (size == 0) {
+      buffers.clear();
+    } else {
       Mutex::Autolock lock(lock_);
 
       for (size_t i = 0; i < size; i++)
@@ -1029,7 +1010,7 @@ class BpPlayerService : public BpInterface<IPlayerService>
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_PREPARE), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_PREPARE), data, &reply);
     return reply.readInt32();
   }
 
@@ -1037,16 +1018,15 @@ class BpPlayerService : public BpInterface<IPlayerService>
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_START), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_START), data, &reply);
     return reply.readInt32();
   }
 
-  status_t Stop(bool do_flush) {
+  status_t Stop() {
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-    data.writeInt32(do_flush);
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_STOP), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_STOP), data, &reply);
     return reply.readInt32();
   }
 
@@ -1054,7 +1034,7 @@ class BpPlayerService : public BpInterface<IPlayerService>
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_PAUSE), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_PAUSE), data, &reply);
     return reply.readInt32();
   }
 
@@ -1062,7 +1042,7 @@ class BpPlayerService : public BpInterface<IPlayerService>
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_RESUME), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_RESUME), data, &reply);
     return reply.readInt32();
   }
 
@@ -1081,7 +1061,7 @@ class BpPlayerService : public BpInterface<IPlayerService>
     data.writeUint32(static_cast<uint32_t>(speed));
     data.writeUint32(static_cast<uint32_t>(dir));
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_SET_TRICKMODE), data, &reply, IBinder::FLAG_ONEWAY);
+        PLAYER_SET_TRICKMODE), data, &reply);
     return reply.readInt32();
   }
 
@@ -1132,20 +1112,6 @@ void ServiceCallbackHandler::NotifyPlayerEvent(EventType event_type,
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
-void ServiceCallbackHandler::NotifyVideoTrackData(
-    uint32_t track_id,
-    std::vector<BnTrackBuffer> &bn_buffers,
-    void *meta_param,
-    TrackMetaBufferType meta_type,
-    size_t meta_size) {
-
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  assert(client_ != nullptr);
-  client_->NotifyVideoTrackData(track_id, bn_buffers, meta_param, meta_type,
-    meta_size);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
 void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
                                                    EventType event_type,
                                                    void *event_data,
@@ -1153,25 +1119,7 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
   assert(client_ != nullptr);
   client_->NotifyVideoTrackEvent(track_id, event_type, event_data,
-  event_data_size);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-}
-
-void ServiceCallbackHandler::NotifyAudioTrackData(
-    uint32_t track_id,
-    const std::vector<BnTrackBuffer>& bn_buffers,
-    void* meta_param,
-    TrackMetaBufferType meta_type,
-    size_t meta_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  for (const BnTrackBuffer& bn_buffer : bn_buffers)
-  QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
-               bn_buffer.ToString().c_str());
-  assert(client_ != nullptr);
-  client_->NotifyAudioTrackData(track_id, bn_buffers, meta_param, meta_type,
-                              meta_size);
-
+                                 event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1183,10 +1131,11 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
   QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
              static_cast<int>(event_type));
+  QMMF_VERBOSE("%s:%s INPARAM: event_data_size[%u]", TAG, __func__,
+               event_data_size);
   assert(client_ != nullptr);
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
-                               event_data_size);
-
+                                 event_data_size);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
 
@@ -1227,39 +1176,42 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
-  void NotifyVideoTrackData(uint32_t track_id,
-                            std::vector<BnTrackBuffer> &buffers,
-                            void *meta_param,
-                            TrackMetaBufferType meta_type,
-                            size_t meta_size) {
-
-    QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s: Exit - Sent Message One Way!!", TAG, __func__);
-  }
-
   void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-  }
-
-  void NotifyAudioTrackData(uint32_t track_id,
-                            const std::vector<BnTrackBuffer>& buffers,
-                            void* meta_param, TrackMetaBufferType meta_type,
-                            size_t meta_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerServiceCallback::getInterfaceDescriptor());
+    data.writeUint32(static_cast<uint32_t>(track_id));
+    data.writeInt32(static_cast<int32_t>(event_type));
+    uint32_t eventSize = event_data_size;
+    data.writeUint32(eventSize);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(eventSize, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(event_data), eventSize);
+    remote()->transact(
+        uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_VIDEO_TRACK_EVENT),
+        data, &reply, IBinder::FLAG_ONEWAY);
+    blob.release();
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
   }
 
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size) {
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerServiceCallback::getInterfaceDescriptor());
+    data.writeUint32(static_cast<uint32_t>(track_id));
+    data.writeInt32(static_cast<int32_t>(event_type));
+    uint32_t eventSize = event_data_size;
+    data.writeUint32(eventSize);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(eventSize, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(event_data), eventSize);
+    remote()->transact(
+        uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_AUDIO_TRACK_EVENT),
+        data, &reply, IBinder::FLAG_ONEWAY);
+    blob.release();
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
-  }
-
-  void NotifyDeleteVideoTrack(uint32_t track_id) {
-    QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:Bp%s: Exit", TAG, __func__);
   }
 
   void NotifyGrabPictureData(BufferDescriptor& buffer) {
@@ -1275,8 +1227,9 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
     memset(blob.data(), 0x0, size);
     memcpy(blob.data(), reinterpret_cast<void*>(&buffer), size);
 
-    remote()->transact(uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_GRAB_PICTURE_DATA),
-       data, &reply,IBinder::FLAG_ONEWAY);
+    remote()->transact(
+        uint32_t(PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_GRAB_PICTURE_DATA),
+        data, &reply, IBinder::FLAG_ONEWAY);
 
     blob.release();
     QMMF_DEBUG("%s:Bp%s: Exit", TAG, __func__);
@@ -1313,77 +1266,26 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       return NO_ERROR;
     }
     break;
-    case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_VIDEO_TRACK_DATA: {
-
-      uint32_t track_id, vector_size;
-      std::vector<BnTrackBuffer> buffers;
-      data.readUint32(&track_id);
-      data.readUint32(&vector_size);
-      QMMF_VERBOSE("%s:Bn%s: vector_size=%d", TAG, __func__, vector_size);
-
-      for (uint32_t i = 0; i < vector_size; i++)  {
-        int32_t is_fd = 0;
-        int32_t ion_fd = -1;
-        data.readInt32(&is_fd);
-        if (is_fd == 1) {
-          ion_fd = dup(data.readFileDescriptor());
-        }
-        uint32_t size;
-        data.readUint32(&size);
-        android::Parcel::ReadableBlob blob;
-        data.readBlob(size, &blob);
-        void* buffer = const_cast<void*>(blob.data());
-        BnTrackBuffer track_buffer;
-        memset(&track_buffer, 0x0, sizeof track_buffer);
-        memcpy(&track_buffer, buffer, size);
-        track_buffer.ion_fd = ion_fd;
-        buffers.push_back(track_buffer);
-        blob.release();
-      }
-      QMMF_VERBOSE("%s:Bn%s: buffers.size()=%d", TAG, __func__, buffers.size());
-      uint32_t meta_size, meta_type =
-          static_cast<uint32_t>(TrackMetaBufferType::kNone);
-      void* meta_param = nullptr;
-      android::Parcel::ReadableBlob meta_blob;
-      data.readUint32(&meta_size);
-      if (meta_size > 0) {
-        data.readBlob(meta_size, &meta_blob);
-        meta_param = const_cast<void*>(meta_blob.data());
-        data.readUint32(&meta_type);
-      }
-      NotifyVideoTrackData(track_id, buffers, meta_param,
-                           static_cast<TrackMetaBufferType>(meta_type),
-                           meta_size);
-      if(meta_size > 0) {
-        meta_blob.release();
-      }
-
-      return NO_ERROR;
-    }
-    break;
     case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_VIDEO_TRACK_EVENT: {
-      //TODO:
-      return NO_ERROR;
-    }
-    break;
-    case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_AUDIO_TRACK_DATA: {
       uint32_t track_id = data.readUint32();
-      size_t num_buffers = static_cast<size_t>(data.readInt32());
-      std::vector<BnTrackBuffer> buffers;
-      for (size_t index = 0; index < num_buffers; ++index) {
-        BnTrackBuffer buffer;
-        buffer.FromParcel(data, true);
-        buffers.push_back(buffer);
-      }
+      EventType event_type = static_cast<EventType>(data.readInt32());
 
-      QMMF_DEBUG("%s:%s-NotifyAudioTrackData() TRACE", TAG, __func__);
-      QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: track_id[%u]",
+      uint32_t event_size;
+      data.readUint32(&event_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(event_size, &blob);
+      void* event = const_cast<void*>(blob.data());
+
+      QMMF_DEBUG("%s:%s-NotifyVideoTrackEvent() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s:%s-NotifyVideoTrackEvent() INPARAM: track_id[%u]",
                    TAG, __func__, track_id);
-      for (const BnTrackBuffer& buffer : buffers)
-        QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
-                   TAG, __func__, buffer.ToString().c_str());
-      NotifyAudioTrackData(track_id, buffers, nullptr,
-                           TrackMetaBufferType::kNone, 0);
+      QMMF_VERBOSE("%s:%s-NotifyVideoTrackEvent() INPARAM: event_type[%d]",
+                   TAG, __func__, static_cast<int>(event_type));
+      QMMF_VERBOSE("%s:%s-NotifyVideoTrackEvent() INPARAM: event_size[%u]",
+                   TAG, __func__, event_size);
+      NotifyVideoTrackEvent(track_id, event_type, event, event_size);
+
+      blob.release();
 
       return NO_ERROR;
     }
@@ -1392,12 +1294,22 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       uint32_t track_id = data.readUint32();
       EventType event_type = static_cast<EventType>(data.readInt32());
 
+      uint32_t event_size;
+      data.readUint32(&event_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(event_size, &blob);
+      void* event = const_cast<void*>(blob.data());
+
       QMMF_DEBUG("%s:%s-NotifyAudioTrackEvent() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: track_id[%u]",
                    TAG, __func__, track_id);
       QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: event_type[%d]",
                    TAG, __func__, static_cast<int>(event_type));
-      NotifyAudioTrackEvent(track_id, event_type, nullptr, 0);
+      QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: event_size[%u]",
+                   TAG, __func__, event_size);
+      NotifyAudioTrackEvent(track_id, event_type, event, event_size);
+
+      blob.release();
 
       return NO_ERROR;
     }

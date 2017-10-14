@@ -33,6 +33,7 @@
 
 #include <memory>
 #include <map>
+#include <string>
 
 #include "common/qmmf_log.h"
 #include "include/qmmf-sdk/qmmf_codec.h"
@@ -45,6 +46,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::map;
 using ::std::shared_ptr;
+using ::std::string;
 
 AudioSource* AudioSource::instance_ = nullptr;
 
@@ -242,6 +244,32 @@ status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s: %s() track_source[%u]->ResumeTrack failed: %d", TAG,
                __func__, track_id, result);
+    return result;
+  }
+
+  return ::android::NO_ERROR;
+}
+
+status_t AudioSource::SetParameter(const uint32_t track_id, const string& key,
+                                   const string& value) {
+  QMMF_DEBUG("%s: %s(): TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_VERBOSE("%s: %s() INPARAM: key[%s]", TAG, __func__, key.c_str());
+  QMMF_VERBOSE("%s: %s() INPARAM: value[%s]", TAG, __func__, value.c_str());
+  QMMF_KPI_DETAIL();
+
+  AudioTrackSourceMap::iterator track_source_iterator =
+      track_source_map_.find(track_id);
+  if (track_source_iterator == track_source_map_.end()) {
+    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+               track_id);
+    return ::android::BAD_VALUE;
+  }
+
+  status_t result = track_source_iterator->second->SetParameter(key, value);
+  if (result != ::android::NO_ERROR) {
+    QMMF_ERROR("%s: %s() track_source[%u]->SetParameter failed: %d",
+               TAG, __func__, track_id, result);
     return result;
   }
 

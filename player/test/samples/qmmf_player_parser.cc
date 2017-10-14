@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,9 +30,11 @@
 
 
 #define TAG "Player_Parser"
+#define TAG1 "PCMfileIO"
 #define TAG2 "AACfileIO"
 #define TAG3 "AMRfileIO"
 #define TAG4 "G711fileIO"
+#define TAG5 "MP3fileIO"
 #define OFFSET_TABLE_LEN    300
 #define MAX_NUM_FRAMES_PER_BUFF_AMR  1
 #define FORMAT_ALAW  0x0006
@@ -40,7 +42,7 @@
 
 #include "qmmf_player_parser.h"
 
-//#define DEBUG
+#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #ifdef DEBUG
@@ -48,6 +50,102 @@
 #else
 #define TEST_DBG(...) ((void)0)
 #endif
+
+static const uint32_t kIdRiff = 0x46464952;
+static const uint32_t kIdWave = 0x45564157;
+static const uint32_t kIdFmt  = 0x20746d66;
+static const uint32_t kIdData = 0x61746164;
+static const uint16_t kFormatPcm = 1;
+
+PCMfileIO::PCMfileIO(const char* file) : input_(file), remaining_bytes_(0) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+}
+
+PCMfileIO::~PCMfileIO() {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+
+  if (input_.is_open())
+    input_.close();
+
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+}
+
+status_t PCMfileIO::Fillparams(AudioTrackCreateParam *params) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+
+  input_.read(reinterpret_cast<char*>(&header_.riff_header),
+              sizeof header_.riff_header);
+  if (header_.riff_header.riff_id != kIdRiff ||
+      header_.riff_header.wave_id != kIdWave) {
+    input_.close();
+    TEST_ERROR("%s: %s() file is not WAV format", TAG, __func__);
+    return -1;
+  }
+
+  bool read_more_chunks = true;
+  streampos input_start_position;
+  int32_t input_data_size;
+  do {
+    input_.read(reinterpret_cast<char*>(&header_.chunk_header),
+                sizeof header_.chunk_header);
+    switch (header_.chunk_header.format_id) {
+      case kIdFmt:
+        input_.read(reinterpret_cast<char*>(&header_.chunk_format),
+                    sizeof header_.chunk_format);
+        // if the format header is larger, skip the rest
+        if (header_.chunk_header.format_size > sizeof header_.chunk_format)
+          input_.seekg(header_.chunk_header.format_size -
+                       sizeof header_.chunk_format, ios::cur);
+        break;
+    case kIdData:
+        // stop looking for chunks
+        input_data_size = header_.chunk_header.format_size;
+        input_start_position = input_.tellg();
+        read_more_chunks = false;
+        break;
+    default:
+        // unknown chunk, skip bytes
+        input_.seekg(header_.chunk_header.format_size, ios::cur);
+    }
+  } while (read_more_chunks);
+
+  if (header_.chunk_format.audio_format == kFormatPcm) {
+    params->codec = AudioFormat::kPCM;
+    params->channels = header_.chunk_format.num_channels;
+    params->sample_rate = header_.chunk_format.sample_rate;
+    params->bit_depth = header_.chunk_format.bits_per_sample;
+  } else {
+    TEST_ERROR("%s: %s() WAV file is not PCM format", TAG, __func__);
+    return -1;
+  }
+
+  input_.seekg(input_start_position, ios::beg);
+  remaining_bytes_ = input_data_size;
+
+  TEST_DBG("%s: %s() OUTPARAM: params[%s]", TAG, __func__,
+           params->ToString().c_str());
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  return 0;
+}
+
+status_t PCMfileIO::GetFrames(void* buffer,
+                              uint32_t size_buffer,
+                              uint32_t* bytes_read) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+
+  input_.read(reinterpret_cast<char*>(buffer), size_buffer);
+  *bytes_read = input_.gcount();
+  remaining_bytes_ -= *bytes_read;
+
+  if (remaining_bytes_ <= 0 || input_.eof()) {
+    TEST_INFO("%s:%s:%s Exit with EOF",TAG,TAG1,__func__);
+    return -1;
+  }
+
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  return 0;
+}
 
 AACfileIO::AACfileIO(const char*file): currentTimeus(0),
                                 Framedurationus(0),
@@ -122,6 +220,7 @@ size_t AACfileIO::getAdtsFrameLength(uint64_t offset,size_t*headersize){
 
     return framesize;
 }
+
 status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   TEST_INFO("%s:%s:%s   Enter",TAG,TAG2,__func__);
   size_t pos = 0;
@@ -219,7 +318,7 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate = sr;
   params->channels    = channel;
   params->bit_depth   = 16;
-  params->codec       = (AudioCodecType)AudioFormat::kAAC;
+  params->codec       = AudioFormat::kAAC;
   params->codec_params.aac.bit_rate = 55000;
   params->codec_params.aac.format = AACFormat::kADTS;
 
@@ -258,7 +357,7 @@ status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frame
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
-    TEST_DBG("%s:%s:%s offset = %lld frameSize = %u headerSize = %u",TAG,TAG2,__func__,(long long)offset,(uint32_t)framesize,(uint32_t)headersize);
+    TEST_DBG("%s:%s:%s offset = %lld frameSize = %u",TAG,TAG2,__func__,(long long)offset,(uint32_t)framesize);
     if(size_buffer - *bytes_read < (uint32_t)framesize){
 
         TEST_INFO("%s:%s:%s No space left in Buffer header(%p)",TAG,TAG2,__func__,buffer);
@@ -354,7 +453,7 @@ status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate = sr;
   params->channels    = channel;
   params->bit_depth   = 16;
-  params->codec       = (AudioCodecType)AudioFormat::kG711;
+  params->codec       = AudioFormat::kG711;
   TEST_INFO(" %s:%s:%s Channel = %d, sampling rate = %d",TAG,TAG4,__func__,channel,sr);
 
   if(g711hdr.audio_format == FORMAT_MULAW){
@@ -521,7 +620,7 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
   params->sample_rate               = sr;
   params->channels                  = channel;
   params->bit_depth                 = 16;
-  params->codec                     = (AudioCodecType)AudioFormat::kAMR;
+  params->codec                     = AudioFormat::kAMR;
   params->codec_params.amr.isWAMR   = mIsWide;
 
   if(mIsWide){
@@ -581,5 +680,144 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
   }
 
   TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
+  return 0;
+}
+
+MP3fileIO::MP3fileIO(const char* file) : filename_(file) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+}
+
+MP3fileIO::~MP3fileIO() {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+
+  if (input_.is_open())
+    input_.close();
+
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+}
+
+status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+
+  input_.open(filename_.c_str(), ios::in | ios::binary);
+  if (!input_.is_open()) {
+    TEST_ERROR("%s: %s() error opening file[%s]", TAG, __func__,
+               filename_.c_str());
+    return -1;
+  }
+
+  // skip over any ID3v2 header
+  size_t pos = 0;
+  while(1) {
+    char id3header[10];
+
+    input_.read(id3header, sizeof(id3header));
+    if (input_.gcount() < (ssize_t)sizeof(id3header)) {
+      TEST_ERROR("%s:%s:%s error reading file",TAG,TAG2,__func__);
+      return -1;
+    }
+
+    if (memcmp("ID3", id3header, 3)) {
+      input_.seekg(pos);
+      break;
+    }
+
+    size_t len = (((size_t)id3header[6] & 0x7f) << 21) |
+                 (((size_t)id3header[7] & 0x7f) << 14) |
+                 (((size_t)id3header[8] & 0x7f) << 7) |
+                  ((size_t)id3header[9] & 0x7f);
+    len += 10;
+    pos += len;
+    input_.seekg(pos);
+  }
+
+  streampos input_start_position = input_.tellg();
+
+  uint32_t header;
+  char raw_header[sizeof header];
+  input_.read(raw_header, sizeof header);
+  header = (((uint32_t)raw_header[0] & 0xFF) << 24) |
+           (((uint32_t)raw_header[1] & 0xFF) << 16) |
+           (((uint32_t)raw_header[2] & 0xFF) << 8)  |
+            ((uint32_t)raw_header[3] & 0xFF);
+
+  if ((header & 0xFFE00000) != 0xFFE00000) {
+    input_.close();
+    TEST_ERROR("%s: %s() sync word not found: header[0x%X]",
+               TAG, __func__, header);
+    return -1;
+  }
+
+  uint32_t id = (header & 0x00180000) >> 19;
+  uint32_t sample_rate = (header & 0x00000C00) >> 10;
+  switch (id) {
+    case 0:
+      switch (sample_rate) {
+        case 0: params->sample_rate = 11025; break;
+        case 1: params->sample_rate = 12000; break;
+        case 2: params->sample_rate = 8000; break;
+        case 3:
+          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          input_.close();
+          return -1;
+      }
+      break;
+    case 1:
+      TEST_ERROR("%s: %s() file is not MP3 format 3", TAG, __func__);
+      return -1;
+    case 2:
+      switch (sample_rate) {
+        case 0: params->sample_rate = 22050; break;
+        case 1: params->sample_rate = 24000; break;
+        case 2: params->sample_rate = 16000; break;
+        case 3:
+          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          input_.close();
+          return -1;
+      }
+      break;
+    case 3:
+      switch (sample_rate) {
+        case 0: params->sample_rate = 44100; break;
+        case 1: params->sample_rate = 48000; break;
+        case 2: params->sample_rate = 32000; break;
+        case 3:
+          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          input_.close();
+          return -1;
+      }
+      break;
+  }
+
+  uint32_t channels = (header & 0x000000C0) >> 6;
+  if (channels == 3)
+    params->channels = 1;
+  else
+    params->channels = 2;
+
+  params->bit_depth = 16;
+  params->codec = AudioFormat::kMP3;
+
+  input_.seekg(input_start_position, ios::beg);
+
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+  return 0;
+}
+
+status_t MP3fileIO::GetFrames(void* buffer,
+                              uint32_t size_buffer,
+                              uint32_t* bytes_read) {
+  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+
+  input_.read(reinterpret_cast<char*>(buffer), size_buffer);
+  *bytes_read = input_.gcount();
+
+  if (input_.eof()) {
+    TEST_INFO("%s:%s:%s Exit with EOF",TAG,TAG5,__func__);
+    return -1;
+  }
+
+  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
   return 0;
 }

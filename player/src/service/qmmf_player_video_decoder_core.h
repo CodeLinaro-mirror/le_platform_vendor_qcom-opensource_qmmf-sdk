@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -66,7 +66,7 @@ class VideoDecoderCore {
 
   status_t StartTrackDecoder(uint32_t track_id);
 
-  status_t StopTrackDecoder(uint32_t track_id, bool do_flush);
+  status_t StopTrackDecoder(uint32_t track_id);
 
   status_t PauseTrackDecoder(uint32_t track_id);
 
@@ -116,7 +116,7 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartDecoder();
 
-  status_t StopDecoder(bool do_flush);
+  status_t StopDecoder();
 
   status_t PauseDecoder();
 
@@ -190,6 +190,7 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 #endif
   time_point<high_resolution_clock>   prev_time_;
   uint32_t                            player_decode_profile_;
+  bool                                stop_received_;
 };
 
 };  // namespace player

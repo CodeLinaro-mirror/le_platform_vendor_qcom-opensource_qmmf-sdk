@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@
 #include <cstring>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -65,6 +66,7 @@ using ::std::condition_variable;
 using ::std::cv_status;
 using ::std::mutex;
 using ::std::queue;
+using ::std::string;
 using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
@@ -111,6 +113,9 @@ status_t AudioEncodedTrackSource::Init() {
           break;
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
+          break;
+        case AudioEventType::kStopped:
+          // TODO
           break;
       }
     };
@@ -238,7 +243,7 @@ status_t AudioEncodedTrackSource::StopTrack() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
-  int32_t result = end_point_->Stop(true);
+  int32_t result = end_point_->Stop();
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
                result, strerror(result));
@@ -274,6 +279,14 @@ status_t AudioEncodedTrackSource::ResumeTrack() {
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
+
+  return ::android::NO_ERROR;
+}
+
+status_t AudioEncodedTrackSource::SetParameter(const string& key,
+                                               const string& value) {
+  QMMF_VERBOSE("%s: %s() INPARAM: key[%s]", TAG, __func__, key.c_str());
+  QMMF_VERBOSE("%s: %s() INPARAM: value[%s]", TAG, __func__, value.c_str());
 
   return ::android::NO_ERROR;
 }

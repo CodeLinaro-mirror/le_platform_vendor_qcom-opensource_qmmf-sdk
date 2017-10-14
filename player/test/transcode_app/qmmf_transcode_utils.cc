@@ -422,7 +422,7 @@ status_t VQZipInfoExtractor::ExtractVQZipInfo(VQZipInfo* vqzip_info) {
   QMMF_INFO("VQZipInfoExtractor:%s VQZip parameters extracted, vqzip_info[%s]",
             __func__, vqzip_info->ToString().c_str());
 
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   if (ret != 0) {
     QMMF_ERROR("VQZipInfoExtractor:%s Failed to Stop Codec", __func__);
     return ret;
