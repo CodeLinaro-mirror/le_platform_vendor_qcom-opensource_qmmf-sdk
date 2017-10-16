@@ -64,6 +64,7 @@ MultiCameraManager::MultiCameraManager()
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
+    snapshot_configured_(false),
     client_snapshot_cb_(nullptr) {}
 
 MultiCameraManager::~MultiCameraManager() {
@@ -308,7 +309,8 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
   status_t ret = NO_ERROR;
 
   bool reconfigure_needed = (snapshot_param_.width != param.width) ||
-                            (snapshot_param_.height != param.height);
+                            (snapshot_param_.height != param.height) ||
+                            !snapshot_configured_;
 
   ImageParam capture_param = snapshot_param_ = param;
   capture_param.image_format = (param.image_format == ImageFormat::kJPEG) ?
@@ -344,9 +346,10 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
     snapshot_stitch_algo_->Run();
   }
 
+  auto streams = active_streams_;
   if (reconfigure_needed) {
     // Stop all active streams.
-    for (auto const& track_id : active_streams_) {
+    for (auto const& track_id : streams) {
       StopStream(track_id);
     }
   }
@@ -363,7 +366,7 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
 
   if (reconfigure_needed) {
     // Resume all previously active streams.
-    for (auto const& track_id : active_streams_) {
+    for (auto const& track_id : streams) {
       StartStream(track_id);
     }
     // Wait avoid capturing black frames
@@ -372,6 +375,7 @@ status_t MultiCameraManager::ConfigImageCapture(const ImageParam &param) {
       QMMF_WARN("%s:%s: AE failed to converge!", TAG, __func__);
     }
   }
+  snapshot_configured_ = true;
 
   return NO_ERROR;
 }
@@ -394,13 +398,33 @@ status_t MultiCameraManager::CancelCaptureImage() {
     }
   }
 
-  for (size_t i = 0; i < camera_contexts_.size(); ++i) {
-    auto ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG, __func__,
-          camera_contexts_.keyAt(i));
-      return ret;
+  if (snapshot_configured_) {
+    auto streams = active_streams_;
+    status_t ret = NO_ERROR;
+
+    for (auto const& track_id : streams) {
+      ret = StopStream(track_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: StopStream %d Failed!", TAG, __func__, track_id);
+        return ret;
+      }
     }
+    for (size_t i = 0; i < camera_contexts_.size(); ++i) {
+      auto ret = camera_contexts_.valueAt(i)->CancelCaptureImage();
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: Camera %d: CancelCaptureImage Failed!", TAG,
+            __func__, camera_contexts_.keyAt(i));
+        return ret;
+      }
+    }
+    for (auto const& track_id : streams) {
+      ret = StartStream(track_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s: StartStream %d Failed!", TAG, __func__, track_id);
+        return ret;
+      }
+    }
+    snapshot_configured_ = false;
   }
   return NO_ERROR;
 }
@@ -490,7 +514,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
 
 
   // Stop all active streams.
-  for (auto const& track_id : active_streams_) {
+  auto streams = active_streams_;
+  for (auto const& track_id : streams) {
     StopStream(track_id);
   }
 
@@ -522,10 +547,9 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
   }
 
   // Resume all previously active streams.
-  for (auto const& track_id : active_streams_) {
+  for (auto const& track_id : streams) {
     StartStream(track_id);
   }
-  active_streams_.push_back(param.id);
   return NO_ERROR;
 }
 
@@ -547,8 +571,6 @@ status_t MultiCameraManager::DeleteStream(const uint32_t track_id) {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: DeleteStreamStitching failed %d!", TAG, __func__, ret);
   }
-  auto track = find(active_streams_.begin(), active_streams_.end(), track_id);
-  active_streams_.erase(track);
   return NO_ERROR;
 }
 
@@ -624,6 +646,9 @@ status_t MultiCameraManager::StartStream(const uint32_t track_id) {
       return ret;
     }
   }
+  if (active_streams_.count(track_id) == 0) {
+    active_streams_.emplace(track_id);
+  }
   return ret;
 }
 
@@ -646,6 +671,9 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
       QMMF_ERROR("%s:%s: StopStream Failed!", TAG, __func__);
       return ret;
     }
+  }
+  if (active_streams_.count(track_id) != 0) {
+    active_streams_.erase(track_id);
   }
   return ret;
 }
@@ -1323,9 +1351,6 @@ StitchingBase::StitchingBase(InitParams &param)
     }
   }
 
-  // We need half the time for one frame 0.6sec/fps, but in nanoseconds.
-  timestamp_max_delta_ = (600000000 / params_.frame_rate);
-
   QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -1504,7 +1529,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
       const StreamBuffer &unsynced_frame = unsynced_buffers->itemAt(idx);
       timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
 
-      if (std::abs(timestamp_delta) < timestamp_max_delta_) {
+      if (std::abs(timestamp_delta) < kMaxTimestampDelta) {
         synced_frames.add(camera_id, unsynced_frame);
         matched_buffers.add(camera_id, idx);
         ++num_matched_frames;

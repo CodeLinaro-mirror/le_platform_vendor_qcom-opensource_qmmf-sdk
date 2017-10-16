@@ -154,6 +154,7 @@ class MultiCameraManager : public CameraInterface {
   ImageParam               snapshot_param_;
   uint32_t                 sequence_cnt_;
   bool                     jpeg_encoding_enabled_;
+  bool                     snapshot_configured_;
 
   sp<SnapshotStitching>    snapshot_stitch_algo_;
   sp<ICameraPostProcess>   jpeg_encoder_;
@@ -163,7 +164,7 @@ class MultiCameraManager : public CameraInterface {
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
 
-  std::vector<uint32_t>    active_streams_;
+  std::set<uint32_t>    active_streams_;
 
   // map of virtual camera id and its corresponding actual camera Ids.
   // <virtual camera id, Vector of actual camera id >
@@ -344,10 +345,6 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   // registered by the library.
   std::set<int32_t> registered_buffers_;
 
-  // The maximum interval in which two frames are thought of as syncable.
-  // It is calculated, based on the frame rate.
-  int32_t timestamp_max_delta_;
-
   std::future<status_t>    init_library_status_;
 
   std::mutex               register_buffer_lock_;
@@ -362,6 +359,9 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
+
+  // The maximum interval in which two frames are thought of as syncable.
+  static const int32_t kMaxTimestampDelta = 2000000; // 2 ms
 };
 
 class StreamStitching : public StitchingBase {
