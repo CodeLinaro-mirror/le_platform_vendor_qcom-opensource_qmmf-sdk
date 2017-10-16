@@ -121,7 +121,8 @@ AVCodec::AVCodec()
       output_stop_(false),
       port_status_(true),
       signal_queue_(CMD_BUF_MAX_COUNT),
-      bPortReconfig_(false) {
+      bPortReconfig_(false),
+      slice_mode_encoding_(false){
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
@@ -1695,8 +1696,15 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
       }
   }
 
-  if(h264_type.eProfile == OMX_VIDEO_AVCProfileBaseline) {
+  if (param.video_enc_param.codec_param.avc.slice_enabled) {
+    slice_mode_encoding_ = true;
+    h264_type.nSliceHeaderSpacing =
+        param.video_enc_param.codec_param.avc.slice_header_spacing;
+  } else {
     h264_type.nSliceHeaderSpacing = 0;
+  }
+
+  if(h264_type.eProfile == OMX_VIDEO_AVCProfileBaseline) {
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 1;
     h264_type.nBFrames = 0;
@@ -1721,7 +1729,6 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.bDirectSpatialTemporal = OMX_FALSE;
     h264_type.nCabacInitIdc = 0;
   } else {
-    h264_type.nSliceHeaderSpacing = 0;
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 2;
     h264_type.nBFrames = 0;
@@ -1763,6 +1770,21 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to set AVC codec parameter", TAG, __func__);
     return ret;
+  }
+
+  if (param.video_enc_param.codec_param.avc.slice_enabled) {
+    QMMF_INFO("%s:%s Setting slice delivery mode: Spacing: (%u)", TAG, __func__,
+              param.video_enc_param.codec_param.avc.slice_header_spacing);
+    QOMX_EXTNINDEX_PARAMTYPE extn_index;
+    InitOMXParams(&extn_index);
+    extn_index.nPortIndex = kPortIndexOutput;
+    extn_index.bEnable = OMX_TRUE;
+    ret = omx_client_->SetParameter(
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexEnableSliceDeliveryMode),
+        reinterpret_cast<void*>(&extn_index));
+    if (ret != 0) {
+      QMMF_ERROR("%s:%s Failed to Set Slice Mode", TAG, __func__);
+    }
   }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -2196,6 +2218,11 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
   if (format_type_ == CodecType::kVideoEncoder) {
     uint32_t buf_count = (port_type == kPortIndexInput) ?
                              INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
+
+    if (slice_mode_encoding_) {
+      buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
+                                                 : port_def.nBufferCountActual;
+    }
 
     if(port_def.nBufferCountActual != buf_count) {
 
@@ -3816,7 +3843,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   if (buf_header->nFlags & OMX_BUFFERFLAG_ENDOFFRAME)
     codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOF);
 
-  QMMF_DEBUG("%s:%s codec_buffer.flag(%u)", TAG, __func__, codec_buffer.flag);
+  QMMF_DEBUG("%s:%s Codec Buffer Flag(%x)", TAG, __func__, codec_buffer.flag);
 
   if(avcodec->format_type_ == CodecType::kVideoDecoder) {
     struct VideoDecoderOutputMetaData *pParam =

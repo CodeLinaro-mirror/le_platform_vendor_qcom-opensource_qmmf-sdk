@@ -233,6 +233,8 @@ struct AVCParams {
   bool                 sar_enabled;
   uint32_t             sar_width;
   uint32_t             sar_height;
+  bool                 slice_enabled;
+  uint32_t             slice_header_spacing;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -259,6 +261,9 @@ struct AVCParams {
            << sar_enabled << ::std::noboolalpha<< "]";
     stream << "sar_width[" << sar_width << "]";
     stream << "sar_height[" << sar_height << "]";
+    stream << "slice_enabled[" << ::std::boolalpha
+           << slice_enabled << ::std::noboolalpha << "]";
+    stream << "slice_header_spacing[" << slice_header_spacing << "]";
     return stream.str();
   }
 };

@@ -793,13 +793,21 @@ status_t TrackEncoder::AllocOutputPortBufs() {
 
   QMMF_INFO("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
   int32_t ret = 0;
-  uint32_t count, size;
+  uint32_t count, size, count_prev;
 
   assert(avcodec_ != nullptr);
   ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
   assert(ret == NO_ERROR);
+  count_prev = count;
   //TODO: This hardcoding would be fixed by AVCodec layer
   count = OUTPUT_MAX_COUNT;
+
+  // This Code changes buffer count in slice delivery mode.
+  if (track_params_.params.format_type == VideoFormat::kAVC) {
+    if (track_params_.params.codec_param.avc.slice_enabled) {
+      count = count_prev;
+    }
+  }
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;

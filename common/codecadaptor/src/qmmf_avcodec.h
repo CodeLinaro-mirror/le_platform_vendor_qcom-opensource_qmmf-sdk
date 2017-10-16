@@ -238,6 +238,7 @@ class AVCodec : public IAVCodec {
   std::mutex                threadrun_port_reconfig_lock_;
   QCondition                wait_for_threadrun;
   CodecParam                codec_params_;
+  bool                      slice_mode_encoding_;
 };
 
 };  // namespace avcodec
