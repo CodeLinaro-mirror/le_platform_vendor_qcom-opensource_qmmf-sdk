@@ -1129,7 +1129,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   float max_fps = 0;
-  Vector<int32_t> removed_streams;
+  std::set<int32_t> removed_streams;
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -1186,15 +1186,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           req.streamIds.removeAt(idx);
           QMMF_INFO("%s:%s: cam_stream_id(%d) removed from Request!", TAG,
                       __func__, cam_stream_id);
-          bool is_present = false;
-          for (size_t j = 0; j < removed_streams.size(); j++) {
-            if (removed_streams[j] == cam_stream_id) {
-              is_present = true;
-              break;
-            }
-          }
-          if (!is_present) {
-            removed_streams.add(cam_stream_id);
+          if (removed_streams.count(cam_stream_id) == 0) {
+            removed_streams.emplace(cam_stream_id);
           }
           QMMF_INFO("%s:%s: removed_streams.size(%d)", TAG, __func__,
               removed_streams.size());
@@ -1254,9 +1247,9 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
     std::unique_lock<std::mutex> sync_lock(sync_frame_lock_);
-    if (!removed_streams.isEmpty()) {
+    if (!removed_streams.empty()) {
       sync_frame_.stream_ids.clear();
-      sync_frame_.stream_ids.appendVector(removed_streams);
+      sync_frame_.stream_ids = removed_streams;
     }
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &sync_frame_.last_frame_id);
@@ -1267,7 +1260,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     streaming_request_id_ = req_id;
 
     std::chrono::nanoseconds wait_time(kSyncFrameWaitDuration);
-    while (!sync_frame_.stream_ids.isEmpty()) {
+    while (!sync_frame_.stream_ids.empty()) {
       auto ret = sync_frame_cond_.wait_for(sync_lock, wait_time);
       if (ret == std::cv_status::timeout) {
         QMMF_WARN("%s:%s: Sync frame timed out!", TAG, __func__);
@@ -1327,20 +1320,8 @@ status_t CameraContext::ReturnStreamBuffer(int32_t stream_id,
 
   std::lock_guard<std::mutex> lock(sync_frame_lock_);
   if (sync_frame_.last_frame_id == buffer.frame_number) {
-    if (!sync_frame_.stream_ids.isEmpty()) {
-      ssize_t idx = -1;
-      size_t count = sync_frame_.stream_ids.size();
-      for (size_t i = 0; i < count; i++) {
-        if (sync_frame_.stream_ids[i] == stream_id) {
-          idx = i;
-          break;
-        }
-      }
-      if (0 <= idx) {
-        sync_frame_.stream_ids.removeAt(idx);
-        sync_frame_cond_.notify_one();
-      }
-    }
+    sync_frame_.stream_ids.clear();
+    sync_frame_cond_.notify_one();
   }
 
   return ret;
