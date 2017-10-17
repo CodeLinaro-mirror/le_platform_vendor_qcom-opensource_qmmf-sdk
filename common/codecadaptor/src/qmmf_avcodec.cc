@@ -2191,7 +2191,7 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
 
   if (format_type_ == CodecType::kVideoEncoder) {
     uint32_t buf_count = (port_type == kPortIndexInput) ?
-                             INPUT_MAX_COUNT : port_def.nBufferCountActual;
+                             INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
 
     if(port_def.nBufferCountActual != buf_count) {
 
