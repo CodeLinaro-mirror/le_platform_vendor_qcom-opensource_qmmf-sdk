@@ -3839,7 +3839,12 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
         break;
       }
       std::string file_path("/data/misc/qmmf/snapshot_");
-      file_path += std::to_string(image_sequence_count) + ".";
+      file_path += std::to_string(image_sequence_count) + "_";
+      file_path += std::to_string(
+          cam_buf_meta.plane_info[0].width);
+      file_path += "x" + std::to_string(
+          cam_buf_meta.plane_info[0].height) + "_";
+      file_path += std::to_string(buffer.timestamp) + ".";
       file_path += ext_str;
       DumpFrameToFile(buffer, cam_buf_meta, file_path);
     }
