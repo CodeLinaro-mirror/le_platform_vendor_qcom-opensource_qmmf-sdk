@@ -53,7 +53,7 @@ using namespace avcodec;
 
 namespace recorder {
 
-#define FPS_CHANGE_THRESHOLD  (0.005)
+#define FPS_CHANGE_THRESHOLD  (0.5)
 #define FRAME_SKIP_THRESHOLD_PERCENT (0.05)
 
 class TrackSource;
