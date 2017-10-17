@@ -245,7 +245,7 @@ status_t AACfileIO::Fillparams(TestInitParams *params) {
   Framedurationus = (1024 * 1000000ll + (sr - 1)) / sr;
   duration = numFrames * Framedurationus;
 
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kAAC;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kAAC;
   params->create_param.audio_dec_param.sample_rate = sr;
   params->create_param.audio_dec_param.channels = channel;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -456,7 +456,7 @@ status_t AMRfileIO::Fillparams(TestInitParams *params) {
 
   sr = mIsWide ? 16000 : 8000;
   channel = 1;
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kAMR;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kAMR;
   params->create_param.audio_dec_param.sample_rate = sr;
   params->create_param.audio_dec_param.channels = channel;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -597,7 +597,7 @@ if (g711hdr.num_channels != 1) {
   infile.seekg(0,infile.end);
   streamSize = infile.tellg();
   infile.seekg(starting_offset);
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kG711;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kG711;
   params->create_param.audio_dec_param.sample_rate = g711hdr.sample_rate;
   params->create_param.audio_dec_param.channels = g711hdr.num_channels;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -888,7 +888,7 @@ status_t CodecTest::StopCodec() {
     stop_ = true;
   }
 
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   assert(ret == OK);
 
   input_source_impl_->BufferStatus();

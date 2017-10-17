@@ -1,71 +1,83 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define TAG "Player"
 
+#include "qmmf-sdk/qmmf_player.h"
+
 #include <binder/IPCThreadState.h>
 
-#include "qmmf-sdk/qmmf_player.h"
-#include "qmmf-sdk/qmmf_player_params.h"
-#include "player/src/client/qmmf_player_client.h"
 #include "common/qmmf_common_utils.h"
+#include "player/src/client/qmmf_player_client.h"
+#include "qmmf-sdk/qmmf_player_params.h"
 
 namespace qmmf {
 namespace player {
 
 Player::Player()
     : player_client_(nullptr) {
-  player_client_ = new PlayerClient();
-  assert( player_client_ != NULL);
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_INFO("%s: %s() player instantiated", TAG, __func__);
 }
 
 Player::~Player() {
-  if (player_client_) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  if (player_client_ != nullptr) {
     delete player_client_;
     player_client_ = nullptr;
   }
+
+  QMMF_INFO("%s: %s() player destroyed", TAG, __func__);
 }
 
 status_t Player::Connect(PlayerCb& cb) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  assert(player_client_ != nullptr);
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
-  auto ret = player_client_->Connect(cb);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Connect failed!", __func__);
-  }
-  return ret;
+  player_client_ = new PlayerClient();
+  if (player_client_ == nullptr)
+    return -ENOMEM;
+
+  status_t result = player_client_->Connect(cb);
+  if (result != NO_ERROR)
+    QMMF_ERROR("%s: %s() client->Connect failed: %d", TAG, __func__, result);
+
+  return result;
 }
 
 status_t Player::Disconnect() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  assert(player_client_ != nullptr);
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+
+  if (player_client_ == nullptr) {
+    QMMF_WARN("%s: %s() player already disconnected", TAG, __func__);
+    return NO_ERROR;
+  }
 
   auto ret = player_client_->Disconnect();
   if (NO_ERROR != ret) {
@@ -129,9 +141,8 @@ status_t Player::DeleteVideoTrack(uint32_t track_id) {
   return ret;
 }
 
-status_t Player::DequeueInputBuffer(
-    uint32_t track_id,
-    std::vector<TrackBuffer>& buffers) {
+status_t Player::DequeueInputBuffer(uint32_t track_id,
+                                    std::vector<TrackBuffer>& buffers) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
@@ -185,11 +196,11 @@ status_t Player::Start() {
   return ret;
 }
 
-status_t Player::Stop(bool do_flush) {
+status_t Player::Stop() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   assert(player_client_ != nullptr);
 
-  auto ret = player_client_->Stop(do_flush);
+  auto ret = player_client_->Stop();
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: Stop failed!", __func__);
   }
@@ -261,6 +272,9 @@ status_t Player::SetAudioTrackParam(uint32_t track_id,
                                     void *param,
                                     size_t param_size) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+               static_cast<int>(type));
+  QMMF_VERBOSE("%s: %s() INPARAM: param_size[%zu]", TAG, __func__, param_size);
   assert(player_client_ != nullptr);
 
   auto ret = player_client_->SetAudioTrackParam(track_id, type, param,
@@ -288,5 +302,5 @@ status_t Player::SetVideoTrackParam(uint32_t track_id,
   return ret;
 }
 
-};  // namespace player
-};  // namespace qmmf
+}; // namespace player
+}; // namespace qmmf

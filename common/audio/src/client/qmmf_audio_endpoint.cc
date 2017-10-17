@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -120,17 +120,15 @@ int32_t AudioEndPoint::Start() {
   return result;
 }
 
-int32_t AudioEndPoint::Stop(const bool flush) {
+int32_t AudioEndPoint::Stop() {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
 
   if (audio_endpoint_client_ == nullptr) {
     QMMF_WARN("%s: %s() stopping an unconnected end point", TAG, __func__);
     return 0;
   }
 
-  int32_t result = audio_endpoint_client_->Stop(flush);
+  int32_t result = audio_endpoint_client_->Stop();
   if (result < 0)
     QMMF_ERROR("%s: %s() client->Stop failed: %d", TAG, __func__, result);
 

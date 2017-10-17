@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,7 +78,9 @@ class VideoSink {
 
   ~VideoSink();
 
-  status_t CreateTrackSink(uint32_t track_id, VideoTrackParams& track_param);
+  status_t CreateTrackSink(uint32_t track_id,
+                           VideoTrackParams& track_param,
+                           TrackCb& callback);
 
   const ::std::shared_ptr<VideoTrackSink>& GetTrackSink(uint32_t track_id);
 
@@ -106,7 +108,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   ~VideoTrackSink();
 
-  status_t Init(VideoTrackParams& param);
+  status_t Init(VideoTrackParams& param, TrackCb& callback);
 
   status_t StartSink();
 
@@ -159,6 +161,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t TrackId() { return track_params_.track_id; }
 
   VideoTrackParams        track_params_;
+  TrackCb                 callback_;
   ::qmmf::avcodec::PortreconfigData::CropData                crop_data_;
   uint32_t                current_width;
   uint32_t                current_height;

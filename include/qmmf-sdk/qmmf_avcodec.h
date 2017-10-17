@@ -113,10 +113,10 @@ class IAVCodec {
   /// to client.
   virtual status_t StartCodec() = 0;
 
-  /// \brief This API will wait for EOS on output port and move the codec in
-  /// Idle state. It disables both port and deregister buffer header on
-  /// both port.
-  virtual status_t StopCodec() = 0;
+  /// \brief This API will optionally wait for EOS (depending on do_flush) on
+  /// output port and move the codec in Idle state. It disables both port and
+  /// deregister buffer header on both port.
+  virtual status_t StopCodec(bool do_flush) = 0;
 
   virtual status_t PauseCodec() = 0;
 

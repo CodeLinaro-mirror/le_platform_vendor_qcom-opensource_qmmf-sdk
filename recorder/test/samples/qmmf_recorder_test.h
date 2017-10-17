@@ -462,6 +462,8 @@ class RecorderTest {
 
   status_t CreateAudioPCMG711Track();
 
+  status_t CreateAudioPCMFluenceTrack();
+
   status_t SessionRDITrack();
 
   status_t StartSession();
@@ -759,6 +761,7 @@ public:
         CREATE_G7ll_AUD_SESSION_CMD             = 'm',
         CREATE_2G7ll_AUD_SESSION_CMD            = 'n',
         CREATE_PCM_G7ll_AUD_SESSION_CMD         = 'o',
+        CREATE_PCMFL_AUD_SESSION_CMD            = 'p',
         CREATE_RDI_SESSION_CMD                  = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD          = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD          = 'Y',
