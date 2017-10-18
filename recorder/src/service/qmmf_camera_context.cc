@@ -514,6 +514,43 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
+status_t CameraContext::ValideteCaptureParams(const ImageParam &image_param) {
+  if (snapshot_request_.metadata.isEmpty()) {
+    QMMF_ERROR("%s:%s Camera is not started Or it is started in zsl mode!!",
+               TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  //Validate in params
+  bool res_supported = false;
+  camera_metadata_entry_t entry;
+  CameraMetadata& meta = snapshot_request_.metadata;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (res_supported != true) {
+    QMMF_ERROR("%s:%s Unsuported Snapshot resolution %d x %d!",
+               TAG, __func__, image_param.width, image_param.height);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
 
@@ -526,8 +563,15 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
     snapshot_param_ = param;
 
     if (reconfigure_needed) {
+
+      auto ret = ValideteCaptureParams(param);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed during snapshot validation", TAG, __func__);
+        return ret;
+      }
+
       QMMF_INFO("%s:%s: Snapshot stream reconfigure required", TAG, __func__);
-      auto ret = CreateSnapshotStream(param);
+      ret = CreateSnapshotStream(param);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
         return ret;
