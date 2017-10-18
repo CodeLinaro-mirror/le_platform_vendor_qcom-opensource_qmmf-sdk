@@ -13995,7 +13995,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     extra_param.Clear();
     SurfaceCrop surface_crop;
     surface_crop.camera_id = camera_ids_.at(1);
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_crop);
+    extra_param.Update(QMMF_SURFACE_CROP, surface_crop);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,
@@ -14165,7 +14165,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     extra_param.Clear();
     SurfaceCrop surface_crop;
     surface_crop.camera_id = camera_ids_.at(1);
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_crop);
+    extra_param.Update(QMMF_SURFACE_CROP, surface_crop);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,
