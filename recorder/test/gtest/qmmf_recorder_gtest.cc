@@ -42,6 +42,7 @@
 #include <sys/time.h>
 #include <sys/time.h>
 #include <chrono>
+#include <condition_variable>
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
@@ -1942,6 +1943,656 @@ TEST_F(RecorderGtest, BurstSnapshot) {
 
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* BurstSnapshotWithBayerLCAC: This test will test burst capture with
+*                     post processing. Post processing pipe is Bayer LCAC,
+*                     Bayer to YUV reprocessing and JPEG.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSesion
+*  - GetSupportedPlugins
+*  - CreatePlugin - Bayer LCAC
+*  - ConfigImageCapture
+*   loop Start {
+*   ------------------
+*   - CaptureImage - Burst With Bayer LCAC
+*   ------------------
+*   } loop End
+*  - CancelCaptureImage
+*  - DeletePlugin
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          30};
+  video_track_param.low_power_mode = false;
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(1);
+
+  ImageParam image_param{};
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  assert(ret == NO_ERROR);
+
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+    }
+  }
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  assert(ret == NO_ERROR);
+
+  uint32_t num_images = 30;
+  for (uint32_t num = 0; num < num_images; num++) {
+    meta_array.push_back(meta);
+  }
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                 meta_array, cb);
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* BurstSnapshotWithBayerLCAC15fps:  This test will test burst snapshot with
+*                     post processing. Post processing pipe is Bayer LCAC,
+*                     Bayer to YUV reprocessing and JPEG.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSesion
+*  - GetSupportedPlugins
+*  - CreatePlugin - Bayer LCAC
+*  - ConfigImageCapture - Add LCAC and two thumbnails
+*   loop Start {
+*   ------------------
+*   - Lock AE
+*   - CaptureImage - Burst With Bayer LCAC
+*   - Unlock AE
+*   ------------------
+*   } loop End
+*  - CancelCaptureImage
+*  - DeletePlugin
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  std::condition_variable  ae_converge_signal;
+  std::mutex ae_converge_mutex;
+
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+      const CameraMetadata &result) {
+        if (result.exists(ANDROID_CONTROL_AE_STATE)) {
+          uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+          if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
+            (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            ae_converge_signal.notify_one();
+          }
+        }
+      };
+
+  const uint32_t frame_rate = 15;
+  camera_start_params_.frame_rate = frame_rate;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          frame_rate};
+  video_track_param.low_power_mode = false;
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  assert(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  assert(ret == NO_ERROR);
+
+  // Record for sometime
+  // Wait for AE convergence
+  std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+  auto status = ae_converge_signal.wait_for(ae_converge_lock,
+    std::chrono::seconds(30 / frame_rate + 1));
+
+  assert(status == std::cv_status::no_timeout);
+
+  fprintf(stderr,"AE Converged succesfuly\n");
+
+  ImageParam image_param{};
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  assert(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  assert (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  assert(ret == NO_ERROR);
+
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      assert(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+    }
+  }
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  assert(ret == NO_ERROR);
+
+  // AE lock for snapshot
+  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+  assert(ret == NO_ERROR);
+
+  // Set frame rate otherwise default value is used
+  int32_t fps_range[2];
+  fps_range[0] = frame_rate;
+  fps_range[1] = frame_rate;
+  ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
+  assert(ret == NO_ERROR);
+
+  uint32_t num_images = 30;
+  for (uint32_t num = 0; num < num_images; num++) {
+    meta_array.push_back(meta);
+  }
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Lock AE
+    CameraMetadata video_meta;
+    ret = recorder_.GetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+
+    ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                 meta_array, cb);
+    assert(ret == NO_ERROR);
+
+    sleep(10);
+
+    // Unlock AE
+    ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+    ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* AutoBurstCaptureWithBayerLCAC:  This test will test burst snapshot with post
+*                    processing and differnet frame rate. Post processing
+*                    pipe is Bayer LCAC, Bayer to YUV reprocessing and JPEG.
+* Api test sequence:
+* loop auto modes {
+*    - StartCamera
+*    - CreateSession
+*    - CreateVideoTrack
+*    - StartSesion
+*    - GetSupportedPlugins
+*    - CreatePlugin - Bayer LCAC
+*    - ConfigImageCapture - Add LCAC and two thumbnails
+*     loop Start {
+*     ------------------
+*     - Lock AE
+*     - CaptureImage - Burst With Bayer LCAC
+*     - Unlock AE
+*     ------------------
+*     } loop End
+*    - CancelCaptureImage
+*    - DeletePlugin
+*    - StopSession
+*    - DeleteVideoTrack
+*    - DeleteSession
+*    - StopCamera
+* } loop End
+*/
+TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  // Auto burst modes: 3 in 1 or 5 in 1 or 10 in 1 or 15 in 1 frames per second
+  std::vector<uint32_t> auto_burst_modes = {3, 5, 10, 15};
+
+  for (auto rate : auto_burst_modes) {
+    std::condition_variable  ae_converge_signal;
+    std::mutex ae_converge_mutex;
+
+    CameraResultCb result_cb = [&] (uint32_t camera_id,
+        const CameraMetadata &result) {
+          if (result.exists(ANDROID_CONTROL_AE_STATE)) {
+            uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+            if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
+              (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+              ae_converge_signal.notify_one();
+            }
+          }
+        };
+
+    camera_start_params_.frame_rate = rate;
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+    assert(ret == NO_ERROR);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void {
+        SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    uint32_t video_track_id = 1;
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                            640,
+                                            480,
+                                            (float)rate};
+    video_track_param.low_power_mode = false;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids = {video_track_id};
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Record for sometime
+    // Wait for AE convergence
+    std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+    auto status = ae_converge_signal.wait_for(ae_converge_lock,
+      std::chrono::seconds(30 / rate + 1));
+
+    assert(status == std::cv_status::no_timeout);
+
+    fprintf(stderr,"AE Converged succesfuly\n");
+
+    ImageParam image_param{};
+    image_param.width         = 3840;
+    image_param.height        = 2160;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = 95;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    assert(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported JPEG snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true; // 3840x2160 JPEG supported.
+            }
+          }
+        }
+      }
+    }
+    assert (res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ImageConfigParam image_config;
+    PostprocPlugin bayer_lcac_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    assert(ret == NO_ERROR);
+
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "BayerLcac") {
+        ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+        assert(ret == NO_ERROR);
+
+        image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      }
+    }
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    assert(ret == NO_ERROR);
+
+    // AE lock for snapshot
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    assert(ret == NO_ERROR);
+
+    // Set frame rate otherwise default value is used
+    int32_t fps_range[2];
+    fps_range[0] = rate;
+    fps_range[1] = rate;
+    ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
+    assert(ret == NO_ERROR);
+
+    // Auto burst is for 2 seconds. Rate is specified for 1 second.
+    uint32_t num_images = 2 * rate;
+
+    for (uint32_t num = 0; num < num_images; num++) {
+      meta_array.push_back(meta);
+    }
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+          test_info_->name(), i);
+
+      // Lock AE
+      CameraMetadata video_meta;
+      ret = recorder_.GetCameraParam(camera_id_, video_meta);
+      assert(ret == NO_ERROR);
+
+      ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      assert(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, video_meta);
+      assert(ret == NO_ERROR);
+
+      ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                   meta_array, cb);
+      assert(ret == NO_ERROR);
+
+      sleep(10);
+
+      // Unlock AE
+      ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      assert(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, video_meta);
+      assert(ret == NO_ERROR);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+
+    ret = recorder_.StopCamera(camera_id_);
+    assert(ret == NO_ERROR);
+  }
 
   ret = DeInit();
   assert(ret == NO_ERROR);
