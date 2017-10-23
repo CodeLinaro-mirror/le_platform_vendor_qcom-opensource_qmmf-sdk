@@ -299,6 +299,12 @@ status_t PostProcAlg::Process(
       return BAD_VALUE;
     }
 
+    if (dump_in_frame_ == true) {
+      for (auto buf : in_alg_buffers) {
+        DumpFrame(buf, true);
+      }
+    }
+
     try {
       algo_->RegisterInputBuffers(in_alg_buffers);
       algo_->RegisterOutputBuffers(out_alg_buffers);
@@ -306,12 +312,6 @@ status_t PostProcAlg::Process(
       QMMF_ERROR("%s: Error registering buffers exception: %s",
           __func__, e.what());
       throw e;
-    }
-
-    if (dump_in_frame_ == true) {
-      for (auto buf : in_alg_buffers) {
-        DumpFrame(buf, true);
-      }
     }
 
     try {
