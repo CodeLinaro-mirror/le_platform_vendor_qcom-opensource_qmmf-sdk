@@ -2251,6 +2251,7 @@ status_t GrallocMemory::Configure(BufferParams &params) {
     FreeGrallocBuffer(it.first);
   }
   gralloc_buffers_.clear();
+  buffers_allocated_ = 0;
 
   params_ = params;
 
