@@ -1012,7 +1012,8 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       slave_track_source_(false),
       time_lapse_mode_(false),
       time_stamp_(0),
-      num_consumers_(0) {
+      num_consumers_(0),
+      rotation_(0){
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -1035,6 +1036,13 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       "remaining_frame_skip_time_(%f)", TAG, __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
 
+  if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
+    VideoRotate video_rotate;
+    track_params_.extra_param.Fetch(QMMF_VIDEO_ROTATE, video_rotate);
+    rotation_ = static_cast<int32_t> (video_rotate.flags);
+    QMMF_INFO("%s:%s: track_id(%x) Rotation enabled! Rotation:(%u)", TAG,
+      __func__, TrackId(), rotation_);
+  }
   // TODO: There are issues related to how recorder service
   // treats the adb properties at runtime. Once it gets resolved,
   // the following lines for prop querying may be moved to
@@ -1150,6 +1158,7 @@ status_t TrackSource::Init() {
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
+
   stream_param.frame_rate     = track_params_.params.frame_rate;
   stream_param.id             = track_params_.track_id;
   stream_param.low_power_mode = track_params_.params.low_power_mode;
@@ -1160,6 +1169,13 @@ status_t TrackSource::Init() {
     stream_param.wait_aec_mode = wait_aec.enable;
   } else {
     stream_param.wait_aec_mode = false;
+  }
+
+  if (rotation_) {
+    stream_param.rotation = rotation_;
+  }
+  else {
+    stream_param.rotation = 0;
   }
 
   assert(camera_interface_.get() != nullptr);

@@ -46,6 +46,14 @@ enum ParamTag {
   QMMF_IMAGE_THUMBNAIL,
   QMMF_SNAPSHOT_TYPE,
   QMMF_VIDEO_WAIT_AEC_MODE,
+  QMMF_VIDEO_ROTATE,
+};
+
+enum class RotationFlags {
+  kNone,
+  kRotate90,
+  kRotate180,
+  kRotate270,
 };
 
 enum class TransformFlags {
@@ -195,6 +203,14 @@ struct VideoWaitAECMode : DataTagBase {
   VideoWaitAECMode()
     : DataTagBase(QMMF_VIDEO_WAIT_AEC_MODE),
       enable(false) {}
+};
+
+struct VideoRotate : DataTagBase {
+  RotationFlags flags; // Default: TransformFlags::kNone
+  VideoRotate()
+    : DataTagBase(QMMF_VIDEO_ROTATE),
+      flags(RotationFlags::kNone) {
+  }
 };
 
 }; //namespace recorder.

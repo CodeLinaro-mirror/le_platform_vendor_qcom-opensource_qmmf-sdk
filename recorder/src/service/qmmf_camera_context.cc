@@ -2199,7 +2199,7 @@ status_t CameraPort::Init() {
   cam_stream_params_.height       = params_.cam_stream_dim.height;
   cam_stream_params_.grallocFlags =
       GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
-
+  cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
