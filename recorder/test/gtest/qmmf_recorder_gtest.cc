@@ -116,6 +116,9 @@ void RecorderGtest::SetUp() {
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
+  use_display_ = false;
+  display_started_ = false;
+
   TEST_INFO("%s:%s Exit ", TAG, __func__);
 }
 
@@ -12272,6 +12275,114 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
 
 }
 
+/*
+* Session1080pYUVTrackWithDisplay: This test will be used to test display
+* functionality. This test will create session with 1080p YUV track and
+* push received YUV cb frames to display.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartDisplay
+*   - StartVideoTrack
+*   - StopSession
+*   - StopDisplay
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+
+TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  use_display_ = true;
+  uint32_t stream_width = FHD_1080p_STREAM_WIDTH;
+  uint32_t stream_height = FHD_1080p_STREAM_HEIGHT;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+              test_info_->name(), i);
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id_1 = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = StartDisplay(DisplayType::kPrimary, stream_width, stream_height);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s StartDisplay Failed!!", TAG, __func__);
+    }
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = StopDisplay(DisplayType::kPrimary);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s StopDisplay Failed!!", TAG, __func__);
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {
@@ -12510,6 +12621,11 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       id2 = 0;
     }
   }
+
+  if (use_display_) {
+    PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
+  }
+
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
@@ -12988,8 +13104,130 @@ void RecorderGtest::ClearSurface() {
 #endif
 }
 
-status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
+void RecorderGtest::DisplayCallbackHandler(DisplayEventType event_type,
+                                           void *event_data,
+                                           size_t event_data_size) {
+  TEST_DBG("%s:%s Enter ", TAG, __func__);
+  TEST_DBG("%s:%s Exit ", TAG, __func__);
+}
 
+void RecorderGtest::DisplayVSyncHandler(int64_t time_stamp) {
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
+}
+
+status_t RecorderGtest::StartDisplay(DisplayType display_type, uint32_t width,
+                                     uint32_t height) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t res = 0;
+  SurfaceConfig surface_config_;
+  DisplayCb display_status_cb;
+  display_ = new Display();
+  assert(display_ != nullptr);
+
+  res = display_->Connect();
+  assert(res == 0);
+
+  display_status_cb.EventCb = [&](DisplayEventType event_type, void *event_data,
+                                  size_t event_data_size) {
+    DisplayCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  display_status_cb.VSyncCb = [&](int64_t time_stamp) {
+    DisplayVSyncHandler(time_stamp);
+  };
+
+  res = display_->CreateDisplay(display_type, display_status_cb);
+  assert(res == 0);
+
+  memset(&surface_config_, 0x0, sizeof surface_config_);
+
+  surface_config_.width = width;
+  surface_config_.height = height;
+  surface_config_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+  surface_config_.buffer_count = 1;
+  surface_config_.cache = 0;
+  surface_config_.use_buffer = 1;
+  surface_config_.context = 0;
+  res = display_->CreateSurface(surface_config_, &surface_id_);
+  assert(res == 0);
+
+  display_started_ = 1;
+
+  surface_param_.src_rect = {0.0, 0.0, (float)width, (float)height};
+  surface_param_.dst_rect = {0.0, 0.0, (float)width, (float)height};
+  surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
+  surface_param_.surface_flags.cursor = 0;
+  surface_param_.frame_rate = 30;
+  surface_param_.z_order = 0;
+  surface_param_.solid_fill_color = 0;
+  surface_param_.surface_transform.rotation = 0.0f;
+  surface_param_.surface_transform.flip_horizontal = 0;
+  surface_param_.surface_transform.flip_vertical = 0;
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return res;
+}
+
+status_t RecorderGtest::StopDisplay(DisplayType display_type) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  int32_t res = 0;
+
+  if (display_started_ == 1) {
+    display_started_ = 0;
+    res = display_->DestroySurface(surface_id_);
+    if (res != 0) {
+      TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+    }
+
+    res = display_->DestroyDisplay(display_type);
+    if (res != 0) {
+      TEST_ERROR("%s:%s DestroyDisplay Failed!!", TAG, __func__);
+    }
+    res = display_->Disconnect();
+
+    if (display_ != nullptr) {
+      TEST_INFO("%s:%s: DELETE display_:%p", TAG, __func__, display_);
+      delete display_;
+      display_ = nullptr;
+    }
+  }
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return res;
+}
+
+status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
+                                           CameraBufferMetaData &meta_data) {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  if (display_started_) {
+    int32_t ret;
+    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
+    surface_buffer_.buf_id = 0;
+    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
+    surface_buffer_.plane_info[0].size = buffer.size;
+    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
+    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
+    surface_buffer_.plane_info[0].offset = 0;
+    surface_buffer_.plane_info[0].buf = buffer.data;
+
+    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
+                                       surface_param_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
+      return ret;
+    }
+
+    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
+    if (ret != 0) {
+      TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
+    }
+  }
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return NO_ERROR;
+}
+
+status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   assert(dumpinfo.width > 0);
   assert(dumpinfo.height > 0);

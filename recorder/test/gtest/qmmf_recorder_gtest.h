@@ -44,6 +44,8 @@
 #include <cairo/cairo.h>
 #endif
 
+#include <qmmf-sdk/qmmf_display.h>
+#include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -51,6 +53,15 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
+using ::qmmf::display::DisplayEventType;
+using ::qmmf::display::DisplayType;
+using ::qmmf::display::Display;
+using ::qmmf::display::DisplayCb;
+using ::qmmf::display::SurfaceBuffer;
+using ::qmmf::display::SurfaceParam;
+using ::qmmf::display::SurfaceConfig;
+using ::qmmf::display::SurfaceBlending;
+using ::qmmf::display::SurfaceFormat;
 
 template<class T>
 struct Rect {
@@ -242,6 +253,18 @@ class RecorderGtest : public ::testing::Test {
 
   void ClearSurface();
 
+  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
+                              size_t event_data_size);
+
+  void DisplayVSyncHandler(int64_t time_stamp);
+
+  status_t StartDisplay(DisplayType display_type, uint32_t width, uint32_t height);
+
+  status_t StopDisplay(DisplayType display_type);
+
+  status_t PushFrameToDisplay(BufferDescriptor &buffer,
+                              CameraBufferMetaData &meta_data);
+
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
   uint32_t face_track_id_;
@@ -273,5 +296,12 @@ class RecorderGtest : public ::testing::Test {
   uint32_t              record_duration_;
   std::mutex            error_lock_;
   bool                  camera_error_;
+  bool use_display_;
+  bool display_started_;
+  Display *display_;
+  uint32_t surface_id_;
+  SurfaceParam surface_param_;
+  SurfaceBuffer surface_buffer_;
+  SurfaceConfig surface_config_;
 };
 
