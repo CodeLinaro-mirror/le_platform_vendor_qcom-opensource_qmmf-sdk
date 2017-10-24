@@ -28,25 +28,26 @@
 
 #define TAG "AVCodecJpegEncode"
 
-#include <cutils/properties.h>
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <gralloc_priv.h>
-#include <hardware/camera3.h>
-#include <linux/msm_ion.h>
-#include <math.h>
-#include <media/hardware/HardwareAPI.h>
-#include <mm_jpeg_interface.h>
-#include <utils/Errors.h>
-#include <utils/RefBase.h>
+#include <cmath>
 #include <chrono>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <sstream>
-#include <string>
+#include <iomanip>
+#include <iostream>
+#include <dlfcn.h>
+#include <fcntl.h>
+
+#include <utils/Errors.h>
+#include <utils/RefBase.h>
+#include <cutils/properties.h>
+#include <hardware/camera3.h>
+#include <qcom/display/gralloc_priv.h>
+#include <linux/msm_ion.h>
+#include <media/hardware/HardwareAPI.h>
+#include <mm_jpeg_interface.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_jpeg_encode.h"

@@ -114,7 +114,7 @@ status_t EncoderCore::AddSource(const shared_ptr<TrackSource>& track_source,
     return BAD_VALUE;
   }
 
-  track_encoders_.insert(std::make_pair(params.track_id, track_encoder));
+  track_encoders_.emplace(params.track_id, track_encoder);
   QMMF_INFO("%s:%s: TrackEncoder(0x%p) for track_id(%x) Instantiated!", TAG,
       __func__, track_encoder.get(), params.track_id);
 
@@ -131,9 +131,8 @@ status_t EncoderCore::StartTrackEncoder(uint32_t track_id) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_encoders_.find(track_id);
-  assert(it != track_encoders_.end());
-  shared_ptr<TrackEncoder> track_encoder = it->second;
+  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
+  assert(track_encoder.get() != NULL);
 
   auto ret = track_encoder->Start();
   // Initial debug purpose.
@@ -160,9 +159,8 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_encoders_.find(track_id);
-  assert(it != track_encoders_.end());
-  shared_ptr<TrackEncoder> track_encoder = it->second;
+  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
+  assert(track_encoder.get() != NULL);
 
   auto ret = track_encoder->Stop(is_force_cleanup);
   // Initial debug purpose.
@@ -188,9 +186,8 @@ status_t EncoderCore::SetTrackEncoderParams(uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_encoders_.find(track_id);
-  assert(it != track_encoders_.end());
-  shared_ptr<TrackEncoder> track_encoder = it->second;
+  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
+  assert(track_encoder.get() != NULL);
 
   auto ret = track_encoder->SetParams(param_type, param, param_size);
   // Initial debug purpose.
@@ -215,9 +212,8 @@ status_t EncoderCore::DeleteTrackEncoder(uint32_t track_id) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_encoders_.find(track_id);
-  assert(it != track_encoders_.end());
-  shared_ptr<TrackEncoder> track_encoder = it->second;
+  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
+  assert(track_encoder.get() != nullptr);
 
   auto ret = track_encoder->ReleaseHeaders();
   assert(ret == NO_ERROR);
@@ -240,9 +236,8 @@ status_t EncoderCore::ReturnTrackBuffer(const uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_encoders_.find(track_id);
-  assert(it != track_encoders_.end());
-  shared_ptr<TrackEncoder> track_encoder = it->second;
+  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
+  assert(track_encoder.get() != nullptr);
 
   // Return buffer back to track encoder's output bitstream buffer queue.
   auto ret = track_encoder->OnBufferReturnFromClient(buffers);
@@ -255,8 +250,7 @@ bool EncoderCore::isTrackValid(uint32_t track_id) {
 
   QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__,
       track_encoders_.size());
-  assert(track_encoders_.size() > 0);
-  return track_encoders_.find(track_id) != track_encoders_.end() ? true : false;
+  return track_encoders_.count(track_id) != 0 ? true : false;
 }
 
 TrackEncoder::TrackEncoder(int32_t ion_device)
@@ -650,46 +644,51 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
                                                 &bn_buffers) {
 
   QMMF_DEBUG("%s:%s: Enter track_id(%x)", TAG, __func__, TrackId());
-  int32_t ret = NO_ERROR;
 
   //Buffer came back from client, now put this buffer in free queue.
   QMMF_DEBUG("%s:%s: track_id(%x) Number of buffers(%d) returned from client",
       TAG, __func__, TrackId(), bn_buffers.size());
 
-  assert(output_occupy_buffer_queue_.Size() > 0);
+  std::lock_guard<std::mutex> lock(queue_lock_);
+  if (is_force_cleanup_) {
+    QMMF_DEBUG("%s:%s: Force cleanup is triggered! Output occupy queue "
+        "has been cleaned!", TAG, __func__);
+    return NO_ERROR;
+  }
 
-  for (auto& iter : bn_buffers) {
+  for (auto& bn_buffer : bn_buffers) {
     bool match = false;
     QMMF_DEBUG("%s:%s track_id(%x) output_occupy_buffer_queue_.size(%d)",
         TAG, __func__, TrackId(), output_occupy_buffer_queue_.Size());
-    {
-      std::lock_guard<std::mutex> lock(queue_lock_);
-      std::list<BufferDescriptor>::iterator it =
-          output_occupy_buffer_queue_.Begin();
-      for (; it != output_occupy_buffer_queue_.End(); ++it) {
-        if ((*it).fd == static_cast<int32_t>(iter.buffer_id)) {
-          QMMF_DEBUG("%s:%s: track_id(%x) buffer_id(%d) found in list", TAG,
-              __func__, TrackId(), iter.buffer_id);
-          // Move buffer to free queue, and signal AVCodec's output thread if it
-          // is waiting for buffer.
-          output_free_buffer_queue_.PushBack((*it));
-          // Erase buffer from occupy queue.
-          output_occupy_buffer_queue_.Erase(it);
-          wait_for_frame_.notify_one();
-          match = true;
-          break;
-        }
+    std::list<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+    for (; it != output_occupy_buffer_queue_.End(); ++it) {
+      if ((*it).fd == static_cast<int32_t>(bn_buffer.buffer_id)) {
+        QMMF_DEBUG("%s:%s: track_id(%x) buffer_id(%d) found in list", TAG,
+            __func__, TrackId(), bn_buffer.buffer_id);
+        // Move buffer to free queue, and signal AVCodec's output thread if it
+        // is waiting for buffer.
+        output_free_buffer_queue_.PushBack((*it));
+        // Erase buffer from occupy queue.
+        output_occupy_buffer_queue_.Erase(it);
+        wait_for_frame_.notify_one();
+        match = true;
+        break;
       }
-      // Make sure all buffers are part of occupy queue.
-      assert(match == true);
-      QMMF_DEBUG("%s:%s track_id(%x) output_occupy_buffer_queue_.size(%d)", TAG,
-          __func__, TrackId(), output_occupy_buffer_queue_.Size());
-      QMMF_DEBUG("%s:%s track_id(%x) output_free_buffer_queue_.size(%d)", TAG,
-          __func__, TrackId(), output_free_buffer_queue_.Size());
+    }
+    // Make sure all buffers are part of occupy queue.
+    if (match == true) {
+      QMMF_DEBUG("%s:%s track_id(%x) output_occupy_buffer_queue_.size(%d)",
+          TAG, __func__, TrackId(), output_occupy_buffer_queue_.Size());
+      QMMF_DEBUG("%s:%s track_id(%x) output_free_buffer_queue_.size(%d)",
+          TAG, __func__, TrackId(), output_free_buffer_queue_.Size());
+    } else {
+      QMMF_ERROR("%s:%s: track_id(%x) buffer_id(%d) not found in list",
+          TAG, __func__, TrackId(), bn_buffer.buffer_id);
+      return FAILED_TRANSACTION;
     }
   }
   QMMF_DEBUG("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
-  return ret;
+  return NO_ERROR;
 }
 
 void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {

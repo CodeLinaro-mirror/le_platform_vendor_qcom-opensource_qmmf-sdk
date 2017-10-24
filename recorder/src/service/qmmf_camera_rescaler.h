@@ -29,12 +29,13 @@
 
 #pragma once
 
-#include <utils/Timers.h>
 #include <condition_variable>
-#include <libgralloc/gralloc_priv.h>
-#include <media/msm_media_info.h>
 #include <memory>
 #include <thread>
+
+#include <utils/Timers.h>
+#include <media/msm_media_info.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "common/qmmf_common_utils.h"
 #include "recorder/src/service/qmmf_camera_interface.h"

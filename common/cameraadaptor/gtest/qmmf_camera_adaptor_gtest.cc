@@ -31,7 +31,7 @@
 #include <sys/time.h>
 #include <math.h>
 #include <log/log.h>
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 #include <QCamera3VendorTags.h>
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera_adaptor_gtest.h"

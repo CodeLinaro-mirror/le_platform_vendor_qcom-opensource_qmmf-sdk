@@ -29,14 +29,14 @@
 
 #define TAG "DisplayImpl"
 
-#include "display/src/service/qmmf_display_impl.h"
-#include "sdm/include/core/dump_interface.h"
-#include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
 #include <dlfcn.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
 #include <hardware/hardware.h>
+
+#include "display/src/service/qmmf_display_impl.h"
+#include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
 
 namespace qmmf {
 

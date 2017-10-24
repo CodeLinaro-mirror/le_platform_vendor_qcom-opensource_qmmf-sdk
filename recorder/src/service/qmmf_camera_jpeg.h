@@ -33,7 +33,7 @@
 #include <condition_variable>
 
 #include <camera/CameraMetadata.h>
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "recorder/src/service/post-process/interface/qmmf_postproc_module.h"
