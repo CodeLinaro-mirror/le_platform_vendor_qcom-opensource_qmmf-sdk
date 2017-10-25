@@ -13747,7 +13747,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
