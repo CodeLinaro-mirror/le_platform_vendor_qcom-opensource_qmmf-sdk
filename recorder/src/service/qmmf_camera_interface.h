@@ -30,7 +30,6 @@
 #pragma once
 
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 
@@ -40,7 +39,7 @@ namespace recorder {
 
 class IBufferConsumer;
 
-class CameraInterface : public virtual RefBase {
+class CameraInterface {
  public:
 
   virtual ~CameraInterface() {};

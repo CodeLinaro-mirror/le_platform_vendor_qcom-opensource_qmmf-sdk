@@ -32,8 +32,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
-#include <condition_variable>
+#include <qcom/display/gralloc_priv.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
@@ -68,8 +67,7 @@ class IBufferProducer;
 // to camera device stream.
 class CameraContext : public CameraInterface,
                       public PostProcPlugin<CameraContext>,
-                      public virtual IPostProc,
-                      public virtual RefBase {
+                      public virtual IPostProc {
  public:
   CameraContext();
 
@@ -157,7 +155,7 @@ class CameraContext : public CameraInterface,
   friend class CameraPort;
   friend class ZslPort;
 
-  void StoreBatchStreamId(sp<CameraPort>& port);
+  void StoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
   void RestoreBatchStreamId(CameraPort* port);
 
@@ -263,10 +261,10 @@ class CameraContext : public CameraInterface,
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
   std::vector<int32_t>     supported_fps_;
-  sp<CameraPort>           zsl_port_;
+  std::shared_ptr<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  std::vector<sp<CameraPort> > active_ports_;
+  std::vector<std::shared_ptr<CameraPort> > active_ports_;
 
   // Map of <port_id and PostProc plugins>
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
@@ -331,7 +329,7 @@ struct ZSLEntry {
 // from camera stream and passes to its consumers, for optimization reason
 // single port can serve multiple consumers if their characterstics are exactly
 // same.
-class CameraPort : public RefBase {
+class CameraPort {
  public:
   CameraPort(const CameraStreamParam& param, size_t batch_size,
              CameraPortType port_type, CameraContext *context);

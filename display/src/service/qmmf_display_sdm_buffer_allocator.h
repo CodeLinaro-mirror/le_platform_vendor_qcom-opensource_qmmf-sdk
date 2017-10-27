@@ -29,10 +29,11 @@
 
 #pragma once
 
-#include "sys/mman.h"
-#include "fcntl.h"
-#include "sdm/include/core/layer_buffer.h"
-#include "sdm/include/core/buffer_allocator.h"
+#include <sys/mman.h>
+#include <fcntl.h>
+
+#include <sdm/core/layer_buffer.h>
+#include <sdm/core/buffer_allocator.h>
 
 namespace gralloc {
 

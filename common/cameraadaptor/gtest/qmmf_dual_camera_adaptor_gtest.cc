@@ -28,7 +28,7 @@
 */
 
 #include <inttypes.h>
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 #include "qmmf_dual_camera_adaptor_gtest.h"
 
 #define BUFFER_COUNT 4

@@ -29,8 +29,8 @@
 
 #pragma once
 
-#include <libgralloc/gralloc_priv.h>
 #include <memory>
+#include <qcom/display/gralloc_priv.h>
 
 #include "common/qmmf_common_utils.h"
 

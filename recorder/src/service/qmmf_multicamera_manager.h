@@ -37,7 +37,7 @@
 #include <condition_variable>
 
 #include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "include/qmmf-plugin/qmmf_alg_intf.h"
 
@@ -159,10 +159,10 @@ class MultiCameraManager : public CameraInterface {
   bool                     jpeg_encoding_enabled_;
   bool                     snapshot_configured_;
 
-  sp<SnapshotStitching>    snapshot_stitch_algo_;
+  std::shared_ptr<SnapshotStitching>    snapshot_stitch_algo_;
   std::shared_ptr<ICameraPostProcess>   jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  sp<GrallocMemory>        jpeg_memory_pool_;
+  std::shared_ptr<GrallocMemory>        jpeg_memory_pool_;
 
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
@@ -174,10 +174,10 @@ class MultiCameraManager : public CameraInterface {
   std::map<uint32_t, std::vector<uint32_t> > virtual_camera_map_;
 
   // Map of camera id and CameraContext.
-  std::map<uint32_t, sp<CameraContext>> camera_contexts_;
+  std::map<uint32_t, std::shared_ptr<CameraContext>> camera_contexts_;
 
   // Map of track id and StreamStitching class
-  std::map<uint32_t, sp<StreamStitching> > stream_stitch_algos_;
+  std::map<uint32_t, std::shared_ptr<StreamStitching> > stream_stitch_algos_;
 
   // Map of output_buffer's fd to StreamBuffer
   std::map<uint32_t, StreamBuffer> jpeg_buffers_map_;
@@ -194,7 +194,7 @@ class MultiCameraManager : public CameraInterface {
   static const uint32_t kHeight4K = 1920;
 };
 
-class GrallocMemory : public RefBase {
+class GrallocMemory {
  public:
   struct BufferParams {
     uint32_t width;
@@ -241,7 +241,7 @@ class GrallocMemory : public RefBase {
   static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
 
-class StitchingBase : public Camera3Thread, public RefBase  {
+class StitchingBase : public Camera3Thread {
  public:
   struct InitParams {
     uint32_t                       multicam_id;
@@ -331,7 +331,7 @@ class StitchingBase : public Camera3Thread, public RefBase  {
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
   StitchLibInterface       stitch_lib_;
-  sp<GrallocMemory>        memory_pool_;
+  std::shared_ptr<GrallocMemory>        memory_pool_;
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.
@@ -407,7 +407,7 @@ class StreamStitching : public StitchingBase {
 class SnapshotStitching : public StitchingBase {
  public:
   SnapshotStitching(InitParams &param,
-                    std::map<uint32_t, sp<CameraContext> > &contexts);
+      std::map<uint32_t, std::shared_ptr<CameraContext> > &contexts);
   ~SnapshotStitching();
 
   void SetClientCallback(const StreamSnapshotCb& cb) {
@@ -429,7 +429,7 @@ class SnapshotStitching : public StitchingBase {
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
   // Map of camera id and CameraContext taken from MultiCameraManager.
-  std::map<uint32_t, sp<CameraContext> > camera_contexts_;
+  std::map<uint32_t, std::shared_ptr<CameraContext> > camera_contexts_;
 
   StreamSnapshotCb         client_snapshot_cb_;
   std::mutex               snapshot_lock_;
