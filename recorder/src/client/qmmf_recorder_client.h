@@ -32,6 +32,7 @@
 #include <camera/CameraMetadata.h>
 #include <vector>
 #include <map>
+#include <mutex>
 
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
@@ -229,6 +230,7 @@ class RecorderClient {
   std::map<uint32_t, SessionCb > session_cb_list_;
   // List of Track callbacks.
   std::map<uint32_t, TrackCb >   track_cb_list_;
+  std::mutex                     track_list_lock_;
   // Capture callback.
   ImageCaptureCb                           image_capture_cb_;
   // Camera result callback
