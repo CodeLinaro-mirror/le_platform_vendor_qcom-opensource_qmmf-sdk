@@ -111,6 +111,7 @@ class AudioEncoderCore {
   static AudioEncoderCore* instance_;
 
   AudioTrackEncoderMap track_encoder_map_;
+  std::mutex  track_encoder_map_lock_;
 
   // disable copy, assignment, and move
   AudioEncoderCore(const AudioEncoderCore&) = delete;

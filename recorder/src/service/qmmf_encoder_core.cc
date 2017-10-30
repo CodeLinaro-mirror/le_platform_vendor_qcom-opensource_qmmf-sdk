@@ -114,6 +114,7 @@ status_t EncoderCore::AddSource(const shared_ptr<TrackSource>& track_source,
     return BAD_VALUE;
   }
 
+  std::lock_guard<std::mutex> l(encoder_list_lock_);
   track_encoders_.emplace(params.track_id, track_encoder);
   QMMF_INFO("%s:%s: TrackEncoder(0x%p) for track_id(%x) Instantiated!", TAG,
       __func__, track_encoder.get(), params.track_id);
@@ -131,8 +132,12 @@ status_t EncoderCore::StartTrackEncoder(uint32_t track_id) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
-  assert(track_encoder.get() != NULL);
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != NULL);
+  }
 
   auto ret = track_encoder->Start();
   // Initial debug purpose.
@@ -159,8 +164,12 @@ status_t EncoderCore::StopTrackEncoder(uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
-  assert(track_encoder.get() != NULL);
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != NULL);
+  }
 
   auto ret = track_encoder->Stop(is_force_cleanup);
   // Initial debug purpose.
@@ -186,8 +195,12 @@ status_t EncoderCore::SetTrackEncoderParams(uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
-  assert(track_encoder.get() != NULL);
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != NULL);
+  }
 
   auto ret = track_encoder->SetParams(param_type, param, param_size);
   // Initial debug purpose.
@@ -212,12 +225,17 @@ status_t EncoderCore::DeleteTrackEncoder(uint32_t track_id) {
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
-  assert(track_encoder.get() != nullptr);
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != nullptr);
+  }
 
   auto ret = track_encoder->ReleaseHeaders();
   assert(ret == NO_ERROR);
 
+  std::lock_guard<std::mutex> l(encoder_list_lock_);
   track_encoders_.erase(track_id);
 
   QMMF_INFO("%s:%s: track_id(%x) TrackEncoder Deleted Successfully!", TAG,
@@ -236,9 +254,12 @@ status_t EncoderCore::ReturnTrackBuffer(const uint32_t track_id,
     QMMF_ERROR("%s:%s: Invalid track_id(%x)", TAG, __func__, track_id);
     return BAD_VALUE;
   }
-  shared_ptr<TrackEncoder> track_encoder = track_encoders_[track_id];
-  assert(track_encoder.get() != nullptr);
-
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != nullptr);
+  }
   // Return buffer back to track encoder's output bitstream buffer queue.
   auto ret = track_encoder->OnBufferReturnFromClient(buffers);
 
@@ -248,6 +269,7 @@ status_t EncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 
 bool EncoderCore::isTrackValid(uint32_t track_id) {
 
+  std::lock_guard<std::mutex> l(encoder_list_lock_);
   QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__,
       track_encoders_.size());
   return track_encoders_.count(track_id) != 0 ? true : false;
