@@ -50,7 +50,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
-static const nsecs_t kWaitDuration = 2000000000; // 2 s.
+static const nsecs_t kWaitDuration = 3000000000; // 3 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
 static const int32_t kDebugFrameSkip = 1<<2;
