@@ -605,7 +605,7 @@ void AudioBackendSource::Thread() {
   bool stop_received = false;
   while (keep_running) {
     // wait until there is something to do
-    if (buffers.empty() && messages_.empty()) {
+    while (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
         QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
