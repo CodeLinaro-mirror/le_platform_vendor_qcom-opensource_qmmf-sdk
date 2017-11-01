@@ -145,6 +145,9 @@ status_t TranscoderTrack::FillParams() {
   ::qmmf::player::AudioTrackCreateParam audio_track_param_;
   ::qmmf::player::VideoTrackCreateParam video_track_param_;
 
+  memset(&audio_track_param_, 0x0, sizeof(audio_track_param_));
+  memset(&video_track_param_, 0x0, sizeof(video_track_param_));
+
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
     audio_track_param_.sample_rate = m_sTrackInfo_.sAudio.ulSampleRate;
