@@ -31,11 +31,14 @@
 #define TAG3 "AMRfileIO"
 #define TAG4 "G711fileIO"
 
+#include <cstring>
 #include <memory>
+#include <string>
 
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <unistd.h>
 
 #include "avcodec/test/sample/qmmf_audio_decode_test.h"
 
@@ -710,8 +713,12 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
 
   TestInitParams params;
   memset(&params, 0x0, sizeof(params));
-  strncpy(params.input_file,argv[2],strlen(argv[2]));
-  strncpy(params.output_file,"/data/misc/qmmf/pcm.wav",strlen("/data/misc/qmmf/pcm.wav"));
+
+  string(argv[2]).copy(params.input_file, strlen(argv[2]));
+  string output_file = "/data/misc/qmmf/pcm_";
+  output_file.append(to_string(getpid()));
+  output_file.append(".pcm");
+  output_file.copy(params.output_file, output_file.size());
 
   if (!strncmp("aac",argv[4],strlen("aac"))) {
     audiofiletype = AudioFileType::kAAC;
