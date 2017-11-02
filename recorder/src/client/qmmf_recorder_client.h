@@ -253,6 +253,8 @@ class RecorderClient {
   typedef std::map<uint32_t, BufInfo> buf_info_map;
   // map <track_id, map <buffer index, buffer_info> >
   std::map<uint32_t,  buf_info_map> track_buf_map_;
+  // to protect track_buf_map_
+  std::mutex  track_buf_map_lock_;
 
   std::map<uint32_t, BufInfo> snapshot_buffers_;
 };
