@@ -1051,12 +1051,10 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
       " returned back!", TAG, __func__, stream_id, buffer.handle, buffer_id);
 
   status_t ret = NO_ERROR;
-  if (stream_id != snapshot_request_.streamIds[0]) {
-    if (postproc_pipe_.get() != nullptr) {
-      postproc_pipe_->PipeNotifyBufferReturn(buffer);
-    }
+  if (postproc_enable_) {
+    postproc_pipe_->PipeNotifyBufferReturn(buffer);
   } else {
-    ret = ReturnStreamBuffer(buffer);
+    ret = camera_device_->ReturnStreamBuffer(buffer);
   }
 
   QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
@@ -1525,7 +1523,14 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   {
     --sequence_cnt_;
     if (cancel_capture_) {
-      camera_device_->ReturnStreamBuffer(buffer);
+      status_t ret = NO_ERROR;
+      if (postproc_enable_) {
+        postproc_pipe_->PipeNotifyBufferReturn(buffer);
+      } else {
+        ret = camera_device_->ReturnStreamBuffer(buffer);
+      }
+      assert(ret == NO_ERROR);
+
       if (sequence_cnt_ == 0) {
         QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
         capture_count_signal_.Signal();
