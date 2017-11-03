@@ -52,7 +52,7 @@
 #define LOG_LEVEL_KPI
 
 // INFO, ERROR and WARN logs are enabled by default
-#define QMMF_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define QMMF_INFO(fmt, args...)  ALOGI(fmt, ##args)
 #define QMMF_WARN(fmt, args...)  ALOGW(fmt, ##args)
 #define QMMF_ERROR(fmt, args...) ALOGE(fmt, ##args)
 
@@ -65,7 +65,7 @@ static inline void unused(...) {};
 #endif
 
 #ifdef LOG_LEVEL_VERBOSE
-#define QMMF_VERBOSE(fmt, args...)  ALOGD(fmt, ##args)
+#define QMMF_VERBOSE(fmt, args...)  ALOGV(fmt, ##args)
 #else
 #define QMMF_VERBOSE(...) unused(__VA_ARGS__)
 #endif

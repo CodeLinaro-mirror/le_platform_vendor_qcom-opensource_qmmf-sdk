@@ -432,11 +432,19 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     ret = ConfigureAudioDecoder(codec_param);
   } else {
     QMMF_ERROR("%s:%s codec type not implemented", TAG, __func__);
-    ret = -1;
+    return -1;
   }
 
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Configure Codec Failed", TAG, __func__);
+    return ret;
+  }
   // set component to Idle state
   ret = SetState(OMX_StateIdle, OMX_FALSE);
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s SetState to OMX_IDLE failed", TAG, __func__);
+    return ret;
+  }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
@@ -2183,7 +2191,7 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
 
   if (format_type_ == CodecType::kVideoEncoder) {
     uint32_t buf_count = (port_type == kPortIndexInput) ?
-                             INPUT_MAX_COUNT : port_def.nBufferCountActual;
+                             INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
 
     if(port_def.nBufferCountActual != buf_count) {
 

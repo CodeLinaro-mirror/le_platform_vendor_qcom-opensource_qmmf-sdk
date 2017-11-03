@@ -37,6 +37,7 @@ LOCAL_SRC_FILES := qmmf_recorder_360cam_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue
 LOCAL_SHARED_LIBRARIES += libcamera_client
+LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_display_client
 
 LOCAL_MODULE = qmmf_recorder_360cam_gtest
 
