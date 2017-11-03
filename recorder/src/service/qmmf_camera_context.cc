@@ -62,7 +62,10 @@ CameraContext::CameraContext()
       last_frame_number_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
-      burst_cnt_(0),
+      last_snapshot_id_(-1),
+      curr_snapshot_id_(-1),
+      capture_cnt_(0),
+      capture_done_(true),
       postproc_enable_(false),
       result_cb_(nullptr),
       error_cb_(nullptr),
@@ -71,7 +74,8 @@ CameraContext::CameraContext()
       batch_stream_id_(-1),
       partial_metadata_required_(false),
       partial_result_count_(0),
-      snapshot_type_(SnapshotMode::kStill) {
+      snapshot_type_(SnapshotMode::kStill),
+      new_snapshot_type_(SnapshotMode::kStill) {
   camera_start_params_ = {};
 }
 
@@ -137,8 +141,6 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     PostProcDelete();
   }
 
-  postproc_enable_ = IsPostProcNeeded(param);
-
   CameraStreamParameters stream_param{};
 
   ret = ValidateResolution(param.image_format, param.width, param.height);
@@ -154,7 +156,11 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                 GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
-  stream_param.bufferCount  = sequence_cnt_;
+  if (snapshot_type_ == SnapshotMode::kContinuous) {
+    stream_param.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
+  } else {
+    stream_param.bufferCount = sequence_cnt_;
+  }
 
   if (postproc_enable_) {
 
@@ -197,9 +203,11 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 }
 
 status_t CameraContext::DeleteSnapshotStream() {
-
   QMMF_INFO("%s:%s Enter", TAG, __func__);
-  bool cache = (postproc_enable_ || (streaming_request_id_ == -1));
+
+  PostProcDelete();
+
+  bool cache = streaming_request_id_ == -1;
   if (!snapshot_request_.streamIds.empty()) {
     auto ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
     if (NO_ERROR != ret) {
@@ -208,9 +216,6 @@ status_t CameraContext::DeleteSnapshotStream() {
       return ret;
     }
     snapshot_request_.streamIds.clear();
-  }
-  if (postproc_enable_) {
-    PostProcDelete();
   }
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return NO_ERROR;
@@ -480,8 +485,9 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
   return format;
 }
 
-bool CameraContext::IsPostProcNeeded(const ImageParam &param) {
-  if (((sequence_cnt_ > 1) && (param.image_format == ImageFormat::kJPEG)) ||
+bool CameraContext::IsPostProcNeeded(const ImageParam &param,
+                                     const uint32_t sequence_cnt) {
+  if (((sequence_cnt > 1) && (param.image_format == ImageFormat::kJPEG)) ||
       !capture_plugins_.empty()) {
     return true;
   } else {
@@ -573,12 +579,27 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
 
   if (!camera_start_params_.zsl_mode) {
-    sequence_cnt_ = num_images;
-    bool reconfigure_needed = snapshot_request_.streamIds.empty() ||
-                              (snapshot_param_.width != param.width) ||
-                              (snapshot_param_.height != param.height) ||
-                              (postproc_enable_ != IsPostProcNeeded(param));
-    snapshot_param_ = param;
+    bool reconfigure_needed = false;
+    {
+      std::unique_lock<std::mutex> lock(capture_lock_);
+
+      bool new_postproc_enable = IsPostProcNeeded(param, num_images);
+      reconfigure_needed = snapshot_request_.streamIds.empty() ||
+                           (snapshot_param_.width != param.width) ||
+                           (snapshot_param_.height != param.height) ||
+                           (sequence_cnt_ != num_images) ||
+                           (postproc_enable_ != new_postproc_enable) ||
+                           (snapshot_type_ != new_snapshot_type_);
+      snapshot_param_ = param;
+      postproc_enable_ = new_postproc_enable;
+      snapshot_type_ = new_snapshot_type_;
+
+      if (snapshot_type_ == SnapshotMode::kContinuous) {
+        sequence_cnt_ = 1;
+      } else {
+        sequence_cnt_ = num_images;
+      }
+    }
 
     if (reconfigure_needed) {
 
@@ -595,7 +616,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
         return ret;
       }
       // Wait AE to converge after reconfiguration if there are active streams.
-      WaitAecToConverge(kWaitPendingFramesTimeout);
+      WaitAecToConverge(kWaitAecTimeout);
     }
   } else {
     if (ImageFormat::kJPEG != param.image_format) {
@@ -621,10 +642,10 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
-  burst_cnt_ = 0;
+  capture_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
-    int64_t last_frame_mumber;
+    int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.image_quality;
     std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
@@ -635,7 +656,9 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
       }
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
       uint32_t active_streamid_count = 0;
-      if (snapshot_type_ == SnapshotMode::kVideo) {
+
+      if (snapshot_type_ == SnapshotMode::kVideo ||
+          snapshot_type_ == SnapshotMode::kContinuous) {
         if (streaming_active_requests_.size() == 1) {
           auto request = streaming_active_requests_[0];
           for (auto stream_id : request.streamIds) {
@@ -651,10 +674,26 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
         resize(snapshot_request_.streamIds.size() - active_streamid_count);
     }
 
-    auto request_id = camera_device_->SubmitRequestList(requests, false,
-                                                        &last_frame_mumber);
-    assert(request_id >= 0);
-    snapshot_request_id_ = camera_device_->GetRequestIds();
+    bool streaming = false;
+    if (snapshot_type_ == SnapshotMode::kContinuous) {
+      streaming = true;
+    }
+
+    {
+      std::unique_lock<std::mutex> lock(capture_lock_);
+      auto request_id = camera_device_->SubmitRequestList(requests,
+                                                          streaming,
+                                                          &last_frame_number);
+      assert(request_id >= 0);
+      snapshot_request_id_ = camera_device_->GetRequestIds();
+      capture_done_ = false;
+      if (snapshot_type_ == SnapshotMode::kContinuous) {
+        last_snapshot_id_ = -1;
+      } else {
+        last_snapshot_id_ = last_frame_number;
+      }
+    }
+
     QMMF_INFO("%s:%s: Request for non-zsl submitted successfully", TAG,
         __func__);
   } else {
@@ -688,7 +727,13 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
     SnapshotType type;
     config.Fetch(QMMF_SNAPSHOT_TYPE, type);
-    snapshot_type_ = type.type;
+
+    std::unique_lock<std::mutex> lock(capture_lock_);
+    if (capture_done_ == false && snapshot_type_ != type.type) {
+      QMMF_ERROR("%s:%s: %d capture is ongoing", TAG, __func__);
+      return INVALID_OPERATION;
+    }
+    new_snapshot_type_ = type.type;
   }
 
   return NO_ERROR;
@@ -699,25 +744,48 @@ status_t CameraContext::CancelCaptureImage() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   if (!snapshot_request_.streamIds.empty() && !snapshot_request_id_.empty()) {
-    std::unique_lock<std::mutex> lock(capture_count_lock_);
-    std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
+    if (snapshot_type_ == SnapshotMode::kContinuous) {
+      // Update request check all active ports and  prepare request only
+      // for active streams which uses port. This discards snapshot streaming.
+      UpdateRequest(true);
+      last_snapshot_id_ = last_frame_number_;
+    }
 
-    cancel_capture_ = true;
-    while (sequence_cnt_ > 0) {
-      // Single or Burst capture is not complete yet, wait till pending
-      // buffers (for pending count) are returned.
-      QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
-          __func__, sequence_cnt_);
-
-      auto ret = capture_count_signal_.WaitFor(lock, wait_time);
-      if (ret != 0) {
-        QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
-        return TIMED_OUT;
+    if (postproc_enable_) {
+      auto ret = postproc_pipe_->Abort();
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s:%s Post process abort failed", TAG, __func__);
+        return ret;
       }
     }
+
+    {
+      std::unique_lock<std::mutex> lock(capture_lock_);
+      std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
+      cancel_capture_ = true;
+
+      while (capture_done_ == false) {
+        // Capture is not complete yet, wait till pending buffers are returned.
+        if (postproc_enable_) {
+          QMMF_INFO("%s:%s Cancel request is waiting for frame %lld", TAG,
+              __func__, last_snapshot_id_);
+        } else {
+          QMMF_INFO("%s:%s Cancel request with pending buffer(%d)!", TAG,
+              __func__, sequence_cnt_ - capture_cnt_);
+        }
+
+        auto ret = capture_signal_.WaitFor(lock, wait_time);
+        if (ret != 0) {
+          QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
+          return TIMED_OUT;
+        }
+      }
+      cancel_capture_ = false;
+      QMMF_INFO("%s:%s: Capture is complete!", TAG, __func__);
+    }
+
     DeleteSnapshotStream();
   }
-  cancel_capture_ = false;
 
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return NO_ERROR;
@@ -1519,22 +1587,32 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   }
   QMMF_DEBUG("%s:%s fd(0x%x):size(%d) ", TAG, __func__, buffer.fd, buffer.size);
 
-  std::lock_guard<std::mutex> lock(capture_count_lock_);
+  uint32_t frame_number = 0;
   {
-    --sequence_cnt_;
+    std::lock_guard<std::mutex> lock(capture_lock_);
+    frame_number = capture_cnt_;
+    capture_cnt_++;
+
+    // return buffer if cancel capture
     if (cancel_capture_) {
-      status_t ret = NO_ERROR;
       if (postproc_enable_) {
         postproc_pipe_->PipeNotifyBufferReturn(buffer);
       } else {
-        ret = camera_device_->ReturnStreamBuffer(buffer);
+        auto ret = camera_device_->ReturnStreamBuffer(buffer);
+        assert(ret == NO_ERROR);
       }
-      assert(ret == NO_ERROR);
+    }
 
-      if (sequence_cnt_ == 0) {
-        QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
-        capture_count_signal_.Signal();
-      }
+    // Check if this is the last frame. If post processing is enabled
+    // we have to wait post processing pipe to return the buffers.
+    if (!postproc_enable_ && capture_cnt_ == sequence_cnt_) {
+      QMMF_INFO("%s:%s: Capture done.", TAG, __func__);
+      capture_done_ = true;
+      capture_signal_.Signal();
+    }
+
+    // return if cancel capture because we already returned the buffer
+    if (cancel_capture_) {
       return;
     }
   }
@@ -1544,8 +1622,7 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   snapshot_buffer_stream_list_.insert(std::make_pair(buffer.fd, buffer.stream_id));
 
   assert(client_snapshot_cb_ != nullptr);
-  client_snapshot_cb_(burst_cnt_, buffer);
-  ++burst_cnt_;
+  client_snapshot_cb_(frame_number, buffer);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1943,6 +2020,20 @@ void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
       TAG, __func__, buffer.handle, buffer.fd, buffer.stream_id,
       buffer.timestamp);
   ReturnStreamBuffer(buffer);
+
+  // If snapshot post processing is enabled we have to wait
+  // post process pipe to return all buffers
+  if (!snapshot_request_.streamIds.empty() &&
+      !snapshot_request_id_.empty() && postproc_enable_) {
+    std::unique_lock<std::mutex> lock(capture_lock_);
+    curr_snapshot_id_ = buffer.frame_number;
+
+    if (last_snapshot_id_ == curr_snapshot_id_) {
+      QMMF_INFO("%s:%s Capture done.", TAG, __func__);
+      capture_done_ = true;
+      capture_signal_.Signal();
+    }
+  }
 }
 
 status_t CameraContext::PostProcDelete() {
@@ -1976,7 +2067,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.frame_rate = frame_rate;
   out_param.image_quality = image_quality;
   out_param.gralloc_flags = stream_param.grallocFlags;
-  out_param.buffer_count = 2;
+  out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
   out_param.max_internal_buffers = 0; // unlimited
 
   PipeIOParam in_param;
