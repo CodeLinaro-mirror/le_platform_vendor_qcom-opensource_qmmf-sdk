@@ -432,11 +432,19 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     ret = ConfigureAudioDecoder(codec_param);
   } else {
     QMMF_ERROR("%s:%s codec type not implemented", TAG, __func__);
-    ret = -1;
+    return -1;
   }
 
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Configure Codec Failed", TAG, __func__);
+    return ret;
+  }
   // set component to Idle state
   ret = SetState(OMX_StateIdle, OMX_FALSE);
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s SetState to OMX_IDLE failed", TAG, __func__);
+    return ret;
+  }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
