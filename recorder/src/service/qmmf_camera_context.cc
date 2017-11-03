@@ -59,6 +59,7 @@ CameraContext::CameraContext()
     : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
+      last_frame_number_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -1390,22 +1391,26 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    int64_t last_frame_number;
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                    &last_frame_number);
+                                                    &last_frame_number_);
+    QMMF_INFO("%s:%s: last_frame_number=%lld", TAG, __func__,
+        last_frame_number_);
     assert(req_id >= 0);
     streaming_request_id_ = req_id;
 
     for (auto const& stream_id : stream_ids) {
       // Update the last submitted frame number for each stream id.
       if (last_frame_number_map_.count(stream_id) != 0 &&
-          last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+          last_frame_number_ != NO_IN_FLIGHT_REPEATING_FRAMES) {
         // Request was submitted successfully since previous call, update.
-        last_frame_number_map_[stream_id] = last_frame_number;
+        last_frame_number_map_[stream_id] = last_frame_number_;
+
       } else if (last_frame_number_map_.count(stream_id) == 0) {
         // Newly initiated stream, request hasn't yet been submitted to HAL.
         last_frame_number_map_[stream_id] = NO_IN_FLIGHT_REPEATING_FRAMES;
       }
+      QMMF_INFO("%s:%s: last_frame_number_map_[%d]=%lld", TAG, __func__,
+          stream_id, last_frame_number_map_[stream_id]);
 
       // Update the removed stream ids that need to wait for frames to return.
       if (removed_streams.count(stream_id) != 0 &&
@@ -1420,6 +1425,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       if (ret != 0) {
         QMMF_WARN("%s:%s: Waiting for submitted frames to return, timed out!",
             TAG, __func__);
+        break;
       }
     }
   }
@@ -1474,6 +1480,12 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
 
   std::lock_guard<std::mutex> lock(pending_frames_lock_);
   if (removed_stream_ids_.count(buffer.stream_id) != 0) {
+    QMMF_DEBUG("%s:%s: removed_stream_ids_.size(%d)", TAG, __func__,
+        removed_stream_ids_.size());
+    QMMF_DEBUG("%s:%s: last_frame_number_map_[%d]=%lld, "
+        "buffer.frame_number: %lld", TAG, __func__,
+        buffer.stream_id, last_frame_number_map_[buffer.stream_id],
+        buffer.frame_number);
     if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
       removed_stream_ids_.erase(buffer.stream_id);
       last_frame_number_map_.erase(buffer.stream_id);
@@ -1685,13 +1697,30 @@ status_t CameraContext::CaptureZSLImage() {
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
 
-  QMMF_WARN("%s:%s: Camera Client: error_code: %d\n", TAG, __func__,
-            error_code);
+  QMMF_WARN("%s:%s: Camera Client: error_code:%d RequestId:%d FrameNumber:%d\n",
+      TAG, __func__, error_code, result.requestId, result.frameNumber);
+
   if (nullptr != error_cb_) {
     RecorderErrorData error_data {};
     error_data.camera_id = camera_id_;
     error_data.error_code = error_code;
     error_cb_(error_data);
+  }
+
+  std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+  if (last_frame_number_map_.size() > 0 && removed_stream_ids_.size() > 0) {
+    QMMF_DEBUG("%s:%s: last_frame_mumber.size(%d) & emoved_stream_ids_.size(%d)"
+        "& last_frame_number_(%lld)", TAG, __func__,
+        last_frame_number_map_.size(), removed_stream_ids_.size(),
+        last_frame_number_);
+    if (result.frameNumber == last_frame_number_) {
+      QMMF_WARN("%s:%s: Request corresponds to last_frame_number(%lld) is"
+       "missed! Notify pending frame wait!!", TAG, __func__,
+       last_frame_number_);
+      pending_frames_.Signal();
+      removed_stream_ids_.clear();
+      last_frame_number_map_.clear();
+    }
   }
 }
 

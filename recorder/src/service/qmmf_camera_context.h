@@ -251,6 +251,8 @@ class CameraContext : public CameraInterface,
   // Stream ids that have been removed from capture requests.
   std::set<int32_t>        removed_stream_ids_;
 
+  int64_t                  last_frame_number_;
+
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   std::vector<int32_t>     snapshot_request_id_;
