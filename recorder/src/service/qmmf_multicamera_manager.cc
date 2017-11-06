@@ -1653,6 +1653,11 @@ status_t StitchingBase::StopFrameSync() {
   {
     //First signal the thread to not wait on frames
     std::lock_guard<std::mutex> lock(sync_lock_);
+    if (stop_frame_sync_ == true) {
+      QMMF_DEBUG("%s:%s: Worker thread is already in stopped state",
+          TAG, __func__);
+      return ret;
+    }
     stop_frame_sync_ = true;
     wait_for_sync_frames_.Signal();
   }
@@ -1855,8 +1860,16 @@ status_t StitchingBase::FlushLibrary() {
     QMMF_ERROR("%s:%s: Invalid library handle!", TAG, __func__);
     return BAD_VALUE;
   }
-  stitch_lib_.flush(stitch_lib_.context);
 
+  if (!stitch_lib_.initialized) {
+    // Library hasn't been initialized yet, wait and flush afterwards.
+    if (init_library_status_.get() != NO_ERROR) {
+      QMMF_ERROR("%s:%s: Failed to load algorithm library!", TAG, __func__);
+      return NO_INIT;
+    }
+    stitch_lib_.initialized = true;
+  }
+  stitch_lib_.flush(stitch_lib_.context);
   return NO_ERROR;
 }
 
