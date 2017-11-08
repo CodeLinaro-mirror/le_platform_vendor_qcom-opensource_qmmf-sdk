@@ -51,7 +51,7 @@
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_omx_client.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 #define OMX_SPEC_VERSION 0x00000101
 
@@ -3094,7 +3094,7 @@ void* AVCodec::ThreadRun(void *arg) {
       }
       QMMF_INFO("%s:%s PortReconfig is Successfull", TAG, __func__);
       (avcodec->wait_for_header_output_).notify_one();
-      (avcodec->wait_for_threadrun).signal();
+      (avcodec->wait_for_threadrun).Signal();
     }
   }
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -3133,8 +3133,8 @@ void* AVCodec::DeliverOutput(void *arg) {
       avcodec->UpdateBufferHeaderList(buf_header);
       codec_buffer.size = 0;
       avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
-      Mutex::Autolock autoLock(avcodec->threadrun_port_reconfig_lock_);
-      (avcodec->wait_for_threadrun).wait(avcodec->threadrun_port_reconfig_lock_);
+      std::unique_lock<std::mutex> lock(avcodec->threadrun_port_reconfig_lock_);
+      (avcodec->wait_for_threadrun).Wait(lock);
       QMMF_INFO("%s:%s Signal from threadrun has been received", TAG, __func__);
       continue;
     }

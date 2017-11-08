@@ -35,7 +35,7 @@
 #include <map>
 #include <string>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"

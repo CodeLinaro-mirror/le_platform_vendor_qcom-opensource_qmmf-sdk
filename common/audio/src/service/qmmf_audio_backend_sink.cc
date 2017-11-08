@@ -46,7 +46,7 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {
@@ -247,6 +247,7 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
         return -EINVAL;
     }
     config.offload_info.usage = AUDIO_USAGE_MEDIA;
+    config.offload_info.is_streaming = true;
   }
 
   // use the next available io_handle

@@ -42,7 +42,7 @@
 #include <thread>
 #include <vector>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_codec.h"
 #include "qmmf-sdk/qmmf_device.h"
 #include "qmmf-sdk/qmmf_system.h"

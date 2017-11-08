@@ -39,7 +39,7 @@
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/service/qmmf_system_service_interface.h"
 #include "system/src/service/qmmf_system_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace system {

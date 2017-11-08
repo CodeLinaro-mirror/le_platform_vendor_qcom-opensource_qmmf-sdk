@@ -40,7 +40,7 @@
 #include "qmmf-sdk/qmmf_player_params.h"
 #include "player/src/client/qmmf_player_service_intf.h"
 #include "player/src/service/qmmf_player_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace player {

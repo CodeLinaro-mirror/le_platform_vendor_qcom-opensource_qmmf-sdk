@@ -531,7 +531,7 @@ void CameraRescalerBase::AddBuf(StreamBuffer& buffer) {
   QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
   std::unique_lock<std::mutex> lock(wait_lock_);
   bufs_list_.push_back(buffer);
-  wait_.notify_one();
+  wait_.Signal();
 }
 
 bool CameraRescalerBase::ThreadLoop() {
@@ -542,8 +542,8 @@ bool CameraRescalerBase::ThreadLoop() {
     std::unique_lock<std::mutex> lock(wait_lock_);
     std::chrono::nanoseconds wait_time(kFrameTimeout);
     while (bufs_list_.empty()) {
-      auto ret = wait_.wait_for(lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = wait_.WaitFor(lock, wait_time);
+      if (ret != 0) {
         QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
         // timeout loop again
         return true;
@@ -820,7 +820,7 @@ status_t CameraRescalerMemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
   gralloc_buffers_.at(buffer.handle) = true;
   --pending_buffer_count_;
 
-  wait_for_buffer_.notify_one();
+  wait_for_buffer_.Signal();
   return NO_ERROR;
 }
 
@@ -841,8 +841,8 @@ status_t CameraRescalerMemPool::GetFreeOutputBuffer(StreamBuffer* buffer) {
         " on a free one", TAG, __func__, buffer_cnt_);
 
     std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
-    auto status = wait_for_buffer_.wait_for(lock, wait_time);
-    if (status == std::cv_status::timeout) {
+    auto status = wait_for_buffer_.WaitFor(lock, wait_time);
+    if (status != 0) {
       QMMF_ERROR("%s:%s: Wait for output buffer return timed out", TAG,
                  __func__);
       return TIMED_OUT;

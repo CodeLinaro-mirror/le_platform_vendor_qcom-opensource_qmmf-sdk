@@ -50,7 +50,7 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 #define AUDIO_TIMESTAMP_ADJUST_PROPERTY   "persist.qmmf.timestamp.adjust"
 

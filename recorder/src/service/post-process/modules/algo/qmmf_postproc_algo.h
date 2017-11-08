@@ -35,7 +35,7 @@
 
 #include "qmmf-plugin/qmmf_alg_plugin.h"
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #include "../../interface/qmmf_postproc_module.h"
 

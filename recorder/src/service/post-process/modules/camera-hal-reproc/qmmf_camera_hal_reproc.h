@@ -31,13 +31,12 @@
 
 #include <mutex>
 #include <list>
-#include <condition_variable>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
+#include <qmmf-sdk/qmmf_recorder_params.h>
 
-#include "../../interface/qmmf_postproc_module.h"
-
+#include "common/utils/qmmf_condition.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "../../interface/qmmf_postproc_module.h"
 
 namespace qmmf {
 
@@ -140,7 +139,7 @@ class CameraHalReproc : public IPostProcModule {
    std::list<ReprocessBundle>   reproc_ready_list_;
    std::mutex                   reproc_lock_;
 
-   std::condition_variable      reproc_wait_;
+   QCondition                   reproc_wait_;
    std::mutex                   reproc_wait_lock_;
    bool                         frame_processing_;
    bool                         batch_processing_;

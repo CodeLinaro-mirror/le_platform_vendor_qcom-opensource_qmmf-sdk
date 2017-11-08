@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_parser_test.h"
 
 

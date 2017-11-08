@@ -1322,8 +1322,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   std::chrono::nanoseconds wait_time(kWaitDuration);
 
   while (wait) {
-    auto ret = wait_for_idle_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_for_idle_.WaitFor(lock, wait_time);
+    if (ret != 0) {
         QMMF_ERROR("%s:%s: track_id(%x) StopTrack Timed out happend! Encoder"
         "failed to go in Idle state!", TAG, __func__, TrackId());
       return TIMED_OUT;
@@ -1397,7 +1397,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
           " encoder!!", TAG, __func__, TrackId());
       // wait_for_idle_ will not be needed once we make stop api as async.
       std::lock_guard<std::mutex> lock(idle_lock_);
-      wait_for_idle_.notify_one();
+      wait_for_idle_.Signal();
     }
   }
 
@@ -1417,8 +1417,8 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s:%s: track_id(%x) Wait for bufferr!!", TAG, __func__,
           TrackId());
-      auto ret = wait_for_frame_.wait_for(lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = wait_for_frame_.WaitFor(lock, wait_time);
+      if (ret != 0) {
           QMMF_ERROR("%s:%s: track_id(%x) Buffer Timed out happend! No buffers"
               "from Camera", TAG, __func__, TrackId());
         timeout = true;
@@ -1723,7 +1723,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
       QMMF_INFO("%s:%s: track_id(%x) Stop is triggered, all raw buffers are"
           " returned from client!", TAG, __func__, TrackId());
       std::lock_guard<std::mutex> lock(idle_lock_);
-      wait_for_idle_.notify_one();
+      wait_for_idle_.Signal();
     }
   }
   QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
@@ -1752,7 +1752,7 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
   frames_received_.PushBack(buffer);
   QMMF_DEBUG("%s:%s: track_id(%x) frames_received.size(%d)", TAG, __func__,
       TrackId(), frames_received_.Size());
-  wait_for_frame_.notify_one();
+  wait_for_frame_.Signal();
 
   QMMF_VERBOSE("%s:%s: Exit track_id(%x)", TAG, __func__, TrackId());
 }

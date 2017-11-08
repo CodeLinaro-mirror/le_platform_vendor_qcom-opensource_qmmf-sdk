@@ -564,8 +564,8 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
     if (unfilled_frame_queue_.Size() <= 0) {
      QMMF_DEBUG("%s:%s track_id(%d) No Empty buffer available", TAG, __func__,
          TrackId());
-      Mutex::Autolock autoLock(wait_for_empty_frame_lock_);
-      wait_for_empty_frame_.wait(wait_for_empty_frame_lock_);
+      std::unique_lock<std::mutex> lock(wait_for_empty_frame_lock_);
+      wait_for_empty_frame_.Wait(lock);
     }
 
     StreamBuffer iter = *unfilled_frame_queue_.Begin();
@@ -575,7 +575,7 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
     buffers[i].buf_id = (iter).fd;
 
     {
-      Mutex::Autolock lock(queue_lock_);
+      std::lock_guard<std::mutex> lock(queue_lock_);
       filled_frame_queue_.PushBack(iter);
     }
 
@@ -626,9 +626,9 @@ status_t VideoTrackDecoder::QueueInputBuffer(
 #endif
 
     {
-      Mutex::Autolock lock(queue_lock_);
+      std::lock_guard<std::mutex> lock(queue_lock_);
       frames_to_decode_.PushBack(iter);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
     }
     filled_frame_queue_.Erase(filled_frame_queue_.Begin());
 
@@ -857,8 +857,10 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   if (frames_to_decode_.Size() <= 0 && !stop_received_) {
     QMMF_DEBUG("%s:%s track_id(%d) No Filled buffer available for AVCodec, wait for new buffer",
                TAG, __func__, TrackId());
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.waitRelative(wait_for_frame_lock_, seconds(1));
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    std::chrono::seconds wait_time(1);
+
+    wait_for_frame_.WaitFor(lock, wait_time);
   }
   if (stop_received_) return NO_ERROR;
 
@@ -874,7 +876,7 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   QMMF_VERBOSE("%s:%s: track_id(%d)", TAG, __func__,TrackId());
 
   {
-    Mutex::Autolock lock(queue_lock_);
+    std::lock_guard<std::mutex> lock(queue_lock_);
     frames_being_decoded_.PushBack(iter);
   }
   frames_to_decode_.Erase(frames_to_decode_.Begin());
@@ -914,9 +916,9 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
   for (; it != frames_being_decoded_.End(); ++it) {
     if ((*it).data ==  stream_buffer.data) {
       {
-        Mutex::Autolock lock(queue_lock_);
+        std::lock_guard<std::mutex> lock(queue_lock_);
         unfilled_frame_queue_.PushBack(*it);
-        wait_for_empty_frame_.signal();
+        wait_for_empty_frame_.Signal();
       }
       found = true;
       break;
