@@ -96,6 +96,12 @@ status_t PostProcTest::Stop() {
   return NO_ERROR;
 }
 
+status_t PostProcTest::Abort(std::shared_ptr<void> &abort) {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  return NO_ERROR;
+}
+
+
 status_t PostProcTest::Delete() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
   return NO_ERROR;

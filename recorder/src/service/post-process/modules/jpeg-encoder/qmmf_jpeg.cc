@@ -46,7 +46,9 @@ const int32_t PostProcJpeg::kSupportedInputFormat = HAL_PIXEL_FORMAT_YCbCr_420_8
 const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
 
 PostProcJpeg::PostProcJpeg()
-    : jpeg_encoder_(nullptr) {
+    : jpeg_encoder_(nullptr),
+      state_(State::CREATED),
+      abort_(nullptr) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
@@ -62,6 +64,9 @@ PostProcJpeg::~PostProcJpeg() {
 status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
                                   const PostProcIOParam &out_param) {
   QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(state_lock_);
+  state_ = State::INITIALIZED;
   return NO_ERROR;
 }
 
@@ -112,16 +117,33 @@ status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
 
 status_t PostProcJpeg::Start(const int32_t stream_id) {
   QMMF_VERBOSE("%s:%s: Enter %p", TAG, __func__, this);
+  std::lock_guard<std::mutex> lock(state_lock_);
+  state_ = State::ACTIVE;
   return NO_ERROR;
 }
 
 status_t PostProcJpeg::Stop() {
   QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
+  std::lock_guard<std::mutex> lock(state_lock_);
+  state_ = State::INITIALIZED;
+  return NO_ERROR;
+}
+
+status_t PostProcJpeg::Abort(std::shared_ptr<void> &abort) {
+  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
+  std::lock_guard<std::mutex> lock(state_lock_);
+  if (state_ == State::RUNING) {
+    QMMF_VERBOSE("%s:%s: Acquire abort done handler", TAG, __func__);
+    abort_ = abort;
+  }
+  state_ = State::ABORTED;
   return NO_ERROR;
 }
 
 status_t PostProcJpeg::Delete() {
   QMMF_VERBOSE("%s:%s: Enter %p", TAG, __func__, this);
+  std::lock_guard<std::mutex> lock(state_lock_);
+  state_ = State::CREATED;
   return NO_ERROR;
 }
 
@@ -136,6 +158,16 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
 
   QMMF_VERBOSE("%s:%s: %d: Enter in FD: %d out FD: %d ", TAG,
       __func__, __LINE__, in_buffer.fd, out_buffer.fd);
+
+  {
+    std::lock_guard<std::mutex> lock(state_lock_);
+    if (state_ != State::ACTIVE) {
+      listener_->OnFrameReady(out_buffer);
+      listener_->OnFrameProcessed(in_buffer);
+      return NO_ERROR;
+    }
+    state_ = State::RUNING;
+  }
 
   void *buf_vaaddr = nullptr;
   if (in_buffer.data == nullptr) {
@@ -192,6 +224,13 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
 
   listener_->OnFrameReady(out_buffer);
   listener_->OnFrameProcessed(in_buffer);
+
+  std::lock_guard<std::mutex> lock(state_lock_);
+  if (state_ == State::ABORTED) {
+    QMMF_VERBOSE("%s:%s: Release abort done handler", TAG, __func__);
+    abort_ = nullptr;
+  }
+  state_ = State::ACTIVE;
 
   QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
 

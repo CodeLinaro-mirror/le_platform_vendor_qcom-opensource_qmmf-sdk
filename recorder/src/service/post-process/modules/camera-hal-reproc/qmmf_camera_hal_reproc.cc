@@ -40,12 +40,11 @@ namespace recorder {
 
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
-      ready_to_start_(false),
-      batch_count_(1),
-      frame_processing_(false),
-      batch_processing_(false) {
+      abort_(nullptr),
+      frame_processing_(false) {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
   static_meta_ = context_->GetCameraStaticMeta();
+  state_ = PostProcHalState::CREATED;
   QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
 }
 
@@ -92,17 +91,25 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
       "%d ts: %lld", TAG,  __func__, in_buff.handle, in_buff.fd,
       in_buff.stream_id, in_buff.timestamp);
 
-  {
-    std::unique_lock<std::mutex> processing_lock(reproc_wait_lock_);
-    frame_processing_ = false;
-    reproc_wait_.Signal();
-  }
-
   listener_->OnFrameReady(in_buff);
+
+  auto ret = StartProcessing(true);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
+  }
 }
 
 status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
                                      const PostProcIOParam &out_param) {
+  {
+    std::lock_guard<std::mutex> lock(module_lock_);
+    if (state_ != PostProcHalState::CREATED) {
+      QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+      return BAD_VALUE;
+    }
+    state_ = PostProcHalState::INITIALIZED;
+  }
+
   auto ret = ValidateInput(in_param, out_param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
@@ -111,6 +118,13 @@ status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
 
   input_param_ = in_param;
   output_param_ = out_param;
+
+  ret = CreateDeviceStreams();
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to setup camera: %d\n", TAG, __func__, ret);
+    return ret;
+  }
+
   return NO_ERROR;
 }
 
@@ -333,92 +347,72 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
 
 status_t CameraHalReproc::Start(const int32_t stream_id) {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  status_t ret = NO_ERROR;
-  int32_t stream_id_p;
-
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
+  std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::INITIALIZED &&
+      state_ != PostProcHalState::ABORTED) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
     return BAD_VALUE;
   }
+  //state_ = PostProcHalState::STARTING;
 
-  std::lock_guard<std::mutex> lock(module_lock_);
+  state_ = PostProcHalState::ACTIVE;
 
-  CameraInputStreamParameters in_stream_params = {};
-  in_stream_params.format = Common::FromQmmfToHalFormat(input_param_.format);
-  in_stream_params.width = input_param_.width;
-  in_stream_params.height = input_param_.height;
-  in_stream_params.get_input_buffer = [&] (StreamBuffer &buffer)
-      { GetInputBuffer(buffer); };
-  in_stream_params.return_input_buffer = [&] (StreamBuffer &buffer)
-      { ReturnInputBuffer(buffer); };
-
-  QMMF_VERBOSE("%s:%s: in stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d",
-    TAG, __func__, output_param_.width, output_param_.height,
-    in_stream_params.format, input_param_.format);
-
-  ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to create input reprocess stream: %d\n",
-        TAG, __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-
-  CameraStreamParameters out_stream_params = {};
-  out_stream_params.bufferCount = output_param_.buffer_count;
-  out_stream_params.format = Common::FromQmmfToHalFormat(output_param_.format);
-  out_stream_params.width = output_param_.width;
-  out_stream_params.height = output_param_.height;
-  out_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
-  out_stream_params.cb = [&](StreamBuffer buffer)
-      { ReprocessCallback(buffer); };
-  out_stream_params.is_pp_enabled = true;
-
-  QMMF_VERBOSE("%s:%s: out stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d count %d",
-    TAG, __func__, output_param_.width, output_param_.height,
-    out_stream_params.format, output_param_.format, output_param_.buffer_count);
-
-  ret = context_->CreateDeviceStream(out_stream_params,
-                                     output_param_.frame_rate,
-                                     &stream_id_p);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to create output reprocess stream: %d\n",
-        TAG, __func__, ret);
-    return ret;
-  }
-  assert(stream_id_p >= 0);
-  reprocess_request_.streamIds.add(stream_id_p);
-
-  ready_to_start_ = true;
-
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraHalReproc::Stop() {
   QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
 
-  assert(context_ != nullptr);
-
   std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::ACTIVE &&
+      state_ != PostProcHalState::ABORTED) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    return BAD_VALUE;
+  }
+  state_ = PostProcHalState::STOPPING;
 
   ReturnAllInputBuffers();
 
-  if (!reprocess_request_.streamIds.isEmpty()) {
-    for (auto streamId : reprocess_request_.streamIds) {
-      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
-        QMMF_ERROR("%s:%s: Failed to delete non-zsl snapshot stream",
-          TAG, __func__);
-        return BAD_VALUE;
-      }
-    }
-    reprocess_request_.streamIds.clear();
+  state_ = PostProcHalState::INITIALIZED;
+
+  return NO_ERROR;
+}
+
+status_t CameraHalReproc::Abort(std::shared_ptr<void> &abort) {
+  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
+
+  std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::ACTIVE) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    return BAD_VALUE;
   }
-  ready_to_start_ = false;
+
+  std::unique_lock<std::mutex> processing_lock(abort_lock_);
+  if (frame_processing_) {
+    QMMF_VERBOSE("%s:%s: Acquire abort done handler", TAG, __func__);
+    abort_ = abort;
+  }
+
+  state_ = PostProcHalState::ABORTED;
+
+  QMMF_VERBOSE("%s:%s: Exit ", TAG, __func__);
   return NO_ERROR;
 }
 
 status_t CameraHalReproc::Delete() {
+  std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::INITIALIZED) {
+    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    return BAD_VALUE;
+  }
+
+  auto ret = DeleteDeviceStreams();
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to setup camera: %d\n", TAG, __func__, ret);
+    return ret;
+  }
+
+  state_ = PostProcHalState::CREATED;
   return NO_ERROR;
 }
 
@@ -429,12 +423,21 @@ status_t CameraHalReproc::Configure(const std::string config_json_data) {
 status_t CameraHalReproc::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
+  std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::ACTIVE) {
+    QMMF_VERBOSE("%s:%s: state is not active %d. skip processing",
+        TAG, __func__, state_);
+    for (auto buf : in_buffers) {
+      listener_->OnFrameProcessed(buf);
+    }
+    return NO_ERROR;
+  }
 
   for (auto buf : in_buffers) {
     AddBuff(buf);
   }
 
-  auto ret = StartProcessing();
+  auto ret = StartProcessing(false);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
     return ret;
@@ -544,87 +547,154 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
 }
 
 void CameraHalReproc::AddResult(const void* result_in) {
+  std::lock_guard<std::mutex> lock(module_lock_);
+  if (state_ != PostProcHalState::ACTIVE) {
+    QMMF_VERBOSE("%s:%s: state is not active %d. skip result",
+        TAG, __func__, state_);
+    return;
+  }
+
   const CaptureResult &result =
       *const_cast<CaptureResult*>(static_cast<const CaptureResult*>(result_in));
 
   AddMeta(result.metadata);
 
-  auto ret = StartProcessing();
+  auto ret = StartProcessing(false);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
   }
 }
 
-status_t CameraHalReproc::StartProcessing() {
-  std::list<ReprocessBundle> reproc_batch_list_;
+status_t CameraHalReproc::StartProcessing(bool from_cb) {
 
-  if (!ready_to_start_) {
-    QMMF_ERROR("%s:%s: Bad state.", TAG, __func__);
+  std::lock_guard<std::mutex> lock(reproc_lock_);
+
+  if (state_ != PostProcHalState::ACTIVE) {
+    std::unique_lock<std::mutex> processing_lock(abort_lock_);
+    if (state_ == PostProcHalState::ABORTED && from_cb && frame_processing_) {
+      frame_processing_ = false;
+      QMMF_VERBOSE("%s:%s: Release abort done handler", TAG, __func__);
+      abort_ = nullptr;
+    }
+
+    QMMF_VERBOSE("%s:%s: state is not active %d. skip processing",
+        TAG, __func__, state_);
+    return NO_ERROR;
+  }
+
+  if (from_cb) {
+    frame_processing_ = false;
+  }
+
+  if (frame_processing_) {
+    QMMF_VERBOSE("%s:%s: processing on going", TAG, __func__);
+    return NO_ERROR;
+  }
+
+  ReprocessBundle reproc_bundle;
+  // get one reprocess bundle
+  if (reproc_ready_list_.empty()) {
+    QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
+    return NO_ERROR;
+  }
+
+  reproc_bundle = reproc_ready_list_.front();
+  reproc_ready_list_.pop_front();
+
+  {
+    std::lock_guard<std::mutex> input_bufs_lock(input_buffer_lock_);
+    input_buffer_.push_back(reproc_bundle.buffer);
+  }
+
+  reprocess_request_.metadata.clear();
+  reprocess_request_.metadata.append(reproc_bundle.metadata);
+
+  QMMF_VERBOSE("%s:%s: Submit reprocess request.", TAG, __func__);
+
+
+  int64_t last_frame_number = -1;
+  auto ret = context_->SubmitRequest(reprocess_request_,
+                                     false,
+                                     &last_frame_number);
+  if (ret < 0) {
+    QMMF_ERROR("%s:%s: Failed to submit reprocess request.", TAG, __func__);
+    reproc_ready_list_.clear();
     return BAD_VALUE;
   }
 
-  // prepare one batch if there is enough frames
-  {
-    std::lock_guard<std::mutex> lock(reproc_lock_);
-    if (reproc_ready_list_.empty()) {
-      QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
-      return NO_ERROR;
-    }
+  std::unique_lock<std::mutex> processing_lock(abort_lock_);
+  frame_processing_ = true;
 
-    if (reproc_ready_list_.size() < batch_count_) {
-      QMMF_DEBUG("%s:%s: Hold until entire batch is ready. Curr %d Batch %d",
-          TAG, __func__, reproc_ready_list_.size(), batch_count_);
-      return NO_ERROR;
-    }
+  return NO_ERROR;
+}
 
-    if (batch_processing_) {
-      QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
-      return NO_ERROR;
-    }
+status_t CameraHalReproc::CreateDeviceStreams() {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  status_t ret = NO_ERROR;
+  int32_t stream_id_p;
 
-    // move one batch to temp list
-    for (uint32_t i = 0; i < batch_count_; i++) {
-      reproc_batch_list_.push_back(reproc_ready_list_.front());
-      reproc_ready_list_.pop_front();
-    }
-    batch_processing_ = true;
+  CameraInputStreamParameters in_stream_params = {};
+  in_stream_params.format = Common::FromQmmfToHalFormat(input_param_.format);
+  in_stream_params.width = input_param_.width;
+  in_stream_params.height = input_param_.height;
+  in_stream_params.get_input_buffer = [&] (StreamBuffer &buffer)
+      { GetInputBuffer(buffer); };
+  in_stream_params.return_input_buffer = [&] (StreamBuffer &buffer)
+      { ReturnInputBuffer(buffer); };
+
+  QMMF_VERBOSE("%s:%s: in stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d",
+    TAG, __func__, output_param_.width, output_param_.height,
+    in_stream_params.format, input_param_.format);
+
+  ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to create input reprocess stream: %d\n",
+        TAG, __func__, ret);
+    return ret;
   }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
 
-  // Process entire batch at once. This is used for burst capture only.
-  for (auto reproc_bundle : reproc_batch_list_) {
+  CameraStreamParameters out_stream_params = {};
+  out_stream_params.bufferCount = output_param_.buffer_count;
+  out_stream_params.format = Common::FromQmmfToHalFormat(output_param_.format);
+  out_stream_params.width = output_param_.width;
+  out_stream_params.height = output_param_.height;
+  out_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  out_stream_params.cb = [&](StreamBuffer buffer)
+      { ReprocessCallback(buffer); };
+  out_stream_params.is_pp_enabled = true;
 
-    // Wait previous processing to finish otherwise
-    // HAL free meta queue will overflow.
-    {
-      std::unique_lock<std::mutex> processing_lock(reproc_wait_lock_);
-      while (frame_processing_) {
-        reproc_wait_.Wait(processing_lock);
+  QMMF_VERBOSE("%s:%s: out stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d count %d",
+    TAG, __func__, output_param_.width, output_param_.height,
+    out_stream_params.format, output_param_.format, output_param_.buffer_count);
+
+  ret = context_->CreateDeviceStream(out_stream_params,
+                                     output_param_.frame_rate,
+                                     &stream_id_p);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s:%s: Failed to create output reprocess stream: %d\n",
+        TAG, __func__, ret);
+    return ret;
+  }
+  assert(stream_id_p >= 0);
+  reprocess_request_.streamIds.add(stream_id_p);
+
+  return ret;
+}
+
+
+status_t CameraHalReproc::DeleteDeviceStreams() {
+  if (!reprocess_request_.streamIds.isEmpty()) {
+    for (auto streamId : reprocess_request_.streamIds) {
+      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
+        QMMF_ERROR("%s:%s: Failed to delete non-zsl snapshot stream",
+          TAG, __func__);
+        return BAD_VALUE;
       }
     }
-
-    {
-      std::lock_guard<std::mutex> input_bufs_lock(input_buffer_lock_);
-      input_buffer_.push_back(reproc_bundle.buffer);
-    }
-
-    reprocess_request_.metadata.clear();
-    reprocess_request_.metadata.append(reproc_bundle.metadata);
-    frame_processing_ = true;
-
-    QMMF_VERBOSE("%s:%s: Submit reprocess request.", TAG, __func__);
-
-    int64_t last_frame_mumber;
-    auto ret = context_->SubmitRequest(reprocess_request_,
-                                       false,
-                                       &last_frame_mumber);
-    if (ret < 0) {
-      QMMF_ERROR("%s:%s: Failed to submit reprocess request.", TAG, __func__);
-      reproc_ready_list_.clear();
-      return BAD_VALUE;
-    }
+    reprocess_request_.streamIds.clear();
   }
-  reproc_ready_list_.clear();
-  batch_processing_ = false;
 
   return NO_ERROR;
 }

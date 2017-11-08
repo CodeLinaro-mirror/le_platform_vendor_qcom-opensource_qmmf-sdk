@@ -158,6 +158,8 @@ class IPostProcModule {
 
    virtual status_t Stop() = 0;
 
+   virtual status_t Abort(std::shared_ptr<void> &abort) = 0;
+
    virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
 
    virtual status_t ValidateOutput(const PostProcIOParam &output) = 0;

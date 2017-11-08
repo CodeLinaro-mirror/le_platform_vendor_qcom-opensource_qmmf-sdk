@@ -345,6 +345,51 @@ status_t PostProcPipe::Stop() {
   return NO_ERROR;
 }
 
+status_t PostProcPipe::Abort() {
+  QMMF_ERROR("%s:%s: E", TAG, __func__);
+
+  if (pipe_.empty()) {
+    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  abort_done_ = false;
+
+  // shared pointer is used for abort reference counting
+  // each node will release abort shared pointer when abort is ready
+  // The last release will trigger smart pointer deleter
+  std::shared_ptr<void> abort(new int(0), [this](void const *) {
+    std::unique_lock<std::mutex> lock(abort_lock_);
+    abort_done_ = true;
+    abort_signal_.Signal();
+  });
+
+  // Send abort signal to all nodes
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
+    --iter;
+    (*iter)->Abort(abort);
+  }
+
+  // release abort
+  abort = nullptr;
+
+  // wait all nodes to finish abort
+  std::chrono::nanoseconds wait_time(kWaitAbortTimeout);
+  std::unique_lock<std::mutex> lock(abort_lock_);
+  while (abort_done_ == false) {
+    auto ret = abort_signal_.WaitFor(lock, wait_time);
+    if (ret != 0) {
+      QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
+      return TIMED_OUT;
+    }
+  }
+
+  QMMF_ERROR("%s:%s: X", TAG, __func__);
+
+  return NO_ERROR;
+}
+
 status_t PostProcPipe::AddConsumer(sp<IBufferConsumer>& consumer) {
 
   QMMF_INFO("%s:%s: Enter (%p)", TAG, __func__, consumer.get());

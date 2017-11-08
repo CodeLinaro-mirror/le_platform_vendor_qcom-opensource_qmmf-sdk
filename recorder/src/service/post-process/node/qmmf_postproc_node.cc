@@ -279,10 +279,29 @@ status_t PostProcNode::Stop() {
   return ret;
 }
 
+status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
+  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+
+  {
+    std::lock_guard<std::mutex> lock(state_lock_);
+    state_ = PostProcNodeState::ABORT;
+  }
+
+  status_t ret = module_->Abort(abort);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s:%s: fail to abort module ret: %d", TAG, __func__,
+        name_.c_str(), ret);
+    return ret;
+  }
+
+  QMMF_INFO("%s:%s:%s: Exit: State %d ", TAG, __func__, name_.c_str(), state_);
+  return ret;
+}
+
 void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
       TAG, __func__, name_.c_str(), buffer.handle, buffer.fd,
-      buffer.stream_id, buffer.timestamp);
+      buffer.stream_id, buffer.timestamp, buffer.frame_number);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::ACTIVE) {
@@ -304,9 +323,9 @@ void PostProcNode::OnFrameProcessed(const StreamBuffer &input_buffer) {
 }
 
 void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
       TAG, __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
-      output_buffer.stream_id, output_buffer.timestamp);
+      output_buffer.stream_id, output_buffer.timestamp, output_buffer.frame_number);
 
   out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
@@ -448,6 +467,15 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
   return NO_ERROR;
 }
 
+status_t InputHandler::ReturnInputBuffers(std::vector<StreamBuffer> &in_buffs) {
+  std::unique_lock<std::mutex> lock(wait_lock_);
+  for (auto buf : in_buffs) {
+    bufs_list_.push_front(buf);
+  }
+
+  return NO_ERROR;
+}
+
 status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
                                         const std::vector<StreamBuffer>
                                           &in_buffs) {
@@ -507,8 +535,9 @@ bool InputHandler::ThreadLoop() {
   std::vector<StreamBuffer> out_buffs;
   ret = GetOutputBuffers(out_buffs, in_buffs);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s Fail to get output buffer %d", TAG, __func__, ret);
-    assert(0);
+    // timeout loop again
+    ReturnInputBuffers(in_buffs);
+    return true;
   }
 
   QMMF_VERBOSE("%s:%s: Process: FD: %d %d name: %s", TAG, __func__,

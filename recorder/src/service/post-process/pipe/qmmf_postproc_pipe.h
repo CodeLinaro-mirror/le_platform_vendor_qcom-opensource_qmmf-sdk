@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include "common/utils/qmmf_condition.h"
 #include "../node/qmmf_postproc_node.h"
 #include "../factory/qmmf_postproc_factory.h"
 
@@ -89,6 +90,8 @@ class PostProcPipe {
 
    status_t Stop();
 
+   status_t Abort();
+
    sp<IBufferConsumer>& GetConsumerIntf();
 
    void PipeNotifyBufferReturn(StreamBuffer& buffer);
@@ -119,6 +122,8 @@ class PostProcPipe {
 
    bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
+   static const uint32_t         kWaitAbortTimeout = 2000000000; // 2 sec.
+
    PostProcPipeState             state_;
 
    std::vector<std::shared_ptr<PostProcNode>> pipe_;
@@ -128,6 +133,10 @@ class PostProcPipe {
    std::shared_ptr<PostProcFactory> factory_;
 
    bool                          use_hal_jpeg_;
+
+   bool                          abort_done_;
+   QCondition                    abort_signal_;
+   std::mutex                    abort_lock_;
 
 };
 
