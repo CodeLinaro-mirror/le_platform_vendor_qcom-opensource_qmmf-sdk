@@ -44,7 +44,7 @@
 #include "player/src/service/qmmf_player_audio_sink.h"
 #include "player/src/service/qmmf_player_audio_raw_sink.h"
 #include "player/src/service/qmmf_player_video_sink.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace player {

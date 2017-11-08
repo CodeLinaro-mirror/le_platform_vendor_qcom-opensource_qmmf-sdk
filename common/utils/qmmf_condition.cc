@@ -27,56 +27,38 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include "common/utils/qmmf_common_utils.h"
-
-#include "../../interface/qmmf_postproc_module.h"
+#include "qmmf_condition.h"
 
 namespace qmmf {
 
-namespace recorder {
+#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
 
-class PostProcTest : public IPostProcModule {
+#ifdef __GTHREAD_COND_INIT
+  QCondition::QCondition() noexcept = default;
+#else
+  QCondition::QCondition() noexcept {
+    __GTHREAD_COND_INIT_FUNCTION(&cond_);
+  }
+#endif
 
- public:
+  QCondition::~QCondition() noexcept {
+    __gthread_cond_destroy(&cond_);
+  }
 
-   PostProcTest();
+  void QCondition::Signal() {
+    auto status = __gthread_cond_signal(&cond_);
+    assert(status == 0);
+  }
 
-   ~PostProcTest();
+  void QCondition::SignalAll() {
+    auto status = __gthread_cond_broadcast(&cond_);
+    assert(status == 0);
+  }
 
-   status_t Initialize(const PostProcIOParam &in_param,
-                       const PostProcIOParam &out_param) override;
-
-   status_t Delete() override;
-
-   void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
-
-   status_t Configure(const std::string config_json_data) override;
-
-   status_t Process(const std::vector<StreamBuffer> &in_buffers,
-                    const std::vector<StreamBuffer> &out_buffers) override;
-
-   void AddResult(const void* result) override {};
-
-   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
-
-   status_t Start(const int32_t stream_id) override;
-
-   status_t Stop() override;
-
-   PostProcIOParam GetInput(const PostProcIOParam &out) override;
-
-   status_t ValidateOutput(const PostProcIOParam &output) override;
-
-   status_t GetCapabilities(PostProcCaps &caps) override;
-
- private:
-
-   IPostProcEventListener   *Listener_;
-
+  void QCondition::Wait(std::unique_lock<std::mutex>& lock) {
+    auto status = __gthread_cond_wait(&cond_, lock.mutex()->native_handle());
+    assert(status == 0);
+  }
 };
 
-}; //namespace recorder
-
-}; //namespace qmmf
+#endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1

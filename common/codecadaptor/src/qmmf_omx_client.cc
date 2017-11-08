@@ -29,7 +29,7 @@
 #define TAG "QMMF_OMX_CLIENT"
 
 #include <dlfcn.h>
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf_omx_client.h"
 
 namespace qmmf {

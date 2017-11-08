@@ -44,7 +44,7 @@
 #include "common/audio/src/service/qmmf_audio_backend_sink.h"
 #include "common/audio/src/service/qmmf_audio_backend_source.h"
 #include "common/audio/src/service/qmmf_audio_common.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {

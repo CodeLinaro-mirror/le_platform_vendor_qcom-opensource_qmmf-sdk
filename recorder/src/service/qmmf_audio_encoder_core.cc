@@ -31,15 +31,15 @@
 
 #include "recorder/src/service/qmmf_audio_encoder_core.h"
 
-#include <condition_variable>
 #include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <queue>
 
+#include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_condition.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/qmmf_log.h"
 #include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
@@ -55,8 +55,6 @@ using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::kPortIndexInput;
 using ::qmmf::avcodec::kPortIndexOutput;
 using ::std::chrono::seconds;
-using ::std::condition_variable;
-using ::std::cv_status;
 using ::std::static_pointer_cast;
 using ::std::map;
 using ::std::make_shared;
@@ -510,7 +508,7 @@ status_t AudioTrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
 
   while (buffers_.empty()) {
     unique_lock<mutex> lk(mutex_);
-    if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+    if (signal_.WaitFor(lk, seconds(1)) != 0)
       QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
   }
 
@@ -590,7 +588,7 @@ status_t AudioTrackEncoder::OnBufferReturnFromClient(
     mutex_.lock();
     buffers_.push(codec_buffer);
     mutex_.unlock();
-    signal_.notify_one();
+    signal_.Signal();
   }
 
   return ::android::NO_ERROR;

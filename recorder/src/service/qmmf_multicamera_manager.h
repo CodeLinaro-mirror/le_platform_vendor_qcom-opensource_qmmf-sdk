@@ -34,15 +34,14 @@
 #include <set>
 #include <future>
 #include <mutex>
-#include <condition_variable>
 
 #include <utils/Log.h>
 #include <qcom/display/gralloc_priv.h>
+#include <qmmf-plugin/qmmf_alg_intf.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
-#include "include/qmmf-plugin/qmmf_alg_intf.h"
-
-#include "qmmf-sdk/qmmf_recorder_extra_param.h"
-#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
+#include "common/utils/qmmf_condition.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -183,7 +182,7 @@ class MultiCameraManager : public CameraInterface {
   std::map<uint32_t, StreamBuffer> jpeg_buffers_map_;
 
   std::mutex               jpeg_lock_;
-  std::condition_variable  wait_for_jpeg_;
+  QCondition               wait_for_jpeg_;
 
   std::mutex               lock_;
 
@@ -236,7 +235,7 @@ class GrallocMemory {
   std::map<buffer_handle_t, bool> gralloc_buffers_;
 
   std::mutex               buffer_lock_;
-  std::condition_variable  wait_for_buffer_;
+  QCondition               wait_for_buffer_;
 
   static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
@@ -353,10 +352,10 @@ class StitchingBase : public Camera3Thread {
   std::mutex               register_buffer_lock_;
 
   std::mutex               buffers_lock_;
-  std::condition_variable  wait_for_buffers_;
+  QCondition               wait_for_buffers_;
 
   std::mutex               sync_lock_;
-  std::condition_variable  wait_for_sync_frames_;
+  QCondition               wait_for_sync_frames_;
 
   static const uint32_t kWaitBuffersTimeout = 100000000; // 100 ms
   static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms

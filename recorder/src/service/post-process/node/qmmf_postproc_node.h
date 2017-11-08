@@ -29,15 +29,15 @@
 
 #pragma once
 
-#include <utils/Timers.h>
 #include <map>
 #include <mutex>
-#include <condition_variable>
 #include <chrono>
 
-#include "recorder/src/service/qmmf_recorder_common.h"
-#include "common/qmmf_common_utils.h"
+#include <utils/Timers.h>
 
+#include "common/utils/qmmf_common_utils.h"
+#include "common/utils/qmmf_condition.h"
+#include "recorder/src/service/qmmf_recorder_common.h"
 #include "../interface/qmmf_postproc.h"
 #include "../interface/qmmf_postproc_module.h"
 #include "../plugin/qmmf_postproc_plugin.h"
@@ -97,7 +97,7 @@ class InputHandler : public PostProcThread {
   std::map<uint32_t, map_data_t>    mapped_buffs_;
   std::deque<StreamBuffer>          bufs_list_;
   std::mutex                        wait_lock_;
-  std::condition_variable           wait_;
+  QCondition                        wait_;
 
 };
 
@@ -120,7 +120,7 @@ class OutputHandler : public PostProcThread {
   PostProcNode                      *node_;
   std::vector<StreamBuffer>         bufs_list_;
   std::mutex                        wait_lock_;
-  std::condition_variable           wait_;
+  QCondition                        wait_;
 
 };
 

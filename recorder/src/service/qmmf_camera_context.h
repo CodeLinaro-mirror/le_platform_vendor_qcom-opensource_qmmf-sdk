@@ -30,18 +30,19 @@
 #pragma once
 
 #include <mutex>
-#include <condition_variable>
+
 #include <utils/Log.h>
 #include <qcom/display/gralloc_priv.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
-#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
+#include "common/utils/qmmf_condition.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
-
 #include "post-process/pipe/qmmf_postproc_pipe.h"
 #include "post-process/plugin/qmmf_postproc_plugin.h"
 #include "post-process/interface/qmmf_postproc.h"
+
 namespace qmmf {
 
 using namespace cameraadaptor;
@@ -289,13 +290,13 @@ class CameraContext : public CameraInterface,
   bool                     aec_done_;
 
   std::mutex               capture_count_lock_;
-  std::condition_variable  capture_count_signal_;
+  QCondition               capture_count_signal_;
 
   std::mutex               pending_frames_lock_;
-  std::condition_variable  pending_frames_;
+  QCondition               pending_frames_;
 
   std::mutex               aec_lock_;
-  std::condition_variable  aec_signal_;
+  QCondition               aec_signal_;
 
   static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
 

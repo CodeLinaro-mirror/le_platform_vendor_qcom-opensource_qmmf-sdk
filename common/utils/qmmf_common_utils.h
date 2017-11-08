@@ -43,7 +43,8 @@
 #include <system/window.h>
 #include <qcom/display/gralloc_priv.h>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_condition.h"
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {

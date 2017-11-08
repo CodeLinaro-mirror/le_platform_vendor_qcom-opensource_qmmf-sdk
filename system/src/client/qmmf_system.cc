@@ -29,12 +29,12 @@
 
 #define TAG "System"
 
-#include "qmmf-sdk/qmmf_system.h"
-
 #include <vector>
 
-#include "common/qmmf_log.h"
-#include "qmmf-sdk/qmmf_system_params.h"
+#include <qmmf-sdk/qmmf_system.h>
+#include <qmmf-sdk/qmmf_system_params.h>
+
+#include "common/utils/qmmf_log.h"
 #include "system/src/client/qmmf_system_client.h"
 
 namespace qmmf {

@@ -169,13 +169,13 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
 
-  Mutex                     wait_for_empty_frame_lock_;
-  Condition                 wait_for_empty_frame_;
+  std::mutex                wait_for_empty_frame_lock_;
+  QCondition                wait_for_empty_frame_;
 
-  Mutex                     wait_for_frame_lock_;
-  Condition                 wait_for_frame_;
+  std::mutex                wait_for_frame_lock_;
+  QCondition                wait_for_frame_;
   int32_t                   ion_device_;
-  Mutex                     queue_lock_;
+  std::mutex                queue_lock_;
   bool                      stop_received_;
 
 #ifdef DUMP_PCM_DATA

@@ -54,9 +54,9 @@
 #include <utils/RefBase.h>
 #include <utils/String16.h>
 
-#include "common/qmmf_codec_internal.h"
-#include "common/qmmf_device_internal.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_codec_internal.h"
+#include "common/utils/qmmf_device_internal.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/client/qmmf_system_params_internal.h"
 

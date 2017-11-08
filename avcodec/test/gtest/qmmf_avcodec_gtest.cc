@@ -381,8 +381,8 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
   if(input_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available on %s. Wait for new buffer", TAG,
         __func__, PORT_NAME(kPortIndexInput));
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
@@ -410,7 +410,7 @@ status_t InputCodecSourceImpl::ReturnBuffer(BufferDescriptor& buffer,
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
     if ((*it).data ==  buffer.data) {
       input_free_buffer_queue_.PushBack(*it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -472,8 +472,8 @@ status_t OutputCodecSourceImpl::GetBuffer(BufferDescriptor& codec_buffer,
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available on %s. Wait for new buffer", TAG,
         __func__, PORT_NAME(kPortIndexOutput));
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
@@ -502,7 +502,7 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
     if (((*it).data) ==  (codec_buffer.data)) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }

@@ -400,8 +400,8 @@ status_t MultiCameraManager::CancelCaptureImage() {
     std::chrono::nanoseconds wait_time(kWaitJPEGTimeout);
 
     while (!jpeg_buffers_map_.empty()) {
-      auto ret = wait_for_jpeg_.wait_for(lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = wait_for_jpeg_.WaitFor(lock, wait_time);
+      if (ret != 0) {
         QMMF_ERROR("%s%s: Wait for jpeg buffers timed out!", TAG, __func__);
         return TIMED_OUT;
       }
@@ -955,7 +955,7 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   {
     std::lock_guard<std::mutex> lock(jpeg_lock_);
     jpeg_buffers_map_.erase(buffer_id);
-    wait_for_jpeg_.notify_one();
+    wait_for_jpeg_.Signal();
   }
   return NO_ERROR;
 }
@@ -1457,12 +1457,12 @@ bool StitchingBase::ThreadLoop() {
 
     while (synced_buffer_queue_.empty() && !stop_frame_sync_) {
       if (use_frame_sync_timeout) {
-        auto ret = wait_for_sync_frames_.wait_for(lock, wait_time);
-        if (ret == std::cv_status::timeout) {
+        auto ret = wait_for_sync_frames_.WaitFor(lock, wait_time);
+        if (ret != 0) {
           QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG,__func__);
         }
       } else {
-        wait_for_sync_frames_.wait(lock);
+        wait_for_sync_frames_.Wait(lock);
       }
     }
     // Exit from thread loop if frame sync is stopped
@@ -1633,7 +1633,7 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
 
   std::lock_guard<std::mutex> lock(sync_lock_);
   synced_buffer_queue_.push(synced_frames);
-  wait_for_sync_frames_.notify_one();
+  wait_for_sync_frames_.Signal();
 
   return NO_ERROR;
 }
@@ -1654,7 +1654,7 @@ status_t StitchingBase::StopFrameSync() {
     //First signal the thread to not wait on frames
     std::lock_guard<std::mutex> lock(sync_lock_);
     stop_frame_sync_ = true;
-    wait_for_sync_frames_.notify_one();
+    wait_for_sync_frames_.Signal();
   }
   // We need to wait thread to exit to avoid ace between
   // flush and ongoing processing in the thread
@@ -1691,8 +1691,8 @@ status_t StitchingBase::StopFrameSync() {
   std::chrono::nanoseconds wait_time(kWaitBuffersTimeout);
 
   while (!process_buffers_map_.empty()) {
-    auto ret = wait_for_buffers_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_for_buffers_.WaitFor(lock, wait_time);
+    if (ret != 0) {
       QMMF_ERROR("%s%s: Wait for processed buffers timed out", TAG, __func__);
       return TIMED_OUT;
     }
@@ -1724,7 +1724,7 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
     ret = ReturnBufferToCamera(buffer);
   }
   process_buffers_map_.erase(handle);
-  wait_for_buffers_.notify_one();
+  wait_for_buffers_.Signal();
 
   return ret;
 }
@@ -2257,8 +2257,8 @@ status_t GrallocMemory::GetBuffer(buffer_handle_t &buffer) {
     QMMF_VERBOSE("%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one", __func__, params_.max_buffer_count);
 
-    auto ret = wait_for_buffer_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_for_buffer_.WaitFor(lock, wait_time);
+    if (ret != 0) {
       QMMF_ERROR("%s: Wait for output buffer return timed out", __func__);
       return TIMED_OUT;
     }
@@ -2279,7 +2279,7 @@ status_t GrallocMemory::ReturnBuffer(const buffer_handle_t &buffer) {
 
   status_t ret = ReturnBufferLocked(buffer);
   if (ret == NO_ERROR) {
-    wait_for_buffer_.notify_one();
+    wait_for_buffer_.Signal();
   }
   return ret;
 }

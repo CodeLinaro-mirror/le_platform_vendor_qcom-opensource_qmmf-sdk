@@ -146,10 +146,10 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  ::android::Mutex                  wait_for_frame_lock_;
-  ::android::Condition              wait_for_frame_;
+  std::mutex                        wait_for_frame_lock_;
+  QCondition                        wait_for_frame_;
   int32_t                           ion_device_;
-  ::android::Mutex                  queue_lock_;
+  std::mutex                        queue_lock_;
 
   // For Sink
   int32_t sink_buffer_size_;
@@ -161,9 +161,9 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   ::android::Vector<IonHandleData>  ion_handle_data;
 
   TSQueue<AudioBuffer>              sink_buffer_queue_;
-  ::android::Mutex                  sink_queue_lock_;
-  ::android::Mutex                  wait_for_sink_queue_lock_;
-  ::android::Condition              wait_for_sink_frame_;
+  std::mutex                        sink_queue_lock_;
+  std::mutex                        wait_for_sink_queue_lock_;
+  QCondition                        wait_for_sink_frame_;
   bool                              stopplayback_;
   bool                              paused_;
   uint32_t                          decoded_frame_number_;

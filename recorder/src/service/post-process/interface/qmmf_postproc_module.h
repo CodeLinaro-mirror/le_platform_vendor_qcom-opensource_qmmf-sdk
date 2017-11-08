@@ -37,7 +37,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #include "recorder/src/service/post-process/interface/qmmf_postproc.h"
 

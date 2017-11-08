@@ -29,8 +29,8 @@
 #pragma once
 
 #include "player/src/client/qmmf_player_service_intf.h"
-#include "common/qmmf_common_utils.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_common_utils.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace player {

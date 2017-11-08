@@ -171,9 +171,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  ::android::Mutex        wait_for_frame_lock_;
-  ::android::Condition    wait_for_frame_;
-  ::android::Mutex        queue_lock_;
+  std::mutex              wait_for_frame_lock_;
+  QCondition              wait_for_frame_;
+  std::mutex              queue_lock_;
   bool                    stopplayback_;
   bool                    paused_;
   uint32_t                decoded_frame_number_;
@@ -227,8 +227,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t                                grabpicture_file_fd_;
   BufferDescriptor                       grab_picture_buffer_;
   struct ion_handle_data                 grab_picture_ion_handle_;
-  ::android::Mutex                       grab_picture_buffer_copy_lock_;
-  ::android::Condition                   wait_for_grab_picture_buffer_copy_;
+  std::mutex                             grab_picture_buffer_copy_lock_;
+  QCondition                             wait_for_grab_picture_buffer_copy_;
   uint32_t                               snapshot_dumps_;
   std::mutex                             grab_picture_lock;
 

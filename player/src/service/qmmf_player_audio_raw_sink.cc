@@ -29,8 +29,6 @@
 
 #define TAG "AudioRawSink"
 
-#include "player/src/service/qmmf_player_audio_raw_sink.h"
-
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -41,11 +39,12 @@
 #include <thread>
 #include <vector>
 
+#include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
-#include "common/qmmf_log.h"
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_ion.h"
+#include "player/src/service/qmmf_player_audio_raw_sink.h"
 
 #define NUMBER_OF_SINK_BUFFERS (4)
 
@@ -715,9 +714,10 @@ void AudioRawTrackSink::Thread() {
   bool keep_running = true;
   while (keep_running) {
     // wait until there is something to do
-    if (av_buffers.empty() && buffers.empty() && messages_.empty()) {
+    if (av_buffers.empty() && buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      signal_.wait(lk);
+      if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
+        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
     }
 
     // process the next pending message

@@ -29,8 +29,6 @@
 
 #define TAG "PlayerIon"
 
-#include "player/src/service/qmmf_player_ion.h"
-
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -45,9 +43,10 @@
 
 #include <linux/msm_ion.h>
 
+#include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/qmmf_log.h"
 #include "player/src/service/qmmf_player_common.h"
+#include "player/src/service/qmmf_player_ion.h"
 
 namespace qmmf {
 namespace player {

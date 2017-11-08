@@ -40,7 +40,7 @@
 #include "system/src/service/qmmf_system_common.h"
 #include "system/src/service/qmmf_system_devices.h"
 #include "system/src/service/qmmf_system_keytone.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace system {

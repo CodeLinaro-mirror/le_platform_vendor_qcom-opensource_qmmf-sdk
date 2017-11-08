@@ -35,11 +35,12 @@
 #include <functional>
 #include <vector>
 
+#include <qmmf-sdk/qmmf_device.h>
+#include <qmmf-sdk/qmmf_system_params.h>
+
+#include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
-#include "common/qmmf_log.h"
-#include "qmmf-sdk/qmmf_device.h"
-#include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/service/qmmf_system_common.h"
 
 namespace qmmf {

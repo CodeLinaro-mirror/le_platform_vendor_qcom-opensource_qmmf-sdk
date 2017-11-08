@@ -50,6 +50,7 @@ libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
 libqmmf_recorder_service_la_LDFLAGS  += -lhardware -lfastcvopt -lC2D2
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/utils/libqmmf_utils.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_adaptor.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
