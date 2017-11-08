@@ -74,6 +74,9 @@ PostProcAlg::~PostProcAlg() {
 
   buffs_.clear();
 
+  delete algo_;
+  algo_ = nullptr;
+
   try {
     Utils::UnloadLib(lib_handle_);
   } catch (const std::exception &e) {
@@ -237,8 +240,6 @@ status_t PostProcAlg::Delete() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
   algo_->Abort();
-  delete algo_;
-  algo_ = nullptr;
 
   reprocess_flag_ = false;
   ready_to_start_ = false;

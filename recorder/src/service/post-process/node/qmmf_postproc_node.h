@@ -138,6 +138,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    status_t Initialize(const PostProcIOParam &in_param,
                        const PostProcIOParam &out_param);
 
+   status_t Delete();
+
    status_t Configure(const std::string &config_json_data);
 
    PostProcIOParam GetInput(const PostProcIOParam &out);

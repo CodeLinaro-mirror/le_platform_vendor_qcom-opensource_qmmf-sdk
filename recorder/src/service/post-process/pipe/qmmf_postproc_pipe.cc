@@ -60,10 +60,6 @@ PostProcPipe::PostProcPipe(IPostProc* context)
 
 PostProcPipe::~PostProcPipe() {
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  for (auto& node : pipe_) {
-    QMMF_INFO("%s:%s: node(%p) uid(%d)", TAG, __func__, node.get(), node->GetId());
-    factory_->ReturnProcNode(node->GetId());
-  }
 
   QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
 }
@@ -184,6 +180,19 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   QMMF_INFO("%s:%s: Reprocess pipe: %s", TAG, __func__, nodes.c_str());
 
 
+  return NO_ERROR;
+}
+
+status_t PostProcPipe::DeletePipe() {
+  auto iter = pipe_.end();
+  while (iter != pipe_.begin()) {
+    --iter;
+    QMMF_INFO("%s:%s: return node uid: %d name: %s", TAG, __func__,
+        (*iter)->GetId(), (*iter)->GetName().c_str());
+    (*iter)->Delete();
+    factory_->ReturnProcNode((*iter)->GetId());
+  }
+  pipe_.clear();
   return NO_ERROR;
 }
 

@@ -50,22 +50,7 @@ MemPool::MemPool()
 }
 
 MemPool::~MemPool() {
-
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-
-  if (!gralloc_buffers_.empty()) {
-    for (auto& it : gralloc_buffers_) {
-      FreeGrallocBuffer(it.first);
-    }
-    gralloc_buffers_.clear();
-  }
-  delete[] gralloc_slots_;
-
-  if (nullptr != gralloc_device_) {
-    gralloc_device_->common.close(&gralloc_device_->common);
-  }
-
-  QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
 }
 
 int32_t MemPool::Initialize(const MemPoolParams &params) {
@@ -114,6 +99,28 @@ FAIL:
     gralloc_device_->common.close(&gralloc_device_->common);
   }
   return -1;
+}
+
+status_t MemPool::Delete() {
+  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+
+  if (!gralloc_buffers_.empty()) {
+    for (auto& it : gralloc_buffers_) {
+      FreeGrallocBuffer(it.first);
+    }
+    gralloc_buffers_.clear();
+  }
+  delete[] gralloc_slots_;
+
+  if (nullptr != gralloc_device_) {
+    gralloc_device_->common.close(&gralloc_device_->common);
+  }
+  buffers_allocated_ = 0;
+  pending_buffer_count_ = 0;
+
+  QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
+
+  return NO_ERROR;
 }
 
 status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {

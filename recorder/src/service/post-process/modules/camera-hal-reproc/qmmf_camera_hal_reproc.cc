@@ -406,7 +406,7 @@ status_t CameraHalReproc::Stop() {
 
   if (!reprocess_request_.streamIds.isEmpty()) {
     for (auto streamId : reprocess_request_.streamIds) {
-      if (NO_ERROR != context_->DeleteDeviceStream(streamId, false)) {
+      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
         QMMF_ERROR("%s:%s: Failed to delete non-zsl snapshot stream",
           TAG, __func__);
         return BAD_VALUE;

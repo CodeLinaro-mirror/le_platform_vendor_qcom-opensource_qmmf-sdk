@@ -1952,6 +1952,7 @@ status_t CameraContext::PostProcDelete() {
     postproc_pipe_->Stop();
     postproc_pipe_->RemoveConsumer(GetConsumerIntf());
     DetachConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_->DeletePipe();
   }
 
   postproc_pipe_ = nullptr;
@@ -2143,6 +2144,7 @@ status_t CameraPort::DeInit() {
 
   if (postproc_pipe_.get() != nullptr) {
     buffer_producer_impl_->RemoveConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_->DeletePipe();
     postproc_pipe_ = nullptr;
   }
 

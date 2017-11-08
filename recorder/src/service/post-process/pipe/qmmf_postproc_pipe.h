@@ -75,6 +75,8 @@ class PostProcPipe {
    status_t CreatePipe(const PipeIOParam &pipe_out_param,
        const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
+   status_t DeletePipe();
+
    status_t Configure(const std::string &config_json_data);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
