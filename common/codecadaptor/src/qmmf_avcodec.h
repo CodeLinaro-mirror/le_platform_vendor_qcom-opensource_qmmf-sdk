@@ -38,6 +38,7 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
+#include <cutils/properties.h>
 
 #include <libstagefrighthw/QComOMXMetadata.h>
 #include <media/hardware/HardwareAPI.h>
@@ -96,6 +97,8 @@ class AVCodec : public IAVCodec {
   status_t GetParameters(const CodecParamType param_type, void *codec_param,
                          size_t *param_size) override;
   status_t StartCodec() override;
+  void setPowerHint();
+  void endPowerHint();
   status_t StopCodec(bool do_flush) override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
@@ -106,6 +109,7 @@ class AVCodec : public IAVCodec {
   status_t Flush(uint32_t port_type) override;
 
  private:
+  std::mutex power_mtx_;
   // create OMX handle
   status_t CreateHandle(char *component_Name);
   status_t DeleteHandle();
@@ -224,6 +228,7 @@ class AVCodec : public IAVCodec {
   uint32_t                        out_buff_hdr_size_;
   SignalQueue<CodecCmdType>       signal_queue_;
   static OMX_CALLBACKTYPE  callbacks_;
+  static uint32_t power_hint_;
   CodecType                format_type_;
   // to handle the two EOS callbacks from Audio OMX component
   bool                     isEOSonOutput_;
