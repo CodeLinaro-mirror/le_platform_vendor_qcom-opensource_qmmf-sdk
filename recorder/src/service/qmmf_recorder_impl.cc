@@ -1306,19 +1306,35 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
       "service_track_id(%x)",  __func__, client_id, session_id, track_id,
       service_track_id);
 
-  VideoTrackParams video_track_params{};
-  video_track_params.track_id    = service_track_id;
-  video_track_params.params      = params;
-  video_track_params.extra_param = extra_param;
-  video_track_params.data_cb     = [this, client_id, session_id, track_id]
+  VideoTrackParams video_params{};
+  video_params.track_id    = service_track_id;
+  video_params.params      = params;
+  video_params.extra_param = extra_param;
+  video_params.data_cb     = [this, client_id, session_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<MetaData>& meta_buffers) {
           VideoTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
+
+  if (video_params.extra_param.Exists(QMMF_SOURCE_VIDEO_TRACK_ID)) {
+    SourceVideoTrack source_track;
+    video_params.extra_param.Fetch(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+
+    TrackInfo source_track_info;
+    auto ret = GetServiceTrackInfo(client_id, source_track.source_track_id,
+                                   &source_track_info);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to retrieve service source track id!", __func__);
+      return BAD_VALUE;
+    }
+    // Overwrite client source track id with service source track id.
+    source_track.source_track_id = source_track_info.track_id;
+    video_params.extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+  }
+
   // Create Camera track first.
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->CreateTrackSource(service_track_id,
-                                               video_track_params);
+  auto ret = camera_source_->CreateTrackSource(service_track_id, video_params);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s: CreateTrackSource track_id(%d):service_track_id(%x) "
         " failed!",  __func__, track_id, service_track_id);
@@ -1338,7 +1354,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != nullptr);
     ret = encoder_core_->AddSource(camera_source_->
-        GetTrackSource(service_track_id), video_track_params);
+        GetTrackSource(service_track_id), video_params);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: track_id(%d):service_track_id(%x) AddSource"
         " failed!",  __func__, track_id, service_track_id);
@@ -1350,7 +1366,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   TrackInfo track_info{};
   track_info.track_id     = service_track_id;
   track_info.type         = TrackType::kVideo;
-  track_info.video_params = video_track_params;
+  track_info.video_params = video_params;
 
   std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];

@@ -156,7 +156,6 @@ class CameraSource {
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
  private:
-
   bool IsTrackIdValid(const uint32_t track_id);
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
   uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
@@ -169,13 +168,7 @@ class CameraSource {
     const VideoTrackParams& slave_track,
     const VideoTrackParams& master_track);
 
-  status_t GetSlaveStreamMasterTrackId(const VideoTrackParams& params,
-                                      int32_t& track_id_master_);
-
-  status_t GetSourceTrackParam(const VideoTrackParams& params,
-                               SourceVideoTrack& surface_video_copy);
-
-  bool IsCopyStream(const VideoTrackParams& params);
+  int32_t GetSourceTrackId(const VideoExtraParam& extra_param);
 
   status_t ParseThumb(uint8_t* vaddr, uint32_t size, StreamBuffer& buffer);
 
