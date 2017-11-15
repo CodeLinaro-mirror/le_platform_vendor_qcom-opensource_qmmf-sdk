@@ -23,6 +23,10 @@ LOCAL_SHARED_LIBRARIES += libqmmf_display_client libmemalloc
 
 LOCAL_MODULE = qmmf_display_gtest
 
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
+
 include $(BUILD_NATIVE_TEST)
 
 endif # BUILD_QMMMF

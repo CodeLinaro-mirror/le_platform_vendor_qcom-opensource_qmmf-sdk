@@ -20,3 +20,16 @@ LOCAL_SHARED_LIBRARIES := libcutils libutils libdl liblog
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
 LOCAL_32_BIT_ONLY := true
+
+# ANDROID version check
+ANDROID_MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
+IS_ANDROID_O_OR_ABOVE :=$(shell test $(ANDROID_MAJOR_VERSION) -gt 8 -o $(ANDROID_MAJOR_VERSION) -eq 8 && echo true)
+ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
+LOCAL_CFLAGS += -DANDROID_O_OR_ABOVE
+endif #ANDROID version check
+
+# Enable libs/bins installation into vendor
+ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
+LOCAL_VENDOR_MODULE := true
+endif #LOCAL_VENDOR_MODULE
+

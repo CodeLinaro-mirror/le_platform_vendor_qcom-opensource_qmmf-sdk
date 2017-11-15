@@ -22,6 +22,10 @@ LOCAL_SHARED_LIBRARIES += libcamera_client
 
 LOCAL_MODULE = qmmf_recorder_gtest
 
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
+
 include $(BUILD_NATIVE_TEST)
 
 # Build recorder 360 camera test application binary
@@ -40,6 +44,10 @@ LOCAL_SHARED_LIBRARIES += libcamera_client
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_display_client
 
 LOCAL_MODULE = qmmf_recorder_360cam_gtest
+
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
 
 include $(BUILD_NATIVE_TEST)
 

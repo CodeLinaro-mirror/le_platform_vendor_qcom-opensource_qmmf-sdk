@@ -45,6 +45,10 @@ LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_adaptor_gtest
 
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
+
 include $(BUILD_NATIVE_TEST)
 
 # Dual adaptor gtest app
@@ -60,6 +64,10 @@ LOCAL_SRC_FILES := gtest/qmmf_dual_camera_adaptor_gtest.cc
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_dual_adaptor_gtest
+
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
 
 include $(BUILD_NATIVE_TEST)
 
