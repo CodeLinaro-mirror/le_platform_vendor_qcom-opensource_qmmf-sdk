@@ -424,15 +424,14 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       return BAD_VALUE;
     }
 
-    active_ports_.push_back(zsl_port_);
+    active_ports_.emplace(zsl_param.id, zsl_port_);
 
     ret = zsl_port_->Start();
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: zsl port start failed!", __func__);
       return ret;
     }
-    QMMF_INFO("%s: Number of Active ports=%d", __func__,
-        active_ports_.size());
+    QMMF_INFO("%s: Number of Active ports=%d", __func__, active_ports_.size());
   }
 
   result_cb_ = cb;
@@ -950,7 +949,7 @@ status_t CameraContext::CancelCaptureImage() {
   return NO_ERROR;
 }
 
-void CameraContext::RestoreBatchStreamId(CameraPort* port) {
+void CameraContext::RestoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
   if (!port) {
     QMMF_ERROR("%s: Invalid port", __func__);
     return;
@@ -1097,10 +1096,9 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
   }
 
   // Add port to list of active ports.
-  active_ports_.push_back(port);
+  active_ports_.emplace(param.id, port);
 
-  QMMF_INFO("%s: Number of Active ports=%d", __func__,
-      active_ports_.size());
+  QMMF_INFO("%s: Number of Active ports=%d", __func__, active_ports_.size());
 
   QMMF_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1113,7 +1111,7 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
     return BAD_VALUE;
   }
-  assert(port != nullptr);
+
   if (port->GetNumConsumers() > 0) {
     // Port still being used by another consumer, eventually this port would be
     // deleted once consumers count would become zero.
@@ -1127,12 +1125,9 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
   assert(ret == NO_ERROR);
 
   RestoreBatchStreamId(port);
+  active_ports_.erase(track_id);
 
-  DeletePort(track_id);
-
-  QMMF_INFO("%s: Camera Port for track_id(%x) deleted", __func__,
-      track_id);
-
+  QMMF_INFO("%s: Camera Port for track_id(%x) deleted", __func__, track_id);
   return ret;
 }
 
@@ -1144,7 +1139,6 @@ status_t CameraContext::AddConsumer(const uint32_t& track_id,
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
     return BAD_VALUE;
   }
-  assert(port != nullptr);
 
   auto ret = port->AddConsumer(consumer);
   assert(ret == NO_ERROR);
@@ -1161,7 +1155,6 @@ status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
     return BAD_VALUE;
   }
-  assert(port != nullptr);
 
   auto ret = port->RemoveConsumer(consumer);
   assert(ret == NO_ERROR);
@@ -1175,12 +1168,11 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
     return BAD_VALUE;
   }
-  assert(port != nullptr);
 
   auto ret = port->Start();
   assert(ret == NO_ERROR);
   QMMF_INFO("%s: track_id(%d) started on port(0x%p)", __func__,
-      track_id, port);
+      track_id, port.get());
   return NO_ERROR;
 }
 
@@ -1192,7 +1184,6 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
     return BAD_VALUE;
   }
-  assert(port != nullptr);
 
   auto ret = port->Stop();
   assert(ret == NO_ERROR);
@@ -1373,8 +1364,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   if (streaming_request_id_ < 0 && !cache) {
     bool is_constrained_mode = false;
     if (hfr_supported_) {
-      for (auto iter : active_ports_) {
-        if (kConstrainedModeThreshold < iter->GetPortFramerate()) {
+      for (auto const& it : active_ports_) {
+        auto& port = it.second;
+        if (kConstrainedModeThreshold < port->GetPortFramerate()) {
           is_constrained_mode = true;
           break;
         }
@@ -1394,8 +1386,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     // OpMode is set as index of given fps sensormode in the sensor mode table.
     uint32_t max_frame_rate = frame_rate;
 
-    for (auto iter : active_ports_) {
-      uint32_t port_frm_rate = iter->GetPortFramerate();
+    for (auto const& it : active_ports_) {
+      auto& port = it.second;
+      uint32_t port_frm_rate = port->GetPortFramerate();
       if (port_frm_rate > max_frame_rate) {
         max_frame_rate = port_frm_rate;
       }
@@ -1602,9 +1595,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   size_t size = active_ports_.size();
   QMMF_INFO("%s: Number of active_ports(%d)", __func__, size);
 
-  for (size_t i = 0; i < size; i++) {
-    std::shared_ptr<CameraPort> port = active_ports_[i];
-    assert(port != nullptr);
+  for (auto const& it : active_ports_) {
+    auto& port = it.second;
 
     int32_t cam_stream_id = port->GetCameraStreamId();
     size_t batch_size = port->GetPortBatchSize();
@@ -1819,12 +1811,14 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     assert(ret == NO_ERROR);
 
     // inform all active ports that streaming is interrupted
-    for (auto port : active_ports_) {
+    for (auto const& it : active_ports_) {
+      auto& port = it.second;
       ret = port->Pause();
       assert(ret == NO_ERROR);
     }
   } else {
-    for (auto port : active_ports_) {
+    for (auto const& it : active_ports_) {
+      auto& port = it.second;
       ret = port->Stop();
       assert(ret == NO_ERROR);
     }
@@ -1860,7 +1854,9 @@ status_t CameraContext::ResumeActiveStreams(bool state_only) {
   }
 
   QMMF_INFO("%s: Restart Ports! streaming %d", __func__, state_only);
-  for (auto port : active_ports_) {
+  for (auto const& it : active_ports_) {
+    auto& port = it.second;
+
     if (state_only) {
       // If snapshot capture request is streaming, than we should only
       // resume the port state. Other wise restarting of port will
@@ -2292,40 +2288,21 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
   }
 }
 
-CameraPort* CameraContext::GetPort(const uint32_t track_id) {
+std::shared_ptr<CameraPort> CameraContext::GetPort(const uint32_t& track_id) {
 
-  CameraPort* port = nullptr;
-  for (auto iter : active_ports_) {
-    auto type = iter->GetPortType();
-    if (track_id == iter->GetPortId() && (type != CameraPortType::kZSL)) {
-      QMMF_INFO("%s: Found the port for id(0%x)", __func__, track_id);
-      port = static_cast<CameraPort*>(iter.get());
-      break;
-    }
+  if (active_ports_.count(track_id) == 0) {
+    QMMF_ERROR("%s: No port is associated with id(%x)!", __func__, track_id);
+    return nullptr;
   }
-  if (!port) {
-    QMMF_ERROR("%s: No port belongs to consumer(%d)", __func__,
-        track_id);
+  auto port = active_ports_[track_id];
+
+  if (port->GetPortType() == CameraPortType::kZSL) {
+    QMMF_ERROR("%s: Invalid ZSL track_id(%x)", __func__, track_id);
+    return nullptr;
   }
+
+  QMMF_INFO("%s: Found port for track_id(%x)", __func__, track_id);
   return port;
-}
-
-void CameraContext::DeletePort(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, track_id);
-  auto iter = active_ports_.begin();
-  while (iter != active_ports_.end()) {
-    auto type = (*iter)->GetPortType();
-    if (track_id == (*iter)->GetPortId()
-        && (type != CameraPortType::kZSL)) {
-      QMMF_INFO("%s: Found the port for id(0%x)", __func__, track_id);
-      iter = active_ports_.erase(iter);
-      break;
-    } else {
-      ++iter;
-    }
-  }
-  QMMF_DEBUG("%s: Exit track_id(0%x)", __func__, track_id);
 }
 
 void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
