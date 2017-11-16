@@ -184,8 +184,8 @@ class CameraSource {
   // Map of camera id and CameraContext.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
 
-  // Map of track it and TrackSources.
-  std::map<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
+  // Map of track id and TrackSources.
+  std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
 
