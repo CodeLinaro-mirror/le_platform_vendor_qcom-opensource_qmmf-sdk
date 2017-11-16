@@ -180,7 +180,9 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false),
       paused_(false),
       decoded_frame_number_(0),
+#ifndef DISABLE_DISPLAY
       display_started_(0),
+#endif
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kNormalForward),
       displayed_frames_(0),
@@ -247,11 +249,16 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) 
   current_width = track_param.params.width;
   current_height = track_param.params.height;
 
-  auto ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
+  status_t ret = 0;
+#ifndef DISABLE_DISPLAY
+  ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
   if (ret != 0) {
     QMMF_ERROR("%s CreateDisplay Failed!!", __func__);
     return ret;
   }
+#else
+  QMMF_WARN("%s Display not supported!", __func__);
+#endif
 
   uint32_t buffer_size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12,
       track_param.params.width, track_param.params.height);
@@ -405,13 +412,17 @@ status_t VideoTrackSink::ResumeSink() {
 
 status_t VideoTrackSink::DeleteSink() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
-  auto ret = 0;
+  status_t ret = 0;
 
+#ifndef DISABLE_DISPLAY
   ret = DeleteDisplay(display::DisplayType::kPrimary);
   if (ret != 0) {
     QMMF_ERROR("%s DeleteDisplay Failed!!", __func__);
     return ret;
   }
+#else
+  QMMF_WARN("%s Display not supported!", __func__);
+#endif
 
   video_track_decoder_.reset();
 
@@ -614,7 +625,6 @@ void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
 void VideoTrackSink::Renderer() {
   QMMF_INFO("%s: Enter ", __func__);
 
-  status_t ret = 0;
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
 
   while (!stopplayback_) {
@@ -641,13 +651,16 @@ void VideoTrackSink::Renderer() {
         ReturnBufferToCodec(codec_buffer);
         decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
       } else {
+#ifndef DISABLE_DISPLAY
         QMMF_DEBUG("%s PushFrameToDisplay codec_buffer.fd ::  %d",
             __func__, codec_buffer.fd);
-        ret = PushFrameToDisplay(codec_buffer);
+        status_t ret = PushFrameToDisplay(codec_buffer);
         if (ret != 0) {
           QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
         }
-
+#else
+        QMMF_WARN("%s Display not supported!", __func__);
+#endif
         if (playback_dir_ == TrickModeDirection::kSlowForward) {
           QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
               (float)(sleep_time_us *
@@ -781,6 +794,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
   return NO_ERROR;
 }
 
+#ifndef DISABLE_DISPLAY
 status_t VideoTrackSink::CreateDisplay(
     display::DisplayType display_type,
     VideoTrackParams& track_param) {
@@ -967,6 +981,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 
    return NO_ERROR;
 }
+#endif
 
 status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
                                                uint32_t size) {

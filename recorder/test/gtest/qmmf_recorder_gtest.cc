@@ -123,9 +123,11 @@ void RecorderGtest::SetUp() {
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
+#ifndef DISABLE_DISPLAY
   use_display_ = false;
   display_started_ = false;
   enable_gfx_ = false;
+#endif
 
   TEST_INFO("%s Exit ", __func__);
 }
@@ -13536,6 +13538,7 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
 
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * Session1080pYUVTrackWithDisplay: This test will be used to test display
 * functionality. This test will create session with 1080p YUV track and
@@ -13647,6 +13650,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 /*
 * 1080pVideo4KVideoTypeSnapshot: This test will test session with 1080p
@@ -14226,6 +14230,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
 
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse:
 *    This test will create three concurrent sessions 1440p Enc track for storage,
@@ -15298,6 +15303,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplayAlongWithGfxPlane) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 /* SessionWith1080pYUVTrackFocalLength: This test will test session with one
 * 1080p YUV track. Api test sequence:
@@ -15389,6 +15395,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrackFocalLength) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWith1440pEnc480pEnc480pDisplayWithEISLCACTNRLandscapeMode:
 *    This test will create three concurrent sessions 1440p Enc track for
@@ -16305,6 +16312,7 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
@@ -16645,6 +16653,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
   }
 
+#ifndef DISABLE_DISPLAY
   if (use_display_) {
     if (enable_gfx_) {
       DequeueGfxSurfaceBuffer();
@@ -16652,6 +16661,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
     PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
   }
+#endif
 
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
@@ -17137,6 +17147,7 @@ void RecorderGtest::ClearSurface() {
 #endif
 }
 
+#ifndef DISABLE_DISPLAY
 void RecorderGtest::DisplayCallbackHandler(DisplayEventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
@@ -17351,6 +17362,7 @@ int32_t RecorderGtest::QueueGfxSurfaceBuffer() {
   TEST_DBG("%s: Exit", __func__);
   return 0;
 }
+#endif
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s: Enter", __func__);
