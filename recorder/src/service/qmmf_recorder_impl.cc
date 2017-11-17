@@ -63,8 +63,7 @@ RecorderImpl::RecorderImpl()
     camera_source_(nullptr),
     encoder_core_(nullptr),
     audio_source_(nullptr),
-    audio_encoder_core_(nullptr),
-    client_died_(false) {
+    audio_encoder_core_(nullptr){
 
     QMMF_KPI_GET_MASK();
     QMMF_KPI_DETAIL();
@@ -182,6 +181,11 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
   QMMF_INFO("%s:%s:session_track_map.size(%d)", TAG, __func__,
       session_track_map.size());
 
+  std::lock_guard<std::mutex> status_lock(client_died_lock_);
+  client_status_map_.insert( {client_id, false} );
+  QMMF_INFO("%s:%s:client_status_map_.size(%d)", TAG, __func__,
+      client_cameraid_map_.size());
+
   std::lock_guard<std::mutex> camera_lock(camera_map_lock_);
   client_cameraid_map_.insert( {client_id, std::vector<uint32_t>()} );
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
@@ -214,7 +218,8 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     // Raise the client_died_ flag in order to signal the audio/video
     // track callbacks to return the buffers from where they originated.
     std::lock_guard<std::mutex> lock(client_died_lock_);
-    client_died_ = true;
+    auto& client_died = client_status_map_[client_id];
+    client_died = true;
   }
 
   {
@@ -282,6 +287,10 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     client_cameraid_map_.erase(client_id);
   }
 
+  {
+    std::lock_guard<std::mutex> lock(client_died_lock_);
+    client_status_map_.erase(client_id);
+  }
   QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
   return NO_ERROR;
 }
@@ -1880,7 +1889,8 @@ void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
   assert(client_id > 0);
 
   std::lock_guard<std::mutex> lock(client_died_lock_);
-  if (client_died_) {
+  auto client_died = client_status_map_[client_id];
+  if (client_died) {
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->NotifyVideoTrackData(track_id, buffers,
@@ -1901,7 +1911,8 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
   assert(client_id > 0);
 
   std::lock_guard<std::mutex> lock(client_died_lock_);
-  if (client_died_) {
+  auto client_died = client_status_map_[client_id];
+  if (client_died) {
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->NotifyAudioTrackData(track_id, buffers,
