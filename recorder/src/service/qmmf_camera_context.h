@@ -230,6 +230,8 @@ class CameraContext : public CameraInterface,
 
   void HandleFinalResult(const CaptureResult &capture_result);
 
+  status_t ValideteCaptureParams(const ImageParam &image_param);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
