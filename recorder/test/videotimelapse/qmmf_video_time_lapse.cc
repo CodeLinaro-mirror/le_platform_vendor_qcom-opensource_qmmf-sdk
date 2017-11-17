@@ -683,10 +683,9 @@ int32_t TimeLapse::AllocateBuffer(uint32_t index) {
   void *vaddr = nullptr;
 
   for (uint32_t i = 0; i < count; i++) {
-    BufferDescriptor buffer;
+    BufferDescriptor buffer{};
     vaddr = nullptr;
 
-    memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ionFdData, 0x0, sizeof(ion_fd_data));
 

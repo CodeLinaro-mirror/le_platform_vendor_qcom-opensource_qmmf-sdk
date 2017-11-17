@@ -286,11 +286,11 @@ struct VideoTrackCreateParam {
         // Nothing to do for other formats
       }
     }
-
+    codec_param = {};
     // Setting LPM,VQZipInfo parameters
     low_power_mode = false;
     do_vqzip = false;
-    memset(&vqzip_params, 0x00, sizeof(vqzip_params));
+    vqzip_params = {};
   }
 
   ::std::string ToString() const {

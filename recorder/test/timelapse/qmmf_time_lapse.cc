@@ -137,8 +137,7 @@ int32_t TimeLapse::Init() {
     return ret;
   }
 
-  CameraStartParam camera_start_params;
-  memset(&camera_start_params, 0x0, sizeof camera_start_params);
+  CameraStartParam camera_start_params{};
   camera_start_params.zsl_mode         = false;
   camera_start_params.frame_rate       = 30;
 
@@ -277,8 +276,7 @@ int32_t TimeLapse::StopSession() {
 }
 
 int32_t TimeLapse::AddPreviewTrack() {
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  VideoTrackCreateParam video_track_param{};
 
   video_track_param.camera_id   = params_.camera_id;
   video_track_param.width       = params_.preview_width;
@@ -305,8 +303,7 @@ int32_t TimeLapse::DeletePreviewTrack() {
 }
 
 int32_t TimeLapse::CaptureImage(bool store) {
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = params_.snapshot_width;
   image_param.height        = params_.snapshot_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -376,7 +373,7 @@ void TimeLapse::DisplayVSyncHandler(int64_t time_stamp) {
 
 status_t TimeLapse::StartDisplay(DisplayType display_type) {
   int32_t res = 0;
-  SurfaceConfig surface_config;
+  SurfaceConfig surface_config{};
   DisplayCb  display_status_cb;
 
   display_= new Display();
@@ -394,8 +391,6 @@ status_t TimeLapse::StartDisplay(DisplayType display_type) {
 
   res = display_->CreateDisplay(display_type, display_status_cb);
   assert(res == 0);
-
-  memset(&surface_config, 0x0, sizeof surface_config);
 
   surface_config.width = params_.preview_width;
   surface_config.height = params_.preview_height;

@@ -980,8 +980,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
     break;
   }
 
-  BnBuffer bn_buffer;
-  memset(&bn_buffer, 0x0, sizeof bn_buffer);
+  BnBuffer bn_buffer{};
   bn_buffer.ion_fd    = buffer.fd;
   bn_buffer.size      = content_size;
   bn_buffer.timestamp = buffer.timestamp;
@@ -990,8 +989,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   bn_buffer.buffer_id = buffer.fd;
   bn_buffer.capacity  = buffer.size;
 
-  MetaData meta_data;
-  memset(&meta_data, 0x0, sizeof meta_data);
+  MetaData meta_data{};
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
   meta_data.cam_buffer_meta_data = buffer.info;
   client_snapshot_cb_(buffer.camera_id, count, bn_buffer, meta_data);
@@ -1142,8 +1140,7 @@ status_t TrackSource::Init() {
   rescaler_ = nullptr;
   master_track_ = nullptr;
 
-  CameraStreamParam stream_param;
-  memset(&stream_param, 0x0, sizeof stream_param);
+  CameraStreamParam stream_param{};
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
   if (track_params_.params.format_type == VideoFormat::kBayerRDI10BIT) {
@@ -1656,8 +1653,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       return;
     }
 
-    BnBuffer bn_buffer;
-    memset(&bn_buffer, 0x0, sizeof bn_buffer);
+    BnBuffer bn_buffer{};
     bn_buffer.ion_fd            = buffer.fd;
     bn_buffer.size              = buffer.size;
     bn_buffer.timestamp         = buffer.timestamp;

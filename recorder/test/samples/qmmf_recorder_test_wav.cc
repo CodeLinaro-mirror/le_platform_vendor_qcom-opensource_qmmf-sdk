@@ -182,8 +182,7 @@ int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
 }
 
 void RecorderTestWav::WritePCMHeader() {
-  WavPCMHeader header;
-  memset(&header, 0x0, sizeof header);
+  WavPCMHeader header{};
 
   int frames = current_data_size_ / (params_.channels * params_.bit_depth / 8);
   QMMF_INFO("%s: %s() captured %d frames", TAG, __func__, frames);
@@ -219,8 +218,7 @@ void RecorderTestWav::WritePCMHeader() {
 }
 
 void RecorderTestWav::WriteG711Header() {
-  WavG711Header header;
-  memset(&header, 0x0, sizeof header);
+  WavG711Header header{};
 
   int frames = current_data_size_ / params_.channels;
   QMMF_INFO("%s: %s() captured %d frames", TAG, __func__, frames);
