@@ -1316,8 +1316,7 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   buf_info.frame_len  = buffer.capacity;
   snapshot_buffers_.insert(std::make_pair(buffer.ion_fd, buf_info));
 
-  BufferDescriptor snapshot_buf;
-  memset(&snapshot_buf, 0x0, sizeof snapshot_buf);
+  BufferDescriptor snapshot_buf{};
   snapshot_buf.data      = vaddr;
   snapshot_buf.size      = buffer.size;
   snapshot_buf.timestamp = buffer.timestamp;
@@ -1431,8 +1430,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       }
     }
 
-    BufferDescriptor buffer;
-    memset(&buffer, 0x0, sizeof buffer);
+    BufferDescriptor buffer{};
     buffer.data      = buf_info.pointer;
     buffer.size      = bn_buffers[i].size;
     buffer.timestamp = bn_buffers[i].timestamp;
@@ -2564,13 +2562,11 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       android::Parcel::ReadableBlob blob;
       data.readBlob(size, &blob);
       void* buf = const_cast<void*>(blob.data());
-      BnBuffer bn_buffer;
-      memset(&bn_buffer, 0x0, sizeof bn_buffer);
+      BnBuffer bn_buffer{};
       memcpy(&bn_buffer, buf, size);
       bn_buffer.ion_fd = ion_fd;
       uint32_t meta_size;
-      MetaData meta_data;
-      memset(&meta_data, 0x0, sizeof meta_data);
+      MetaData meta_data{};
       android::Parcel::ReadableBlob meta_blob;
       data.readUint32(&meta_size);
       if (meta_size > 0) {

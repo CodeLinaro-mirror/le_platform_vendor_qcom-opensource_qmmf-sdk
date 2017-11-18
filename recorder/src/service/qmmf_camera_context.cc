@@ -70,8 +70,9 @@ CameraContext::CameraContext()
       batch_stream_id_(-1),
       aec_done_(false),
       partial_metadata_required_(false),
-      partial_result_count_(0) {
-  memset(&camera_start_params_, 0x0, sizeof(camera_start_params_));
+      partial_result_count_(0),
+      snapshot_type_(SnapshotMode::kStill) {
+  camera_start_params_ = {};
 }
 
 CameraContext::~CameraContext() {
@@ -138,8 +139,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   postproc_enable_ = IsPostProcNeeded(param);
 
-  CameraStreamParameters stream_param;
-  memset(&stream_param, 0x0, sizeof(stream_param));
+  CameraStreamParameters stream_param{};
 
   ret = ValidateResolution(param.image_format, param.width, param.height);
   if (ret != NO_ERROR) {
@@ -213,7 +213,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   uint32_t num_camera = 0;
 
   //Setup Camera3DeviceClient callbacks.
-  memset(&camera_callbacks_, 0x0, sizeof camera_callbacks_);
   camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
       const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
 
@@ -295,8 +294,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     //size. We cannot re-configure streams dynamically during
     //re-processing as this could have impact on the already
     //cached ZSL buffers and they may fail re-process.
-    ImageParam image_param;
-    memset(&image_param, 0, sizeof(image_param));
+    ImageParam image_param{};
     image_param.width = param.zsl_width;
     image_param.height = param.zsl_height;
     image_param.image_format = ImageFormat::kJPEG;
@@ -516,6 +514,43 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
+status_t CameraContext::ValideteCaptureParams(const ImageParam &image_param) {
+  if (snapshot_request_.metadata.isEmpty()) {
+    QMMF_ERROR("%s:%s Camera is not started Or it is started in zsl mode!!",
+               TAG, __func__);
+    return BAD_VALUE;
+  }
+
+  //Validate in params
+  bool res_supported = false;
+  camera_metadata_entry_t entry;
+  CameraMetadata& meta = snapshot_request_.metadata;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (res_supported != true) {
+    QMMF_ERROR("%s:%s Unsuported Snapshot resolution %d x %d!",
+               TAG, __func__, image_param.width, image_param.height);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
 
@@ -528,8 +563,15 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
     snapshot_param_ = param;
 
     if (reconfigure_needed) {
+
+      auto ret = ValideteCaptureParams(param);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s:%s Failed during snapshot validation", TAG, __func__);
+        return ret;
+      }
+
       QMMF_INFO("%s:%s: Snapshot stream reconfigure required", TAG, __func__);
-      auto ret = CreateSnapshotStream(param);
+      ret = CreateSnapshotStream(param);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
         return ret;
@@ -574,7 +616,21 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
         snapshot_request_.metadata.append(*it++);
       }
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+      uint32_t active_streamid_count = 0;
+      if (snapshot_type_ == SnapshotMode::kVideo) {
+        if (streaming_active_requests_.size() == 1) {
+          auto request = streaming_active_requests_[0];
+          for (auto stream_id : request.streamIds) {
+            snapshot_request_.streamIds.add(stream_id);
+            active_streamid_count++;
+          }
+        } else {
+          QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+        }
+      }
       requests.push_back(snapshot_request_);
+      snapshot_request_.streamIds.
+        resize(snapshot_request_.streamIds.size() - active_streamid_count);
     }
 
     auto request_id = camera_device_->SubmitRequestList(requests, false,
@@ -609,6 +665,12 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       }
       capture_plugins_.push_back(plugin.uid);
     }
+  }
+
+  if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
+    SnapshotType type;
+    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
+    snapshot_type_ = type.type;
   }
 
   return NO_ERROR;
@@ -1556,6 +1618,16 @@ status_t CameraContext::CaptureZSLImage() {
     reprocess_request.metadata = zsl_port->GetInputBuffer().result;
     reprocess_request.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality,
                                       1);
+    if (snapshot_type_ == SnapshotMode::kVideo) {
+      if (streaming_active_requests_.size() == 1) {
+        auto request = streaming_active_requests_[0];
+        for (auto stream_id : request.streamIds) {
+          reprocess_request.streamIds.add(stream_id);
+        }
+      } else {
+        QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+      }
+    }
     QMMF_INFO("%s:%s: Submit ZSL reprocess request!!", TAG, __func__);
     auto id = camera_device_->SubmitRequest(reprocess_request, false,
                                             &last_frame_mumber);
@@ -1566,6 +1638,19 @@ status_t CameraContext::CaptureZSLImage() {
     }
   } else {
     QMMF_INFO("%s:%s: Submit Reguar snapshot request!", TAG, __func__);
+
+    uint32_t active_streamid_count = 0;
+    if (snapshot_type_ == SnapshotMode::kVideo) {
+      if (streaming_active_requests_.size() == 1) {
+        auto request = streaming_active_requests_[0];
+        for (auto stream_id : request.streamIds) {
+          snapshot_request_.streamIds.add(stream_id);
+          active_streamid_count++;
+        }
+      } else {
+        QMMF_INFO("%s:%s: No other active video streams!", TAG, __func__);
+      }
+    }
     snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
     auto id = camera_device_->SubmitRequest(snapshot_request_,
                                             false,
@@ -1575,6 +1660,9 @@ status_t CameraContext::CaptureZSLImage() {
                  TAG, __func__, id);
       ret = UNKNOWN_ERROR;
     }
+
+    snapshot_request_.streamIds.
+      resize(snapshot_request_.streamIds.size() - active_streamid_count);
   }
   QMMF_INFO("%s:%s: Exit", TAG, __func__);
   return ret;
@@ -1903,7 +1991,7 @@ CameraPort::~CameraPort() {
 
 status_t CameraPort::Init() {
 
-  memset(&cam_stream_params_, 0, sizeof(cam_stream_params_));
+  cam_stream_params_ = {};
   if (params_.cam_stream_format == CameraStreamFormat::kRAW10) {
     cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
   } else if (params_.cam_stream_format == CameraStreamFormat::kRAW12) {
@@ -2319,9 +2407,8 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
     }
 
     {
-      ZSLEntry entry;
+      ZSLEntry entry{};
       entry.timestamp = -1;
-      memset(&entry.buffer, 0, sizeof(entry.buffer));
 
       std::lock_guard<std::mutex> l(zsl_queue_lock_);
       if (zsl_running_) {
@@ -2341,10 +2428,9 @@ void ZslPort::HandleZSLCaptureResult(const CaptureResult &result) {
 
         if (append) {
           //Buffer is missing append to queue directly
-          ZSLEntry new_entry;
+          ZSLEntry new_entry{};
           new_entry.result.append(result.metadata);
           new_entry.timestamp = timestamp;
-          memset(&new_entry.buffer, 0, sizeof(new_entry.buffer));
           zsl_queue_.push_back(new_entry);
         }
 
@@ -2406,8 +2492,7 @@ status_t ZslPort::SetUpZSL() {
     return ret;
   }
 
-  CameraStreamParameters zsl_stream_params;
-  memset(&zsl_stream_params, 0x0, sizeof(zsl_stream_params));
+  CameraStreamParameters zsl_stream_params{};
   zsl_stream_params.bufferCount = cam_start_param.zsl_queue_depth +
                                   VIDEO_STREAM_BUFFER_COUNT;
   zsl_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
@@ -2427,8 +2512,7 @@ status_t ZslPort::SetUpZSL() {
   }
 
   // Create Input stream for reprocess.
-  CameraInputStreamParameters input_stream_params;
-  memset(&input_stream_params, 0x0, sizeof input_stream_params);
+  CameraInputStreamParameters input_stream_params{};
   input_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   input_stream_params.width  = cam_start_param.zsl_width;
   input_stream_params.height = cam_start_param.zsl_height;

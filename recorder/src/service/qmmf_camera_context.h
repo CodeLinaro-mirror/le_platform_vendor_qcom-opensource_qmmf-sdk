@@ -230,6 +230,8 @@ class CameraContext : public CameraInterface,
 
   void HandleFinalResult(const CaptureResult &capture_result);
 
+  status_t ValideteCaptureParams(const ImageParam &image_param);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
@@ -305,6 +307,7 @@ class CameraContext : public CameraInterface,
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
+  SnapshotMode             snapshot_type_;
 };
 
 enum class CameraPortType {

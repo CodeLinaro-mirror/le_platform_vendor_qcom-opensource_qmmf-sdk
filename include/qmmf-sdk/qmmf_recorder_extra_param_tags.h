@@ -42,6 +42,7 @@ enum ParamTag {
   QMMF_POSTPROCESS_PLUGIN,
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
+  QMMF_SNAPSHOT_TYPE,
 };
 
 enum class TransformFlags {
@@ -80,6 +81,12 @@ enum class StitchingMode {
   // client via the QMMF_SURFACE_PLACEMENT tag structure.
   // TODO: Not implemented. Do not use!
   kCustomComposition
+};
+
+enum class SnapshotMode {
+  kNone,
+  kStill,
+  kVideo
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -148,6 +155,13 @@ struct VideoTimeLapse : DataTagBase {
   VideoTimeLapse()
     : DataTagBase(QMMF_VIDEO_TIMELAPSE_INTERVAL),
       time_interval(33) {}
+};
+
+struct SnapshotType : DataTagBase {
+  SnapshotMode type;
+  SnapshotType()
+    : DataTagBase(QMMF_SNAPSHOT_TYPE),
+      type(SnapshotMode::kStill) {}
 };
 
 }; //namespace recorder.

@@ -83,13 +83,13 @@ status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
     return BAD_VALUE;
   }
 
-  memset(&mem_pool_params_, 0x0, sizeof(mem_pool_params_));
   mem_pool_params_.width = out_param.width;
   mem_pool_params_.height = out_param.height;
   mem_pool_params_.format = Common::FromQmmfToHalFormat(out_param.format);
 
   mem_pool_params_.max_buffer_count = out_param.buffer_count;
   mem_pool_params_.gralloc_flags = out_param.gralloc_flags;
+  mem_pool_params_.max_size = 0;
 
   if (out_param.format == BufferFormat::kBLOB) {
     mem_pool_params_.max_size = out_param.width * out_param.height;
@@ -440,8 +440,7 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
   }
 
   for (auto buff : in_buffs) {
-    StreamBuffer out_buff;
-    memset(&out_buff, 0x0, sizeof(out_buff));
+    StreamBuffer out_buff{};
     auto ret = node_->mem_pool_->GetBuffer(&out_buff);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s:%s: fail to get buffer", TAG, __func__,

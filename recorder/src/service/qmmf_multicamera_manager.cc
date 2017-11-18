@@ -1369,7 +1369,7 @@ StitchingBase::StitchingBase(InitParams &param)
       single_camera_mode_(false) {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
-  memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
+  stitch_lib_ = {};
 
   // Initialize the buffer map with unsynchronized buffers.
   for (auto const& camera_id : params_.camera_ids) {
@@ -1829,7 +1829,7 @@ status_t StitchingBase::InitLibrary() {
 
 FAIL:
   dlclose(handle);
-  memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
+  stitch_lib_ = {};
   return ret;
 }
 
@@ -1844,7 +1844,7 @@ status_t StitchingBase::DeInitLibrary() {
       QMMF_ERROR("%s:%s: Failed to close library, error: %s", TAG, __func__,
           dlerror());
     }
-    memset(&stitch_lib_, 0x0, sizeof(stitch_lib_));
+    stitch_lib_ = {};
   }
   return ret;
 }

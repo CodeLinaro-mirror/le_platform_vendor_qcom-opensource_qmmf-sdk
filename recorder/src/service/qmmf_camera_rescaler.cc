@@ -554,8 +554,7 @@ bool CameraRescalerBase::ThreadLoop() {
     bufs_list_.erase(iter);
   }
 
-  StreamBuffer out_buffer;
-  memset(&out_buffer, 0x0, sizeof(out_buffer));
+  StreamBuffer out_buffer{};
   GetFreeOutputBuffer(&out_buffer);
 
   out_buffer.stream_id    = 0x55aa;
