@@ -264,7 +264,9 @@ class RecorderGtest : public ::testing::Test {
 
   void DisplayVSyncHandler(int64_t time_stamp);
 
-  status_t StartDisplay(DisplayType display_type, uint32_t width, uint32_t height);
+  status_t StartDisplay(DisplayType display_type, 
+                     uint32_t src_width, uint32_t src_height,
+                     uint32_t dst_width, uint32_t dst_height);
 
   status_t StopDisplay(DisplayType display_type);
 
