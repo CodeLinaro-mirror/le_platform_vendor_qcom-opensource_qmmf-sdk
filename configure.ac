@@ -108,6 +108,16 @@ AC_ARG_WITH([basemachine],
         [multicam_enable=false])
 AM_CONDITIONAL([ENABLE_360], [test x$multicam_enable = xtrue])
 
+AC_ARG_WITH([basemachine],
+        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
+        [Specify the Machine name]),
+        [case "${withval}" in
+                apq8053) jpeg_turbo_enable=true ;;
+                *) jpeg_turbo_enable=false ;;
+        esac],
+        [jpeg_turbo_enable=false])
+AM_CONDITIONAL([ENABLE_JPEG_TURBO], [test x$jpeg_turbo_enable = xtrue])
+
 AC_ARG_WITH([camcommon],
       AC_HELP_STRING([with-camcommon=@<:@dir@:>@],
          [Specify the location of Camera stack common headers]),
