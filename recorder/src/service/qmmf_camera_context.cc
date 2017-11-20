@@ -551,18 +551,44 @@ status_t CameraContext::ValideteCaptureParams(const ImageParam &image_param) {
   bool res_supported = false;
   camera_metadata_entry_t entry;
   CameraMetadata& meta = snapshot_request_.metadata;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
+  if (image_param.image_format == ImageFormat::kBayerRDI10BIT ||
+      image_param.image_format == ImageFormat::kBayerRDI12BIT) {
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+            image_param.height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          res_supported = true;
+          break;
+        }
+      }
+    }
+  } else if (image_param.image_format == ImageFormat::kNV12) {
+    // Check Supported snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true;
+              break;
+            }
           }
+        }
+      }
+    }
+  } else if (image_param.image_format == ImageFormat::kJPEG) {
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(image_param.width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+           image_param.height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          res_supported = true;
+          break;
         }
       }
     }
