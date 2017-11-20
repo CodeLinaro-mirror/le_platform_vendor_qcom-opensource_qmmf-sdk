@@ -78,6 +78,11 @@ RecorderClient::RecorderClient()
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s Enter ", __func__);
+
+#ifdef ANDROID_O_OR_ABOVE
+  ProcessState::initWithDriver("/dev/vndbinder");
+#endif
+
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
   QMMF_INFO("%s Exit (0x%p)", __func__, this);
