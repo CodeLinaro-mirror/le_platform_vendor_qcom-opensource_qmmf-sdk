@@ -59,4 +59,5 @@ libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_disp
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/camera-hal-reproc/libqmmf_camera_hal_reproc.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/jpeg-encoder/libqmmf_jpeg.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/test/libqmmf_postproc_test.la
+libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/frame-skip/libqmmf_postproc_frame_skip.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/algo/libqmmf_postproc_algo.la

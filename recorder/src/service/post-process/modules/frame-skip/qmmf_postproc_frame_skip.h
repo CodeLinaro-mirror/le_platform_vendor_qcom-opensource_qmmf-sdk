@@ -29,64 +29,69 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
+#include "common/utils/qmmf_common_utils.h"
 
-#include "../interface/qmmf_postproc_module.h"
-#include "../interface/qmmf_postproc.h"
-#include "../node/qmmf_postproc_node.h"
+#include "../../interface/qmmf_postproc_module.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-class PostProcFactory {
+class PostProcFrameSkip : public IPostProcModule {
 
  public:
 
-   PostProcFactory();
+   PostProcFrameSkip();
 
-   ~PostProcFactory();
+   ~PostProcFrameSkip();
 
-   static std::shared_ptr<PostProcFactory> getInstance();
+   status_t Initialize(const PostProcIOParam &in_param,
+                       const PostProcIOParam &out_param) override;
 
-   static void releaseInstance();
-   status_t GetSupportedPlugins(SupportedPlugins *plugins);
+   status_t Delete() override;
 
-   status_t CreatePlugin(uint32_t &uid, const PluginInfo &info);
+   void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
 
-   status_t DeletePlugin(const uint32_t &uid);
+   status_t Configure(const std::string config_json_data) override;
 
-   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
+   status_t Process(const std::vector<StreamBuffer> &in_buffers,
+                    const std::vector<StreamBuffer> &out_buffers) override;
 
-   std::shared_ptr<PostProcNode> GetProcNode(const uint32_t &uid);
+   void AddResult(const void* result) override {};
 
-   std::shared_ptr<PostProcNode> GetProcNode(const std::string &name,
-                                             IPostProc* context = nullptr);
+   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
-   status_t ReturnProcNode(const uint32_t &uid);
+   status_t Start(const int32_t stream_id) override;
+
+   status_t Stop() override;
+
+   status_t Abort(std::shared_ptr<void> &abort) override;
+
+   PostProcIOParam GetInput(const PostProcIOParam &out) override;
+
+   status_t ValidateOutput(const PostProcIOParam &output) override;
+
+   status_t GetCapabilities(PostProcCaps &caps) override;
 
  private:
 
-   int32_t GetUniqueId();
+   enum class State {
+     CREATED,
+     INITIALIZED,
+     ACTIVE,
+     ABORTED
+   };
 
-   bool IsPlugin(std::string entry);
+   bool SkipFrame(void);
 
-   static std::shared_ptr<PostProcFactory>    instance_;
-   static int32_t                ids_;
+   IPostProcEventListener         *Listener_;
 
-   static const std::string      plugin_prefix;
-   static const std::string      plugin_suffix;
+   std::mutex                     state_lock_;
+   State                          state_;
 
-   SupportedPlugins supported_plugins_;
-   std::map<std::string, std::string> plugin_libraries_;
+   uint32_t                       frame_skip_;
+   uint32_t                       frame_counter_;
 
-   std::map<uint32_t, std::shared_ptr<PostProcNode> > plugin_nodes_;
-   std::set<uint32_t> plugin_nodes_in_use_;
-
-   std::map<uint32_t, std::shared_ptr<PostProcNode> > internal_nodes_;
 };
 
 }; //namespace recorder

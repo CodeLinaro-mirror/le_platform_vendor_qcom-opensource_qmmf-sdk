@@ -33,6 +33,7 @@
 
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
+#include "../modules/frame-skip/qmmf_postproc_frame_skip.h"
 #include "../modules/test/qmmf_postproc_test.h"
 #include "../modules/algo/qmmf_postproc_algo.h"
 
@@ -209,6 +210,8 @@ PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
     module = std::make_shared<CameraHalReproc>(context);
   } else if (name == "Test") {
     module = std::make_shared<PostProcTest>();
+  } else if (name == "FrameSkip") {
+    module = std::make_shared<PostProcFrameSkip>();
   } else {
     QMMF_ERROR("%s: Invalid post process engine: %s", __func__, name.c_str());
     return node;
