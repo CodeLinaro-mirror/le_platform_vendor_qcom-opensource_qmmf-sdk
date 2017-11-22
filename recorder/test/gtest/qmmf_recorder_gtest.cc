@@ -9626,7 +9626,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
                                           height,
                                           fps};
   uint32_t video_track_id = 1;
-
+  video_track_param.codec_param.avc.insert_aud_delimiter = false;
   StreamDumpInfo dumpinfo = {
     format_type,
     video_track_id,
