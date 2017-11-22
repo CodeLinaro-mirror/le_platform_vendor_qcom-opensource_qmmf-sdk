@@ -143,6 +143,12 @@ struct VideoEncodeInitQP {
                               ///< Bit 2: Enable initial QP for B
                               ///<       and use value specified in init_BQP
 
+  VideoEncodeInitQP()
+    : init_IQP(27),
+      init_PQP(28),
+      init_BQP(28),
+      init_QP_mode(0x7) {}
+
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "init_IQP[" << init_IQP << "] ";
@@ -157,6 +163,10 @@ struct VideoEncodeInitQP {
 struct VideoEncodeQPRange {
   uint32_t    min_QP;
   uint32_t    max_QP;
+
+  VideoEncodeQPRange()
+    : min_QP(10),
+      max_QP(51) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -173,6 +183,14 @@ struct VideoEncodeIPBQPRange {
   uint32_t    max_PQP;
   uint32_t    min_BQP;
   uint32_t    max_BQP;
+
+  VideoEncodeIPBQPRange()
+    : min_IQP(10),
+      max_IQP(51),
+      min_PQP(10),
+      max_PQP(51),
+      min_BQP(10),
+      max_BQP(51) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -193,6 +211,14 @@ typedef struct VideoQPParams {
   VideoEncodeQPRange    qp_range;
   bool                  enable_qp_IBP_range;
   VideoEncodeIPBQPRange qp_IBP_range;
+
+  VideoQPParams()
+    : enable_init_qp(true),
+      init_qp(),
+      enable_qp_range(true),
+      qp_range(),
+      enable_qp_IBP_range(true),
+      qp_IBP_range() {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -235,6 +261,21 @@ struct AVCParams {
   uint32_t             sar_height;
   bool                 slice_enabled;
   uint32_t             slice_header_spacing;
+
+  AVCParams()
+    : idr_interval(1),
+      bitrate(10000000),
+      profile(AVCProfileType::kHigh),
+      level(AVCLevelType::kLevel3),
+      ratecontrol_type(VideoRateControlType::kMaxBitrate),
+      qp_params(),
+      ltr_count(0),
+      hier_layer(0),
+      prepend_sps_pps_to_idr(true),
+      insert_aud_delimiter(true),
+      sar_enabled(false),
+      slice_enabled(false),
+      slice_header_spacing(1024) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -282,6 +323,19 @@ struct HEVCParams {
   bool                 sar_enabled;
   uint32_t             sar_width;
   uint32_t             sar_height;
+
+  HEVCParams()
+    : idr_interval(1),
+      bitrate(10000000),
+      profile(HEVCProfileType::kMain),
+      level(HEVCLevelType::kLevel3),
+      ratecontrol_type(VideoRateControlType::kMaxBitrate),
+      qp_params(),
+      ltr_count(0),
+      hier_layer(0),
+      prepend_sps_pps_to_idr(true),
+      insert_aud_delimiter(true),
+      sar_enabled(false) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -354,6 +408,7 @@ union VideoCodecParams {
     }
     return stream.str();
   }
+  VideoCodecParams(){}
 };
 
 struct VideoEncodeIDRInterval {

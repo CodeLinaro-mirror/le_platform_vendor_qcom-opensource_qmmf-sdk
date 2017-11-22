@@ -4286,56 +4286,141 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   return ret;
 }
 
-void RecorderTest::printInitParamAndTtrackInfo(const TestInitParams& params,
-                                               const std::vector<TrackInfo>& infos)
-{
-   CameraInitInfo *cameraInfo;
-   const TrackInfo *track_info;
-    printf("\ninitParams.snapshot_info.camera_id = %d\n",
-            params.snapshot_info.camera_id);
-    printf("initParams.snapshot_info.type = %d\n",
-            params.snapshot_info.type);
-    printf("initParams.snapshot_info.width = %d\n",
-            params.snapshot_info.width);
-    printf("initParams.snapshot_info.height = %d\n",
-            params.snapshot_info.height);
-    printf("initParams.snapshot_info.count = %d\n",
-            params.snapshot_info.count);
+void RecorderTest::printInitParamAndTtrackInfo(
+    const TestInitParams &params, const std::vector<TrackInfo> &infos) {
+  CameraInitInfo *cameraInfo;
+  const TrackInfo *track_info;
+  printf("\ninitParams.snapshot_info.camera_id = %d\n",
+         params.snapshot_info.camera_id);
+  printf("initParams.snapshot_info.type = %d\n", params.snapshot_info.type);
+  printf("initParams.snapshot_info.width = %d\n", params.snapshot_info.width);
+  printf("initParams.snapshot_info.height = %d\n", params.snapshot_info.height);
+  printf("initParams.snapshot_info.count = %d\n", params.snapshot_info.count);
 
-    for( std::vector<uint32_t>::size_type i = 0;
-        i < params.cam_init_infos.size(); i++) {
-       cameraInfo = params.cam_init_infos.at(i);
-       printf("\ncamera(%d).numStreams = %d\n",
-             cameraInfo->camera_id, cameraInfo->numStream);
-       printf("camera(%d).camera_fps = %d\n",
-             cameraInfo->camera_id, cameraInfo->camera_fps);
-       printf("camera(%d).af_mode = %d\n",
-             cameraInfo->camera_id, cameraInfo->af_mode);
-       printf("camera(%d).tnr = %d\n",
-             cameraInfo->camera_id, cameraInfo->tnr);
-       printf("camera(%d).vhdr = %d\n",
-             cameraInfo->camera_id, cameraInfo->vhdr);
-       printf("camera(%d).binning_correct = %d\n",
-             cameraInfo->camera_id, cameraInfo->binning_correct);
-       printf("camera(%d).video_stabilize = %d\n",
-                    cameraInfo->camera_id, cameraInfo->video_stabilize);
+  for (std::vector<uint32_t>::size_type i = 0; i < params.cam_init_infos.size();
+       i++) {
+    cameraInfo = params.cam_init_infos.at(i);
+    printf("\ncamera(%d).numStreams = %d\n", cameraInfo->camera_id,
+           cameraInfo->numStream);
+    printf("camera(%d).camera_fps = %d\n", cameraInfo->camera_id,
+           cameraInfo->camera_fps);
+    printf("camera(%d).af_mode = %d\n", cameraInfo->camera_id,
+           cameraInfo->af_mode);
+    printf("camera(%d).tnr = %d\n", cameraInfo->camera_id, cameraInfo->tnr);
+    printf("camera(%d).vhdr = %d\n", cameraInfo->camera_id, cameraInfo->vhdr);
+    printf("camera(%d).binning_correct = %d\n", cameraInfo->camera_id,
+           cameraInfo->binning_correct);
+    printf("camera(%d).video_stabilize = %d\n", cameraInfo->camera_id,
+           cameraInfo->video_stabilize);
 
-       for( uint32_t j = 0; j < infos.size(); j++) {
-          track_info = &infos[j];
-          if(track_info->camera_id == cameraInfo->camera_id) {
-            printf("\n\tTrackInfo.track_type = %d\n", track_info->track_type);
-            printf("\tTrackInfo.camera_id = %d\n", track_info->camera_id);
-            printf("\tTrackInfo.fps = %5.2f\n", track_info->fps);
-            printf("\tTrackInfo.width = %d\n", track_info->width);
-            printf("\tTrackInfo.height = %d\n\n", track_info->height);
-            printf("\tTrackInfo.ltr_count = %d\n\n", track_info->ltr_count);
-          }
-       }
+    for (uint32_t j = 0; j < infos.size(); j++) {
+      track_info = &infos[j];
+      if (track_info->camera_id == cameraInfo->camera_id) {
+        printf("\n\tTrackInfo.track_type = %d\n", track_info->track_type);
+        printf("\tTrackInfo.camera_id = %d\n", track_info->camera_id);
+        printf("\tTrackInfo.fps = %5.2f\n", track_info->fps);
+        printf("\tTrackInfo.width = %d\n", track_info->width);
+        printf("\tTrackInfo.height = %d\n\n", track_info->height);
+        if (track_info->track_type == TrackType::kVideoAVC) {
+          printf("\tTrackInfo.bitrate = %d\n", track_info->avcparams.bitrate);
+          printf("\tTrackInfo.profile = %d\n", track_info->avcparams.profile);
+          printf("\tTrackInfo.level = %d\n", track_info->avcparams.level);
+          printf("\tTrackInfo.ratecontrol = %d\n",
+                 track_info->avcparams.ratecontrol_type);
+          printf("\tTrackInfo.enable_init_qp = %d\n",
+                 track_info->avcparams.qp_params.enable_init_qp);
+          printf("\tTrackInfo.init_IQP = %d\n",
+                 track_info->avcparams.qp_params.init_qp.init_IQP);
+          printf("\tTrackInfo.init_PQP = %d\n",
+                 track_info->avcparams.qp_params.init_qp.init_PQP);
+          printf("\tTrackInfo.init_BQP = %d\n",
+                 track_info->avcparams.qp_params.init_qp.init_BQP);
+          printf("\tTrackInfo.init_QP_mode = %d\n",
+                 track_info->avcparams.qp_params.init_qp.init_QP_mode);
+          printf("\tTrackInfo.enable_qp_range = %d\n",
+                 track_info->avcparams.qp_params.enable_qp_range);
+          printf("\tTrackInfo.min_QP = %d\n",
+                 track_info->avcparams.qp_params.qp_range.min_QP);
+          printf("\tTrackInfo.max_QP = %d\n",
+                 track_info->avcparams.qp_params.qp_range.max_QP);
+          printf("\tTrackInfo.enable_qp_IBP_range = %d\n",
+                 track_info->avcparams.qp_params.enable_qp_IBP_range);
+          printf("\tTrackInfo.min_IQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.min_IQP);
+          printf("\tTrackInfo.max_IQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.max_IQP);
+          printf("\tTrackInfo.min_PQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.min_PQP);
+          printf("\tTrackInfo.max_PQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.max_PQP);
+          printf("\tTrackInfo.min_BQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.min_BQP);
+          printf("\tTrackInfo.max_BQP = %d\n",
+                 track_info->avcparams.qp_params.qp_IBP_range.max_BQP);
+          printf("\tTrackInfo.ltr_count = %d\n",
+                 track_info->avcparams.ltr_count);
+          printf("\tTrackInfo.hier_layer = %d\n",
+                 track_info->avcparams.hier_layer);
+          printf("\tTrackInfo.insert_aud_delimiter = %d\n",
+                 track_info->avcparams.insert_aud_delimiter);
+          printf("\tTrackInfo.prepend_sps_pps_to_idr = %d\n",
+                 track_info->avcparams.prepend_sps_pps_to_idr);
+          printf("\tTrackInfo.slice_enabled = %d\n",
+                 track_info->avcparams.slice_enabled);
+          printf("\tTrackInfo.slice_header_spacing = %d\n",
+                 track_info->avcparams.slice_header_spacing);
+        } else if (track_info->track_type == TrackType::kVideoHEVC) {
+          printf("\tTrackInfo.bitrate = %d\n", track_info->hevcparams.bitrate);
+          printf("\tTrackInfo.profile = %d\n", track_info->hevcparams.profile);
+          printf("\tTrackInfo.level = %d\n", track_info->hevcparams.level);
+          printf("\tTrackInfo.ratecontrol = %d\n",
+                 track_info->hevcparams.ratecontrol_type);
+          printf("\tTrackInfo.enable_init_qp = %d\n",
+                 track_info->hevcparams.qp_params.enable_init_qp);
+          printf("\tTrackInfo.init_IQP = %d\n",
+                 track_info->hevcparams.qp_params.init_qp.init_IQP);
+          printf("\tTrackInfo.init_PQP = %d\n",
+                 track_info->hevcparams.qp_params.init_qp.init_PQP);
+          printf("\tTrackInfo.init_BQP = %d\n",
+                 track_info->hevcparams.qp_params.init_qp.init_BQP);
+          printf("\tTrackInfo.init_QP_mode = %d\n",
+                 track_info->hevcparams.qp_params.init_qp.init_QP_mode);
+          printf("\tTrackInfo.enable_qp_range = %d\n",
+                 track_info->hevcparams.qp_params.enable_qp_range);
+          printf("\tTrackInfo.min_QP = %d\n",
+                 track_info->hevcparams.qp_params.qp_range.min_QP);
+          printf("\tTrackInfo.max_QP = %d\n",
+                 track_info->hevcparams.qp_params.qp_range.max_QP);
+          printf("\tTrackInfo.enable_qp_IBP_range = %d\n",
+                 track_info->hevcparams.qp_params.enable_qp_IBP_range);
+          printf("\tTrackInfo.min_IQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.min_IQP);
+          printf("\tTrackInfo.max_IQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.max_IQP);
+          printf("\tTrackInfo.min_PQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.min_PQP);
+          printf("\tTrackInfo.max_PQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.max_PQP);
+          printf("\tTrackInfo.min_BQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.min_BQP);
+          printf("\tTrackInfo.max_BQP = %d\n",
+                 track_info->hevcparams.qp_params.qp_IBP_range.max_BQP);
+          printf("\tTrackInfo.ltr_count = %d\n",
+                 track_info->hevcparams.ltr_count);
+          printf("\tTrackInfo.hier_layer = %d\n",
+                 track_info->hevcparams.hier_layer);
+          printf("\tTrackInfo.insert_aud_delimiter = %d\n",
+                 track_info->hevcparams.insert_aud_delimiter);
+          printf("\tTrackInfo.prepend_sps_pps_to_idr = %d\n",
+                 track_info->hevcparams.prepend_sps_pps_to_idr);
+        }
+      }
     }
+  }
 }
 
-int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
-                                  std::vector<TrackInfo>* infos) {
+int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
+                                  std::vector<TrackInfo> *infos) {
   FILE *fp;
   TrackInfo track_info{};
   bool isStreamReadCompleted = false;
@@ -4347,39 +4432,38 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
   int32_t camera_index = -1;
   CameraInitInfo *current_camera_info = NULL;
 
-  if(!(fp = fopen(fileName,"r"))) {
+  if (!(fp = fopen(fileName, "r"))) {
     ALOGE("failed to open config file: %s", fileName);
     return -1;
   }
 
-  while(fgets(line,MAX_LINE-1,fp)) {
-    if((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
-      continue;
+  while (fgets(line, MAX_LINE - 1, fp)) {
+    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ') continue;
     strtok(line, "\n");
     memset(value, 0x0, sizeof(value));
     memset(key, 0x0, sizeof(key));
-    if(isStreamReadCompleted) {
+    if (isStreamReadCompleted) {
       track_info = {};
       isStreamReadCompleted = false;
     }
     int len = strlen(line);
-    int i,j = 0;
+    int i, j = 0;
 
-    //This assumes new stream params always start with #
-    if(!strcspn(line,"#")) {
+    // This assumes new stream params always start with #
+    if (!strcspn(line, "#")) {
       id++;
       continue;
-     }
+    }
 
-    if(current_camera_info) {
-      if((id > 0) && (id > current_camera_info->numStream)) {
+    if (current_camera_info) {
+      if ((id > 0) && (id > current_camera_info->numStream)) {
         break;
       }
     }
 
-    int pos = strcspn(line,":");
-    for(i = 0; i< pos; i++){
-      if(line[i] != ' ') {
+    int pos = strcspn(line, ":");
+    for (i = 0; i < pos; i++) {
+      if (line[i] != ' ') {
         key[j] = line[i];
         j++;
       }
@@ -4387,8 +4471,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
 
     key[j] = '\0';
     j = 0;
-    for(i = pos+1; i< len; i++) {
-      if(line[i] != ' ') {
+    for (i = pos + 1; i < len; i++) {
+      if (line[i] != ' ') {
         value[j] = line[i];
         j++;
       }
@@ -4398,111 +4482,376 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
     if (!strncmp("NumCameras", key, strlen("NumCameras"))) {
       initParams->num_cameras = atoi(value);
       printf("%s: Num cameras read %d\n", __func__, initParams->num_cameras);
-      if (initParams->num_cameras  > MAX_NUM_CAMERAS) {
-         ALOGE("%s: Unsupported number of Cameras %d",
-             __func__, initParams->num_cameras);
-         goto READ_FAILED;
+      if (initParams->num_cameras > MAX_NUM_CAMERAS) {
+        ALOGE("%s: Unsupported number of Cameras %d", __func__,
+              initParams->num_cameras);
+        goto READ_FAILED;
       }
-    } else if(!strncmp("CameraID", key, strlen("CameraID"))) {
+    } else if (!strncmp("CameraID", key, strlen("CameraID"))) {
       if (++camera_index < initParams->num_cameras) {
-         if ( current_camera_info != NULL) {
-           initParams->cam_init_infos.push_back(current_camera_info);
-           current_camera_info = NULL;
-         }
-         current_camera_info = new CameraInitInfo();
-         assert(current_camera_info != nullptr);
-         current_camera_info->camera_id = atoi(value);
-         id = 0;
-         printf("%s: Camera ID %d\n", __func__, current_camera_info->camera_id);
+        if (current_camera_info != NULL) {
+          initParams->cam_init_infos.push_back(current_camera_info);
+          current_camera_info = NULL;
+        }
+        current_camera_info = new CameraInitInfo();
+        assert(current_camera_info != nullptr);
+        current_camera_info->camera_id = atoi(value);
+        id = 0;
+        printf("%s: Camera ID %d\n", __func__, current_camera_info->camera_id);
       } else {
-         ALOGE("%s: Number requested cameras %d are more than declared  %d",
-             __func__, camera_index + 1, initParams->num_cameras);
-          goto READ_FAILED;
+        ALOGE("%s: Number requested cameras %d are more than declared  %d",
+              __func__, camera_index + 1, initParams->num_cameras);
+        goto READ_FAILED;
       }
-    } else if(!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
+    } else if (!strncmp("CameraFPS", key, strlen("CameraFPS"))) {
       current_camera_info->camera_fps = atof(value);
-    } else if(!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
-      if(!strncmp("None", value, strlen("None"))) {
-        initParams->snapshot_info.type= SnapshotType::kNone;
-      } else if(!strncmp("JPEG", value, strlen("JPEG"))) {
-        initParams->snapshot_info.type= SnapshotType::kJpeg;
-      } else if(!strncmp("RAWYUV", value, strlen("RAWYUV"))) {
-        initParams->snapshot_info.type= SnapshotType::kRawYuv;
-      } else if(!strncmp("RAWRDI", value, strlen("RAWRDI"))) {
-        initParams->snapshot_info.type= SnapshotType::kRawRdi;
+    } else if (!strncmp("SnapshotType", key, strlen("SnapshotType"))) {
+      if (!strncmp("None", value, strlen("None"))) {
+        initParams->snapshot_info.type = SnapshotType::kNone;
+      } else if (!strncmp("JPEG", value, strlen("JPEG"))) {
+        initParams->snapshot_info.type = SnapshotType::kJpeg;
+      } else if (!strncmp("RAWYUV", value, strlen("RAWYUV"))) {
+        initParams->snapshot_info.type = SnapshotType::kRawYuv;
+      } else if (!strncmp("RAWRDI", value, strlen("RAWRDI"))) {
+        initParams->snapshot_info.type = SnapshotType::kRawRdi;
       } else {
         ALOGE("%s: Unknown SnapshotType(%s)", __func__, value);
         goto READ_FAILED;
       }
-    } else if(!strncmp("SnapshotCameraID", key, strlen("SnapshotCameraID"))) {
-       initParams->snapshot_info.camera_id = atoi(value);
-    } else if(!strncmp("SnapshotWidth", key, strlen("SnapshotWidth"))) {
+    } else if (!strncmp("SnapshotCameraID", key, strlen("SnapshotCameraID"))) {
+      initParams->snapshot_info.camera_id = atoi(value);
+    } else if (!strncmp("SnapshotWidth", key, strlen("SnapshotWidth"))) {
       initParams->snapshot_info.width = atoi(value);
-    } else if(!strncmp("SnapshotHeight", key, strlen("SnapshotHeight"))) {
+    } else if (!strncmp("SnapshotHeight", key, strlen("SnapshotHeight"))) {
       initParams->snapshot_info.height = atoi(value);
-    } else if(!strncmp("SnapshotCount", key, strlen("SnapshotCount"))) {
+    } else if (!strncmp("SnapshotCount", key, strlen("SnapshotCount"))) {
       initParams->snapshot_info.count = atoi(value);
-    } else if(!strncmp("AFMode", key, strlen("AFMode"))) {
-      if(!strncmp("None", value, strlen("None"))) {
+    } else if (!strncmp("AFMode", key, strlen("AFMode"))) {
+      if (!strncmp("None", value, strlen("None"))) {
         current_camera_info->af_mode = AfMode::kNone;
-      } else if(!strncmp("Off", value, strlen("Off"))) {
+      } else if (!strncmp("Off", value, strlen("Off"))) {
         current_camera_info->af_mode = AfMode::kOff;
-      } else if(!strncmp("AUTO", value, strlen("AUTO"))) {
+      } else if (!strncmp("AUTO", value, strlen("AUTO"))) {
         current_camera_info->af_mode = AfMode::kAuto;
-      } else if(!strncmp("MACRO", value, strlen("MACRO"))) {
+      } else if (!strncmp("MACRO", value, strlen("MACRO"))) {
         current_camera_info->af_mode = AfMode::kMacro;
-      } else if(!strncmp("CVAF", value, strlen("CVAF"))) {
+      } else if (!strncmp("CVAF", value, strlen("CVAF"))) {
         current_camera_info->af_mode = AfMode::kContinousVideo;
-      } else if(!strncmp("CPAF", value, strlen("CPAF"))) {
+      } else if (!strncmp("CPAF", value, strlen("CPAF"))) {
         current_camera_info->af_mode = AfMode::kContinuousPicture;
       } else {
         ALOGE("%s: Unknown AFMode(%s)", __func__, value);
         goto READ_FAILED;
       }
-    } else if(!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
+    } else if (!strncmp("RecordingTime", key, strlen("RecordingTime"))) {
       initParams->recordTime = atoi(value);
-    } else if(!strncmp("NumStream", key, strlen("NumStream"))) {
-      if(atoi(value) <= 0) {
-        ALOGE ("%s Number of stream can not be %d", __func__,
-                atoi (value));
+    } else if (!strncmp("NumStream", key, strlen("NumStream"))) {
+      if (atoi(value) <= 0) {
+        ALOGE("%s Number of stream can not be %d", __func__, atoi(value));
         goto READ_FAILED;
       }
       current_camera_info->numStream = atoi(value);
-    } else if(!strncmp("VHDR", key, strlen("VHDR"))) {
-      current_camera_info->vhdr = atoi(value)?true:false;
-    } else if(!strncmp("TNR", key, strlen("TNR"))) {
-      current_camera_info->tnr = atoi(value)?true:false;
-    } else if(!strncmp("BinningCorrect", key, strlen("BinningCorrect"))) {
-      current_camera_info->binning_correct = atoi(value)?true:false;
-    } else if(!strncmp("VideoStabilize", key, strlen("VideoStablize"))) {
-      current_camera_info->video_stabilize = atoi(value)?true:false;
-    } else if(!strncmp("Width", key, strlen("Width"))) {
+    } else if (!strncmp("VHDR", key, strlen("VHDR"))) {
+      current_camera_info->vhdr = atoi(value) ? true : false;
+    } else if (!strncmp("TNR", key, strlen("TNR"))) {
+      current_camera_info->tnr = atoi(value) ? true : false;
+    } else if (!strncmp("BinningCorrect", key, strlen("BinningCorrect"))) {
+      current_camera_info->binning_correct = atoi(value) ? true : false;
+    } else if (!strncmp("VideoStabilize", key, strlen("VideoStablize"))) {
+      current_camera_info->video_stabilize = atoi(value) ? true : false;
+    } else if (!strncmp("Width", key, strlen("Width"))) {
       track_info.width = atoi(value);
-    } else if(!strncmp("Height", key, strlen("Height"))) {
+    } else if (!strncmp("Height", key, strlen("Height"))) {
       track_info.height = atoi(value);
-    } else if(!strncmp("FPS", key, strlen("FPS"))) {
+    } else if (!strncmp("FPS", key, strlen("FPS"))) {
       track_info.fps = atof(value);
-    } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
-      track_info.bitrate = atoi(value);
-    } else if(!strncmp("TrackType", key, strlen("TrackType"))) {
-      if(!strncmp("AVC", value, strlen("AVC"))) {
+    } else if (!strncmp("TrackType", key, strlen("TrackType"))) {
+      if (!strncmp("AVC", value, strlen("AVC"))) {
         track_info.track_type = TrackType::kVideoAVC;
-      } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
+      } else if (!strncmp("HEVC", value, strlen("HEVC"))) {
         track_info.track_type = TrackType::kVideoHEVC;
-      } else if(!strncmp("YUV", value, strlen("YUV"))) {
+      } else if (!strncmp("YUV", value, strlen("YUV"))) {
         track_info.track_type = TrackType::kVideoYUV;
-      } else if(!strncmp("RAW", value, strlen("RAW"))) {
+      } else if (!strncmp("RAW", value, strlen("RAW"))) {
         track_info.track_type = TrackType::kVideoRDI;
-      } else if(!strncmp("Preview", value, strlen("Preview"))) {
+      } else if (!strncmp("Preview", value, strlen("Preview"))) {
         track_info.track_type = TrackType::kVideoPreview;
       } else {
         ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
-    } else if (!strncmp("LTRCount", key, strlen("LTRCount"))) {
+    } else if (!strncmp("idr_interval", key, strlen("idr_interval"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.idr_interval = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.idr_interval = atoi(value);
+      }
+    } else if (!strncmp("Bitrate", key, strlen("Bitrate"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.bitrate = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.bitrate = atoi(value);
+      }
+    } else if (!strncmp("profile", key, strlen("profile"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        if (!strncmp("kBaseline", value, strlen("kBaseline"))) {
+          track_info.avcparams.profile = AVCProfileType::kBaseline;
+        } else if (!strncmp("kMain", value, strlen("kMain"))) {
+          track_info.avcparams.profile = AVCProfileType::kMain;
+        } else if (!strncmp("kHigh", value, strlen("kHigh"))) {
+          track_info.avcparams.profile = AVCProfileType::kHigh;
+        } else {
+          ALOGE("%s: Unknown AVC Profile(%s)", __func__, value);
+          goto READ_FAILED;
+        }
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        if (!strncmp("kMain", value, strlen("kMain"))) {
+          track_info.hevcparams.profile = HEVCProfileType::kMain;
+        } else {
+          ALOGE("%s: Unknown HEVC Profile(%s)", __func__, value);
+          goto READ_FAILED;
+        }
+      }
+    } else if (!strncmp("level", key, strlen("level"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        if (!strncmp("kLevel1", value, strlen("kLevel1"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel1;
+        } else if (!strncmp("kLevel1_3", value, strlen("kLevel1_3"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel1_3;
+        } else if (!strncmp("kLevel2", value, strlen("kLevel2"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel2;
+        } else if (!strncmp("kLevel2_1", value, strlen("kLevel2_1"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel2_1;
+        } else if (!strncmp("kLevel2_2", value, strlen("kLevel2_2"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel2_2;
+        } else if (!strncmp("kLevel3", value, strlen("kLevel3"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel3;
+        } else if (!strncmp("kLevel3_1", value, strlen("kLevel3_1"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel3_1;
+        } else if (!strncmp("kLevel3_2", value, strlen("kLevel3_2"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel3_2;
+        } else if (!strncmp("kLevel4", value, strlen("kLevel4"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel4;
+        } else if (!strncmp("kLevel4_1", value, strlen("kLevel4_1"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel4_1;
+        } else if (!strncmp("kLevel4_2", value, strlen("kLevel4_2"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel4_2;
+        } else if (!strncmp("kLevel5", value, strlen("kLevel5"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel5;
+        } else if (!strncmp("kLevel5_1", value, strlen("kLevel5_1"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel5_1;
+        } else if (!strncmp("kLevel5_2", value, strlen("kLevel5_2"))) {
+          track_info.avcparams.level = AVCLevelType::kLevel5_2;
+        } else {
+          ALOGE("%s: Unknown AVC level(%s)", __func__, value);
+          goto READ_FAILED;
+        }
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        if (!strncmp("kLevel3", value, strlen("kLevel3"))) {
+          track_info.hevcparams.level = HEVCLevelType::kLevel3;
+        } else if (!strncmp("kLevel4", value, strlen("kLevel4"))) {
+          track_info.hevcparams.level = HEVCLevelType::kLevel4;
+        } else if (!strncmp("kLevel5", value, strlen("kLevel5"))) {
+          track_info.hevcparams.level = HEVCLevelType::kLevel5;
+        } else if (!strncmp("kLevel5_1", value, strlen("kLevel5_1"))) {
+          track_info.hevcparams.level = HEVCLevelType::kLevel5_1;
+        } else if (!strncmp("kLevel5_2", value, strlen("kLevel5_2"))) {
+          track_info.hevcparams.level = HEVCLevelType::kLevel5_2;
+        }
+      }
+    } else if (!strncmp("ratecontrol_type", key, strlen("ratecontrol_type"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        if (!strncmp("kDisable", value, strlen("kDisable"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kDisable;
+        } else if (!strncmp("kVariableSkipFrames", value,
+                            strlen("kVariableSkipFrames"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kVariableSkipFrames;
+        } else if (!strncmp("kVariable", value, strlen("kVariable"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kVariable;
+        } else if (!strncmp("kConstantSkipFrames", value,
+                            strlen("kConstantSkipFrames"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kConstantSkipFrames;
+        } else if (!strncmp("kConstant", value, strlen("kConstant"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kConstant;
+        } else if (!strncmp("kMaxBitrate", value, strlen("kMaxBitrate"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kMaxBitrate;
+        } else if (!strncmp("kMaxBitrateSkipFrames", value,
+                            strlen("kMaxBitrateSkipFrames"))) {
+          track_info.avcparams.ratecontrol_type =
+              VideoRateControlType::kMaxBitrateSkipFrames;
+        } else {
+          ALOGE("%s: Unknown AVC Rate Control Type(%s)", __func__, value);
+          goto READ_FAILED;
+        }
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        if (!strncmp("kDisable", value, strlen("kDisable"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kDisable;
+        } else if (!strncmp("kVariableSkipFrames", value,
+                            strlen("kVariableSkipFrames"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kVariableSkipFrames;
+        } else if (!strncmp("kVariable", value, strlen("kVariable"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kVariable;
+        } else if (!strncmp("kConstantSkipFrames", value,
+                            strlen("kConstantSkipFrames"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kConstantSkipFrames;
+        } else if (!strncmp("kConstant", value, strlen("kConstant"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kConstant;
+        } else if (!strncmp("kMaxBitrate", value, strlen("kMaxBitrate"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kMaxBitrate;
+        } else if (!strncmp("kMaxBitrateSkipFrames", value,
+                            strlen("kMaxBitrateSkipFrames"))) {
+          track_info.hevcparams.ratecontrol_type =
+              VideoRateControlType::kMaxBitrateSkipFrames;
+        } else {
+          ALOGE("%s: Unknown HEVC Rate Control Type(%s)", __func__, value);
+          goto READ_FAILED;
+        }
+      }
+    } else if (!strncmp("enable_init_qp", key, strlen("enable_init_qp"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.enable_init_qp = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.enable_init_qp = atoi(value);
+      }
+    } else if (!strncmp("init_IQP", key, strlen("init_IQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.init_qp.init_IQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.init_qp.init_IQP = atoi(value);
+      }
+    } else if (!strncmp("init_PQP", key, strlen("init_PQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.init_qp.init_PQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.init_qp.init_PQP = atoi(value);
+      }
+    } else if (!strncmp("init_BQP", key, strlen("init_BQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.init_qp.init_BQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.init_qp.init_BQP = atoi(value);
+      }
+    } else if (!strncmp("init_QP_mode", key, strlen("init_QP_mode"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.init_qp.init_QP_mode = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.init_qp.init_QP_mode = atoi(value);
+      }
+    } else if (!strncmp("enable_qp_range", key, strlen("enable_qp_range"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.enable_qp_range = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.enable_qp_range = atoi(value);
+      }
+    } else if (!strncmp("min_QP", key, strlen("min_QP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_range.min_QP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_range.min_QP = atoi(value);
+      }
+    } else if (!strncmp("max_QP", key, strlen("max_QP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_range.max_QP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_range.max_QP = atoi(value);
+      }
+    } else if (!strncmp("enable_qp_IBP_range", key,
+                        strlen("enable_qp_IBP_range"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.enable_qp_IBP_range = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.enable_qp_IBP_range = atoi(value);
+      }
+    } else if (!strncmp("min_IQP", key, strlen("min_IQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_IBP_range.min_IQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_IBP_range.min_IQP = atoi(value);
+      }
+    } else if (!strncmp("max_IQP", key, strlen("max_IQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_range.max_QP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_range.max_QP = atoi(value);
+      }
+    } else if (!strncmp("min_PQP", key, strlen("min_PQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_IBP_range.min_PQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_IBP_range.min_PQP = atoi(value);
+      }
+    } else if (!strncmp("max_PQP", key, strlen("max_PQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_IBP_range.max_PQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_IBP_range.max_PQP = atoi(value);
+      }
+    } else if (!strncmp("min_BQP", key, strlen("min_BQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_IBP_range.min_BQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_IBP_range.min_BQP = atoi(value);
+      }
+    } else if (!strncmp("max_BQP", key, strlen("max_BQP"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.qp_params.qp_IBP_range.max_BQP = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.qp_params.qp_IBP_range.max_BQP = atoi(value);
+      }
+    } else if (!strncmp("Ltr_Count", key, strlen("Ltr_Count"))) {
       int32_t val = atoi(value);
       track_info.ltr_count = CLIP(val, kMinLTRCount, kMaxLTRCount);
-    } else if(!strncmp("CamLowPowerMode", key, strlen("CamLowPowerMode"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.ltr_count = track_info.ltr_count;
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.ltr_count = track_info.ltr_count;
+      }
+    } else if (!strncmp("Hier_Layer", key, strlen("Hier_Layer"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.hier_layer = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.hier_layer = atoi(value);
+      }
+    } else if (!strncmp("insert_aud_delimiter", key,
+                        strlen("insert_aud_delimiter"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.insert_aud_delimiter = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.insert_aud_delimiter = atoi(value);
+      }
+    } else if (!strncmp("prepend_sps_pps_to_idr", key,
+                        strlen("prepend_sps_pps_to_idr"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.prepend_sps_pps_to_idr = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        track_info.hevcparams.prepend_sps_pps_to_idr = atoi(value);
+      }
+    } else if (!strncmp("slice_enabled", key, strlen("slice_enabled"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.slice_enabled = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        // No support from Venus as of now
+      }
+    } else if (!strncmp("slice_header_spacing", key,
+                        strlen("slice_header_spacing"))) {
+      if (track_info.track_type == TrackType::kVideoAVC) {
+        track_info.avcparams.slice_header_spacing = atoi(value);
+      } else if (track_info.track_type == TrackType::kVideoHEVC) {
+        // No support from Venus as of now
+      }
+    } else if (!strncmp("CamLowPowerMode", key, strlen("CamLowPowerMode"))) {
       track_info.low_power_mode = atoi(value) ? true : false;
       isStreamReadCompleted = true;
     } else {
@@ -4514,7 +4863,7 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams* initParams,
       infos->push_back(track_info);
     }
   }
-  if ( current_camera_info != NULL) {
+  if (current_camera_info != NULL) {
     initParams->cam_init_infos.push_back(current_camera_info);
     current_camera_info = NULL;
   }
@@ -5163,24 +5512,22 @@ TestTrack::~TestTrack() {
   TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
-status_t TestTrack::SetUp(TrackInfo& track_info) {
-
+status_t TestTrack::SetUp(TrackInfo &track_info) {
   TEST_DBG("%s:%s: Enter", TAG, __func__);
   int32_t ret = NO_ERROR;
   assert(recorder_test_ != nullptr);
 
-  if ( (track_info.track_type == TrackType::kVideoAVC)
-      || (track_info.track_type == TrackType::kVideoHEVC)
-      || (track_info.track_type == TrackType::kVideoRDI)
-      || (track_info.track_type == TrackType::kVideoYUV)
-      || (track_info.track_type == TrackType::kVideoPreview) ) {
+  if ((track_info.track_type == TrackType::kVideoAVC) ||
+      (track_info.track_type == TrackType::kVideoHEVC) ||
+      (track_info.track_type == TrackType::kVideoRDI) ||
+      (track_info.track_type == TrackType::kVideoYUV) ||
+      (track_info.track_type == TrackType::kVideoPreview)) {
     float fps = track_info.fps;
-    uint32_t bitrate = track_info.bitrate;
     // Create Video Track.
     VideoTrackCreateParam video_track_param{};
-    video_track_param.camera_id   = track_info.camera_id;
-    video_track_param.width       = track_info.width;
-    video_track_param.height      = track_info.height;
+    video_track_param.camera_id = track_info.camera_id;
+    video_track_param.width = track_info.width;
+    video_track_param.height = track_info.height;
 
     if (fps != 0)
       video_track_param.frame_rate  = fps;
@@ -5190,65 +5537,109 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
 
     switch (track_info.track_type) {
       case TrackType::kVideoAVC:
-      video_track_param.format_type = VideoFormat::kAVC;
-      video_track_param.codec_param.avc.idr_interval = 1;
-      if(bitrate != 0)
-        video_track_param.codec_param.avc.bitrate      = bitrate;
-      else
-        video_track_param.codec_param.avc.bitrate      = 10000000;
-      video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
-      video_track_param.codec_param.avc.level   = AVCLevelType::kLevel3;
-      video_track_param.codec_param.avc.ratecontrol_type =
-          VideoRateControlType::kMaxBitrate;
-      video_track_param.codec_param.avc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_IQP = 27;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_PQP = 28;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_BQP = 28;
-      video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.avc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_range.min_QP = 10;
-      video_track_param.codec_param.avc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
-      video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-      video_track_param.codec_param.avc.ltr_count = track_info.ltr_count;
-      video_track_param.codec_param.avc.insert_aud_delimiter = true;
-      video_track_param.codec_param.avc.prepend_sps_pps_to_idr = true;
-      break;
+        video_track_param.format_type = VideoFormat::kAVC;
+        video_track_param.codec_param.avc.idr_interval =
+            track_info.avcparams.idr_interval;
+        video_track_param.codec_param.avc.bitrate =
+            track_info.avcparams.bitrate;
+        video_track_param.codec_param.avc.profile =
+            track_info.avcparams.profile;
+        video_track_param.codec_param.avc.level = track_info.avcparams.level;
+        video_track_param.codec_param.avc.ratecontrol_type =
+            track_info.avcparams.ratecontrol_type;
+        video_track_param.codec_param.avc.qp_params.enable_init_qp =
+            track_info.avcparams.qp_params.enable_init_qp;
+        video_track_param.codec_param.avc.qp_params.init_qp.init_IQP =
+            track_info.avcparams.qp_params.init_qp.init_IQP;
+        video_track_param.codec_param.avc.qp_params.init_qp.init_PQP =
+            track_info.avcparams.qp_params.init_qp.init_PQP;
+        video_track_param.codec_param.avc.qp_params.init_qp.init_BQP =
+            track_info.avcparams.qp_params.init_qp.init_BQP;
+        video_track_param.codec_param.avc.qp_params.init_qp.init_QP_mode =
+            track_info.avcparams.qp_params.init_qp.init_QP_mode;
+        video_track_param.codec_param.avc.qp_params.enable_qp_range =
+            track_info.avcparams.qp_params.enable_qp_range;
+        video_track_param.codec_param.avc.qp_params.qp_range.min_QP =
+            track_info.avcparams.qp_params.qp_range.min_QP;
+        video_track_param.codec_param.avc.qp_params.qp_range.max_QP =
+            track_info.avcparams.qp_params.qp_range.max_QP;
+        video_track_param.codec_param.avc.qp_params.enable_qp_IBP_range =
+            track_info.avcparams.qp_params.enable_qp_IBP_range;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP =
+            track_info.avcparams.qp_params.qp_IBP_range.min_IQP;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP =
+            track_info.avcparams.qp_params.qp_IBP_range.max_IQP;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP =
+            track_info.avcparams.qp_params.qp_IBP_range.min_PQP;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP =
+            track_info.avcparams.qp_params.qp_IBP_range.max_PQP;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP =
+            track_info.avcparams.qp_params.qp_IBP_range.min_BQP;
+        video_track_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP =
+            track_info.avcparams.qp_params.qp_IBP_range.max_BQP;
+        video_track_param.codec_param.avc.ltr_count =
+            track_info.avcparams.ltr_count;
+        video_track_param.codec_param.avc.hier_layer =
+            track_info.avcparams.hier_layer;
+        video_track_param.codec_param.avc.insert_aud_delimiter =
+            track_info.avcparams.insert_aud_delimiter;
+        video_track_param.codec_param.avc.prepend_sps_pps_to_idr =
+            track_info.avcparams.prepend_sps_pps_to_idr;
+        video_track_param.codec_param.avc.slice_enabled =
+            track_info.avcparams.slice_enabled;
+        video_track_param.codec_param.avc.slice_header_spacing =
+            track_info.avcparams.slice_header_spacing;
+        break;
       case TrackType::kVideoHEVC:
-      video_track_param.format_type = VideoFormat::kHEVC;
-      video_track_param.codec_param.hevc.idr_interval = 1;
-      if (bitrate != 0)
-        video_track_param.codec_param.hevc.bitrate      = bitrate;
-      else
-        video_track_param.codec_param.hevc.bitrate      = 10000000;
-      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain;
-      video_track_param.codec_param.hevc.level   = HEVCLevelType::kLevel3;
-      video_track_param.codec_param.hevc.ratecontrol_type =
-          VideoRateControlType::kMaxBitrate;
-      video_track_param.codec_param.hevc.qp_params.enable_init_qp = true;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP = 27;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP = 28;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP = 28;
-      video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_range.min_QP = 10;
-      video_track_param.codec_param.hevc.qp_params.qp_range.max_QP = 51;
-      video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 10;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 10;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
-      video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-      video_track_param.codec_param.hevc.ltr_count = track_info.ltr_count;
-      video_track_param.codec_param.hevc.insert_aud_delimiter = true;
-      video_track_param.codec_param.hevc.prepend_sps_pps_to_idr = true;
-      break;
+        video_track_param.format_type = VideoFormat::kHEVC;
+        video_track_param.codec_param.hevc.idr_interval =
+            track_info.hevcparams.idr_interval;
+        video_track_param.codec_param.hevc.bitrate =
+            track_info.avcparams.bitrate;
+        video_track_param.codec_param.hevc.profile =
+            track_info.hevcparams.profile;
+        video_track_param.codec_param.hevc.level = track_info.hevcparams.level;
+        video_track_param.codec_param.hevc.ratecontrol_type =
+            track_info.hevcparams.ratecontrol_type;
+        video_track_param.codec_param.hevc.qp_params.enable_init_qp =
+            track_info.hevcparams.qp_params.enable_init_qp;
+        video_track_param.codec_param.hevc.qp_params.init_qp.init_IQP =
+            track_info.hevcparams.qp_params.init_qp.init_IQP;
+        video_track_param.codec_param.hevc.qp_params.init_qp.init_PQP =
+            track_info.hevcparams.qp_params.init_qp.init_PQP;
+        video_track_param.codec_param.hevc.qp_params.init_qp.init_BQP =
+            track_info.hevcparams.qp_params.init_qp.init_BQP;
+        video_track_param.codec_param.hevc.qp_params.init_qp.init_QP_mode =
+            track_info.hevcparams.qp_params.init_qp.init_QP_mode;
+        video_track_param.codec_param.hevc.qp_params.enable_qp_range =
+            track_info.hevcparams.qp_params.enable_qp_range;
+        video_track_param.codec_param.hevc.qp_params.qp_range.min_QP =
+            track_info.hevcparams.qp_params.qp_range.min_QP;
+        video_track_param.codec_param.hevc.qp_params.qp_range.max_QP =
+            track_info.hevcparams.qp_params.qp_range.max_QP;
+        video_track_param.codec_param.hevc.qp_params.enable_qp_IBP_range =
+            track_info.hevcparams.qp_params.enable_qp_IBP_range;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_IQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.min_IQP;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.max_IQP;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.min_PQP;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.max_PQP;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.min_BQP;
+        video_track_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
+            track_info.hevcparams.qp_params.qp_IBP_range.max_BQP;
+        video_track_param.codec_param.hevc.ltr_count =
+            track_info.hevcparams.ltr_count;
+        video_track_param.codec_param.hevc.hier_layer =
+            track_info.hevcparams.hier_layer;
+        video_track_param.codec_param.hevc.insert_aud_delimiter =
+            track_info.hevcparams.insert_aud_delimiter;
+        video_track_param.codec_param.hevc.prepend_sps_pps_to_idr =
+            track_info.hevcparams.prepend_sps_pps_to_idr;
+        break;
       case TrackType::kVideoYUV:
       case TrackType::kVideoPreview:
       video_track_param.format_type = VideoFormat::kYUV;
