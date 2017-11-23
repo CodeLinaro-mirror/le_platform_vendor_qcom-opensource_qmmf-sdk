@@ -73,7 +73,8 @@ class EncoderCore {
 
   bool isTrackValid(uint32_t track_id);
 
-  // vector <track_id, shared_ptr<TrackEncoder> >
+  // map <track_id, shared_ptr<TrackEncoder> >
+  std::mutex  encoder_list_lock_;
   std::map<uint32_t, ::std::shared_ptr<TrackEncoder>> track_encoders_;
 
   int32_t ion_device_;

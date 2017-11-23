@@ -1573,7 +1573,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
       }
     }
-    if (debug_fps_ & kDebugSourceTrackFps) {
+    if (!(is_first_time) && (debug_fps_ & kDebugSourceTrackFps)) {
       QMMF_INFO("%s:%s: camera id %d, track_id(%x): source fps: = %0.2f", TAG,
                  __func__,track_params_.params.camera_id, TrackId(), framerate);
     }

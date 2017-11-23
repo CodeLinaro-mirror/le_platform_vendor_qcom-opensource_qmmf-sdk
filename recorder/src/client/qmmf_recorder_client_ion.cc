@@ -97,40 +97,45 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
   QMMF_VERBOSE("%s: %s() INPARAM: bn_buffer[%s]", TAG, __func__,
                bn_buffer.ToString().c_str());
   int result;
+  std::map<uint32_t, RecorderClientIonBufferMap>::iterator client_map;
 
   if (ion_device_ == -1) {
     QMMF_ERROR("%s: %s() ion device is not opened", TAG, __func__);
     return -ENODEV;
   }
 
-  auto client_map = buffer_map_.find(track_id);
-  if (client_map != buffer_map_.end()) {
-    auto ion_buffer = client_map->second.find(bn_buffer.buffer_id);
-    if (ion_buffer != client_map->second.end()) {
-      // found the ion buffer
-      result = close(bn_buffer.ion_fd);
-      if (result < 0) {
-        QMMF_ERROR("%s: %s() error closing ion_fd[%d]: %d[%s]", TAG, __func__,
-                   bn_buffer.ion_fd, errno, strerror(errno));
-        QMMF_ERROR("%s: %s() [CRITICAL] ion fd has leaked", TAG, __func__);
-      }
-
-      buffer->data = ion_buffer->second.data;
-      buffer->size = bn_buffer.size;
-      buffer->timestamp = bn_buffer.timestamp;
-      buffer->flag = bn_buffer.flag;
-      buffer->buf_id = bn_buffer.buffer_id;
-      buffer->capacity = bn_buffer.capacity;
-      buffer->fd = ion_buffer->second.share_data.fd;
-      QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
-                   buffer->ToString().c_str());
-      return 0;
-    }
-  } else {
-    // create new client map
-    buffer_map_.insert({track_id, RecorderClientIonBufferMap()});
+  {
+    std::lock_guard<std::mutex> l(buffer_map_mutex_);
     client_map = buffer_map_.find(track_id);
+    if (client_map != buffer_map_.end()) {
+      auto ion_buffer = client_map->second.find(bn_buffer.buffer_id);
+      if (ion_buffer != client_map->second.end()) {
+        // found the ion buffer
+        result = close(bn_buffer.ion_fd);
+        if (result < 0) {
+          QMMF_ERROR("%s: %s() error closing ion_fd[%d]: %d[%s]", TAG, __func__,
+                     bn_buffer.ion_fd, errno, strerror(errno));
+          QMMF_ERROR("%s: %s() [CRITICAL] ion fd has leaked", TAG, __func__);
+        }
+
+        buffer->data = ion_buffer->second.data;
+        buffer->size = bn_buffer.size;
+        buffer->timestamp = bn_buffer.timestamp;
+        buffer->flag = bn_buffer.flag;
+        buffer->buf_id = bn_buffer.buffer_id;
+        buffer->capacity = bn_buffer.capacity;
+        buffer->fd = ion_buffer->second.share_data.fd;
+        QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
+                     buffer->ToString().c_str());
+        return 0;
+      }
+    } else {
+      // create new client map
+      buffer_map_.insert({track_id, RecorderClientIonBufferMap()});
+      client_map = buffer_map_.find(track_id);
+    }
   }
+
 
   RecorderClientIonBuffer ion_buffer;
 
@@ -167,6 +172,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
   QMMF_VERBOSE("%s: %s() mapped ion buffer[%s]", TAG, __func__,
                ion_buffer.ToString().c_str());
 
+  std::lock_guard<std::mutex> l(buffer_map_mutex_);
   // save ion buffer
   client_map->second.insert({bn_buffer.buffer_id, ion_buffer});
 
@@ -179,10 +185,15 @@ int32_t RecorderClientIon::Release(uint32_t track_id) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
 
-  auto client_map = buffer_map_.find(track_id);
-  if (client_map == buffer_map_.end()) {
-    QMMF_INFO("%s: %s() no ion buffers for track_id", TAG, __func__);
-    return 0;
+  std::map<uint32_t, RecorderClientIonBufferMap>::iterator client_map;
+
+  {
+    std::lock_guard<std::mutex> l(buffer_map_mutex_);
+    client_map = buffer_map_.find(track_id);
+    if (client_map == buffer_map_.end()) {
+      QMMF_INFO("%s: %s() no ion buffers for track_id", TAG, __func__);
+      return 0;
+    }
   }
 
   for (auto& buffer : client_map->second) {
@@ -216,6 +227,7 @@ int32_t RecorderClientIon::Release(uint32_t track_id) {
     }
   }
 
+  std::lock_guard<std::mutex> l(buffer_map_mutex_);
   client_map->second.clear();
   buffer_map_.erase(client_map->first);
   QMMF_INFO("%s: %s() released all ion buffers", TAG, __func__);

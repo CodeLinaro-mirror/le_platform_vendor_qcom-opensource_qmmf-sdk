@@ -600,7 +600,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   }
 
   char prop[PROPERTY_VALUE_MAX];
-  property_get("media.msm8953.version", prop, "0");
+  property_get("persist.qmmf.video.enc.lpm", prop, "0");
   if (atoi(prop) == 1) {
     QMMF_INFO("%s:%s Setting the Low Power Encode mode", TAG, __func__);
     QOMX_EXTNINDEX_VIDEO_PERFMODE perf_param;
@@ -3160,7 +3160,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
   if (format_type_ == CodecType::kVideoEncoder) {
     bool timeout = false;
     std::unique_lock<std::mutex> queue_lock(queue_lock_);
-    if (free_input_buffhdr_list_.Size() == 0) {
+    while (free_input_buffhdr_list_.Size() == 0) {
       QMMF_WARN("%s:%s: Wait for free header at input port!!", TAG, __func__);
       auto ret = wait_for_header_.wait_for(queue_lock,
           std::chrono::nanoseconds(kWaitDelay));
@@ -3168,6 +3168,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
         QMMF_ERROR("%s:%s: No free buffer header at input port!,"
           " Timed out happend!", TAG, __func__);
         timeout = true;
+        break;
       }
     }
     assert(timeout == false);
@@ -3220,7 +3221,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetOutputBufferHdr(BufferDescriptor& buffer) {
     }
   } else if (format_type_ == CodecType::kVideoDecoder) {
     bool timeout = false;
-    if (free_output_buffhdr_list_.Size() == 0) {
+    while (free_output_buffhdr_list_.Size() == 0) {
       QMMF_WARN("%s:%s: Wait for free header at output port!!", TAG, __func__);
       std::unique_lock<std::mutex> lock(lock_output_);
       auto ret = wait_for_header_output_.wait_for(lock,
@@ -3229,6 +3230,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetOutputBufferHdr(BufferDescriptor& buffer) {
         QMMF_ERROR("%s:%s: No free buffer header at output port!,"
           " Timed out happend!", TAG, __func__);
         timeout = true;
+        break;
       }
     }
     assert(timeout == false);

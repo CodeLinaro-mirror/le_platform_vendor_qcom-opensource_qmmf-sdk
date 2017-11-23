@@ -157,10 +157,12 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     session_cb_list_.clear();
   }
 
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
-
   if (nullptr == camera_module_) {
     //TODO: Instead of quering vendor tag ops directly from HAL module
     //      devise a mechanism to share them from service side.
@@ -217,8 +219,11 @@ status_t RecorderClient::Disconnect() {
   if (!session_cb_list_.empty()) {
     session_cb_list_.clear();
   }
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
   if (!sessions_.empty()) {
     sessions_.clear();
@@ -544,6 +549,7 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
   if (result != NO_ERROR)
       QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -579,6 +585,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
      QMMF_ERROR("%s:%s CreateVideoTrack failed!", TAG, __func__);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -615,6 +622,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
      QMMF_ERROR("%s:%s CreateVideoTrackWithExtraParam failed!", TAG, __func__);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -734,6 +742,7 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
       QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     track_cb_list_.erase(track_id);
   }
@@ -755,42 +764,49 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
     return NO_INIT;
   }
 
-  if (track_buf_map_.find(track_id) != track_buf_map_.end()) {
+  {
+    std::lock_guard<std::mutex> l(track_buf_map_lock_);
+    if (track_buf_map_.find(track_id) != track_buf_map_.end()) {
+      buf_info_map info_map = track_buf_map_.find(track_id)->second;
+      track_buf_map_lock_.unlock();
+      for (auto j = info_map.begin(); j != info_map.end(); ++j) {
+        BufInfo buf_info = j->second;
+        QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
+            __func__, track_id, buf_info.ion_fd);
+        QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
+            TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
+        if (buf_info.pointer != nullptr) {
+          struct ion_handle_data ion_handle;
+          memset(&ion_handle, 0, sizeof(ion_handle));
+          ion_handle.handle = buf_info.ion_handle;
+          if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+            QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+            return -errno;
+          }
 
-    buf_info_map info_map = track_buf_map_.find(track_id)->second;
-    for (auto j = info_map.begin(); j != info_map.end(); ++j) {
-      BufInfo buf_info = j->second;
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
-          __func__, track_id, buf_info.ion_fd);
-      QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
-          TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
-      if (buf_info.pointer != nullptr) {
-        struct ion_handle_data ion_handle;
-        memset(&ion_handle, 0, sizeof(ion_handle));
-        ion_handle.handle = buf_info.ion_handle;
-        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+          auto stat = munmap(buf_info.pointer, buf_info.frame_len);
+          if (0 != stat) {
+            QMMF_ERROR("%s: Failed to unmap buffer: %p : %d[%s]", __func__,
+                       buf_info.pointer, -errno, strerror(errno));
+            return -errno;
+          }
+          buf_info.pointer = nullptr;
         }
 
-        auto stat = munmap(buf_info.pointer, buf_info.frame_len);
-        if (0 != stat) {
-          QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
-                     buf_info.pointer, -errno);
+        if (buf_info.ion_fd > 0) {
+          auto stat = close(buf_info.ion_fd);
+          if (0 != stat) {
+            QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d[%s]", TAG, __func__,
+                       buf_info.ion_fd, -errno, strerror(errno));
+            return -errno;
+          }
         }
-        buf_info.pointer = nullptr;
       }
-
-      if (buf_info.ion_fd > 0) {
-        auto stat = close(buf_info.ion_fd);
-        if (0 != stat) {
-          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
-                     buf_info.ion_fd, -errno);
-        }
+      {
+        std::lock_guard<std::mutex> l(track_buf_map_lock_);
+        track_buf_map_.erase(track_id);
       }
-      //TODO: check owner ship of buffers, make sure application returned all
-      // the buffers after calling stop on track.
     }
-    track_buf_map_.erase(track_id);
   }
   assert(client_id_ > 0);
   ret = recorder_service_->DeleteVideoTrack(client_id_, session_id, track_id);
@@ -800,6 +816,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
     ret = BAD_VALUE;
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     track_cb_list_.erase(track_id);
   }
@@ -1178,36 +1195,39 @@ void RecorderClient::ServiceDeathHandler() {
   std::lock_guard<std::mutex> lock(lock_);
   int32_t ret = NO_ERROR;
   //Clear all pending buffers.
-  for (auto i = track_buf_map_.begin(); i != track_buf_map_.end(); ++i) {
+  {
+    std::lock_guard<std::mutex> l(track_buf_map_lock_);
+    for (auto i = track_buf_map_.begin(); i != track_buf_map_.end(); ++i) {
 
-    buf_info_map info_map = i->second;
-    for (auto j = info_map.begin(); j != info_map.end(); ++j) {
+      buf_info_map info_map = i->second;
+      for (auto j = info_map.begin(); j != info_map.end(); ++j) {
 
-      BufInfo buf_info = j->second;
-      if (buf_info.pointer != nullptr) {
-        struct ion_handle_data ion_handle;
-        memset(&ion_handle, 0, sizeof(ion_handle));
-        ion_handle.handle = buf_info.ion_handle;
-        if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-          QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        BufInfo buf_info = j->second;
+        if (buf_info.pointer != nullptr) {
+          struct ion_handle_data ion_handle;
+          memset(&ion_handle, 0, sizeof(ion_handle));
+          ion_handle.handle = buf_info.ion_handle;
+          if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+            QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+          }
+          ret = munmap(buf_info.pointer, buf_info.frame_len);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
+                buf_info.pointer, -errno);
+          }
+          buf_info.pointer = nullptr;
         }
-        ret = munmap(buf_info.pointer, buf_info.frame_len);
-        if (NO_ERROR != ret) {
-          QMMF_ERROR("%s: Failed to unmap buffer: %p : %d", __func__,
-              buf_info.pointer, -errno);
-        }
-        buf_info.pointer = nullptr;
-      }
-      if (buf_info.ion_fd > 0) {
-        ret = close(buf_info.ion_fd);
-        if (NO_ERROR != ret) {
-          QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
-              buf_info.ion_fd, -errno);
+        if (buf_info.ion_fd > 0) {
+          ret = close(buf_info.ion_fd);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+                buf_info.ion_fd, -errno);
+          }
         }
       }
     }
+    track_buf_map_.clear();
   }
-  track_buf_map_.clear();
 
   for (auto it = snapshot_buffers_.begin();
       it != snapshot_buffers_.end(); ++it) {
@@ -1248,8 +1268,11 @@ void RecorderClient::ServiceDeathHandler() {
   if (!session_cb_list_.empty()) {
     session_cb_list_.clear();
   }
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
   if (!sessions_.empty()) {
     sessions_.clear();
@@ -1341,8 +1364,8 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &bn_buffers,
                                           std::vector<MetaData> &meta_buffers) {
 
-  QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s track_id = %d ", TAG, __func__, track_id);
+  QMMF_DEBUG("%s:%s Enter track_id=%d", TAG, __func__, track_id);
+
   std::vector<BufferDescriptor> track_buffers;
   for (size_t i = 0; i < bn_buffers.size(); i++) {
 
@@ -1352,29 +1375,30 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
     // Check if ION buffer is already imported and mapped, if it is then get
     // buffer info from map.
-    if (!track_buf_map_.empty()) {
+    {
+      std::lock_guard<std::mutex> l(track_buf_map_lock_);
+      if (!track_buf_map_.empty()) {
 
-      std::map<uint32_t, BufInfo> buf_map;
-      auto map_it = track_buf_map_.find(track_id);
-      if (map_it != track_buf_map_.end()) {
-        buf_map = map_it->second;
-        auto buf_it = buf_map.find(bn_buffers[i].buffer_id);
+        std::map<uint32_t, BufInfo> buf_map;
+        auto map_it = track_buf_map_.find(track_id);
+        if (map_it != track_buf_map_.end()) {
+          buf_map = map_it->second;
+          auto buf_it = buf_map.find(bn_buffers[i].buffer_id);
 
-        if (buf_it != buf_map.end()) {
-          buf_info = buf_it->second;
-          assert(buf_info.pointer != nullptr);
-          assert(buf_info.ion_fd > 0);
-          bn_buffers[i].ion_fd = buf_info.ion_fd;
-          is_mapped = true;
-          QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
-            "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
-            buf_info.ion_fd, buf_info.pointer);
+          if (buf_it != buf_map.end()) {
+            buf_info = buf_it->second;
+            assert(buf_info.pointer != nullptr);
+            assert(buf_info.ion_fd > 0);
+            bn_buffers[i].ion_fd = buf_info.ion_fd;
+            is_mapped = true;
+            QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
+                "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
+                buf_info.ion_fd, buf_info.pointer);
+          }
+        } else {
+          QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
         }
-      } else {
-        QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
       }
-    } else {
-      QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
     }
     if (!is_mapped) {
       // Map Ion Fd to client address space.
@@ -1390,11 +1414,16 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
             ion_info_fd.fd);
+        return;
       }
       QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
-      void* vaddr = mmap(nullptr, bn_buffers[i].capacity, PROT_READ | PROT_WRITE,
-                        MAP_SHARED, ion_info_fd.fd, 0);
-      assert(vaddr != nullptr);
+      void* vaddr = mmap(nullptr, bn_buffers[i].capacity,
+                         PROT_READ | PROT_WRITE, MAP_SHARED, ion_info_fd.fd, 0);
+      if (MAP_FAILED == vaddr) {
+        QMMF_ERROR("%s:%s: mmap failed: %d[%s]", TAG, __func__,
+                   errno, strerror(errno));
+        return;
+      }
 
       buf_info.pointer   = vaddr;
       buf_info.ion_fd    = ion_info_fd.fd;
@@ -1402,30 +1431,33 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       buf_info.ion_handle = ion_info_fd.handle;
 
       std::map<uint32_t, BufInfo> buffer_map;
-      if (track_buf_map_.empty()) {
-        buffer_map.insert(std::make_pair(bn_buffers[i].buffer_id, buf_info));
-      } else {
-        if (track_buf_map_.find(track_id) != track_buf_map_.end()) {
-          buffer_map = track_buf_map_.find(track_id)->second;
+      {
+        std::lock_guard<std::mutex> l(track_buf_map_lock_);
+        if (track_buf_map_.empty()) {
+          buffer_map.insert(std::make_pair(bn_buffers[i].buffer_id, buf_info));
+        } else {
+          if (track_buf_map_.find(track_id) != track_buf_map_.end()) {
+            buffer_map = track_buf_map_.find(track_id)->second;
+          }
+          buffer_map.insert(std::make_pair(bn_buffers[i].buffer_id, buf_info));
         }
-        buffer_map.insert(std::make_pair(bn_buffers[i].buffer_id, buf_info));
-      }
-      // Update existing entry or add new one.
-      // replaceValueFor() performs as add if entry doesn't exist.
-      track_buf_map_[track_id] = buffer_map;
+        // Update existing entry or add new one.
+        // replaceValueFor() performs as add if entry doesn't exist.
+        track_buf_map_[track_id] = buffer_map;
 
-      QMMF_VERBOSE("%s:%s: track_buf_map_.size = %d", TAG, __func__,
-          track_buf_map_.size());
+        QMMF_VERBOSE("%s:%s: track_buf_map_.size = %d", TAG, __func__,
+            track_buf_map_.size());
 
-      for (uint32_t i = 0; i < track_buf_map_.size(); i++) {
-        buffer_map = track_buf_map_[i];
-        QMMF_VERBOSE("%s:%s: buffer_map.size=%d", TAG, __func__,
-            buffer_map.size());
+        for (uint32_t i = 0; i < track_buf_map_.size(); i++) {
+          buffer_map = track_buf_map_[i];
+          QMMF_VERBOSE("%s:%s: buffer_map.size=%d", TAG, __func__,
+              buffer_map.size());
 
-        for (auto j = buffer_map.begin(); j != buffer_map.end(); ++j) {
-          QMMF_VERBOSE("%s:%s: buffer_map:key(%d) :ion_fd:%d :pointer:"
-              "0x%p", TAG, __func__, j->first,
-              j->second.ion_fd, j->second.pointer);
+          for (auto j = buffer_map.begin(); j != buffer_map.end(); ++j) {
+            QMMF_VERBOSE("%s:%s: buffer_map:key(%d) :ion_fd:%d :pointer:"
+                "0x%p", TAG, __func__, j->first,
+                j->second.ion_fd, j->second.pointer);
+          }
         }
       }
     }
@@ -1444,11 +1476,14 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       QMMF_KPI_ASYNC_END("LastVidFrame", track_id);
     }
   }
-
+  QMMF_DEBUG("%s:%s: Buffer Prepared for Callback track_id=%d", TAG, __func__,
+      track_id);
   //Get the handle to client callback.
   TrackCb callback;
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     callback = track_cb_list_.find(track_id)->second;
+    track_list_lock_.unlock();
     QMMF_KPI_ASYNC_BEGIN("VideoAppCB", track_id);
     callback.data_cb(track_id, track_buffers, meta_buffers);
   }
@@ -1478,12 +1513,19 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
   std::vector<BufferDescriptor> track_buffers;
   for (const BnBuffer& bn_buffer : bn_buffers) {
     BufferDescriptor buffer;
-    buffer_ion_.Associate(track_id, bn_buffer, &buffer);
+    auto ret = buffer_ion_.Associate(track_id, bn_buffer, &buffer);
+    if (ret != 0) {
+      QMMF_ERROR("%s:%s Failed to associate audio buffer: %d[%s]\n",
+                     TAG, __func__, -ret, strerror(ret));
+      return;
+    }
     track_buffers.push_back(buffer);
   }
 
   // Get the handle to client callback.
+  std::lock_guard<std::mutex> l(track_list_lock_);
   TrackCb callback = track_cb_list_.find(track_id)->second;
+  track_list_lock_.unlock();
   callback.data_cb(track_id, track_buffers, meta_buffers);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1498,7 +1540,9 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
                static_cast<underlying_type<EventType>::type>(event_type));
 
   // get the handle to client callback.
+  std::lock_guard<std::mutex> l(track_list_lock_);
   TrackCb callback = track_cb_list_.find(track_id)->second;
+  track_list_lock_.unlock();
   callback.event_cb(track_id, event_type, event_data, event_data_size);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
@@ -2380,21 +2424,24 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
       bool is_mapped = false;
       bool exist = false;
-      if (!track_buf_map_.empty()) {
-        auto it = track_buf_map_.find(track_id);
-        if (it != track_buf_map_.end()) {
-          exist = true;
-          buffer_map buf_map;
-          buf_map  = it->second;
-          auto buf_map_it = buf_map.find(buffers[i].ion_fd);
-          if (buf_map_it != buf_map.end()) {
-            // This ION fd has already been sent to client, no binder packing is
-            // required, only index would be sufficient for client to get mapped
-            // buffer from his own map.
-            is_mapped = buf_map_it->second;
-            QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d is_mapped:%d", TAG,
-                __func__, i, buffers[i].ion_fd, is_mapped);
+      {
+        std::lock_guard<std::mutex> l(track_buf_map_lock_);
+        if (!track_buf_map_.empty()) {
+          auto it = track_buf_map_.find(track_id);
+          if (it != track_buf_map_.end()) {
+            exist = true;
+            buffer_map buf_map;
+            buf_map  = it->second;
+            auto buf_map_it = buf_map.find(buffers[i].ion_fd);
+            if (buf_map_it != buf_map.end()) {
+              // This ION fd has already been sent to client, no binder packing is
+              // required, only index would be sufficient for client to get mapped
+              // buffer from his own map.
+              is_mapped = buf_map_it->second;
+              QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d is_mapped:%d", TAG,
+                  __func__, i, buffers[i].ion_fd, is_mapped);
 
+            }
           }
         }
       }
@@ -2405,11 +2452,14 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         // Pack file descriptor.
         data.writeFileDescriptor(buffers[i].ion_fd);
         buffer_map map_to_update;
-        if (exist) {
-          map_to_update = track_buf_map_.find(track_id)->second;
+        {
+          std::lock_guard<std::mutex> l(track_buf_map_lock_);
+          if (exist) {
+            map_to_update = track_buf_map_.find(track_id)->second;
+          }
+          map_to_update.insert(std::make_pair(buffers[i].ion_fd, true));
+          track_buf_map_[track_id] = map_to_update;
         }
-        map_to_update.insert(std::make_pair(buffers[i].ion_fd, true));
-        track_buf_map_[track_id] = map_to_update;
         QMMF_VERBOSE("%s:Bp%s: track_id=%d", TAG, __func__, track_id);
         QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d mapping:%d", TAG, __func__,
             i, buffers[i].ion_fd, true);
@@ -2499,6 +2549,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
   void NotifyDeleteVideoTrack(uint32_t track_id) {
     QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
+    std::lock_guard<std::mutex> l(track_buf_map_lock_);
     if (track_buf_map_.empty()) {
       return;
     }
@@ -2511,8 +2562,10 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
  private:
   // vector <ion_fd, bool>
   typedef std::map <uint32_t, bool> buffer_map;
-  // vector <track_id , buffer_map>
+  // map <track_id , buffer_map>
   std::map<uint32_t,  buffer_map > track_buf_map_;
+  // to protect track_buf_map_
+  std::mutex  track_buf_map_lock_;
 };
 
 IMPLEMENT_META_INTERFACE(RecorderServiceCallback,
