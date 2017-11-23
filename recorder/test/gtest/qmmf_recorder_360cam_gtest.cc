@@ -12610,7 +12610,10 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
 
     video_track_param.width  = 1920;
     video_track_param.height = 960;
-
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                      std::vector<BufferDescriptor> buffers,
+                                      std::vector<MetaData> meta_buffers) {
+         VideoTrackYUVTwoDataCb(session_id, track_id, buffers, meta_buffers); };
     ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
                                       video_track_param, video_track_cb);
     assert(ret == NO_ERROR);
@@ -17949,6 +17952,53 @@ void Recorder360Gtest::CameraResultCallbackHandler(
     }
     ++count;
   }
+}
+
+void Recorder360Gtest::VideoTrackYUVTwoDataCb(uint32_t session_id,
+                                              uint32_t track_id,
+                                              std::vector<BufferDescriptor> buffers,
+                                              std::vector<MetaData> meta_buffers) {
+  size_t written_len;
+  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  if (is_dump_yuv_enabled_) {
+    static uint32_t id = 0;
+    ++id;
+    if (id == dump_yuv_freq_) {
+      std::string file_path("/data/misc/qmmf/gtest_360_track_");
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".yuv";
+
+      FILE *file = fopen(file_path.c_str(), "w+");
+      if (!file) {
+        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
+            file_path.c_str());
+        goto FAIL;
+      }
+
+      written_len = fwrite(buffers[0].data, sizeof(uint8_t),
+                           buffers[0].size, file);
+      TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
+      if (buffers[0].size != written_len) {
+        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+            strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+          buffers[0].data, written_len, file_path.c_str());
+
+  FAIL:
+      if (file != NULL) {
+        fclose(file);
+      }
+      id = 0;
+    }
+  }
+
+  // Return buffers back to service.
+  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  assert(ret == NO_ERROR);
+  TEST_DBG("%s:%s: Exit", TAG, __func__);
 }
 
 void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
