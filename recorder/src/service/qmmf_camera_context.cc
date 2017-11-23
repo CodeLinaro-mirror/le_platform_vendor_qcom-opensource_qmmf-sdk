@@ -157,6 +157,13 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.bufferCount  = sequence_cnt_;
 
   if (postproc_enable_) {
+
+    // Stops active streaming to prevent multiple camera restarts
+    for (auto port : active_ports_) {
+      ret = port->Stop();
+      assert(ret == NO_ERROR);
+    }
+
     ret = PostProcCreatePipeAndUpdateStreams(stream_param, param.image_quality,
                             camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
@@ -179,6 +186,12 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   if (postproc_enable_) {
     ret = PostProcStart(stream_id);
     assert(ret == NO_ERROR);
+
+    // Resumes stopped streaming
+    for (auto port : active_ports_) {
+      ret = port->Start();
+      assert(ret == NO_ERROR);
+    }
   }
   return ret;
 }
