@@ -157,10 +157,12 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     session_cb_list_.clear();
   }
 
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
-
   if (nullptr == camera_module_) {
     //TODO: Instead of quering vendor tag ops directly from HAL module
     //      devise a mechanism to share them from service side.
@@ -217,8 +219,11 @@ status_t RecorderClient::Disconnect() {
   if (!session_cb_list_.empty()) {
     session_cb_list_.clear();
   }
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
   if (!sessions_.empty()) {
     sessions_.clear();
@@ -544,6 +549,7 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
   if (result != NO_ERROR)
       QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -579,6 +585,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
      QMMF_ERROR("%s:%s CreateVideoTrack failed!", TAG, __func__);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -615,6 +622,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
      QMMF_ERROR("%s:%s CreateVideoTrackWithExtraParam failed!", TAG, __func__);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
@@ -734,6 +742,7 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
       QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     track_cb_list_.erase(track_id);
   }
@@ -800,6 +809,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
     ret = BAD_VALUE;
   }
 
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     track_cb_list_.erase(track_id);
   }
@@ -1248,8 +1258,11 @@ void RecorderClient::ServiceDeathHandler() {
   if (!session_cb_list_.empty()) {
     session_cb_list_.clear();
   }
-  if (!track_cb_list_.empty()) {
-    track_cb_list_.clear();
+  {
+    std::lock_guard<std::mutex> l(track_list_lock_);
+    if (!track_cb_list_.empty()) {
+      track_cb_list_.clear();
+    }
   }
   if (!sessions_.empty()) {
     sessions_.clear();
@@ -1447,8 +1460,10 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
 
   //Get the handle to client callback.
   TrackCb callback;
+  std::lock_guard<std::mutex> l(track_list_lock_);
   if (track_cb_list_.find(track_id) != track_cb_list_.end()) {
     callback = track_cb_list_.find(track_id)->second;
+    track_list_lock_.unlock();
     QMMF_KPI_ASYNC_BEGIN("VideoAppCB", track_id);
     callback.data_cb(track_id, track_buffers, meta_buffers);
   }
@@ -1483,7 +1498,9 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
   }
 
   // Get the handle to client callback.
+  std::lock_guard<std::mutex> l(track_list_lock_);
   TrackCb callback = track_cb_list_.find(track_id)->second;
+  track_list_lock_.unlock();
   callback.data_cb(track_id, track_buffers, meta_buffers);
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }
@@ -1498,7 +1515,9 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
                static_cast<underlying_type<EventType>::type>(event_type));
 
   // get the handle to client callback.
+  std::lock_guard<std::mutex> l(track_list_lock_);
   TrackCb callback = track_cb_list_.find(track_id)->second;
+  track_list_lock_.unlock();
   callback.event_cb(track_id, event_type, event_data, event_data_size);
 
   QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
