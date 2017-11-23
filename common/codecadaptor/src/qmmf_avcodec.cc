@@ -600,7 +600,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   }
 
   char prop[PROPERTY_VALUE_MAX];
-  property_get("media.msm8953.version", prop, "0");
+  property_get("persist.qmmf.video.enc.lpm", prop, "0");
   if (atoi(prop) == 1) {
     QMMF_INFO("%s:%s Setting the Low Power Encode mode", TAG, __func__);
     QOMX_EXTNINDEX_VIDEO_PERFMODE perf_param;
