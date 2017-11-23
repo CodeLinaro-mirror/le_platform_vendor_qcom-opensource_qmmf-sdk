@@ -898,7 +898,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
                                             1920,
                                             1080,
                                             30};
-   preview_track_param.low_power_mode = true;
+  preview_track_param.low_power_mode = false;
   uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
