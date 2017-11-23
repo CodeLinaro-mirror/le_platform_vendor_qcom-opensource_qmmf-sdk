@@ -59,6 +59,6 @@ namespace qmmf {
     auto status = __gthread_cond_wait(&cond_, lock.mutex()->native_handle());
     assert(status == 0);
   }
-};
 
 #endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
+};
