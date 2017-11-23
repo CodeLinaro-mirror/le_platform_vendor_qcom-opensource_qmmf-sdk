@@ -2374,6 +2374,20 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
     }
   }
 
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 80;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -2424,7 +2438,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
 /*
 * BurstSnapshotWithBayerLCAC15fps:  This test will test burst snapshot with
 *                     post processing. Post processing pipe is Bayer LCAC,
-*                     Bayer to YUV reprocessing and JPEG.
+*                     Bayer to YUV reprocessing and JPEG with two thumbnails.
 * Api test sequence:
 *  - StartCamera
 *  - CreateSession
@@ -2657,7 +2671,8 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 /*
 * AutoBurstCaptureWithBayerLCAC:  This test will test burst snapshot with post
 *                    processing and differnet frame rate. Post processing
-*                    pipe is Bayer LCAC, Bayer to YUV reprocessing and JPEG.
+*                    pipe is Bayer LCAC, Bayer to YUV reprocessing and
+*                    JPEG with two thumbnails.
 * Api test sequence:
 * loop auto modes {
 *    - StartCamera
@@ -2813,6 +2828,20 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       }
     }
 
+    ImageThumbnail thumbnail;
+
+    // Primary thumbnail parameters.
+    thumbnail.width = 960;
+    thumbnail.height = 480;
+    thumbnail.quality = 80;
+    image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+    // Secondary thumbnail(Screennail) parameters.
+    thumbnail.width = 320;
+    thumbnail.height = 240;
+    thumbnail.quality = 75;
+    image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
     ret = recorder_.ConfigImageCapture(camera_id_, image_config);
     assert(ret == NO_ERROR);
 
@@ -2898,7 +2927,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
 /*
 * ContinuousSnapshotWithBayerLCAC:  This test will test continuous capture with
 *                     post processing. Post processing pipe is Bayer LCAC,
-*                     Bayer to YUV reprocessing and JPEG.
+*                     Bayer to YUV reprocessing and JPEG with two thumbnails.
 * Api test sequence:
 *  - StartCamera
 *  - CreateSession
@@ -3062,6 +3091,20 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   PostprocFrameSkip frame_skip;
   frame_skip.frame_skip = (preview_frame_rate / capture_frame_rate) - 1;
   image_config.Update(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 80;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
