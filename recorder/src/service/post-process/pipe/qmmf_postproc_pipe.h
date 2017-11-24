@@ -54,6 +54,7 @@ struct PipeIOParam {
   int32_t gralloc_flags;
   uint32_t buffer_count;
   uint32_t max_internal_buffers;
+  bool frame_skip;
 };
 
 enum class PostProcPipeState {

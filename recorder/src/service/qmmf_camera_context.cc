@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <json/json.h>
 #include <QCamera3VendorTags.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
@@ -75,7 +76,8 @@ CameraContext::CameraContext()
       partial_metadata_required_(false),
       partial_result_count_(0),
       snapshot_type_(SnapshotMode::kStill),
-      new_snapshot_type_(SnapshotMode::kStill) {
+      new_snapshot_type_(SnapshotMode::kStill),
+      postproc_frame_skip_(false) {
   camera_start_params_ = {};
 }
 
@@ -710,6 +712,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   capture_plugins_.clear();
   pipe_config_json_data_.clear();
+  Json::Value root(Json::objectValue);
 
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
@@ -735,6 +738,19 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     }
     new_snapshot_type_ = type.type;
   }
+
+  if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
+    PostprocFrameSkip frame_skip;
+    config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+    root["frameskip"] = frame_skip.frame_skip;
+    postproc_frame_skip_ = frame_skip.frame_skip > 0 ? true : false;
+  }
+
+  Json::FastWriter fastWriter;
+  pipe_config_json_data_ = fastWriter.write(root);
+
+  QMMF_INFO("%s:%s: Thumbnail configuration: %s", TAG, __func__,
+      pipe_config_json_data_.c_str());
 
   return NO_ERROR;
 }
@@ -2069,6 +2085,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.gralloc_flags = stream_param.grallocFlags;
   out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
   out_param.max_internal_buffers = 0; // unlimited
+  out_param.frame_skip = postproc_frame_skip_;
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);

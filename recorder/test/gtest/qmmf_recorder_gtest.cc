@@ -2809,7 +2809,8 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   auto ret = Init();
   assert(ret == NO_ERROR);
 
-  const uint32_t frame_rate = 7;
+  const uint32_t preview_frame_rate = 30;
+  const uint32_t capture_frame_rate = 5;
 
   std::condition_variable  ae_converge_signal;
   std::mutex ae_converge_mutex;
@@ -2825,7 +2826,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
         }
       };
 
-  camera_start_params_.frame_rate = frame_rate;
+  camera_start_params_.frame_rate = preview_frame_rate;
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   assert(ret == NO_ERROR);
 
@@ -2849,7 +2850,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                           640,
                                           480,
-                                          frame_rate};
+                                          preview_frame_rate};
   video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -2872,7 +2873,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   // Wait for AE convergence
   std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
   auto status = ae_converge_signal.wait_for(ae_converge_lock,
-    std::chrono::seconds(30 / frame_rate + 1));
+    std::chrono::seconds(30 / preview_frame_rate + 1));
 
   assert(status == std::cv_status::no_timeout);
 
@@ -2935,6 +2936,14 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   snapshot_type.type = SnapshotMode::kContinuous;
   image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
 
+  // Ensure that preview and capture frame rate are multiple
+  // otherwise we cannot ensure persistent capture rate.
+  assert(preview_frame_rate % capture_frame_rate == 0);
+
+  PostprocFrameSkip frame_skip;
+  frame_skip.frame_skip = (preview_frame_rate / capture_frame_rate) - 1;
+  image_config.Update(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -2945,8 +2954,8 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
-  fps_range[0] = frame_rate;
-  fps_range[1] = frame_rate;
+  fps_range[0] = preview_frame_rate;
+  fps_range[1] = preview_frame_rate;
   ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
   assert(ret == NO_ERROR);
 

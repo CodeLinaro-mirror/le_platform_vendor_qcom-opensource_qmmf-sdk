@@ -67,6 +67,15 @@ PostProcPipe::~PostProcPipe() {
 status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
                                   const std::vector<uint32_t> &plugins,
                                   PipeIOParam &pipe_in_param) {
+  std::shared_ptr<PostProcNode> node;
+
+  // Add frame skip module at the begin of pipe
+  if (pipe_out_param.frame_skip) {
+    node = factory_->GetProcNode("FrameSkip");
+    assert(node.get() != nullptr);
+    pipe_.push_back(node);
+  }
+
   // Add all required plugins to pipe
   for (auto& plugin_uid : plugins) {
     std::shared_ptr<PostProcNode> node = factory_->GetProcNode(plugin_uid);
@@ -112,7 +121,6 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
 
   // Backward iteration over the pipe
   ssize_t idx = pipe_.size() - 1;
-  std::shared_ptr<PostProcNode> node;
 
   // Validate pipeline and create internal processing nodes if necessary
   while (idx >= 0) {

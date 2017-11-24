@@ -40,6 +40,7 @@ enum ParamTag {
   QMMF_SURFACE_CROP,
   QMMF_MULTICAM_STITCH_CONFIG,
   QMMF_POSTPROCESS_PLUGIN,
+  QMMF_POSTPROCESS_FRAME_SKIP,
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_SNAPSHOT_TYPE,
@@ -143,6 +144,15 @@ struct PostprocPlugin : DataTagBase {
   PostprocPlugin()
     : DataTagBase(QMMF_POSTPROCESS_PLUGIN),
       uid(0) {}
+};
+
+struct PostprocFrameSkip : DataTagBase {
+  // Number of skip frames for each sent frame
+  uint32_t frame_skip;     // Default: 0 means no skip
+
+  PostprocFrameSkip()
+    : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
+      frame_skip(0) {}
 };
 
 struct SourceVideoTrack : DataTagBase {

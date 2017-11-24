@@ -328,6 +328,7 @@ class CameraContext : public CameraInterface,
   std::mutex               partial_result_lock_;
   SnapshotMode             snapshot_type_;
   SnapshotMode             new_snapshot_type_;
+  bool                     postproc_frame_skip_;
 };
 
 enum class CameraPortType {
