@@ -87,7 +87,8 @@ enum class StitchingMode {
 enum class SnapshotMode {
   kNone,
   kStill,
-  kVideo
+  kVideo,
+  kContinuous
 };
 
 struct SourceSurfaceDesc : DataTagBase {
