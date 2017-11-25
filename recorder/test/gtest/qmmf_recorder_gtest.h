@@ -273,6 +273,10 @@ class RecorderGtest : public ::testing::Test {
   status_t PushFrameToDisplay(BufferDescriptor &buffer,
                               CameraBufferMetaData &meta_data);
 
+  int32_t DequeueGfxSurfaceBuffer();
+
+  int32_t QueueGfxSurfaceBuffer();
+
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
   uint32_t face_track_id_;
@@ -305,12 +309,18 @@ class RecorderGtest : public ::testing::Test {
   uint32_t              record_duration_;
   std::mutex            error_lock_;
   bool                  camera_error_;
-  bool use_display_;
-  bool display_started_;
-  Display *display_;
-  uint32_t surface_id_;
-  SurfaceParam surface_param_;
-  SurfaceBuffer surface_buffer_;
-  SurfaceConfig surface_config_;
+  bool                  use_display_;
+  bool                  display_started_;
+  Display               *display_;
+  uint32_t              surface_id_;
+  SurfaceParam          surface_param_;
+  SurfaceBuffer         surface_buffer_;
+  SurfaceConfig         surface_config_;
+  FILE                  *gfx_file;
+  bool                  enable_gfx_;
+  uint32_t              gfx_surface_id_;
+  SurfaceParam          gfx_surface_param_;
+  SurfaceBuffer         gfx_surface_buffer_;
+  SurfaceConfig         gfx_surface_config_;
 };
 
