@@ -284,9 +284,10 @@ struct VideoTrackCreateParam {
         break;
       default: {
         // Nothing to do for other formats
+        codec_param = {};
       }
     }
-    codec_param = {};
+
     // Setting LPM,VQZipInfo parameters
     low_power_mode = false;
     do_vqzip = false;
