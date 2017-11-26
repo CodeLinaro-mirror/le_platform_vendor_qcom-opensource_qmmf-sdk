@@ -59,6 +59,8 @@ class MemPool {
 
    int32_t Initialize(const MemPoolParams &params);
 
+   status_t Delete();
+
    status_t ReturnBufferLocked(const StreamBuffer &buffer);
 
    status_t GetBuffer(StreamBuffer* buffer);

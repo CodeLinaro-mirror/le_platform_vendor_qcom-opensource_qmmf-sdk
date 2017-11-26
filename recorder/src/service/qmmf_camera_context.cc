@@ -59,6 +59,7 @@ CameraContext::CameraContext()
     : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
+      last_frame_number_(-1),
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       burst_cnt_(0),
@@ -68,7 +69,6 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1),
-      aec_done_(false),
       partial_metadata_required_(false),
       partial_result_count_(0),
       snapshot_type_(SnapshotMode::kStill) {
@@ -514,13 +514,18 @@ std::function<void(StreamBuffer buffer)>
 
 status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 
+  if (streaming_request_id_ == -1) {
+    QMMF_DEBUG("%s:%s No active streams, skip wait!", TAG, __func__);
+    return NO_ERROR;
+  }
+
   std::unique_lock<std::mutex> lock(aec_lock_);
   std::chrono::nanoseconds wait_time(timeout);
 
-  aec_done_ = false;
-  while (!aec_done_ && (streaming_request_id_ != -1)) {
-    if (aec_signal_.WaitFor(lock, wait_time) != 0) {
-      QMMF_ERROR("%s:%s Timed out on AEC converge Wait", TAG, __func__);
+  while ((aec_.state != ANDROID_CONTROL_AE_STATE_LOCKED) &&
+         (aec_.state != ANDROID_CONTROL_AE_STATE_CONVERGED)) {
+    if (aec_state_updated_.WaitFor(lock, wait_time) != 0) {
+      QMMF_ERROR("%s:%s Timed out on AE converge Wait", TAG, __func__);
       return TIMED_OUT;
     }
   }
@@ -589,7 +594,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
         QMMF_ERROR("%s:%s Failed during snapshot re-configure", TAG, __func__);
         return ret;
       }
-      // Wait aec to converge after reconfiguration
+      // Wait AE to converge after reconfiguration if there are active streams.
       WaitAecToConverge(kWaitPendingFramesTimeout);
     }
   } else {
@@ -1046,12 +1051,10 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
       " returned back!", TAG, __func__, stream_id, buffer.handle, buffer_id);
 
   status_t ret = NO_ERROR;
-  if (stream_id != snapshot_request_.streamIds[0]) {
-    if (postproc_pipe_.get() != nullptr) {
-      postproc_pipe_->PipeNotifyBufferReturn(buffer);
-    }
+  if (postproc_enable_) {
+    postproc_pipe_->PipeNotifyBufferReturn(buffer);
   } else {
-    ret = ReturnStreamBuffer(buffer);
+    ret = camera_device_->ReturnStreamBuffer(buffer);
   }
 
   QMMF_DEBUG("%s:%s: ret %d", TAG, __func__, ret);
@@ -1390,22 +1393,26 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    int64_t last_frame_number;
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                    &last_frame_number);
+                                                    &last_frame_number_);
+    QMMF_INFO("%s:%s: last_frame_number=%lld", TAG, __func__,
+        last_frame_number_);
     assert(req_id >= 0);
     streaming_request_id_ = req_id;
 
     for (auto const& stream_id : stream_ids) {
       // Update the last submitted frame number for each stream id.
       if (last_frame_number_map_.count(stream_id) != 0 &&
-          last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+          last_frame_number_ != NO_IN_FLIGHT_REPEATING_FRAMES) {
         // Request was submitted successfully since previous call, update.
-        last_frame_number_map_[stream_id] = last_frame_number;
+        last_frame_number_map_[stream_id] = last_frame_number_;
+
       } else if (last_frame_number_map_.count(stream_id) == 0) {
         // Newly initiated stream, request hasn't yet been submitted to HAL.
         last_frame_number_map_[stream_id] = NO_IN_FLIGHT_REPEATING_FRAMES;
       }
+      QMMF_INFO("%s:%s: last_frame_number_map_[%d]=%lld", TAG, __func__,
+          stream_id, last_frame_number_map_[stream_id]);
 
       // Update the removed stream ids that need to wait for frames to return.
       if (removed_streams.count(stream_id) != 0 &&
@@ -1420,6 +1427,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       if (ret != 0) {
         QMMF_WARN("%s:%s: Waiting for submitted frames to return, timed out!",
             TAG, __func__);
+        break;
       }
     }
   }
@@ -1458,7 +1466,10 @@ status_t CameraContext::CancelRequest() {
 
   ret = camera_device_->WaitUntilIdle();
   assert(ret == NO_ERROR);
-
+  {
+    std::lock_guard<std::mutex> aec_lock(aec_lock_);
+    aec_.Reset();
+  }
   streaming_request_id_ = -1;
   QMMF_INFO("%s:%s: Request cancelled last frame number: %lld\n", TAG,
       __func__, last_frame_mumber);
@@ -1474,6 +1485,12 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
 
   std::lock_guard<std::mutex> lock(pending_frames_lock_);
   if (removed_stream_ids_.count(buffer.stream_id) != 0) {
+    QMMF_DEBUG("%s:%s: removed_stream_ids_.size(%d)", TAG, __func__,
+        removed_stream_ids_.size());
+    QMMF_DEBUG("%s:%s: last_frame_number_map_[%d]=%lld, "
+        "buffer.frame_number: %lld", TAG, __func__,
+        buffer.stream_id, last_frame_number_map_[buffer.stream_id],
+        buffer.frame_number);
     if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
       removed_stream_ids_.erase(buffer.stream_id);
       last_frame_number_map_.erase(buffer.stream_id);
@@ -1506,7 +1523,14 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   {
     --sequence_cnt_;
     if (cancel_capture_) {
-      camera_device_->ReturnStreamBuffer(buffer);
+      status_t ret = NO_ERROR;
+      if (postproc_enable_) {
+        postproc_pipe_->PipeNotifyBufferReturn(buffer);
+      } else {
+        ret = camera_device_->ReturnStreamBuffer(buffer);
+      }
+      assert(ret == NO_ERROR);
+
       if (sequence_cnt_ == 0) {
         QMMF_INFO("%s:%s CancelCapture: Count is zero!", TAG, __func__);
         capture_count_signal_.Signal();
@@ -1685,13 +1709,30 @@ status_t CameraContext::CaptureZSLImage() {
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
 
-  QMMF_WARN("%s:%s: Camera Client: error_code: %d\n", TAG, __func__,
-            error_code);
+  QMMF_WARN("%s:%s: Camera Client: error_code:%d RequestId:%d FrameNumber:%d\n",
+      TAG, __func__, error_code, result.requestId, result.frameNumber);
+
   if (nullptr != error_cb_) {
     RecorderErrorData error_data {};
     error_data.camera_id = camera_id_;
     error_data.error_code = error_code;
     error_cb_(error_data);
+  }
+
+  std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+  if (last_frame_number_map_.size() > 0 && removed_stream_ids_.size() > 0) {
+    QMMF_DEBUG("%s:%s: last_frame_mumber.size(%d) & emoved_stream_ids_.size(%d)"
+        "& last_frame_number_(%lld)", TAG, __func__,
+        last_frame_number_map_.size(), removed_stream_ids_.size(),
+        last_frame_number_);
+    if (result.frameNumber == last_frame_number_) {
+      QMMF_WARN("%s:%s: Request corresponds to last_frame_number(%lld) is"
+       "missed! Notify pending frame wait!!", TAG, __func__,
+       last_frame_number_);
+      pending_frames_.Signal();
+      removed_stream_ids_.clear();
+      last_frame_number_map_.clear();
+    }
   }
 }
 
@@ -1741,41 +1782,42 @@ bool CameraContext::QueryPartialTag(const CameraMetadata &result,
   return true;
 }
 
-void CameraContext::HandleFinalResult(const CaptureResult &capture_result) {
-  if (nullptr != result_cb_) {
-    result_cb_(camera_id_, capture_result.metadata);
+void CameraContext::HandleFinalResult(const CaptureResult &result) {
+
+  if (result.metadata.exists(ANDROID_CONTROL_AE_STATE) &&
+      result.metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
+    auto new_state = result.metadata.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+    auto timestamp = result.metadata.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
+
+    std::lock_guard<std::mutex> lock(aec_lock_);
+    if (aec_.state != new_state) {
+      QMMF_VERBOSE("%s:%s: Camera: %d, Frame: %d, Ts: %lld AE state changed:"
+          " %d --> %d",  TAG, __func__, camera_id_,
+          result.resultExtras.frameNumber, timestamp, aec_.state, new_state);
+
+      aec_.state     = new_state;
+      aec_.timestamp = timestamp;
+      aec_state_updated_.Signal();
+    }
   }
 
   if (camera_start_params_.zsl_mode) {
     assert(zsl_port_.get() != nullptr);
     ZslPort* zsl_port = static_cast<ZslPort*>(zsl_port_.get());
-    zsl_port->HandleZSLCaptureResult(capture_result);
+    zsl_port->HandleZSLCaptureResult(result);
   }
-  PostProcAddResult(capture_result);
+  if (nullptr != result_cb_) {
+    result_cb_(camera_id_, result.metadata);
+  }
+  if (postproc_pipe_.get() != nullptr) {
+    postproc_pipe_->AddResult(&result);
+  }
   return;
 }
 
 void CameraContext::CameraResultCb(const CaptureResult &result) {
-  {
-    std::lock_guard<std::mutex> lock(aec_lock_);
-    if (!aec_done_) {
-      if (result.metadata.exists(ANDROID_CONTROL_AE_STATE)) {
-        uint8_t aec = result.metadata.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
-        if ((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
-            (aec == ANDROID_CONTROL_AE_STATE_LOCKED)) {
-          aec_done_ = true;
-          aec_signal_.Signal();
-        }
-      }
-    }
-  }
-  if (result.metadata.exists(ANDROID_REQUEST_FRAME_COUNT)) {
-    QMMF_VERBOSE("%s:%s: MetaData FrameNumber=%d", TAG, __func__,
-        result.metadata.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
-  }
 
   std::lock_guard<std::mutex> lock(partial_result_lock_);
-
   if (result.resultExtras.partialResultCount < partial_result_count_) {
 
     bool complete_result = true;
@@ -1910,6 +1952,7 @@ status_t CameraContext::PostProcDelete() {
     postproc_pipe_->Stop();
     postproc_pipe_->RemoveConsumer(GetConsumerIntf());
     DetachConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_->DeletePipe();
   }
 
   postproc_pipe_ = nullptr;
@@ -1933,7 +1976,8 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.frame_rate = frame_rate;
   out_param.image_quality = image_quality;
   out_param.gralloc_flags = stream_param.grallocFlags;
-  out_param.buffer_count = stream_param.bufferCount;
+  out_param.buffer_count = 2;
+  out_param.max_internal_buffers = 0; // unlimited
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);
@@ -1965,14 +2009,10 @@ int32_t CameraContext::PostProcStart(int32_t stream_id) {
   return NO_ERROR;
 }
 
-status_t CameraContext::PostProcAddResult(const CaptureResult &result) {
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
-  if (postproc_pipe_.get() != nullptr) {
-    postproc_pipe_->AddResult(const_cast<void*>
-                              (static_cast<void const*> (&result)));
-  }
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
-  return NO_ERROR;
+AECData CameraContext::GetAECData() {
+
+  std::lock_guard<std::mutex> lock(aec_lock_);
+  return aec_;
 }
 
 CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
@@ -2104,6 +2144,7 @@ status_t CameraPort::DeInit() {
 
   if (postproc_pipe_.get() != nullptr) {
     buffer_producer_impl_->RemoveConsumer(postproc_pipe_->GetConsumerIntf());
+    postproc_pipe_->DeletePipe();
     postproc_pipe_ = nullptr;
   }
 
@@ -2132,6 +2173,7 @@ status_t CameraPort::Start() {
 
   //TODO: protect it with lock.
   ready_to_start_ = true;
+  aec_converged_  = false;
   port_state_ = PortState::PORT_READYTOSTART;
 
   QMMF_INFO("%s:%s: track_id(%x):camera stream(%d) to start!", TAG, __func__,
@@ -2160,6 +2202,7 @@ status_t CameraPort::Stop() {
 
   //TODO: protect it with lock.
   ready_to_start_ = false;
+  aec_converged_  = false;
   port_state_ = PortState::PORT_READYTOSTOP;
 
   // Stop basically removes the stream from current running capture request,
@@ -2257,10 +2300,7 @@ PortState& CameraPort::getPortState() {
 bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
 
   uintptr_t key = reinterpret_cast<uintptr_t>(consumer.get());
-  if (consumers_.find(key) != consumers_.end()) {
-    return true;
-  }
-  return false;
+  return (consumers_.count(key) != 0) ? true : false;
 }
 
 void CameraPort::StreamCallback(StreamBuffer buffer) {
@@ -2269,21 +2309,36 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
   assert(buffer.stream_id == camera_stream_id_);
   assert(buffer_producer_impl_.get() != nullptr);
 
-  QMMF_VERBOSE("%s:%s: camera stream_id: %d, buffer: 0x%p ts: %lld "
-      "frame_number: %d\n", TAG, __func__, buffer.stream_id,
-      buffer.handle, buffer.timestamp,
-      buffer.frame_number);
+  // Assign camera id to the stream buffer.
+  buffer.camera_id = context_->camera_id_;
+
+  QMMF_VERBOSE("%s:%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
+      "frame_number: %d", TAG, __func__, buffer.camera_id, buffer.stream_id,
+      buffer.handle, buffer.timestamp, buffer.frame_number);
+
+  bool skip_frame = false;
+
+  if (params_.wait_aec_mode) {
+    // Get auto exposure data and check if initial AE has converged.
+    std::lock_guard<std::mutex> lock(aec_lock_);
+    if (!aec_converged_) {
+      auto aec = context_->GetAECData();
+      aec_converged_ = (aec.state == ANDROID_CONTROL_AE_STATE_LOCKED) ||
+                       (aec.state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      aec_timestamp_ = aec.timestamp;
+    }
+    // Raise the skip flag if AE did not converged for this buffer.
+    skip_frame = !(aec_converged_ && (buffer.timestamp >= aec_timestamp_));
+  }
 
   std::lock_guard<std::mutex> lock(consumer_lock_);
-  if(buffer_producer_impl_->GetNumConsumer() > 0) {
-    buffer.camera_id = context_->camera_id_;
+  if (buffer_producer_impl_->GetNumConsumer() > 0 && !skip_frame) {
     buffer_producer_impl_->NotifyBuffer(buffer);
   } else {
-    // Return the buffer back to camera.
-    QMMF_VERBOSE("%s:%s: No consumer, simply return buffer back to camera!",
-        TAG, __func__);
+    QMMF_VERBOSE("%s:%s: Return buffer back to camera!", TAG, __func__);
     context_->ReturnStreamBuffer(buffer);
   }
+
   QMMF_VERBOSE("%s:%s: Exit ", TAG, __func__);
 }
 

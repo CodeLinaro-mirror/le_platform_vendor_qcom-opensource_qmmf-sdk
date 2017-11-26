@@ -43,6 +43,7 @@ enum ParamTag {
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_SNAPSHOT_TYPE,
+  QMMF_VIDEO_WAIT_AEC_MODE,
 };
 
 enum class TransformFlags {
@@ -162,6 +163,16 @@ struct SnapshotType : DataTagBase {
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
       type(SnapshotMode::kStill) {}
+};
+
+struct VideoWaitAECMode : DataTagBase {
+  // Wait for initial AE, right after start of video tracks to converge
+  // before passing the frames to the client.
+  bool enable;     // Default: false
+
+  VideoWaitAECMode()
+    : DataTagBase(QMMF_VIDEO_WAIT_AEC_MODE),
+      enable(false) {}
 };
 
 }; //namespace recorder.

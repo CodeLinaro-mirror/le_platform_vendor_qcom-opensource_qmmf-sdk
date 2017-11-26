@@ -1996,6 +1996,179 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 }
 
 /*
+* StitchedHDWaitAECModeAnd480pEncTrack:
+*     This case will test a MultiCamera session with one 1920x960 and one
+*     960x480 h264 encoded tracks, configured to produce stitched frames.
+*     The HD track is configured to wait the initial AE to converge.
+*
+* Api test sequence:
+*  - CreateMultiCamera
+*  - ConfigureMultiCamera
+*  - StartCamera
+*  - CreateSession
+*   loop Start {
+*   --------------------
+*   - CreateVideoTrack 1
+*   - CreateVideoTrack 2
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack 1
+*   - DeleteVideoTrack 2
+*   --------------------
+*   } loop End
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  uint32_t stream_width = 1920;
+  uint32_t stream_height = 960;
+  float fps = 30;
+  uint32_t video_track_id_HD = 1;
+  uint32_t video_track_id_480p = 2;
+  VideoFormat format_type = VideoFormat::kAVC;
+
+  ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
+  assert(ret == NO_ERROR);
+
+  multicam_start_params_.frame_rate = fps;
+  ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
+  assert(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb =
+      [this] (EventType event_type, void *event_data,
+              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  assert(session_id > 0);
+  assert(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{multicam_id_, format_type,
+                                          stream_width,
+                                          stream_height,
+                                          fps };
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    // Set parameters for and create 1920x960 h264 encodded track.
+    stream_width  = 1920;
+    stream_height = 960;
+    video_track_param.width  = stream_width;
+    video_track_param.height = stream_height;
+
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_HD,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    VideoExtraParam extra_param;
+    VideoWaitAECMode wait_aec;
+    wait_aec.enable = true;
+    extra_param.Update(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_HD,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    assert(ret == NO_ERROR);
+
+    // Set parameters for and create 960x480 h264 encodded track.
+    stream_width  = 960;
+    stream_height = 480;
+    video_track_param.width  = stream_width;
+    video_track_param.height = stream_height;
+
+    // Set media profiles
+    video_track_param.codec_param.avc.profile = AVCProfileType::kHigh;
+    video_track_param.codec_param.avc.level   = AVCLevelType::kLevel4;
+
+    if (dump_bitstream_.IsEnabled()) {
+      Stream360DumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id_480p,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                  std::vector<BufferDescriptor> buffers,
+                                  std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void
+        { VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_HD);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(multicam_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
 * Stitched4KEncTrackWithTNR: This case will test a MultiCamera
 *                            session with 3840x1920 stitched h264 encoded track
 *                            with SW TNR enabled.
@@ -13822,7 +13995,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     extra_param.Clear();
     SurfaceCrop surface_crop;
     surface_crop.camera_id = camera_ids_.at(1);
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_crop);
+    extra_param.Update(QMMF_SURFACE_CROP, surface_crop);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,
@@ -13992,7 +14165,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     extra_param.Clear();
     SurfaceCrop surface_crop;
     surface_crop.camera_id = camera_ids_.at(1);
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_crop);
+    extra_param.Update(QMMF_SURFACE_CROP, surface_crop);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,

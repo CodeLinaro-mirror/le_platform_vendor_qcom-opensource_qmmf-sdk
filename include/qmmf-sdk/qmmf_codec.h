@@ -251,9 +251,12 @@ struct AVCParams {
     stream << "qp_params[" << qp_params.ToString() << "] ";
     stream << "ltr_count[" << ltr_count << "] ";
     stream << "hier_layer[" << hier_layer << "]";
-    stream << "prepend_sps_pps_to_idr[" << prepend_sps_pps_to_idr << "]";
-    stream << "insert_aud_delimiter[" << insert_aud_delimiter << "]";
-    stream << "sar_enabled[" << sar_enabled << "]";
+    stream << "prepend_sps_pps_to_idr[" << ::std::boolalpha
+           << prepend_sps_pps_to_idr << ::std::noboolalpha << "]";
+    stream << "insert_aud_delimiter[" << ::std::boolalpha
+           << insert_aud_delimiter << ::std::noboolalpha <<"]";
+    stream << "sar_enabled[" << ::std::boolalpha
+           << sar_enabled << ::std::noboolalpha<< "]";
     stream << "sar_width[" << sar_width << "]";
     stream << "sar_height[" << sar_height << "]";
     return stream.str();
@@ -270,6 +273,7 @@ struct HEVCParams {
   uint32_t             ltr_count;
   uint32_t             hier_layer;
   bool                 prepend_sps_pps_to_idr;
+  bool                 insert_aud_delimiter;
   bool                 sar_enabled;
   uint32_t             sar_width;
   uint32_t             sar_height;
@@ -292,8 +296,12 @@ struct HEVCParams {
     stream << "qp_params[" << qp_params.ToString() << "] ";
     stream << "ltr_count[" << ltr_count << "] ";
     stream << "hier_layer[" << hier_layer << "]";
-    stream << "prepend_sps_pps_to_idr[" << prepend_sps_pps_to_idr << "]";
-    stream << "sar_enabled[" << sar_enabled << "]";
+    stream << "prepend_sps_pps_to_idr[" << ::std::boolalpha
+           << prepend_sps_pps_to_idr << ::std::noboolalpha << "]";
+    stream << "insert_aud_delimiter[" << ::std::boolalpha
+           << insert_aud_delimiter << ::std::noboolalpha <<"]";
+    stream << "sar_enabled[" << ::std::boolalpha
+           << sar_enabled << ::std::noboolalpha<< "]";
     stream << "sar_width[" << sar_width << "]";
     stream << "sar_height[" << sar_height << "]";
     return stream.str();

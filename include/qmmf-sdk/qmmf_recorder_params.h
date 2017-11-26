@@ -284,9 +284,10 @@ struct VideoTrackCreateParam {
         break;
       default: {
         // Nothing to do for other formats
+        codec_param = {};
       }
     }
-    codec_param = {};
+
     // Setting LPM,VQZipInfo parameters
     low_power_mode = false;
     do_vqzip = false;
@@ -364,6 +365,7 @@ struct VideoTrackCreateParam {
     codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
     codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
     codec_param.hevc.ltr_count = 0;
+    codec_param.hevc.insert_aud_delimiter = true;
     codec_param.hevc.hier_layer = 0;
     codec_param.hevc.prepend_sps_pps_to_idr = false;
     codec_param.hevc.sar_enabled = false;

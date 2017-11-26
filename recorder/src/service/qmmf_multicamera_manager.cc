@@ -539,11 +539,13 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
   // Start streams in reverse order. This is needed because camera
   // context is caching our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
-  CameraStreamParam stream_param(param);
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
+    CameraStreamParam stream_param(param);
     auto &camera_surface = source_surface_.at(camera_ids[ctx_idx]);
     stream_param.cam_stream_dim.width = camera_surface.width;
     stream_param.cam_stream_dim.height = camera_surface.height;
+
+    stream_param.wait_aec_mode &= (ctx_idx == 0) ? true : false;
 
     ret = CreateCameraStream(ctx_idx, stream_param, extra_param);
     if (ret != NO_ERROR) {
@@ -2249,6 +2251,7 @@ status_t GrallocMemory::Configure(BufferParams &params) {
     FreeGrallocBuffer(it.first);
   }
   gralloc_buffers_.clear();
+  buffers_allocated_ = 0;
 
   params_ = params;
 

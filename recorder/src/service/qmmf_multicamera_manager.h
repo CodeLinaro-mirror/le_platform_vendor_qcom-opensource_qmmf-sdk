@@ -35,7 +35,6 @@
 #include <future>
 #include <mutex>
 
-#include <utils/Log.h>
 #include <qcom/display/gralloc_priv.h>
 #include <qmmf-plugin/qmmf_alg_intf.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>

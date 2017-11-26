@@ -88,6 +88,8 @@ class PostProcAlg : public IPostProcModule,
 
  private:
 
+  static const int32_t kBufCount = 3; // count for buffer rotation
+
   PixelFormat GetAlgFormat(BufferFormat format);
 
   BufferFormat GetQmmfFormat(PixelFormat format);

@@ -60,8 +60,7 @@ DisplayError DisplayBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
     return kErrorMemory;
   }
 
-  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP|
-      GRALLOC_USAGE_SW_WRITE_OFTEN|GRALLOC_USAGE_SW_READ_OFTEN);
+  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
   int error = 0;
 
   int width = INT(buffer_config.width);
@@ -92,6 +91,8 @@ DisplayError DisplayBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
       alloc_flags, aligned_width, aligned_height);
 
   buffer_size = ROUND_UP(buffer_size, data.align) * buffer_config.buffer_count;
+
+  QMMF_DEBUG("%s: buffer size is = %u",__func__, buffer_size);
 
   data.base = 0;
   data.fd = -1;
@@ -228,6 +229,7 @@ DisplayError DisplayBufferAllocator::GetBufferInfo(BufferInfo *buffer_info,
 
 int DisplayBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
     int *flags) {
+
   switch (format) {
   case kFormatRGBA8888:                 *target = HAL_PIXEL_FORMAT_RGBA_8888;             break;
   case kFormatRGBX8888:                 *target = HAL_PIXEL_FORMAT_RGBX_8888;             break;

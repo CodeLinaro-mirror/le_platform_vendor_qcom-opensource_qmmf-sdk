@@ -74,6 +74,9 @@ PostProcAlg::~PostProcAlg() {
 
   buffs_.clear();
 
+  delete algo_;
+  algo_ = nullptr;
+
   try {
     Utils::UnloadLib(lib_handle_);
   } catch (const std::exception &e) {
@@ -130,6 +133,24 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   input_param.stride   = requirements.stride_;
   input_param.scanline = requirements.scanline_;
   input_param.format   = GetQmmfFormat(requirements.formats_.front());
+
+  Capabilities caps = algo_->GetCaps();
+
+  // set number of needed buffer for rotation
+  if (caps.inplace_processing_) {
+    // increase buffer count if algo is in place
+    input_param.buffer_count += caps.out_buffer_requirements_.count_;
+  } else {
+    // set buffer count if algo is not in place
+    input_param.buffer_count =
+      kBufCount + caps.in_buffer_requirements_.count_;
+  }
+
+  // set number of needed buffer for rotation if client does not limit it
+  if (out.buffer_max > 0 &&
+      out.buffer_max < input_param.buffer_count) {
+    input_param.buffer_count = out.buffer_max;
+  }
 
   return input_param;
 }
@@ -219,8 +240,6 @@ status_t PostProcAlg::Delete() {
   QMMF_INFO("%s:%s: Enter ", TAG, __func__);
 
   algo_->Abort();
-  delete algo_;
-  algo_ = nullptr;
 
   reprocess_flag_ = false;
   ready_to_start_ = false;

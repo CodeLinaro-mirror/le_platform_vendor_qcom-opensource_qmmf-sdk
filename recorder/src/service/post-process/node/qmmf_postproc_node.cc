@@ -60,13 +60,6 @@ PostProcNode::PostProcNode(int32_t Id, std::string name,
 PostProcNode::~PostProcNode() {
   QMMF_INFO("%s:%s: Enter %s", TAG, __func__, name_.c_str());
 
-  in_.RequestExitAndWait();
-  in_.UnMapBufs();
-
-  out_.RequestExitAndWait();
-
-  module_->Delete();
-
   if (mem_pool_.get() != nullptr) {
     mem_pool_ = nullptr;
   }
@@ -116,6 +109,28 @@ status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
   QMMF_VERBOSE("%s:%s:%s: Exit id: %d", TAG, __func__, name_.c_str(), id_);
 
   state_ = PostProcNodeState::INITIALIZED;
+  return NO_ERROR;
+}
+
+status_t PostProcNode::Delete() {
+  QMMF_INFO("%s:%s: Enter %s", TAG, __func__, name_.c_str());
+  std::lock_guard<std::mutex> lock(state_lock_);
+  if (state_ != PostProcNodeState::INITIALIZED) {
+    QMMF_ERROR("%s:%s: wrong state: %d", TAG, __func__, state_);
+    return BAD_VALUE;
+  }
+
+  in_.RequestExitAndWait();
+  in_.UnMapBufs();
+
+  out_.RequestExitAndWait();
+
+  module_->Delete();
+  mem_pool_->Delete();
+
+  state_ = PostProcNodeState::CREATED;
+
+  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
   return NO_ERROR;
 }
 
@@ -413,7 +428,8 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
   while (bufs_list_.empty()) {
     auto ret = wait_.WaitFor(lock, wait_time);
     if (ret != 0) {
-      QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
+      QMMF_DEBUG("%s:%s:%s: Wait for frame available timed out", TAG, __func__,
+        node_->name_.c_str());
       return BAD_VALUE;
     }
   }
@@ -440,8 +456,11 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
   }
 
   for (auto buff : in_buffs) {
+    status_t ret = NO_ERROR;
     StreamBuffer out_buff{};
-    auto ret = node_->mem_pool_->GetBuffer(&out_buff);
+    do {
+      ret = node_->mem_pool_->GetBuffer(&out_buff);
+    } while (ret == TIMED_OUT && node_->state_ == PostProcNodeState::ACTIVE);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s:%s:%s: fail to get buffer", TAG, __func__,
           node_->name_.c_str());

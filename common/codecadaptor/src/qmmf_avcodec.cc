@@ -519,29 +519,21 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   VideoRateControlType rate_control;
 
   PrependSPSPPSToIDRFramesParams param;
-  memset(&param, 0, sizeof(PrependSPSPPSToIDRFramesParams));
-  param.nSize = sizeof(PrependSPSPPSToIDRFramesParams);
+  InitOMXParams(&param);
   param.bEnable = OMX_FALSE;
+
+  OMX_QCOM_VIDEO_CONFIG_AUD param_aud;
+  InitOMXParams(&param_aud);
+  param_aud.bEnable = OMX_FALSE;
+
   switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
       if (codec_param.video_enc_param.codec_param.avc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
       }
 
-      OMX_QCOM_VIDEO_CONFIG_AUD param_aud;
-      memset(&param_aud, 0, sizeof(param_aud));
-      param_aud.nSize = sizeof(OMX_QCOM_VIDEO_CONFIG_AUD);
-      param_aud.bEnable = OMX_FALSE;
       if (codec_param.video_enc_param.codec_param.avc.insert_aud_delimiter) {
         param_aud.bEnable = OMX_TRUE;
-      }
-      ret = omx_client_->SetParameter(
-          static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamAUDelimiter),
-          reinterpret_cast<OMX_PTR>(&param_aud));
-      if (ret != OMX_ErrorNone) {
-          QMMF_ERROR("%s:%s Failed to configure AUD delimiter",
-                     TAG, __func__);
-          return ret;
       }
 
       if (codec_param.video_enc_param.codec_param.avc.sar_enabled) {
@@ -559,6 +551,10 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     case VideoFormat::kHEVC:
       if (codec_param.video_enc_param.codec_param.hevc.prepend_sps_pps_to_idr) {
         param.bEnable = OMX_TRUE;
+      }
+
+      if (codec_param.video_enc_param.codec_param.hevc.insert_aud_delimiter) {
+        param_aud.bEnable = OMX_TRUE;
       }
 
       if (codec_param.video_enc_param.codec_param.hevc.sar_enabled) {
@@ -581,8 +577,16 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamSequenceHeaderWithIDR),
       reinterpret_cast<OMX_PTR>(&param));
   if (ret != 0) {
-      QMMF_ERROR("%s:%s Failed to configure in band sps/pps", TAG, __func__);
-      return ret;
+    QMMF_ERROR("%s:%s Failed to configure in band sps/pps", TAG, __func__);
+    return ret;
+  }
+
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamAUDelimiter),
+      reinterpret_cast<OMX_PTR>(&param_aud));
+  if (ret != OMX_ErrorNone) {
+    QMMF_ERROR("%s:%s Failed to configure AUD delimiter", TAG, __func__);
+    return ret;
   }
 
   ret = SetPortParams(kPortIndexInput, width, height, frame_rate);
