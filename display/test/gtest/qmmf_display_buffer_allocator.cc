@@ -59,8 +59,7 @@ DisplayError DisplayBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
     return kErrorMemory;
   }
 
-  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP|
-      GRALLOC_USAGE_SW_WRITE_OFTEN|GRALLOC_USAGE_SW_READ_OFTEN);
+  int alloc_flags = INT(GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
   int error = 0;
 
   int width = INT(buffer_config.width);

@@ -399,6 +399,12 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   layer->solid_fill_color = surface_param.solid_fill_color;
   layer->flags.solid_fill = 0;
   layer->flags.cursor = 0;
+  layer->transform.rotation = surface_config.surface_transform.rotation;
+  layer->transform.flip_horizontal =
+      surface_config.surface_transform.flip_horizontal;
+  layer->transform.flip_vertical =
+      surface_config.surface_transform.flip_vertical;
+  layer->plane_alpha = 0xFF;
 
   LayerStack* layer_stack = GetLayerStack(display_handle, 0);
   layer_stack->flags.flags=0;
@@ -616,8 +622,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->flags.solid_fill = surface_param.surface_flags.solid_fill;
   layer->flags.cursor = surface_param.surface_flags.cursor;
   layer->input_buffer.planes[0].fd = surface_buffer.plane_info[0].ion_fd;
-  QMMF_DEBUG("%s:%s Value of Buffer Ion_Fd", TAG,
-                __func__, surface_buffer.plane_info[0].ion_fd);
+  QMMF_DEBUG("%s:%s Value of Buffer Ion_Fd = %u", TAG, __func__,
+      surface_buffer.plane_info[0].ion_fd);
   layer->input_buffer.buffer_id = surface_buffer.buf_id;
   layer->flags.updating = true;
   if (surfaceinfo->second->buffer_internal) {
@@ -670,7 +676,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
       bufferinfo->alloc_buffer_info.fd = surface_buffer.plane_info[0].ion_fd;
       QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
           "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
-          it->second->queued, it->second->dequed, it->second->commited);
+          bufiduse->queued, bufiduse->dequed, bufiduse->commited);
       bufferinfo->alloc_buffer_info.stride =
           surface_buffer.plane_info[0].stride;
       bufferinfo->alloc_buffer_info.size = surface_buffer.plane_info[0].size;
