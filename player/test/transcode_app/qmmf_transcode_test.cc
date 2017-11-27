@@ -189,6 +189,8 @@ CmdMenu::Command CmdMenu::GetCommand() {
 }
 
 int main() {
+  QMMF_GET_LOG_LEVEL();
+
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
   TranscodeTest* test_context_ptr = nullptr;

@@ -60,6 +60,8 @@
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/client/qmmf_system_params_internal.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 namespace system {
 
@@ -81,6 +83,7 @@ SystemClient::SystemClient()
     : system_service_(nullptr),
       death_notifier_(nullptr),
       system_handle_(-1) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   sp<ProcessState> proc(ProcessState::self());

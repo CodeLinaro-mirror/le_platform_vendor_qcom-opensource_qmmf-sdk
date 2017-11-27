@@ -410,7 +410,7 @@ int32_t Camera3Stream::GetBuffer(camera3_stream_buffer *buffer) {
   }
 
   if (GetPendingBufferCountLocked() == total_buffer_count_) {
-      QMMF_DEBUG(
+    QMMF_DEBUG(
         "%s: Already retrieved maximum buffers (%d), waiting on a"
         "free one\n",
         __func__, total_buffer_count_);

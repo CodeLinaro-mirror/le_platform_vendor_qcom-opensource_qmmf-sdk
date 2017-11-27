@@ -73,6 +73,7 @@ RecorderClient::RecorderClient()
                 , death_notifier_(nullptr)
                 , ion_device_(-1)
                 , metadata_cb_(nullptr) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
@@ -2241,6 +2242,7 @@ IMPLEMENT_META_INTERFACE(RecorderService, QMMF_RECORDER_SERVICE_NAME);
 
 ServiceCallbackHandler::ServiceCallbackHandler(RecorderClient* client)
     : client_(client) {
+    QMMF_GET_LOG_LEVEL();
     QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
     QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
 }

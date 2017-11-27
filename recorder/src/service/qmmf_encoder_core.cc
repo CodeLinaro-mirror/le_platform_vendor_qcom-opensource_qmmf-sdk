@@ -66,6 +66,7 @@ EncoderCore* EncoderCore::CreateEncoderCore() {
 
 EncoderCore::EncoderCore() : ion_device_(-1) {
 
+  QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
@@ -283,6 +284,7 @@ TrackEncoder::TrackEncoder(int32_t ion_device)
       prevtv_{0, 0},
       count_(0) {
 
+  QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
   char prop_val[PROPERTY_VALUE_MAX];

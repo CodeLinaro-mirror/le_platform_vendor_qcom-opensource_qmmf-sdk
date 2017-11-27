@@ -73,7 +73,7 @@ CameraSource* CameraSource::CreateCameraSource() {
 }
 
 CameraSource::CameraSource() {
-
+  QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
@@ -1013,7 +1013,8 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       time_lapse_mode_(false),
       time_stamp_(0),
       num_consumers_(0),
-      rotation_(0){
+      rotation_(0) {
+  QMMF_GET_LOG_LEVEL();
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);

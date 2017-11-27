@@ -38,7 +38,7 @@ namespace recorder {
 
 RecorderService::RecorderService()
     : recorder_(nullptr), unique_client_id_(0) {
-
+  QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_INFO("%s:%s: RecorderService Instantiated! ", TAG, __func__);
   QMMF_KPI_DETAIL();

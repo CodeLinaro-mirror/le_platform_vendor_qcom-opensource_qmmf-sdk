@@ -44,6 +44,8 @@
 #include "player/src/client/qmmf_player_client.h"
 #include "player/src/client/qmmf_player_service_intf.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 namespace player {
 
@@ -64,6 +66,7 @@ using namespace android;
 PlayerClient::PlayerClient()
     : player_service_(nullptr), death_notifier_(nullptr),
       ion_device_(-1) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();

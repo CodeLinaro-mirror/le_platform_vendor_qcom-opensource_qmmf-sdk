@@ -1140,7 +1140,9 @@ CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
-int main(int argc,char *argv[]) {
+int main(int argc, char* argv[]) {
+  QMMF_GET_LOG_LEVEL();
+
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   PlayerTest test_context(argv[1]);

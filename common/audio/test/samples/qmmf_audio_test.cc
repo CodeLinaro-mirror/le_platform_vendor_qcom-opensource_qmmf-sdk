@@ -534,7 +534,9 @@ using ::qmmf_test::common::audio::CommandMenu;
 using ::std::cout;
 using ::std::endl;
 
-int main(const int argc, const char * const argv[]) {
+int main(const int argc, const char* const argv[]) {
+  QMMF_GET_LOG_LEVEL();
+
   QMMF_INFO("%s: %s() TRACE", TAG, __func__);
   AudioTest test;
   CommandMenu menu;

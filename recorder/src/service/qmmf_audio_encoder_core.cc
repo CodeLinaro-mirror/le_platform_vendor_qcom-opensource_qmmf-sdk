@@ -78,6 +78,7 @@ AudioEncoderCore* AudioEncoderCore::CreateAudioEncoderCore() {
 }
 
 AudioEncoderCore::AudioEncoderCore() {
+  QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
@@ -317,6 +318,7 @@ status_t AudioEncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 
 AudioTrackEncoder::AudioTrackEncoder()
     : avcodec_(nullptr) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 }
 

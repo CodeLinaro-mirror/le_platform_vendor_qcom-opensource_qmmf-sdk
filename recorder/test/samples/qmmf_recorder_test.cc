@@ -40,6 +40,7 @@
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
+#include "common/utils/qmmf_log.h"
 
 volatile uint32_t kpi_debug_mask = KPI_DISABLE;
 //#define DEBUG
@@ -6528,7 +6529,7 @@ CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
 }
 
 int main(int argc,char *argv[]) {
-
+  QMMF_GET_LOG_LEVEL();
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   RecorderTest test_context;

@@ -65,6 +65,7 @@ RecorderImpl::RecorderImpl()
     audio_source_(nullptr),
     audio_encoder_core_(nullptr){
 
+    QMMF_GET_LOG_LEVEL();
     QMMF_KPI_GET_MASK();
     QMMF_KPI_DETAIL();
     QMMF_INFO("%s:%s: Enter", TAG, __func__);

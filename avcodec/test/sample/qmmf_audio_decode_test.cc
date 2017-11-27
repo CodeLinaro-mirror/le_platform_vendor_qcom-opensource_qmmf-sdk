@@ -1443,7 +1443,8 @@ CmdMenu::Command CmdMenu::GetCommand() {
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
-int main(int argc,char *argv[]) {
+int main(int argc, char* argv[]) {
+  QMMF_GET_LOG_LEVEL();
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 

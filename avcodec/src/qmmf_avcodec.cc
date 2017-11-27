@@ -32,11 +32,14 @@
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "common/codecadaptor/src/qmmf_jpeg_encode.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 namespace avcodec {
 
 IAVCodec* IAVCodec::CreateAVCodec(CodecMimeType mimetype) {
   IAVCodec* instance = nullptr;
+  QMMF_GET_LOG_LEVEL();
   if (mimetype == CodecMimeType::kMimeTypeJPEG)
     instance = new JPEGEncoder();
   else

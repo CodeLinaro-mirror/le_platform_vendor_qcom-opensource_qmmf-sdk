@@ -43,6 +43,8 @@ extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 namespace cameraadaptor {
@@ -73,6 +75,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_raw_only_(false),
       hfr_mode_enabled_(false),
       prepare_handler_() {
+  QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
   camera_module_callbacks_t::camera_device_status_change = &deviceStatusChange;

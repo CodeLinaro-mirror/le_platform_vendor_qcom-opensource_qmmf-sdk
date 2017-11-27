@@ -39,6 +39,8 @@ using ::std::make_shared;
 static const int32_t kIterationCount = 50;
 static const int32_t kRecordDuration = 2; // 2 min for each iteration.
 
+CodecGtest::CodecGtest() { QMMF_GET_LOG_LEVEL(); }
+
 void CodecGtest::SetUp() {
 
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
@@ -338,8 +340,8 @@ void CodecGtest::TearDown() {
 }
 
 InputCodecSourceImpl::InputCodecSourceImpl() {
-
-  QMMF_INFO("%s:%s  Enter",TAG, __func__);
+  QMMF_GET_LOG_LEVEL();
+  QMMF_INFO("%s:%s  Enter", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }
 
@@ -430,7 +432,7 @@ void InputCodecSourceImpl::BufferStatus() {
 }
 
 OutputCodecSourceImpl::OutputCodecSourceImpl() {
-
+  QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   QMMF_INFO("%s:%s Exit", TAG, __func__);
 }

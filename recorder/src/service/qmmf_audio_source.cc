@@ -62,6 +62,7 @@ AudioSource* AudioSource::CreateAudioSource() {
 }
 
 AudioSource::AudioSource() {
+  QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();

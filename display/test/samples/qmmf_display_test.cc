@@ -32,6 +32,8 @@
 #include <utils/Log.h>
 #include <utils/String8.h>
 #include <assert.h>
+#include <cutils/properties.h>
+#include <common/utils/qmmf_log.h>
 
 #include "qmmf_display_test.h"
 
@@ -64,7 +66,6 @@ DisplayTest::~DisplayTest() {
 }
 
 int32_t DisplayTest::Connect() {
-
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   auto ret = display_->Connect();
@@ -305,6 +306,8 @@ CmdMenu::Command CmdMenu::GetCommand()
 
 int main(int argc,char *argv[])
 {
+  QMMF_GET_LOG_LEVEL();
+
   TEST_INFO("%s:%s: Enter", TAG, __func__);
 
   DisplayTest test_context;

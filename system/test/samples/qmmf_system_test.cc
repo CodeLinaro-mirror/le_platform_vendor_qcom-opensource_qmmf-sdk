@@ -479,6 +479,7 @@ using ::std::cout;
 using ::std::endl;
 
 int main(const int argc, const char * const argv[]) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s: %s() TRACE", TAG, __func__);
   SystemTest test;
   CommandMenu menu;

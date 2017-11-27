@@ -44,6 +44,8 @@
 #include "display/src/client/qmmf_display_client.h"
 #include "display/src/service/qmmf_display_common.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 namespace display {
@@ -66,6 +68,7 @@ DisplayClient::DisplayClient()
     , ion_device_(-1)
     , display_handle_(-1)
 {
+  QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s:%s Enter ", TAG, __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();

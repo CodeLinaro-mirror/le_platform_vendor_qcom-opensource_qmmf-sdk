@@ -58,6 +58,8 @@
 #include "common/utils/qmmf_device_internal.h"
 #include "common/utils/qmmf_log.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 namespace common {
 namespace audio {
@@ -81,6 +83,7 @@ AudioEndPointClient::AudioEndPointClient()
       audio_service_(nullptr),
       death_notifier_(nullptr),
       audio_handle_(-1) {
+  QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,

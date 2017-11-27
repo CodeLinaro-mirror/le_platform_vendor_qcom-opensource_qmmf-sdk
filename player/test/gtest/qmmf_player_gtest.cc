@@ -51,6 +51,8 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
+PlayerGtest::PlayerGtest() : player_() { QMMF_GET_LOG_LEVEL(); }
+
 void PlayerGtest::GetGTestParams()
 {
   char prop[PROPERTY_VALUE_MAX];
