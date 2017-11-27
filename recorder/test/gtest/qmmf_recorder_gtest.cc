@@ -14010,6 +14010,157 @@ TEST_F(RecorderGtest, SessionWith4kEncWithSliceModeAUDAndSPSPPSEnabled) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SmoothZoomWith1080pEncTrack: This test will test SmoothZoom with 1080p h264 track.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - SmoothZoom apply
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  float zoom = 2.5f;
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            width,
+                                            height,
+                                            30};
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      assert(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    // Record a few seconds
+    sleep(5);
+
+    CameraMetadata video_meta;
+    ret = recorder_.GetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+
+    int32_t crop[4];
+    int32_t width = 0;
+    int32_t height = 0;
+
+    if (video_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      width =
+        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
+      height =
+        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
+    }
+    assert (width && height > 0);
+
+    crop[2] = static_cast<int32_t>(width / zoom);
+    crop[3] = (crop[2] * height / width);
+    crop[0] = (width - crop[2]) / 2;
+    crop[1] = (height - crop[3]) / 2;
+    ret = video_meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+
+    sleep(5);
+
+    crop[2] = width;
+    crop[3] = (crop[2] * height / width);
+    crop[0] = (width - crop[2]) / 2;
+    crop[1] = (height - crop[3]) / 2;
+    ret = video_meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    assert(ret == NO_ERROR);
+
+    sleep(5);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {
