@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "SystemTest"
+#define LOG_TAG "SystemTest"
 
 #include "system/test/samples/qmmf_system_test.h"
 
@@ -84,17 +84,17 @@ SystemTest::SystemTest()
       tone_volume_(100),
       mic_mute_(false),
       thread_(nullptr) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_INFO("%s: %s() test instantiated", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_INFO("%s() test instantiated", __func__);
 }
 
 SystemTest::~SystemTest() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_INFO("%s: %s() test destroyed", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_INFO("%s() test destroyed", __func__);
 }
 
 void SystemTest::Connect() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   SystemCb error_handler =
     [this] (const int32_t error) -> void {
@@ -106,14 +106,14 @@ void SystemTest::Connect() {
 }
 
 void SystemTest::Disconnect() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   status_t result = system_.Disconnect();
   assert(result == 0);
 }
 
 void SystemTest::EnableDeviceEvents() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   DeviceCb device_handler =
     [this] (const DeviceInfo& device) -> void {
@@ -125,7 +125,7 @@ void SystemTest::EnableDeviceEvents() {
 }
 
 void SystemTest::QueryDevices() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   vector<DeviceInfo> devices;
   status_t result = system_.QueryDeviceInfo(&devices);
@@ -143,7 +143,7 @@ void SystemTest::QueryDevices() {
 }
 
 void SystemTest::EnableSoundTrigger() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   status_t result;
 
   FILE *fp = fopen("/data/misc/qmmf/system_trigger.uim", "rb");
@@ -152,18 +152,18 @@ void SystemTest::EnableSoundTrigger() {
   fseek(fp, 0, SEEK_END);
   long size = ftell(fp);
   fseek(fp, 0, SEEK_SET);
-  QMMF_DEBUG("%s: %s() size[%ld]", TAG, __func__, size);
+  QMMF_DEBUG("%s() size[%ld]", __func__, size);
 
   SoundModel sound_model;
   sound_model.keywords = 1;
   sound_model.size = size;
   sound_model.data = malloc(sound_model.size);
   assert(sound_model.data != nullptr);
-  QMMF_DEBUG("%s: %s() sound_model[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() sound_model[%s]", __func__,
              sound_model.ToString().c_str());
 
   size_t bytes_read = fread(sound_model.data, 1, sound_model.size, fp);
-  QMMF_DEBUG("%s: %s() bytes_read[%zd]", TAG, __func__, bytes_read);
+  QMMF_DEBUG("%s() bytes_read[%zd]", __func__, bytes_read);
   assert(bytes_read == sound_model.size);
 
   result = system_.LoadSoundModel(sound_model);
@@ -189,7 +189,7 @@ void SystemTest::EnableSoundTrigger() {
 }
 
 void SystemTest::EnableSoundTriggerLAB() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   status_t result;
 
   FILE *fp = fopen("/data/misc/qmmf/system_trigger.uim", "rb");
@@ -198,18 +198,18 @@ void SystemTest::EnableSoundTriggerLAB() {
   fseek(fp, 0, SEEK_END);
   long size = ftell(fp);
   fseek(fp, 0, SEEK_SET);
-  QMMF_DEBUG("%s: %s() size[%ld]", TAG, __func__, size);
+  QMMF_DEBUG("%s() size[%ld]", __func__, size);
 
   SoundModel sound_model;
   sound_model.keywords = 1;
   sound_model.size = size;
   sound_model.data = malloc(sound_model.size);
   assert(sound_model.data != nullptr);
-  QMMF_DEBUG("%s: %s() sound_model[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() sound_model[%s]", __func__,
              sound_model.ToString().c_str());
 
   size_t bytes_read = fread(sound_model.data, 1, sound_model.size, fp);
-  QMMF_DEBUG("%s: %s() bytes_read[%zd]", TAG, __func__, bytes_read);
+  QMMF_DEBUG("%s() bytes_read[%zd]", __func__, bytes_read);
   assert(bytes_read == sound_model.size);
 
   result = system_.LoadSoundModel(sound_model);
@@ -235,7 +235,7 @@ void SystemTest::EnableSoundTriggerLAB() {
 }
 
 void SystemTest::DisableSoundTrigger() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   status_t result;
 
   result = system_.DisableSoundTrigger();
@@ -246,7 +246,7 @@ void SystemTest::DisableSoundTrigger() {
 }
 
 void SystemTest::PlayTone(const bool multi_tone) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   assert(thread_ == nullptr);
 
@@ -260,7 +260,7 @@ void SystemTest::PlayTone(const bool multi_tone) {
 }
 
 void SystemTest::AdjustToneVolume(const int32_t adjustment) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   tone_volume_ += adjustment;
 
@@ -275,7 +275,7 @@ void SystemTest::AdjustToneVolume(const int32_t adjustment) {
 }
 
 void SystemTest::ToggleMicMute() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   mic_mute_ = !mic_mute_;
 
@@ -288,15 +288,15 @@ void SystemTest::ToggleMicMute() {
 }
 
 void SystemTest::ErrorHandler(const int32_t error) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: error[%d]", __func__, error);
 
   assert(false);
 }
 
 void SystemTest::DeviceHandler(const DeviceInfo& device) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: device[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: device[%s]", __func__,
                device.ToString().c_str());
 
   cout << endl;
@@ -305,9 +305,9 @@ void SystemTest::DeviceHandler(const DeviceInfo& device) {
 
 void SystemTest::TriggerHandler(const int32_t error,
                                 const BufferDescriptor& buffer) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: error[%d]", __func__, error);
+  QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                buffer.ToString().c_str());
 
   if (error == 0) {
@@ -330,8 +330,8 @@ void SystemTest::TriggerHandler(const int32_t error,
 }
 
 void SystemTest::ToneHandler(const int32_t error) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: error[%d]", __func__, error);
 
   SystemMessage message;
   message.type = SystemMessageType::kMessageToneFinished;
@@ -353,13 +353,13 @@ void SystemTest::ToneHandler(const int32_t error) {
 }
 
 void SystemTest::StaticThreadEntry(SystemTest* test) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   test->ToneThread();
 }
 
 void SystemTest::ToneThread() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   bool keep_running = true;
   int32_t iresult;
   status_t result;
@@ -418,8 +418,8 @@ void SystemTest::ToneThread() {
           break;
 
         case SystemMessageType::kMessageToneFinished:
-          QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: result[%d]", TAG, __func__,
+          QMMF_DEBUG("%s-MessageBuffer() TRACE", __func__);
+          QMMF_VERBOSE("%s() INPARAM: result[%d]", __func__,
                        message.result);
           keep_running = false;
           break;
@@ -480,7 +480,7 @@ using ::std::endl;
 
 int main(const int argc, const char * const argv[]) {
   QMMF_GET_LOG_LEVEL();
-  QMMF_INFO("%s: %s() TRACE", TAG, __func__);
+  QMMF_INFO("%s() TRACE", __func__);
   SystemTest test;
   CommandMenu menu;
 

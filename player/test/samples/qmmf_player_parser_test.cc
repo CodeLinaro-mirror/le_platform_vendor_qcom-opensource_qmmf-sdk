@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "PlayerParserTest"
+#define LOG_TAG "PlayerParserTest"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -65,8 +65,8 @@ void PlayerTest::PlayerHandler(EventType event_type,
                                void* event_data,
                                size_t event_data_size)
 {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
 
   if (event_type == EventType::kStopped) {
@@ -79,29 +79,29 @@ void PlayerTest::PlayerHandler(EventType event_type,
     printf("\nPlayback has finished.\n");
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::AudioTrackHandler(uint32_t track_id,
                                    EventType event_type,
                                    void* event_data,
                                    size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s:%s track_id[%u]", TAG, __func__, track_id);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::VideoTrackHandler(uint32_t track_id,
                                    EventType event_type,
                                    void* event_data,
                                    size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s:%s track_id[%u]", TAG, __func__, track_id);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 PlayerTest::PlayerTest()
@@ -115,17 +115,17 @@ PlayerTest::PlayerTest()
       g711_file_io_(nullptr),
       amr_file_io_(nullptr),
       mp3_file_io_(nullptr) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 PlayerTest::~PlayerTest() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Connect() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   PlayerCb callback;
   callback.event_cb = [this](EventType event_type,
@@ -137,20 +137,20 @@ void PlayerTest::Connect() {
   auto result = player_.Connect(callback);
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Disconnect() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   auto result = player_.Disconnect();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Prepare() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   auto result = 0;
 
@@ -180,11 +180,11 @@ void PlayerTest::Prepare() {
 
   start_again_ = false;
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto result = 0;
 
   switch(filetype_)
@@ -193,47 +193,47 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param) {
       pcm_file_io_ = new PCMfileIO(filename_);
       result = pcm_file_io_->Fillparams(&audio_track_param);
       if (result != NO_ERROR)
-        TEST_INFO("%s:%s Could not fill the PCM params", TAG, __func__);
+        TEST_INFO("%s Could not fill the PCM params", __func__);
       break;
 
     case AudioFileType::kAAC:
       aac_file_io_ = new AACfileIO(filename_);
       result = aac_file_io_->Fillparams(&audio_track_param);
       if (result != NO_ERROR)
-        TEST_INFO("%s:%s Could not fill the AAC params", TAG, __func__);
+        TEST_INFO("%s Could not fill the AAC params", __func__);
       break;
 
     case AudioFileType::kG711:
       g711_file_io_ = new G711fileIO(filename_);
       result = g711_file_io_->Fillparams(&audio_track_param);
       if (result != NO_ERROR)
-        TEST_INFO("%s:%s Could not fill the G711 params", TAG, __func__);
+        TEST_INFO("%s Could not fill the G711 params", __func__);
       break;
 
     case AudioFileType::kAMR:
       amr_file_io_ = new AMRfileIO(filename_);
       result = amr_file_io_->Fillparams(&audio_track_param);
       if (result != NO_ERROR)
-        TEST_INFO("%s:%s Could not fill the AMR params", TAG, __func__);
+        TEST_INFO("%s Could not fill the AMR params", __func__);
       break;
 
     case AudioFileType::kMP3:
       mp3_file_io_ = new MP3fileIO(filename_);
       result = mp3_file_io_->Fillparams(&audio_track_param);
       if (result != NO_ERROR)
-        TEST_INFO("%s:%s Could not fill the MP3 params", TAG, __func__);
+        TEST_INFO("%s Could not fill the MP3 params", __func__);
       break;
 
     default:
       break;
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
   return result;
 }
 
 void PlayerTest::Start() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   auto result = 0;
 
@@ -259,17 +259,17 @@ void PlayerTest::Start() {
   thread_ = new thread(PlayerTest::ThreadEntry, this);
   assert(thread_ != nullptr);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::ThreadEntry(PlayerTest* player_test) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   player_test->Thread();
 }
 
 void PlayerTest::Thread() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto ret = 0;
   uint32_t track_id_1 = 1;
   uint32_t result = 0;
@@ -321,8 +321,8 @@ void PlayerTest::Thread() {
 
       if (result != 0) {
         // EOF reached
-        TEST_INFO("%s:%s: File read completed result is %d",
-                  TAG, __func__, result);
+        TEST_INFO("%s: File read completed result is %d",
+                  __func__, result);
         buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
 
         {
@@ -331,9 +331,9 @@ void PlayerTest::Thread() {
         }
       }
 
-      TEST_DBG("%s:%s: filled_size %d", TAG, __func__, buffer.filled_size);
-      TEST_DBG("%s:%s: buffer size %d", TAG, __func__, buffer.size);
-      TEST_DBG("%s:%s: vaddr 0x%p", TAG, __func__, buffer.data);
+      TEST_DBG("%s: filled_size %d", __func__, buffer.filled_size);
+      TEST_DBG("%s: buffer size %d", __func__, buffer.size);
+      TEST_DBG("%s: vaddr 0x%p", __func__, buffer.data);
 
       ret = player_.QueueInputBuffer(track_id_1, buffers, nullptr, 0,
                                      TrackMetaBufferType::kNone);
@@ -352,11 +352,11 @@ void PlayerTest::Thread() {
 
   start_again_ = true;
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Stop() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   {
     std::lock_guard<std::mutex> lock(lock_);
@@ -372,11 +372,11 @@ void PlayerTest::Stop() {
     thread_ = nullptr;
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Pause() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (state_ == State::kRunning) state_ = State::kPaused;
@@ -384,12 +384,12 @@ void PlayerTest::Pause() {
   auto result = player_.Pause();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Resume()
 {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (state_ == State::kPaused) state_ = State::kRunning;
@@ -397,26 +397,26 @@ void PlayerTest::Resume()
   auto result = player_.Resume();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::SetPosition() {
-  TEST_ERROR("%s:%s: not implemented", TAG, __func__);
+  TEST_ERROR("%s: not implemented", __func__);
   assert(false);
 }
 
 void PlayerTest::SetTrickMode() {
-  TEST_ERROR("%s:%s: not implemented", TAG, __func__);
+  TEST_ERROR("%s: not implemented", __func__);
   assert(false);
 }
 
 void PlayerTest::GrabPicture() {
-  TEST_ERROR("%s:%s: not implemented", TAG, __func__);
+  TEST_ERROR("%s: not implemented", __func__);
   assert(false);
 }
 
 void PlayerTest::Delete() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   if (thread_ != nullptr) {
     thread_->join();
@@ -428,11 +428,11 @@ void PlayerTest::Delete() {
   auto result = player_.DeleteAudioTrack(track_id_1);
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::AdjustVolume(const int32_t adjustment) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   volume_ += adjustment;
@@ -452,7 +452,7 @@ void PlayerTest::AdjustVolume(const int32_t adjustment) {
     assert(result == NO_ERROR);
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void CmdMenu::PrintMenu() {
@@ -486,7 +486,7 @@ CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
 int main(int argc, char* argv[]) {
   QMMF_GET_LOG_LEVEL();
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   PlayerTest test_context;
 
@@ -499,7 +499,7 @@ int main(int argc, char* argv[]) {
     test_context.filename_ = argv[1];
     char *extn = strrchr(argv[1], '.');
 
-    TEST_INFO("%s: exten is: %s", TAG, extn);
+    TEST_INFO("exten is: %s", extn);
 
     if (strcmp(extn, ".wav") == 0)
       test_context.filetype_ = AudioFileType::kPCM;
@@ -517,13 +517,13 @@ int main(int argc, char* argv[]) {
       test_context.filetype_ = AudioFileType::kMP3;
 
     else {
-      TEST_ERROR("%s:%s %s extn not supported, supported extn are"
-          ".wav, .aac, .amr, .g711, .mp3", TAG,__func__,extn);
+      TEST_ERROR("%s %s extn not supported, supported extn are"
+          ".wav, .aac, .amr, .g711, .mp3", __func__,extn);
       exit_test = true;
         }
   } else {
-    TEST_INFO("%s:%s Give some file to play, supported extn"
-        "are .wav, .aac, .amr, .g711, .mp3", TAG,__func__);
+    TEST_INFO("%s Give some file to play, supported extn"
+        "are .wav, .aac, .amr, .g711, .mp3", __func__);
     exit_test = true;
   }
 

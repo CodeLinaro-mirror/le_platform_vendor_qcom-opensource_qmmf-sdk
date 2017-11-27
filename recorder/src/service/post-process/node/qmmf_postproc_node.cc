@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderPostProcNode"
+#define LOG_TAG "RecorderPostProcNode"
 
 #include <sys/mman.h>
 #include <qcom/display/gralloc_priv.h>
@@ -46,7 +46,7 @@ PostProcNode::PostProcNode(int32_t Id, std::string name,
       module_(module),
       id_(Id),
       name_(name) {
-  QMMF_INFO("%s:%s: Enter name %s", TAG, __func__, name_.c_str());
+  QMMF_INFO("%s: Enter name %s", __func__, name_.c_str());
 
   module_->SetCallbacks(this);
   module_->GetCapabilities(caps_);
@@ -54,25 +54,25 @@ PostProcNode::PostProcNode(int32_t Id, std::string name,
   mem_pool_ = std::make_shared<MemPool>();
 
   state_ = PostProcNodeState::CREATED;
-  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
+  QMMF_INFO("%s: Exit (%p) name: %s", __func__, this, name_.c_str());
 }
 
 PostProcNode::~PostProcNode() {
-  QMMF_INFO("%s:%s: Enter %s", TAG, __func__, name_.c_str());
+  QMMF_INFO("%s: Enter %s", __func__, name_.c_str());
 
   if (mem_pool_.get() != nullptr) {
     mem_pool_ = nullptr;
   }
 
-  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
+  QMMF_INFO("%s: Exit (%p) name: %s", __func__, this, name_.c_str());
 }
 
 status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
                                   const PostProcIOParam &out_param) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::CREATED) {
-    QMMF_ERROR("%s:%s: wrong state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s: wrong state: %d", __func__, state_);
     return BAD_VALUE;
   }
 
@@ -89,34 +89,34 @@ status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
   }
   auto ret = mem_pool_->Initialize(mem_pool_params_);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: Failed to initialize Memory pool: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s Failed to initialize Memory pool: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
 
-  QMMF_INFO("%s:%s:%s: Input:  dim: %dx%d fmt: %x", TAG, __func__, name_.c_str(),
+  QMMF_INFO("%s:%s Input:  dim: %dx%d fmt: %x", __func__, name_.c_str(),
       in_param.width, in_param.height, in_param.format);
-  QMMF_INFO("%s:%s:%s: Output: dim: %dx%d fmt: %x", TAG, __func__, name_.c_str(),
+  QMMF_INFO("%s:%s Output: dim: %dx%d fmt: %x", __func__, name_.c_str(),
       out_param.width, out_param.height, out_param.format);
 
   ret = module_->Initialize(in_param, out_param);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to create ret: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s fail to create ret: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
 
-  QMMF_VERBOSE("%s:%s:%s: Exit id: %d", TAG, __func__, name_.c_str(), id_);
+  QMMF_VERBOSE("%s:%s: Exit id: %d", __func__, name_.c_str(), id_);
 
   state_ = PostProcNodeState::INITIALIZED;
   return NO_ERROR;
 }
 
 status_t PostProcNode::Delete() {
-  QMMF_INFO("%s:%s: Enter %s", TAG, __func__, name_.c_str());
+  QMMF_INFO("%s: Enter %s", __func__, name_.c_str());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::INITIALIZED) {
-    QMMF_ERROR("%s:%s: wrong state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s: wrong state: %d", __func__, state_);
     return BAD_VALUE;
   }
 
@@ -130,7 +130,7 @@ status_t PostProcNode::Delete() {
 
   state_ = PostProcNodeState::CREATED;
 
-  QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
+  QMMF_INFO("%s: Exit (%p) name: %s", __func__, this, name_.c_str());
   return NO_ERROR;
 }
 
@@ -139,7 +139,7 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
   std::lock_guard<std::mutex> lock(state_lock_);
   auto ret = module_->Configure(config_json_data);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to configure ret: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s fail to configure ret: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
@@ -148,27 +148,27 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
 }
 
 PostProcIOParam PostProcNode::GetInput(const PostProcIOParam &out) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   return module_->GetInput(out);
 }
 
 status_t PostProcNode::ValidateOutput(const PostProcIOParam &out) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   return module_->ValidateOutput(out);
 }
 
 status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::INITIALIZED) {
-    QMMF_ERROR("%s:%s:%s: Incorrect state: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s: Incorrect state: %d", __func__,
         name_.c_str(), state_);
     return INVALID_OPERATION;
   }
 
   if (consumer == nullptr) {
-    QMMF_ERROR("%s:%s:%s: Consumer is NULL", TAG, __func__, name_.c_str());
+    QMMF_ERROR("%s:%s: Consumer is NULL", __func__, name_.c_str());
     return BAD_VALUE;
   }
 
@@ -176,20 +176,20 @@ status_t PostProcNode::AddConsumer(sp<IBufferConsumer>& consumer) {
 
   state_ = PostProcNodeState::LINKED;
 
-  QMMF_INFO("%s:%s:%s: Consumer(%p) has been added.", TAG, __func__,
+  QMMF_INFO("%s:%s: Consumer(%p) has been added.", __func__,
       name_.c_str(), consumer.get());
 
   return NO_ERROR;
 }
 
 status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
 
-  QMMF_VERBOSE("%s:%s:%s Enter consumer(%p)", TAG, __func__,name_.c_str(),
+  QMMF_VERBOSE("%s:%s Enter consumer(%p)", __func__,name_.c_str(),
       consumer.get());
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::LINKED) {
-    QMMF_ERROR("%s:%s:%s: Incorrect state: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s: Incorrect state: %d", __func__,
         name_.c_str(), state_);
     return INVALID_OPERATION;
   }
@@ -198,20 +198,20 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
   state_ = PostProcNodeState::INITIALIZED;
 
-  QMMF_VERBOSE("%s:%s:%s Exit", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s Exit", __func__, name_.c_str());
   return NO_ERROR;
 }
 
 status_t PostProcNode::Start(const int32_t stream_id) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s:%s: Enter Start. State: %d", TAG, __func__,
+  QMMF_INFO("%s:%s: Enter Start. State: %d", __func__,
       name_.c_str(), state_);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::LINKED) {
-    QMMF_ERROR("%s:%s:%s: wrong state_: %d ", TAG, __func__,
+    QMMF_ERROR("%s:%s: wrong state_: %d ", __func__,
         name_.c_str(), state_);
     return BAD_VALUE;
   }
@@ -220,7 +220,7 @@ status_t PostProcNode::Start(const int32_t stream_id) {
 
   ret = module_->Start(stream_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to start module ret: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s: fail to start module ret: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
@@ -230,16 +230,16 @@ status_t PostProcNode::Start(const int32_t stream_id) {
 
   state_ = PostProcNodeState::ACTIVE;
 
-  QMMF_INFO("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
+  QMMF_INFO("%s:%s: Exit", __func__, name_.c_str());
 
   return ret;
 }
 
 status_t PostProcNode::Stop() {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s:%s: Enter stop. State: %d", TAG, __func__,
+  QMMF_INFO("%s:%s: Enter stop. State: %d", __func__,
       name_.c_str(), state_);
 
   {
@@ -251,18 +251,18 @@ status_t PostProcNode::Stop() {
   in_.FlushBufs([this] (StreamBuffer &buf) -> void
              { NotifyBufferReturn(buf); } );
 
-  QMMF_VERBOSE("%s:%s:%s: The Lip thread is stopped Id_: %d", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: The Lip thread is stopped Id_: %d", __func__,
       name_.c_str(), id_);
 
   ret = module_->Stop();
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to stop module ret: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s: fail to stop module ret: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
 
   out_.RequestExitAndWait();
-  QMMF_VERBOSE("%s:%s:%s: The Node thread is stopped", TAG, __func__,
+  QMMF_VERBOSE("%s:%s: The Node thread is stopped", __func__,
       name_.c_str());
 
   out_.FlushBufs([this] (StreamBuffer &buf) -> void
@@ -273,14 +273,14 @@ status_t PostProcNode::Stop() {
     state_ = PostProcNodeState::LINKED;
   }
 
-  QMMF_INFO("%s:%s:%s: Exit stop. State: %d", TAG, __func__,
+  QMMF_INFO("%s:%s: Exit stop. State: %d", __func__,
       name_.c_str(), state_);
 
   return ret;
 }
 
 status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
-  QMMF_VERBOSE("%s:%s:%s: Enter", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
 
   {
     std::lock_guard<std::mutex> lock(state_lock_);
@@ -289,49 +289,49 @@ status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
 
   status_t ret = module_->Abort(abort);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to abort module ret: %d", TAG, __func__,
+    QMMF_ERROR("%s:%s: fail to abort module ret: %d", __func__,
         name_.c_str(), ret);
     return ret;
   }
 
-  QMMF_INFO("%s:%s:%s: Exit: State %d ", TAG, __func__, name_.c_str(), state_);
+  QMMF_INFO("%s:%s: Exit: State %d ", __func__, name_.c_str(), state_);
   return ret;
 }
 
 void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
-      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
+      __func__, name_.c_str(), buffer.handle, buffer.fd,
       buffer.stream_id, buffer.timestamp, buffer.frame_number);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ != PostProcNodeState::ACTIVE) {
-    QMMF_ERROR("%s:%s:%s: Buffer not processed. Incorrect state: %d", TAG,
+    QMMF_ERROR("%s:%s: Buffer not processed. Incorrect state: %d",
         __func__, name_.c_str(), state_);
     NotifyBufferReturn(buffer);
   } else {
     in_.AddBuf(buffer);
   }
-  QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Exit", __func__, name_.c_str());
 }
 
 void PostProcNode::OnFrameProcessed(const StreamBuffer &input_buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
-      TAG, __func__, name_.c_str(), input_buffer.handle, input_buffer.fd,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      __func__, name_.c_str(), input_buffer.handle, input_buffer.fd,
       input_buffer.stream_id, input_buffer.timestamp);
 
   NotifyBufferReturn(const_cast<StreamBuffer&>(input_buffer));
 }
 
 void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
-      TAG, __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
+      __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
       output_buffer.stream_id, output_buffer.timestamp, output_buffer.frame_number);
 
   out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
 
 void PostProcNode::OnError(RuntimeError err) {
-  QMMF_ERROR("%s:%s:%s: Error %d", TAG, __func__, name_.c_str(), err);
+  QMMF_ERROR("%s:%s: Error %d", __func__, name_.c_str(), err);
 }
 
 void PostProcNode::AddResult(const void* result) {
@@ -339,8 +339,8 @@ void PostProcNode::AddResult(const void* result) {
 }
 
 void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
-      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
       buffer.timestamp);
 
   if (caps_.inplace_processing_ == false) {
@@ -351,26 +351,26 @@ void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
       // Return buffer back to mem pool.
       status_t ret = mem_pool_->ReturnBufferLocked(buffer);
       if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s:%s Buffer return Error", TAG, __func__, name_.c_str());
+        QMMF_ERROR("%s:%s Buffer return Error", __func__, name_.c_str());
         assert(0);
       }
     }
   } else {
     NotifyBufferReturn(buffer);
   }
-  QMMF_VERBOSE("%s:%s:%s: Exit", TAG, __func__, name_.c_str());
+  QMMF_VERBOSE("%s:%s: Exit", __func__, name_.c_str());
 }
 
 status_t PostProcNode::ProcessOutputBuffer(StreamBuffer &buffer) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
-      TAG, __func__, name_.c_str(), buffer.handle, buffer.fd,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+      __func__, name_.c_str(), buffer.handle, buffer.fd,
       buffer.stream_id, buffer.timestamp);
 
   // Give buffer ownership to the CameraSource
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == PostProcNodeState::ACTIVE) {
-  QMMF_VERBOSE("%s:%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld "
-      "Notify to next node!", TAG, __func__, name_.c_str(), buffer.handle,
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld "
+      "Notify to next node!",  __func__, name_.c_str(), buffer.handle,
       buffer.fd, buffer.stream_id, buffer.timestamp);
     NotifyBuffer(buffer);
   } else {
@@ -389,7 +389,7 @@ void InputHandler::AddBuf(StreamBuffer& buffer) {
 void InputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   for (auto& buffer : bufs_list_) {
-    QMMF_INFO("%s:%s: back to client node: FD: %d", TAG, __func__, buffer.fd);
+    QMMF_INFO("%s: back to client node: FD: %d", __func__, buffer.fd);
     BuffHandler(buffer);
   }
   bufs_list_.clear();
@@ -400,18 +400,18 @@ status_t InputHandler::MapBuf(StreamBuffer& buffer) {
   void *vaaddr = nullptr;
 
   if (buffer.fd == -1) {
-    QMMF_ERROR("%s:%s: Error Invalid FD", TAG, __func__);
+    QMMF_ERROR("%s: Error Invalid FD", __func__);
     return BAD_VALUE;
   }
 
-  QMMF_DEBUG("%s:%s:%s buffer.fd=%d buffer.size=%d", TAG, __func__,
+  QMMF_DEBUG("%s:%s buffer.fd=%d buffer.size=%d", __func__,
       node_->GetName().c_str(), buffer.fd, buffer.size);
 
   if (mapped_buffs_.count(buffer.fd) == 0) {
     vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
         MAP_SHARED, buffer.fd, 0);
     if (vaaddr == MAP_FAILED) {
-        QMMF_ERROR("%s:%s:%s  ION mmap failed: error(%s):(%d)", TAG, __func__,
+        QMMF_ERROR("%s:%s  ION mmap failed: error(%s):(%d)", __func__,
             node_->GetName().c_str(), strerror(errno), errno);;
         return BAD_VALUE;
     }
@@ -432,7 +432,7 @@ void InputHandler::UnMapBufs() {
   for (auto iter : mapped_buffs_) {
     auto map = iter.second;
     if (map.addr) {
-      QMMF_INFO("%s:%s:%s Unmap addr(%p) size(%d)", TAG, __func__,
+      QMMF_INFO("%s:%s Unmap addr(%p) size(%d)", __func__,
           node_->GetName().c_str(), map.addr, map.size);
       munmap(map.addr, map.size);
     }
@@ -447,7 +447,7 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
   while (bufs_list_.empty()) {
     auto ret = wait_.WaitFor(lock, wait_time);
     if (ret != 0) {
-      QMMF_DEBUG("%s:%s:%s: Wait for frame available timed out", TAG, __func__,
+      QMMF_DEBUG("%s:%s: Wait for frame available timed out", __func__,
         node_->name_.c_str());
       return BAD_VALUE;
     }
@@ -458,7 +458,7 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
 
   auto ret = MapBuf(buffer);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s:%s: fail to map buffer", TAG, __func__,
+    QMMF_ERROR("%s:%s: fail to map buffer", __func__,
         node_->name_.c_str());
     return ret;
   }
@@ -490,7 +490,7 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
       ret = node_->mem_pool_->GetBuffer(&out_buff);
     } while (ret == TIMED_OUT && node_->state_ == PostProcNodeState::ACTIVE);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s:%s: fail to get buffer", TAG, __func__,
+      QMMF_ERROR("%s:%s: fail to get buffer", __func__,
           node_->name_.c_str());
       return ret;
     }
@@ -504,7 +504,7 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
 
     ret = MapBuf(out_buff);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s:%s: fail to map buffer", TAG, __func__,
+      QMMF_ERROR("%s:%s: fail to map buffer", __func__,
           node_->name_.c_str());
       return ret;
     }
@@ -540,13 +540,13 @@ bool InputHandler::ThreadLoop() {
     return true;
   }
 
-  QMMF_VERBOSE("%s:%s: Process: FD: %d %d name: %s", TAG, __func__,
+  QMMF_VERBOSE("%s: Process: FD: %d %d name: %s", __func__,
     in_buffs[0].fd, out_buffs.size() == 0 ? -1 : out_buffs[0].fd,
     node_->name_.c_str());
 
   ret = node_->module_->Process(in_buffs, out_buffs);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s Error %d while algo process", TAG, __func__, ret);
+    QMMF_ERROR("%s Error %d while algo process", __func__, ret);
     assert(0);
   }
 
@@ -557,7 +557,7 @@ bool InputHandler::ThreadLoop() {
 void OutputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   for (auto& buffer : bufs_list_) {
-    QMMF_INFO("%s:%s: back to memory pool: FD: %d", TAG, __func__, buffer.fd);
+    QMMF_INFO("%s: back to memory pool: FD: %d", __func__, buffer.fd);
     BuffHandler(buffer);
   }
   bufs_list_.clear();
@@ -586,7 +586,7 @@ bool OutputHandler::ThreadLoop() {
     while (bufs_list_.empty()) {
       auto ret = wait_.WaitFor(lock, wait_time);
       if (ret != 0) {
-        QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
+        QMMF_DEBUG("%s: Wait for frame available timed out", __func__);
         return true;
       }
     }

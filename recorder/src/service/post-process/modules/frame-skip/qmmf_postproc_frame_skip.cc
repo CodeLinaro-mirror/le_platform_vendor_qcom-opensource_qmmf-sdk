@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "PostProcFrameSkip"
+#define LOG_TAG "PostProcFrameSkip"
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
@@ -43,16 +43,16 @@ PostProcFrameSkip::PostProcFrameSkip()
     : state_(State::CREATED),
       frame_skip_(1),
       frame_counter_(0) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 }
 
 PostProcFrameSkip::~PostProcFrameSkip() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 }
 
 status_t PostProcFrameSkip::Initialize(const PostProcIOParam &in_param,
                                        const PostProcIOParam &out_param) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   frame_skip_ = 1;
@@ -62,12 +62,12 @@ status_t PostProcFrameSkip::Initialize(const PostProcIOParam &in_param,
 }
 
 PostProcIOParam PostProcFrameSkip::GetInput(const PostProcIOParam &out) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return out;
 }
 
 status_t PostProcFrameSkip::ValidateOutput(const PostProcIOParam &output) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
@@ -94,7 +94,7 @@ status_t PostProcFrameSkip::GetCapabilities(PostProcCaps &caps) {
 }
 
 status_t PostProcFrameSkip::Start(const int32_t stream_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::ACTIVE;
@@ -104,7 +104,7 @@ status_t PostProcFrameSkip::Start(const int32_t stream_id) {
 }
 
 status_t PostProcFrameSkip::Stop() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::INITIALIZED;
@@ -114,7 +114,7 @@ status_t PostProcFrameSkip::Stop() {
 }
 
 status_t PostProcFrameSkip::Abort(std::shared_ptr<void> &abort) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::ABORTED;
@@ -124,7 +124,7 @@ status_t PostProcFrameSkip::Abort(std::shared_ptr<void> &abort) {
 
 
 status_t PostProcFrameSkip::Delete() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::CREATED;
@@ -133,24 +133,24 @@ status_t PostProcFrameSkip::Delete() {
 }
 
 status_t PostProcFrameSkip::Configure(const std::string config_json_data) {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   Json::Reader r;
   Json::Value root;
 
   auto ret = r.parse(config_json_data, root);
   if (ret == 0) {
-    QMMF_INFO("%s:%s: no json data", TAG, __func__);
+    QMMF_INFO("%s: no json data", __func__);
     return NO_ERROR;
   }
 
   if (!root.isMember("frameskip") || root["frameskip"].empty()) {
-    QMMF_INFO("%s:%s:no frame skip configuration", TAG, __func__);
+    QMMF_INFO("%s:no frame skip configuration", __func__);
     return NO_ERROR;
   }
 
   frame_skip_ = root["frameskip"].asInt();
 
-  QMMF_INFO("%s:%s: Update frame skip to %d", TAG, __func__, frame_skip_);
+  QMMF_INFO("%s: Update frame skip to %d", __func__, frame_skip_);
 
   return NO_ERROR;
 }
@@ -159,15 +159,15 @@ status_t PostProcFrameSkip::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
-  QMMF_INFO("%s:%s: E", TAG, __func__);
+  QMMF_INFO("%s: E", __func__);
   std::lock_guard<std::mutex> lock(state_lock_);
 
   for (auto buf : in_buffers) {
     if (state_ != State::ACTIVE || SkipFrame()) {
-      QMMF_INFO("%s:%s: skip frame. state %d", TAG, __func__, state_);
+      QMMF_INFO("%s: skip frame. state %d", __func__, state_);
       Listener_->OnFrameProcessed(buf);
     } else {
-      QMMF_INFO("%s:%s: process frame", TAG, __func__);
+      QMMF_INFO("%s: process frame", __func__);
       Listener_->OnFrameReady(buf);
     }
   }

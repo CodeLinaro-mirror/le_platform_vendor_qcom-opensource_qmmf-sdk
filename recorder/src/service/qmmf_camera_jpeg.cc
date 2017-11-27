@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "RecorderCameraJpeg"
+#define LOG_TAG "RecorderCameraJpeg"
 
 #include <chrono>
 #include <algorithm>
@@ -52,7 +52,7 @@ CameraJpeg::CameraJpeg()
       ready_to_start_(false),
       jpeg_encoder_(nullptr) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   char prop[PROPERTY_VALUE_MAX];
 
   property_get(kVendorNameProp, prop, "QTI");
@@ -61,13 +61,13 @@ CameraJpeg::CameraJpeg()
   property_get(kProductNameProp, prop, "QMMF-CAMERA");
   product_name_ = prop;
 
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
 CameraJpeg::~CameraJpeg() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   Delete();
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
 int32_t CameraJpeg::Create(const int32_t stream_id,
@@ -79,15 +79,15 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
                            const void* static_meta,
                            const PostProcCb& cb,
                            const void* context) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Already configured.", __func__);
     return BAD_VALUE;
   }
 
   if (reprocess_flag_) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Wrong state.", __func__);
     return BAD_VALUE;
   }
   CameraBufferMetaData meta_info{};
@@ -106,7 +106,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
 
   Run("Camera Jpeg");
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return 55; //TODO use reprocess ID
 }
 
@@ -116,13 +116,13 @@ status_t CameraJpeg::GetCapabilities(PostProcCaps *caps) {
 }
 
 status_t CameraJpeg::Start() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   if (!ready_to_start_) {
     return BAD_VALUE;
   }
   reprocess_flag_ = true;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -131,7 +131,7 @@ status_t CameraJpeg::Stop() {
 }
 
 status_t CameraJpeg::Delete() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
   RequestExitAndWait();
 
@@ -141,7 +141,7 @@ status_t CameraJpeg::Delete() {
   reprocess_flag_ = false;
   ready_to_start_ = false;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -156,7 +156,7 @@ status_t CameraJpeg::Configure(const std::vector<ImageThumbnail> &thumbs) {
 }
 
 void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
-  QMMF_INFO("%s:%s: %d: Enter ", TAG, __func__, __LINE__);
+  QMMF_INFO("%s: %d: Enter ", __func__, __LINE__);
 
   void *buf_vaaddr = mmap(nullptr, in_buffer.size, PROT_READ  | PROT_WRITE,
       MAP_SHARED, in_buffer.fd, 0);
@@ -170,7 +170,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
       auto ret = wait_for_result_.WaitFor(lock, timeout);
       if (ret != 0) {
-        QMMF_ERROR("%s%s: Wait for jpeg result timed out", TAG, __func__);
+        QMMF_ERROR("%s: Wait for jpeg result timed out", __func__);
         break;
       }
     }
@@ -209,7 +209,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
         jpeg_encoder_->Encode(img_buffer, jpeg_size, jpeg_quality_));
 
     if (0 == jpeg_size) {
-      QMMF_ERROR("%s:%s: JPEG size is 0!", TAG, __func__);
+      QMMF_ERROR("%s: JPEG size is 0!", __func__);
     } else {
       out_buffer.info.plane_info[0].width = jpeg_size;
       out_buffer.data = out_vaaddr;
@@ -222,10 +222,10 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     munmap(out_vaaddr, out_buffer.size);
     out_buffer.data = nullptr;
   } else {
-    QMMF_INFO("%s:%s: SKIPP JPEG", TAG, __func__);
+    QMMF_INFO("%s: SKIPP JPEG", __func__);
   }
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
 }
 
 status_t CameraJpeg::AddJpegHeader(StreamBuffer &buffer) {
@@ -259,14 +259,14 @@ void CameraJpeg::AddResult(const void* result) {
   if (meta.exists(ANDROID_CONTROL_CAPTURE_INTENT)) {
     auto cature_intent = meta.find(ANDROID_CONTROL_CAPTURE_INTENT).data.u8[0];
     if (cature_intent != ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) {
-      QMMF_DEBUG("%s:%s Metadata is not related to a still capture!",
-          TAG, __func__);
+      QMMF_DEBUG("%s Metadata is not related to a still capture!",
+          __func__);
       return;
     }
   }
 
   if (!meta.exists(ANDROID_SENSOR_TIMESTAMP)) {
-    QMMF_ERROR("%s:%s Sensor timestamp tag missing in result!", TAG, __func__);
+    QMMF_ERROR("%s Sensor timestamp tag missing in result!", __func__);
     return;
   }
   auto timestamp = meta.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
@@ -277,7 +277,7 @@ void CameraJpeg::AddResult(const void* result) {
 }
 
 status_t CameraJpeg::ReturnBuff(StreamBuffer buffer) {
-  QMMF_INFO("%s:%s: StreamBuffer(0x%p) ts: %lld", TAG,
+  QMMF_INFO("%s: StreamBuffer(0x%p) ts: %lld",
        __func__, buffer.handle, buffer.timestamp);
   return NO_ERROR;
 }
@@ -349,7 +349,7 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       info->plane_info[1].scanline = aligned_height/2;
       break;
     default:
-      QMMF_ERROR("%s:%s: Unsupported format: 0x%x", TAG, __func__,
+      QMMF_ERROR("%s: Unsupported format: 0x%x", __func__,
                  input.format);
       return NAME_NOT_FOUND;
   }
@@ -360,7 +360,7 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
                                          uint32_t &offset,
                                          qmmf_exif_tag_t *tag) {
   if (offset >= kMaxExifApp1Length || tag == nullptr) {
-    QMMF_ERROR("%s: %s buffer overflow", TAG, __func__);
+    QMMF_ERROR("%s buffer overflow", __func__);
     return BAD_VALUE;
   }
   status_t res = NO_ERROR;
@@ -436,12 +436,12 @@ status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
   case QMMF_EXIF_UNDEFINED:
   case QMMF_EXIF_SLONG:
   case QMMF_EXIF_SRATIONAL:
-    QMMF_ERROR("%s: %s There should not be a tag with this type!", TAG,
+    QMMF_ERROR("%s There should not be a tag with this type!",
         __func__);
     res = BAD_VALUE;
     break;
   default:
-    QMMF_ERROR("%s: %s Unknown tag type.", TAG, __func__);
+    QMMF_ERROR("%s Unknown tag type.", __func__);
     res = BAD_VALUE;
     break;
   }
@@ -517,7 +517,7 @@ uint32_t CameraJpeg::getTagIdByExifId(uint32_t exif_id) {
   case QMMF_ID_GPS_PROCESSINGMETHOD:
     return QMMF_EXIFTAGID_GPS_PROCESSINGMETHOD;
   default: {
-    QMMF_ERROR("%s: %s Unexpected exifId: %d", TAG, __func__, exif_id);
+    QMMF_ERROR("%s Unexpected exifId: %d", __func__, exif_id);
     return 0;
   }
   }
@@ -525,7 +525,7 @@ uint32_t CameraJpeg::getTagIdByExifId(uint32_t exif_id) {
 
 status_t CameraJpeg::parseIfd(const uint8_t *binary, uint32_t &offset) {
   if (offset >= kMaxExifApp1Length) {
-    QMMF_ERROR("%s: %s buffer overflow", TAG, __func__);
+    QMMF_ERROR("%s buffer overflow", __func__);
     return BAD_VALUE;
   }
   uint32_t exif_id;
@@ -553,7 +553,7 @@ status_t CameraJpeg::parseIfd(const uint8_t *binary, uint32_t &offset) {
 
 status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
   if (binary == nullptr) {
-    QMMF_ERROR("%s: %s No exif buffer found,", TAG, __func__);
+    QMMF_ERROR("%s No exif buffer found,", __func__);
     return BAD_VALUE;
   }
   exif_entities_.clear();
@@ -568,22 +568,22 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
   if (tmp == (0xFF00 | APP1_MARKER)) {
     offset += 2;
   } else {
-    QMMF_ERROR("%s: %s Error: APP1 marker not found in exif section!", TAG,
+    QMMF_ERROR("%s Error: APP1 marker not found in exif section!",
         __func__);
     return BAD_VALUE;
   }
 
   tmp = readU16(binary, offset);
   offset += 2;
-  QMMF_ERROR("%s: %s Exif section size : %d", TAG, __func__, tmp);
+  QMMF_ERROR("%s Exif section size : %d", __func__, tmp);
 
   tmp = readU32(binary, offset);
   if (tmp == EXIF_HEADER) {
     /* Offset for EXIF_HEADER + 2 bytes that seperate it from TIFF header*/
     offset += 6;
   } else {
-    QMMF_ERROR("%s: %s Error: EXIF_HEADER marker not found in exif section!",
-        TAG, __func__);
+    QMMF_ERROR("%s Error: EXIF_HEADER marker not found in exif section!",
+        __func__);
     return BAD_VALUE;
   }
   tiff_header_offset_ = offset;
@@ -592,8 +592,8 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
   if (tmp == TIFF_BIG_ENDIAN) {
       offset += 2;
   } else {
-    QMMF_ERROR("%s: %s Error: TIFF_BIG_ENDIAN marker not found in exif section",
-        TAG, __func__);
+    QMMF_ERROR("%s Error: TIFF_BIG_ENDIAN marker not found in exif section",
+        __func__);
     return BAD_VALUE;
   }
 
@@ -601,8 +601,8 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
   if (tmp == TIFF_HEADER) {
     offset += 2;
   } else {
-    QMMF_ERROR("%s: %s Error: TIFF_HEADER marker not found in exif section!",
-        TAG, __func__);
+    QMMF_ERROR("%s Error: TIFF_HEADER marker not found in exif section!",
+        __func__);
     return BAD_VALUE;
   }
 
@@ -610,7 +610,7 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
   if (tmp == ZERO_IFD_OFFSET) {
     offset += 4;
   } else {
-    QMMF_ERROR("%s: %s Error: ZERO_IFD_OFFSET not found in exif section!", TAG,
+    QMMF_ERROR("%s Error: ZERO_IFD_OFFSET not found in exif section!",
         __func__);
     return BAD_VALUE;
   }

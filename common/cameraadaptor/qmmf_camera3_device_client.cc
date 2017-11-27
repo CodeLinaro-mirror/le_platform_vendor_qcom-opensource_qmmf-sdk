@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#define TAG "CameraAdaptor"
+#define LOG_TAG "CameraAdaptor"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -496,7 +496,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     case STATE_CONFIGURED:
     case STATE_RUNNING:
       if (!cache) {
-        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
+        QMMF_INFO("%s: Stream is not cached, Issue internal reconfig!",
             __func__);
         res = InternalPauseAndWaitLocked();
         if (0 != res) {
@@ -539,7 +539,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       reconfig_ = true;
       res = ConfigureStreamsLocked();
       if (0 != res) {
-        QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+        QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
         goto exit;
       }
@@ -629,7 +629,7 @@ int32_t Camera3DeviceClient::CreateInputStream(
   if (wasActive) {
     res = ConfigureStreamsLocked();
     if (0 != res) {
-      QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+      QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
       goto exit;
     }
@@ -717,7 +717,7 @@ int32_t Camera3DeviceClient::CreateStream(
   if (wasActive) {
     res = ConfigureStreamsLocked(outputConfiguration.is_pp_enabled);
     if (0 != res) {
-      QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+      QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
       goto exit;
     }

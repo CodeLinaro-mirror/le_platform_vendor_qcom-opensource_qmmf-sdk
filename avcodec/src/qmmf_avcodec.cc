@@ -26,7 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "QMMF_AVCodec"
+#define LOG_TAG "QMMF_AVCodec"
 
 #include "qmmf-sdk/qmmf_avcodec.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
@@ -45,9 +45,9 @@ IAVCodec* IAVCodec::CreateAVCodec(CodecMimeType mimetype) {
   else
     instance = new AVCodec();
   if (instance == nullptr)
-    QMMF_ERROR("%s: %s() can't instantiate IAVCodec", TAG, __func__);
+    QMMF_ERROR("%s() can't instantiate IAVCodec", __func__);
   else
-    QMMF_INFO("%s: %s() IAVCodec successfully instantiated", TAG, __func__);
+    QMMF_INFO("%s() IAVCodec successfully instantiated", __func__);
 
   return instance;
 }

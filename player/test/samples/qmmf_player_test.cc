@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "PlayerTest"
+#define LOG_TAG "PlayerTest"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -67,8 +67,8 @@ void PlayerTest::PlayerHandler(EventType event_type,
                                void* event_data,
                                size_t event_data_size) {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
 
   if (event_type == EventType::kStopped) {
@@ -113,7 +113,7 @@ void PlayerTest::PlayerHandler(EventType event_type,
     printf("\nPlayback has finished.\n");
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::AudioTrackHandler(uint32_t track_id,
@@ -121,11 +121,11 @@ void PlayerTest::AudioTrackHandler(uint32_t track_id,
                                    void* event_data,
                                    size_t event_data_size) {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s:%s track_id[%u]", TAG, __func__, track_id);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::VideoTrackHandler(uint32_t track_id,
@@ -133,15 +133,15 @@ void PlayerTest::VideoTrackHandler(uint32_t track_id,
                                    void* event_data,
                                    size_t event_data_size) {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s event_type[%d]", TAG, __func__,
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s:%s track_id[%u]", TAG, __func__, track_id);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   String8 snapshot_filepath;
   uint32_t size;
@@ -157,8 +157,8 @@ void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
   assert(grabpicture_file_fd_ >= 0);
 
   size = (m_sTrackInfo_.sVideo.ulWidth * m_sTrackInfo_.sVideo.ulHeight*3)/2;
-  TEST_DBG("%s:%s: vaddr 0x%p", TAG, __func__,buffer.data);
-  TEST_DBG("%s:%s: size %u", TAG, __func__, size);
+  TEST_DBG("%s: vaddr 0x%p", __func__,buffer.data);
+  TEST_DBG("%s: size %u", __func__, size);
 
   uint32_t bytes_written;
   bytes_written  = write(grabpicture_file_fd_, buffer.data, size);
@@ -167,7 +167,7 @@ void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
         size, bytes_written);
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 PlayerTest::PlayerTest(char* filename)
@@ -188,26 +188,26 @@ PlayerTest::PlayerTest(char* filename)
       grabpicture_file_fd_(-1),
       trick_mode_enabled_(false),
       current_playback_time_(0) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   if (filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 PlayerTest::~PlayerTest() {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   if (grabpicture_file_fd_ > 0)
     close(grabpicture_file_fd_);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Connect() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   PlayerCb player_cb;
 
   player_cb.event_cb = [this](EventType event_type,
@@ -219,20 +219,20 @@ void PlayerTest::Connect() {
   auto result = player_.Connect(player_cb);
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Disconnect() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   auto result = player_.Disconnect();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Prepare() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto result = 0;
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -259,7 +259,7 @@ void PlayerTest::Prepare() {
 
   result = ParseFile(audio_track_param, video_track_param);
   if (result != NO_ERROR) {
-    TEST_ERROR("%s:%s failed to parse file", TAG, __func__);
+    TEST_ERROR("%s failed to parse file", __func__);
     assert(false);
   }
 
@@ -300,12 +300,12 @@ void PlayerTest::Prepare() {
 
   start_again_ = false;
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
                               VideoTrackCreateParam& video_track_param) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto ret = 0;
   AacCodecData           aac_codec_data;
 
@@ -321,9 +321,9 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
     if (m_sTrackInfo_.sAudio.ulCodecType == 3) {
       ret = m_pDemux_->GetAACCodecData(audio_track_id_, &aac_codec_data);
       if (ret == false) {
-        TEST_ERROR("%s:%s: Failed to get codec info", TAG, __func__);
+        TEST_ERROR("%s: Failed to get codec info", __func__);
     }
-      TEST_DBG("%s:%s aac codec profile : %u format : %d ", TAG, __func__,
+      TEST_DBG("%s aac codec profile : %u format : %d ", __func__,
           aac_codec_data.ucAACProfile,
           static_cast<uint32_t>(aac_codec_data.eAACStreamFormat));
       audio_track_param.codec       = AudioFormat::kAAC;
@@ -347,10 +347,10 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
       audio_track_param.codec_params.amr.isWAMR   = 1;
     }
     audio_track_param.out_device                = AudioOutSubtype::kBuiltIn;
-    TEST_INFO("%s:%s audio_track_id_ : %d ", TAG, __func__, audio_track_id_);
+    TEST_INFO("%s audio_track_id_ : %d ", __func__, audio_track_id_);
 
-    TEST_INFO("%s:%s sample rate : %d channel %d bitdepth %d, bitrate %d ", TAG
-        , __func__, audio_track_param.sample_rate, audio_track_param.channels,
+    TEST_INFO("%s sample rate : %d channel %d bitdepth %d, bitrate %d ",
+        __func__, audio_track_param.sample_rate, audio_track_param.channels,
         audio_track_param.bit_depth, m_sTrackInfo_.sAudio.ulBitRate);
   }
 
@@ -370,31 +370,31 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
     video_track_param.num_buffers = 1;
     video_track_param.out_device  = VideoOutSubtype::kHDMI;
 
-    TEST_INFO("%s:%s video_track_id_ : %d ", TAG, __func__, video_track_id_);
+    TEST_INFO("%s video_track_id_ : %d ", __func__, video_track_id_);
 
-    TEST_INFO("%s:%s height : %d width %d frame_rate %d, bitrate %d ", TAG
-        , __func__, video_track_param.height, video_track_param.width,
+    TEST_INFO("%s height : %d width %d frame_rate %d, bitrate %d ",
+        __func__, video_track_param.height, video_track_param.width,
         video_track_param.frame_rate, video_track_param.bitrate);
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 
   return 0;
 }
 
 void PlayerTest::Start() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   if (start_again_)
   {
-    TEST_INFO("%s:%s: Playback Speed(%u) Playback Direction(%u)", TAG, __func__,
+    TEST_INFO("%s: Playback Speed(%u) Playback Direction(%u)", __func__,
         static_cast<uint32_t>(playback_speed_),
         static_cast<uint32_t>(playback_dir_));
 
     FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(0, true,
         static_cast<int64>(current_playback_time_ / 1000));
     if (mFSStatus == FILE_SOURCE_FAIL)
-      TEST_INFO("%s:%s: Failed to seek %d", TAG, __func__,
+      TEST_INFO("%s: Failed to seek %d", __func__,
                 static_cast<uint32_t>(mFSStatus));
   }
 
@@ -423,17 +423,17 @@ void PlayerTest::Start() {
     assert(video_thread_ != nullptr);
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::AudioThreadEntry(PlayerTest* player_test) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   player_test->AudioThread();
 }
 
 void PlayerTest::AudioThread() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto result = 0;
 
   while (audio_state_ != State::kStopped && !audioLastFrame_) {
@@ -468,7 +468,7 @@ void PlayerTest::AudioThread() {
     if (audioFirstFrame_) {
       uint32_t status = m_pDemux_->m_pFileSource->GetFormatBlock(
           m_sTrackInfo_.sAudio.ulTkId, nullptr, &nFormatBlockSize);
-      TEST_DBG("%s:%s: Audio getFormatBlock size = %lu", TAG, __func__,
+      TEST_DBG("%s: Audio getFormatBlock size = %lu", __func__,
           nFormatBlockSize);
       assert(FILE_SOURCE_SUCCESS == status);
 
@@ -502,18 +502,18 @@ void PlayerTest::AudioThread() {
 
     if (eMediaStatus == FILE_SOURCE_DATA_END) {
       // EOF reached
-      TEST_INFO("%s:%s:File read completed for audio track", TAG, __func__);
+      TEST_INFO("%s:File read completed for audio track", __func__);
       buffers[0].flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
       buffers[0].filled_size = 0;
 
       audioLastFrame_ = true;
     }
 
-    TEST_DBG("%s:%s: audio_filled_size %d", TAG, __func__,
+    TEST_DBG("%s: audio_filled_size %d", __func__,
              buffers[0].filled_size);
-    TEST_DBG("%s:%s: audio_buffer size %d", TAG, __func__, buffers[0].size);
-    TEST_DBG("%s:%s: audio_vaddr 0x%p", TAG, __func__, buffers[0].data);
-    TEST_DBG("%s:%s: audio_frame timestamp %llu", TAG, __func__,
+    TEST_DBG("%s: audio_buffer size %d", __func__, buffers[0].size);
+    TEST_DBG("%s: audio_vaddr 0x%p", __func__, buffers[0].data);
+    TEST_DBG("%s: audio_frame timestamp %llu", __func__,
              buffers[0].time_stamp);
 
     result = player_.QueueInputBuffer(audio_track_id_, buffers, nullptr, 0,
@@ -523,17 +523,17 @@ void PlayerTest::AudioThread() {
     buffers.clear();
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::VideoThreadEntry(PlayerTest* player_test) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   player_test->VideoThread();
 }
 
 void PlayerTest::VideoThread() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   auto result = 0;
 
   while (video_state_ != State::kStopped && !videoLastFrame_) {
@@ -567,7 +567,7 @@ void PlayerTest::VideoThread() {
     if (videoFirstFrame_) {
       uint32_t status = m_pDemux_->m_pFileSource->GetFormatBlock(
           m_sTrackInfo_.sVideo.ulTkId, nullptr, &nFormatBlockSize);
-      TEST_DBG("%s:%s: Video getFormatBlock size = %lu", TAG, __func__,
+      TEST_DBG("%s: Video getFormatBlock size = %lu", __func__,
           nFormatBlockSize);
       assert(FILE_SOURCE_SUCCESS == status);
 
@@ -590,7 +590,7 @@ void PlayerTest::VideoThread() {
     if (static_cast<uint32_t>(playback_dir_) == 4) {
       FileSourceStatus mFSStatus = m_pDemux_->SeekRelativeSyncPoint(
           static_cast<int>(sSampleInfo.startTime / 1000) , -2);
-      TEST_INFO("%s:%s: REW %u", TAG, __func__,
+      TEST_INFO("%s: REW %u", __func__,
                 static_cast<uint32_t>(mFSStatus));
     }
 
@@ -611,18 +611,18 @@ void PlayerTest::VideoThread() {
 
     if (FILE_SOURCE_DATA_END == eMediaStatus) {
       // EOF reached
-      TEST_INFO("%s:%s:File read completed for video track", TAG, __func__);
+      TEST_INFO("%s:File read completed for video track", __func__);
       buffers[0].flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
       buffers[0].filled_size = 0;
 
       videoLastFrame_ = true;
     }
 
-    TEST_DBG("%s:%s: video_filled_size %d", TAG, __func__,
+    TEST_DBG("%s: video_filled_size %d", __func__,
              buffers[0].filled_size);
-    TEST_DBG("%s:%s: video_buffer size %d", TAG, __func__, buffers[0].size);
-    TEST_DBG("%s:%s: video_vaddr 0x%p", TAG, __func__, buffers[0].data);
-    TEST_DBG("%s:%s: video_frame timestamp %llu", TAG, __func__,
+    TEST_DBG("%s: video_buffer size %d", __func__, buffers[0].size);
+    TEST_DBG("%s: video_vaddr 0x%p", __func__, buffers[0].data);
+    TEST_DBG("%s: video_frame timestamp %llu", __func__,
              buffers[0].time_stamp);
 
     result = player_.QueueInputBuffer(video_track_id_, buffers, nullptr, 0,
@@ -632,11 +632,11 @@ void PlayerTest::VideoThread() {
     buffers.clear();
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Stop() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   {
     std::lock_guard<std::mutex> lock(lock_);
@@ -680,11 +680,11 @@ void PlayerTest::Stop() {
     start_again_ = true;
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Pause() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (audio_state_ == State::kRunning) audio_state_ = State::kPaused;
@@ -693,11 +693,11 @@ void PlayerTest::Pause() {
   auto result = player_.Pause();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Resume() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (audio_state_ == State::kPaused) audio_state_ = State::kRunning;
@@ -706,11 +706,11 @@ void PlayerTest::Resume() {
   auto result = player_.Resume();
   assert(result == NO_ERROR);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::SetPosition() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   uint64_t current_time = GetCurrentPlaybackTime();
   uint64_t clip_duration = m_pDemux_->GetClipDuration();
@@ -725,16 +725,16 @@ void PlayerTest::SetPosition() {
       m_pDemux_->SeekAbsolutePosition(time * 1000, true,
                                       static_cast<int64_t>(current_time / 1000));
   if (mFSStatus == FILE_SOURCE_FAIL)
-    TEST_INFO("%s:%s: Failed to seek %u to %llu sec", TAG, __func__,
+    TEST_INFO("%s: Failed to seek %u to %llu sec", __func__,
               static_cast<uint32_t>(mFSStatus), time);
   else
-    TEST_INFO("%s:%s: Seek to %llu sec", TAG, __func__, time);
+    TEST_INFO("%s: Seek to %llu sec", __func__, time);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::SetTrickMode() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kVideoOnly) {
@@ -770,7 +770,7 @@ void PlayerTest::SetTrickMode() {
                   FS_SEEK_MODE::FS_SEEK_DEFAULT);
 
           if (mFSStatus == FILE_SOURCE_FAIL)
-            TEST_INFO("%s:%s: Failed to seek %u", TAG, __func__,
+            TEST_INFO("%s: Failed to seek %u", __func__,
                 static_cast<uint32_t>(mFSStatus));
 
           {
@@ -786,12 +786,12 @@ void PlayerTest::SetTrickMode() {
         assert(result == NO_ERROR);
       }
     } else {
-      TEST_INFO("%s:%s:Wrong trick mode type or speed, supported values are "
+      TEST_INFO("%s:Wrong trick mode type or speed, supported values are "
           "trick mode type [Normal Playback->1, FF->2, SF->3] "
-          "speed [Normal Playback->1, 2, 4, 8]", TAG, __func__);
+          "speed [Normal Playback->1, 2, 4, 8]",  __func__);
     }
   }
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 bool PlayerTest::IsTrickModeEnabled() {
@@ -800,7 +800,7 @@ bool PlayerTest::IsTrickModeEnabled() {
 }
 
 void PlayerTest::GrabPicture() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   PictureParam param;
   memset(&param, 0x0, sizeof param);
@@ -815,11 +815,11 @@ void PlayerTest::GrabPicture() {
 
   player_.GrabPicture(param, picture_cb);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Delete() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (track_type_ == TrackTypes::kAudioVideo ||
@@ -839,52 +839,52 @@ void PlayerTest::Delete() {
   audioFirstFrame_ = true;
   videoFirstFrame_ = true;
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 uint32_t PlayerTest::UpdateCurrentPlaybackTime(uint64_t current_time) {
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(time_lock_);
 
   current_playback_time_ = current_time;
 
-  TEST_DBG("%s:%s: Current video playback time %llu", TAG, __func__,
+  TEST_DBG("%s: Current video playback time %llu", __func__,
            current_playback_time_ / 1000);
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
   return 0;
 }
 
 uint32_t PlayerTest::GetCurrentPlaybackTime() {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(time_lock_);
 
-  TEST_INFO("%s:%s: Current video playback time %lld", TAG, __func__,
+  TEST_INFO("%s: Current video playback time %lld", __func__,
       static_cast<int64_t>(current_playback_time_/1000));
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
   return current_playback_time_;
 }
 
 uint32_t PlayerTest::CreateDataSource() {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
   uint32_t eErr = MM_STATUS_ErrorNone;
 
   m_pDemux_ = CMM_MediaDemuxInt::New(*m_pIStreamPort_, FILE_SOURCE_MPEG4);
 
   if (!m_pDemux_) {
-    TEST_ERROR("%s %s DataSource CreationFAILURE!!", TAG, __func__);
+    TEST_ERROR("%s DataSource CreationFAILURE!!", __func__);
     BAIL_ON_ERROR(MM_STATUS_ErrorDefault);
   }
 
-  TEST_INFO("%s:%s: DataSource Creation SUCCESS!!", TAG, __func__);
+  TEST_INFO("%s: DataSource Creation SUCCESS!!", __func__);
 
   //Read file meta-data
   eErr = ReadMediaInfo();
   BAIL_ON_ERROR(eErr);
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 
 ERROR_BAIL:
   return eErr;
@@ -892,7 +892,7 @@ ERROR_BAIL:
 
 uint32_t PlayerTest::ReadMediaInfo() {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   uint32_t eErr = 0;
   FileSourceTrackIdInfoType aTrackList[MM_SOURCE_MAX_TRACKS];
@@ -903,7 +903,7 @@ uint32_t PlayerTest::ReadMediaInfo() {
 
   // Get total number of tracks available.
   m_sTrackInfo_.ulNumTracks = m_pDemux_->GetWholeTracksIDList(aTrackList);
-  TEST_INFO("%s:%s: NumTracks = %u", TAG, __func__, m_sTrackInfo_.ulNumTracks);
+  TEST_INFO("%s: NumTracks = %u", __func__, m_sTrackInfo_.ulNumTracks);
 
   for (uint32 ulIdx = 0; ulIdx < m_sTrackInfo_.ulNumTracks; ulIdx++) {
     FileSourceTrackIdInfoType sTrackInfo = aTrackList[ulIdx];
@@ -911,18 +911,18 @@ uint32_t PlayerTest::ReadMediaInfo() {
     // Get MimeType
     eFS_Status = m_pDemux_->GetMimeType(sTrackInfo.id, eMjType, eMnType);
     if (FILE_SOURCE_SUCCESS != eFS_Status) {
-      TEST_INFO("%s:%s: Unable to get MIME_TYPE = %u", TAG, __func__,
+      TEST_INFO("%s: Unable to get MIME_TYPE = %u", __func__,
           eFS_Status);
       continue;
     }
 
     if (FILE_SOURCE_SUCCESS == eFS_Status ) {
       if ( FILE_SOURCE_MJ_TYPE_AUDIO == eMjType ) {
-        TEST_INFO("%s:%s: TRACK_AUDIO @MIME_TYPE = %u", TAG, __func__,
+        TEST_INFO("%s: TRACK_AUDIO @MIME_TYPE = %u", __func__,
           eMnType);
         m_sTrackInfo_.sAudio.bTrackSelected = sTrackInfo.selected;
 
-       TEST_INFO("%s : %s id:%d ", __func__, TAG, sTrackInfo.id);
+       TEST_INFO("%s id:%d ", __func__, sTrackInfo.id);
 
         eErr = ReadAudioTrackMediaInfo(sTrackInfo.id, eMnType);
         audio_track_id_ = sTrackInfo.id;
@@ -932,12 +932,12 @@ uint32_t PlayerTest::ReadMediaInfo() {
         }
 
       } else if (FILE_SOURCE_MJ_TYPE_VIDEO == eMjType) {
-        TEST_INFO("%s:%s: TRACK_VIDEO @MIME_TYPE = %u", TAG, __func__,
+        TEST_INFO("%s: TRACK_VIDEO @MIME_TYPE = %u", __func__,
           eMnType);
 
         m_sTrackInfo_.sVideo.bTrackSelected = sTrackInfo.selected;
 
-        TEST_INFO("%s : %s id:%d ", __func__, TAG, sTrackInfo.id);
+        TEST_INFO("%s id:%d ", __func__, sTrackInfo.id);
 
         eErr = ReadVideoTrackMediaInfo(sTrackInfo.id, eMnType);
         video_track_id_ = sTrackInfo.id;
@@ -948,13 +948,13 @@ uint32_t PlayerTest::ReadMediaInfo() {
       }
     } else {
       eErr = MM_STATUS_ErrorStreamCorrupt;
-      TEST_ERROR("%s %sFailed to identify Tracks Error= %u", TAG, __func__,
+      TEST_ERROR("%sFailed to identify Tracks Error= %u", __func__,
       eFS_Status);
       BAIL_ON_ERROR(eErr);
     }
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 
 ERROR_BAIL:
   return eErr;
@@ -964,7 +964,7 @@ uint32_t PlayerTest::ReadAudioTrackMediaInfo(
     uint32 ulTkId,
     FileSourceMnMediaType eTkMnType) {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   MM_STATUS_TYPE eErr = MM_STATUS_ErrorNone;
   FileSourceStatus eFS_Status = FILE_SOURCE_FAIL;
@@ -995,10 +995,10 @@ uint32_t PlayerTest::ReadAudioTrackMediaInfo(
     m_sTrackInfo_.sAudio.ulTimeScale = \
                                 sMediaInfo.audioTrackInfo.timeScale;
 
-    TEST_INFO("%s:%s:Audio CodecType is = %u ", TAG, __func__,
+    TEST_INFO("%s: Audio CodecType is = %u ", __func__,
         m_sTrackInfo_.sAudio.ulCodecType);
 
-    TEST_INFO("%s:%s: TkId = %u CH= %u  SR= %u BD=%u", TAG, __func__, ulTkId,
+    TEST_INFO("%s: TkId = %u CH= %u  SR= %u BD=%u", __func__, ulTkId,
         m_sTrackInfo_.sAudio.ulChCount, m_sTrackInfo_.sAudio.ulSampleRate,
         m_sTrackInfo_.sAudio.ulBitDepth);
 
@@ -1011,7 +1011,7 @@ uint32_t PlayerTest::ReadAudioTrackMediaInfo(
 
     // Get track CSD data if CSD len is valid
     if (0 != m_sTrackInfo_.sAudio.sCSD.ulLen) {
-      TEST_INFO("%s:%s: CSD Len = %u", TAG, __func__,
+      TEST_INFO("%s: CSD Len = %u", __func__,
         m_sTrackInfo_.sAudio.sCSD.ulLen);
 
       m_sTrackInfo_.sAudio.sCSD.pucData = \
@@ -1028,13 +1028,13 @@ uint32_t PlayerTest::ReadAudioTrackMediaInfo(
     }
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 
 ERROR_BAIL:
   if (FILE_SOURCE_SUCCESS != eFS_Status) {
     eErr = MM_STATUS_ErrorDefault;
   }
-  TEST_ERROR("%s:%s: Return Status %u", TAG, __func__, eErr);
+  TEST_ERROR("%s: Return Status %u", __func__, eErr);
   return eErr;
 }
 
@@ -1042,7 +1042,7 @@ uint32_t PlayerTest::ReadVideoTrackMediaInfo(
     uint32 ulTkId,
     FileSourceMnMediaType eTkMnType) {
 
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   MM_STATUS_TYPE eErr = MM_STATUS_ErrorNone;
   FileSourceStatus eFS_Status = FILE_SOURCE_FAIL;
@@ -1062,10 +1062,10 @@ uint32_t PlayerTest::ReadVideoTrackMediaInfo(
     m_sTrackInfo_.sVideo.ullDuration = sMediaInfo.videoTrackInfo.duration;
     m_sTrackInfo_.sVideo.ulTimeScale = sMediaInfo.videoTrackInfo.timeScale;
 
-    TEST_INFO("%s:%s:Video CodecType is = %u ", TAG, __func__,
+    TEST_INFO("%s: Video CodecType is = %u ", __func__,
         m_sTrackInfo_.sVideo.ulCodecType);
 
-    TEST_INFO("%s:%s: TkId = %u Width= %u  Height= %u FR=%f", TAG, __func__,
+    TEST_INFO("%s: TkId = %u Width= %u  Height= %u FR=%f", __func__,
         ulTkId, m_sTrackInfo_.sVideo.ulWidth, m_sTrackInfo_.sVideo.ulHeight,
         m_sTrackInfo_.sVideo.fFrameRate);
 
@@ -1076,14 +1076,14 @@ uint32_t PlayerTest::ReadVideoTrackMediaInfo(
                                           FALSE);
     BAIL_ON_ERROR(eFS_Status);
     if (0 != m_sTrackInfo_.sVideo.sCSD.ulLen) {
-      TEST_INFO("%s:%s: CSD Len = %u", TAG, __func__,
+      TEST_INFO("%s: CSD Len = %u", __func__,
         m_sTrackInfo_.sVideo.sCSD.ulLen);
 
       m_sTrackInfo_.sVideo.sCSD.pucData = \
               (uint8*)MM_Malloc(sizeof(uint8)* m_sTrackInfo_.sVideo.sCSD.ulLen);
       if (!m_sTrackInfo_.sVideo.sCSD.pucData) {
         eErr = MM_STATUS_ErrorMemAllocFail;
-        TEST_ERROR("%s %s CSD Alloc failure", TAG, __func__);
+        TEST_ERROR("%s CSD Alloc failure", __func__);
         BAIL_ON_ERROR(eErr);
       }
       eFS_Status = m_pDemux_->GetFormatBlock(ulTkId,
@@ -1094,14 +1094,14 @@ uint32_t PlayerTest::ReadVideoTrackMediaInfo(
     }
   }
 
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 
 ERROR_BAIL:
   if (FILE_SOURCE_SUCCESS != eFS_Status){
     eErr = MM_STATUS_ErrorDefault;
   }
 
-  TEST_ERROR("%s:%s: Return Status %u", TAG, __func__, eErr);
+  TEST_ERROR("%s: Return Status %u", __func__, eErr);
   return eErr;
 }
 
@@ -1142,8 +1142,7 @@ CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
 
 int main(int argc, char* argv[]) {
   QMMF_GET_LOG_LEVEL();
-
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   PlayerTest test_context(argv[1]);
 
@@ -1167,9 +1166,9 @@ int main(int argc, char* argv[]) {
 
   if (argc == 2 || (argc == 4 && !exit_test)) {
     char *extn = strrchr(argv[1], '.');
-    TEST_INFO("%s: exten is: %s", TAG, extn);
+    TEST_INFO("exten is: %s", extn);
     if (!((strcmp(extn, ".mp4") == 0) || (strcmp(extn, ".MP4") == 0))) {
-      TEST_ERROR("%s:%s Player support .mp4/.MP4 extn only", TAG,__func__);
+      TEST_ERROR("%s Player support .mp4/.MP4 extn only", __func__);
       cmd_menu.HelpMenu(argv[0]);
       exit_test = true;
     }

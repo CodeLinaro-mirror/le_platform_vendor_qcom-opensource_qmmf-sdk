@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "Recorder360GTest"
+#define LOG_TAG "Recorder360GTest"
 
 #include <utils/Log.h>
 #include <sys/types.h>
@@ -64,7 +64,7 @@ using namespace qcamera;
 
 void Recorder360Gtest::SetUp() {
 
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
+  TEST_INFO("%s Enter ", __func__);
 
   test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
@@ -106,13 +106,13 @@ void Recorder360Gtest::SetUp() {
   multicam_start_params_.frame_rate       = kZslQDepth;
   multicam_start_params_.flags            = 0x0;
 
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s Exit ", __func__);
 }
 
 void Recorder360Gtest::TearDown() {
 
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s Enter ", __func__);
+  TEST_INFO("%s Exit ", __func__);
 }
 
 int32_t Recorder360Gtest::Init() {
@@ -162,7 +162,7 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
   assert(ret == NO_ERROR);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -210,7 +210,7 @@ TEST_F(Recorder360Gtest, StartStopMultiCamera) {
   assert(ret == NO_ERROR);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
@@ -280,7 +280,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -372,7 +372,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -443,7 +443,7 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -514,7 +514,7 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -585,7 +585,7 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -648,7 +648,7 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -857,7 +857,7 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -955,7 +955,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -1066,7 +1066,7 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             3840, /* Width */
@@ -1167,7 +1167,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -1284,7 +1284,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -1401,7 +1401,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -1521,7 +1521,7 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -1659,7 +1659,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
                                           stream_fps /* FPS */};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
@@ -1823,7 +1823,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
                                           fps /* FPS */};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
@@ -1986,7 +1986,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
                                           fps };
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 1920x960 h264 encodded track.
@@ -2151,7 +2151,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
                                           fps };
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 1920x960 h264 encodded track.
@@ -2320,7 +2320,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
                                           stream_fps };
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encoded track.
@@ -2473,7 +2473,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             stream_width,
@@ -2661,7 +2661,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -2855,7 +2855,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -3063,7 +3063,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -3275,7 +3275,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
                                           stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encoded track.
@@ -3645,7 +3645,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
                                           stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encoded track.
@@ -4018,7 +4018,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -4342,7 +4342,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -4733,7 +4733,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -5142,7 +5142,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -5561,7 +5561,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -5973,7 +5973,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -6210,7 +6210,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -6486,7 +6486,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -6966,7 +6966,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                             3840,
@@ -7434,7 +7434,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
@@ -7700,7 +7700,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -8172,7 +8172,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -8641,7 +8641,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -9111,7 +9111,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -9581,7 +9581,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -10048,7 +10048,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -10517,7 +10517,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -10963,7 +10963,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam master_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    3840,
@@ -11433,7 +11433,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     VideoTrackCreateParam master_video_track_param{};
@@ -11986,7 +11986,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ret = recorder_.StartSession(session_id_4k);
@@ -12123,7 +12123,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     uint32_t session_id_4k;
@@ -12251,7 +12251,7 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -12324,7 +12324,7 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -12397,7 +12397,7 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -12470,7 +12470,7 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -12535,7 +12535,7 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -12637,7 +12637,7 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -12737,7 +12737,7 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -12852,7 +12852,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             3840,
@@ -12957,7 +12957,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13075,7 +13075,7 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13193,7 +13193,7 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13313,7 +13313,7 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13451,7 +13451,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
                                           stream_fps};
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encodded track.
@@ -13598,7 +13598,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13725,7 +13725,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -13856,7 +13856,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14005,7 +14005,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14180,7 +14180,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14365,7 +14365,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14552,7 +14552,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14685,7 +14685,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14816,7 +14816,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -14947,7 +14947,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15079,7 +15079,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15211,7 +15211,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15342,7 +15342,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15473,7 +15473,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15612,7 +15612,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15770,7 +15770,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -15901,7 +15901,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16032,7 +16032,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16163,7 +16163,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16304,7 +16304,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16479,7 +16479,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16611,7 +16611,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16743,7 +16743,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -16875,7 +16875,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -17007,7 +17007,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -17139,7 +17139,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -17272,7 +17272,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     SessionCb session_status_cb;
@@ -17466,7 +17466,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -17605,7 +17605,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -17743,7 +17743,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -17882,7 +17882,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -18024,7 +18024,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -18176,15 +18176,15 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
 void Recorder360Gtest::RecorderCallbackHandler(EventType event_type,
                                             void *event_data,
                                             size_t event_data_size) {
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s Enter ", __func__);
+  TEST_INFO("%s Exit ", __func__);
 }
 
 void Recorder360Gtest::SessionCallbackHandler(EventType event_type,
                                           void *event_data,
                                           size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::CameraResultCallbackHandler(
@@ -18194,25 +18194,25 @@ void Recorder360Gtest::CameraResultCallbackHandler(
     if (count%30 == 0) {
       if (result.exists(QCAMERA3_TARGET_LUMA)) {
         auto entry = result.find(QCAMERA3_TARGET_LUMA);
-        TEST_INFO("%s:%s: Target Luma Value: %f", TAG, __func__,
+        TEST_INFO("%s: Target Luma Value: %f", __func__,
                   entry.data.f[0]);
       } else {
-        TEST_DBG("%s:%s QCAMERA3_TARGET_LUMA does not exists", TAG, __func__);
+        TEST_DBG("%s QCAMERA3_TARGET_LUMA does not exists", __func__);
       }
       if (result.exists(QCAMERA3_CURRENT_LUMA)) {
         auto entry = result.find(QCAMERA3_CURRENT_LUMA);
-        TEST_INFO("%s:%s: Current Luma Value: %f", TAG, __func__,
+        TEST_INFO("%s: Current Luma Value: %f", __func__,
                   entry.data.f[0]);
       } else {
-        TEST_DBG("%s:%s QCAMERA3_CURRENT_LUMA does not exists", TAG, __func__);
+        TEST_DBG("%s QCAMERA3_CURRENT_LUMA does not exists", __func__);
       }
       if (result.exists(QCAMERA3_LUMA_RANGE)) {
         auto entry = result.find(QCAMERA3_LUMA_RANGE);
-        TEST_INFO("%s:%s: Target Luma Range: [%f - %f]", TAG, __func__,
+        TEST_INFO("%s: Target Luma Range: [%f - %f]", __func__,
                   entry.data.f[0], entry.data.f[1]);
 
       } else {
-        TEST_DBG("%s:%s QCAMERA3_LUMA_RANGE does not exists", TAG, __func__);
+        TEST_DBG("%s QCAMERA3_LUMA_RANGE does not exists", __func__);
       }
     }
     ++count;
@@ -18224,7 +18224,7 @@ void Recorder360Gtest::VideoTrackYUVTwoDataCb(uint32_t session_id,
                                               std::vector<BufferDescriptor> buffers,
                                               std::vector<MetaData> meta_buffers) {
   size_t written_len;
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (is_dump_yuv_enabled_) {
     static uint32_t id = 0;
     ++id;
@@ -18236,20 +18236,20 @@ void Recorder360Gtest::VideoTrackYUVTwoDataCb(uint32_t session_id,
 
       FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
-        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
+        TEST_ERROR("%s: Unable to open file(%s)", __func__,
             file_path.c_str());
         goto FAIL;
       }
 
       written_len = fwrite(buffers[0].data, sizeof(uint8_t),
                            buffers[0].size, file);
-      TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
+      TEST_DBG("%s: written_len =%d", __func__, written_len);
       if (buffers[0].size != written_len) {
-        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
             strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
           buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
@@ -18263,7 +18263,7 @@ void Recorder360Gtest::VideoTrackYUVTwoDataCb(uint32_t session_id,
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
@@ -18271,7 +18271,7 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
   size_t written_len;
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (is_dump_yuv_enabled_) {
     static uint32_t id = 0;
     ++id;
@@ -18283,20 +18283,20 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
 
       FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
-        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
+        TEST_ERROR("%s: Unable to open file(%s)", __func__,
             file_path.c_str());
         goto FAIL;
       }
 
       written_len = fwrite(buffers[0].data, sizeof(uint8_t),
                            buffers[0].size, file);
-      TEST_DBG("%s:%s: written_len =%d", TAG, __func__, written_len);
+      TEST_DBG("%s: written_len =%d", __func__, written_len);
       if (buffers[0].size != written_len) {
-        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
             strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
           buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
@@ -18310,7 +18310,7 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t session_id,
@@ -18318,7 +18318,7 @@ void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t session_id,
                                          std::vector<BufferDescriptor> buffers,
                                          std::vector<MetaData> meta_buffers) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(1);
     dump_bitstream_.Dump(buffers, file_fd);
@@ -18327,7 +18327,7 @@ void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t session_id,
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t session_id,
@@ -18335,7 +18335,7 @@ void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t session_id,
                                          std::vector<BufferDescriptor> buffers,
                                          std::vector<MetaData> meta_buffers) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(2);
     dump_bitstream_.Dump(buffers, file_fd);
@@ -18344,7 +18344,7 @@ void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t session_id,
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t session_id,
@@ -18352,7 +18352,7 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t session_id,
                                          std::vector<BufferDescriptor> buffers,
                                          std::vector<MetaData> meta_buffers) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (dump_bitstream_.IsUsed()) {
     int32_t file_fd = dump_bitstream_.GetFileFd(3);
     dump_bitstream_.Dump(buffers, file_fd);
@@ -18361,20 +18361,20 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t session_id,
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::VideoTrackEventCb(uint32_t track_id, EventType event_type,
                                       void *event_data, size_t data_size) {
-    TEST_DBG("%s:%s: Enter", TAG, __func__);
-    TEST_DBG("%s:%s: Exit", TAG, __func__);
+    TEST_DBG("%s: Enter", __func__);
+    TEST_DBG("%s: Exit", __func__);
 }
 
 void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
                                uint32_t image_sequence_count,
                                BufferDescriptor buffer, MetaData meta_data) {
 
-  TEST_INFO("%s:%s Enter", TAG, __func__);
+  TEST_INFO("%s Enter", __func__);
 
   size_t written_len;
   const char* ext_str;
@@ -18382,16 +18382,16 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
   if (meta_data.meta_flag  &
       static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
     CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
-    TEST_DBG("%s:%s: format(0x%x)", TAG, __func__, cam_buf_meta.format);
-    TEST_DBG("%s:%s: num_planes=%d", TAG, __func__, cam_buf_meta.num_planes);
+    TEST_DBG("%s: format(0x%x)", __func__, cam_buf_meta.format);
+    TEST_DBG("%s: num_planes=%d", __func__, cam_buf_meta.num_planes);
     for (uint8_t i = 0; i < cam_buf_meta.num_planes; ++i) {
-      TEST_DBG("%s:%s: plane[%d]:stride(%d)", TAG, __func__, i,
+      TEST_DBG("plane[%d]:stride(%d)", __func__, i,
           cam_buf_meta.plane_info[i].stride);
-      TEST_DBG("%s:%s: plane[%d]:scanline(%d)", TAG, __func__, i,
+      TEST_DBG("plane[%d]:scanline(%d)", __func__, i,
           cam_buf_meta.plane_info[i].scanline);
-      TEST_DBG("%s:%s: plane[%d]:width(%d)", TAG, __func__, i,
+      TEST_DBG("plane[%d]:width(%d)", __func__, i,
           cam_buf_meta.plane_info[i].width);
-      TEST_DBG("%s:%s: plane[%d]:height(%d)", TAG, __func__, i,
+      TEST_DBG("plane[%d]:height(%d)", __func__, i,
           cam_buf_meta.plane_info[i].height);
     }
 
@@ -18436,19 +18436,19 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
 
       FILE *file = fopen(file_path.c_str(), "w+");
       if (!file) {
-        TEST_ERROR("%s:%s: Unable to open file(%s)", TAG, __func__,
+        TEST_ERROR("%s: Unable to open file(%s)", __func__,
             file_path.c_str());
         goto FAIL;
       }
 
       written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
-      TEST_INFO("%s:%s: written_len =%d", TAG, __func__, written_len);
+      TEST_INFO("%s: written_len =%d", __func__, written_len);
       if (buffer.size != written_len) {
-        TEST_ERROR("%s:%s: Bad Write error (%d):(%s)\n", TAG, __func__, errno,
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
             strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
                 buffer.data, written_len, file_path.c_str());
 
     FAIL:
@@ -18459,7 +18459,7 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
   }
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-  TEST_INFO("%s:%s Exit", TAG, __func__);
+  TEST_INFO("%s Exit", __func__);
 }
 
 status_t Recorder360Gtest::FillCropMetadata(CameraMetadata& meta,
@@ -18470,7 +18470,7 @@ status_t Recorder360Gtest::FillCropMetadata(CameraMetadata& meta,
 
   auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
   if (!active_array_size.count) {
-    TEST_ERROR("%s:%s: Active sensor array size is missing!", TAG, __func__);
+    TEST_ERROR("%s: Active sensor array size is missing!", __func__);
     return NAME_NOT_FOUND;
   }
   // Take the active pixel array width and height as base on which to
@@ -18494,7 +18494,7 @@ status_t Recorder360Gtest::FillCropMetadata(CameraMetadata& meta,
   };
   auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
   if (NO_ERROR != ret) {
-    TEST_ERROR("%s:%s: Failed to set crop region metadata!", TAG, __func__);
+    TEST_ERROR("%s: Failed to set crop region metadata!", __func__);
     return ret;
   }
 
@@ -18544,7 +18544,7 @@ void Recorder360Gtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color)
 
 status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   assert(dumpinfo.width > 0);
   assert(dumpinfo.height > 0);
 
@@ -18572,67 +18572,67 @@ status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
   int32_t file_fd = open(bitstream_filepath.c_str(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd <= 0) {
-    TEST_ERROR("%s:%s File open failed!", TAG, __func__);
+    TEST_ERROR("%s File open failed!", __func__);
     return BAD_VALUE;
   }
 
   file_fds_.push_back(file_fd);
 
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t Dump360BitStream::Dump(const std::vector<BufferDescriptor>& buffers,
                                 const int32_t file_fd) {
 
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   assert(file_fd > 0);
 
   for (auto& iter : buffers) {
     uint32_t exp_size = iter.size;
     TEST_DBG("%s:%s BitStream buffer data(%p):size(%d):ts(%lld):flag(0x%x)"
-      ":buf_id(%d):capacity(%d)", TAG, __func__, iter.data, iter.size,
+      ":buf_id(%d):capacity(%d)",  __func__, iter.data, iter.size,
        iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
     uint32_t written_length = write(file_fd, iter.data, iter.size);
-    TEST_DBG("%s:%s: written_length(%d)", TAG, __func__, written_length);
+    TEST_DBG("%s: written_length(%d)", __func__, written_length);
     if (written_length != exp_size) {
-      TEST_ERROR("%s:%s: Bad Write error (%d) %s", TAG, __func__, errno,
+      TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
       strerror(errno));
       return BAD_VALUE;
     }
 
     if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      TEST_INFO("%s:%s EOS Last buffer!", TAG, __func__);
+      TEST_INFO("%s EOS Last buffer!", __func__);
       break;
     }
   }
 
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 void Dump360BitStream::Close(int32_t file_fd) {
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (file_fd > 0) {
     auto iter = std::find(file_fds_.begin(), file_fds_.end(), file_fd);
     if(iter != file_fds_.end()) {
       close(file_fd);
       file_fds_.erase(iter);
     } else {
-      TEST_WARN("%s:%s: file_fd does not exist!", TAG, __func__);
+      TEST_WARN("%s: file_fd does not exist!", __func__);
     }
   }
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void Dump360BitStream::CloseAll() {
-  TEST_DBG("%s:%s: Enter", TAG, __func__);
+  TEST_DBG("%s: Enter", __func__);
   for (auto& iter : file_fds_) {
     if (iter > 0) {
       close(iter);
     }
   }
   file_fds_.clear();
-  TEST_DBG("%s:%s: Exit", TAG, __func__);
+  TEST_DBG("%s: Exit", __func__);
 }

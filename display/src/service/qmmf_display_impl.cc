@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "DisplayImpl"
+#define LOG_TAG "DisplayImpl"
 
 #include <dlfcn.h>
 #include <utils/KeyedVector.h>
@@ -46,7 +46,7 @@ DisplayImpl* DisplayImpl::instance_ = nullptr;
 CoreInterface* DisplayImpl::core_intf_ = nullptr;
 
 DisplayImpl* DisplayImpl::CreateDisplayCore() {
-    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+    QMMF_INFO("%s: Enter", __func__);
 
   if(!instance_) {
 
@@ -55,7 +55,7 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
 
     instance_ = new DisplayImpl;
     if(!instance_) {
-      QMMF_ERROR("%s:%s: Can't Create Display Instance!", TAG, __func__);
+      QMMF_ERROR("%s: Can't Create Display Instance!", __func__);
       return NULL;
     }
 
@@ -97,48 +97,48 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
 
   }
 
-  QMMF_INFO("%s:%s: Display Instance Created Successfully(0x%p)", TAG,
+  QMMF_INFO("%s: Display Instance Created Successfully(0x%p)",
       __func__, instance_);
   return instance_;
 }
 DisplayImpl::DisplayImpl()
   : current_handle_(0),
     vsync_state_(false) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   if(!core_intf_) {
     DisplayError error = CoreInterface::CreateCore(DisplayDebugHandler::Get(),
         &buffer_allocator_, &buffer_sync_handler_, &core_intf_);
     if (!core_intf_) {
-      QMMF_ERROR("%s:%s: Display Core Initialization Failed. Error = %d",
-          TAG, __func__, error);
+      QMMF_ERROR("%s: Display Core Initialization Failed. Error = %d",
+          __func__, error);
     }
-    QMMF_INFO("%s:%s: Display Core Initialized Successfully!", TAG, __func__);
+    QMMF_INFO("%s: Display Core Initialized Successfully!", __func__);
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
 }
 
 DisplayImpl::~DisplayImpl() {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   if (displayinfo_.size() != 0)
     return ;
 
   DisplayError error = CoreInterface::DestroyCore();
   if (error != kErrorNone) {
-    QMMF_ERROR("%s: %s() Display core de-initialization failed. Error = %d",
-        TAG, __func__, error);
+    QMMF_ERROR("%s() Display core de-initialization failed. Error = %d",
+        __func__, error);
   }
   instance_->displayinfo_.clear();
   instance_ = nullptr;
   core_intf_ = nullptr;
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
 status_t DisplayImpl::Connect() {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
 
   pthread_mutex_init(&thread_lock_, NULL);
@@ -148,7 +148,7 @@ status_t DisplayImpl::Connect() {
     QMMF_ERROR("%s: Unable to create HandleVSync thread\n", __func__);
   }
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
@@ -156,7 +156,7 @@ status_t DisplayImpl::Disconnect() {
 
   int32_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   if (0 != pid_) {
     pthread_join(pid_, NULL);
@@ -166,14 +166,14 @@ status_t DisplayImpl::Disconnect() {
     pthread_mutex_unlock(&thread_lock_);
     pthread_mutex_destroy(&thread_lock_);
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
     DisplayType display_type, DisplayHandle* display_handle) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
 
   pthread_mutex_lock(&thread_lock_);
@@ -186,8 +186,8 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
     if (it->second->display_type == display_type)
       {
         *display_handle = ++current_handle_;
-        QMMF_INFO("%s:%s: Display handle already created:%d",
-            TAG, __func__, *display_handle);
+        QMMF_INFO("%s: Display handle already created:%d",
+            __func__, *display_handle);
         it->second->num_of_clients++;
         displayinfo_.insert({*display_handle, it->second});
         pthread_mutex_unlock(&thread_lock_);
@@ -215,7 +215,7 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
   DisplayError error = core_intf_->CreateDisplay((sdm::DisplayType)display_type,
       (DisplayEventHandler*)this, &displayintf);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: Display Create Failed. Error = %d", TAG, __func__,
+    QMMF_ERROR("%s: Display Create Failed. Error = %d", __func__,
         error);
     pthread_mutex_unlock(&thread_lock_);
     return error;
@@ -234,26 +234,26 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
   error = displayintf->SetCompositionState((sdm::LayerComposition)
       kCompositionGPU, false);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: SetCompositionState Failed. Error = %d", TAG, __func__,
+    QMMF_ERROR("%s: SetCompositionState Failed. Error = %d", __func__,
         error);
   }
 
   error = displayintf->SetDisplayState(kStateOn);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: SetDisplayState Failed. Error = %d", TAG, __func__,
+    QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
         error);
   }
 
   displayintf->SetIdleTimeoutMs(0);
   error = displayintf->SetVSyncState(true);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: SetVSyncState Failed. Error = %d", TAG, __func__, error);
+    QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__, error);
   }
-  QMMF_INFO("%s:%s: Display Created Successfully! *display_handle:%d",
-      TAG, __func__, *display_handle);
+  QMMF_INFO("%s: Display Created Successfully! *display_handle:%d",
+      __func__, *display_handle);
 
   pthread_mutex_unlock(&thread_lock_);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
@@ -261,19 +261,19 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
 
   int32_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   pthread_mutex_lock(&thread_lock_);
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
 
   if(displayinfo->second->num_of_clients>1) {
-    QMMF_ERROR("%s: %s() Cant destroy.There are more users of this display. %u",
-        TAG, __func__, display_handle);
+    QMMF_ERROR("%s() Cant destroy.There are more users of this display. %u",
+        __func__, display_handle);
     displayinfo->second->num_of_clients--;
     displayinfo_.erase(displayinfo);
     pthread_mutex_unlock(&thread_lock_);
@@ -288,7 +288,7 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
       it != displayinfo->second->surfaceinfo_.end(); ++it) {
     status_t error = DestroySurface(display_handle,it->first);
     if (error != kErrorNone){
-      QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+      QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
       pthread_mutex_unlock(&thread_lock_);
       return -EINVAL;
     }
@@ -299,20 +299,20 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
 
   DisplayError error = displayintf->SetVSyncState(false);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: SetVSyncState Failed. Error = %d", TAG, __func__,
+    QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__,
         error);
   }
 
   error = displayintf->SetDisplayState(kStateOff);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: SetDisplayState Failed. Error = %d", TAG, __func__,
+    QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
         error);
   }
 
   if(displayintf && core_intf_) {
     DisplayError error = core_intf_->DestroyDisplay(displayintf);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s:%s: Display Disconnect Failed. Error = %d", TAG, __func__,
+      QMMF_ERROR("%s: Display Disconnect Failed. Error = %d", __func__,
           error);
       pthread_mutex_unlock(&thread_lock_);
       return error;
@@ -326,13 +326,13 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
     displayinfo_.erase(displayinfo);
   }
   pthread_mutex_unlock(&thread_lock_);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
     SurfaceConfig &surface_config, uint32_t* surface_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   pthread_mutex_lock(&thread_lock_);
 
   int32_t ret = NO_ERROR;
@@ -351,7 +351,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -384,7 +384,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   buffer_info.alloc_buffer_info.size = 0;
   error = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width, aligned_height);
   if (error != kErrorNone) {
-    QMMF_ERROR("%s:%s: GetBufferInfo Failed. Error = %d", TAG,
+    QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d",
         __func__, error);
   }
 
@@ -412,7 +412,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   if (error != kErrorNone) {
     if (error == kErrorShutDown) {
     } else if (error != kErrorPermission) {
-      QMMF_ERROR("%s:%s: Prepare failed. Error = %d", TAG, __func__, error);
+      QMMF_ERROR("%s: Prepare failed. Error = %d", __func__, error);
     }
     delete surfaceinfo;
     FreeLayer(display_handle, *surface_id);
@@ -443,7 +443,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
       surfaceinfo->mmapbuf = nullptr;
       error = buffer_allocator_.AllocateBuffer(bufferinfo);
       if (error != kErrorNone) {
-        QMMF_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG,
+        QMMF_ERROR("%s: AllocateBuffer Failed. Error = %d",
             __func__, error);
         pthread_mutex_unlock(&thread_lock_);
         return -ENOMEM;
@@ -452,20 +452,20 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   }
 
   pthread_mutex_unlock(&thread_lock_);
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
     const uint32_t surface_id) {
 
-  QMMF_DEBUG("%s:%s: Enter", TAG, __func__);
+  QMMF_DEBUG("%s: Enter", __func__);
   pthread_mutex_lock(&thread_lock_);
 
   int32_t ret = NO_ERROR;
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -474,7 +474,7 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
   assert(displayinfo->second->surfaceinfo_.size() > 0);
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
   if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-    QMMF_INFO("%s:%s: surfaceinfo not found!", TAG, __func__);
+    QMMF_INFO("%s: surfaceinfo not found!", __func__);
     return -EINVAL;
   }
 
@@ -495,20 +495,20 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
   displayinfo->second->surfaceinfo_.erase(surfaceinfo);
   pthread_mutex_unlock(&thread_lock_);
 
-  QMMF_DEBUG("%s:%s: Exit", TAG, __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
-    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+    QMMF_INFO("%s: Enter", __func__);
 
   int32_t ret = NO_ERROR;
   pthread_mutex_lock(&thread_lock_);
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -533,8 +533,8 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
         surface_buffer.plane_info[0].height = bufferinfo->buffer_config.height;
         surface_buffer.format = (SurfaceFormat)bufferinfo->buffer_config.format;
         surface_buffer.plane_info[0].ion_fd = bufferinfo->alloc_buffer_info.fd;
-        QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u"
-            "commited::%u", TAG, __func__, surface_buffer.plane_info[0].ion_fd,
+        QMMF_DEBUG("%s State of Buffer Ion_Fd::%u queued::%u dequed::%u"
+            "commited::%u",  __func__, surface_buffer.plane_info[0].ion_fd,
             it->second->queued, it->second->dequed, it->second->commited);
         surface_buffer.buf_id = it->first;
         surface_buffer.plane_info[0].offset = 0;
@@ -556,7 +556,7 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
 
   pthread_mutex_unlock(&thread_lock_);
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
@@ -564,13 +564,13 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer,
     SurfaceParam &surface_param) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   pthread_mutex_lock(&thread_lock_);
 
   int32_t ret = NO_ERROR;
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     pthread_mutex_unlock(&thread_lock_);
     return -EINVAL;
   }
@@ -596,7 +596,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   buffer_info.alloc_buffer_info.size = 0;
   ret = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width, aligned_height);
   if (ret != kErrorNone) {
-      QMMF_ERROR("%s:%s: GetBufferInfo Failed. Error = %d", TAG,
+      QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d",
           __func__, ret);
   }
   layer->input_buffer.width = aligned_width;
@@ -622,7 +622,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->flags.solid_fill = surface_param.surface_flags.solid_fill;
   layer->flags.cursor = surface_param.surface_flags.cursor;
   layer->input_buffer.planes[0].fd = surface_buffer.plane_info[0].ion_fd;
-  QMMF_DEBUG("%s:%s Value of Buffer Ion_Fd = %u", TAG, __func__,
+  QMMF_DEBUG("%s: Value of Buffer Ion_Fd = %u", __func__,
       surface_buffer.plane_info[0].ion_fd);
   layer->input_buffer.buffer_id = surface_buffer.buf_id;
   layer->flags.updating = true;
@@ -654,8 +654,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
 
             it->second->queued = 1;
             it->second->commited = 0;
-            QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
-                "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
+            QMMF_DEBUG("%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
+                "commited::%u",  __func__, bufferinfo->alloc_buffer_info.fd,
                 it->second->queued, it->second->dequed, it->second->commited);
             break;
           }
@@ -674,8 +674,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
           (LayerBufferFormat)surface_buffer.format;
       bufferinfo->buffer_config.buffer_count = 1;
       bufferinfo->alloc_buffer_info.fd = surface_buffer.plane_info[0].ion_fd;
-      QMMF_DEBUG("%s:%s State of Buffer Ion_Fd::%u queued::%u dequed::%u "
-          "commited::%u", TAG, __func__, bufferinfo->alloc_buffer_info.fd,
+      QMMF_DEBUG("%s: State of Buffer Ion_Fd::%u queued::%u dequed::%u "
+          "commited::%u", __func__, bufferinfo->alloc_buffer_info.fd,
           bufiduse->queued, bufiduse->dequed, bufiduse->commited);
       bufferinfo->alloc_buffer_info.stride =
           surface_buffer.plane_info[0].stride;
@@ -686,20 +686,20 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   }
   pthread_mutex_unlock(&thread_lock_);
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::GetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   uint32_t ret = NO_ERROR;
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %d", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %d", __func__, display_handle);
     return -EINVAL;
   }
 
@@ -708,25 +708,25 @@ status_t DisplayImpl::GetDisplayParam(DisplayHandle display_handle,
   if (param_type == DisplayParamType::kBrightness){
     DisplayError error = displayintf->GetPanelBrightness((int*)param);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s:%s: GetPanelBrightness Failed. Error = %d", TAG, __func__,
+      QMMF_ERROR("%s: GetPanelBrightness Failed. Error = %d", __func__,
           error);
       return error;
     }
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::SetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   uint32_t ret = NO_ERROR;
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return -EINVAL;
   }
 
@@ -736,33 +736,33 @@ status_t DisplayImpl::SetDisplayParam(DisplayHandle display_handle,
     int *level = (int*)param;
     DisplayError error = displayintf->SetPanelBrightness(*level);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s:%s: SetPanelBrightness Failed. Error = %d", TAG, __func__,
+      QMMF_ERROR("%s: SetPanelBrightness Failed. Error = %d", __func__,
           error);
       return error;
     }
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::DequeueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   //TBD
   int32_t ret = NO_ERROR;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t DisplayImpl::QueueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, const SurfaceBuffer &surface_buffer) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   //TBD
   int32_t ret = NO_ERROR;
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
@@ -787,7 +787,7 @@ void* DisplayImpl::HandleVSync(void *userdata) {
 
     DisplayError error = displayintf->SetVSyncState(false);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s:%s: SetVSyncState Failed. Error = %d", TAG, __func__,
+      QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__,
           error);
     }
     pthread_mutex_unlock(&displayimpl->thread_lock_);
@@ -815,11 +815,11 @@ void* DisplayImpl::HandleVSync(void *userdata) {
         layer_stack->flags.flags=0;
         DisplayError error = displayintf->Prepare(layer_stack);
         if (error != kErrorNone) {
-          QMMF_WARN("%s:%s: Prepare failed. Error = %d", TAG, __func__, error);
+          QMMF_WARN("%s: Prepare failed. Error = %d", __func__, error);
         } else {
           error = displayintf->Commit(layer_stack);
           if (error != kErrorNone) {
-            QMMF_WARN("%s:%s: Commit failed. Error = %d", TAG, __func__,
+            QMMF_WARN("%s: Commit failed. Error = %d", __func__,
                   error);
           }
         }
@@ -849,11 +849,11 @@ void DisplayImpl::SetRect(const SurfaceRect &source, LayerRect *target) {
 
 Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
     uint32_t* surface_id) {
-    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+    QMMF_INFO("%s: Enter", __func__);
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return NULL;
   }
   Layer* layer = new Layer();
@@ -861,24 +861,24 @@ Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
 
   displayinfo->second->layer_count++;
   *surface_id = displayinfo->second->layer_count;
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
 
   return layer;
 }
 
 void DisplayImpl::FreeLayer(DisplayHandle display_handle,
     const uint32_t surface_id) {
-    QMMF_INFO("%s:%s: Enter", TAG, __func__);
+    QMMF_INFO("%s: Enter", __func__);
 
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return;
   }
 
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
   if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return;
   }
 
@@ -888,37 +888,37 @@ void DisplayImpl::FreeLayer(DisplayHandle display_handle,
   surfaceinfo->second->layer = nullptr;
   displayinfo->second->layer_count--;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
 }
 
 Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
     const uint32_t surface_id) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return NULL;
   }
 
   auto surfaceinfo = displayinfo->second->surfaceinfo_.find(surface_id);
   if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return NULL;
   }
   assert(surfaceinfo->second->layer);
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return surfaceinfo->second->layer;
 }
 
 LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
     bool queued_buffers_only) {
 
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter", __func__);
   auto displayinfo = displayinfo_.find(display_handle);
   if (displayinfo == displayinfo_.end()) {
-    QMMF_ERROR("%s: %s() no displayinfo %u", TAG, __func__, display_handle);
+    QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return NULL;
   }
   LayerStack* layer_stack = new LayerStack();
@@ -926,7 +926,7 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
   for(uint32_t i=1;i<=displayinfo->second->layer_count;i++) {
     auto surfaceinfo = displayinfo->second->surfaceinfo_.find(i);
     if (surfaceinfo == displayinfo->second->surfaceinfo_.end()) {
-      QMMF_ERROR("%s: %s() no displayinfo:%d i: %d", TAG, __func__,
+      QMMF_ERROR("%s() no displayinfo:%d i: %d", __func__,
           display_handle, i);
       continue;
     }
@@ -938,8 +938,8 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
         for (std::map<int, Buff_Info*>::iterator it =
             surfaceinfo->second->buf_id_use.begin() ;
             it != surfaceinfo->second->buf_id_use.end(); ++it) {
-            QMMF_DEBUG("%s:%s State of Buffer is queued::%u dequed::%u"
-                "commited::%u", TAG, __func__, it->second->queued,
+            QMMF_DEBUG("%s State of Buffer is queued::%u dequed::%u"
+                "commited::%u",  __func__, it->second->queued,
                 it->second->dequed, it->second->commited);
             if(it->second->queued) {
               push_layer = 1;
@@ -954,19 +954,19 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayHandle display_handle,
     }
   }
 
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  QMMF_VERBOSE("%s: Exit", __func__);
   return layer_stack;
 }
 
 DisplayError DisplayImpl::VSync(const DisplayEventVSync &vsync) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   if (vsync_state_) {
     SCOPE_LOCK(vsync_callback_locker_);
     vsync_callback_locker_.Signal();
     vsync_state_ = false;
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return kErrorNone;
 }
 

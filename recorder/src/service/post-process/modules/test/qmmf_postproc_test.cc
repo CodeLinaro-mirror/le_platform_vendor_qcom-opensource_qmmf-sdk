@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "CameraSimple"
+#define LOG_TAG "CameraSimple"
 
 #include <sys/mman.h>
 
@@ -40,21 +40,21 @@ namespace qmmf {
 namespace recorder {
 
 PostProcTest::PostProcTest() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 }
 
 PostProcTest::~PostProcTest() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 }
 
 status_t PostProcTest::Initialize(const PostProcIOParam &in_param,
                                   const PostProcIOParam &out_param) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
 PostProcIOParam PostProcTest::GetInput(const PostProcIOParam &out) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   PostProcIOParam input_param = out;
 
   input_param.buffer_count++;
@@ -66,7 +66,7 @@ PostProcIOParam PostProcTest::GetInput(const PostProcIOParam &out) {
 }
 
 status_t PostProcTest::ValidateOutput(const PostProcIOParam &output) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
@@ -87,23 +87,23 @@ status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
 }
 
 status_t PostProcTest::Start(const int32_t stream_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
 status_t PostProcTest::Stop() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
 status_t PostProcTest::Abort(std::shared_ptr<void> &abort) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }
 
 
 status_t PostProcTest::Delete() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   return NO_ERROR;
 }
 
@@ -115,7 +115,7 @@ status_t PostProcTest::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
-  QMMF_INFO("%s:%s: Simple done", TAG, __func__);
+  QMMF_INFO("%s: Simple done", __func__);
 
   // no process call directly client
   for (auto buf : in_buffers) {

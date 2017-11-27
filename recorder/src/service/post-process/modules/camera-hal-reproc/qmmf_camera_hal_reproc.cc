@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderHALReproc"
+#define LOG_TAG "RecorderHALReproc"
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_camera_context.h"
@@ -42,15 +42,15 @@ CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
       abort_(nullptr),
       frame_processing_(false) {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
   state_ = PostProcHalState::CREATED;
-  QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
 CameraHalReproc::~CameraHalReproc() {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_VERBOSE("%s: Enter ", __func__);
+  QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
 void CameraHalReproc::GetInputBuffer(StreamBuffer &buffer) {
@@ -87,15 +87,15 @@ void CameraHalReproc::ReturnAllInputBuffers() {
 }
 
 void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
-  QMMF_INFO("%s:%s: HAL reprocess is done! StreamBuffer(0x%p) fd: %d stream_id:"
-      "%d ts: %lld", TAG,  __func__, in_buff.handle, in_buff.fd,
+  QMMF_INFO("%s: HAL reprocess is done! StreamBuffer(0x%p) fd: %d stream_id:"
+      "%d ts: %lld",   __func__, in_buff.handle, in_buff.fd,
       in_buff.stream_id, in_buff.timestamp);
 
   listener_->OnFrameReady(in_buff);
 
   auto ret = StartProcessing(true);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Reprocess is not started.\n", __func__);
   }
 }
 
@@ -104,7 +104,7 @@ status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
   {
     std::lock_guard<std::mutex> lock(module_lock_);
     if (state_ != PostProcHalState::CREATED) {
-      QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+      QMMF_ERROR("%s: Failed: Wrong state %d.", __func__, state_);
       return BAD_VALUE;
     }
     state_ = PostProcHalState::INITIALIZED;
@@ -112,7 +112,7 @@ status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
 
   auto ret = ValidateInput(in_param, out_param);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed: Wrong input parameters.", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Wrong input parameters.", __func__);
     return BAD_VALUE;
   }
 
@@ -121,7 +121,7 @@ status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
 
   ret = CreateDeviceStreams();
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to setup camera: %d\n", TAG, __func__, ret);
+    QMMF_ERROR("%s: Failed to setup camera: %d\n", __func__, ret);
     return ret;
   }
 
@@ -132,7 +132,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   PostProcIOParam input_param = out;
 
   if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    QMMF_ERROR("%s:%s: Hal does not report supported sizes\n", TAG, __func__);
+    QMMF_ERROR("%s: Hal does not report supported sizes\n", __func__);
     assert(0);
   }
 
@@ -150,15 +150,15 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
     input_param.format = BufferFormat::kRAW16;
     break;
   default:
-    QMMF_ERROR("%s:%s: Error: output format %d is not supported\n",
-        TAG, __func__, out.format);
+    QMMF_ERROR("%s: Error: output format %d is not supported\n",
+        __func__, out.format);
     assert(0);
     break;
   }
 
   auto ret = ValidateFormat(input_param.format);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Hal does not support required format\n", TAG, __func__);
+    QMMF_ERROR("%s: Hal does not support required format\n", __func__);
     assert(0);
   }
 
@@ -178,8 +178,8 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
       }
     }
     if (i >= entry.count) {
-      QMMF_ERROR("%s:%s: Required resolution %dx%d is not supported. Max: %dx%d\n",
-          TAG, __func__, out.width, out.height, input_param.width,
+      QMMF_ERROR("%s: Required resolution %dx%d is not supported. Max: %dx%d\n",
+          __func__, out.width, out.height, input_param.width,
           input_param.height);
       assert(0);
     }
@@ -192,7 +192,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
     input_param.buffer_count = kBufCount;
   }
 
-  QMMF_VERBOSE("%s:%s: input dim %dx%d format %x", TAG, __func__,
+  QMMF_VERBOSE("%s: input dim %dx%d format %x", __func__,
       input_param.width, input_param.height, input_param.format);
 
   return input_param;
@@ -202,7 +202,7 @@ status_t CameraHalReproc::ValidateFormat(BufferFormat fmt) {
   int32_t hal_format = Common::FromQmmfToHalFormat(fmt);
 
   if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
-    QMMF_ERROR("%s:%s: Hal does not report supported formats\n", TAG, __func__);
+    QMMF_ERROR("%s: Hal does not report supported formats\n", __func__);
     return BAD_VALUE;
   }
 
@@ -214,14 +214,14 @@ status_t CameraHalReproc::ValidateFormat(BufferFormat fmt) {
     }
   }
 
-  QMMF_ERROR("%s:%s: Hal does not support 0x%x format. qmmf format: %d\n",
-      TAG, __func__, hal_format, fmt);
+  QMMF_ERROR("%s: Hal does not support 0x%x format. qmmf format: %d\n",
+      __func__, hal_format, fmt);
   return BAD_VALUE;
 }
 
 status_t CameraHalReproc::ValidateDimensions(uint32_t width, uint32_t height) {
   if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    QMMF_ERROR("%s:%s: HAL does not report supported sizes!", TAG, __func__);
+    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
     return NAME_NOT_FOUND;
   }
 
@@ -241,7 +241,7 @@ status_t CameraHalReproc::ValidateDimensions(uint32_t width, uint32_t height) {
     }
   }
 
-  QMMF_ERROR("%s:%s: Dimensions (%dx%d) not supported", TAG, __func__,
+  QMMF_ERROR("%s: Dimensions (%dx%d) not supported", __func__,
       width, height);
   return BAD_VALUE;
 }
@@ -269,12 +269,12 @@ status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
       }
     }
   } else {
-    QMMF_ERROR("%s:%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
-        TAG, __func__);
+    QMMF_ERROR("%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
+        __func__);
   }
 
-  QMMF_ERROR("%s:%s: Failed: input format: 0x%x out format 0x%x\n",
-      TAG, __func__, input.format, output.format);
+  QMMF_ERROR("%s: Failed: input format: 0x%x out format 0x%x\n",
+      __func__, input.format, output.format);
 
   return BAD_VALUE;
 }
@@ -282,14 +282,14 @@ status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
 status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
   auto ret = ValidateFormat(output.format);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Output format(%d) not supported",
-        TAG, __func__, output.format);
+    QMMF_ERROR("%s: Output format(%d) not supported",
+        __func__, output.format);
     return BAD_TYPE;
   }
 
   ret = ValidateDimensions(output.width, output.height);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Output dimensions(%dx%d) not supported", TAG, __func__,
+    QMMF_ERROR("%s: Output dimensions(%dx%d) not supported", __func__,
         output.width, output.height);
     return BAD_VALUE;
   }
@@ -302,14 +302,14 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   CameraMetadata static_meta = context_->GetCameraStaticMeta();
 
   if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    QMMF_ERROR("%s:%s: HAL does not report supported raw sizes!",
-        TAG, __func__);
+    QMMF_ERROR("%s: HAL does not report supported raw sizes!",
+        __func__);
     return NAME_NOT_FOUND;
   }
 
   if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
-    QMMF_ERROR("%s:%s: HAL does not report supported  proc sizes!",
-        TAG, __func__);
+    QMMF_ERROR("%s: HAL does not report supported  proc sizes!",
+        __func__);
     return NAME_NOT_FOUND;
   }
 
@@ -323,7 +323,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   caps.min_width_  = entry.data.i32[entry.count - 2];
   caps.min_height_ = entry.data.i32[entry.count - 1];
 
-  QMMF_VERBOSE("%s:%s: supported dim: min %dx%d max %dx%d", TAG, __func__,
+  QMMF_VERBOSE("%s: supported dim: min %dx%d max %dx%d", __func__,
     caps.min_width_, caps.min_height_, caps.max_width_, caps.max_height_);
 
   caps.output_buff_        = 0;
@@ -338,7 +338,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
     auto format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
     if (!caps.formats_.count(format)) {
       caps.formats_.insert(format);
-      QMMF_VERBOSE("%s:%s: supports format %d", TAG, __func__, format);
+      QMMF_VERBOSE("%s: supports format %d", __func__, format);
     }
   }
 
@@ -346,11 +346,11 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
 }
 
 status_t CameraHalReproc::Start(const int32_t stream_id) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::INITIALIZED &&
       state_ != PostProcHalState::ABORTED) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    QMMF_ERROR("%s: Failed: Already configured.", __func__);
     return BAD_VALUE;
   }
   //state_ = PostProcHalState::STARTING;
@@ -361,12 +361,12 @@ status_t CameraHalReproc::Start(const int32_t stream_id) {
 }
 
 status_t CameraHalReproc::Stop() {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::ACTIVE &&
       state_ != PostProcHalState::ABORTED) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    QMMF_ERROR("%s: Failed: Wrong state %d.", __func__, state_);
     return BAD_VALUE;
   }
   state_ = PostProcHalState::STOPPING;
@@ -379,36 +379,36 @@ status_t CameraHalReproc::Stop() {
 }
 
 status_t CameraHalReproc::Abort(std::shared_ptr<void> &abort) {
-  QMMF_VERBOSE("%s:%s: Enter ", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::ACTIVE) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    QMMF_ERROR("%s: Failed: Wrong state %d.", __func__, state_);
     return BAD_VALUE;
   }
 
   std::unique_lock<std::mutex> processing_lock(abort_lock_);
   if (frame_processing_) {
-    QMMF_VERBOSE("%s:%s: Acquire abort done handler", TAG, __func__);
+    QMMF_VERBOSE("%s: Acquire abort done handler", __func__);
     abort_ = abort;
   }
 
   state_ = PostProcHalState::ABORTED;
 
-  QMMF_VERBOSE("%s:%s: Exit ", TAG, __func__);
+  QMMF_VERBOSE("%s: Exit ", __func__);
   return NO_ERROR;
 }
 
 status_t CameraHalReproc::Delete() {
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::INITIALIZED) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state %d.", TAG, __func__, state_);
+    QMMF_ERROR("%s: Failed: Wrong state %d.", __func__, state_);
     return BAD_VALUE;
   }
 
   auto ret = DeleteDeviceStreams();
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to setup camera: %d\n", TAG, __func__, ret);
+    QMMF_ERROR("%s: Failed to setup camera: %d\n", __func__, ret);
     return ret;
   }
 
@@ -425,8 +425,8 @@ status_t CameraHalReproc::Process(
     const std::vector<StreamBuffer> &out_buffers) {
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::ACTIVE) {
-    QMMF_VERBOSE("%s:%s: state is not active %d. skip processing",
-        TAG, __func__, state_);
+    QMMF_VERBOSE("%s: state is not active %d. skip processing",
+        __func__, state_);
     for (auto buf : in_buffers) {
       listener_->OnFrameProcessed(buf);
     }
@@ -439,14 +439,14 @@ status_t CameraHalReproc::Process(
 
   auto ret = StartProcessing(false);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Reprocess is not started.\n", __func__);
     return ret;
   }
   return NO_ERROR;
 }
 
 status_t CameraHalReproc::ReturnBuff(StreamBuffer &buffer) {
-  QMMF_DEBUG("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld", TAG,
+  QMMF_DEBUG("%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
     __func__, buffer.handle, buffer.fd,
     buffer.stream_id, buffer.timestamp);
   return context_->ReturnStreamBuffer(buffer);
@@ -500,8 +500,8 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
 
   int64_t timestamp;
   if (!metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
-    QMMF_ERROR("%s:%s Sensor timestamp tag missing in metadata!\n",
-        TAG, __func__);
+    QMMF_ERROR("%s Sensor timestamp tag missing in metadata!\n",
+        __func__);
     return;
   }
   timestamp = metadata.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
@@ -549,8 +549,8 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
 void CameraHalReproc::AddResult(const void* result_in) {
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::ACTIVE) {
-    QMMF_VERBOSE("%s:%s: state is not active %d. skip result",
-        TAG, __func__, state_);
+    QMMF_VERBOSE("%s: state is not active %d. skip result",
+        __func__, state_);
     return;
   }
 
@@ -561,7 +561,7 @@ void CameraHalReproc::AddResult(const void* result_in) {
 
   auto ret = StartProcessing(false);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Failed: Reprocess is not started.\n", TAG, __func__);
+    QMMF_ERROR("%s: Failed: Reprocess is not started.\n", __func__);
   }
 }
 
@@ -573,12 +573,12 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
     std::unique_lock<std::mutex> processing_lock(abort_lock_);
     if (state_ == PostProcHalState::ABORTED && from_cb && frame_processing_) {
       frame_processing_ = false;
-      QMMF_VERBOSE("%s:%s: Release abort done handler", TAG, __func__);
+      QMMF_VERBOSE("%s: Release abort done handler", __func__);
       abort_ = nullptr;
     }
 
-    QMMF_VERBOSE("%s:%s: state is not active %d. skip processing",
-        TAG, __func__, state_);
+    QMMF_VERBOSE("%s: state is not active %d. skip processing",
+        __func__, state_);
     return NO_ERROR;
   }
 
@@ -587,14 +587,14 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
   }
 
   if (frame_processing_) {
-    QMMF_VERBOSE("%s:%s: processing on going", TAG, __func__);
+    QMMF_VERBOSE("%s: processing on going", __func__);
     return NO_ERROR;
   }
 
   ReprocessBundle reproc_bundle;
   // get one reprocess bundle
   if (reproc_ready_list_.empty()) {
-    QMMF_DEBUG("%s:%s: no reprocess bundle", TAG, __func__);
+    QMMF_DEBUG("%s: no reprocess bundle", __func__);
     return NO_ERROR;
   }
 
@@ -609,7 +609,7 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
   reprocess_request_.metadata.clear();
   reprocess_request_.metadata.append(reproc_bundle.metadata);
 
-  QMMF_VERBOSE("%s:%s: Submit reprocess request.", TAG, __func__);
+  QMMF_VERBOSE("%s: Submit reprocess request.", __func__);
 
 
   int64_t last_frame_number = -1;
@@ -617,7 +617,7 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
                                      false,
                                      &last_frame_number);
   if (ret < 0) {
-    QMMF_ERROR("%s:%s: Failed to submit reprocess request.", TAG, __func__);
+    QMMF_ERROR("%s: Failed to submit reprocess request.", __func__);
     reproc_ready_list_.clear();
     return BAD_VALUE;
   }
@@ -629,7 +629,7 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
 }
 
 status_t CameraHalReproc::CreateDeviceStreams() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   status_t ret = NO_ERROR;
   int32_t stream_id_p;
 
@@ -642,14 +642,14 @@ status_t CameraHalReproc::CreateDeviceStreams() {
   in_stream_params.return_input_buffer = [&] (StreamBuffer &buffer)
       { ReturnInputBuffer(buffer); };
 
-  QMMF_VERBOSE("%s:%s: in stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d",
-    TAG, __func__, output_param_.width, output_param_.height,
+  QMMF_VERBOSE("%s: in stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d",
+    __func__, output_param_.width, output_param_.height,
     in_stream_params.format, input_param_.format);
 
   ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to create input reprocess stream: %d\n",
-        TAG, __func__, ret);
+    QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
+        __func__, ret);
     return ret;
   }
   assert(stream_id_p >= 0);
@@ -665,16 +665,16 @@ status_t CameraHalReproc::CreateDeviceStreams() {
       { ReprocessCallback(buffer); };
   out_stream_params.is_pp_enabled = true;
 
-  QMMF_VERBOSE("%s:%s: out stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d count %d",
-    TAG, __func__, output_param_.width, output_param_.height,
+  QMMF_VERBOSE("%s: out stream dim %dx%d hal_fmt 0x%x qmmf_fmt %d count %d",
+    __func__, output_param_.width, output_param_.height,
     out_stream_params.format, output_param_.format, output_param_.buffer_count);
 
   ret = context_->CreateDeviceStream(out_stream_params,
                                      output_param_.frame_rate,
                                      &stream_id_p);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: Failed to create output reprocess stream: %d\n",
-        TAG, __func__, ret);
+    QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
+        __func__, ret);
     return ret;
   }
   assert(stream_id_p >= 0);
@@ -688,8 +688,8 @@ status_t CameraHalReproc::DeleteDeviceStreams() {
   if (!reprocess_request_.streamIds.isEmpty()) {
     for (auto streamId : reprocess_request_.streamIds) {
       if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
-        QMMF_ERROR("%s:%s: Failed to delete non-zsl snapshot stream",
-          TAG, __func__);
+        QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream",
+          __func__);
         return BAD_VALUE;
       }
     }

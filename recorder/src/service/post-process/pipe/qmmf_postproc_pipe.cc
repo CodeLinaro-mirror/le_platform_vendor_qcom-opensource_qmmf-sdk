@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderPostProcPipe"
+#define LOG_TAG "RecorderPostProcPipe"
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
@@ -44,7 +44,7 @@ PostProcPipe::PostProcPipe(IPostProc* context)
     : context_(context),
       use_hal_jpeg_(false) {
 
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter", __func__);
 
   factory_ = PostProcFactory::getInstance();
   assert(factory_.get() != nullptr);
@@ -55,13 +55,13 @@ PostProcPipe::PostProcPipe(IPostProc* context)
 
   state_ = PostProcPipeState::CREATED; // todo
 
-  QMMF_VERBOSE("%s:%s: Exit (%p)", TAG, __func__, this);
+  QMMF_VERBOSE("%s: Exit (%p)", __func__, this);
 }
 
 PostProcPipe::~PostProcPipe() {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
-  QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, this);
+  QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
 
 status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
@@ -98,14 +98,14 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   if (pipe_.empty()) {
     std::shared_ptr<PostProcNode> node = FindInternalNode(node_out_param);
     assert(node.get() != nullptr);
-    QMMF_VERBOSE("%s:%s: insert helper node %s", TAG, __func__,
+    QMMF_VERBOSE("%s: insert helper node %s", __func__,
         node->GetName().c_str());
     pipe_.push_back(node);
   }
 
   // If pipe is still empty return error
   if (pipe_.empty()) {
-    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
   }
 
@@ -114,7 +114,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   if (!IsFormatSupported(caps.formats_, pipe_out_param.format)) {
     std::shared_ptr<PostProcNode> node = FindInternalNode(node_out_param);
     assert(node.get() != nullptr);
-    QMMF_VERBOSE("%s:%s: insert helper node %s", TAG, __func__,
+    QMMF_VERBOSE("%s: insert helper node %s", __func__,
         node->GetName().c_str());
     pipe_.push_back(node);
   }
@@ -133,7 +133,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
       std::shared_ptr<PostProcNode> new_node =
           FindInternalNode(node_out_param);
       if (new_node.get() == nullptr) {
-        QMMF_ERROR("%s:%s: Node format incompatibility!", TAG, __func__);
+        QMMF_ERROR("%s: Node format incompatibility!", __func__);
         return ret;
       }
 
@@ -141,12 +141,12 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
       ++idx;
       pipe_.insert(pipe_.begin() + idx, new_node);
 
-      QMMF_VERBOSE("%s:%s: insert helper node %s", TAG, __func__,
+      QMMF_VERBOSE("%s: insert helper node %s", __func__,
           new_node->GetName().c_str());
 
       continue;
     } else if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Node dimensions incompatibility!", TAG, __func__);
+      QMMF_ERROR("%s: Node dimensions incompatibility!", __func__);
       return ret;
     }
 
@@ -157,7 +157,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     // Initialize node
     ret = node->Initialize(node_in_param, node_out_param);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Failed to initialize node!", TAG, __func__);
+      QMMF_ERROR("%s: Failed to initialize node!", __func__);
       return ret;
     }
 
@@ -185,7 +185,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     nodes.append(node->GetName());
     nodes.append(", ");
   }
-  QMMF_INFO("%s:%s: Reprocess pipe: %s", TAG, __func__, nodes.c_str());
+  QMMF_INFO("%s: Reprocess pipe: %s", __func__, nodes.c_str());
 
 
   return NO_ERROR;
@@ -195,7 +195,7 @@ status_t PostProcPipe::DeletePipe() {
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
-    QMMF_INFO("%s:%s: return node uid: %d name: %s", TAG, __func__,
+    QMMF_INFO("%s: return node uid: %d name: %s", __func__,
         (*iter)->GetId(), (*iter)->GetName().c_str());
     (*iter)->Delete();
     factory_->ReturnProcNode((*iter)->GetId());
@@ -230,11 +230,11 @@ sp<IBufferConsumer>& PostProcPipe::GetConsumerIntf() {
 }
 
 void PostProcPipe::PipeNotifyBufferReturn(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s: Enter", TAG, __func__);
+  QMMF_VERBOSE("%s: Enter", __func__);
   if (pipe_.empty() == false) {
     pipe_.back()->NotifyBufferReturned(buffer);
   }
-  QMMF_VERBOSE("%s:%s: Exit", TAG, __func__);
+  QMMF_VERBOSE("%s: Exit", __func__);
 }
 
 void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
@@ -245,7 +245,7 @@ void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
     (*iter)->AddConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
   }
-  QMMF_INFO("%s:%s: Pipe is linked! last node consumer (%p)", TAG, __func__,
+  QMMF_INFO("%s: Pipe is linked! last node consumer (%p)", __func__,
       consumer.get());
 }
 
@@ -257,7 +257,7 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
     (*iter)->RemoveConsumer(tmp_c);
     tmp_c = (*iter)->GetConsumerIntf();
   }
-  QMMF_INFO("%s:%s: Pipe is unlinked!", TAG, __func__);
+  QMMF_INFO("%s: Pipe is unlinked!", __func__);
 }
 
 bool PostProcPipe::IsRAWFormat(const BufferFormat &format) {
@@ -328,7 +328,7 @@ bool PostProcPipe::SupportsJPEGFormat(const std::set<BufferFormat> &formats) {
 
 status_t PostProcPipe::Start(const int32_t stream_id) {
   if (pipe_.empty()) {
-    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
   }
   auto iter = pipe_.end();
@@ -341,7 +341,7 @@ status_t PostProcPipe::Start(const int32_t stream_id) {
 
 status_t PostProcPipe::Stop() {
   if (pipe_.empty()) {
-    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
   }
 
@@ -354,10 +354,10 @@ status_t PostProcPipe::Stop() {
 }
 
 status_t PostProcPipe::Abort() {
-  QMMF_ERROR("%s:%s: E", TAG, __func__);
+  QMMF_ERROR("%s: E", __func__);
 
   if (pipe_.empty()) {
-    QMMF_ERROR("%s:%s: Pipe is empty", TAG, __func__);
+    QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
   }
 
@@ -388,51 +388,51 @@ status_t PostProcPipe::Abort() {
   while (abort_done_ == false) {
     auto ret = abort_signal_.WaitFor(lock, wait_time);
     if (ret != 0) {
-      QMMF_ERROR("%s:%s Timed out on Wait", TAG, __func__);
+      QMMF_ERROR("%s: Timed out on Wait", __func__);
       return TIMED_OUT;
     }
   }
 
-  QMMF_ERROR("%s:%s: X", TAG, __func__);
+  QMMF_ERROR("%s: X", __func__);
 
   return NO_ERROR;
 }
 
 status_t PostProcPipe::AddConsumer(sp<IBufferConsumer>& consumer) {
 
-  QMMF_INFO("%s:%s: Enter (%p)", TAG, __func__, consumer.get());
+  QMMF_INFO("%s: Enter (%p)", __func__, consumer.get());
   if (state_ != PostProcPipeState::INITIALIZED) {
-    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s: Incorrect state: %d", __func__, state_);
     return INVALID_OPERATION;
   }
 
   if (consumer == nullptr) {
-    QMMF_ERROR("%s:%s: Consumer is NULL", TAG, __func__);
+    QMMF_ERROR("%s: Consumer is NULL", __func__);
     return BAD_VALUE;
   }
 
   LinkPipe(consumer);
 
-  QMMF_VERBOSE("%s:%s: Consumer(%p) has been added.", TAG, __func__,
+  QMMF_VERBOSE("%s: Consumer(%p) has been added.", __func__,
              consumer.get());
 
   state_ = PostProcPipeState::READYTOSTART;
-  QMMF_INFO("%s:%s: Exit (%p)", TAG, __func__, consumer.get());
+  QMMF_INFO("%s: Exit (%p)", __func__, consumer.get());
   return NO_ERROR;
 }
 
 status_t PostProcPipe::RemoveConsumer(sp<IBufferConsumer>& consumer) {
 
-  QMMF_INFO("%s:%s: Enter consumer=%p", TAG, __func__, consumer.get());
+  QMMF_INFO("%s: Enter consumer=%p", __func__, consumer.get());
   if (state_ != PostProcPipeState::READYTOSTART) {
-    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s: Incorrect state: %d", __func__, state_);
     return INVALID_OPERATION;
   }
 
   UnlinkPipe(consumer);
 
   state_ = PostProcPipeState::READYTOSTOP;
-  QMMF_INFO("%s:%s: Exit consumer=%p", TAG, __func__, consumer.get());
+  QMMF_INFO("%s: Exit consumer=%p", __func__, consumer.get());
   return NO_ERROR;
 }
 
@@ -445,14 +445,14 @@ void PostProcPipe::AddResult(const void* result) {
 status_t PostProcPipe::Configure(const std::string &config_json_data) {
   status_t ret = NO_ERROR;
   if (state_ != PostProcPipeState::INITIALIZED) {
-    QMMF_ERROR("%s:%s: Incorrect state: %d", TAG, __func__, state_);
+    QMMF_ERROR("%s: Incorrect state: %d", __func__, state_);
     return INVALID_OPERATION;
   }
 
   for (auto const& node : pipe_) {
     ret = node->Configure(config_json_data);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Configuration failed for (%s) ret: %d", TAG, __func__,
+      QMMF_ERROR("%s: Configuration failed for (%s) ret: %d", __func__,
           node->GetName().c_str(), ret);
     }
   }

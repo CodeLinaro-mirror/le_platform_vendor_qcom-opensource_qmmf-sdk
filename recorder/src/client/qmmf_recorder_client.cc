@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "RecorderClient"
+#define LOG_TAG "RecorderClient"
 
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
@@ -76,15 +76,15 @@ RecorderClient::RecorderClient()
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  QMMF_INFO("%s Enter ", __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s:%s Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s Exit (0x%p)", __func__, this);
 }
 
 RecorderClient::~RecorderClient() {
 
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  QMMF_INFO("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   if (recorder_service_ != nullptr) {
@@ -97,7 +97,7 @@ RecorderClient::~RecorderClient() {
   }
   camera_module_ = nullptr;
 
-  QMMF_INFO("%s:%s Exit 0x%p", TAG, __func__, this);
+  QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
 
 extern "C" {
@@ -106,18 +106,18 @@ extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 
 status_t RecorderClient::Connect(const RecorderCb& cb) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
   if (CheckServiceStatus()) {
-    QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
+    QMMF_WARN("%s Client is already connected to service!", __func__);
     return NO_ERROR;
   }
 
   ion_device_ = open("/dev/ion", O_RDONLY);
   if (ion_device_ < 0) {
-    QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
+    QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
   }
 
@@ -126,7 +126,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   NotifyServerDeathCB death_cb = [&] { ServiceDeathHandler(); };
   death_notifier_ = new DeathNotifier(death_cb);
   if (nullptr == death_notifier_.get()) {
-    QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
+    QMMF_ERROR("%s Unable to allocate death notifier!", __func__);
     return NO_MEMORY;
   }
 
@@ -136,7 +136,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   service_handle = service_manager->
       getService(String16(QMMF_RECORDER_SERVICE_NAME));
   if (service_handle.get() == nullptr) {
-    QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
+    QMMF_ERROR("%s Can't get (%s) service", __func__,
                      QMMF_RECORDER_SERVICE_NAME);
     return NO_INIT;
   }
@@ -148,11 +148,11 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   uint32_t client_id;
   auto ret = recorder_service_->Connect(handler, &client_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
+    QMMF_ERROR("%s Can't connect to (%s) service", __func__,
         QMMF_RECORDER_SERVICE_NAME);
   }
   client_id_ = client_id;
-  QMMF_INFO("%s:%s: client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: client_id(%d)", __func__, client_id);
 
   if (!session_cb_list_.empty()) {
     session_cb_list_.clear();
@@ -189,13 +189,13 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
       }
     }
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::Disconnect() {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -205,7 +205,7 @@ status_t RecorderClient::Disconnect() {
 
   auto ret = recorder_service_->Disconnect(client_id_);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
+      QMMF_ERROR("%s Disconnect failed!", __func__);
   }
 
   recorder_service_->asBinder(recorder_service_)->
@@ -235,7 +235,7 @@ status_t RecorderClient::Disconnect() {
   }
   client_id_ = 0;
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -243,7 +243,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
                                      const CameraStartParam &param,
                                      const CameraResultCb &result_cb) {
   bool enable_result_cb = false;
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -260,15 +260,15 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
                                            const_cast<CameraStartParam&>(param),
                                            enable_result_cb);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s StartCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s StartCamera failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::StopCamera(const uint32_t camera_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -279,15 +279,15 @@ status_t RecorderClient::StopCamera(const uint32_t camera_id) {
   assert(client_id_ > 0);
   auto ret = recorder_service_->StopCamera(client_id_, camera_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s StopCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s StopCamera failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::CreateSession(const SessionCb& cb,
                                        uint32_t* session_id) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -298,7 +298,7 @@ status_t RecorderClient::CreateSession(const SessionCb& cb,
   assert(client_id_ > 0);
   auto ret = recorder_service_->CreateSession(client_id_, session_id);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s CreateSession failed!", TAG, __func__);
+      QMMF_ERROR("%s CreateSession failed!", __func__);
   }
   if (*session_id == 0) {
     return NO_INIT;
@@ -307,13 +307,13 @@ status_t RecorderClient::CreateSession(const SessionCb& cb,
 
   std::vector<uint32_t> tracks;
   sessions_.insert(std::make_pair(*session_id, tracks));
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::DeleteSession(const uint32_t session_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -323,7 +323,7 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
   }
 
   if (sessions_.find(session_id) == sessions_.end()) {
-    QMMF_ERROR("%s:%s: session id is not valid!", TAG, __func__);
+    QMMF_ERROR("%s: session id is not valid!", __func__);
     return BAD_VALUE;
   }
 
@@ -333,14 +333,14 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
   }
 
   if (tracks.size() > 0) {
-    QMMF_ERROR("%s:%s: Delete tracks first before deleting Session(%d)", TAG,
+    QMMF_ERROR("%s: Delete tracks first before deleting Session(%d)",
         __func__, session_id);
     return INVALID_OPERATION;
   }
   assert(client_id_ > 0);
   auto ret = recorder_service_->DeleteSession(client_id_, session_id);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DeleteSession failed!", TAG, __func__);
+      QMMF_ERROR("%s DeleteSession failed!", __func__);
   }
 
   if (session_cb_list_.find(session_id) != session_cb_list_.end()) {
@@ -348,13 +348,13 @@ status_t RecorderClient::DeleteSession(const uint32_t session_id) {
   }
 
   sessions_.erase(session_id);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::StartSession(const uint32_t session_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_BASE();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -372,19 +372,19 @@ status_t RecorderClient::StartSession(const uint32_t session_id) {
   assert(client_id_ > 0);
   auto ret = recorder_service_->StartSession(client_id_, session_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s StartSession failed!", TAG, __func__);
+    QMMF_ERROR("%s StartSession failed!", __func__);
   } else {
     for (size_t i = 0; i < tracks.size(); i++) {
       QMMF_KPI_ASYNC_BEGIN("FirstVidFrame", tracks[i]);
     }
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::StopSession(const uint32_t session_id,
                                      bool do_flush) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_BASE();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -394,7 +394,7 @@ status_t RecorderClient::StopSession(const uint32_t session_id,
   assert(client_id_ > 0);
   auto ret = recorder_service_->StopSession(client_id_, session_id, do_flush);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s StopSession failed!", TAG, __func__);
+    QMMF_ERROR("%s StopSession failed!", __func__);
   } else {
     std::vector<uint32_t> tracks;
     if (sessions_.find(session_id) != sessions_.end()) {
@@ -404,13 +404,13 @@ status_t RecorderClient::StopSession(const uint32_t session_id,
       QMMF_KPI_ASYNC_BEGIN("LastVidFrame", tracks[i]);
     }
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::PauseSession(const uint32_t session_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -420,15 +420,15 @@ status_t RecorderClient::PauseSession(const uint32_t session_id) {
   assert(client_id_ > 0);
   auto ret = recorder_service_->PauseSession(client_id_, session_id);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s PauseSession failed!", TAG, __func__);
+      QMMF_ERROR("%s PauseSession failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::ResumeSession(const uint32_t session_id)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     QMMF_KPI_DETAIL();
     std::lock_guard<std::mutex> lock(lock_);
 
@@ -438,15 +438,15 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
     assert(client_id_ > 0);
     auto ret = recorder_service_->ResumeSession(client_id_, session_id);
     if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s ResumeSession failed!", TAG, __func__);
+        QMMF_ERROR("%s ResumeSession failed!", __func__);
     }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
     return ret;
 }
 
 status_t RecorderClient::GetSupportedPlugins(SupportedPlugins *plugins)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     QMMF_KPI_DETAIL();
     std::lock_guard<std::mutex> lock(lock_);
 
@@ -456,16 +456,16 @@ status_t RecorderClient::GetSupportedPlugins(SupportedPlugins *plugins)
     assert(client_id_ > 0);
     auto ret = recorder_service_->GetSupportedPlugins(client_id_, plugins);
     if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s GetSupportedPlugins failed!", TAG, __func__);
+        QMMF_ERROR("%s GetSupportedPlugins failed!", __func__);
     }
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
     return ret;
 }
 
 status_t RecorderClient::CreatePlugin(uint32_t *uid, const PluginInfo &plugin)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     QMMF_KPI_DETAIL();
     std::lock_guard<std::mutex> lock(lock_);
 
@@ -475,16 +475,16 @@ status_t RecorderClient::CreatePlugin(uint32_t *uid, const PluginInfo &plugin)
     assert(client_id_ > 0);
     auto ret = recorder_service_->CreatePlugin(client_id_, uid, plugin);
     if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s CreatePlugin failed!", TAG, __func__);
+        QMMF_ERROR("%s CreatePlugin failed!", __func__);
     }
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
     return ret;
 }
 
 status_t RecorderClient::DeletePlugin(const uint32_t &uid)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     QMMF_KPI_DETAIL();
     std::lock_guard<std::mutex> lock(lock_);
 
@@ -494,17 +494,17 @@ status_t RecorderClient::DeletePlugin(const uint32_t &uid)
     assert(client_id_ > 0);
     auto ret = recorder_service_->DeletePlugin(client_id_, uid);
     if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s DeletePlugin failed!", TAG, __func__);
+        QMMF_ERROR("%s DeletePlugin failed!", __func__);
     }
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
     return ret;
 }
 
 status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
                                       const std::string &json_config)
 {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     QMMF_KPI_DETAIL();
     std::lock_guard<std::mutex> lock(lock_);
 
@@ -514,10 +514,10 @@ status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
     assert(client_id_ > 0);
     auto ret = recorder_service_->ConfigPlugin(client_id_, uid, json_config);
     if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s ConfigPlugin failed!", TAG, __func__);
+        QMMF_ERROR("%s ConfigPlugin failed!", __func__);
     }
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
     return ret;
 }
 
@@ -526,10 +526,10 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                                           const AudioTrackCreateParam& param,
                                           const TrackCb& cb) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
+  QMMF_VERBOSE("%s INPARAM: param[%s]", __func__,
                param.ToString().c_str());
   QMMF_KPI_DETAIL();
 
@@ -541,21 +541,21 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
   assert(track_id != 0);
 
   if (sessions_.find(session_id) == sessions_.end()) {
-    QMMF_ERROR("%s:%s: session id is not valid!", TAG, __func__);
+    QMMF_ERROR("%s: session id is not valid!", __func__);
     return BAD_VALUE;
   }
   assert(client_id_ > 0);
   auto result = recorder_service_->CreateAudioTrack(client_id_, session_id,
                                                     track_id, param);
   if (result != NO_ERROR)
-      QMMF_ERROR("%s:%s CreateAudioTrack failed: %d", TAG, __func__, result);
+      QMMF_ERROR("%s CreateAudioTrack failed: %d", __func__, result);
 
   std::lock_guard<std::mutex> l(track_list_lock_);
   track_cb_list_.insert(std::make_pair(track_id, cb));
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return result;
 }
 
@@ -564,7 +564,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
                                           const VideoTrackCreateParam& param,
                                           const TrackCb& cb) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
@@ -575,7 +575,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
   assert(track_id != 0);
 
   if (sessions_.find(session_id) == sessions_.end()) {
-    QMMF_ERROR("%s:%s: session_id(%d) is not valid!", TAG, __func__,
+    QMMF_ERROR("%s: session_id(%d) is not valid!", __func__,
         session_id);
     return BAD_VALUE;
   }
@@ -583,7 +583,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
   auto ret = recorder_service_->CreateVideoTrack(client_id_, session_id,
       track_id, const_cast<VideoTrackCreateParam&>(param));
   if (NO_ERROR != ret) {
-     QMMF_ERROR("%s:%s CreateVideoTrack failed!", TAG, __func__);
+     QMMF_ERROR("%s CreateVideoTrack failed!", __func__);
   }
 
   std::lock_guard<std::mutex> l(track_list_lock_);
@@ -591,7 +591,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -601,7 +601,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
                                           const VideoExtraParam& extra_param,
                                           const TrackCb& cb) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
@@ -612,7 +612,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
   assert(track_id != 0);
 
   if (sessions_.find(session_id) == sessions_.end()) {
-    QMMF_ERROR("%s:%s: session_id(%d) is not valid!", TAG, __func__,
+    QMMF_ERROR("%s: session_id(%d) is not valid!", __func__,
         session_id);
     return BAD_VALUE;
   }
@@ -620,7 +620,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
   auto ret = recorder_service_->CreateVideoTrack(client_id_, session_id,
                                                  track_id, param, extra_param);
   if (NO_ERROR != ret) {
-     QMMF_ERROR("%s:%s CreateVideoTrackWithExtraParam failed!", TAG, __func__);
+     QMMF_ERROR("%s CreateVideoTrackWithExtraParam failed!", __func__);
   }
 
   std::lock_guard<std::mutex> l(track_list_lock_);
@@ -628,7 +628,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
   UpdateSessionTopology(session_id, track_id, true /*add*/);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -637,11 +637,11 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
                                            std::vector<BufferDescriptor>
                                               &buffers) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
   for (const BufferDescriptor& buffer : buffers)
-    QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s INPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -668,9 +668,9 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
   ret = recorder_service_->ReturnTrackBuffer(client_id_, session_id, track_id,
                                              bn_buffers_ret);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s ReturnTrackBuffer failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s ReturnTrackBuffer failed: %d", __func__, ret);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -680,7 +680,7 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
                                             const void *param,
                                             size_t param_size) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -689,9 +689,9 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
   auto ret = recorder_service_->SetAudioTrackParam(client_id_, session_id,
       track_id, type, const_cast<void*>(param), param_size);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetAudioTrackParam failed!", TAG, __func__);
+      QMMF_ERROR("%s SetAudioTrackParam failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -701,7 +701,7 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
                                             const void *param,
                                             size_t param_size) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -710,18 +710,18 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
   auto ret = recorder_service_->SetVideoTrackParam(client_id_, session_id,
       track_id, type, const_cast<void*>(param), param_size);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetVideoTrackParam failed!", TAG, __func__);
+      QMMF_ERROR("%s SetVideoTrackParam failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
                                           const uint32_t track_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
   QMMF_KPI_DETAIL();
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -730,7 +730,7 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
   }
 
   if (sessions_.find(session_id) == sessions_.end()) {
-    QMMF_ERROR("%s:%s: session_id(%d) is not valid!", TAG, __func__,
+    QMMF_ERROR("%s: session_id(%d) is not valid!", __func__,
         session_id);
     return BAD_VALUE;
   }
@@ -740,7 +740,7 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
   auto ret = recorder_service_->DeleteAudioTrack(client_id_, session_id,
                                                  track_id);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DeleteAudioTrack failed: %d", TAG, __func__, ret);
+      QMMF_ERROR("%s DeleteAudioTrack failed: %d", __func__, ret);
   }
 
   std::lock_guard<std::mutex> l(track_list_lock_);
@@ -749,14 +749,14 @@ status_t RecorderClient::DeleteAudioTrack(const uint32_t session_id,
   }
 
   UpdateSessionTopology(session_id, track_id, false /*remove*/);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
                                           const uint32_t track_id) {
 
-  QMMF_DEBUG("%s:%s Enter track_id(%d)", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter track_id(%d)", __func__, track_id);
   QMMF_KPI_DETAIL();
   int32_t ret = NO_ERROR;
 
@@ -772,16 +772,16 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
       track_buf_map_lock_.unlock();
       for (auto j = info_map.begin(); j != info_map.end(); ++j) {
         BufInfo buf_info = j->second;
-        QMMF_INFO("%s:%s: track_id(%d):buf_info.ion_fd(%d) to close", TAG,
+        QMMF_INFO("%s: track_id(%d):buf_info.ion_fd(%d) to close",
             __func__, track_id, buf_info.ion_fd);
-        QMMF_INFO("%s:%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
-            TAG, __func__, track_id, buf_info.pointer, buf_info.frame_len);
+        QMMF_INFO("%s: track_id(%d):buf_info.pointer=0x%p and frame_len=%d",
+            __func__, track_id, buf_info.pointer, buf_info.frame_len);
         if (buf_info.pointer != nullptr) {
           struct ion_handle_data ion_handle;
           memset(&ion_handle, 0, sizeof(ion_handle));
           ion_handle.handle = buf_info.ion_handle;
           if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-            QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+            QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
             return -errno;
           }
 
@@ -797,7 +797,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
         if (buf_info.ion_fd > 0) {
           auto stat = close(buf_info.ion_fd);
           if (0 != stat) {
-            QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d[%s]", TAG, __func__,
+            QMMF_ERROR("%s Failed to close ION fd: %d : %d[%s]", __func__,
                        buf_info.ion_fd, -errno, strerror(errno));
             return -errno;
           }
@@ -812,7 +812,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   assert(client_id_ > 0);
   ret = recorder_service_->DeleteVideoTrack(client_id_, session_id, track_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s: track_id(%d) DeleteVideoTrack failed!", TAG, __func__,
+    QMMF_ERROR("%s: track_id(%d) DeleteVideoTrack failed!", __func__,
         track_id);
     ret = BAD_VALUE;
   }
@@ -823,7 +823,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
   }
 
   UpdateSessionTopology(session_id, track_id, false /*remove*/);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -833,7 +833,7 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
                                       const std::vector<CameraMetadata> &meta,
                                       const ImageCaptureCb &cb) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_ASYNC_BEGIN("FirstCapImg", camera_id);
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -844,17 +844,17 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
   auto ret = recorder_service_->CaptureImage(client_id_, camera_id, param,
                                              num_images, meta);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s CaptureImage failed!", TAG, __func__);
+      QMMF_ERROR("%s CaptureImage failed!", __func__);
   }
   image_capture_cb_ = cb;
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
                                             const ImageConfigParam &config) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -863,15 +863,15 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
   auto ret = recorder_service_->ConfigImageCapture(client_id_, camera_id,
                                                    config);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s ConfigImageCapture failed!", TAG, __func__);
+      QMMF_ERROR("%s ConfigImageCapture failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   if (!CheckServiceStatus()) {
@@ -880,9 +880,9 @@ status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id) {
   assert(client_id_ > 0);
   auto ret = recorder_service_->CancelCaptureImage(client_id_, camera_id);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s CancelCaptureImage failed!", TAG, __func__);
+      QMMF_ERROR("%s CancelCaptureImage failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -890,7 +890,7 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                   const BufferDescriptor
                                                       &buffer) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -898,7 +898,7 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
   // Unmap buffer from client process, and close duped ION fd.
   if (snapshot_buffers_.find(buffer.fd) == snapshot_buffers_.end()) {
-    QMMF_ERROR("%s:%s: Invalid buffer!", TAG, __func__);
+    QMMF_ERROR("%s: Invalid buffer!", __func__);
     return BAD_VALUE;
   }
   auto buf_info = snapshot_buffers_.find(buffer.fd)->second;
@@ -908,11 +908,11 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
     memset(&ion_handle, 0, sizeof(ion_handle));
     ion_handle.handle = buf_info.ion_handle;
     if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-      QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+      QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
     }
     auto stat = munmap(buf_info.pointer, buf_info.frame_len);
     if (0 != stat) {
-      QMMF_ERROR("%s:%s Failed to unmap buffer: %p:%d", TAG, __func__,
+      QMMF_ERROR("%s Failed to unmap buffer: %p:%d", __func__,
           buf_info.pointer, -errno);
     }
     buf_info.pointer = nullptr;
@@ -920,27 +920,27 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
   if (buf_info.ion_fd > 0) {
     auto stat = close(buf_info.ion_fd);
     if (0 != stat) {
-      QMMF_ERROR("%s:%s Failed to close ION fd: %d:%d", TAG, __func__,
+      QMMF_ERROR("%s Failed to close ION fd: %d:%d", __func__,
           buf_info.ion_fd, -errno);
     }
   }
   snapshot_buffers_.erase(buffer.fd);
-  QMMF_DEBUG("%s:%s Returning buf_id(%d) back to service!", TAG, __func__,
+  QMMF_DEBUG("%s Returning buf_id(%d) back to service!", __func__,
       buffer.buf_id);
   assert(client_id_ > 0);
   auto ret = recorder_service_->ReturnImageCaptureBuffer(client_id_, camera_id,
                                                          buffer.buf_id);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s ReturnImageCaptureBuffer failed!", TAG, __func__);
+      QMMF_ERROR("%s ReturnImageCaptureBuffer failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
                                         const CameraMetadata &meta) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -948,16 +948,16 @@ status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
   assert(client_id_ > 0);
   auto ret = recorder_service_->SetCameraParam(client_id_, camera_id, meta);
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s SetCameraParam failed!", TAG, __func__);
+      QMMF_ERROR("%s SetCameraParam failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
                                         CameraMetadata &meta) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
@@ -966,16 +966,16 @@ status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
   assert(client_id_ > 0);
   auto ret = recorder_service_->GetCameraParam(client_id_, camera_id, meta);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s GetCameraParam failed!", TAG, __func__);
+    QMMF_ERROR("%s GetCameraParam failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
                                                 CameraMetadata &meta) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -984,9 +984,9 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
   auto ret = recorder_service_->GetDefaultCaptureParam(client_id_,  camera_id,
                                                        meta);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s GetDefaultCaptureParam failed!", TAG, __func__);
+    QMMF_ERROR("%s GetDefaultCaptureParam failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -994,7 +994,7 @@ status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
                                              const OverlayParam &param,
                                              uint32_t *overlay_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1004,16 +1004,16 @@ status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
                                                     const_cast<OverlayParam*>
                                                     (&param), overlay_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s CreateOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s CreateOverlayObject failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
                                              const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1022,9 +1022,9 @@ status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
   auto ret = recorder_service_->DeleteOverlayObject(client_id_, track_id,
                                                     overlay_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s DeleteOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s DeleteOverlayObject failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -1032,7 +1032,7 @@ status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
                                                 const uint32_t overlay_id,
                                                 OverlayParam &param) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1041,9 +1041,9 @@ status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
   auto ret = recorder_service_->GetOverlayObjectParams(client_id_, track_id,
                                                        overlay_id, param);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s GetOverlayObjectParams failed!", TAG, __func__);
+    QMMF_ERROR("%s GetOverlayObjectParams failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -1051,7 +1051,7 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
                                                    const uint32_t overlay_id,
                                                    const OverlayParam &param) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1060,16 +1060,16 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
   auto ret = recorder_service_->UpdateOverlayObjectParams(client_id_, track_id,
       overlay_id, const_cast<OverlayParam*>(&param));
   if (NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s UpdateOverlayObjectParams failed!", TAG, __func__);
+      QMMF_ERROR("%s UpdateOverlayObjectParams failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::SetOverlay(const uint32_t track_id,
                                     const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1078,16 +1078,16 @@ status_t RecorderClient::SetOverlay(const uint32_t track_id,
   auto ret = recorder_service_->SetOverlayObject(client_id_, track_id,
                                                  overlay_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s SetOverlay failed!", TAG, __func__);
+    QMMF_ERROR("%s SetOverlay failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
                                        const uint32_t overlay_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
@@ -1096,9 +1096,9 @@ status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
   auto ret = recorder_service_->RemoveOverlayObject(client_id_, track_id,
                                                     overlay_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s RemoveOverlay failed!", TAG, __func__);
+    QMMF_ERROR("%s RemoveOverlay failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -1106,7 +1106,7 @@ status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
                                            camera_ids,
                                            uint32_t *virtual_camera_id) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -1117,9 +1117,9 @@ status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
   auto ret = recorder_service_->CreateMultiCamera(client_id_, camera_ids,
                                                   virtual_camera_id);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s CreateMultiCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s CreateMultiCamera failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
@@ -1128,7 +1128,7 @@ status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                               const void *param,
                                               const uint32_t param_size) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
@@ -1139,27 +1139,27 @@ status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                                      virtual_camera_id, type,
                                                      param, param_size);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s ConfigureMultiCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s ConfigureMultiCamera failed!", __func__);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
 bool RecorderClient::CheckServiceStatus() {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   bool connected = true;
   if (nullptr == recorder_service_.get()) {
-    QMMF_WARN("%s:%s Not connected to Recorder service!", TAG, __func__);
+    QMMF_WARN("%s Not connected to Recorder service!", __func__);
     connected = false;
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
   return connected;
 }
 
 void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
                                            const uint32_t track_id, bool add) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
 
   std::vector<uint32_t> tracks;
   if (sessions_.find(session_id) != sessions_.end()) {
@@ -1183,15 +1183,15 @@ void RecorderClient::UpdateSessionTopology(const uint32_t session_id,
       track_ids = sessions_.find(session_id)->second;
     }
     for (size_t j = 0; j < track_ids.size(); j++) {
-      QMMF_INFO("%s:%s: session_id(%d):track_id(%d)", TAG, __func__, session_id,
+      QMMF_INFO("%s: session_id(%d):track_id(%d)", __func__, session_id,
           track_ids[j]);
     }
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::ServiceDeathHandler() {
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  QMMF_INFO("%s Enter ", __func__);
 
   std::lock_guard<std::mutex> lock(lock_);
   int32_t ret = NO_ERROR;
@@ -1209,7 +1209,7 @@ void RecorderClient::ServiceDeathHandler() {
           memset(&ion_handle, 0, sizeof(ion_handle));
           ion_handle.handle = buf_info.ion_handle;
           if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-            QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+            QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
           }
           ret = munmap(buf_info.pointer, buf_info.frame_len);
           if (NO_ERROR != ret) {
@@ -1221,7 +1221,7 @@ void RecorderClient::ServiceDeathHandler() {
         if (buf_info.ion_fd > 0) {
           ret = close(buf_info.ion_fd);
           if (NO_ERROR != ret) {
-            QMMF_ERROR("%s:%s Failed to close ION fd: %d : %d", TAG, __func__,
+            QMMF_ERROR("%s Failed to close ION fd: %d : %d", __func__,
                 buf_info.ion_fd, -errno);
           }
         }
@@ -1238,11 +1238,11 @@ void RecorderClient::ServiceDeathHandler() {
       memset(&ion_handle, 0, sizeof(ion_handle));
       ion_handle.handle = buf_info.ion_handle;
       if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
-        QMMF_ERROR("%s:%s ION free failed: %d", TAG, __func__, -errno);
+        QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
       }
       ret = munmap(buf_info.pointer, buf_info.frame_len);
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Failed to unmap buffer: %p:%d", TAG, __func__,
+        QMMF_ERROR("%s Failed to unmap buffer: %p:%d", __func__,
             buf_info.pointer, -errno);
       }
       buf_info.pointer = nullptr;
@@ -1250,7 +1250,7 @@ void RecorderClient::ServiceDeathHandler() {
     if (buf_info.ion_fd > 0) {
       ret = close(buf_info.ion_fd);
       if (NO_ERROR != ret) {
-        QMMF_ERROR("%s:%s Failed to close ION fd: %d:%d", TAG, __func__,
+        QMMF_ERROR("%s Failed to close ION fd: %d:%d", __func__,
             buf_info.ion_fd, -errno);
       }
     }
@@ -1290,29 +1290,29 @@ void RecorderClient::ServiceDeathHandler() {
   if (recorder_cb_.event_cb != nullptr) {
     recorder_cb_.event_cb(EventType::kServerDied, nullptr, 0);
   }
-  QMMF_INFO("%s:%s Exit ", TAG, __func__);
+  QMMF_INFO("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   if (recorder_cb_.event_cb != nullptr) {
     recorder_cb_.event_cb(event_type, event_data, event_data_size);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifySessionEvent(EventType event_type, void *event_data,
                                         size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifySnapshotData(uint32_t camera_id,
                                         uint32_t image_sequence_count,
                                         BnBuffer& buffer, MetaData& meta_data) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
 
   assert(image_capture_cb_ != nullptr);
   assert(ion_device_ > 0);
@@ -1325,11 +1325,11 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   ion_info_fd.fd = buffer.ion_fd;
   auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
+    QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d)", __func__,
         ion_info_fd.fd);
     return;
   }
-  QMMF_VERBOSE("%s:%s: ion_fd(%d)", TAG, __func__, ion_info_fd.fd);
+  QMMF_VERBOSE("%s: ion_fd(%d)", __func__, ion_info_fd.fd);
   void* vaddr = mmap(nullptr, buffer.capacity, PROT_READ | PROT_WRITE,
                      MAP_SHARED, ion_info_fd.fd, 0);
   assert(vaddr != nullptr);
@@ -1358,14 +1358,14 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   QMMF_KPI_ASYNC_BEGIN("SnapShot-Shot", camera_id);
 
   image_capture_cb_(camera_id, image_sequence_count, snapshot_buf, meta_data);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &bn_buffers,
                                           std::vector<MetaData> &meta_buffers) {
 
-  QMMF_DEBUG("%s:%s Enter track_id=%d", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter track_id=%d", __func__, track_id);
 
   std::vector<BufferDescriptor> track_buffers;
   for (size_t i = 0; i < bn_buffers.size(); i++) {
@@ -1392,8 +1392,8 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
             assert(buf_info.ion_fd > 0);
             bn_buffers[i].ion_fd = buf_info.ion_fd;
             is_mapped = true;
-            QMMF_VERBOSE("%s:%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
-                "vaddr(0x%p)", TAG, __func__, bn_buffers[i].buffer_id,
+            QMMF_VERBOSE("%s: Buf is already mapped! buffer_id(%d):ion_fd(%d):"
+                "vaddr(0x%p)",  __func__, bn_buffers[i].buffer_id,
                 buf_info.ion_fd, buf_info.pointer);
           }
         } else {
@@ -1413,15 +1413,15 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       ion_info_fd.fd = bn_buffers[i].ion_fd;
       auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
       if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d)", TAG, __func__,
+        QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d)", __func__,
             ion_info_fd.fd);
         return;
       }
-      QMMF_VERBOSE("%s:%s: ion_info_fd.fd =%d", TAG, __func__, ion_info_fd.fd);
+      QMMF_VERBOSE("%s: ion_info_fd.fd =%d", __func__, ion_info_fd.fd);
       void* vaddr = mmap(nullptr, bn_buffers[i].capacity,
                          PROT_READ | PROT_WRITE, MAP_SHARED, ion_info_fd.fd, 0);
       if (MAP_FAILED == vaddr) {
-        QMMF_ERROR("%s:%s: mmap failed: %d[%s]", TAG, __func__,
+        QMMF_ERROR("%s: mmap failed: %d[%s]", __func__,
                    errno, strerror(errno));
         return;
       }
@@ -1446,17 +1446,17 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
         // replaceValueFor() performs as add if entry doesn't exist.
         track_buf_map_[track_id] = buffer_map;
 
-        QMMF_VERBOSE("%s:%s: track_buf_map_.size = %d", TAG, __func__,
+        QMMF_VERBOSE("%s: track_buf_map_.size = %d", __func__,
             track_buf_map_.size());
 
         for (uint32_t i = 0; i < track_buf_map_.size(); i++) {
           buffer_map = track_buf_map_[i];
-          QMMF_VERBOSE("%s:%s: buffer_map.size=%d", TAG, __func__,
+          QMMF_VERBOSE("%s: buffer_map.size=%d", __func__,
               buffer_map.size());
 
           for (auto j = buffer_map.begin(); j != buffer_map.end(); ++j) {
-            QMMF_VERBOSE("%s:%s: buffer_map:key(%d) :ion_fd:%d :pointer:"
-                "0x%p", TAG, __func__, j->first,
+            QMMF_VERBOSE("%s: buffer_map:key(%d) :ion_fd:%d :pointer:"
+                "0x%p",  __func__, j->first,
                 j->second.ion_fd, j->second.pointer);
           }
         }
@@ -1477,7 +1477,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       QMMF_KPI_ASYNC_END("LastVidFrame", track_id);
     }
   }
-  QMMF_DEBUG("%s:%s: Buffer Prepared for Callback track_id=%d", TAG, __func__,
+  QMMF_DEBUG("%s: Buffer Prepared for Callback track_id=%d", __func__,
       track_id);
   //Get the handle to client callback.
   TrackCb callback;
@@ -1488,15 +1488,15 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
     QMMF_KPI_ASYNC_BEGIN("VideoAppCB", track_id);
     callback.data_cb(track_id, track_buffers, meta_buffers);
   }
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyVideoTrackEvent(uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
@@ -1505,10 +1505,10 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
                                           const std::vector<MetaData>&
                                           meta_buffers) {
 
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
   for (const BnBuffer& bn_buffer : bn_buffers)
-    QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s INPARAM: bn_buffer[%s]", __func__,
                  bn_buffer.ToString().c_str());
 
   std::vector<BufferDescriptor> track_buffers;
@@ -1516,8 +1516,8 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
     BufferDescriptor buffer;
     auto ret = buffer_ion_.Associate(track_id, bn_buffer, &buffer);
     if (ret != 0) {
-      QMMF_ERROR("%s:%s Failed to associate audio buffer: %d[%s]\n",
-                     TAG, __func__, -ret, strerror(ret));
+      QMMF_ERROR("%s Failed to associate audio buffer: %d[%s]\n",
+                     __func__, -ret, strerror(ret));
       return;
     }
     track_buffers.push_back(buffer);
@@ -1528,16 +1528,16 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
   TrackCb callback = track_cb_list_.find(track_id)->second;
   track_list_lock_.unlock();
   callback.data_cb(track_id, track_buffers, meta_buffers);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
+  QMMF_VERBOSE("%s INPARAM: event_type[%d]", __func__,
                static_cast<underlying_type<EventType>::type>(event_type));
 
   // get the handle to client callback.
@@ -1546,7 +1546,7 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
   track_list_lock_.unlock();
   callback.event_cb(track_id, event_type, event_data, event_data_size);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void RecorderClient::NotifyCameraResult(uint32_t camera_id,
@@ -1554,8 +1554,8 @@ void RecorderClient::NotifyCameraResult(uint32_t camera_id,
   if (nullptr != metadata_cb_) {
     metadata_cb_(camera_id, result);
   } else {
-    QMMF_ERROR("%s:%s No client registered result callback!\n",
-               TAG, __func__);
+    QMMF_ERROR("%s No client registered result callback!\n",
+               __func__);
   }
 }
 
@@ -1760,10 +1760,10 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t CreateAudioTrack(const uint32_t client_id, const uint32_t session_id,
                             const uint32_t track_id,
                             const AudioTrackCreateParam& param) {
-    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-    QMMF_VERBOSE("%s:%s INPARAM: param[%s]", TAG, __func__,
+    QMMF_DEBUG("%s Enter", __func__);
+    QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+    QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
+    QMMF_VERBOSE("%s INPARAM: param[%s]", __func__,
                  param.ToString().c_str());
     Parcel data, reply;
 
@@ -1837,9 +1837,9 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t DeleteAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id) {
-    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+    QMMF_DEBUG("%s Enter", __func__);
+    QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+    QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1871,11 +1871,11 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers) {
 
-    QMMF_DEBUG("%s:%s Enter", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: session_id[%u]", TAG, __func__, session_id);
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+    QMMF_DEBUG("%s Enter", __func__);
+    QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
+    QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
     for (const BnBuffer& buffer : buffers) {
-      QMMF_VERBOSE("%s:%s INPARAM: buffers[%s]", TAG, __func__,
+      QMMF_VERBOSE("%s INPARAM: buffers[%s]", __func__,
           buffer.ToString().c_str());
     }
 
@@ -2243,29 +2243,29 @@ IMPLEMENT_META_INTERFACE(RecorderService, QMMF_RECORDER_SERVICE_NAME);
 ServiceCallbackHandler::ServiceCallbackHandler(RecorderClient* client)
     : client_(client) {
     QMMF_GET_LOG_LEVEL();
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
 }
 
 ServiceCallbackHandler::~ServiceCallbackHandler() {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifyRecorderEvent(EventType event_type,
                                                  void *event_data,
                                                  size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
   assert(client_ != nullptr);
   client_->NotifyRecorderEvent(event_type, event_data, event_data_size);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifySessionEvent(EventType event_type,
                                                 void *event_data,
                                                 size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
@@ -2284,18 +2284,18 @@ void ServiceCallbackHandler::NotifyVideoTrackData(uint32_t track_id,
                                                   std::vector<MetaData>&
                                                   meta_buffers) {
 
-  QMMF_VERBOSE("%s:%s Enter ", TAG, __func__);
+  QMMF_VERBOSE("%s Enter ", __func__);
   assert(client_ != nullptr);
   client_->NotifyVideoTrackData(track_id, bn_buffers, meta_buffers);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t track_id,
                                                    EventType event_type,
                                                    void *event_data,
                                                    size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
@@ -2303,32 +2303,32 @@ void ServiceCallbackHandler::NotifyAudioTrackData(uint32_t track_id,
                                                   bn_buffers,
                                                   const std::vector<MetaData>&
                                                   meta_buffers) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
   for (const BnBuffer& bn_buffer : bn_buffers)
-    QMMF_VERBOSE("%s:%s INPARAM: bn_buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s INPARAM: bn_buffer[%s]", __func__,
                  bn_buffer.ToString().c_str());
   assert(client_ != nullptr);
 
   client_->NotifyAudioTrackData(track_id, bn_buffers, meta_buffers);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
                                                    EventType event_type,
                                                    void *event_data,
                                                    size_t event_data_size) {
-  QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-  QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
+  QMMF_VERBOSE("%s INPARAM: event_type[%d]", __func__,
                static_cast<underlying_type<EventType>::type>(event_type));
   assert(client_ != nullptr);
 
   client_->NotifyAudioTrackEvent(track_id, event_type, event_data,
                                  event_data_size);
 
-  QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+  QMMF_DEBUG("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::NotifyCameraResult(uint32_t camera_id,
@@ -2352,7 +2352,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size) {
 
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
+    QMMF_DEBUG("%s Enter ", __func__);
     Parcel data, reply;
 
     data.writeInterfaceToken(
@@ -2373,7 +2373,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     if (event_data_size) {
       blob.release();
     }
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
   }
 
   void NotifySessionEvent(EventType event_type, void *event_data,
@@ -2414,7 +2414,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyVideoTrackData(uint32_t track_id, std::vector<BnBuffer>& buffers,
                             std::vector<MetaData>& meta_buffers) {
 
-    QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
+    QMMF_VERBOSE("Bp%s: Enter", __func__);
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::
@@ -2440,7 +2440,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
               // required, only index would be sufficient for client to get mapped
               // buffer from his own map.
               is_mapped = buf_map_it->second;
-              QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d is_mapped:%d", TAG,
+              QMMF_VERBOSE("Bp%s: buffers[%d].ion_fd=%d is_mapped:%d",
                   __func__, i, buffers[i].ion_fd, is_mapped);
 
             }
@@ -2462,8 +2462,8 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
           map_to_update.insert(std::make_pair(buffers[i].ion_fd, true));
           track_buf_map_[track_id] = map_to_update;
         }
-        QMMF_VERBOSE("%s:Bp%s: track_id=%d", TAG, __func__, track_id);
-        QMMF_VERBOSE("%s:Bp%s: buffers[%d].ion_fd=%d mapping:%d", TAG, __func__,
+        QMMF_VERBOSE("%s: Bp: track_id=%d", __func__, track_id);
+        QMMF_VERBOSE("%s: Bp: buffers[%d].ion_fd=%d mapping:%d", __func__,
             i, buffers[i].ion_fd, true);
       }
       uint32_t size = sizeof (BnBuffer);
@@ -2487,7 +2487,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
         RECORDER_NOTIFY_VIDEO_TRACK_DATA), data, &reply);
 
-    QMMF_VERBOSE("%s:%s: Exit - Sent Message One Way!!", TAG, __func__);
+    QMMF_VERBOSE("%s: Exit - Sent Message One Way!!", __func__);
   }
 
   void NotifyVideoTrackEvent(uint32_t track_id, EventType event_type,
@@ -2498,10 +2498,10 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyAudioTrackData(uint32_t track_id,
                             const std::vector<BnBuffer>& buffers,
                             const std::vector<MetaData>& meta_buffers) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
     for (const BnBuffer& buffer : buffers)
-      QMMF_VERBOSE("%s:%s INPARAM: buffer[%s]", TAG, __func__,
+      QMMF_VERBOSE("%s INPARAM: buffer[%s]", __func__,
                    buffer.ToString().c_str());
     Parcel data, reply;
 
@@ -2516,14 +2516,14 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_AUDIO_TRACK_DATA),
         data, &reply, IBinder::FLAG_ONEWAY);
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
   }
 
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size) {
-    QMMF_DEBUG("%s:%s Enter ", TAG, __func__);
-    QMMF_VERBOSE("%s:%s INPARAM: track_id[%u]", TAG, __func__, track_id);
-    QMMF_VERBOSE("%s:%s INPARAM: event_type[%d]", TAG, __func__,
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
+    QMMF_VERBOSE("%s INPARAM: event_type[%d]", __func__,
                  static_cast<underlying_type<EventType>::type>(event_type));
     Parcel data, reply;
 
@@ -2536,7 +2536,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_AUDIO_TRACK_EVENT),
         data, &reply, IBinder::FLAG_ONEWAY);
 
-    QMMF_DEBUG("%s:%s Exit ", TAG, __func__);
+    QMMF_DEBUG("%s Exit ", __func__);
   }
 
   void NotifyCameraResult(uint32_t camera_id, const CameraMetadata &result) {
@@ -2550,7 +2550,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   }
 
   void NotifyDeleteVideoTrack(uint32_t track_id) {
-    QMMF_VERBOSE("%s:Bp%s: Enter", TAG, __func__);
+    QMMF_VERBOSE("Bp%s: Enter", __func__);
     std::lock_guard<std::mutex> l(track_buf_map_lock_);
     if (track_buf_map_.empty()) {
       return;
@@ -2558,7 +2558,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     if (track_buf_map_.find(track_id) != track_buf_map_.end()) {
       track_buf_map_.erase(track_id);
     }
-    QMMF_VERBOSE("%s:Bp%s: Exit", TAG, __func__);
+    QMMF_VERBOSE("Bp%s: Exit", __func__);
   }
 
  private:
@@ -2577,7 +2577,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
                                                const Parcel& data,
                                                Parcel* reply,
                                                uint32_t flags) {
-  QMMF_DEBUG("%s:%s: Enter:(BnRecorderServiceCallback::onTransact)", TAG,
+  QMMF_DEBUG("%s: Enter:(BnRecorderServiceCallback::onTransact)",
       __func__);
   CHECK_INTERFACE(IRecorderServiceCallback, data, reply);
 
@@ -2643,7 +2643,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       std::vector<BnBuffer> buffers;
       data.readUint32(&track_id);
       data.readUint32(&vector_size);
-      QMMF_VERBOSE("%s:Bn%s: vector_size=%d", TAG, __func__, vector_size);
+      QMMF_VERBOSE("Bn%s: vector_size=%d", __func__, vector_size);
       uint32_t size = 0;
       for (uint32_t i = 0; i < vector_size; i++)  {
         int32_t is_fd = 0;
@@ -2665,7 +2665,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       uint32_t meta_vector_size = 0;
       std::vector<MetaData> meta_buffers;
       data.readUint32(&meta_vector_size);
-      QMMF_VERBOSE("%s:Bn%s: meta_vector_size=%d", TAG, __func__,
+      QMMF_VERBOSE("%s: Bn: meta_vector_size=%d", __func__,
           meta_vector_size);
       android::Parcel::ReadableBlob meta_blob;
       for (uint32_t i = 0; i < meta_vector_size; i++)  {
@@ -2695,12 +2695,12 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         buffer.FromParcel(data, true);
         buffers.push_back(buffer);
       }
-      QMMF_DEBUG("%s:%s-NotifyAudioTrackData() TRACE", TAG, __func__);
-      QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: track_id[%u]",
-                   TAG, __func__, track_id);
+      QMMF_DEBUG("%s-NotifyAudioTrackData() TRACE", __func__);
+      QMMF_VERBOSE("%s-NotifyAudioTrackData() INPARAM: track_id[%u]",
+                   __func__, track_id);
       for (const BnBuffer& buffer : buffers)
-        QMMF_VERBOSE("%s:%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
-                   TAG, __func__, buffer.ToString().c_str());
+        QMMF_VERBOSE("%s-NotifyAudioTrackData() INPARAM: buffer[%s]",
+                   __func__, buffer.ToString().c_str());
       //TODO: Current implementation of audio is not using meta_data, add
       // support to pack meta data at proxy side, and unpack at Bn side.
       std::vector<MetaData> meta_buffers;
@@ -2712,11 +2712,11 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       uint32_t track_id = data.readUint32();
       EventType event_type = static_cast<EventType>(data.readInt32());
 
-      QMMF_DEBUG("%s:%s-NotifyAudioTrackEvent() TRACE", TAG, __func__);
-      QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: track_id[%u]",
-                   TAG, __func__, track_id);
-      QMMF_VERBOSE("%s:%s-NotifyAudioTrackEvent() INPARAM: event_type[%d]",
-                   TAG, __func__,
+      QMMF_DEBUG("%s-NotifyAudioTrackEvent() TRACE", __func__);
+      QMMF_VERBOSE("%s-NotifyAudioTrackEvent() INPARAM: track_id[%u]",
+                   __func__, track_id);
+      QMMF_VERBOSE("%s-NotifyAudioTrackEvent() INPARAM: event_type[%d]",
+                   __func__,
                    static_cast<underlying_type<EventType>::type>(event_type));
       NotifyAudioTrackEvent(track_id, event_type, nullptr, 0);
 
@@ -2731,8 +2731,8 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         CameraMetadata result(meta);
         NotifyCameraResult(camera_id, result);
       } else {
-        QMMF_ERROR("%s:%s Failed to read camera result from parcel: %d\n",
-                     TAG, __func__, ret);
+        QMMF_ERROR("%s Failed to read camera result from parcel: %d\n",
+                     __func__, ret);
         if (nullptr != meta) {
           free_camera_metadata(meta);
           meta = nullptr;
@@ -2743,7 +2743,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
     }
     break;
     default: {
-      QMMF_ERROR("%s:%s Method not supported ", TAG, __func__);
+      QMMF_ERROR("%s Method not supported ", __func__);
     }
     break;
   }

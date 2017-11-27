@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "RecorderJpeg"
+#define LOG_TAG "RecorderJpeg"
 
 #include <mutex>
 #include <dlfcn.h>
@@ -207,7 +207,7 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
   if (!thumbnail_data.empty()) {
     auto thumb_cnt = thumbnail_data.size();
     if (thumb_cnt > 2) {
-      QMMF_ERROR("%s:%s: Max supported thumbnails is 2. In is %d", TAG, __func__,
+      QMMF_ERROR("%s: Max supported thumbnails is 2. In is %d", __func__,
           thumb_cnt);
       // clip to 2
       thumb_cnt = 2;
@@ -220,8 +220,8 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
           (thumbnail_data[i].height == 0) ||
           (thumbnail_data[i].thumb_quality > 100) ||
           (thumbnail_data[i].thumb_quality == 0)) {
-        QMMF_ERROR("%s:%s: Invalid thumbnail input paramethers (%d x %d %d)",
-            TAG, __func__,
+        QMMF_ERROR("%s: Invalid thumbnail input paramethers (%d x %d %d)",
+            __func__,
             thumbnail_data[i].width, thumbnail_data[i].height,
             thumbnail_data[i].thumb_quality);
         return;
@@ -229,8 +229,8 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
     }
 
     for (uint32_t i = 0; i < thumb_cnt; i++) {
-      QMMF_VERBOSE("%s:%s: thumbnail input paramethers (%d x %d %d)",
-          TAG, __func__,
+      QMMF_VERBOSE("%s: thumbnail input paramethers (%d x %d %d)",
+          __func__,
           thumbnail_data[i].width, thumbnail_data[i].height,
           thumbnail_data[i].thumb_quality);
     }
@@ -265,7 +265,7 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
       cfg->job_.encode_job.second_thumb_dim.crop.width = 0;
       cfg->job_.encode_job.second_thumb_dim.crop.height = 0;
       cfg->params_.second_thumb_dim = cfg->job_.encode_job.second_thumb_dim;
-      QMMF_INFO("%s:%s: Encode second thumbnail is enabled", TAG, __func__);
+      QMMF_INFO("%s: Encode second thumbnail is enabled", __func__);
     }
   }
 }

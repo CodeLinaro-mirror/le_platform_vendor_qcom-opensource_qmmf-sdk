@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "SystemDevices"
+#define LOG_TAG "SystemDevices"
 
 #include "system/src/service/qmmf_system_devices.h"
 
@@ -128,7 +128,7 @@ SystemDevices::SystemDevice SystemDevices::hard_wired_devices[] =
 };
 
 SystemDevices::SystemDevices() : current_id_(0) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   uint32_t idx = 0;
   while (hard_wired_devices[idx].info.id != static_cast<DeviceId>(-1)) {
@@ -145,8 +145,8 @@ SystemDevices::~SystemDevices() {}
 status_t SystemDevices::RegisterForDeviceEvents(
     const SystemHandle system_handle,
     const SystemDeviceHandler& handler) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
 
   if (!device_handler_)
@@ -154,30 +154,30 @@ status_t SystemDevices::RegisterForDeviceEvents(
 
   for (SystemHandle handle : registered_handles_) {
     if (handle == system_handle) {
-      QMMF_WARN("%s: %s() system_handle[%d] is already registered",
-                TAG, __func__, system_handle);
+      QMMF_WARN("%s() system_handle[%d] is already registered",
+                __func__, system_handle);
       return 0;
     }
   }
 
   registered_handles_.push_back(system_handle);
-  QMMF_DEBUG("%s: %s() registered system_handle[%d] for device events",
-            TAG, __func__, system_handle);
+  QMMF_DEBUG("%s() registered system_handle[%d] for device events",
+            __func__, system_handle);
 
   return 0;
 }
 
 status_t SystemDevices::UnregisterFromDeviceEvents(
     const SystemHandle system_handle) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
 
   for (uint32_t idx = 0; idx < registered_handles_.size(); ++idx) {
     if (registered_handles_[idx] == system_handle) {
       registered_handles_.erase(registered_handles_.begin() + idx);
-      QMMF_DEBUG("%s: %s() unregistered system_handle[%d] for device events",
-                TAG, __func__, system_handle);
+      QMMF_DEBUG("%s() unregistered system_handle[%d] for device events",
+                __func__, system_handle);
       break;
     }
   }
@@ -190,15 +190,15 @@ status_t SystemDevices::UnregisterFromDeviceEvents(
 
 status_t SystemDevices::QueryDeviceInfo(const SystemHandle system_handle,
                                         vector<DeviceInfo>* devices) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
 
   for (const SystemDevice& device : devices_)
     devices->push_back(device.info);
 
   for (const DeviceInfo& device : *devices)
-    QMMF_VERBOSE("%s: %s() OUTPARAM: device[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() OUTPARAM: device[%s]", __func__,
                  device.ToString().c_str());
   return 0;
 }
@@ -207,17 +207,17 @@ status_t SystemDevices::QueryDeviceCapabilities(
     const SystemHandle system_handle,
     const DeviceId device,
     DeviceCaps* caps) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s() INPARAM: device[%d]", __func__, device);
 
   for (const SystemDevice& system_device : devices_) {
     if (system_device.info.id == device)
       *caps = system_device.caps;
   }
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: caps[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s() OUTPARAM: caps[%s]", __func__,
                caps->ToString().c_str());
   return 0;
 }
@@ -225,11 +225,11 @@ status_t SystemDevices::QueryDeviceCapabilities(
 status_t SystemDevices::Mute(const SystemHandle system_handle,
                              const DeviceId device,
                              const bool mute) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
-  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s() INPARAM: device[%d]", __func__, device);
+  QMMF_VERBOSE("%s() INPARAM: mute[%s]", __func__,
                mute ? "true" : "false");
   int32_t result;
   AudioEndPoint end_point;
@@ -248,7 +248,7 @@ status_t SystemDevices::Mute(const SystemHandle system_handle,
 
   result = end_point.Connect(audio_handler);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Connect failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Connect failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -259,12 +259,12 @@ status_t SystemDevices::Mute(const SystemHandle system_handle,
 
   result = end_point.SetParam(AudioParamType::kMute, {device_data});
   if (result < 0)
-    QMMF_ERROR("%s: %s() endpoint->SetParam failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->SetParam failed: %d[%s]", __func__,
                result, strerror(result));
 
   result = end_point.Disconnect();
   if (result < 0)
-    QMMF_ERROR("%s: %s() endpoint->Disconnect failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Disconnect failed: %d[%s]", __func__,
                result, strerror(result));
 
   return ::android::NO_ERROR;
