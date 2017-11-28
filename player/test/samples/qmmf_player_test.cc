@@ -122,9 +122,15 @@ void PlayerTest::AudioTrackHandler(uint32_t track_id,
                                    size_t event_data_size) {
 
   TEST_INFO("%s: Enter", __func__);
-  TEST_INFO("%s event_type[%d]", __func__,
+  TEST_INFO("%s: event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: track_id[%u]", __func__, track_id);
+
+  if (event_type == EventType::kPresentationTimestamp) {
+    printf("\nPTS for track %u is %llu\n", track_id,
+           *(reinterpret_cast<uint64_t*>(event_data)));
+  }
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -134,9 +140,15 @@ void PlayerTest::VideoTrackHandler(uint32_t track_id,
                                    size_t event_data_size) {
 
   TEST_INFO("%s: Enter", __func__);
-  TEST_INFO("%s event_type[%d]", __func__,
+  TEST_INFO("%s: event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
-  TEST_INFO("%s track_id[%u]", __func__, track_id);
+  TEST_INFO("%s: track_id[%u]", __func__, track_id);
+
+  if (event_type == EventType::kPresentationTimestamp) {
+    printf("\nPTS for track %u is %llu\n", track_id,
+           *(reinterpret_cast<uint64_t*>(event_data)));
+  }
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -231,7 +243,7 @@ void PlayerTest::Disconnect() {
   TEST_INFO("%s: Exit", __func__);
 }
 
-void PlayerTest::Prepare() {
+void PlayerTest::Prepare(bool with_pts) {
   TEST_INFO("%s: Enter", __func__);
   auto result = 0;
   std::lock_guard<std::mutex> lock(lock_);
@@ -274,6 +286,9 @@ void PlayerTest::Prepare() {
       AudioTrackHandler(track_id, event_type, event_data, event_data_size);
     };
 
+    if (with_pts)
+      audio_track_param.pts_callback_interval = 500;
+
     result = player_.CreateAudioTrack(audio_track_id_, audio_track_param,
                                       audio_track_cb);
     assert(result == NO_ERROR);
@@ -289,6 +304,9 @@ void PlayerTest::Prepare() {
                                      size_t event_data_size) {
       VideoTrackHandler(track_id, event_type, event_data, event_data_size);
     };
+
+    if (with_pts)
+      video_track_param.pts_callback_interval = 500;
 
     result = player_.CreateVideoTrack(video_track_id_, video_track_param,
                                       video_track_cb);
@@ -1120,6 +1138,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Connect\n", CmdMenu::CONNECT_CMD);
   printf("   %c. Disconnect\n", CmdMenu::DISCONNECT_CMD);
   printf("   %c. Prepare\n", CmdMenu::PREPARE_CMD);
+  printf("   %c. Prepare (PTS)\n", CmdMenu::PREPARE_PTS_CMD);
   printf("   %c. Start\n", CmdMenu::START_CMD);
   printf("   %c. Stop\n", CmdMenu::STOP_CMD);
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
@@ -1191,7 +1210,11 @@ int main(int argc, char* argv[]) {
       }
       break;
       case CmdMenu::PREPARE_CMD: {
-        test_context.Prepare();
+        test_context.Prepare(false);
+      }
+      break;
+      case CmdMenu::PREPARE_PTS_CMD: {
+        test_context.Prepare(true);
       }
       break;
       case CmdMenu::START_CMD: {

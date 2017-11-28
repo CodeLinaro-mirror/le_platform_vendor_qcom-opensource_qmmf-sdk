@@ -32,7 +32,9 @@
 #include "player/src/service/qmmf_player_video_sink.h"
 #include "player/src/service/qmmf_player_audio_sink.h"
 
+#include <chrono>
 #include <memory>
+#include <thread>
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
 static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
@@ -45,6 +47,7 @@ using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::PortEventType;
+using ::std::chrono::milliseconds;
 using ::std::make_shared;
 using ::std::shared_ptr;
 using ::std::thread;
@@ -176,8 +179,11 @@ VideoTrackSink::VideoTrackSink()
       decoded_frame_number_(0), display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kNormalForward),
-      displayed_frames_(0), grab_picture_(false),
-      ion_device_(-1), grabpicture_file_fd_(-1), snapshot_dumps_(0) {
+      displayed_frames_(0),
+      ion_device_(-1),
+      grabpicture_file_fd_(-1),
+      snapshot_dumps_(0),
+      pts_thread_(nullptr) {
   QMMF_DEBUG("%s Enter ", __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/misc/qmmf/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -270,6 +276,11 @@ status_t VideoTrackSink::StartSink() {
 
   stopplayback_ = false;
 
+  if (!output_free_buffer_queue_.Empty())
+    output_free_buffer_queue_.Clear();
+
+  last_queued_timestamp_ = 0;
+
   // decoded buffer queue
   for (auto& iter : output_buffer_list_) {
     QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
@@ -290,6 +301,14 @@ status_t VideoTrackSink::StartSink() {
     return -ENOMEM;
   }
 
+  if (track_params_.params.pts_callback_interval != 0) {
+    pts_thread_ = new thread(VideoTrackSink::PtsThreadEntry, this);
+    if (pts_thread_ == nullptr) {
+      QMMF_ERROR("%s() could not instantiate PTS thread", __func__);
+      return -ENOMEM;
+    }
+  }
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
@@ -306,6 +325,14 @@ status_t VideoTrackSink::StopSink() {
 
   displayed_buffer_thread_->join();
   delete displayed_buffer_thread_;
+
+  if (track_params_.params.pts_callback_interval != 0) {
+    if (pts_thread_ != nullptr) {
+      pts_thread_->join();
+      delete pts_thread_;
+      pts_thread_ = nullptr;
+    }
+  }
 
   QMMF_DEBUG("%s: Total number of video frames decoded %d", __func__,
       decoded_frame_number_);
@@ -628,6 +655,32 @@ void VideoTrackSink::Renderer() {
   QMMF_INFO("%s: Exit ", __func__);
 }
 
+void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
+  QMMF_DEBUG("%s() TRACE", __func__);
+
+  sink->PtsThread();
+}
+
+void VideoTrackSink::PtsThread() {
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+
+  while (!stopplayback_) {
+    sleep_for(milliseconds(track_params_.params.pts_callback_interval));
+
+    if (!paused_) {
+      uint64_t timestamp;
+      {
+        lock_guard<mutex> lock(grab_picture_lock);
+        timestamp = last_queued_timestamp_ / 1000;
+      }
+      callback_.event_cb(track_params_.track_id,
+                         EventType::kPresentationTimestamp,
+                         &timestamp, sizeof(timestamp));
+    }
+  }
+
+  QMMF_DEBUG("%s() exiting", __func__);
+}
 void VideoTrackSink::DisplayedBufferThread(VideoTrackSink* video_sink) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
   video_sink->DisplayedBuffer();
@@ -856,6 +909,8 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       QMMF_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
        return ret;
     }
+
+    last_queued_timestamp_ = codec_buffer.timestamp;
    }
 
    return NO_ERROR;

@@ -160,6 +160,10 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   int32_t TrackId() { return track_params_.track_id; }
 
+  static void PtsThreadEntry(VideoTrackSink* sink);
+
+  void PtsThread();
+
   VideoTrackParams        track_params_;
   TrackCb                 callback_;
   ::qmmf::avcodec::PortreconfigData::CropData                crop_data_;
@@ -177,6 +181,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   bool                    stopplayback_;
   bool                    paused_;
   uint32_t                decoded_frame_number_;
+  uint64_t                last_queued_timestamp_;
 
   Display*   display_;
   uint32_t   surface_id_;
@@ -239,6 +244,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<BufferDescriptor>              decoded_buffer_queue_;
   ::std::thread*                         displayed_buffer_thread_;
   TSQueue<BufferDescriptor>              displayed_buffer_queue_;
+  ::std::thread*                         pts_thread_;
 };
 
 };  // namespace player
