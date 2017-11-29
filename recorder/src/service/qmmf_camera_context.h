@@ -30,20 +30,19 @@
 #pragma once
 
 #include <mutex>
-#include <condition_variable>
-#include <utils/RefBase.h>
-#include <utils/KeyedVector.h>
-#include <utils/Log.h>
-#include <libgralloc/gralloc_priv.h>
 
-#include "qmmf-sdk/qmmf_recorder_params.h"
-#include "qmmf-sdk/qmmf_recorder_extra_param_tags.h"
+#include <utils/Log.h>
+#include <qcom/display/gralloc_priv.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+
+#include "common/utils/qmmf_condition.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
-
 #include "post-process/pipe/qmmf_postproc_pipe.h"
 #include "post-process/plugin/qmmf_postproc_plugin.h"
 #include "post-process/interface/qmmf_postproc.h"
+
 namespace qmmf {
 
 using namespace cameraadaptor;
@@ -69,8 +68,7 @@ class IBufferProducer;
 // to camera device stream.
 class CameraContext : public CameraInterface,
                       public PostProcPlugin<CameraContext>,
-                      public virtual IPostProc,
-                      public virtual RefBase {
+                      public virtual IPostProc {
  public:
   CameraContext();
 
@@ -120,7 +118,7 @@ class CameraContext : public CameraInterface,
 
   CameraStartParam& GetCameraStartParam() override;
 
-  Vector<int32_t>& GetSupportedFps() override;
+  std::vector<int32_t>& GetSupportedFps() override;
 
   status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
@@ -158,7 +156,7 @@ class CameraContext : public CameraInterface,
   friend class CameraPort;
   friend class ZslPort;
 
-  void StoreBatchStreamId(sp<CameraPort>& port);
+  void StoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
   void RestoreBatchStreamId(CameraPort* port);
 
@@ -235,7 +233,7 @@ class CameraContext : public CameraInterface,
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
-  Mutex                    device_access_lock_;
+  std::mutex               device_access_lock_;
   CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
 
@@ -253,7 +251,7 @@ class CameraContext : public CameraInterface,
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  Vector<int32_t>          snapshot_request_id_;
+  std::vector<int32_t>     snapshot_request_id_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
@@ -263,17 +261,17 @@ class CameraContext : public CameraInterface,
 
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
-  Vector<int32_t>          supported_fps_;
-  sp<CameraPort>           zsl_port_;
+  std::vector<int32_t>     supported_fps_;
+  std::shared_ptr<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  Vector<sp<CameraPort> > active_ports_;
+  std::vector<std::shared_ptr<CameraPort> > active_ports_;
 
   // Map of <port_id and PostProc plugins>
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
 
   // Maps of buffer Id and Buffer.
-  DefaultKeyedVector<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
   // User define value for sensor mode
   int32_t sensor_vendor_mode_;
@@ -281,26 +279,28 @@ class CameraContext : public CameraInterface,
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;
   bool                     hfr_supported_;
-  Vector<HFRMode_t>        hfr_batch_modes_list_;
-  Vector<Camera3Request>   streaming_active_requests_;
+  std::vector<HFRMode_t>   hfr_batch_modes_list_;
+  std::vector<Camera3Request> streaming_active_requests_;
 
-  DefaultKeyedVector<uint32_t, int32_t> snapshot_buffer_stream_list_;
+  std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  input_stream_id_;
-  sp<PostProcPipe>         postproc_pipe_;
+  std::shared_ptr<PostProcPipe> postproc_pipe_;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
   bool                     aec_done_;
 
   std::mutex               capture_count_lock_;
-  std::condition_variable  capture_count_signal_;
+  QCondition               capture_count_signal_;
 
   std::mutex               pending_frames_lock_;
-  std::condition_variable  pending_frames_;
+  QCondition               pending_frames_;
 
   std::mutex               aec_lock_;
-  std::condition_variable  aec_signal_;
+  QCondition               aec_signal_;
 
-  static const uint32_t    kSyncFrameWaitDuration = 500000000; // 500 ms.
+  static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
+
+  std::string              pipe_config_json_data_;
 
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
@@ -330,7 +330,7 @@ struct ZSLEntry {
 // from camera stream and passes to its consumers, for optimization reason
 // single port can serve multiple consumers if their characterstics are exactly
 // same.
-class CameraPort : public RefBase {
+class CameraPort {
  public:
   CameraPort(const CameraStreamParam& param, size_t batch_size,
              CameraPortType port_type, CameraContext *context);
@@ -389,10 +389,12 @@ class CameraPort : public RefBase {
 
   std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
-  sp<PostProcPipe>       postproc_pipe_;
+  std::shared_ptr<PostProcPipe> postproc_pipe_;
   std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
-  Mutex                  stop_lock_;
+  std::mutex             stop_lock_;
+
+  std::string            pipe_config_json_data_;
 };
 
 class ZslPort : public CameraPort {
@@ -430,8 +432,8 @@ class ZslPort : public CameraPort {
   void ReturnZSLInputBuffer(StreamBuffer &buffer);
 
   int32_t         input_stream_id_ = -1;
-  Mutex           zsl_queue_lock_;
-  List<ZSLEntry>  zsl_queue_;
+  std::mutex      zsl_queue_lock_;
+  std::list<ZSLEntry>  zsl_queue_;
   ZSLEntry        zsl_input_buffer_ = {};
   bool            zsl_running_ = false;
   uint32_t        zsl_queue_depth_ = 0;

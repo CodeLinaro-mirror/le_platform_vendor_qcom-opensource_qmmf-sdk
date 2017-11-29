@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -381,8 +381,8 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
   if(input_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available on %s. Wait for new buffer", TAG,
         __func__, PORT_NAME(kPortIndexInput));
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
@@ -405,11 +405,12 @@ status_t InputCodecSourceImpl::ReturnBuffer(BufferDescriptor& buffer,
   status_t ret = 0;
 
   bool found = false;
-  List<BufferDescriptor>::iterator it = input_occupy_buffer_queue_.Begin();
+  std::list<BufferDescriptor>::iterator it =
+     input_occupy_buffer_queue_.Begin();
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
     if ((*it).data ==  buffer.data) {
       input_free_buffer_queue_.PushBack(*it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -471,8 +472,8 @@ status_t OutputCodecSourceImpl::GetBuffer(BufferDescriptor& codec_buffer,
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available on %s. Wait for new buffer", TAG,
         __func__, PORT_NAME(kPortIndexOutput));
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
@@ -494,13 +495,14 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
     QMMF_INFO("%s:%s This is last buffer from encoder.Close file", TAG,__func__);
   }
 
-  List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+  std::list<BufferDescriptor>::iterator it =
+     output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     if (((*it).data) ==  (codec_buffer.data)) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -536,7 +538,7 @@ TEST_F(CodecGtest, StartStopCodec) {
     assert(ret == OK);
     sleep(kRecordDuration*60);
 
-    ret = avcodec_->StopCodec();
+    ret = avcodec_->StopCodec(true);
     assert(ret == OK);
 
     input_source_impl_->BufferStatus();
@@ -567,7 +569,7 @@ TEST_F(CodecGtest, CreateDeleteCodec) {
     assert(ret == OK);
     sleep(kRecordDuration*60);
 
-    ret = avcodec_->StopCodec();
+    ret = avcodec_->StopCodec(true);
     assert(ret == OK);
 
     input_source_impl_->BufferStatus();

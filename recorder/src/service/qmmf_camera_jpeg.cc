@@ -159,8 +159,8 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     std::unique_lock<std::mutex> lock(result_lock_);
     while (results_.count(in_buffer.timestamp) == 0) {
       std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
-      auto ret = wait_for_result_.wait_for(lock, timeout);
-      if (std::cv_status::timeout == ret) {
+      auto ret = wait_for_result_.WaitFor(lock, timeout);
+      if (ret != 0) {
         QMMF_ERROR("%s%s: Wait for jpeg result timed out", TAG, __func__);
         break;
       }
@@ -183,7 +183,7 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
 
       if (exif_size != 0) {
         img_buffer.exif_size = exif_entities_.size();
-        img_buffer.exif_data = (void*)exif_entities_.begin();
+        img_buffer.exif_data = (void*)(&exif_entities_[0]);
       } else {
         QMMF_ERROR("%s Empty exif section!", __func__);
         img_buffer.exif_size = 0;
@@ -239,7 +239,7 @@ void CameraJpeg::AddBuff(StreamBuffer in_buff, StreamBuffer out_buff) {
   buff.in = in_buff;
   buff.out = out_buff;
   input_buffer_.push_back(buff);
-  wait_for_buffer_.notify_all();
+  wait_for_buffer_.SignalAll();
 }
 
 void CameraJpeg::AddResult(const void* result) {
@@ -263,7 +263,7 @@ void CameraJpeg::AddResult(const void* result) {
 
   std::lock_guard<std::mutex> lock(result_lock_);
   results_.emplace(timestamp, meta);
-  wait_for_result_.notify_all();
+  wait_for_result_.SignalAll();
 }
 
 status_t CameraJpeg::ReturnBuff(StreamBuffer buffer) {
@@ -279,8 +279,8 @@ bool CameraJpeg::ThreadLoop() {
     std::unique_lock<std::mutex> lock(buffer_lock_);
     while (input_buffer_.empty()) {
       std::chrono::nanoseconds timeout(kFrameTimeout);
-      auto ret = wait_for_buffer_.wait_for(lock, timeout);
-      if (std::cv_status::timeout == ret) {
+      auto ret = wait_for_buffer_.WaitFor(lock, timeout);
+      if (ret != 0) {
          QMMF_ERROR("%s: Wait for pending buffers timed out", __func__);
         return true;
       }
@@ -548,7 +548,7 @@ status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
     return BAD_VALUE;
   }
   exif_entities_.clear();
-  exif_entities_.setCapacity(kMaxExifEntries);
+  exif_entities_.resize(kMaxExifEntries);
   exif_ifd_ptr_offset_ = 0;
   interop_ifd_ptr_offset_ = 0;
   gps_ifd_ptr_offset_ = 0;

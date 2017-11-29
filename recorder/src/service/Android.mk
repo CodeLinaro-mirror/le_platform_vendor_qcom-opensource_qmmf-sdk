@@ -17,7 +17,6 @@ LOCAL_CFLAGS += -DENABLE_360=1
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
 
 # reprocess-related includes
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/stack/common \
@@ -47,7 +46,7 @@ LOCAL_SRC_FILES += post-process/memory/qmmf_postproc_memory_pool.cc
 LOCAL_SRC_FILES += post-process/pipe/qmmf_postproc_pipe.cc
 LOCAL_SRC_FILES += post-process/common/qmmf_postproc_thread.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_postproc_algo libqmmf_jpeg
+LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_postproc_algo libqmmf_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client

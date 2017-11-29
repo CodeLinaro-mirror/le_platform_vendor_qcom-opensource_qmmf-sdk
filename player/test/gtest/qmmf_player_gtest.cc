@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -39,7 +39,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 #include "player/test/gtest/qmmf_player_gtest.h"
 
 //#define DEBUG
@@ -87,14 +87,14 @@ void PlayerGtest::playercb(EventType event_type, void *event_data,
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void PlayerGtest::audiotrackcb(EventType event_type, void *event_data,
-                              size_t event_data_size) {
+void PlayerGtest::audiotrackcb(uint32_t track_id, EventType event_type,
+                               void *event_data, size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
 
-void PlayerGtest::videotrackcb(EventType event_type, void *event_data,
-                              size_t event_data_size) {
+void PlayerGtest::videotrackcb(uint32_t track_id, EventType event_type,
+                               void *event_data, size_t event_data_size) {
   TEST_INFO("%s:%s: Enter", TAG, __func__);
   TEST_INFO("%s:%s: Exit", TAG, __func__);
 }
@@ -477,9 +477,9 @@ int32_t PlayerGtest::Prepare() {
 
   audio_track_param_.out_device  = AudioOutSubtype::kBuiltIn;
 
-  audio_track_cb_.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) {audiotrackcb(event_type, event_data,
-      event_data_size);};
+  audio_track_cb_.event_cb = [&] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) {audiotrackcb(track_id,
+      event_type, event_data, event_data_size);};
 
   result = player_.CreateAudioTrack(track_id_1,audio_track_param_,
       audio_track_cb_);
@@ -649,7 +649,7 @@ int32_t PlayerGtest::StopPlaying() {
 
   pthread_join(start_thread_id, NULL);
 
-  ret = player_.Stop(false);
+  ret = player_.Stop();
   if (ret != NO_ERROR) {
     TEST_ERROR("%s:%s Failed to Stop", TAG, __func__);
   }

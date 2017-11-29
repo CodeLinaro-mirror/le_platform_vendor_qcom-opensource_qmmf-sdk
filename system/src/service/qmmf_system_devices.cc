@@ -31,17 +31,27 @@
 
 #include "system/src/service/qmmf_system_devices.h"
 
+#include <cstdlib>
 #include <functional>
 #include <vector>
 
-#include "common/qmmf_log.h"
-#include "qmmf-sdk/qmmf_device.h"
-#include "qmmf-sdk/qmmf_system_params.h"
+#include <qmmf-sdk/qmmf_device.h>
+#include <qmmf-sdk/qmmf_system_params.h>
+
+#include "common/utils/qmmf_log.h"
+#include "common/audio/inc/qmmf_audio_definitions.h"
+#include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "system/src/service/qmmf_system_common.h"
 
 namespace qmmf {
 namespace system {
 
+using ::qmmf::common::audio::AudioEndPoint;
+using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioEventHandler;
+using ::qmmf::common::audio::AudioEventType;
+using ::qmmf::common::audio::AudioParamDeviceData;
+using ::qmmf::common::audio::AudioParamType;
 using ::std::vector;
 
 SystemDevices::SystemDevice SystemDevices::hard_wired_devices[] =
@@ -210,6 +220,54 @@ status_t SystemDevices::QueryDeviceCapabilities(
   QMMF_VERBOSE("%s: %s() OUTPARAM: caps[%s]", TAG, __func__,
                caps->ToString().c_str());
   return 0;
+}
+
+status_t SystemDevices::Mute(const SystemHandle system_handle,
+                             const DeviceId device,
+                             const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+               system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+  int32_t result;
+  AudioEndPoint end_point;
+
+  AudioEventHandler audio_handler =
+    [this] (AudioEventType event_type, const AudioEventData& event_data)
+           -> void {
+      switch (event_type) {
+        case AudioEventType::kError:
+        case AudioEventType::kBuffer:
+        case AudioEventType::kStopped:
+          // do nothing
+          break;
+      }
+    };
+
+  result = end_point.Connect(audio_handler);
+  if (result < 0) {
+    QMMF_ERROR("%s: %s() endpoint->Connect failed: %d[%s]", TAG, __func__,
+               result, strerror(result));
+    return ::android::FAILED_TRANSACTION;
+  }
+
+  AudioParamDeviceData device_data;
+  device_data.enable = mute;
+  device_data.id = device;
+
+  result = end_point.SetParam(AudioParamType::kMute, {device_data});
+  if (result < 0)
+    QMMF_ERROR("%s: %s() endpoint->SetParam failed: %d[%s]", TAG, __func__,
+               result, strerror(result));
+
+  result = end_point.Disconnect();
+  if (result < 0)
+    QMMF_ERROR("%s: %s() endpoint->Disconnect failed: %d[%s]", TAG, __func__,
+               result, strerror(result));
+
+  return ::android::NO_ERROR;
 }
 
 }; // namespace system

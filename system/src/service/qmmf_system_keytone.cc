@@ -42,7 +42,7 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/service/qmmf_system_common.h"
 
@@ -58,6 +58,7 @@ using ::qmmf::common::audio::AudioFlag;
 using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioParamType;
 using ::std::chrono::milliseconds;
 using ::std::mutex;
 using ::std::thread;
@@ -113,6 +114,9 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
           break;
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
+          break;
+        case AudioEventType::kStopped:
+          StoppedHandler();
           break;
       }
     };
@@ -170,6 +174,7 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
   tone_.size = tone.size;
   tone_.loop_num = tone.loop_num;
   tone_.delay = tone.delay;
+  tone_.volume = tone.volume;
 
   while (!messages_.empty())
     messages_.pop();
@@ -241,6 +246,19 @@ void SystemKeytone::BufferHandler(const AudioBuffer& buffer) {
   signal_.notify_one();
 }
 
+void SystemKeytone::StoppedHandler() {
+  QMMF_DEBUG("%s: %s() TRACE: current_handle[%d]", TAG, __func__,
+             current_handle_);
+
+  SystemMessage message;
+  message.type = SystemMessageType::kMessageStopped;
+
+  message_lock_.lock();
+  messages_.push(message);
+  message_lock_.unlock();
+  signal_.notify_one();
+}
+
 void SystemKeytone::ThreadEntry(SystemKeytone* source) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   source->Thread();
@@ -261,6 +279,7 @@ void SystemKeytone::Thread() {
       memcpy(buffer.data, local_pointer + (idx * buffer.capacity),
              tone_.size % buffer.capacity);
       buffer.size = tone_.size % buffer.capacity;
+      buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
     } else {
       memcpy(buffer.data, local_pointer + (idx * buffer.capacity),
              buffer.capacity);
@@ -269,7 +288,7 @@ void SystemKeytone::Thread() {
     ++idx;
   }
   free(tone_.buffer);
-  size_t number_of_buffers = idx;
+  size_t number_of_buffers = buffers.size();
 
   bool error_detected = false;
   for (uint32_t loop_idx = 0; loop_idx < tone_.loop_num; ++loop_idx) {
@@ -285,6 +304,11 @@ void SystemKeytone::Thread() {
       break;
     }
 
+    result = end_point_->SetParam(AudioParamType::kVolume, tone_.volume);
+    if (result < 0)
+      QMMF_ERROR("%s: %s() endpoint->SetParam failed: %d[%s]", TAG, __func__,
+                 result, strerror(result));
+
     result = end_point_->SendBuffers(buffers);
     if (result < 0) {
       QMMF_ERROR("%s: %s() endpoint->SendBuffers failed: %d[%s]", TAG, __func__,
@@ -296,6 +320,7 @@ void SystemKeytone::Thread() {
     buffers.clear();
 
     bool keep_running = true;
+    bool stop_received = false;
     while (keep_running) {
       // wait until there is something to do
       if (messages_.empty()) {
@@ -328,32 +353,23 @@ void SystemKeytone::Thread() {
             QMMF_VERBOSE("%s: %s() buffers vector is now %u deep",
                          TAG, __func__, buffers.size());
             break;
+
+          case SystemMessageType::kMessageStopped:
+            QMMF_DEBUG("%s: %s-StoppedBuffer() TRACE", TAG, __func__);
+            stop_received = true;
+            break;
         }
         messages_.pop();
       }
       message_lock_.unlock();
 
-      if (buffers.size() == number_of_buffers)
+      if (buffers.size() == number_of_buffers && stop_received)
         keep_running = false;
     }
 
     if (error_detected)
       break;
-
-    result = end_point_->Stop(false);
-    if (result < 0) {
-      QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
-                 result, strerror(result));
-      tone_handler_(current_handle_, result);
-      error_detected = true;
-      break;
-    }
   }
-
-  result = end_point_->Stop(false);
-  if (result < 0)
-    QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
-               result, strerror(result));
 
   result = end_point_->Disconnect();
   if (result < 0)

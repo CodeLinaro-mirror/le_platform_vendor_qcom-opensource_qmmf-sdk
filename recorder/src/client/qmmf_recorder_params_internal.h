@@ -35,7 +35,7 @@
 
 #include <binder/Parcel.h>
 
-#include "common/qmmf_codec_internal.h"
+#include "common/utils/qmmf_codec_internal.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 
 namespace qmmf {
@@ -69,6 +69,9 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
       case AudioFormat::kG711:
         G711ParamsInternal(codec_params.g711).ToParcel(parcel);
         break;
+      case AudioFormat::kMP3:
+        // nothing to write
+        break;
     }
     parcel->writeInt32(static_cast<int32_t>(out_device));
     parcel->writeUint32(flags);
@@ -96,6 +99,9 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
         break;
       case AudioFormat::kG711:
         codec_params.g711 = G711ParamsInternal().FromParcel(parcel);
+        break;
+      case AudioFormat::kMP3:
+        // nothing to read
         break;
     }
     out_device = static_cast<DeviceId>(parcel.readInt32());

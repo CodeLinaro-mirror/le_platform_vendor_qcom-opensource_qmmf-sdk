@@ -29,20 +29,21 @@
 
 #pragma once
 
+#include <map>
+#include <vector>
+
+#include <hardware/gralloc.h>
 #include <utils/KeyedVector.h>
+#include <sdm/core/core_interface.h>
+#include <sdm/utils/locker.h>
 
 #include "qmmf-sdk/qmmf_display_params.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "display/src/service/qmmf_display_common.h"
 #include "display/src/service/qmmf_remote_cb.h"
 #include "display/src/service/qmmf_display_sdm_buffer_allocator.h"
 #include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
 #include "display/src/service/qmmf_display_sdm_debugger.h"
-#include "sdm/include/core/core_interface.h"
-#include "sdm/include/utils/locker.h"
-#include <map>
-#include <vector>
-#include <hardware/gralloc.h>
 
 namespace qmmf {
 

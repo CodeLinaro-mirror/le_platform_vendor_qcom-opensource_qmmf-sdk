@@ -53,9 +53,9 @@ MemPool::~MemPool() {
 
   QMMF_INFO("%s:%s: Enter", TAG, __func__);
 
-  if (!gralloc_buffers_.isEmpty()) {
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-      FreeGrallocBuffer(gralloc_buffers_.keyAt(i));
+  if (!gralloc_buffers_.empty()) {
+    for (auto& it : gralloc_buffers_) {
+      FreeGrallocBuffer(it.first);
     }
     gralloc_buffers_.clear();
   }
@@ -124,17 +124,16 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
   }
   std::lock_guard<std::mutex> lock(buffer_lock_);
 
-  int32_t idx = gralloc_buffers_.indexOfKey(buffer.handle);
-  if (-ENOENT == idx) {
+  if (gralloc_buffers_.count(buffer.handle) == 0) {
     QMMF_ERROR("%s:%s: Buffer %p returned that wasn't allocated by this node",
         TAG, __func__, buffer.handle);
     return BAD_VALUE;
   }
 
-  gralloc_buffers_.replaceValueFor(buffer.handle, true);
+  gralloc_buffers_[buffer.handle] = true;
   pending_buffer_count_--;
 
-  wait_for_buffer_.notify_one();
+  wait_for_buffer_.Signal();
   return NO_ERROR;
 }
 
@@ -154,8 +153,8 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     QMMF_VERBOSE("%s:%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one", TAG, __func__, params_.max_buffer_count);
 
-    auto ret = wait_for_buffer_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_for_buffer_.WaitFor(lock, wait_time);
+    if (ret != 0) {
       QMMF_ERROR("%s:%s: Wait for output buffer return timed out", TAG,
                  __func__);
       return TIMED_OUT;
@@ -179,10 +178,10 @@ status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {
   //Only pre-allocate buffers in case no valid streamBuffer
   //is passed as an argument.
   if (nullptr != buffer) {
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-      if (gralloc_buffers_.valueAt(i)) {
-        handle = gralloc_buffers_.keyAt(i);
-        gralloc_buffers_.replaceValueAt(i, false);
+    for (auto& it : gralloc_buffers_) {
+      if (it.second) {
+        handle = it.first;
+        it.second = false;
         break;
       }
     }
@@ -203,7 +202,7 @@ status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {
     }
     idx = buffers_allocated_;
     gralloc_slots_[idx] = handle;
-    gralloc_buffers_.add(gralloc_slots_[idx], (nullptr == buffer));
+    gralloc_buffers_.emplace(gralloc_slots_[idx], (nullptr == buffer));
     buffers_allocated_++;
   }
 

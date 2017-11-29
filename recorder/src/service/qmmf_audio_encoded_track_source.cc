@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,18 +32,19 @@
 #include "recorder/src/service/qmmf_audio_track_source.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <vector>
 
+#include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_condition.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "common/qmmf_log.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 
@@ -61,10 +62,9 @@ using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortEventType;
 using ::qmmf::avcodec::PortreconfigData;
 using ::std::chrono::seconds;
-using ::std::condition_variable;
-using ::std::cv_status;
 using ::std::mutex;
 using ::std::queue;
+using ::std::string;
 using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
@@ -111,6 +111,9 @@ status_t AudioEncodedTrackSource::Init() {
           break;
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
+          break;
+        case AudioEventType::kStopped:
+          // TODO
           break;
       }
     };
@@ -238,7 +241,7 @@ status_t AudioEncodedTrackSource::StopTrack() {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
              track_params_.track_id);
 
-  int32_t result = end_point_->Stop(true);
+  int32_t result = end_point_->Stop();
   if (result < 0) {
     QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
                result, strerror(result));
@@ -278,6 +281,14 @@ status_t AudioEncodedTrackSource::ResumeTrack() {
   return ::android::NO_ERROR;
 }
 
+status_t AudioEncodedTrackSource::SetParameter(const string& key,
+                                               const string& value) {
+  QMMF_VERBOSE("%s: %s() INPARAM: key[%s]", TAG, __func__, key.c_str());
+  QMMF_VERBOSE("%s: %s() INPARAM: value[%s]", TAG, __func__, value.c_str());
+
+  return ::android::NO_ERROR;
+}
+
 status_t AudioEncodedTrackSource::ReturnTrackBuffer(
     const std::vector<BnBuffer> &buffers) {
   QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
@@ -299,7 +310,7 @@ status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
 
   while (buffers_.empty() && !stop_notify_received_) {
     unique_lock<mutex> lk(mutex_);
-    if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+    if (signal_.WaitFor(lk, seconds(1)) != 0)
       QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
   }
 
@@ -374,7 +385,7 @@ status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
           while (!buffers_.empty())
             buffers_.pop();
           mutex_.unlock();
-          signal_.notify_one();
+          signal_.Signal();
           QMMF_VERBOSE("%s: %s() emptied the buffer queue", TAG, __func__);
         }
         break;
@@ -434,7 +445,7 @@ void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
   mutex_.lock();
   buffers_.push(stream_buffer);
   mutex_.unlock();
-  signal_.notify_one();
+  signal_.Signal();
 }
 
 }; // namespace recorder

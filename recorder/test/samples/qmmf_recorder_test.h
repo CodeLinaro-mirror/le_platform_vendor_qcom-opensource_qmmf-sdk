@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,26 +29,24 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <vector>
 
-#include "recorder/test/samples/qmmf_recorder_test_wav.h"
-#include "recorder/test/samples/qmmf_recorder_test_aac.h"
-#include "recorder/test/samples/qmmf_recorder_test_amr.h"
-
 #include <camera/CameraMetadata.h>
+#include <QCamera3VendorTags.h>
+#include <cutils/properties.h>
+#include <cutils/trace.h>
+#include <linux/input.h>
 #include <qmmf-sdk/qmmf_buffer.h>
 #include <qmmf-sdk/qmmf_codec.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 
-#include <condition_variable>
-#include <QCamera3VendorTags.h>
-#include <cutils/properties.h>
-#include <cutils/trace.h>
-#include <linux/input.h>
+#include "common/utils/qmmf_condition.h"
+#include "recorder/test/samples/qmmf_recorder_test_wav.h"
+#include "recorder/test/samples/qmmf_recorder_test_aac.h"
+#include "recorder/test/samples/qmmf_recorder_test_amr.h"
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -462,6 +460,8 @@ class RecorderTest {
 
   status_t CreateAudioPCMG711Track();
 
+  status_t CreateAudioPCMFluenceTrack();
+
   status_t SessionRDITrack();
 
   status_t StartSession();
@@ -567,7 +567,7 @@ class RecorderTest {
                               void *event_data, size_t event_data_size);
 
   status_t DumpFrameToFile(BufferDescriptor& buffer,
-                           CameraBufferMetaData& meta_data, String8& file_name);
+                           CameraBufferMetaData& meta_data, std::string& file_name);
 
   Recorder& GetRecorder() { return recorder_; }
 
@@ -625,20 +625,20 @@ class RecorderTest {
   bool dump_histogram_stats_;
 
   CheckKPITime kpi_marker_;
-  ::std::condition_variable signal_;
-  ::std::mutex message_lock_;
-  ::std::condition_variable signal_cb_;
-  ::std::mutex callback_lock_;
-  uint32_t num_images_;
-  bool in_suspend_;
+  QCondition   signal_;
+  std::mutex   message_lock_;
+  QCondition   signal_cb_;
+  std::mutex   callback_lock_;
+  uint32_t     num_images_;
+  bool         in_suspend_;
 
-  int32_t ltr_count_;
+  int32_t      ltr_count_;
 
-  std::mutex               snapshot_wait_lock_;
-  std::condition_variable  snapshot_wait_signal_;
-  uint32_t                 burst_snapshot_count_;
-  std::mutex               error_lock_;
-  bool                     camera_error_;
+  std::mutex   snapshot_wait_lock_;
+  QCondition   snapshot_wait_signal_;
+  uint32_t     burst_snapshot_count_;
+  std::mutex   error_lock_;
+  bool         camera_error_;
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -759,6 +759,7 @@ public:
         CREATE_G7ll_AUD_SESSION_CMD             = 'm',
         CREATE_2G7ll_AUD_SESSION_CMD            = 'n',
         CREATE_PCM_G7ll_AUD_SESSION_CMD         = 'o',
+        CREATE_PCMFL_AUD_SESSION_CMD            = 'p',
         CREATE_RDI_SESSION_CMD                  = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD          = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD          = 'Y',

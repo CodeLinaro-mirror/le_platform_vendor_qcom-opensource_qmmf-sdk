@@ -27,12 +27,16 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <qmmf_jpeg_encoder.h>
-#include <dlfcn.h>
 #include <mutex>
-#include <condition_variable>
+#include <dlfcn.h>
+
 #include <mm_jpeg_interface.h>
 #include <hardware/camera3.h>
+#include <qmmf_jpeg_encoder.h>
+
+#include "common/utils/qmmf_condition.h"
+
+using namespace qmmf;
 
 typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
                                      mm_jpeg_mpo_ops_t *,
@@ -49,7 +53,7 @@ typedef struct {
   uint32_t job_id_;
   std::mutex encode_lock_;
   std::mutex enc_done_lock_;
-  std::condition_variable enc_done_cond_;
+  QCondition enc_done_cond_;
 } JpegEncoderParams;
 
 #define JE_GET_PARAMS(x) JpegEncoderParams *(x) = (JpegEncoderParams *)cfg_
@@ -283,7 +287,7 @@ void *JpegEncoder::Encode(const snapshot_info& in_buffer, size_t &jpeg_size,
 
   if (!cfg->ops_.start_job(&cfg->job_, &cfg->job_id_)) {
     std::unique_lock<std::mutex> ul(cfg->enc_done_lock_);
-    cfg->enc_done_cond_.wait(ul);
+    cfg->enc_done_cond_.Wait(ul);
     ul.unlock();
     jpeg_size = job_result_size_;
 
@@ -314,7 +318,7 @@ void JpegEncoder::EncodeCb(void *p_output, void *userData) {
   enc->job_result_size_ = output->buf_filled_len;
 
   JpegEncoderParams *cfg = (JpegEncoderParams *)enc->cfg_;
-  cfg->enc_done_cond_.notify_one();
+  cfg->enc_done_cond_.Signal();
 }
 
 } //namespace jpegencoder ends here

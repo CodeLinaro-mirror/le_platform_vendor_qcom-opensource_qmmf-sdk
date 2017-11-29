@@ -34,7 +34,7 @@
 #include <cstring>
 #include <sys/time.h>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf_exif_generator.h"
 
 namespace qmmf {

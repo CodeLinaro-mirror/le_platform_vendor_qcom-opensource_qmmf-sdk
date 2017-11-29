@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -79,7 +79,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t CreateDefaultRequest(int templateId, CameraMetadata *request);
   int32_t SubmitRequest(Camera3Request request, bool streaming = false,
                         int64_t *lastFrameNumber = NULL);
-  int32_t SubmitRequestList(List<Camera3Request> requests,
+  int32_t SubmitRequestList(std::list<Camera3Request> requests,
                             bool streaming = false,
                             int64_t *lastFrameNumber = NULL);
   int32_t ReturnStreamBuffer(StreamBuffer buffer);
@@ -87,7 +87,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t GetCameraInfo(uint32_t idx, CameraMetadata *info);
   int32_t GetNumberOfCameras() { return number_of_cameras_; }
-  const Vector<int32_t> GetRequestIds(){ return current_request_ids_; }
+  const std::vector<int32_t> GetRequestIds(){ return current_request_ids_; }
   int32_t WaitUntilIdle();
 
   int32_t Flush(int64_t *lastFrameNumber = NULL);
@@ -98,7 +98,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
                               const struct hw_module_t **pHmi);
 
  private:
-  Vector<int32_t> current_request_ids_;
+  std::vector<int32_t> current_request_ids_;
   typedef enum State_t {
     STATE_ERROR,
     STATE_NOT_INITIALIZED,

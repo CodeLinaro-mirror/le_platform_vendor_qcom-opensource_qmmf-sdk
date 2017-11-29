@@ -54,9 +54,9 @@
 #include <utils/RefBase.h>
 #include <utils/String16.h>
 
-#include "common/qmmf_codec_internal.h"
-#include "common/qmmf_device_internal.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_codec_internal.h"
+#include "common/utils/qmmf_device_internal.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/client/qmmf_system_params_internal.h"
 
@@ -201,8 +201,11 @@ status_t SystemClient::UnloadSoundModel() {
   return result;
 }
 
-status_t SystemClient::EnableSoundTrigger(const TriggerCb& callback) {
+status_t SystemClient::EnableSoundTrigger(const TriggerConfig& config,
+                                          const TriggerCb& callback) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+               config.ToString().c_str());
   lock_guard<mutex> lock(lock_);
 
   if (system_service_.get() == nullptr) {
@@ -212,7 +215,7 @@ status_t SystemClient::EnableSoundTrigger(const TriggerCb& callback) {
 
   trigger_callback_ = callback;
 
-  status_t result = system_service_->EnableSoundTrigger(system_handle_);
+  status_t result = system_service_->EnableSoundTrigger(system_handle_, config);
   if (result < 0)
     QMMF_ERROR("%s: %s() service->EnableSoundTrigger failed: %d", TAG, __func__,
                result);
@@ -342,6 +345,25 @@ status_t SystemClient::PlayTone(const vector<DeviceId>& devices,
   return result;
 }
 
+status_t SystemClient::Mute(const DeviceId device, const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+  lock_guard<mutex> lock(lock_);
+
+  if (system_service_.get() == nullptr) {
+    QMMF_ERROR("%s: %s() not connected to service", TAG, __func__);
+    return -ENOSYS;
+  }
+
+  status_t result = system_service_->Mute(system_handle_, device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() service->Mute failed: %d", TAG, __func__, result);
+
+  return result;
+}
+
 void SystemClient::NotifySystemEvent(const int32_t error) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
@@ -349,12 +371,15 @@ void SystemClient::NotifySystemEvent(const int32_t error) {
   system_callback_(error);
 }
 
-void SystemClient::NotifyTriggerEvent(const int32_t error) {
+void SystemClient::NotifyTriggerEvent(const int32_t error,
+                                      const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
 
   if (trigger_callback_)
-    trigger_callback_(error);
+    trigger_callback_(error, buffer);
   else
     QMMF_ERROR("%s: %s() no callback registered", TAG, __func__);
 }
@@ -458,14 +483,18 @@ class BpSystemService: public BpInterface<ISystemService> {
     return output.readInt32();
   }
 
-  status_t EnableSoundTrigger(const SystemHandle system_handle) {
+  status_t EnableSoundTrigger(const SystemHandle system_handle,
+                              const TriggerConfig& config) {
     QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
     QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
                  system_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+                 config.ToString().c_str());
     Parcel input, output;
 
     input.writeInterfaceToken(ISystemService::getInterfaceDescriptor());
     input.writeInt32(static_cast<int32_t>(system_handle));
+    TriggerConfigInternal(config).ToParcel(&input);
 
     remote()->transact(static_cast<uint32_t>
         (SystemServiceCommand::kSystemEnableSoundTrigger), input, &output);
@@ -608,6 +637,28 @@ class BpSystemService: public BpInterface<ISystemService> {
     blob.release();
     return output.readInt32();
   }
+
+  status_t Mute(const SystemHandle system_handle,
+                const DeviceId device,
+                const bool mute) {
+    QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+    QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+                 system_handle);
+    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+    QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+                 mute ? "true" : "false");
+    Parcel input, output;
+
+    input.writeInterfaceToken(ISystemService::getInterfaceDescriptor());
+    input.writeInt32(static_cast<int32_t>(system_handle));
+    input.writeInt32(static_cast<int32_t>(device));
+    input.writeInt32(static_cast<int32_t>(mute));
+
+    remote()->transact(static_cast<uint32_t>(SystemServiceCommand::kSystemMute),
+                       input, &output);
+
+    return output.readInt32();
+  }
 };
 
 IMPLEMENT_META_INTERFACE(SystemService, QMMF_SYSTEM_SERVICE_NAME);
@@ -631,14 +682,17 @@ void ServiceCallbackHandler::NotifySystemEvent(const int32_t error) {
     client_->NotifySystemEvent(error);
 }
 
-void ServiceCallbackHandler::NotifyTriggerEvent(const int32_t error) {
+void ServiceCallbackHandler::NotifyTriggerEvent(const int32_t error,
+                                                const BufferDescriptor& buffer) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+               buffer.ToString().c_str());
 
   if (client_ == nullptr)
     QMMF_ERROR("%s: %s() no client to send notification to", TAG, __func__);
   else
-    client_->NotifyTriggerEvent(error);
+    client_->NotifyTriggerEvent(error, buffer);
 }
 
 void ServiceCallbackHandler::NotifyDeviceEvent(const DeviceInfo& device) {
@@ -679,16 +733,33 @@ class BpSystemServiceCallback: public BpInterface<ISystemServiceCallback> {
         (SystemServiceCallbackCommand::kSystemNotifySystem), input, &output);
   }
 
-  void NotifyTriggerEvent(const int32_t error) {
+  void NotifyTriggerEvent(const int32_t error,
+                          const BufferDescriptor& buffer) {
     QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
     QMMF_VERBOSE("%s: %s() INPARAM: error[%d]", TAG, __func__, error);
+    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+                 buffer.ToString().c_str());
     Parcel input, output;
+    Parcel::WritableBlob blob;
 
     input.writeInterfaceToken(ISystemServiceCallback::getInterfaceDescriptor());
     input.writeInt32(error);
 
+    if (buffer.data == nullptr) {
+      input.writeInt32(0);
+    } else {
+      input.writeInt32(1);
+      input.writeUint32(buffer.size);
+      input.writeUint32(buffer.capacity);
+      input.writeUint64(buffer.timestamp);
+      input.writeBlob(buffer.capacity, false, &blob);
+      memcpy(blob.data(), buffer.data, buffer.capacity);
+    }
+
     remote()->transact(static_cast<uint32_t>
         (SystemServiceCallbackCommand::kSystemNotifyTrigger), input, &output);
+
+    blob.release();
   }
 
   void NotifyDeviceEvent(const DeviceInfo& device) {
@@ -743,10 +814,26 @@ int32_t BnSystemServiceCallback::onTransact(uint32_t code, const Parcel& input,
     case SystemServiceCallbackCommand::kSystemNotifyTrigger: {
       int32_t error = input.readInt32();
 
+      Parcel::ReadableBlob blob;
+      BufferDescriptor buffer = { nullptr, -1, 0, 0, 0, 0, 0, 0 };
+      int32_t buffer_present = input.readInt32();
+
+      if (buffer_present) {
+        buffer.size = input.readUint32();
+        buffer.capacity = input.readUint32();
+        buffer.timestamp = input.readUint64();
+        input.readBlob(buffer.capacity, &blob);
+        buffer.data = const_cast<void*>(blob.data());
+      }
+
       QMMF_DEBUG("%s: %s-SystemNotifyTrigger() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-SystemNotifyTrigger() INPARAM: error[%d]", TAG,
                    __func__, error);
-      NotifyTriggerEvent(error);
+      QMMF_VERBOSE("%s: %s()-SystemNotifyTrigger() INPARAM: buffer[%s]", TAG,
+                   __func__, buffer.ToString().c_str());
+      NotifyTriggerEvent(error, buffer);
+
+      blob.release();
       break;
     }
 

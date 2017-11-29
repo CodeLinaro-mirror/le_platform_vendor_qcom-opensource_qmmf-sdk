@@ -166,7 +166,7 @@ status_t TranscoderSink::StopCodec() {
   QMMF_INFO("%s:%s Enter", TAG, __func__);
 
   status_t ret = 0;
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   if (ret != 0) {
     QMMF_ERROR("%s:%s Failed to stop sink side AVCodec", TAG, __func__);
     return ret;

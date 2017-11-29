@@ -32,16 +32,6 @@ AC_ARG_WITH(sanitized-headers,
          [Specify the location of the sanitized Linux headers]),
       [CPPFLAGS="$CPPFLAGS -idirafter $withval"])
 
-AC_ARG_WITH([gralloc_library],
-      AC_HELP_STRING([--with-gralloc-library=@<:@dir@:>@],
-         [Specify the location of the Gralloc library]),
-      [gralloc_libdir=$withval],
-      with_gralloc_library=no)
-
-if test "x$with_gralloc_library" != "xno"; then
-   AC_SUBST([LIBGRALLOC], "${gralloc_libdir}")
-fi
-
 AC_ARG_WITH([mm_core],
       AC_HELP_STRING([with-mm-core=@<:@dir@:>@],
          [Specify the location of the mm-core library]),
@@ -161,6 +151,7 @@ AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
 
 AC_CONFIG_FILES([ \
     Makefile \
+    common/utils/Makefile \
     common/overlay/Makefile \
     common/cameraadaptor/Makefile \
     common/audio/src/client/Makefile \

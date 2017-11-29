@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -30,11 +30,12 @@
 #ifndef QMMF_TIME_LAPSE_H_
 #define QMMF_TIME_LAPSE_H_
 
-#include <utils/Condition.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
+
+#include "common/utils/qmmf_condition.h"
 
 namespace qmmf {
 namespace timelapse {
@@ -111,10 +112,10 @@ class TimeLapse {
   uint32_t              session_id_;
   uint64_t              last_capture_ts_;
   uint64_t              snapshot_count_;
-  Condition             lapse_cond_;
-  Mutex                 lapse_lock_;
-  Condition             snapshot_cond_;
-  Mutex                 snapshot_lock_;
+  QCondition            lapse_cond_;
+  std::mutex            lapse_lock_;
+  QCondition            snapshot_cond_;
+  std::mutex            snapshot_lock_;
 
 
   static const uint32_t kPreviewTrackId;

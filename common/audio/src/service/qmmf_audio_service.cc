@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,6 +33,7 @@
 
 #include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <mutex>
 #include <vector>
@@ -45,7 +46,7 @@
 #include "common/audio/src/service/qmmf_audio_common.h"
 #include "common/audio/src/service/qmmf_audio_frontend.h"
 #include "common/audio/src/service/qmmf_audio_ion.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace common {
@@ -60,7 +61,7 @@ using ::std::map;
 using ::std::mutex;
 using ::std::vector;
 
-AudioService::AudioService() {
+AudioService::AudioService() : mic_mute_(false) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
 
   AudioErrorHandler error_handler =
@@ -86,11 +87,28 @@ AudioService::AudioService() {
         return;
       }
 
+      if (mic_mute_)
+        memset(buffer.data, 0, static_cast<size_t>(buffer.capacity));
+
       client_handler_iterator->second->NotifyBufferEvent(buffer);
+    };
+
+  AudioStoppedHandler stopped_handler =
+    [this](const AudioHandle audio_handle) -> void {
+      ClientHandlerMap::iterator client_handler_iterator =
+          client_handlers_.find(audio_handle);
+      if (client_handler_iterator == client_handlers_.end()) {
+        QMMF_ERROR("%s: %s() no client handler for key[%d]", TAG, __func__,
+                   audio_handle);
+        return;
+      }
+
+      client_handler_iterator->second->NotifyStoppedEvent();
     };
 
   audio_frontend_.RegisterErrorHandler(error_handler);
   audio_frontend_.RegisterBufferHandler(buffer_handler);
+  audio_frontend_.RegisterStoppedHandler(stopped_handler);
 
   QMMF_INFO("%s: %s() service instantiated", TAG, __func__);
 }
@@ -207,15 +225,13 @@ int32_t AudioService::Start(const AudioHandle audio_handle) {
   return result;
 }
 
-int32_t AudioService::Stop(const AudioHandle audio_handle, const bool flush) {
+int32_t AudioService::Stop(const AudioHandle audio_handle) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: audio_handle[%d]", TAG, __func__,
                audio_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: flush[%s]", TAG, __func__,
-               flush ? "true" : "false");
   lock_guard<mutex> lock(lock_);
 
-  int32_t result = audio_frontend_.Stop(audio_handle, flush);
+  int32_t result = audio_frontend_.Stop(audio_handle);
   if (result < 0)
     QMMF_ERROR("%s: %s() frontend->Stop failed: %d", TAG, __func__, result);
 
@@ -309,6 +325,12 @@ int32_t AudioService::SetParam(const AudioHandle audio_handle,
   QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
                data.ToString(type).c_str());
   lock_guard<mutex> lock(lock_);
+
+  if (type == AudioParamType::kMute) {
+    // TODO: assume microphone for now
+    mic_mute_ = data.device.enable;
+    return 0;
+  }
 
   int32_t result = audio_frontend_.SetParam(audio_handle, type, data);
   if (result < 0)
@@ -415,14 +437,11 @@ int32_t AudioService::onTransact(uint32_t code, const Parcel& input,
 
     case AudioServiceCommand::kAudioStop: {
       AudioHandle audio_handle = static_cast<AudioHandle>(input.readInt32());
-      bool flush = static_cast<bool>(input.readInt32());
 
       QMMF_DEBUG("%s: %s-AudioStop() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-AudioStop() INPARAM: audio_handle[%d]", TAG,
                    __func__, audio_handle);
-      QMMF_VERBOSE("%s: %s-AudioStop() INPARAM: flush[%s]", TAG, __func__,
-                   flush ? "true" : "false");
-      int32_t result = Stop(audio_handle, flush);
+      int32_t result = Stop(audio_handle);
 
       output->writeInt32(result);
       break;

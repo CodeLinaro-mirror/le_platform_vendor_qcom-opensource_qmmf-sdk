@@ -41,10 +41,10 @@
 
 #include <system/graphics.h>
 #include <system/window.h>
-#include <utils/List.h>
 #include <qcom/display/gralloc_priv.h>
 
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_condition.h"
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
@@ -168,7 +168,7 @@ class Common {
 template <class T>
 class TSQueue {
  public:
-  typedef typename ::android::List<T>::iterator iterator;
+  typedef typename ::std::list<T>::iterator iterator;
 
   iterator Begin() {
     ::std::lock_guard<::std::mutex> lg(lock_);
@@ -206,7 +206,7 @@ class TSQueue {
   }
 
  private:
-  ::android::List<T> queue_;
+  ::std::list<T> queue_;
   ::std::mutex lock_;
 };
 

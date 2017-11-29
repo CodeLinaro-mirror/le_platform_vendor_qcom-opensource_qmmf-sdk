@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -33,7 +33,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <utils/Log.h>
-#include <utils/String8.h>
 #include <assert.h>
 #include <system/graphics.h>
 #include <QCamera3VendorTags.h>
@@ -1633,11 +1632,9 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
       }
       std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
       burst_snapshot_count_ = snapshot_info.count;
-      uint32_t wait_time_secs = get_snapshot_cb_wait_time();
+      std::chrono::milliseconds wait_time(get_snapshot_cb_wait_time() * 1000);
 
-      if (snapshot_wait_signal_.wait_for(lock,
-         std::chrono::milliseconds(wait_time_secs * 1000)) ==
-           std::cv_status::timeout) {
+      if (snapshot_wait_signal_.WaitFor(lock, wait_time) != 0) {
            TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
       }
       {
@@ -1830,11 +1827,10 @@ status_t RecorderTest::TakeSnapshot() {
           ALOGE("%s:%s CaptureImage Failed!!", TAG, __func__);
         }
         std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
-        uint32_t wait_time_secs = get_snapshot_cb_wait_time();
         burst_snapshot_count_ = num_images_;
-        if (snapshot_wait_signal_.wait_for(lock,
-           std::chrono::milliseconds(wait_time_secs * 1000)) ==
-             std::cv_status::timeout) {
+        std::chrono::milliseconds wait_time(get_snapshot_cb_wait_time() * 1000);
+
+        if (snapshot_wait_signal_.WaitFor(lock, wait_time) != 0) {
              TEST_ERROR("%s:%s Capture Image Timed out", TAG, __func__);
         }
         {
@@ -3021,6 +3017,44 @@ status_t RecorderTest::CreateAudioPCMG711Track() {
   return ret;
 }
 
+status_t RecorderTest::CreateAudioPCMFluenceTrack() {
+  TEST_INFO("%s:%s: Enter", TAG, __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s:%s: sessions_id = %d", TAG, __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCM;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  bool enable = true;
+  ret = recorder_.SetAudioTrackParam(session_id, info.track_id,
+                                     CodecParamType::kAudioFluencePro,
+                                     &enable, sizeof(enable));
+  assert(ret == 0);
+
+  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  return ret;
+}
+
 // This session has one RDI track with sensor resolution.
 status_t RecorderTest::SessionRDITrack() {
 
@@ -3790,7 +3824,6 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
                               BufferDescriptor buffer, MetaData meta_data) {
 
   TEST_INFO("%s:%s Enter ", TAG, __func__);
-  String8 file_path;
   const char* ext_str;
   if (meta_data.meta_flag
       & static_cast<uint32_t> (MetaParamType::kCamBufMetaData)) {
@@ -3833,8 +3866,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
         assert(0);
         break;
       }
-      file_path.appendFormat("/data/misc/qmmf/snapshot_%u.%s", image_sequence_count,
-          ext_str);
+      std::string file_path("/data/misc/qmmf/snapshot_");
+      file_path += std::to_string(image_sequence_count) + ".";
+      file_path += ext_str;
       DumpFrameToFile(buffer, cam_buf_meta, file_path);
     }
   }
@@ -3842,7 +3876,7 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   std::unique_lock<std::mutex> lock(snapshot_wait_lock_);
   if (image_sequence_count == burst_snapshot_count_ - 1) {
-    snapshot_wait_signal_.notify_one();
+    snapshot_wait_signal_.Signal();
   }
 
   TEST_INFO("%s:%s Exit", TAG, __func__);
@@ -3917,12 +3951,12 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
 // This function dumps YUV, JPEG and RAW frames to file.
 status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
                                        CameraBufferMetaData& meta_data,
-                                       String8& file_path) {
+                                       std::string& file_path) {
   size_t written_len = 0;
-  FILE *file = fopen(file_path.string(), "w+");
+  FILE *file = fopen(file_path.c_str(), "w+");
   if (!file) {
     ALOGE("%s:%s: Unable to open file(%s)", TAG, __func__,
-        file_path.string());
+        file_path.c_str());
     return -1;
   }
   // JPEG, RAW & NV12UBWC
@@ -3947,7 +3981,7 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   }
   TEST_DBG("%s:%s: total written_len = %d", TAG, __func__, written_len);
   TEST_INFO("%s:%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", TAG, __func__,
-      buffer.data, written_len, file_path.string());
+      buffer.data, written_len, file_path.c_str());
 
   fclose(file);
 
@@ -5282,7 +5316,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.in_devices_num = 0;
     audio_track_params.in_devices[audio_track_params.in_devices_num++] =
         track_info.device_id;
-    audio_track_params.sample_rate = 48000;
+    audio_track_params.sample_rate = 16000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
     audio_track_params.flags       = 0;
@@ -5789,10 +5823,14 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
             if (num_yuv_frames_ == recorder_test_->dump_frame_freq_) {
               const char *ext = track_info_.track_type ==  TrackType::kVideoRDI ?
                   "raw" : "yuv";
-              String8 file_path;
-              file_path.appendFormat("/data/misc/qmmf/track_%d_%dx%d_%lld.%s",
-                  track_info_.track_id, cam_buf_meta.plane_info[0].width,
-                  cam_buf_meta.plane_info[0].height, buffers[i].timestamp, ext);
+              std::string file_path("/data/misc/qmmf/track_");
+              file_path += std::to_string(track_info_.track_id) + "_";
+              file_path += std::to_string(
+                  cam_buf_meta.plane_info[0].width);
+              file_path += "x" + std::to_string(
+                  cam_buf_meta.plane_info[0].height) + "_";
+              file_path += std::to_string(buffers[i].timestamp) + ".";
+              file_path += ext;
               recorder_test_->DumpFrameToFile(buffers[i], cam_buf_meta,
                                             file_path);
               num_yuv_frames_ = 0;
@@ -5971,13 +6009,14 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   }
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  String8 extn(type_string);
-  String8 bitstream_filepath;
-  bitstream_filepath.appendFormat("/data/misc/qmmf/test_track_%d_%dx%d_%lu.%s",
-                                  dumpinfo.track_id, dumpinfo.width,
-                                  dumpinfo.height, tv.tv_sec,
-                                  extn.string());
-  file_fd_ = open(bitstream_filepath.string(),
+  std::string extn(type_string);
+  std::string bitstream_filepath("/data/misc/qmmf/test_track_");
+  bitstream_filepath += std::to_string(dumpinfo.track_id) + "_";
+  bitstream_filepath += std::to_string(dumpinfo.width) + "x";
+  bitstream_filepath += std::to_string(dumpinfo.height) + "_";
+  bitstream_filepath += std::to_string(tv.tv_sec) + ".";
+  bitstream_filepath += extn;
+  file_fd_ = open(bitstream_filepath.c_str(),
                           O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd_ <= 0) {
     TEST_ERROR("%s:%s File open failed!", TAG, __func__);
@@ -6094,6 +6133,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,8KHz + G711 mono)\n",
       CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM mono,16,16KHz,FluencePro)\n",
+      CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD);
   printf("   %c. Create Session: (1080p YUV with Display)\n",
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
@@ -6289,6 +6330,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMG711Track();
+      }
+      break;
+      case CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMFluenceTrack();
       }
       break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {

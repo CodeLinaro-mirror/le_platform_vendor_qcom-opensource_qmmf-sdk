@@ -28,29 +28,30 @@
 
 #define TAG "AVCodecJpegEncode"
 
-#include <cutils/properties.h>
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <gralloc_priv.h>
-#include <hardware/camera3.h>
-#include <linux/msm_ion.h>
-#include <math.h>
-#include <media/hardware/HardwareAPI.h>
-#include <mm_jpeg_interface.h>
-#include <utils/Errors.h>
-#include <utils/RefBase.h>
+#include <cmath>
 #include <chrono>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <sstream>
-#include <string>
+#include <iomanip>
+#include <iostream>
+#include <dlfcn.h>
+#include <fcntl.h>
+
+#include <utils/Errors.h>
+#include <utils/RefBase.h>
+#include <cutils/properties.h>
+#include <hardware/camera3.h>
+#include <qcom/display/gralloc_priv.h>
+#include <linux/msm_ion.h>
+#include <media/hardware/HardwareAPI.h>
+#include <mm_jpeg_interface.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_jpeg_encode.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 namespace avcodec {
@@ -514,7 +515,7 @@ status_t JPEGEncoder::StartCodec() {
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::StopCodec() {
+status_t JPEGEncoder::StopCodec(bool do_flush) {
   std::lock_guard<std::mutex> l(stop_jpeg_mutex_);
   stop_jpeg_ = true;
   jpeg_thread_id_.join();

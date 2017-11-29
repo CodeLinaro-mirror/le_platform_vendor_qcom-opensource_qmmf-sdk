@@ -8,6 +8,7 @@ libav_codec_la_CPPFLAGS += -I$(top_srcdir)/
 libav_codec_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libav_codec_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog
 libav_codec_la_LIBADD   = ../common/codecadaptor/libcodec_adaptor.la
+libav_codec_la_LIBADD   += ../common/utils/libqmmf_utils.la
 
 # AVCodec sample test app
 bin_PROGRAMS = av_codec_test

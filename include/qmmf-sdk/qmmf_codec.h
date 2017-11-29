@@ -87,6 +87,7 @@ enum class CodecParamType {
   kUseLtrType,
   kAudioEffectsParamType,
   kAudioVolumeParamType,
+  kAudioFluencePro,
   kDecodeOperatingRate,
   kEnableFrameRepeat,
   kVQZipInfo,
@@ -491,6 +492,7 @@ enum class AudioFormat {
   kAAC,
   kAMR,
   kG711,
+  kMP3,
 };
 
 union CodecFormat {

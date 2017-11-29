@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,7 +78,9 @@ class VideoSink {
 
   ~VideoSink();
 
-  status_t CreateTrackSink(uint32_t track_id, VideoTrackParams& track_param);
+  status_t CreateTrackSink(uint32_t track_id,
+                           VideoTrackParams& track_param,
+                           TrackCb& callback);
 
   const ::std::shared_ptr<VideoTrackSink>& GetTrackSink(uint32_t track_id);
 
@@ -106,7 +108,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   ~VideoTrackSink();
 
-  status_t Init(VideoTrackParams& param);
+  status_t Init(VideoTrackParams& param, TrackCb& callback);
 
   status_t StartSink();
 
@@ -159,6 +161,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t TrackId() { return track_params_.track_id; }
 
   VideoTrackParams        track_params_;
+  TrackCb                 callback_;
   ::qmmf::avcodec::PortreconfigData::CropData                crop_data_;
   uint32_t                current_width;
   uint32_t                current_height;
@@ -168,9 +171,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  ::android::Mutex        wait_for_frame_lock_;
-  ::android::Condition    wait_for_frame_;
-  ::android::Mutex        queue_lock_;
+  std::mutex              wait_for_frame_lock_;
+  QCondition              wait_for_frame_;
+  std::mutex              queue_lock_;
   bool                    stopplayback_;
   bool                    paused_;
   uint32_t                decoded_frame_number_;
@@ -224,8 +227,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t                                grabpicture_file_fd_;
   BufferDescriptor                       grab_picture_buffer_;
   struct ion_handle_data                 grab_picture_ion_handle_;
-  ::android::Mutex                       grab_picture_buffer_copy_lock_;
-  ::android::Condition                   wait_for_grab_picture_buffer_copy_;
+  std::mutex                             grab_picture_buffer_copy_lock_;
+  QCondition                             wait_for_grab_picture_buffer_copy_;
   uint32_t                               snapshot_dumps_;
   std::mutex                             grab_picture_lock;
 

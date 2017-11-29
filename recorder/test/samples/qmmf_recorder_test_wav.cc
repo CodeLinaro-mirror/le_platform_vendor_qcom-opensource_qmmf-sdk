@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,8 +40,11 @@
 #include <mutex>
 #include <string>
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 using ::qmmf::AudioFormat;
 using ::qmmf::BufferDescriptor;
@@ -96,6 +99,9 @@ int32_t RecorderTestWav::Configure(const string& filename_prefix,
   }
 
   filename_ = filename_prefix;
+  filename_.append("_");
+  filename_.append(to_string(getpid()));
+  filename_.append("_");
   filename_.append(to_string(track_id));
   filename_.append(kFilenameSuffix);
 

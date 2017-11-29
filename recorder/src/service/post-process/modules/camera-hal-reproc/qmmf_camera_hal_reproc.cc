@@ -94,7 +94,7 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
   {
     std::unique_lock<std::mutex> processing_lock(reproc_wait_lock_);
     frame_processing_ = false;
-    reproc_wait_.notify_one();
+    reproc_wait_.Signal();
   }
 
   listener_->OnFrameReady(in_buff);
@@ -591,7 +591,7 @@ status_t CameraHalReproc::StartProcessing() {
     {
       std::unique_lock<std::mutex> processing_lock(reproc_wait_lock_);
       while (frame_processing_) {
-        reproc_wait_.wait(processing_lock);
+        reproc_wait_.Wait(processing_lock);
       }
     }
 

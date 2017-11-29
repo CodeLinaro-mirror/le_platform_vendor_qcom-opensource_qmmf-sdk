@@ -35,7 +35,7 @@
 #include <errno.h>
 
 #include "qmmf_postproc_thread.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 namespace qmmf {
 

@@ -39,7 +39,7 @@ namespace qmmf {
 namespace recorder {
 
 PostProcNode::PostProcNode(int32_t Id, std::string name,
-                           sp<IPostProcModule> module)
+                           std::shared_ptr<IPostProcModule> module)
     : PostProcPlugin<PostProcNode>(this),
       in_(this),
       out_(this),
@@ -51,7 +51,7 @@ PostProcNode::PostProcNode(int32_t Id, std::string name,
   module_->SetCallbacks(this);
   module_->GetCapabilities(caps_);
 
-  mem_pool_ = new MemPool();
+  mem_pool_ = std::make_shared<MemPool>();
 
   state_ = PostProcNodeState::CREATED;
   QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
@@ -68,7 +68,7 @@ PostProcNode::~PostProcNode() {
   module_->Delete();
 
   if (mem_pool_.get() != nullptr) {
-    mem_pool_.clear();
+    mem_pool_ = nullptr;
   }
 
   QMMF_INFO("%s:%s: Exit (%p) name: %s", TAG, __func__, this, name_.c_str());
@@ -348,7 +348,7 @@ status_t PostProcNode::ProcessOutputBuffer(StreamBuffer &buffer) {
 void InputHandler::AddBuf(StreamBuffer& buffer) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   bufs_list_.push_back(buffer);
-  wait_.notify_one();
+  wait_.Signal();
 }
 
 
@@ -411,8 +411,8 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
 
   std::chrono::nanoseconds wait_time(kFrameTimeout);
   while (bufs_list_.empty()) {
-    auto ret = wait_.wait_for(lock, wait_time);
-    if (ret == std::cv_status::timeout) {
+    auto ret = wait_.WaitFor(lock, wait_time);
+    if (ret != 0) {
       QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
       return BAD_VALUE;
     }
@@ -519,7 +519,7 @@ void OutputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
 void OutputHandler::AddBuf(StreamBuffer& buffer) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   bufs_list_.push_back(buffer);
-  wait_.notify_one();
+  wait_.Signal();
 }
 
 bool OutputHandler::ThreadLoop() {
@@ -537,8 +537,8 @@ bool OutputHandler::ThreadLoop() {
 
     std::chrono::nanoseconds wait_time(kFrameTimeout);
     while (bufs_list_.empty()) {
-      auto ret = wait_.wait_for(lock, wait_time);
-      if (ret == std::cv_status::timeout) {
+      auto ret = wait_.WaitFor(lock, wait_time);
+      if (ret != 0) {
         QMMF_DEBUG("%s:%s: Wait for frame available timed out", TAG, __func__);
         return true;
       }

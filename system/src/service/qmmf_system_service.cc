@@ -41,9 +41,9 @@
 #include <binder/Parcel.h>
 #include <utils/RefBase.h>
 
-#include "common/qmmf_codec_internal.h"
-#include "common/qmmf_device_internal.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_codec_internal.h"
+#include "common/utils/qmmf_device_internal.h"
+#include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_system_params.h"
 #include "system/src/client/qmmf_system_params_internal.h"
 #include "system/src/service/qmmf_system_common.h"
@@ -78,7 +78,8 @@ SystemService::SystemService() {
     };
 
   SystemTriggerHandler trigger_handler =
-    [this](const SystemHandle system_handle, const int32_t error) -> void {
+    [this](const SystemHandle system_handle, const int32_t error,
+           const BufferDescriptor& buffer) -> void {
       ClientHandlerMap::iterator client_handler_iterator =
           client_handlers_.find(system_handle);
       if (client_handler_iterator == client_handlers_.end()) {
@@ -87,7 +88,7 @@ SystemService::SystemService() {
         return;
       }
 
-      client_handler_iterator->second->NotifyTriggerEvent(error);
+      client_handler_iterator->second->NotifyTriggerEvent(error, buffer);
     };
 
   SystemDeviceHandler device_handler =
@@ -226,12 +227,15 @@ status_t SystemService::UnloadSoundModel(const SystemHandle system_handle) {
   return result;
 }
 
-status_t SystemService::EnableSoundTrigger(const SystemHandle system_handle) {
+status_t SystemService::EnableSoundTrigger(const SystemHandle system_handle,
+                                           const TriggerConfig& config) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
   QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
                system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: config[%s]", TAG, __func__,
+               config.ToString().c_str());
 
-  status_t result = system_impl_.EnableSoundTrigger(system_handle);
+  status_t result = system_impl_.EnableSoundTrigger(system_handle, config);
   if (result < 0)
     QMMF_ERROR("%s: %s() impl->EnableSoundTrigger failed: %d", TAG, __func__,
                result);
@@ -337,6 +341,24 @@ status_t SystemService::PlayTone(const SystemHandle system_handle,
   return result;
 }
 
+status_t SystemService::Mute(const SystemHandle system_handle,
+                             const DeviceId device,
+                             const bool mute) {
+  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+               system_handle);
+  QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
+  QMMF_VERBOSE("%s: %s() INPARAM: mute[%s]", TAG, __func__,
+               mute ? "true" : "false");
+
+  status_t result = system_impl_.Mute(system_handle, device, mute);
+  if (result < 0)
+    QMMF_ERROR("%s: %s() impl->Mute failed: %d", TAG, __func__,
+               result);
+
+  return result;
+}
+
 status_t SystemService::onTransact(uint32_t code, const Parcel& input,
                                    Parcel* output, uint32_t flags) {
   QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
@@ -406,11 +428,15 @@ status_t SystemService::onTransact(uint32_t code, const Parcel& input,
 
     case SystemServiceCommand::kSystemEnableSoundTrigger: {
       SystemHandle system_handle = static_cast<SystemHandle>(input.readInt32());
+      TriggerConfigInternal config;
+      config.FromParcel(input);
 
       QMMF_DEBUG("%s: %s-SystemEnableSoundTrigger() TRACE", TAG, __func__);
       QMMF_VERBOSE("%s: %s-SystemEnableSoundTrigger() INPARAM: system_handle[%d]",
                    TAG, __func__, system_handle);
-      status_t result = EnableSoundTrigger(system_handle);
+      QMMF_VERBOSE("%s: %s-SystemEnableSoundTrigger() INPARAM: config[%s]",
+                   TAG, __func__, config.ToString().c_str());
+      status_t result = EnableSoundTrigger(system_handle, config);
 
       output->writeInt32(result);
       break;
@@ -520,6 +546,25 @@ status_t SystemService::onTransact(uint32_t code, const Parcel& input,
       status_t result = PlayTone(system_handle, devices, tone);
 
       blob.release();
+      output->writeInt32(result);
+      break;
+    }
+
+    case SystemServiceCommand::kSystemMute: {
+      SystemHandle system_handle = static_cast<SystemHandle>(input.readInt32());
+
+      DeviceId device = static_cast<DeviceId>(input.readInt32());
+      bool mute = static_cast<bool>(input.readInt32());
+
+      QMMF_DEBUG("%s: %s-SystemMute() TRACE", TAG, __func__);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: system_handle[%d]",
+                   TAG, __func__, system_handle);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: device[%d]",
+                   TAG, __func__, device);
+      QMMF_VERBOSE("%s: %s-SystemMute() INPARAM: mute[%s]", TAG, __func__,
+                   mute ? "true" : "false");
+      status_t result = Mute(system_handle, device, mute);
+
       output->writeInt32(result);
       break;
     }

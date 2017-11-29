@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -245,7 +245,7 @@ status_t AACfileIO::Fillparams(TestInitParams *params) {
   Framedurationus = (1024 * 1000000ll + (sr - 1)) / sr;
   duration = numFrames * Framedurationus;
 
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kAAC;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kAAC;
   params->create_param.audio_dec_param.sample_rate = sr;
   params->create_param.audio_dec_param.channels = channel;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -456,7 +456,7 @@ status_t AMRfileIO::Fillparams(TestInitParams *params) {
 
   sr = mIsWide ? 16000 : 8000;
   channel = 1;
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kAMR;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kAMR;
   params->create_param.audio_dec_param.sample_rate = sr;
   params->create_param.audio_dec_param.channels = channel;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -597,7 +597,7 @@ if (g711hdr.num_channels != 1) {
   infile.seekg(0,infile.end);
   streamSize = infile.tellg();
   infile.seekg(starting_offset);
-  params->create_param.audio_dec_param.codec = ::qmmf::player::AudioCodecType::kG711;
+  params->create_param.audio_dec_param.codec = ::qmmf::AudioFormat::kG711;
   params->create_param.audio_dec_param.sample_rate = g711hdr.sample_rate;
   params->create_param.audio_dec_param.channels = g711hdr.num_channels;
   params->create_param.audio_dec_param.bit_depth = 16;
@@ -867,7 +867,7 @@ status_t CodecTest::StartCodec() {
   status_t ret = 0;
 
   {
-    Mutex::Autolock l(stop_lock_);
+    std::lock_guard<std::mutex> lock(stop_lock_);
     stop_ = false;
   }
 
@@ -884,11 +884,11 @@ status_t CodecTest::StopCodec() {
   status_t ret = 0;
 
   {
-    Mutex::Autolock l(stop_lock_);
+    std::lock_guard<std::mutex> lock(stop_lock_);
     stop_ = true;
   }
 
-  ret = avcodec_->StopCodec();
+  ret = avcodec_->StopCodec(true);
   assert(ret == OK);
 
   input_source_impl_->BufferStatus();
@@ -931,8 +931,8 @@ status_t CodecTest::SetCodecParameters() {
 
 bool CodecTest::IsStop() {
 
-   Mutex::Autolock l(stop_lock_);
-   return stop_;
+  std::lock_guard<std::mutex> lock(stop_lock_);
+  return stop_;
 }
 
 status_t CodecTest::AllocateBuffer(uint32_t index) {
@@ -1176,8 +1176,8 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
 
   if (input_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available. Wait for new buffer", TAG, __func__);
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
@@ -1263,11 +1263,12 @@ status_t InputCodecSourceImpl::ReturnBuffer(BufferDescriptor& buffer,
   status_t ret = 0;
   bool found = false;
 
-  List<BufferDescriptor>::iterator it = input_occupy_buffer_queue_.Begin();
+  std::list<BufferDescriptor>::iterator it =
+      input_occupy_buffer_queue_.Begin();
   for (; it != input_occupy_buffer_queue_.End(); ++it) {
     if ((*it).data ==  buffer.data) {
       input_free_buffer_queue_.PushBack(*it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }
@@ -1341,8 +1342,8 @@ status_t OutputCodecSourceImpl::GetBuffer(BufferDescriptor& codec_buffer,
   if (output_free_buffer_queue_.Size() <= 0) {
     QMMF_WARN("%s:%s No buffer available to notify. Wait for new buffer", TAG,
         __func__);
-    Mutex::Autolock autoLock(wait_for_frame_lock_);
-    wait_for_frame_.wait(wait_for_frame_lock_);
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Wait(lock);
   }
 
   BufferDescriptor iter = *output_free_buffer_queue_.Begin();
@@ -1384,13 +1385,14 @@ status_t OutputCodecSourceImpl::ReturnBuffer(BufferDescriptor& codec_buffer,
     }
   }
 
-  List<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
+  std::list<BufferDescriptor>::iterator it =
+      output_occupy_buffer_queue_.Begin();
   bool found = false;
   for (; it != output_occupy_buffer_queue_.End(); ++it) {
     if (((*it).data) ==  (codec_buffer.data)) {
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.signal();
+      wait_for_frame_.Signal();
       found = true;
       break;
     }

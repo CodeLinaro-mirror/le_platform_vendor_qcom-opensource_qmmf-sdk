@@ -30,7 +30,6 @@
 #pragma once
 
 #include <functional>
-#include <utils/RefBase.h>
 #include <vector>
 #include <set>
 
@@ -38,7 +37,7 @@
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #include "recorder/src/service/post-process/interface/qmmf_postproc.h"
 
@@ -132,7 +131,7 @@ class IPostProcEventListener {
   virtual void OnError(RuntimeError err) = 0;
 };
 
-class IPostProcModule : public RefBase {
+class IPostProcModule {
 
  public:
 

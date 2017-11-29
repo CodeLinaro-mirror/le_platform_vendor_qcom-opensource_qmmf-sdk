@@ -46,12 +46,12 @@
 #include <OMX_VideoExt.h>
 #include <OMX_IndexExt.h>
 #include <media/hardware/HardwareAPI.h>
-#include <gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 #include <math.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_omx_client.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_log.h"
 
 #define OMX_SPEC_VERSION 0x00000101
 
@@ -377,16 +377,16 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
       break;
     case CodecType::kAudioDecoder:
       switch(codec_param.audio_dec_param.codec) {
-        case ::qmmf::player::AudioCodecType::kAAC:
+        case ::qmmf::AudioFormat::kAAC:
           component_name.appendFormat("OMX.qcom.audio.decoder.multiaac");
           break;
-        case ::qmmf::player::AudioCodecType::kAMR:
+        case ::qmmf::AudioFormat::kAMR:
           if (codec_param.audio_dec_param.codec_params.amr.isWAMR)
             component_name.appendFormat("OMX.qcom.audio.decoder.amrwb");
           else
             component_name.appendFormat("OMX.qcom.audio.decoder.amrnb");
           break;
-        case ::qmmf::player::AudioCodecType::kG711:
+        case ::qmmf::AudioFormat::kG711:
           switch(codec_param.audio_dec_param.codec_params.g711.mode) {
             case G711Mode::kALaw:
               component_name.appendFormat("OMX.qcom.audio.decoder.g711alaw");
@@ -432,11 +432,19 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     ret = ConfigureAudioDecoder(codec_param);
   } else {
     QMMF_ERROR("%s:%s codec type not implemented", TAG, __func__);
-    ret = -1;
+    return -1;
   }
 
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s Configure Codec Failed", TAG, __func__);
+    return ret;
+  }
   // set component to Idle state
   ret = SetState(OMX_StateIdle, OMX_FALSE);
+  if (ret != 0) {
+    QMMF_ERROR("%s:%s SetState to OMX_IDLE failed", TAG, __func__);
+    return ret;
+  }
 
   QMMF_INFO("%s:%s Exit", TAG, __func__);
   return ret;
@@ -1427,7 +1435,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
 
   //Confuguring Input Port Parameters
   switch (codec_param.audio_dec_param.codec) {
-    case ::qmmf::player::AudioCodecType::kAAC: {
+    case ::qmmf::AudioFormat::kAAC: {
       // set the AAC Input parameters
       OMX_AUDIO_PARAM_AACPROFILETYPE aac_params;
       InitOMXParams(&aac_params);
@@ -1484,7 +1492,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
       break;
     }
 
-    case ::qmmf::player::AudioCodecType::kAMR:
+    case ::qmmf::AudioFormat::kAMR:
       // set the AMR output parameters
       OMX_AUDIO_PARAM_AMRTYPE amr_params;
       InitOMXParams(&amr_params);
@@ -1502,7 +1510,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
         return ::android::FAILED_TRANSACTION;
       }
       break;
-    case ::qmmf::player::AudioCodecType::kG711:
+    case ::qmmf::AudioFormat::kG711:
       // set the G711 output parameters
       OMX_AUDIO_PARAM_G711TYPE g711_params;
       InitOMXParams(&g711_params);
@@ -2537,7 +2545,7 @@ status_t AVCodec::StartCodec() {
   return ret;
 }
 
-status_t AVCodec::StopCodec() {
+status_t AVCodec::StopCodec(bool do_flush) {
 
   QMMF_INFO("%s:%s Enter", TAG, __func__);
   status_t ret = 0;
@@ -2550,6 +2558,11 @@ status_t AVCodec::StopCodec() {
   {
     Mutex::Autolock autoLock(input_stop_lock_);
     input_stop_ = true;
+  }
+
+  if (!do_flush) {
+    Mutex::Autolock autoLock(output_stop_lock_);
+    output_stop_ = true;
   }
 
   ret = pthread_join(deliver_input_thread_id_, nullptr);
@@ -2570,21 +2583,32 @@ status_t AVCodec::StopCodec() {
   }
 
   CodecCmdType cmd;
-  ret = signal_queue_.Pop(&cmd);
-  if (ret != OK) {
-    QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
-        TAG, __func__, signal_queue_.Size());
-    return ret;
-  }
+  if (do_flush) {
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK) {
+      QMMF_ERROR("%s:%s Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+      return ret;
+    }
 
-  QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
-      __func__, signal_queue_.Size());
+    QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+        __func__, signal_queue_.Size());
 
-  if((cmd.event_result != OMX_ErrorNone) ||
-     (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
-      QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
-          cmd.event_flags);
-      return OMX_ErrorUndefined;
+    if((cmd.event_result != OMX_ErrorNone) ||
+       (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
+        QMMF_ERROR("%s:%s Expecting EOS and found(%d) flag", TAG, __func__,
+            cmd.event_flags);
+        return OMX_ErrorUndefined;
+    }
+  } else {
+    // the EOS may or may not be there depending on timing
+    ret = signal_queue_.Pop(&cmd);
+    if (ret != OK)
+      QMMF_ERROR("%s:%s optional Pop from SignalQueue Failed, size(%u)",
+          TAG, __func__, signal_queue_.Size());
+    else
+      QMMF_INFO("%s:%s Popped buffer from cmd queue, size(%u)", TAG,
+          __func__, signal_queue_.Size());
   }
 
   ret =  SetState(OMX_StateIdle, OMX_TRUE);
@@ -2994,6 +3018,12 @@ void* AVCodec::DeliverInput(void *arg) {
   while(1) {
     memset(&stream_buffer, 0x0, sizeof(stream_buffer));
     ret = avcodec->getInputBufferSource()->GetBuffer(stream_buffer, nullptr);
+    QMMF_VERBOSE("%s:%s GetBuffer returned [%s]", TAG, __func__,
+                 stream_buffer.ToString().c_str());
+    if ((avcodec->format_type_ == CodecType::kAudioDecoder ||
+         avcodec->format_type_ == CodecType::kVideoDecoder) &&
+         stream_buffer.capacity == 0)
+      break;
     buffer_handle_t native_handle;
     memset(&native_handle, 0x0, sizeof native_handle);
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
@@ -3020,9 +3050,6 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
       buf_header->nFilledLen = stream_buffer.size;
       buf_header->nTimeStamp = stream_buffer.timestamp / 1000;
-    } else if(avcodec->format_type_ == CodecType::kAudioEncoder) {
-      buf_header->nFilledLen = stream_buffer.size;
-      buf_header->nTimeStamp  = stream_buffer.timestamp;
     } else {
       buf_header->nFilledLen = stream_buffer.size;
       buf_header->nTimeStamp = stream_buffer.timestamp;
@@ -3031,16 +3058,9 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder)
       QMMF_VERBOSE("%s:%s ETB buffer fd(%d), ts(%lld)", TAG, __func__,
                    native_handle->data[0], stream_buffer.timestamp);
-    else if(avcodec->format_type_ == CodecType::kAudioEncoder)
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld)", TAG, __func__,
-                   stream_buffer.data, stream_buffer.fd,
-                   stream_buffer.timestamp);
     else
-      QMMF_VERBOSE("%s:%s ETB buffer data(%p), fd(%d), ts(%lld) "
-                   "filled_length(%d) frame_length(%d)",
-                   TAG, __func__, stream_buffer.data, stream_buffer.fd,
-                   stream_buffer.timestamp, stream_buffer.size,
-                   stream_buffer.capacity);
+      QMMF_VERBOSE("%s:%s ETB buffer[%s]", TAG, __func__,
+                   stream_buffer.ToString().c_str());
     ret = avcodec->EmptyThisBuffer(buf_header);
     if(ret != 0) {
         QMMF_ERROR("%s:%s ETB failed for buffer(%p)", TAG, __func__,
@@ -3074,7 +3094,7 @@ void* AVCodec::ThreadRun(void *arg) {
       }
       QMMF_INFO("%s:%s PortReconfig is Successfull", TAG, __func__);
       (avcodec->wait_for_header_output_).notify_one();
-      (avcodec->wait_for_threadrun).signal();
+      (avcodec->wait_for_threadrun).Signal();
     }
   }
   QMMF_INFO("%s:%s Exit", TAG, __func__);
@@ -3113,8 +3133,8 @@ void* AVCodec::DeliverOutput(void *arg) {
       avcodec->UpdateBufferHeaderList(buf_header);
       codec_buffer.size = 0;
       avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
-      Mutex::Autolock autoLock(avcodec->threadrun_port_reconfig_lock_);
-      (avcodec->wait_for_threadrun).wait(avcodec->threadrun_port_reconfig_lock_);
+      std::unique_lock<std::mutex> lock(avcodec->threadrun_port_reconfig_lock_);
+      (avcodec->wait_for_threadrun).Wait(lock);
       QMMF_INFO("%s:%s Signal from threadrun has been received", TAG, __func__);
       continue;
     }
@@ -3329,7 +3349,7 @@ status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous) {
   if(((state == OMX_StateLoaded) && (state_ != OMX_StateIdle)) ||
       ((state == OMX_StateExecuting) && (state_ != OMX_StateIdle))) {
     QMMF_ERROR("%s:%s Invalid state tranisition: state %s to %s", TAG, __func__,
-        OMX_STATE_NAME(state), OMX_STATE_NAME(state_));
+        OMX_STATE_NAME(state_), OMX_STATE_NAME(state));
     return OMX_ErrorIncorrectStateTransition;
   }
 
@@ -3877,17 +3897,10 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
     }
   }
 
-  if(avcodec->format_type_ == CodecType::kAudioDecoder) {
-    QMMF_DEBUG("%s:%s FBD buffer(%p), filled length(%d), ts(%lld)  offset(%d)"
-        "  flag(0x%x)", TAG, __func__, codec_buffer.data, codec_buffer.size,
-        codec_buffer.timestamp, codec_buffer.offset,
-        (unsigned int)buf_header->nFlags);
-  } else {
-    QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
-               codec_buffer.ToString().c_str());
-  }
-
+  QMMF_DEBUG("%s:%s FBD buffer[%s]", TAG, __func__,
+             codec_buffer.ToString().c_str());
   avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
+
   QMMF_DEBUG("%s:%s Exit", TAG, __func__);
   return OMX_ErrorNone;
 }
@@ -3898,7 +3911,8 @@ void AVCodec::UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* buf_header) {
   bool found = false;
   if (format_type_ == CodecType::kVideoEncoder) {
     std::lock_guard<std::mutex> lock(queue_lock_);
-    List<OMX_BUFFERHEADERTYPE*>::iterator it = used_input_buffhdr_list_.Begin();
+    std::list<OMX_BUFFERHEADERTYPE*>::iterator it =
+        used_input_buffhdr_list_.Begin();
     for (; it != used_input_buffhdr_list_.End(); ++it) {
       if ((*it) == buf_header) {
         QMMF_VERBOSE("%s:%s Found the header!", TAG, __func__);
@@ -3913,7 +3927,8 @@ void AVCodec::UpdateBufferHeaderList(OMX_BUFFERHEADERTYPE* buf_header) {
     }
   } else if (format_type_ == CodecType::kVideoDecoder) {
     std::lock_guard<std::mutex> lock(queue_lock_output_);
-    List<OMX_BUFFERHEADERTYPE*>::iterator it = used_output_buffhdr_list_.Begin();
+    std::list<OMX_BUFFERHEADERTYPE*>::iterator it =
+        used_output_buffhdr_list_.Begin();
     for (; it != used_output_buffhdr_list_.End(); ++it) {
       if ((*it) == buf_header) {
         QMMF_VERBOSE("%s:%s Found the header!", TAG, __func__);

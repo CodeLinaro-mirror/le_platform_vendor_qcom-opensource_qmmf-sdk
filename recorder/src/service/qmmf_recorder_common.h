@@ -29,12 +29,10 @@
 
 #pragma once
 
-#include <utils/List.h>
-#include <utils/Mutex.h>
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
-#include "common/qmmf_common_utils.h"
-#include "common/qmmf_log.h"
+#include "common/utils/qmmf_common_utils.h"
+#include "common/utils/qmmf_log.h"
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
