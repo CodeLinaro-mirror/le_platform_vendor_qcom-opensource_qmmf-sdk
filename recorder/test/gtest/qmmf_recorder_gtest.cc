@@ -7197,7 +7197,8 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     ret = recorder_.DeleteSession(session_id);
     assert(ret == NO_ERROR);
 
-     ClearSessions();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   assert(ret == NO_ERROR);
@@ -7205,7 +7206,6 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
   ret = DeInit();
   assert(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
