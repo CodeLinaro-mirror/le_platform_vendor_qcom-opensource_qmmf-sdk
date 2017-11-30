@@ -80,7 +80,8 @@ enum class EventType {
 enum class VideoCodecType {
   kHEVC,
   kAVC,
-  kJPEG
+  kJPEG,
+  kYUV,
 };
 
 // Video track create time parameters
@@ -170,6 +171,8 @@ struct AudioTrackCreateParam {
 };
 
 struct PictureParam {
+  bool enable;
+  VideoCodecType format;
   uint32_t width;
   uint32_t height;
   uint32_t quality;
@@ -205,10 +208,12 @@ struct TrackCb {
 };
 
 struct PictureCallback {
-  std::function<void(EventType event_type,
+  std::function<void(uint32_t track_id,
+                     EventType event_type,
                      void *event_data,
                      size_t event_data_size)> event_cb;
-  std::function<void(BufferDescriptor& buffer)> data_cb;
+  std::function<void(uint32_t track_id,
+                     BufferDescriptor& buffer)> data_cb;
 };
 
 }; // namespace player

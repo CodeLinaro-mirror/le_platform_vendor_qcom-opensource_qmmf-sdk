@@ -152,7 +152,8 @@ void PlayerTest::VideoTrackHandler(uint32_t track_id,
   TEST_INFO("%s: Exit", __func__);
 }
 
-void PlayerTest::GrabPictureDataCB(BufferDescriptor& buffer) {
+void PlayerTest::GrabPictureDataCB(uint32_t track_id,
+                                   BufferDescriptor& buffer) {
   TEST_INFO("%s: Enter", __func__);
 
   String8 snapshot_filepath;
@@ -653,7 +654,7 @@ void PlayerTest::VideoThread() {
   TEST_INFO("%s: Exit", __func__);
 }
 
-void PlayerTest::Stop() {
+void PlayerTest::Stop(bool with_grab) {
   TEST_INFO("%s: Enter", __func__);
 
   {
@@ -662,8 +663,27 @@ void PlayerTest::Stop() {
     video_state_ = State::kStopped;
   }
 
-  auto result = player_.Stop();
-  assert(result == NO_ERROR);
+  if (with_grab) {
+    PictureParam param;
+    memset(&param, 0x0, sizeof param);
+    param.enable = true;
+    param.format = VideoCodecType::kYUV;
+    param.width = m_sTrackInfo_.sVideo.ulWidth;
+    param.height = m_sTrackInfo_.sVideo.ulHeight;
+    param.quality = 1;
+
+    PictureCallback picture_cb;
+    picture_cb.data_cb = [this]
+      (uint32_t track_id, BufferDescriptor& buffer) {
+        GrabPictureDataCB(track_id, buffer);
+    };
+
+    auto result = player_.Stop(picture_cb, param);
+    assert(result == NO_ERROR);
+  } else {
+    auto result = player_.Stop();
+    assert(result == NO_ERROR);
+  }
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
@@ -701,15 +721,34 @@ void PlayerTest::Stop() {
   TEST_INFO("%s: Exit", __func__);
 }
 
-void PlayerTest::Pause() {
+void PlayerTest::Pause(bool with_grab) {
   TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
   if (audio_state_ == State::kRunning) audio_state_ = State::kPaused;
   if (video_state_ == State::kRunning) video_state_ = State::kPaused;
 
-  auto result = player_.Pause();
-  assert(result == NO_ERROR);
+  if (with_grab) {
+    PictureParam param;
+    memset(&param, 0x0, sizeof param);
+    param.enable = true;
+    param.format = VideoCodecType::kYUV;
+    param.width = m_sTrackInfo_.sVideo.ulWidth;
+    param.height = m_sTrackInfo_.sVideo.ulHeight;
+    param.quality = 1;
+
+    PictureCallback picture_cb;
+    picture_cb.data_cb = [this]
+      (uint32_t track_id, BufferDescriptor& buffer) {
+        GrabPictureDataCB(track_id, buffer);
+    };
+
+    auto result = player_.Pause(picture_cb, param);
+    assert(result == NO_ERROR);
+  } else {
+    auto result = player_.Pause();
+    assert(result == NO_ERROR);
+  }
 
   TEST_INFO("%s: Exit", __func__);
 }
@@ -815,25 +854,6 @@ void PlayerTest::SetTrickMode() {
 bool PlayerTest::IsTrickModeEnabled() {
   std::lock_guard<std::mutex> lock(lock_);
   return trick_mode_enabled_;
-}
-
-void PlayerTest::GrabPicture() {
-  TEST_INFO("%s: Enter", __func__);
-
-  PictureParam param;
-  memset(&param, 0x0, sizeof param);
-  param.height = m_sTrackInfo_.sVideo.ulHeight;
-  param.width = m_sTrackInfo_.sVideo.ulWidth;
-  param.quality = 1;
-
-  PictureCallback picture_cb;
-  picture_cb.data_cb = [this](BufferDescriptor& buffer) {
-    GrabPictureDataCB(buffer);
-  };
-
-  player_.GrabPicture(param, picture_cb);
-
-  TEST_INFO("%s: Exit", __func__);
 }
 
 void PlayerTest::Delete() {
@@ -1141,11 +1161,12 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Prepare (PTS)\n", CmdMenu::PREPARE_PTS_CMD);
   printf("   %c. Start\n", CmdMenu::START_CMD);
   printf("   %c. Stop\n", CmdMenu::STOP_CMD);
+  printf("   %c. Stop (Grab YUV Picture)\n", CmdMenu::STOP_WITH_GRAB_CMD);
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
+  printf("   %c. Pause (Grab YUV Picture)\n", CmdMenu::PAUSE_WITH_GRAB_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
-  printf("   %c. GrabPicture\n", CmdMenu::GRAB_PICTURE);
   printf("   %c. Seek\n", CmdMenu::SEEK_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
@@ -1222,11 +1243,19 @@ int main(int argc, char* argv[]) {
       }
       break;
       case CmdMenu::STOP_CMD: {
-        test_context.Stop();
+        test_context.Stop(false);
+      }
+      break;
+      case CmdMenu::STOP_WITH_GRAB_CMD: {
+        test_context.Stop(true);
       }
       break;
       case CmdMenu::PAUSE_CMD: {
-        test_context.Pause();
+        test_context.Pause(false);
+      }
+      break;
+      case CmdMenu::PAUSE_WITH_GRAB_CMD: {
+        test_context.Pause(true);
       }
       break;
       case CmdMenu::RESUME_CMD: {
@@ -1239,10 +1268,6 @@ int main(int argc, char* argv[]) {
       break;
       case CmdMenu::TRICK_MODE_CMD: {
         test_context.SetTrickMode();
-      }
-      break;
-      case CmdMenu::GRAB_PICTURE: {
-        test_context.GrabPicture();
       }
       break;
       case CmdMenu::SEEK_CMD: {

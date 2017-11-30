@@ -36,7 +36,6 @@
 #include <memory>
 #include <thread>
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
-static const nsecs_t kWaitDuration = 1000000000; // 1 s.
 
 namespace qmmf {
 namespace player {
@@ -133,12 +132,14 @@ status_t VideoSink::StartTrackSink(uint32_t track_id) {
   return ret;
 }
 
-status_t VideoSink::StopTrackSink(uint32_t track_id) {
+status_t VideoSink::StopTrackSink(uint32_t track_id,
+                                  const PictureParam& params,
+                                  BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s Enter ", __func__);
   shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
 
-  auto ret = track_sink->StopSink();
+  auto ret = track_sink->StopSink(params, grab_buffer);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: track_id(%d) StopSink failed!", __func__,
       track_id);
@@ -174,9 +175,12 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 VideoTrackSink::VideoTrackSink()
-    : current_width(0), current_height(0),
-      stopplayback_(false), paused_(false),
-      decoded_frame_number_(0), display_started_(0),
+    : current_width(0),
+      current_height(0),
+      stopplayback_(false),
+      paused_(false),
+      decoded_frame_number_(0),
+      display_started_(0),
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kNormalForward),
       displayed_frames_(0),
@@ -313,10 +317,21 @@ status_t VideoTrackSink::StartSink() {
   return ret;
 }
 
-status_t VideoTrackSink::StopSink() {
+status_t VideoTrackSink::StopSink(const PictureParam& params,
+                                  BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   auto ret = 0;
   lock_guard<mutex> lock(state_change_lock_);
+
+  if (params.enable && params.format == VideoCodecType::kYUV) {
+    lock_guard<mutex> lock(grab_picture_lock);
+    uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
+                                      surface_config_.height);
+    CopyGrabPictureBuffer(surface_buffer_, size);
+    *grab_buffer = grab_picture_buffer_;
+  } else {
+    grab_buffer->data = nullptr;
+  }
 
   stopplayback_ = true;
 
@@ -355,12 +370,23 @@ status_t VideoTrackSink::StopSink() {
   return ret;
 }
 
-status_t VideoTrackSink::PauseSink() {
+status_t VideoTrackSink::PauseSink(const PictureParam& params,
+                                   BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   auto ret = 0;
   lock_guard<mutex> lock(state_change_lock_);
 
   paused_ = true;
+
+  if (params.enable && params.format == VideoCodecType::kYUV) {
+    lock_guard<mutex> lock(grab_picture_lock);
+    uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
+                                      surface_config_.height);
+    CopyGrabPictureBuffer(surface_buffer_, size);
+    *grab_buffer = grab_picture_buffer_;
+  } else {
+    grab_buffer->data = nullptr;
+  }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
@@ -731,9 +757,9 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
 
   switch (reconfig_data->reconfig_type) {
     case PortreconfigData::PortReconfigType::kBufferRequirementsChanged:
-      surface_config.width = current_width =
+      surface_config_.width = current_width =
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).width;
-      surface_config.height = current_height =
+      surface_config_.height = current_height =
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).height;
       wait_for_frame_.Signal();
       break;
@@ -781,16 +807,16 @@ status_t VideoTrackSink::CreateDisplay(
     return res;
   }
 
-  memset(&surface_config, 0x0, sizeof surface_config);
-  surface_config.width = track_param.params.width;
-  surface_config.height = track_param.params.height;
+  memset(&surface_config_, 0x0, sizeof surface_config_);
+  surface_config_.width = track_param.params.width;
+  surface_config_.height = track_param.params.height;
 
-  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config.buffer_count = track_param.params.num_buffers;
-  surface_config.cache = 0;
-  surface_config.use_buffer = 1;
-  surface_config.context = 1;
-  res = display_->CreateSurface(surface_config, &surface_id_);
+  surface_config_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+  surface_config_.buffer_count = track_param.params.num_buffers;
+  surface_config_.cache = 0;
+  surface_config_.use_buffer = 1;
+  surface_config_.context = 1;
+  res = display_->CreateSurface(surface_config_, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s CreateSurface Failed!!", __func__);
     DeleteDisplay(display_type);
@@ -860,42 +886,34 @@ void VideoTrackSink::DisplayVSyncHandler(int64_t time_stamp) {
 }
 
 status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
+  SurfaceBuffer temp_surfbuf;
   BufInfo bufinfo;
   memset(&bufinfo, 0x0, sizeof bufinfo);
 
   bufinfo = buf_info_map.valueFor(codec_buffer.fd);
 
-   uint8_t*vaddr = (uint8_t*)bufinfo.vaddr;
-   if (display_started_) {
-     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
-     surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
-     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-     surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config.width, 128);
-     surface_buffer_.plane_info[0].size = codec_buffer.size;
-     surface_buffer_.plane_info[0].width = surface_config.width;
-     surface_buffer_.plane_info[0].height = surface_config.height;
-     surface_buffer_.plane_info[0].offset = codec_buffer.offset;
-     surface_buffer_.plane_info[0].buf = (void*)vaddr;
-     surface_param_.src_rect = { (float)crop_data_.left,
-                                 (float)crop_data_.top,
-                                 (float)crop_data_.width + (float)crop_data_.left,
-                                 (float)crop_data_.height + (float)crop_data_.top};
+  if (display_started_) {
+    lock_guard<mutex> lock(grab_picture_lock);
+
+    surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
+    surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
+    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+    surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config_.width, 128);
+    surface_buffer_.plane_info[0].size = codec_buffer.size;
+    surface_buffer_.plane_info[0].width = surface_config_.width;
+    surface_buffer_.plane_info[0].height = surface_config_.height;
+    surface_buffer_.plane_info[0].offset = codec_buffer.offset;
+    surface_buffer_.plane_info[0].buf = bufinfo.vaddr;
+    surface_param_.src_rect = { (float)crop_data_.left,
+                                (float)crop_data_.top,
+                                (float)crop_data_.width + (float)crop_data_.left,
+                                (float)crop_data_.height + (float)crop_data_.top};
 
     QMMF_DEBUG("%s CropData Used for Display L(%u) T(%u) R(%u) B(%u)"
-        " surface_config.width(%u) surface_config.height(%d) stride(%d)",
+        " surface_config_.width(%u) surface_config_.height(%d) stride(%d)",
         __func__,crop_data_.left, crop_data_.top, crop_data_.width,
-        crop_data_.height, surface_config.width, surface_config.height,
+        crop_data_.height, surface_config_.width, surface_config_.height,
         surface_buffer_.plane_info[0].stride);
-
-    {
-      lock_guard<mutex> lock(grab_picture_lock);
-      if (grab_picture_) {
-        uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12,
-            surface_config.width, surface_config.height);
-        CopyGrabPictureBuffer(surface_buffer_, size);
-        grab_picture_ = false;
-      }
-    }
 
     auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
          surface_param_);
@@ -904,7 +922,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       return ret;
     }
 
-    ret = display_->DequeueSurfaceBuffer( surface_id_, surface_buffer_);
+    ret = display_->DequeueSurfaceBuffer(surface_id_, temp_surfbuf);
     if (ret != 0) {
       QMMF_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
        return ret;
@@ -916,41 +934,13 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
    return NO_ERROR;
 }
 
-status_t VideoTrackSink::GrabPicture(PictureParam param,
-                                     BufferDescriptor& buffer) {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
-
-  if (grab_picture_) {
-    QMMF_WARN("%s Previous request is not complete!", __func__);
-    return -EBUSY;
-  }
-
-  grab_picture_ = true;
-
-  {
-    std::unique_lock<std::mutex> lock(grab_picture_buffer_copy_lock_);
-    std::chrono::nanoseconds wait_time(kWaitDuration);
-    auto ret = wait_for_grab_picture_buffer_copy_.WaitFor(lock, wait_time);
-    if (ret != 0) {
-      QMMF_ERROR("%s: track_id(%d) Failed to copy grab picture buffer",
-          __func__, TrackId());
-      return ret;
-    }
-  }
-
-  buffer = grab_picture_buffer_;
-
-  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
-  return NO_ERROR;
-}
-
 status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
-                                                uint32_t size) {
+                                               uint32_t size) {
   QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
 
-  size_t scanline =  ROUND_TO(surface_config.height, 32);
+  size_t scanline = ROUND_TO(surface_config_.height, 32);
 
-  uint32_t  yplane_length = scanline * buffer.plane_info[0].stride;
+  uint32_t yplane_length = scanline * buffer.plane_info[0].stride;
 
   fcvScaleDownMNu8(static_cast<uint8_t*>(buffer.plane_info[0].buf),
       track_params_.params.width,
@@ -974,8 +964,8 @@ status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
 
   grab_picture_buffer_.capacity = size;
 
-  QMMF_DEBUG("%s: Buffer data(0x%p)", __func__,grab_picture_buffer_.data);
-  QMMF_DEBUG("%s: Buffer size(%d)", __func__,size);
+  QMMF_DEBUG("%s: Buffer data(0x%p)", __func__, grab_picture_buffer_.data);
+  QMMF_DEBUG("%s: Buffer size(%d)", __func__, size);
 
  if (snapshot_dumps_) {
     String8 snapshot_filepath;
@@ -983,7 +973,7 @@ status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
     gettimeofday(&tv, NULL);
 
     snapshot_filepath.appendFormat("/data/misc/qmmf/player_service_snapshot_%dx%d_%lu.%s",
-        surface_config.width, surface_config.height, tv.tv_sec, "yuv");
+        surface_config_.width, surface_config_.height, tv.tv_sec, "yuv");
 
     grabpicture_file_fd_ = open(snapshot_filepath.string(), O_CREAT |
         O_WRONLY | O_TRUNC, 0655);

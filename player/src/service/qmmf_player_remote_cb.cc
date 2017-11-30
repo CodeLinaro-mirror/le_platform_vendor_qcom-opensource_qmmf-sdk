@@ -76,10 +76,11 @@ void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_INFO("%s: Exit", __func__);
 }
 
-void RemoteCallBack::NotifyGrabPictureData(BufferDescriptor& buffer) {
+void RemoteCallBack::NotifyGrabPictureData(uint32_t track_id,
+                                           BufferDescriptor& buffer) {
   QMMF_INFO("%s: Enter ", __func__);
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyGrabPictureData(buffer);
+  client_cb_handle_->NotifyGrabPictureData(track_id, buffer);
   QMMF_INFO("%s: Exit", __func__);
 }
 

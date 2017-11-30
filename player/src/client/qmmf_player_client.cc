@@ -49,7 +49,6 @@ uint32_t qmmf_log_level;
 namespace qmmf {
 namespace player {
 
-
 /**
 This file has implementation of following classes:
 
@@ -126,9 +125,9 @@ status_t PlayerClient::Connect(PlayerCb& cb) {
         QMMF_PLAYER_SERVICE_NAME);
   }
 
-  if (!track_cb_list_.isEmpty()) {
+  if (!track_cb_list_.isEmpty())
     track_cb_list_.clear();
-  }
+
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -530,6 +529,9 @@ status_t PlayerClient::Start() {
     return NO_INIT;
   }
 
+  picture_cb_.event_cb = nullptr;
+  picture_cb_.data_cb = nullptr;
+
   auto ret = player_service_->Start();
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s Start failed: %d", __func__, ret);
@@ -539,7 +541,8 @@ status_t PlayerClient::Start() {
   return ret;
 }
 
-status_t PlayerClient::Stop() {
+status_t PlayerClient::Stop(const PictureCallback& handler,
+                            const PictureParam& params) {
   QMMF_DEBUG("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
@@ -547,7 +550,10 @@ status_t PlayerClient::Stop() {
     return NO_INIT;
   }
 
-  auto ret = player_service_->Stop();
+  if (params.enable)
+    picture_cb_ = handler;
+
+  auto ret = player_service_->Stop(params);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s Stop failed: %d", __func__, ret);
   }
@@ -556,7 +562,8 @@ status_t PlayerClient::Stop() {
   return ret;
 }
 
-status_t PlayerClient::Pause() {
+status_t PlayerClient::Pause(const PictureCallback& handler,
+                             const PictureParam& params) {
   QMMF_DEBUG("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
@@ -564,7 +571,10 @@ status_t PlayerClient::Pause() {
     return NO_INIT;
   }
 
-  auto ret = player_service_->Pause();
+  if (params.enable)
+    picture_cb_ = handler;
+
+  auto ret = player_service_->Pause(params);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s Pause failed: %d", __func__, ret);
   }
@@ -580,6 +590,9 @@ status_t PlayerClient::Resume() {
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
+
+  picture_cb_.event_cb = nullptr;
+  picture_cb_.data_cb = nullptr;
 
   auto ret = player_service_->Resume();
   if(NO_ERROR != ret) {
@@ -607,7 +620,8 @@ status_t PlayerClient::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-status_t PlayerClient::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
+status_t PlayerClient::SetTrickMode(TrickModeSpeed speed,
+                                    TrickModeDirection dir) {
   QMMF_DEBUG("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
@@ -618,26 +632,6 @@ status_t PlayerClient::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir
   auto ret = player_service_->SetTrickMode(speed, dir);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s SetTrickMode failed: %d", __func__, ret);
-  }
-
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
-status_t PlayerClient::GrabPicture(PictureParam param,
-                                   PictureCallback& cb) {
-  QMMF_DEBUG("%s Enter ", __func__);
-  Mutex::Autolock lock(lock_);
-
-  if (!CheckServiceStatus()) {
-    return NO_INIT;
-  }
-
-  picture_cb_ = cb;
-
-  auto ret = player_service_->GrabPicture(param);
-  if(NO_ERROR != ret) {
-    QMMF_ERROR("%s GrabPicture failed: %d", __func__, ret);
   }
 
   QMMF_DEBUG("%s Exit ", __func__);
@@ -727,7 +721,8 @@ void PlayerClient::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
-void PlayerClient::NotifyGrabPictureData(BufferDescriptor& buffer) {
+void PlayerClient::NotifyGrabPictureData(uint32_t track_id,
+                                         BufferDescriptor& buffer) {
   QMMF_DEBUG("%s Enter ", __func__);
 
   void* vaddr = nullptr;
@@ -749,7 +744,7 @@ void PlayerClient::NotifyGrabPictureData(BufferDescriptor& buffer) {
   buffer.data = vaddr;
   buffer.fd = ion_info_fd.fd;
 
-  picture_cb_.data_cb(buffer);
+  picture_cb_.data_cb(track_id, buffer);
 
   // free ion fd
   struct ion_handle_data ion_handle;
@@ -1025,19 +1020,43 @@ class BpPlayerService : public BpInterface<IPlayerService>
     return reply.readInt32();
   }
 
-  status_t Stop() {
+  status_t Stop(const PictureParam& params) {
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+
+    uint32_t param_size = sizeof params;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(),
+           reinterpret_cast<void*>(const_cast<PictureParam*>(&params)),
+           param_size);
+
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_STOP), data, &reply);
+
+    blob.release();
     return reply.readInt32();
   }
 
-  status_t Pause() {
+  status_t Pause(const PictureParam& params) {
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+
+    uint32_t param_size = sizeof params;
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memset(blob.data(), 0x0, param_size);
+    memcpy(blob.data(),
+           reinterpret_cast<void*>(const_cast<PictureParam*>(&params)),
+           param_size);
+
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_PAUSE), data, &reply);
+
+    blob.release();
     return reply.readInt32();
   }
 
@@ -1068,20 +1087,6 @@ class BpPlayerService : public BpInterface<IPlayerService>
     return reply.readInt32();
   }
 
-  status_t GrabPicture(PictureParam param) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
-    uint32_t param_size = sizeof param;
-    data.writeUint32(param_size);
-    android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), reinterpret_cast<void*>(&param), param_size);
-
-    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
-        PLAYER_GRAB_PICTURE), data, &reply);
-    return reply.readInt32();
-  }
-
  private:
   // mapping of service ion_fd and client ion_fd
   typedef DefaultKeyedVector<uint32_t, uint32_t> ion_fd_map_;
@@ -1089,7 +1094,7 @@ class BpPlayerService : public BpInterface<IPlayerService>
   // mapping of <track_id, map <service_fd, client_fd>>
   DefaultKeyedVector<int32_t, ion_fd_map_> track_fd_map_;
 
-  Mutex                                    lock_;
+  Mutex lock_;
 };
 
 
@@ -1142,10 +1147,12 @@ void ServiceCallbackHandler::NotifyAudioTrackEvent(uint32_t track_id,
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
-void ServiceCallbackHandler::NotifyGrabPictureData(BufferDescriptor& buffer){
-  QMMF_DEBUG("%s Enter ", __func__);
+void ServiceCallbackHandler::NotifyGrabPictureData(uint32_t track_id,
+                                                   BufferDescriptor& buffer){
+  QMMF_DEBUG("%s Enter", __func__);
+  QMMF_DEBUG("%s track_id[%u]", __func__, track_id);
   assert(client_ != nullptr);
-  client_->NotifyGrabPictureData(buffer);
+  client_->NotifyGrabPictureData(track_id, buffer);
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
@@ -1217,11 +1224,12 @@ class BpPlayerServiceCallback: public BpInterface<IPlayerServiceCallback> {
     QMMF_DEBUG("%s Exit ", __func__);
   }
 
-  void NotifyGrabPictureData(BufferDescriptor& buffer) {
+  void NotifyGrabPictureData(uint32_t track_id, BufferDescriptor& buffer) {
     QMMF_DEBUG("Bp%s: Enter", __func__);
 
     Parcel data, reply;
     data.writeInterfaceToken(IPlayerServiceCallback::getInterfaceDescriptor());
+    data.writeUint32(track_id);
     data.writeFileDescriptor(buffer.fd);
     uint32_t size = sizeof buffer;
     data.writeUint32(size);
@@ -1287,7 +1295,6 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       QMMF_VERBOSE("%s-NotifyVideoTrackEvent() INPARAM: event_size[%u]",
                    __func__, event_size);
       NotifyVideoTrackEvent(track_id, event_type, event, event_size);
-
       blob.release();
 
       return NO_ERROR;
@@ -1311,7 +1318,6 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
       QMMF_VERBOSE("%s-NotifyAudioTrackEvent() INPARAM: event_size[%u]",
                    __func__, event_size);
       NotifyAudioTrackEvent(track_id, event_type, event, event_size);
-
       blob.release();
 
       return NO_ERROR;
@@ -1319,19 +1325,28 @@ status_t BnPlayerServiceCallback::onTransact(uint32_t code,
     break;
     case PLAYER_SERVICE_CB_CMDS::PLAYER_NOTIFY_GRAB_PICTURE_DATA: {
       QMMF_DEBUG("%s-NotifyGrabPictureData() TRACE", __func__);
+      uint32_t track_id = data.readUint32();
+      uint32_t ion_fd = dup(data.readFileDescriptor());
 
       uint32_t size;
-      uint32_t ion_fd = dup(data.readFileDescriptor());
       data.readUint32(&size);
       android::Parcel::ReadableBlob blob;
       data.readBlob(size, &blob);
       void* buf = const_cast<void*>(blob.data());
+
       BufferDescriptor buffer;
       memset(&buffer, 0x0, sizeof buffer);
       memcpy(&buffer, buf, size);
       buffer.fd = ion_fd;
-      NotifyGrabPictureData(buffer);
+
+      QMMF_DEBUG("%s-NotifyGrabPictureData() TRACE", __func__);
+      QMMF_VERBOSE("%s-NotifyGrabPictureData() INPARAM: track_id[%u]",
+                   __func__, track_id);
+      QMMF_VERBOSE("%s-NotifyGrabPictureData() INPARAM: buffer[%s]",
+                   __func__, buffer.ToString().c_str());
+      NotifyGrabPictureData(track_id, buffer);
       blob.release();
+
       return NO_ERROR;
     }
     break;

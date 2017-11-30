@@ -66,9 +66,13 @@ class VideoDecoderCore {
 
   status_t StartTrackDecoder(uint32_t track_id);
 
-  status_t StopTrackDecoder(uint32_t track_id);
+  status_t StopTrackDecoder(uint32_t track_id,
+                            const PictureParam& params,
+                            BufferDescriptor* grab_buffer);
 
-  status_t PauseTrackDecoder(uint32_t track_id);
+  status_t PauseTrackDecoder(uint32_t track_id,
+                             const PictureParam& params,
+                             BufferDescriptor* grab_buffer);
 
   status_t ResumeTrackDecoder(uint32_t track_id);
 
@@ -116,9 +120,11 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartDecoder();
 
-  status_t StopDecoder();
+  status_t StopDecoder(const PictureParam& params,
+                       BufferDescriptor* grab_buffer);
 
-  status_t PauseDecoder();
+  status_t PauseDecoder(const PictureParam& params,
+                        BufferDescriptor* grab_buffer);
 
   status_t ResumeDecoder();
 
