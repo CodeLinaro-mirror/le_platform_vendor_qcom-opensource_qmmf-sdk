@@ -2198,6 +2198,20 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
     }
   }
 
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 80;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
@@ -2588,6 +2602,20 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
     }
   }
+
+  ImageThumbnail thumbnail;
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 80;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 75;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
