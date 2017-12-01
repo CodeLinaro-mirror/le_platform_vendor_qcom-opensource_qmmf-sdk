@@ -854,12 +854,11 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   QMMF_DEBUG("%s: Enter track_id(%d) frames_to_decode_.Size(%d) ",
       __func__, TrackId(),frames_to_decode_.Size());
 
-  if (frames_to_decode_.Size() <= 0 && !stop_received_) {
+  while (frames_to_decode_.Size() <= 0 && !stop_received_) {
     QMMF_DEBUG("%s track_id(%d) No Filled buffer available for AVCodec, wait for new buffer",
                __func__, TrackId());
     std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
     std::chrono::seconds wait_time(1);
-
     wait_for_frame_.WaitFor(lock, wait_time);
   }
   if (stop_received_) return NO_ERROR;
