@@ -55,9 +55,11 @@ using ::qmmf::common::audio::AudioBuffer;
 using ::qmmf::common::audio::AudioEndPoint;
 using ::qmmf::common::audio::AudioEndPointType;
 using ::qmmf::common::audio::AudioEventHandler;
-using ::qmmf::common::audio::AudioMetadata;
 using ::qmmf::common::audio::AudioEventType;
 using ::qmmf::common::audio::AudioEventData;
+using ::qmmf::common::audio::AudioMetadata;
+using ::qmmf::common::audio::AudioParamCustomData;
+using ::qmmf::common::audio::AudioParamType;
 using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortEventType;
 using ::qmmf::avcodec::PortreconfigData;
@@ -142,6 +144,15 @@ status_t AudioEncodedTrackSource::Init() {
     QMMF_ERROR("%s() endpoint->Configure failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_init_disconnect;
+  }
+
+  if (strlen(track_params_.params.profile) > 0) {
+    auto ret = SetParameter("audio_stream_profile",
+                            track_params_.params.profile);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to enable profile: %d", __func__, ret);
+      goto error_init_disconnect;
+    }
   }
 
   int32_t buffer_size;
@@ -284,6 +295,17 @@ status_t AudioEncodedTrackSource::SetParameter(const string& key,
                                                const string& value) {
   QMMF_VERBOSE("%s() INPARAM: key[%s]", __func__, key.c_str());
   QMMF_VERBOSE("%s() INPARAM: value[%s]", __func__, value.c_str());
+
+  AudioParamCustomData data;
+  data.key = key;
+  data.value = value;
+
+  int32_t result = end_point_->SetParam(AudioParamType::kCustom, data);
+  if (result < 0) {
+    QMMF_ERROR("%s() endpoint->SetParam failed: %d[%s]", __func__,
+               result, strerror(result));
+    return ::android::FAILED_TRANSACTION;
+  }
 
   return ::android::NO_ERROR;
 }

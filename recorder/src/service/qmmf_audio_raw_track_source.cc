@@ -139,6 +139,15 @@ status_t AudioRawTrackSource::Init() {
     goto error_disconnect;
   }
 
+  if (strlen(track_params_.params.profile) > 0) {
+    auto ret = SetParameter("audio_stream_profile",
+                            track_params_.params.profile);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to enable profile: %d", __func__, ret);
+      return ret;
+    }
+  }
+
   int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
   if (result < 0) {
