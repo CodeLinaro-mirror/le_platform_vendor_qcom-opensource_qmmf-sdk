@@ -1879,6 +1879,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -1920,16 +1921,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   ImageConfigParam image_config;
   ImageThumbnail thumbnail;
 
-  // Primary thumbnail parameters.
-  thumbnail.width = 960;
-  thumbnail.height = 480;
-  thumbnail.quality = 95;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
   // Secondary thumbnail(Screennail) parameters.
   thumbnail.width = 320;
   thumbnail.height = 240;
-  thumbnail.quality = 75;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -1995,6 +1996,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2200,16 +2202,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
 
   ImageThumbnail thumbnail;
 
-  // Primary thumbnail parameters.
-  thumbnail.width = 960;
-  thumbnail.height = 480;
-  thumbnail.quality = 80;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
   // Secondary thumbnail(Screennail) parameters.
   thumbnail.width = 320;
   thumbnail.height = 240;
-  thumbnail.quality = 75;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -2390,16 +2392,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
 
   ImageThumbnail thumbnail;
 
-  // Primary thumbnail parameters.
-  thumbnail.width = 960;
-  thumbnail.height = 480;
-  thumbnail.quality = 80;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
   // Secondary thumbnail(Screennail) parameters.
   thumbnail.width = 320;
   thumbnail.height = 240;
-  thumbnail.quality = 75;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -2605,16 +2607,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
   ImageThumbnail thumbnail;
 
-  // Primary thumbnail parameters.
-  thumbnail.width = 960;
-  thumbnail.height = 480;
-  thumbnail.quality = 80;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
   // Secondary thumbnail(Screennail) parameters.
   thumbnail.width = 320;
   thumbnail.height = 240;
-  thumbnail.quality = 75;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -2858,16 +2860,16 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
 
     ImageThumbnail thumbnail;
 
-    // Primary thumbnail parameters.
-    thumbnail.width = 960;
-    thumbnail.height = 480;
-    thumbnail.quality = 80;
-    image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
     // Secondary thumbnail(Screennail) parameters.
     thumbnail.width = 320;
     thumbnail.height = 240;
-    thumbnail.quality = 75;
+    thumbnail.quality = 85;
+    image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+    // Primary thumbnail parameters.
+    thumbnail.width = 960;
+    thumbnail.height = 480;
+    thumbnail.quality = 90;
     image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
     ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -3122,16 +3124,16 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
   ImageThumbnail thumbnail;
 
-  // Primary thumbnail parameters.
-  thumbnail.width = 960;
-  thumbnail.height = 480;
-  thumbnail.quality = 80;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
-
   // Secondary thumbnail(Screennail) parameters.
   thumbnail.width = 320;
   thumbnail.height = 240;
-  thumbnail.quality = 75;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -10214,6 +10216,7 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10371,6 +10374,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10538,6 +10542,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10736,6 +10741,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -13698,6 +13704,7 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
