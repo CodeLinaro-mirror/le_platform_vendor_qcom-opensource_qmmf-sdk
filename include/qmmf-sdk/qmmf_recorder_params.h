@@ -340,6 +340,8 @@ struct VideoTrackCreateParam {
     codec_param.avc.sar_enabled = false;
     codec_param.avc.sar_width = 0;
     codec_param.avc.sar_height = 0;
+    codec_param.avc.slice_enabled = false;
+    codec_param.avc.slice_header_spacing = 1024;
   }
 
   void setHEVCDefaultVideoParam() {

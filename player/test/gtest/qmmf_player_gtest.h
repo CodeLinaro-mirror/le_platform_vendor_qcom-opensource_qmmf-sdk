@@ -72,7 +72,7 @@ struct Event {
 
 class PlayerGtest : public ::testing::Test {
  public:
-  PlayerGtest() : player_() {};
+  PlayerGtest();
 
   ~PlayerGtest() {};
 

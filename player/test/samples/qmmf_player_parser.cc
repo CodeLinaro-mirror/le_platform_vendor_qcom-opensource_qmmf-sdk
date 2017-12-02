@@ -26,10 +26,10 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-//      TEST_ERROR("%s:%s:%s",TAG,TAG2,__func__);
+//      TEST_ERROR("%s:%s",TAG2,__func__);
 
 
-#define TAG "Player_Parser"
+#define LOG_TAG "Player_Parser"
 #define TAG1 "PCMfileIO"
 #define TAG2 "AACfileIO"
 #define TAG3 "AMRfileIO"
@@ -58,28 +58,28 @@ static const uint32_t kIdData = 0x61746164;
 static const uint16_t kFormatPcm = 1;
 
 PCMfileIO::PCMfileIO(const char* file) : input_(file), remaining_bytes_(0) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Enter",TAG1,__func__);
+  TEST_INFO("%s:%s Exit",TAG1,__func__);
 }
 
 PCMfileIO::~PCMfileIO() {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Enter",TAG1,__func__);
 
   if (input_.is_open())
     input_.close();
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Exit",TAG1,__func__);
 }
 
 status_t PCMfileIO::Fillparams(AudioTrackCreateParam *params) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Enter",TAG1,__func__);
 
   input_.read(reinterpret_cast<char*>(&header_.riff_header),
               sizeof header_.riff_header);
   if (header_.riff_header.riff_id != kIdRiff ||
       header_.riff_header.wave_id != kIdWave) {
     input_.close();
-    TEST_ERROR("%s: %s() file is not WAV format", TAG, __func__);
+    TEST_ERROR("%s() file is not WAV format", __func__);
     return -1;
   }
 
@@ -116,34 +116,34 @@ status_t PCMfileIO::Fillparams(AudioTrackCreateParam *params) {
     params->sample_rate = header_.chunk_format.sample_rate;
     params->bit_depth = header_.chunk_format.bits_per_sample;
   } else {
-    TEST_ERROR("%s: %s() WAV file is not PCM format", TAG, __func__);
+    TEST_ERROR("%s() WAV file is not PCM format", __func__);
     return -1;
   }
 
   input_.seekg(input_start_position, ios::beg);
   remaining_bytes_ = input_data_size;
 
-  TEST_DBG("%s: %s() OUTPARAM: params[%s]", TAG, __func__,
+  TEST_DBG("%s() OUTPARAM: params[%s]", __func__,
            params->ToString().c_str());
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Exit",TAG1,__func__);
   return 0;
 }
 
 status_t PCMfileIO::GetFrames(void* buffer,
                               uint32_t size_buffer,
                               uint32_t* bytes_read) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Enter",TAG1,__func__);
 
   input_.read(reinterpret_cast<char*>(buffer), size_buffer);
   *bytes_read = input_.gcount();
   remaining_bytes_ -= *bytes_read;
 
   if (remaining_bytes_ <= 0 || input_.eof()) {
-    TEST_INFO("%s:%s:%s Exit with EOF",TAG,TAG1,__func__);
+    TEST_INFO("%s:%s Exit with EOF",TAG1,__func__);
     return -1;
   }
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG1,__func__);
+  TEST_INFO("%s:%s Exit",TAG1,__func__);
   return 0;
 }
 
@@ -159,8 +159,8 @@ AACfileIO::AACfileIO(const char*file): currentTimeus(0),
                                 sr(0),
                                 duration(0),
                                 read_completed(false){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG2,__func__);
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s Enter",TAG2,__func__);
+  TEST_INFO("%s:%s Exit",TAG2,__func__);
 }
 
 uint32_t AACfileIO::get_sample_rate(const uint8_t index){
@@ -222,7 +222,7 @@ size_t AACfileIO::getAdtsFrameLength(uint64_t offset,size_t*headersize){
 }
 
 status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
-  TEST_INFO("%s:%s:%s   Enter",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s   Enter",TAG2,__func__);
   size_t pos = 0;
   uint64_t offset = 0;
 
@@ -230,7 +230,7 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
     char id3header[10];
 
     if(infile.read(id3header,sizeof(id3header)).gcount() < (ssize_t)sizeof(id3header)){
-      TEST_ERROR("%s:%s:%s   Error in reading id3header",TAG,TAG2,__func__);
+      TEST_ERROR("%s:%s   Error in reading id3header",TAG2,__func__);
       return -1;
     }
 
@@ -250,25 +250,25 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   char header[2];
 
   if (infile.read(header,2).gcount() != 2) {
-    TEST_ERROR("%s:%s:%s Error in reading header[2] / syncwords",TAG,TAG2,__func__);
+    TEST_ERROR("%s:%s Error in reading header[2] / syncwords",TAG2,__func__);
     return -1;
   }
 
   infile.seekg(pos);
 
   if(((uint8_t)header[0] == 0xff) && (((uint8_t)header[1] & 0xf6) == 0xf0)){
-    TEST_DBG("%s:%s:%s ADTS header found",TAG,TAG2,__func__);
+    TEST_DBG("%s:%s ADTS header found",TAG2,__func__);
     confidence = 0.2;
     offset = pos;
   }
   else{
-    TEST_ERROR("%s:%s:%s ADTS header not found",TAG,TAG2,__func__);
+    TEST_ERROR("%s:%s ADTS header not found",TAG2,__func__);
     return -1;
   }
 
   infile.seekg(offset+2);
   if(infile.read(header,2).gcount() < 2){
-        TEST_ERROR("%s:%s:%s Error in reading header[2]  at offset+2 ",TAG,TAG2,__func__);
+        TEST_ERROR("%s:%s Error in reading header[2]  at offset+2 ",TAG2,__func__);
     return -1;
   }
   infile.seekg(offset);
@@ -278,7 +278,7 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   sf_index = ((uint8_t)header[0] >> 2) & 0xf;
   sr = get_sample_rate(sf_index);
   if(sr == 0){
-        TEST_ERROR("%s:%s:%s Sampling rate could not be found",TAG,TAG2,__func__);
+        TEST_ERROR("%s:%s Sampling rate could not be found",TAG2,__func__);
     return -1;
   }
 
@@ -294,10 +294,10 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   TEST_DBG("Size of size_t = %d",sizeof(size_t));
   while(offset < streamSize){
       if((framesize = getAdtsFrameLength(offset,&headersize)) == 0){
-          TEST_ERROR("%s:%s:%s Error from AACfileIO::getAdtsFrameLength function",TAG,TAG2,__func__);
+          TEST_ERROR("%s:%s Error from AACfileIO::getAdtsFrameLength function",TAG2,__func__);
           return -1;
       }
-      TEST_DBG("%s:%s:%s Current Offset for the ADTS header %d is %lld with framesize = %u and headersize = %u" ,TAG,TAG2,__func__,numFrames + 1, (long long)offset, (uint32_t)framesize,(uint32_t)headersize);
+      TEST_DBG("%s:%s Current Offset for the ADTS header %llu is %lld with framesize = %u and headersize = %u" ,TAG2,__func__,numFrames + 1, (long long)offset, (uint32_t)framesize,(uint32_t)headersize);
       OffsetVector.push_back(offset);
       frameSize.push_back(framesize);
       headerSize.push_back(headersize);
@@ -309,7 +309,7 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
   v_frameSize = frameSize.begin();
   v_headerSize = headerSize.begin();
 
-  TEST_INFO("%s:%s:%s The aac file read completed",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s The aac file read completed",TAG2,__func__);
 
   //In DSP this 1024(number of samples per frame) is the default/hardcoded value look at omx_aac_adec.h and omx_aac_dec.cpp for reference
   Framedurationus = (1024 * 1000000ll + (sr - 1)) / sr;
@@ -334,19 +334,19 @@ status_t AACfileIO::Fillparams(AudioTrackCreateParam *params){
       params->codec_params.aac.mode = AACMode::kHEVC_v2;
     break;
     default:
-     TEST_ERROR("%s:%s:%s unsupported AAC mode: %d", TAG, TAG2,__func__,profile);
+     TEST_ERROR("%s:%s unsupported AAC mode: %d", TAG2,__func__,profile);
   }
 
-  TEST_INFO("%s:%s:%s   Exit",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s   Exit",TAG2,__func__);
   return 0;
 }
 
 //return value of -1 signifies the end of file i.e. OMX_BUFFERFLAGEOS
 status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frames_read,uint32_t*bytes_read){
 
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s Enter",TAG2,__func__);
   if(read_completed){
-        TEST_ERROR("%s:%s:%s File read has already been completed",TAG,TAG2,__func__);
+        TEST_ERROR("%s:%s File read has already been completed",TAG2,__func__);
     return -1;
   }
   char* aac = (char*)buffer;
@@ -357,16 +357,16 @@ status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frame
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
-    TEST_DBG("%s:%s:%s offset = %lld frameSize = %u",TAG,TAG2,__func__,(long long)offset,(uint32_t)framesize);
+    TEST_DBG("%s:%s offset = %lld frameSize = %u",TAG2,__func__,(long long)offset,(uint32_t)framesize);
     if(size_buffer - *bytes_read < (uint32_t)framesize){
 
-        TEST_INFO("%s:%s:%s No space left in Buffer header(%p)",TAG,TAG2,__func__,buffer);
+        TEST_INFO("%s:%s No space left in Buffer header(%p)",TAG2,__func__,buffer);
         return 0;
     }
     uint32_t read_bytes = 0;
     infile.seekg(offset);
     if((read_bytes  = infile.read(aac,framesize).gcount()) != framesize){
-        TEST_ERROR("%s:%s:%s Error in reading the %d bytes from aac file, read_bytes = %d",TAG,TAG2,__func__,framesize,read_bytes);
+        TEST_ERROR("%s:%s Error in reading the %d bytes from aac file, read_bytes = %d",TAG2,__func__,framesize,read_bytes);
         assert(0);
     }
     aac += read_bytes;
@@ -377,24 +377,24 @@ status_t AACfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t*num_frame
     v_headerSize++;
     if((v_OffsetVector == OffsetVector.end()) && (v_frameSize == frameSize.end()) && (v_headerSize == headerSize.end())){
       read_completed = true;
-      TEST_INFO("%s:%s:%s The input file has been read completely. Now EOS has to be send",TAG,TAG2,__func__);
+      TEST_INFO("%s:%s The input file has been read completely. Now EOS has to be send",TAG2,__func__);
       return -1;
     }
   }
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s Exit",TAG2,__func__);
   return 0;
 }
 
 AACfileIO::~AACfileIO(){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s Enter",TAG2,__func__);
   if(infile.is_open()){
     infile.close();
   }
   OffsetVector.clear();
   frameSize.clear();
   headerSize.clear();
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG2,__func__);
+  TEST_INFO("%s:%s Exit",TAG2,__func__);
 }
 
 G711fileIO::G711fileIO(const char*file):currentTimeus(0),
@@ -406,38 +406,38 @@ G711fileIO::G711fileIO(const char*file):currentTimeus(0),
                                 read_completed(false),
                                 isAlaw(false),
                                 isMulaw(false){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG4,__func__);
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
+  TEST_INFO("%s:%s Enter",TAG4,__func__);
+  TEST_INFO("%s:%s Exit",TAG4,__func__);
 }
 G711fileIO::~G711fileIO(){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG4,__func__);
+  TEST_INFO("%s:%s Enter",TAG4,__func__);
   if(infile.is_open()){
     infile.close();
   }
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
+  TEST_INFO("%s:%s Exit",TAG4,__func__);
 }
 
 status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
-  TEST_ERROR("%s:%s:%s Enter",TAG,TAG4,__func__);
+  TEST_ERROR("%s:%s Enter",TAG4,__func__);
   struct g711_header g711hdr;
   uint32_t read_bytes;
   if((read_bytes =  infile.read((char*)&g711hdr,sizeof(g711hdr)).gcount()) != (ssize_t)(sizeof(g711hdr))){
-    TEST_ERROR("%s:%s:%s Error in reading the %d bytes from aac file, read_bytes = %d",TAG,TAG3,__func__,sizeof(g711hdr),read_bytes);
+    TEST_ERROR("%s:%s Error in reading the %d bytes from aac file, read_bytes = %d",TAG3,__func__,sizeof(g711hdr),read_bytes);
     return -1;
   }
     if ((g711hdr.audio_format != FORMAT_MULAW) && (g711hdr.audio_format != FORMAT_ALAW))
   {
-      TEST_INFO("%s:%s:%s g711 file is not MULAW or ALAW format it's format is %d ",TAG,TAG4,__func__,g711hdr.audio_format);
+      TEST_INFO("%s:%s g711 file is not MULAW or ALAW format it's format is %d ",TAG4,__func__,g711hdr.audio_format);
       return -1;
   }
 
   if ((g711hdr.sample_rate != 8000) && (g711hdr.sample_rate != 16000)) {
-        TEST_ERROR("%s:%s:%s samplerate = %d, not supported, Supported samplerates are 8000, 16000",TAG,TAG4,__func__,g711hdr.sample_rate);
+        TEST_ERROR("%s:%s samplerate = %d, not supported, Supported samplerates are 8000, 16000",TAG4,__func__,g711hdr.sample_rate);
       return -1;
   }
 
   if (g711hdr.num_channels != 1) {
-        TEST_ERROR("%s:%s:%s stereo and multi channel are not supported, channels %d",TAG,TAG4,__func__,g711hdr.num_channels);
+        TEST_ERROR("%s:%s stereo and multi channel are not supported, channels %d",TAG4,__func__,g711hdr.num_channels);
       return -1;
   }
   sr = g711hdr.sample_rate;
@@ -454,27 +454,27 @@ status_t G711fileIO::Fillparams(AudioTrackCreateParam *params){
   params->channels    = channel;
   params->bit_depth   = 16;
   params->codec       = AudioFormat::kG711;
-  TEST_INFO(" %s:%s:%s Channel = %d, sampling rate = %d",TAG,TAG4,__func__,channel,sr);
+  TEST_INFO(" %s:%s Channel = %d, sampling rate = %d",TAG4,__func__,channel,sr);
 
   if(g711hdr.audio_format == FORMAT_MULAW){
     params->codec_params.g711.mode = G711Mode::kMuLaw;
     isMulaw = true;
-    TEST_INFO("%s:%s:%s Format is MULAW",TAG,TAG4,__func__);
+    TEST_INFO("%s:%s Format is MULAW",TAG4,__func__);
   }
   else{
     params->codec_params.g711.mode = G711Mode::kALaw;
     isAlaw = true;
-    TEST_INFO("%s:%s:%s Format is ALAW",TAG,TAG4,__func__);
+    TEST_INFO("%s:%s Format is ALAW",TAG4,__func__);
   }
 
   return 0;
 }
 
 status_t G711fileIO::GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_read){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG4,__func__);
+  TEST_INFO("%s:%s Enter",TAG4,__func__);
   if(read_completed){
-        TEST_ERROR("%s:%s:%s File read has already been completed",TAG,TAG4,__func__);
-           TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
+        TEST_ERROR("%s:%s File read has already been completed",TAG4,__func__);
+           TEST_INFO("%s:%s Exit",TAG4,__func__);
     return -1;
   }
   size_buffer = 1024;
@@ -484,19 +484,19 @@ status_t G711fileIO::GetFrames(void*buffer,uint32_t size_buffer,uint32_t* bytes_
   uint32_t bytes_to_read = (streamSize - offset) > size_buffer ? size_buffer : (streamSize - offset);
   uint32_t read_bytes;
   if((read_bytes = infile.read(g711,bytes_to_read).gcount()) != bytes_to_read){
-    TEST_ERROR("%s:%s:%s Could not read %d bytes requested, bytes read = %d",TAG,TAG4,__func__,bytes_to_read,read_bytes);
+    TEST_ERROR("%s:%s Could not read %d bytes requested, bytes read = %d",TAG4,__func__,bytes_to_read,read_bytes);
     assert(0);
   }
   *bytes_read = read_bytes;
   if(bytes_to_read < size_buffer){
     read_completed = true;
     offset += (uint64_t)(*bytes_read);
-    TEST_INFO("%s:%s:%s The input file has been read completely. Now EOS has to be send",TAG,TAG4,__func__);
-       TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
+    TEST_INFO("%s:%s The input file has been read completely. Now EOS has to be send",TAG4,__func__);
+       TEST_INFO("%s:%s Exit",TAG4,__func__);
     return -1;
   }
   offset += (uint64_t)(*bytes_read);
-   TEST_INFO("%s:%s:%s Exit",TAG,TAG4,__func__);
+   TEST_INFO("%s:%s Exit",TAG4,__func__);
   return 0;
 }
 
@@ -512,18 +512,18 @@ AMRfileIO::AMRfileIO(const char*file):currentTimeus(0),
                                 duration(0),
                                 read_completed(false),
                                 mIsWide(false){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG3,__func__);
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s Enter",TAG3,__func__);
+  TEST_INFO("%s:%s Exit",TAG3,__func__);
 }
 
 AMRfileIO::~AMRfileIO(){
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s Enter",TAG3,__func__);
   if(infile.is_open()){
     infile.close();
   }
   OffsetVector.clear();
   frameSize.clear();
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s Exit",TAG3,__func__);
 }
 
 size_t AMRfileIO::getFrameSize(bool isWide,unsigned int FT){
@@ -542,7 +542,7 @@ size_t AMRfileIO::getFrameSize(bool isWide,unsigned int FT){
    };
 
    if (FT > 15 || (isWide && FT > 9 && FT < 14) || (!isWide && FT > 11 && FT < 15)) {
-       TEST_ERROR("%s:%s:%s illegal AMR frame type %d", TAG,TAG3,__func__,FT);
+       TEST_ERROR("%s:%s illegal AMR frame type %d", TAG3,__func__,FT);
         return 0;
    }
 
@@ -558,38 +558,38 @@ status_t AMRfileIO::getFrameSizeByOffset(uint64_t offset, bool isWide, size_t *f
   infile.seekg(offset);
   char header[1];
   if(infile.read(header,1).gcount() != 1){
-    TEST_ERROR("%s:%s:%s Could not read the header of AMR at offset = %lld",TAG,TAG3,__func__,(long long)offset);
+    TEST_ERROR("%s:%s Could not read the header of AMR at offset = %lld",TAG3,__func__,(long long)offset);
     assert(0);
     return 0;
   }
   unsigned int FT = ((uint8_t)header[0] >> 3) & 0x0f;
   *framesize = getFrameSize(isWide, FT);
   if(*framesize == 0){
-    TEST_ERROR("%s:%s:%s AMR framesize is 0",TAG,TAG3,__func__);
+    TEST_ERROR("%s:%s AMR framesize is 0",TAG3,__func__);
     return 0;
   }
   return 1;
 }
 
 status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
-  TEST_INFO("%s:%s:%s   Enter",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s   Enter",TAG3,__func__);
   char header[9];
   if(infile.read(header,sizeof(header)).gcount() != (ssize_t)(sizeof(header))){
-    TEST_ERROR("%s:%s:%s Could not get AMR MIME TYPE",TAG,TAG3,__func__);
+    TEST_ERROR("%s:%s Could not get AMR MIME TYPE",TAG3,__func__);
     return -1;
   }
   if(!memcmp(header, "#!AMR\n", 6)){
     mIsWide = false;
     confidence = 0.5;
-    TEST_INFO("%s:%s:%s AMR MIME TYPE is not Wide",TAG,TAG3,__func__);
+    TEST_INFO("%s:%s AMR MIME TYPE is not Wide",TAG3,__func__);
   }
   else if(!memcmp(header, "#!AMR-WB\n", 9)){
     mIsWide = true;
     confidence = 0.5;
-    TEST_INFO("%s:%s:%s AMR MIME TYPE is Wide",TAG,TAG3,__func__);
+    TEST_INFO("%s:%s AMR MIME TYPE is Wide",TAG3,__func__);
   }
   else{
-    TEST_ERROR("%s:%s:%s Could not get AMR MIME TYPE",TAG,TAG3,__func__);
+    TEST_ERROR("%s:%s Could not get AMR MIME TYPE",TAG3,__func__);
     return -1;
   }
   starting_offset = mIsWide ? 9 : 6;
@@ -600,7 +600,7 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
   size_t framesize;
   while(offset < streamSize){
       if (getFrameSizeByOffset(offset, mIsWide, &framesize) == 0){
-        TEST_ERROR("%s:%s:%s Could not get frame size by offset",TAG,TAG3,__func__);
+        TEST_ERROR("%s:%s Could not get frame size by offset",TAG3,__func__);
         return -1;
       }
       OffsetVector.push_back(offset);
@@ -630,15 +630,15 @@ status_t AMRfileIO::Fillparams(AudioTrackCreateParam *params){
       TEST_INFO("Channel = %d, sampling rate = %d AMR is not Wide",channel,sr);
   }
 
-  TEST_INFO("%s:%s:%s   Enter",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s   Enter",TAG3,__func__);
   return 0;
 }
 
 status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_frames_read,uint32_t* bytes_read){
 
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s Enter",TAG3,__func__);
   if(read_completed){
-        TEST_ERROR("%s:%s:%s File read has already been completed",TAG,TAG3,__func__);
+        TEST_ERROR("%s:%s File read has already been completed",TAG3,__func__);
     return -1;
   }
   char*amr = (char*)buffer;
@@ -649,22 +649,22 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
   while(*bytes_read < size_buffer){
     uint64_t offset =  *v_OffsetVector;
     size_t framesize = *v_frameSize;
-    TEST_DBG("%s:%s:%s offset = %lld frameSize = %u",TAG,TAG3,__func__,(long long)offset,(uint32_t)framesize);
+    TEST_DBG("%s:%s offset = %lld frameSize = %u",TAG3,__func__,(long long)offset,(uint32_t)framesize);
     if(size_buffer - *bytes_read < (uint32_t)framesize){
 
-        TEST_DBG("%s:%s:%s No space left in Buffer header(%p)",TAG,TAG3,__func__,buffer);
-        TEST_DBG("%s:%s:%s Exit",TAG,TAG3,__func__);
+        TEST_DBG("%s:%s No space left in Buffer header(%p)",TAG3,__func__,buffer);
+        TEST_DBG("%s:%s Exit",TAG3,__func__);
         return 0;
     }
     if(*num_frames_read == MAX_NUM_FRAMES_PER_BUFF_AMR){
-        TEST_INFO("%s:%s:%s MAX_NUM_FRAMES_PER_BUFF_AMR in Buffer header(%p)",TAG,TAG3,__func__,buffer);
-        TEST_DBG("%s:%s:%s Exit",TAG,TAG3,__func__);
+        TEST_INFO("%s:%s MAX_NUM_FRAMES_PER_BUFF_AMR in Buffer header(%p)",TAG3,__func__,buffer);
+        TEST_DBG("%s:%s Exit",TAG3,__func__);
         return 0;
     }
     uint32_t read_bytes = 0;
     infile.seekg(offset);
     if((read_bytes  = infile.read(amr,framesize).gcount()) != framesize){
-        TEST_ERROR("%s:%s:%s Error in reading the %d bytes from amr file, read_bytes = %d",TAG,TAG3,__func__,framesize,read_bytes);
+        TEST_ERROR("%s:%s Error in reading the %d bytes from amr file, read_bytes = %d",TAG3,__func__,framesize,read_bytes);
         assert(0);
     }
     amr += read_bytes;
@@ -674,35 +674,35 @@ status_t AMRfileIO::GetFrames(void*buffer,uint32_t size_buffer,int32_t* num_fram
     v_frameSize++;
     if((v_OffsetVector == OffsetVector.end()) && (v_frameSize == frameSize.end())){
       read_completed = true;
-      TEST_INFO("%s:%s:%s The input file has been read completely. Now EOS has to be send",TAG,TAG3,__func__);
+      TEST_INFO("%s:%s The input file has been read completely. Now EOS has to be send",TAG3,__func__);
       return -1;
     }
   }
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG3,__func__);
+  TEST_INFO("%s:%s Exit",TAG3,__func__);
   return 0;
 }
 
 MP3fileIO::MP3fileIO(const char* file) : filename_(file) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Enter",TAG5,__func__);
+  TEST_INFO("%s:%s Exit",TAG5,__func__);
 }
 
 MP3fileIO::~MP3fileIO() {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Enter",TAG5,__func__);
 
   if (input_.is_open())
     input_.close();
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Exit",TAG5,__func__);
 }
 
 status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Enter",TAG5,__func__);
 
   input_.open(filename_.c_str(), ios::in | ios::binary);
   if (!input_.is_open()) {
-    TEST_ERROR("%s: %s() error opening file[%s]", TAG, __func__,
+    TEST_ERROR("%s() error opening file[%s]", __func__,
                filename_.c_str());
     return -1;
   }
@@ -714,7 +714,7 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
 
     input_.read(id3header, sizeof(id3header));
     if (input_.gcount() < (ssize_t)sizeof(id3header)) {
-      TEST_ERROR("%s:%s:%s error reading file",TAG,TAG2,__func__);
+      TEST_ERROR("%s:%s error reading file",TAG2,__func__);
       return -1;
     }
 
@@ -744,8 +744,8 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
 
   if ((header & 0xFFE00000) != 0xFFE00000) {
     input_.close();
-    TEST_ERROR("%s: %s() sync word not found: header[0x%X]",
-               TAG, __func__, header);
+    TEST_ERROR("%s() sync word not found: header[0x%X]",
+               __func__, header);
     return -1;
   }
 
@@ -758,13 +758,13 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
         case 1: params->sample_rate = 12000; break;
         case 2: params->sample_rate = 8000; break;
         case 3:
-          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          TEST_ERROR("%s() invalid sample index", __func__);
           input_.close();
           return -1;
       }
       break;
     case 1:
-      TEST_ERROR("%s: %s() file is not MP3 format 3", TAG, __func__);
+      TEST_ERROR("%s() file is not MP3 format 3", __func__);
       return -1;
     case 2:
       switch (sample_rate) {
@@ -772,7 +772,7 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
         case 1: params->sample_rate = 24000; break;
         case 2: params->sample_rate = 16000; break;
         case 3:
-          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          TEST_ERROR("%s() invalid sample index", __func__);
           input_.close();
           return -1;
       }
@@ -783,7 +783,7 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
         case 1: params->sample_rate = 48000; break;
         case 2: params->sample_rate = 32000; break;
         case 3:
-          TEST_ERROR("%s: %s() invalid sample index", TAG, __func__);
+          TEST_ERROR("%s() invalid sample index", __func__);
           input_.close();
           return -1;
       }
@@ -801,23 +801,23 @@ status_t MP3fileIO::Fillparams(AudioTrackCreateParam *params) {
 
   input_.seekg(input_start_position, ios::beg);
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Exit",TAG5,__func__);
   return 0;
 }
 
 status_t MP3fileIO::GetFrames(void* buffer,
                               uint32_t size_buffer,
                               uint32_t* bytes_read) {
-  TEST_INFO("%s:%s:%s Enter",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Enter",TAG5,__func__);
 
   input_.read(reinterpret_cast<char*>(buffer), size_buffer);
   *bytes_read = input_.gcount();
 
   if (input_.eof()) {
-    TEST_INFO("%s:%s:%s Exit with EOF",TAG,TAG5,__func__);
+    TEST_INFO("%s:%s Exit with EOF",TAG5,__func__);
     return -1;
   }
 
-  TEST_INFO("%s:%s:%s Exit",TAG,TAG5,__func__);
+  TEST_INFO("%s:%s Exit",TAG5,__func__);
   return 0;
 }

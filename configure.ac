@@ -165,6 +165,7 @@ AC_CONFIG_FILES([ \
     display/src/service/Makefile \
     recorder/src/client/Makefile \
     recorder/src/service/post-process/modules/test/Makefile \
+    recorder/src/service/post-process/modules/frame-skip/Makefile \
     recorder/src/service/post-process/modules/camera-hal-reproc/Makefile \
     recorder/src/service/post-process/modules/jpeg-encoder/Makefile \
     recorder/src/service/post-process/modules/algo/Makefile \

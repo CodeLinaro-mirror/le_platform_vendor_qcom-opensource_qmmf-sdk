@@ -27,68 +27,65 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define LOG_TAG "ReprocessPlugin"
+#ifndef CAMERA3SMOOTHZOOM_H_
+#define CAMERA3SMOOTHZOOM_H_
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
+#include <pthread.h>
+#include <hardware/hardware.h>
+#include <camera/CameraMetadata.h>
+#include <utils/KeyedVector.h>
+#include <utils/List.h>
 
-#include "qmmf_postproc_plugin.h"
+#include "common/cameraadaptor/qmmf_camera3_types.h"
+#include "common/cameraadaptor/qmmf_camera3_internal_types.h"
+#include "common/cameraadaptor/qmmf_camera3_thread.h"
+
+using namespace android;
 
 namespace qmmf {
 
-namespace recorder {
+namespace cameraadaptor {
 
-template <typename T>
-inline PostProcPlugin<T>::PostProcPlugin(T* source) {
+typedef struct CropData{
+  int32_t left;
+  int32_t top;
+  int32_t width;
+  int32_t height;
+}CropData;
 
-  BufferProducerImpl<T> *producer_impl;
-  producer_impl = new BufferProducerImpl<T>(source);
-  buffer_producer_impl_ = producer_impl;
+class Camera3SmoothZoom {
+ public:
+  Camera3SmoothZoom();
+  virtual ~Camera3SmoothZoom();
 
-  BufferConsumerImpl<T> *impl;
-  impl = new BufferConsumerImpl<T>(source);
-  buffer_consumer_impl_ = impl;
+  void Initialize();
+  void Update(CaptureRequest &request);
+  bool IsEnable();
+  bool IsGoing();
+  void Enable();
+  void Disable();
+ protected:
 
-}
+ private:
+  bool enable_;
+  int32_t max_width_;
+  int32_t max_height_;
+  float zoom_factor_;
+  float zoom_step_size_;
+  float zoom_step_;
+  int32_t zoom_steps_;
 
-template <typename T>
-PostProcPlugin<T>::~PostProcPlugin() {
+  float left_offset_;
+  float top_offset_;
+  float left_step_ ;
+  float top_step_ ;
 
-  buffer_consumer_impl_.clear();
-  buffer_producer_impl_.clear();
-}
+  CropData crop_current_;
+  CropData crop_target_;
+};
 
-template <typename T>
-void PostProcPlugin<T>::AttachConsumer(sp<IBufferConsumer>& consumer) {
-  buffer_producer_impl_->AddConsumer(consumer);
-  consumer->SetProducerHandle(buffer_producer_impl_);
-}
+}  // namespace cameraadaptor ends here
 
-template <typename T>
-void PostProcPlugin<T>::DetachConsumer(sp<IBufferConsumer>& consumer) {
-  buffer_producer_impl_->RemoveConsumer(consumer);
-}
+}  // namespace qmmf ends here
 
-template <typename T>
-void PostProcPlugin<T>::NotifyBufferReturn(StreamBuffer& buffer) {
-  buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
-}
-
-template <typename T>
-void PostProcPlugin<T>::NotifyBuffer(StreamBuffer& buffer) {
-  buffer_producer_impl_->NotifyBuffer(buffer);
-}
-
-template <typename T>
-sp<IBufferConsumer>& PostProcPlugin<T>::GetConsumerIntf() {
-  return buffer_consumer_impl_;
-}
-
-template <typename T>
-uint32_t PostProcPlugin<T>::GetNumConsumer() {
-  return buffer_producer_impl_->GetNumConsumer();
-}
-
-}; // namespace recoder
-
-}; // namespace qmmf
-
+#endif /* CAMERA3THREAD_H_ */

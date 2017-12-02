@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "SystemTrigger"
+#define LOG_TAG "SystemTrigger"
 
 #include "system/src/service/qmmf_system_trigger.h"
 
@@ -63,16 +63,16 @@ SystemTrigger::~SystemTrigger() {}
 
 status_t SystemTrigger::LoadSoundModel(const SystemHandle system_handle,
                                        const SoundModel& soundmodel) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
-  QMMF_VERBOSE("%s: %s() INPARAM: soundmodel[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s() INPARAM: soundmodel[%s]", __func__,
                soundmodel.ToString().c_str());
   int32_t result = 0;
   size_t size;
 
   if (current_handle_ != 0) {
-    QMMF_ERROR("%s: %s() already in use", TAG, __func__);
+    QMMF_ERROR("%s() already in use", __func__);
     return ::android::ALREADY_EXISTS;
   }
 
@@ -80,16 +80,16 @@ status_t SystemTrigger::LoadSoundModel(const SystemHandle system_handle,
 
   module_ = qsthw_load_module(QSTHW_MODULE_ID_PRIMARY);
   if (module_ == NULL) {
-    QMMF_ERROR("%s: %s() failed to load qsthw module[%s]",
-               TAG, __func__, QSTHW_MODULE_ID_PRIMARY);
+    QMMF_ERROR("%s() failed to load qsthw module[%s]",
+               __func__, QSTHW_MODULE_ID_PRIMARY);
     goto error_handle;
   }
 
   size = sizeof(sound_trigger_phrase_sound_model) + soundmodel.size;
   sound_model_ = (sound_trigger_phrase_sound_model*)calloc(1, size);
   if (sound_model_ == nullptr) {
-    QMMF_ERROR("%s: %s() failed to allocate memory for sound model",
-               TAG, __func__);
+    QMMF_ERROR("%s() failed to allocate memory for sound model",
+               __func__);
     goto error_close;
   }
 
@@ -109,7 +109,7 @@ status_t SystemTrigger::LoadSoundModel(const SystemHandle system_handle,
   result = qsthw_load_sound_model(module_, &sound_model_->common, NULL, NULL,
                                   &sm_handle_);
   if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to load sound model: result[%d]", TAG, __func__,
+    QMMF_ERROR("%s() failed to load sound model: result[%d]", __func__,
                result);
     goto error_free;
   }
@@ -123,8 +123,8 @@ error_free:
 error_close:
   result = qsthw_unload_module(module_);
   if (result != 0)
-    QMMF_ERROR("%s: %s() failed to close qsthw module: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to close qsthw module: result[%d]",
+               __func__, result);
   module_ = nullptr;
 
 error_handle:
@@ -134,21 +134,21 @@ error_handle:
 }
 
 status_t SystemTrigger::UnloadSoundModel(const SystemHandle system_handle) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
   int32_t result = 0;
 
   if (current_handle_ != system_handle) {
-    QMMF_ERROR("%s: %s() invalid system handle", TAG, __func__);
+    QMMF_ERROR("%s() invalid system handle", __func__);
     return ::android::INVALID_OPERATION;
   }
 
   if (trigger_handler_ != nullptr) {
     result = qsthw_stop_recognition(module_, sm_handle_);
     if (result != 0)
-      QMMF_ERROR("%s: %s() failed to stop recognition: result[%d]",
-                 TAG, __func__, result);
+      QMMF_ERROR("%s() failed to stop recognition: result[%d]",
+                 __func__, result);
   }
 
   free(sound_model_);
@@ -156,14 +156,14 @@ status_t SystemTrigger::UnloadSoundModel(const SystemHandle system_handle) {
 
   result = qsthw_unload_sound_model(module_, sm_handle_);
   if (result != 0)
-    QMMF_ERROR("%s: %s() failed to unload sound model: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to unload sound model: result[%d]",
+               __func__, result);
   sm_handle_ = 0;
 
   result = qsthw_unload_module(module_);
   if (result != 0)
-    QMMF_ERROR("%s: %s() failed to close qsthw module: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to close qsthw module: result[%d]",
+               __func__, result);
   module_ = nullptr;
 
   current_handle_ = 0;
@@ -174,21 +174,21 @@ status_t SystemTrigger::UnloadSoundModel(const SystemHandle system_handle) {
 status_t SystemTrigger::EnableSoundTrigger(const SystemHandle system_handle,
                                            const TriggerConfig& trigger_config,
                                            const SystemTriggerHandler& handler) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
   int32_t result;
 
   if (current_handle_ != system_handle) {
-    QMMF_ERROR("%s: %s() invalid system handle", TAG, __func__);
+    QMMF_ERROR("%s() invalid system handle", __func__);
     return ::android::INVALID_OPERATION;
   }
   if (trigger_handler_ != nullptr) {
-    QMMF_ERROR("%s: %s() trigger already enabled", TAG, __func__);
+    QMMF_ERROR("%s() trigger already enabled", __func__);
     return ::android::INVALID_OPERATION;
   }
   if (trigger_config.with_keyword) {
-    QMMF_ERROR("%s: %s() keyword capture not supported", TAG, __func__);
+    QMMF_ERROR("%s() keyword capture not supported", __func__);
     return ::android::INVALID_OPERATION;
   }
 
@@ -214,8 +214,8 @@ status_t SystemTrigger::EnableSoundTrigger(const SystemHandle system_handle,
   rc_config_ =
       (struct sound_trigger_recognition_config*)calloc(1, rc_config_size);
   if (rc_config_ == nullptr) {
-    QMMF_ERROR("%s: %s() failed to allocate memory for recognition config",
-               TAG, __func__);
+    QMMF_ERROR("%s() failed to allocate memory for recognition config",
+               __func__);
     goto error_handler;
   }
 
@@ -249,8 +249,8 @@ status_t SystemTrigger::EnableSoundTrigger(const SystemHandle system_handle,
   result = qsthw_start_recognition(module_, sm_handle_, rc_config_,
                                    SystemTrigger::EventCallbackEntry, this);
   if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to start recognition: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to start recognition: result[%d]",
+               __func__, result);
     goto error_free;
   }
 
@@ -267,23 +267,23 @@ error_handler:
 }
 
 status_t SystemTrigger::DisableSoundTrigger(const SystemHandle system_handle) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: system_handle[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: system_handle[%d]", __func__,
                system_handle);
 
   if (current_handle_ != system_handle) {
-    QMMF_ERROR("%s: %s() invalid system handle", TAG, __func__);
+    QMMF_ERROR("%s() invalid system handle", __func__);
     return ::android::INVALID_OPERATION;
   }
   if (trigger_handler_ == nullptr) {
-    QMMF_ERROR("%s: %s() trigger already disabled", TAG, __func__);
+    QMMF_ERROR("%s() trigger already disabled", __func__);
     return ::android::INVALID_OPERATION;
   }
 
   int32_t result = qsthw_stop_recognition(module_, sm_handle_);
   if (result != 0)
-    QMMF_ERROR("%s: %s() failed to stop recognition: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to stop recognition: result[%d]",
+               __func__, result);
 
   trigger_handler_ = nullptr;
 
@@ -303,8 +303,8 @@ status_t SystemTrigger::DisableSoundTrigger(const SystemHandle system_handle) {
 
 void SystemTrigger::EventCallbackEntry(
     struct sound_trigger_recognition_event* event, void* object) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: status[%d]", TAG, __func__, event->status);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: status[%d]", __func__, event->status);
 
   SystemTrigger* systrigger = reinterpret_cast<SystemTrigger*>(object);
   systrigger->EventCallback(event);
@@ -312,8 +312,8 @@ void SystemTrigger::EventCallbackEntry(
 
 void SystemTrigger::EventCallback(
     struct sound_trigger_recognition_event* event) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: status[%d]", TAG, __func__, event->status);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: status[%d]", __func__, event->status);
 
   struct qsthw_phrase_recognition_event* qsthw_event =
       reinterpret_cast<struct qsthw_phrase_recognition_event*>(event);
@@ -328,7 +328,7 @@ void SystemTrigger::EventCallback(
     }
     thread_ = new thread(SystemTrigger::CaptureThreadEntry, this);
     if (thread_ == nullptr)
-      QMMF_ERROR("%s: %s() unable to allocate capture thread", TAG, __func__);
+      QMMF_ERROR("%s() unable to allocate capture thread", __func__);
   } else {
     memset(&qsthw_event_, 0, sizeof(struct qsthw_phrase_recognition_event));
 
@@ -338,19 +338,19 @@ void SystemTrigger::EventCallback(
     int32_t result = qsthw_start_recognition(module_, sm_handle_, rc_config_,
                                              EventCallbackEntry, this);
     if (result != 0)
-      QMMF_ERROR("%s: %s() failed to start recognition: result[%d]",
-                 TAG, __func__, result);
+      QMMF_ERROR("%s() failed to start recognition: result[%d]",
+                 __func__, result);
   }
 }
 
 void SystemTrigger::CaptureThreadEntry(SystemTrigger* system) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   system->CaptureThread();
 }
 
 void SystemTrigger::CaptureThread() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   struct sound_trigger_phrase_recognition_event phrase_event =
       qsthw_event_.phrase_event;
   audio_config_t* audio_config = &phrase_event.common.audio_config;
@@ -361,20 +361,20 @@ void SystemTrigger::CaptureThread() {
 
   size_t read_size = qsthw_get_buffer_size(module_, sm_handle_);
   if (read_size <= 0) {
-    QMMF_ERROR("%s: %s() invalid buffer size returned: result[%d]",
-               TAG, __func__, read_size);
+    QMMF_ERROR("%s() invalid buffer size returned: result[%d]",
+               __func__, read_size);
     return;
   }
 
   size_t buffer_size = ((sample_rate * channels * sample_size) *
                        capture_duration_) / 1000;
-  QMMF_DEBUG("%s: %s() sample_rate[%d] channels[%d] sample_size[%d] capture_duration_[%d] buffer_size[%d]",
-             TAG, __func__, sample_rate, channels, sample_size,
+  QMMF_DEBUG("%s() sample_rate[%d] channels[%d] sample_size[%d] capture_duration_[%d] buffer_size[%d]",
+             __func__, sample_rate, channels, sample_size,
              capture_duration_, buffer_size);
 
   uint8_t* buffer = (uint8_t*)calloc(1, buffer_size);
   if (buffer == nullptr) {
-    QMMF_ERROR("%s: %s() could not allocate memory for buffer", TAG, __func__);
+    QMMF_ERROR("%s() could not allocate memory for buffer", __func__);
     return;
   }
 
@@ -384,7 +384,7 @@ void SystemTrigger::CaptureThread() {
                       read_size);
     current_bytes_read += read_size;
   }
-  QMMF_DEBUG("%s: %s() total bytes read[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() total bytes read[%d]", __func__,
              current_bytes_read);
 
   qsthw_stop_buffering(module_, sm_handle_);
@@ -405,8 +405,8 @@ void SystemTrigger::CaptureThread() {
   int32_t result = qsthw_start_recognition(module_, sm_handle_, rc_config_,
                                            EventCallbackEntry, this);
   if (result != 0)
-    QMMF_ERROR("%s: %s() failed to start recognition: result[%d]",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() failed to start recognition: result[%d]",
+               __func__, result);
 }
 
 }; // namespace system

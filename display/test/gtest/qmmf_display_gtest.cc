@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "DisplayGTest"
+#define LOG_TAG "DisplayGTest"
 
 #include <assert.h>
 #include <camera/CameraMetadata.h>
@@ -53,7 +53,7 @@
 #define ALIGNED_WIDTH(x) ((x) + ((x % 64) ? (64 - (x % 64)) : 0))
 
 void DisplayGtest::SetUp() {
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
+  TEST_INFO("%s: Enter ", __func__);
 
   test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
@@ -70,12 +70,12 @@ void DisplayGtest::SetUp() {
   property_get(PROP_N_ITERATIONS, prop_val, DEFAULT_ITERATIONS);
   iteration_count_ = atoi(prop_val);
 
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s Exit ", __func__);
 }
 
 void DisplayGtest::TearDown() {
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s: Enter ", __func__);
+  TEST_INFO("%s: Exit ", __func__);
 }
 
 int32_t DisplayGtest::Init(DisplayType display_type) {
@@ -83,14 +83,14 @@ int32_t DisplayGtest::Init(DisplayType display_type) {
   assert(display_ != nullptr);
   auto ret = display_->Connect();
   if (ret != 0) {
-    TEST_ERROR("%s:%s Connect Failed!!", TAG, __func__);
+    TEST_ERROR("%s: Connect Failed!!", __func__);
     return ret;
   }
 
   ret = display_->CreateDisplay(display_type, display_status_cb_);
   if (ret != 0) {
     display_->Disconnect();
-    TEST_ERROR("%s:%s CreateDisplay Failed!!", TAG, __func__);
+    TEST_ERROR("%s CreateDisplay Failed!!", __func__);
     return ret;
   }
 
@@ -108,7 +108,7 @@ int32_t DisplayGtest::Init(DisplayType display_type) {
 }
 
 int32_t DisplayGtest::DeInit(DisplayType display_type) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
 
   display_thread_->join();
   delete display_thread_;
@@ -119,17 +119,17 @@ int32_t DisplayGtest::DeInit(DisplayType display_type) {
 
   auto ret = display_->DestroyDisplay(display_type);
   if (ret != 0) {
-    TEST_ERROR("%s:%s DestroyDisplay Failed!!", TAG, __func__);
+    TEST_ERROR("%s: DestroyDisplay Failed!!", __func__);
   }
   ret = display_->Disconnect();
 
   this->surface_data_.clear();
   if (display_ != nullptr) {
-    TEST_INFO("%s:%s: DELETE display_:%p", TAG, __func__, display_);
+    TEST_INFO("%s: DELETE display_:%p", __func__, display_);
     delete display_;
     display_ = nullptr;
   }
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
   return ret;
 }
 
@@ -153,13 +153,13 @@ TEST_F(DisplayGtest, TestYUV) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -173,7 +173,7 @@ TEST_F(DisplayGtest, TestYUV) {
     surface_config.use_buffer = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -186,10 +186,10 @@ TEST_F(DisplayGtest, TestYUV) {
                                          surface_data->surface_buffer);
     surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -248,7 +248,7 @@ TEST_F(DisplayGtest, TestYUV) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       if (surface_data->file) {
         fclose(surface_data->file);
@@ -261,7 +261,7 @@ TEST_F(DisplayGtest, TestYUV) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -291,13 +291,13 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -314,7 +314,7 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
     surface_config.surface_transform.flip_vertical = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -327,10 +327,10 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
                                          surface_data->surface_buffer);
     surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -389,7 +389,7 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       if (surface_data->file) {
         fclose(surface_data->file);
@@ -402,7 +402,7 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
     if (!surface_data_.size()) {
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -432,13 +432,13 @@ TEST_F(DisplayGtest, TestBGRA) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -452,7 +452,7 @@ TEST_F(DisplayGtest, TestBGRA) {
     surface_config.use_buffer = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -467,10 +467,10 @@ TEST_F(DisplayGtest, TestBGRA) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -519,7 +519,7 @@ TEST_F(DisplayGtest, TestBGRA) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       surface_data_.erase(it);
@@ -528,7 +528,7 @@ TEST_F(DisplayGtest, TestBGRA) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -558,13 +558,13 @@ TEST_F(DisplayGtest, TestBGRAWithRotation) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -581,7 +581,7 @@ TEST_F(DisplayGtest, TestBGRAWithRotation) {
     surface_config.surface_transform.flip_vertical = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -596,10 +596,10 @@ TEST_F(DisplayGtest, TestBGRAWithRotation) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -648,7 +648,7 @@ TEST_F(DisplayGtest, TestBGRAWithRotation) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       surface_data_.erase(it);
@@ -657,7 +657,7 @@ TEST_F(DisplayGtest, TestBGRAWithRotation) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -687,13 +687,13 @@ TEST_F(DisplayGtest, TestRGBA) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -707,7 +707,7 @@ TEST_F(DisplayGtest, TestRGBA) {
     surface_config.use_buffer = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -722,10 +722,10 @@ TEST_F(DisplayGtest, TestRGBA) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -774,7 +774,7 @@ TEST_F(DisplayGtest, TestRGBA) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       surface_data_.erase(it);
@@ -783,7 +783,7 @@ TEST_F(DisplayGtest, TestRGBA) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -813,13 +813,13 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -836,7 +836,7 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
     surface_config.surface_transform.flip_vertical = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       ret = DeInit(DisplayType::kPrimary);
       goto exit;
     }
@@ -851,10 +851,10 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -903,7 +903,7 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       surface_data_.erase(it);
@@ -912,7 +912,7 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -945,13 +945,13 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
 
@@ -966,7 +966,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       surface_config.use_buffer = 0;
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: CreateSurface Failed!!", __func__);
         goto next;
       }
 
@@ -978,10 +978,10 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
                                            surface_data->surface_buffer);
       surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
-        TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+        TEST_ERROR("%s: Unable to open file", __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
         if (ret != 0) {
-          TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+          TEST_ERROR("%s: DestroySurface Failed!!", __func__);
         }
         delete surface_data;
         goto next;
@@ -1039,7 +1039,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
     surface_config.use_buffer = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       goto sleep;
     }
 
@@ -1053,10 +1053,10 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       ret = DeInit(DisplayType::kPrimary);
@@ -1108,7 +1108,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       surface_data_.erase(it);
@@ -1117,7 +1117,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -1149,13 +1149,13 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
     {
@@ -1170,7 +1170,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
 
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: CreateSurface Failed!!", __func__);
         ret = DeInit(DisplayType::kPrimary);
         goto exit;
       }
@@ -1198,11 +1198,11 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
         if (ret != kErrorNone) {
-          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__,
+          TEST_ERROR("%s: AllocateBuffer Failed. Error = %d", __func__,
                      ret);
           ret = display_->DestroySurface(surface_data->surface_id);
           if (ret != 0) {
-            TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+            TEST_ERROR("%s: DestroySurface Failed!!", __func__);
           }
           delete surface_data;
           for (std::vector<BufInfo*>::iterator iter = buffers.begin();
@@ -1219,10 +1219,10 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
 
       surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
-        TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+        TEST_ERROR("%s: Unable to open file", __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
         if (ret != 0) {
-          TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+          TEST_ERROR("%s: DestroySurface Failed!!", __func__);
         }
         delete surface_data;
         for (std::map<uint32_t, std::vector<BufInfo*>>::iterator it =
@@ -1316,7 +1316,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       if (surface_data->file) {
         fclose(surface_data->file);
@@ -1336,7 +1336,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
             ret = munmap((*iter)->buf,
                          (*iter)->buffer_info.alloc_buffer_info.size);
             if (ret != 0) {
-              TEST_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+              TEST_ERROR("%s: munmap Failed!!", __func__);
             }
           }
           buffer_allocator_.FreeBuffer(&((*iter)->buffer_info));
@@ -1350,7 +1350,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -1386,13 +1386,13 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s:%s: Running Test(%s) iteration = %d ", TAG, __func__,
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
     std::unique_lock<std::mutex> lock(lock_);
 
     ret = Init(DisplayType::kPrimary);
     if (ret != 0) {
-      TEST_ERROR("%s:%s Init Failed!!", TAG, __func__);
+      TEST_ERROR("%s: Init Failed!!", __func__);
       goto exit;
     }
     {
@@ -1407,7 +1407,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
 
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: CreateSurface Failed!!", __func__);
         goto next;
       }
 
@@ -1433,11 +1433,11 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
         if (ret != kErrorNone) {
-          TEST_ERROR("%s:%s: AllocateBuffer Failed. Error = %d", TAG, __func__,
+          TEST_ERROR("%s: AllocateBuffer Failed. Error = %d", __func__,
                      ret);
           ret = display_->DestroySurface(surface_data->surface_id);
           if (ret != 0) {
-            TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+            TEST_ERROR("%s: DestroySurface Failed!!", __func__);
           }
           delete surface_data;
           for (std::vector<BufInfo*>::iterator iter = buffers.begin();
@@ -1454,10 +1454,10 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
 
       surface_data->file = fopen("/data/misc/qmmf/YUV/1080p_1.nv12.yuv", "r");
       if (!surface_data->file) {
-        TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+        TEST_ERROR("%s: Unable to open file", __func__);
         ret = display_->DestroySurface(surface_data->surface_id);
         if (ret != 0) {
-          TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+          TEST_ERROR("%s: DestroySurface Failed!!", __func__);
         }
         delete surface_data;
         for (std::map<uint32_t, std::vector<BufInfo*>>::iterator it =
@@ -1551,7 +1551,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
     surface_config.use_buffer = 0;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
-      TEST_ERROR("%s:%s CreateSurface Failed!!", TAG, __func__);
+      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
       goto sleep;
     }
 
@@ -1565,10 +1565,10 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
     surface_data->file =
         fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
     if (!surface_data->file) {
-      TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+      TEST_ERROR("%s: Unable to open file", __func__);
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       delete surface_data;
       goto sleep;
@@ -1618,7 +1618,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
 
       ret = display_->DestroySurface(surface_data->surface_id);
       if (ret != 0) {
-        TEST_ERROR("%s:%s DestroySurface Failed!!", TAG, __func__);
+        TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
       if (surface_data->file) {
         fclose(surface_data->file);
@@ -1637,7 +1637,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
             ret = munmap((*iter)->buf,
                          (*iter)->buffer_info.alloc_buffer_info.size);
             if (ret != 0) {
-              TEST_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+              TEST_ERROR("%s: munmap Failed!!", __func__);
             }
           }
           buffer_allocator_.FreeBuffer(&((*iter)->buffer_info));
@@ -1651,7 +1651,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
       lock.unlock();
       ret = DeInit(DisplayType::kPrimary);
       if (ret != 0) {
-        TEST_ERROR("%s:%s Disconnect Failed!!", TAG, __func__);
+        TEST_ERROR("%s: Disconnect Failed!!", __func__);
       }
     }
   }
@@ -1663,26 +1663,26 @@ exit:
 void DisplayGtest::DisplayCallbackHandler(DisplayEventType event_type,
                                           void* event_data,
                                           size_t event_data_size) {
-  TEST_INFO("%s:%s Enter ", TAG, __func__);
-  TEST_INFO("%s:%s Exit ", TAG, __func__);
+  TEST_INFO("%s: Enter ", __func__);
+  TEST_INFO("%s: Exit ", __func__);
 }
 
 void DisplayGtest::SessionCallbackHandler(DisplayEventType event_type,
                                           void* event_data,
                                           size_t event_data_size) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void DisplayGtest::DisplayVSyncHandler(int64_t time_stamp) {
-  TEST_INFO("%s:%s: Enter", TAG, __func__);
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Enter", __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 void DisplayGtest::DisplayThreadEntry(DisplayGtest* display_gtest) {
-  TEST_INFO("%s: %s() Enter", TAG, __func__);
+  TEST_INFO("%s:() Enter", __func__);
   display_gtest->DisplayThread();
-  TEST_INFO("%s:%s: Exit", TAG, __func__);
+  TEST_INFO("%s: Exit", __func__);
 }
 
 /*
@@ -1716,7 +1716,7 @@ void DisplayGtest::DisplayThread() {
         buf_id = surface_data->surface_buffer.buf_id;
         surface_data->buffer_ready = 0;
         if (ret != 0) {
-          TEST_ERROR("%s:%s QueueSurfaceBuffer Failed!!", TAG, __func__);
+          TEST_ERROR("%s: QueueSurfaceBuffer Failed!!", __func__);
         }
       }
     }
@@ -1730,11 +1730,11 @@ void DisplayGtest::DisplayThread() {
         ret = display_->DequeueSurfaceBuffer(surface_data->surface_id,
                                              surface_data->surface_buffer);
         if (ret != 0) {
-          TEST_ERROR("%s:%s DequeueSurfaceBuffer Failed!!", TAG, __func__);
+          TEST_ERROR("%s: DequeueSurfaceBuffer Failed!!", __func__);
         }
 
         if (surface_data->surface_buffer.buf_id == -1) {
-          TEST_INFO("%s:%s No buf available !!", TAG, __func__);
+          TEST_INFO("%s: No buf available !!", __func__);
           if (buf_info.size()) {
             auto bufinfo = buf_info.find(surface_data->surface_id);
             BufInfo* new_buf_info =
@@ -1783,8 +1783,8 @@ void DisplayGtest::DisplayThread() {
                                surface_data->file);
               if (read_len !=
                   surface_data->surface_buffer.plane_info[0].width) {
-                TEST_ERROR("%s:%s: Failed to read length read_len=%u width=%u",
-                           TAG, __func__, read_len,
+                TEST_ERROR("%s: Failed to read length read_len=%u width=%u",
+                           __func__, read_len,
                            surface_data->surface_buffer.plane_info[0].width);
               }
               assert((read_len ==
@@ -1795,7 +1795,7 @@ void DisplayGtest::DisplayThread() {
             }
             offset_temp +=
                 (surface_data->surface_buffer.plane_info[0].stride) * 8;
-            TEST_DBG("%s:%s: offset_temp = %u stride=%u", TAG, __func__,
+            TEST_DBG("%s: offset_temp = %u stride=%u", __func__,
                      offset_temp,
                      surface_data->surface_buffer.plane_info[0].stride);
             for (uint32_t i = 0;
@@ -1806,8 +1806,8 @@ void DisplayGtest::DisplayThread() {
                                surface_data->file);
               if (read_len !=
                   surface_data->surface_buffer.plane_info[0].width) {
-                TEST_ERROR("%s:%s: Failed to read length read_len=%u width=%u",
-                           TAG, __func__, read_len,
+                TEST_ERROR("%s: Failed to read length read_len=%u width=%u",
+                           __func__, read_len,
                            surface_data->surface_buffer.plane_info[0].width);
               }
               assert((read_len ==
@@ -1826,7 +1826,7 @@ void DisplayGtest::DisplayThread() {
           surface_data->file =
               fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
           if (!surface_data->file) {
-            TEST_ERROR("%s:%s: Unable to open file", TAG, __func__);
+            TEST_ERROR("%s: Unable to open file", __func__);
           }
           int32_t offset = 0;
           for (uint32_t i = 0;

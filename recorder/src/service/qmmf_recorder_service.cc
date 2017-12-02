@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderService"
+#define LOG_TAG "RecorderService"
 
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
@@ -38,22 +38,22 @@ namespace recorder {
 
 RecorderService::RecorderService()
     : recorder_(nullptr), unique_client_id_(0) {
-
+  QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
-  QMMF_INFO("%s:%s: RecorderService Instantiated! ", TAG, __func__);
+  QMMF_INFO("%s: RecorderService Instantiated! ", __func__);
   QMMF_KPI_DETAIL();
 }
 
 RecorderService::~RecorderService() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   QMMF_KPI_DETAIL();
 }
 
 status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                                      Parcel* reply, uint32_t flag) {
 
-  QMMF_DEBUG("%s:%s: Enter:(BnRecorderService::onTransact)", TAG, __func__);
+  QMMF_DEBUG("%s: Enter:(BnRecorderService::onTransact)", __func__);
   CHECK_INTERFACE(IRecorderService, data, reply);
   int32_t ret = 0;
 
@@ -634,7 +634,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
         uint32_t virtual_camera_id;
         ret = CreateMultiCamera(client_id, camera_ids, &virtual_camera_id);
-        QMMF_INFO("%s:%s: virtual_camera_id=%d", TAG, __func__,
+        QMMF_INFO("%s: virtual_camera_id=%d", __func__,
             virtual_camera_id);
         reply->writeUint32(virtual_camera_id);
         reply->writeInt32(ret);
@@ -667,7 +667,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
 
 status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
                                   service_cb, uint32_t* client_id) {
-  QMMF_DEBUG("%s:%s: Enter ", TAG, __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
 
   std::lock_guard<std::mutex> lock(lock_);
@@ -676,12 +676,12 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   if (!recorder_) {
     recorder_ = RecorderImpl::CreateRecorder();
     if (!recorder_) {
-        QMMF_ERROR("%s:%s: Can't create Recorder Instance!!", TAG, __func__);
+        QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
         return NO_MEMORY;
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
       remote_cb_handle = [&] (uint32_t id) {
-        QMMF_VERBOSE("%s:%s: Remote Callback request for client(%d)", TAG,
+        QMMF_VERBOSE("%s: Remote Callback request for client(%d)",
             __func__, id);
         auto it = remote_cb_list_.find(id);
         assert(it != remote_cb_list_.end());
@@ -689,7 +689,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
     };
     ret = recorder_->Init(remote_cb_handle);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Recorder Initialization failed!", TAG, __func__);
+      QMMF_ERROR("%s: Recorder Initialization failed!", __func__);
       delete recorder_;
       recorder_ = nullptr;
       return ret;
@@ -702,7 +702,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   sp<RemoteCallBack> remote_callback;
   remote_callback = new RemoteCallBack(*client_id, service_cb);
   if (!remote_callback.get()) {
-      QMMF_ERROR("%s:%s: Unable to allocate remote callback!", TAG, __func__);
+      QMMF_ERROR("%s: Unable to allocate remote callback!", __func__);
       return NO_INIT;
   }
   remote_cb_list_.insert(std::make_pair(*client_id, remote_callback));
@@ -710,7 +710,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   sp<DeathNotifier> death_notifier;
   death_notifier = new DeathNotifier();
   if (!death_notifier.get()) {
-      QMMF_ERROR("%s:%s: Unable to allocate death notifier!", TAG, __func__);
+      QMMF_ERROR("%s: Unable to allocate death notifier!", __func__);
 
     remote_cb_list_.erase(*client_id);
     return NO_INIT;
@@ -728,23 +728,23 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
 
   recorder_->RegisterClient(*client_id);
 
-  QMMF_INFO("%s:%s:Service is connected with client (%d)", TAG, __func__,
+  QMMF_INFO("%s: Service is connected with client (%d)", __func__,
       *client_id);
 
-  QMMF_DEBUG("%s:%s: Exit client_id(%d)", TAG, __func__, *client_id);
+  QMMF_DEBUG("%s: Exit client_id(%d)", __func__, *client_id);
   return ret;
 }
 
 status_t RecorderService::Disconnect(uint32_t client_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
   int32_t ret = NO_ERROR;
   auto it = death_notifier_list_.find(client_id);
   if (it == death_notifier_list_.end()) {
-    QMMF_ERROR("%s:%s: Client doesn't exist! Wrong id", TAG, __func__);
+    QMMF_ERROR("%s: Client doesn't exist! Wrong id", __func__);
     return BAD_VALUE;
   }
 
@@ -770,7 +770,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
 
   if ( (death_notifier_list_.size() == 0) &&
        (remote_cb_list_.size() == 0) ) {
-    QMMF_INFO("%s:%s: No client is connected! de-initialize the recorder!", TAG,
+    QMMF_INFO("%s: No client is connected! de-initialize the recorder!",
         __func__);
     recorder_->DeInit();
     delete recorder_;
@@ -778,7 +778,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     unique_client_id_ = 0;
   }
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -787,52 +787,52 @@ status_t RecorderService::StartCamera(const uint32_t client_id,
                                       const CameraStartParam &params,
                                       bool enable_result_cb) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->StartCamera(client_id, camera_id, params,
                                     enable_result_cb);
   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Can't start Camera!!", TAG, __func__);
+    QMMF_ERROR("%s: Can't start Camera!!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::StopCamera(const uint32_t client_id,
                                      const uint32_t camera_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->StopCamera(client_id, camera_id);
   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Can't Stop Camera!!", TAG, __func__);
+    QMMF_ERROR("%s: Can't Stop Camera!!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::CreateSession(const uint32_t client_id,
                                         uint32_t *session_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
@@ -841,105 +841,105 @@ status_t RecorderService::CreateSession(const uint32_t client_id,
   assert(ret == NO_ERROR);
   *session_id = id;
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::DeleteSession(const uint32_t client_id,
                                         const uint32_t session_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteSession(client_id, session_id);
   assert(ret == NO_ERROR);
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::StartSession(const uint32_t client_id,
                                        const uint32_t session_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Session_id(%d) to be Start", TAG, __func__, session_id);
+  QMMF_INFO("%s: Session_id(%d) to be Start", __func__, session_id);
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->StartSession(client_id, session_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: StartSession failed!", TAG, __func__);
+    QMMF_ERROR("%s: StartSession failed!", __func__);
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::StopSession(const uint32_t client_id,
                                       const uint32_t session_id,
                                       bool do_flush) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Session_id(%d) to be Stop with flash=%d", TAG, __func__,
+  QMMF_INFO("%s: Session_id(%d) to be Stop with flash=%d", __func__,
                                       session_id, do_flush);
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->StopSession(client_id, session_id, do_flush);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: StopSession failed!", TAG, __func__);
+    QMMF_ERROR("%s: StopSession failed!", __func__);
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::PauseSession(const uint32_t client_id,
                                        const uint32_t session_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Session_id(%d) to be Pause", TAG, __func__, session_id);
+  QMMF_INFO("%s: Session_id(%d) to be Pause", __func__, session_id);
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->PauseSession(client_id, session_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: PauseSession failed!", TAG, __func__);
+    QMMF_ERROR("%s: PauseSession failed!", __func__);
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::ResumeSession(const uint32_t client_id,
                                         const uint32_t session_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Session_id(%d) to be Resume", TAG, __func__, session_id);
+  QMMF_INFO("%s: Session_id(%d) to be Resume", __func__, session_id);
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->ResumeSession(client_id, session_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ResumeSession failed!", TAG, __func__);
+    QMMF_ERROR("%s: ResumeSession failed!", __func__);
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
 
   return ret;
 }
@@ -947,65 +947,65 @@ status_t RecorderService::ResumeSession(const uint32_t client_id,
 status_t RecorderService::GetSupportedPlugins(const uint32_t client_id,
                                               SupportedPlugins *plugins) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->GetSupportedPlugins(client_id, plugins);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetSupportedPlugins failed: %d", TAG, __func__, ret);
+    QMMF_ERROR("%s: GetSupportedPlugins failed: %d", __func__, ret);
     return ret;
   }
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::CreatePlugin(const uint32_t client_id, uint32_t *uid,
                                        const PluginInfo &plugin) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->CreatePlugin(client_id, uid, plugin);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CreatePlugin %s failed: %d", TAG, __func__,
+    QMMF_ERROR("%s: CreatePlugin %s failed: %d", __func__,
         plugin.name.c_str(), ret);
     return ret;
   }
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::DeletePlugin(const uint32_t client_id,
                                        const uint32_t &uid) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->DeletePlugin(client_id, uid);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: DeletePlugin uid(%d) failed: %d", TAG, __func__,
+    QMMF_ERROR("%s: DeletePlugin uid(%d) failed: %d", __func__,
         uid, ret);
     return ret;
   }
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
@@ -1013,21 +1013,21 @@ status_t RecorderService::ConfigPlugin(const uint32_t client_id,
                                        const uint32_t &uid,
                                        const std::string &json_config) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_WARN("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
 
   assert(recorder_ != nullptr);
   auto ret = recorder_->ConfigPlugin(client_id, uid, json_config);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ConfigPlugin uid(%d) failed: %d", TAG, __func__,
+    QMMF_ERROR("%s: ConfigPlugin uid(%d) failed: %d", __func__,
         uid, ret);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
@@ -1035,16 +1035,16 @@ status_t RecorderService::CreateAudioTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
                                            const AudioTrackCreateParam& param) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   uint32_t id = track_id & 0xffff0000;
   if (id > 0) {
-    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    QMMF_INFO("%s: track_id should be 16 bit number!", __func__);
     return BAD_VALUE;
   }
 
@@ -1052,10 +1052,10 @@ status_t RecorderService::CreateAudioTrack(const uint32_t client_id,
   auto ret = recorder_->CreateAudioTrack(client_id, session_id, track_id,
                                          param);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: CreateAudioTrack failed: %d", TAG, __func__, ret);
+    QMMF_INFO("%s: CreateAudioTrack failed: %d", __func__, ret);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
@@ -1063,15 +1063,15 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
                                            const VideoTrackCreateParam& param) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   uint32_t id = track_id & 0xffff0000;
   if (id > 0) {
-    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    QMMF_INFO("%s: track_id should be 16 bit number!", __func__);
     return BAD_VALUE;
   }
 
@@ -1079,10 +1079,10 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
   auto ret = recorder_->CreateVideoTrack(client_id, session_id, track_id,
                                          param);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: CreateVideoTrack failed!", TAG, __func__);
+    QMMF_INFO("%s: CreateVideoTrack failed!", __func__);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1091,15 +1091,15 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                            const uint32_t track_id,
                                            const VideoTrackCreateParam& param,
                                            const VideoExtraParam& extra_param) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   uint32_t id = track_id & 0xffff0000;
   if (id > 0) {
-    QMMF_INFO("%s:%s: track_id should be 16 bit number!", TAG, __func__);
+    QMMF_INFO("%s: track_id should be 16 bit number!", __func__);
     return BAD_VALUE;
   }
 
@@ -1108,50 +1108,50 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                          param, extra_param);
 
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: CreateVideoTrackWithExtraParam failed!", TAG, __func__);
+    QMMF_INFO("%s: CreateVideoTrackWithExtraParam failed!", __func__);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::DeleteAudioTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteAudioTrack(client_id, session_id, track_id);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: DeleteAudioTrack failed!", TAG, __func__);
+    QMMF_INFO("%s: DeleteAudioTrack failed!", __func__);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::DeleteVideoTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteVideoTrack(client_id, session_id, track_id);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: DeleteVideoTrack failed!", TAG, __func__);
+    QMMF_INFO("%s: DeleteVideoTrack failed!", __func__);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1159,20 +1159,20 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t client_id,
                                             const uint32_t session_id,
                                             const uint32_t track_id,
                                             std::vector<BnBuffer> &buffers) {
-  QMMF_VERBOSE("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_VERBOSE("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->ReturnTrackBuffer(client_id, session_id, track_id,
                                           buffers);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s:%s: ReturnTrackBuffer failed!", TAG, __func__);
+    QMMF_INFO("%s: ReturnTrackBuffer failed!", __func__);
     return BAD_VALUE;
   }
-  QMMF_VERBOSE("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_VERBOSE("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1182,20 +1182,20 @@ status_t RecorderService::SetAudioTrackParam(const uint32_t client_id,
                                              CodecParamType type,
                                              void *param,
                                              size_t param_size) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->SetAudioTrackParam(client_id, session_id, track_id,
                                            type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetAudioTrackParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: SetAudioTrackParam failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
@@ -1205,20 +1205,20 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
                                              CodecParamType type,
                                              void *param,
                                              size_t param_size) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->SetVideoTrackParam(client_id, session_id, track_id,
                                            type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CaptureImage failed!", TAG, __func__);
+    QMMF_ERROR("%s: CaptureImage failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1227,57 +1227,57 @@ status_t RecorderService::CaptureImage(const uint32_t client_id,
                                        const ImageParam &param,
                                        const uint32_t num_images, const
                                        std::vector<CameraMetadata> &meta) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->CaptureImage(client_id, camera_id, param,
                                      num_images, meta);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CaptureImage failed!", TAG, __func__);
+    QMMF_ERROR("%s: CaptureImage failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
                                              const uint32_t camera_id,
                                              const ImageConfigParam &config) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->ConfigImageCapture(client_id, camera_id, config);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ConfigImageCapture failed!", TAG, __func__);
+    QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
 status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
                                              const uint32_t camera_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != NULL);
   auto ret = recorder_->CancelCaptureImage(client_id, camera_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CancelCaptureImage failed!", TAG, __func__);
+    QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
 
@@ -1285,77 +1285,77 @@ status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
 status_t RecorderService::ReturnImageCaptureBuffer(const uint32_t client_id,
                                                    const uint32_t camera_id,
                                                    const int32_t buffer_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->ReturnImageCaptureBuffer(client_id, camera_id,
                                                  buffer_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ReturnImageCaptureBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s: ReturnImageCaptureBuffer failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::SetCameraParam(const uint32_t client_id,
                                          const uint32_t camera_id,
                                          const CameraMetadata &meta) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->SetCameraParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetCameraParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: SetCameraParam failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::GetCameraParam(const uint32_t client_id,
                                          const uint32_t camera_id,
                                          CameraMetadata &meta) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->GetCameraParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetCameraParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: GetCameraParam failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
                                                 const uint32_t camera_id,
                                                  CameraMetadata &meta) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->GetDefaultCaptureParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetDefaultCaptureParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1363,39 +1363,39 @@ status_t RecorderService::CreateOverlayObject(const uint32_t client_id,
                                               const uint32_t track_id,
                                               OverlayParam *param,
                                               uint32_t *overlay_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->CreateOverlayObject(client_id, track_id, param,
                                             overlay_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CreateOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::DeleteOverlayObject(const uint32_t client_id,
                                               const uint32_t track_id,
                                               const uint32_t overlay_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->DeleteOverlayObject(client_id, track_id, overlay_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: DeleteOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1403,20 +1403,20 @@ status_t RecorderService::GetOverlayObjectParams(const uint32_t client_id,
                                                  const uint32_t track_id,
                                                  const uint32_t overlay_id,
                                                  OverlayParam &param) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->GetOverlayObjectParams(client_id, track_id, overlay_id,
                                                param);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetOverlayObjectParams failed!", TAG, __func__);
+    QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1424,20 +1424,20 @@ status_t RecorderService::UpdateOverlayObjectParams(const uint32_t client_id,
                                                     const uint32_t track_id,
                                                     const uint32_t overlay_id,
                                                     OverlayParam *param) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->UpdateOverlayObjectParams(client_id, track_id,
                                                   overlay_id, param);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: UpdateOverlayObjectParams failed!", TAG, __func__);
+    QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1445,38 +1445,38 @@ status_t RecorderService::SetOverlayObject(const uint32_t client_id,
                                            const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->SetOverlayObject(client_id, track_id, overlay_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s: SetOverlayObject failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 status_t RecorderService::RemoveOverlayObject(const uint32_t client_id,
                                               const uint32_t track_id,
                                               const uint32_t overlay_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->RemoveOverlayObject(client_id, track_id, overlay_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: RemoveOverlayObject failed!", TAG, __func__);
+    QMMF_ERROR("%s: RemoveOverlayObject failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1484,20 +1484,20 @@ status_t RecorderService::CreateMultiCamera(const uint32_t client_id,
                                             const std::vector<uint32_t>
                                             camera_ids,
                                             uint32_t *virtual_camera_id) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->CreateMultiCamera(client_id, camera_ids,
                                           virtual_camera_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: CreateMultiCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s: CreateMultiCamera failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
@@ -1506,25 +1506,25 @@ status_t RecorderService::ConfigureMultiCamera(const uint32_t client_id,
                                                const MultiCameraConfigType type,
                                                const void *param,
                                                const uint32_t param_size) {
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
   if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s:%s: Client (%d) is not valid!", TAG, __func__, client_id);
+    QMMF_ERROR("%s: Client (%d) is not valid!", __func__, client_id);
     return BAD_VALUE;
   }
   assert(recorder_ != nullptr);
   auto ret = recorder_->ConfigureMultiCamera(client_id, virtual_camera_id, type,
                                              param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: ConfigureMultiCamera failed!", TAG, __func__);
+    QMMF_ERROR("%s: ConfigureMultiCamera failed!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 
 void RecorderService::ClientDeathHandler(const uint32_t client_id) {
-  QMMF_INFO("%s:%s: client_id(%d) died in battle!", TAG, __func__, client_id);
+  QMMF_INFO("%s: client_id(%d) died in battle!", __func__, client_id);
   // Internal disconnect, it would trigger resource cleanup belongs to died
   // client.
   DisconnectInternal(client_id);
@@ -1539,13 +1539,13 @@ bool RecorderService::IsClientValid(const uint32_t client_id) {
 
 status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
 
-  QMMF_INFO("%s:%s: Enter client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   std::lock_guard<std::mutex> lock(lock_);
 
   int32_t ret = NO_ERROR;
   auto it = death_notifier_list_.find(client_id);
   if (it == death_notifier_list_.end()) {
-    QMMF_ERROR("%s:%s: Client doesn't exist! Wrong id", TAG, __func__);
+    QMMF_ERROR("%s: Client doesn't exist! Wrong id", __func__);
     return BAD_VALUE;
   }
   // Forceful cleanup.
@@ -1568,7 +1568,7 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
 
   if ( (death_notifier_list_.size() == 0) &&
        (remote_cb_list_.size() == 0) ) {
-    QMMF_INFO("%s:%s: No client is connected! de-initialize the recorder!", TAG,
+    QMMF_INFO("%s: No client is connected! de-initialize the recorder!",
         __func__);
     recorder_->DeInit();
     delete recorder_;
@@ -1576,7 +1576,7 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
     unique_client_id_ = 0;
   }
 
-  QMMF_INFO("%s:%s: Exit client_id(%d)", TAG, __func__, client_id);
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
 }
 

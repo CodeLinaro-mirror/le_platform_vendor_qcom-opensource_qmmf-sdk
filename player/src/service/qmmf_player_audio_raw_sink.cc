@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "AudioRawSink"
+#define LOG_TAG "AudioRawSink"
 
 #include <chrono>
 #include <condition_variable>
@@ -78,24 +78,24 @@ using ::std::vector;
 AudioRawSink* AudioRawSink::instance_ = nullptr;
 
 AudioRawSink* AudioRawSink::CreateAudioRawSink() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   if (instance_ == nullptr) {
     instance_ = new AudioRawSink();
     if (instance_ == nullptr)
-      QMMF_ERROR("%s: %s() can't instantiate AudioRawSink", TAG, __func__);
+      QMMF_ERROR("%s() can't instantiate AudioRawSink", __func__);
   }
-  QMMF_INFO("%s:%s: AudioRawSink successfully retrieved", TAG, __func__);
+  QMMF_INFO("%s: AudioRawSink successfully retrieved", __func__);
 
   return instance_;
 }
 
 AudioRawSink::AudioRawSink() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 }
 
 AudioRawSink::~AudioRawSink() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   if (!track_sink_map_.empty())
     track_sink_map_.clear();
@@ -106,30 +106,30 @@ AudioRawSink::~AudioRawSink() {
 status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
                                        AudioTrackParams& param,
                                        TrackCb& callback) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
-  QMMF_VERBOSE("%s: %s() INPARAM: param[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
+  QMMF_VERBOSE("%s() INPARAM: param[%s]", __func__,
                param.ToString().c_str());
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator != track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() track already exists for track_id[%u]",
-               TAG, __func__, track_id);
+    QMMF_ERROR("%s() track already exists for track_id[%u]",
+               __func__, track_id);
     return ::android::BAD_VALUE;
   }
 
   shared_ptr<AudioRawTrackSink> track_sink = make_shared<AudioRawTrackSink>();
   if (track_sink == nullptr) {
-    QMMF_ERROR("%s: %s() could not instantiate track_sink[%u]", TAG,
+    QMMF_ERROR("%s() could not instantiate track_sink[%u]",
                __func__, track_id);
     return ::android::NO_MEMORY;
   }
 
   status_t result = track_sink->Init(param, callback);
   if (result != ::android::NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->Init failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->Init failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -139,21 +139,21 @@ status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
 }
 
 status_t AudioRawSink::DeleteTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->DeInit();
   if (result != ::android::NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->DeInit failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->DeInit failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -164,21 +164,21 @@ status_t AudioRawSink::DeleteTrackSink(uint32_t track_id) {
 }
 
 status_t AudioRawSink::StartTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->StartSink();
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->StartSink failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->StartSink failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -186,21 +186,21 @@ status_t AudioRawSink::StartTrackSink(uint32_t track_id) {
 }
 
 status_t AudioRawSink::StopTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->StopSink();
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->StopSink failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->StopSink failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -208,21 +208,21 @@ status_t AudioRawSink::StopTrackSink(uint32_t track_id) {
 }
 
 status_t AudioRawSink::PauseTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->PauseSink();
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->PauseSink failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->PauseSink failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -230,21 +230,21 @@ status_t AudioRawSink::PauseTrackSink(uint32_t track_id) {
 }
 
 status_t AudioRawSink::ResumeTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->ResumeSink();
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->ResumeSink failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->ResumeSink failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -255,13 +255,13 @@ status_t AudioRawSink::SetAudioTrackSinkParams(uint32_t track_id,
                                                CodecParamType param_type,
                                                void* param,
                                                uint32_t param_size) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
@@ -270,8 +270,8 @@ status_t AudioRawSink::SetAudioTrackSinkParams(uint32_t track_id,
                                                                     param,
                                                                     param_size);
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->SetAudioSinkParams failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->SetAudioSinkParams failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -280,24 +280,24 @@ status_t AudioRawSink::SetAudioTrackSinkParams(uint32_t track_id,
 
 status_t AudioRawSink::DequeueTrackInputBuffer(uint32_t track_id,
                                                vector<AVCodecBuffer>& buffers) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
   for (const AVCodecBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->DequeueInputBuffer(buffers);
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->DequeueInputBuffer failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->DequeueInputBuffer failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -306,24 +306,24 @@ status_t AudioRawSink::DequeueTrackInputBuffer(uint32_t track_id,
 
 status_t AudioRawSink::QueueTrackInputBuffer(uint32_t track_id,
                                              vector<AVCodecBuffer>& buffers) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: track_id[%u]", TAG, __func__, track_id);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
   for (const AVCodecBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
 
   AudioTrackSinkMap::iterator track_sink_iterator =
       track_sink_map_.find(track_id);
   if (track_sink_iterator == track_sink_map_.end()) {
-    QMMF_ERROR("%s: %s() no track exists with track_id[%u]", TAG, __func__,
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
                track_id);
     return ::android::BAD_VALUE;
   }
 
   status_t result = track_sink_iterator->second->QueueInputBuffer(buffers);
   if (result != NO_ERROR) {
-    QMMF_ERROR("%s: %s() track_sink[%u]->QueueInputBuffer failed: %d",
-               TAG, __func__, track_id, result);
+    QMMF_ERROR("%s() track_sink[%u]->QueueInputBuffer failed: %d",
+               __func__, track_id, result);
     return result;
   }
 
@@ -331,21 +331,21 @@ status_t AudioRawSink::QueueTrackInputBuffer(uint32_t track_id,
 }
 
 AudioRawTrackSink::AudioRawTrackSink() : end_point_(nullptr), thread_(nullptr) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 }
 
 AudioRawTrackSink::~AudioRawTrackSink() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 }
 
 status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
                                  TrackCb& callback) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__, params.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, params.track_id);
   int32_t result;
   vector<DeviceId> devices;
 
   if (end_point_ != nullptr) {
-    QMMF_ERROR("%s: %s() endpoint already exists", TAG, __func__);
+    QMMF_ERROR("%s() endpoint already exists", __func__);
     return ::android::ALREADY_EXISTS;
   }
 
@@ -354,7 +354,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
 
   end_point_ = new AudioEndPoint;
   if (end_point_ == nullptr) {
-    QMMF_ERROR("%s: %s() could not instantiate endpoint", TAG, __func__);
+    QMMF_ERROR("%s() could not instantiate endpoint", __func__);
     return ::android::NO_MEMORY;
   }
 
@@ -376,7 +376,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
 
   result = end_point_->Connect(audio_handler);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Connect failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Connect failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_free;
   }
@@ -390,7 +390,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
   } else if (track_params_.params.codec == AudioFormat::kAAC) {
     metadata.format = AudioFormat::kAAC;
   } else {
-    QMMF_ERROR("%s: %s() invalid codec given %d", TAG, __func__,
+    QMMF_ERROR("%s() invalid codec given %d", __func__,
                static_cast<int32_t>(track_params_.params.codec));
     goto error_disconnect;
   }
@@ -402,7 +402,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
 
   result = end_point_->Configure(AudioEndPointType::kSink, devices, metadata);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Configure failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Configure failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_disconnect;
   }
@@ -410,24 +410,24 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
   int32_t latency;
   result = end_point_->GetLatency(&latency);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->GetLatency failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->GetLatency failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s: %s() latency is %d", TAG, __func__, latency);
+  QMMF_INFO("%s() latency is %d", __func__, latency);
 
   int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->GetBufferSize failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->GetBufferSize failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s: %s() buffer_size is %d", TAG, __func__, buffer_size);
+  QMMF_INFO("%s() buffer_size is %d", __func__, buffer_size);
 
   result = ion_.Allocate(NUMBER_OF_SINK_BUFFERS, buffer_size);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() ion->Allocate failed: %d[%s]", TAG, __func__, result,
+    QMMF_ERROR("%s() ion->Allocate failed: %d[%s]", __func__, result,
                strerror(result));
     goto error_deallocate;
   }
@@ -448,18 +448,18 @@ error_free:
 }
 
 status_t AudioRawTrackSink::DeInit() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
   int32_t result;
 
   result = ion_.Deallocate();
   if (result < 0)
-    QMMF_ERROR("%s: %s() ion->Deallocate failed: %d[%s]", TAG, __func__, result,
+    QMMF_ERROR("%s() ion->Deallocate failed: %d[%s]", __func__, result,
                strerror(result));
 
   result = end_point_->Disconnect();
   if (result < 0)
-    QMMF_ERROR("%s: %s() endpoint->Disconnect failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Disconnect failed: %d[%s]", __func__,
                result, strerror(result));
 
   delete end_point_;
@@ -469,7 +469,7 @@ status_t AudioRawTrackSink::DeInit() {
 }
 
 status_t AudioRawTrackSink::StartSink() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   if (thread_ != nullptr) {
@@ -480,7 +480,7 @@ status_t AudioRawTrackSink::StartSink() {
 
   int32_t result = end_point_->Start();
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Start failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Start failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -490,7 +490,7 @@ status_t AudioRawTrackSink::StartSink() {
 
   thread_ = new thread(AudioRawTrackSink::ThreadEntry, this);
   if (thread_ == nullptr) {
-    QMMF_ERROR("%s: %s() could not instantiate thread", TAG, __func__);
+    QMMF_ERROR("%s() could not instantiate thread", __func__);
     end_point_->Stop();
     return ::android::NO_MEMORY;
   }
@@ -499,7 +499,7 @@ status_t AudioRawTrackSink::StartSink() {
 }
 
 status_t AudioRawTrackSink::StopSink() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   AudioMessage message;
@@ -512,7 +512,7 @@ status_t AudioRawTrackSink::StopSink() {
 
   int32_t result = end_point_->Stop();
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Stop failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Stop failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -530,7 +530,7 @@ status_t AudioRawTrackSink::StopSink() {
 }
 
 status_t AudioRawTrackSink::PauseSink() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   AudioMessage message;
@@ -543,7 +543,7 @@ status_t AudioRawTrackSink::PauseSink() {
 
   int32_t result = end_point_->Pause();
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Pause failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Pause failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -552,12 +552,12 @@ status_t AudioRawTrackSink::PauseSink() {
 }
 
 status_t AudioRawTrackSink::ResumeSink() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   int32_t result = end_point_->Resume();
   if (result < 0) {
-    QMMF_ERROR("%s: %s() endpoint->Resume failed: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -576,7 +576,7 @@ status_t AudioRawTrackSink::ResumeSink() {
 status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,
                                                void* param,
                                                uint32_t param_size) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
   auto ret = 0;
 
@@ -584,8 +584,8 @@ status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,
     uint32_t* volume_ptr = reinterpret_cast<uint32_t*>(param);
     ret = end_point_->SetParam(AudioParamType::kVolume, *volume_ptr);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: track_id(%d) SetAudioSinkParams failed!",
-                 TAG, __func__, track_params_.track_id);
+      QMMF_ERROR("%s: track_id(%d) SetAudioSinkParams failed!",
+                 __func__, track_params_.track_id);
       return ret;
     }
   }
@@ -594,9 +594,9 @@ status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,
 }
 
 status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer size[%u]", TAG, __func__,
+  QMMF_VERBOSE("%s() INPARAM: buffer size[%u]", __func__,
                buffers.size());
 
   uint32_t number_of_buffers = buffers.size();
@@ -606,7 +606,7 @@ status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
   while (av_buffers_.size() < number_of_buffers && thread_ != nullptr) {
     unique_lock<mutex> lk(av_buffers_lock_);
     if (buffer_signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
-      QMMF_WARN("%s: %s() timed out on wait for buffers", TAG, __func__);
+      QMMF_WARN("%s() timed out on wait for buffers", __func__);
   }
   if (thread_ == nullptr) return ::android::NO_ERROR;
 
@@ -614,8 +614,8 @@ status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
 
   for (uint32_t idx = 0; idx < number_of_buffers; ++idx) {
     AVCodecBuffer av_buffer = av_buffers_.front();
-    QMMF_VERBOSE("%s: %s() track[%u] processing next av_buffer[%s] from queue[%u]",
-                 TAG, __func__, track_params_.track_id,
+    QMMF_VERBOSE("%s() track[%u] processing next av_buffer[%s] from queue[%u]",
+                 __func__, track_params_.track_id,
                  av_buffer.ToString().c_str(), av_buffers_.size());
     buffers.push_back(av_buffer);
     av_buffers_.pop();
@@ -624,16 +624,16 @@ status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
   av_buffers_lock_.unlock();
 
   for (const AVCodecBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s: %s() OUTPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
   return ::android::NO_ERROR;
 }
 
 status_t AudioRawTrackSink::QueueInputBuffer(vector<AVCodecBuffer>& buffers) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
   for (const AVCodecBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
 
   for (const AVCodecBuffer& buffer : buffers) {
@@ -651,19 +651,19 @@ status_t AudioRawTrackSink::QueueInputBuffer(vector<AVCodecBuffer>& buffers) {
 }
 
 void AudioRawTrackSink::ErrorHandler(const int32_t error) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
-  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__, error);
+  QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__, error);
 
-  QMMF_ERROR("%s: %s() received error from endpoint: %d[%s]", TAG, __func__,
+  QMMF_ERROR("%s() received error from endpoint: %d[%s]", __func__,
                error, strerror(error));
   assert(false);
 }
 
 void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                buffer.ToString().c_str());
 
   AudioMessage message;
@@ -677,7 +677,7 @@ void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
 }
 
 void AudioRawTrackSink::StoppedHandler() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   if (thread_ != nullptr) {
@@ -694,13 +694,13 @@ void AudioRawTrackSink::StoppedHandler() {
 }
 
 void AudioRawTrackSink::ThreadEntry(AudioRawTrackSink* sink) {
-  QMMF_DEBUG("%s: %s() TRACE: track_id", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE: track_id", __func__);
 
   sink->Thread();
 }
 
 void AudioRawTrackSink::Thread() {
-  QMMF_DEBUG("%s: %s() TRACE: track_id[%u]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
   queue<AudioBuffer> buffers;
   queue<AVCodecBuffer> av_buffers;
@@ -717,7 +717,7 @@ void AudioRawTrackSink::Thread() {
     if (av_buffers.empty() && buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
       if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
-        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
+        QMMF_WARN("%s() timed out on wait", __func__);
     }
 
     // process the next pending message
@@ -727,39 +727,39 @@ void AudioRawTrackSink::Thread() {
 
       switch (message.type) {
         case AudioMessageType::kMessagePause:
-          QMMF_DEBUG("%s: %s-MessagePause() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessagePause() TRACE", __func__);
           paused = true;
           break;
 
         case AudioMessageType::kMessageResume:
-          QMMF_DEBUG("%s: %s-MessageResume() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageResume() TRACE", __func__);
           paused = false;
           break;
 
         case AudioMessageType::kMessageStop:
-          QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageStop() TRACE", __func__);
           paused = false;
           stop_received = true;
           break;
 
         case AudioMessageType::kMessageBuffer:
-          QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
-                       TAG, __func__, message.buffer.ToString().c_str(),
+          QMMF_DEBUG("%s-MessageBuffer() TRACE", __func__);
+          QMMF_VERBOSE("%s() INPARAM: buffer[%s] to queue[%u]",
+                       __func__, message.buffer.ToString().c_str(),
                        buffers.size());
           buffers.push(message.buffer);
-          QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                       TAG, __func__, buffers.size());
+          QMMF_VERBOSE("%s() buffers queue is now %u deep",
+                       __func__, buffers.size());
           break;
 
         case AudioMessageType::kMessageAVBuffer:
-          QMMF_DEBUG("%s: %s-MessageAVBuffer() TRACE", TAG, __func__);
-          QMMF_VERBOSE("%s: %s() INPARAM: av_buffer[%s] to queue[%u]",
-                       TAG, __func__, message.av_buffer.ToString().c_str(),
+          QMMF_DEBUG("%s-MessageAVBuffer() TRACE", __func__);
+          QMMF_VERBOSE("%s() INPARAM: av_buffer[%s] to queue[%u]",
+                       __func__, message.av_buffer.ToString().c_str(),
                        av_buffers.size());
           av_buffers.push(message.av_buffer);
-          QMMF_VERBOSE("%s: %s() av_buffers queue is now %u deep",
-                       TAG, __func__, av_buffers.size());
+          QMMF_VERBOSE("%s() av_buffers queue is now %u deep",
+                       __func__, av_buffers.size());
           break;
       }
       messages_.pop();
@@ -769,8 +769,8 @@ void AudioRawTrackSink::Thread() {
     // process buffers from endpoint
     if (!buffers.empty() && !paused && !stop_received && keep_running) {
       AudioBuffer buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() track[%u] processing next buffer[%s] from queue[%u]",
-                   TAG, __func__, track_params_.track_id,
+      QMMF_VERBOSE("%s() track[%u] processing next buffer[%s] from queue[%u]",
+                   __func__, track_params_.track_id,
                    buffer.ToString().c_str(), buffers.size());
 
 
@@ -787,15 +787,15 @@ void AudioRawTrackSink::Thread() {
       buffer_signal_.notify_one();
 
       buffers.pop();
-      QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                   TAG, __func__, buffers.size());
+      QMMF_VERBOSE("%s() buffers queue is now %u deep",
+                   __func__, buffers.size());
     }
 
     // process buffers from client
     if (!av_buffers.empty() && !paused && !stop_received && keep_running) {
       AVCodecBuffer av_buffer = av_buffers.front();
-      QMMF_VERBOSE("%s: %s() track[%u] processing next av_buffer[%s] from queue[%u]",
-                   TAG, __func__, track_params_.track_id,
+      QMMF_VERBOSE("%s() track[%u] processing next av_buffer[%s] from queue[%u]",
+                   __func__, track_params_.track_id,
                    av_buffer.ToString().c_str(), av_buffers.size());
 
       AudioBuffer buffer;
@@ -803,7 +803,7 @@ void AudioRawTrackSink::Thread() {
 
       int32_t result = end_point_->SendBuffers({buffer});
       if (result < 0) {
-        QMMF_ERROR("%s: %s() endpoint->SendBuffers failed: %d[%s]", TAG,
+        QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
                    __func__, result, strerror(result));
         assert(false);
       }
@@ -812,15 +812,15 @@ void AudioRawTrackSink::Thread() {
         eof_received = true;
 
       av_buffers.pop();
-      QMMF_VERBOSE("%s: %s() av_buffers queue is now %u deep",
-                   TAG, __func__, av_buffers.size());
+      QMMF_VERBOSE("%s() av_buffers queue is now %u deep",
+                   __func__, av_buffers.size());
     }
 
     // stop conditions
     if (stop_received || eof_received)
       keep_running = false;
   }
-  QMMF_DEBUG("%s: %s() exiting", TAG, __func__);
+  QMMF_DEBUG("%s() exiting", __func__);
 }
 
 };  // namespace player

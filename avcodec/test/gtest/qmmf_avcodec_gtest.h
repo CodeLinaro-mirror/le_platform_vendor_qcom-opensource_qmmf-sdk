@@ -59,9 +59,9 @@ class OutputCodecSourceImpl;
 class CodecGtest : public ::testing::Test {
 
  public:
-  CodecGtest() {};
+  CodecGtest();
 
-  ~CodecGtest() {};
+  ~CodecGtest(){};
 
  protected:
   const ::testing::TestInfo* test_info_;

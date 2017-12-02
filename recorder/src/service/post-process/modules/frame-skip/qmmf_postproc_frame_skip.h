@@ -27,27 +27,73 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "ReprocessPlugin"
+#pragma once
 
-#include <algorithm>
-#include <fcntl.h>
-#include <sys/mman.h>
+#include "common/utils/qmmf_common_utils.h"
 
-#include "recorder/src/service/qmmf_recorder_utils.h"
-
-#include "recorder/src/service/qmmf_camera_context.h"
-
-#include "recorder/src/service/post-process/node/qmmf_postproc_node.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.h"
-#include "recorder/src/service/post-process/plugin/qmmf_postproc_plugin.cc"
+#include "../../interface/qmmf_postproc_module.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-template class PostProcPlugin<CameraContext>;
-template class PostProcPlugin<PostProcNode>;
+class PostProcFrameSkip : public IPostProcModule {
 
-}; // namespace recoder
+ public:
 
-}; // namespace qmmf
+   PostProcFrameSkip();
+
+   ~PostProcFrameSkip();
+
+   status_t Initialize(const PostProcIOParam &in_param,
+                       const PostProcIOParam &out_param) override;
+
+   status_t Delete() override;
+
+   void SetCallbacks(IPostProcEventListener *cb) override {Listener_ = cb;};
+
+   status_t Configure(const std::string config_json_data) override;
+
+   status_t Process(const std::vector<StreamBuffer> &in_buffers,
+                    const std::vector<StreamBuffer> &out_buffers) override;
+
+   void AddResult(const void* result) override {};
+
+   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
+
+   status_t Start(const int32_t stream_id) override;
+
+   status_t Stop() override;
+
+   status_t Abort(std::shared_ptr<void> &abort) override;
+
+   PostProcIOParam GetInput(const PostProcIOParam &out) override;
+
+   status_t ValidateOutput(const PostProcIOParam &output) override;
+
+   status_t GetCapabilities(PostProcCaps &caps) override;
+
+ private:
+
+   enum class State {
+     CREATED,
+     INITIALIZED,
+     ACTIVE,
+     ABORTED
+   };
+
+   bool SkipFrame(void);
+
+   IPostProcEventListener         *Listener_;
+
+   std::mutex                     state_lock_;
+   State                          state_;
+
+   uint32_t                       frame_skip_;
+   uint32_t                       frame_counter_;
+
+};
+
+}; //namespace recorder
+
+}; //namespace qmmf

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderPostProcThread"
+#define LOG_TAG "RecorderPostProcThread"
 
 #include <sys/prctl.h>
 #include <stdio.h>

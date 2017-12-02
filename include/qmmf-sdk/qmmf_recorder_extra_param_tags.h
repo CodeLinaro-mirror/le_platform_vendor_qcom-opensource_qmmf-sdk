@@ -40,10 +40,20 @@ enum ParamTag {
   QMMF_SURFACE_CROP,
   QMMF_MULTICAM_STITCH_CONFIG,
   QMMF_POSTPROCESS_PLUGIN,
+  QMMF_POSTPROCESS_FRAME_SKIP,
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
+  QMMF_IMAGE_THUMBNAIL,
   QMMF_SNAPSHOT_TYPE,
   QMMF_VIDEO_WAIT_AEC_MODE,
+  QMMF_VIDEO_ROTATE,
+};
+
+enum class RotationFlags {
+  kNone,
+  kRotate90,
+  kRotate180,
+  kRotate270,
 };
 
 enum class TransformFlags {
@@ -87,7 +97,8 @@ enum class StitchingMode {
 enum class SnapshotMode {
   kNone,
   kStill,
-  kVideo
+  kVideo,
+  kContinuous
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -144,6 +155,15 @@ struct PostprocPlugin : DataTagBase {
       uid(0) {}
 };
 
+struct PostprocFrameSkip : DataTagBase {
+  // Number of skip frames for each sent frame
+  uint32_t frame_skip;     // Default: 0 means no skip
+
+  PostprocFrameSkip()
+    : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
+      frame_skip(0) {}
+};
+
 struct SourceVideoTrack : DataTagBase {
   int32_t source_track_id;  // Default: -1
   SourceVideoTrack()
@@ -156,6 +176,16 @@ struct VideoTimeLapse : DataTagBase {
   VideoTimeLapse()
     : DataTagBase(QMMF_VIDEO_TIMELAPSE_INTERVAL),
       time_interval(33) {}
+};
+
+struct ImageThumbnail : DataTagBase {
+  uint32_t width;   // Default: 0
+  uint32_t height;  // Default: 0
+  uint32_t quality; // Default: 75 (range: 0~100)
+
+  ImageThumbnail()
+    : DataTagBase(QMMF_IMAGE_THUMBNAIL),
+      width(0), height(0), quality(75) {}
 };
 
 struct SnapshotType : DataTagBase {
@@ -173,6 +203,14 @@ struct VideoWaitAECMode : DataTagBase {
   VideoWaitAECMode()
     : DataTagBase(QMMF_VIDEO_WAIT_AEC_MODE),
       enable(false) {}
+};
+
+struct VideoRotate : DataTagBase {
+  RotationFlags flags; // Default: TransformFlags::kNone
+  VideoRotate()
+    : DataTagBase(QMMF_VIDEO_ROTATE),
+      flags(RotationFlags::kNone) {
+  }
 };
 
 }; //namespace recorder.

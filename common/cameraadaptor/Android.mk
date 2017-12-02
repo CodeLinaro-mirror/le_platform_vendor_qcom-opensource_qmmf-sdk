@@ -22,6 +22,7 @@ LOCAL_SRC_FILES += qmmf_camera3_prepare_handler.cc
 LOCAL_SRC_FILES += qmmf_camera3_stream.cc
 LOCAL_SRC_FILES += qmmf_camera3_thread.cc
 LOCAL_SRC_FILES += qmmf_camera3_utils.cc
+LOCAL_SRC_FILES += qmmf_camera3_smooth_zoom.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata libhardware libcamera_client
 

@@ -48,6 +48,7 @@ using namespace cameraadaptor;
 
 #define VIDEO_STREAM_BUFFER_COUNT    11
 #define PREVIEW_STREAM_BUFFER_COUNT  10
+#define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
 
@@ -217,7 +218,7 @@ class CameraContext : public CameraInterface,
 
   std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
 
-  bool IsPostProcNeeded(const ImageParam &param);
+  bool IsPostProcNeeded(const ImageParam &param, const uint32_t sequence_cnt);
 
   CameraPort* GetPort(const uint32_t track_id);
 
@@ -272,7 +273,12 @@ class CameraContext : public CameraInterface,
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
-  uint32_t                 burst_cnt_;
+  int64_t                  last_snapshot_id_;
+  int64_t                  curr_snapshot_id_;
+  uint32_t                 capture_cnt_;
+  bool                     capture_done_;
+  std::mutex               capture_lock_;
+  QCondition               capture_signal_;
   bool                     postproc_enable_;
   bool                     cancel_capture_ = false;
 
@@ -305,9 +311,6 @@ class CameraContext : public CameraInterface,
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
 
-  std::mutex               capture_count_lock_;
-  QCondition               capture_count_signal_;
-
   std::mutex               pending_frames_lock_;
   QCondition               pending_frames_;
 
@@ -315,7 +318,8 @@ class CameraContext : public CameraInterface,
   std::mutex               aec_lock_;
   QCondition               aec_state_updated_;
 
-  static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
+  static const uint32_t    kWaitAecTimeout = 500000000; // 500 ms.
+  static const uint32_t    kWaitPendingFramesTimeout = 1500000000; // 1500 ms.
 
   std::string              pipe_config_json_data_;
 
@@ -323,6 +327,8 @@ class CameraContext : public CameraInterface,
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
   SnapshotMode             snapshot_type_;
+  SnapshotMode             new_snapshot_type_;
+  bool                     postproc_frame_skip_;
 };
 
 enum class CameraPortType {

@@ -64,7 +64,7 @@ class PostProcFactory {
    std::shared_ptr<PostProcNode> GetProcNode(const uint32_t &uid);
 
    std::shared_ptr<PostProcNode> GetProcNode(const std::string &name,
-                                             IPostProc* context);
+                                             IPostProc* context = nullptr);
 
    status_t ReturnProcNode(const uint32_t &uid);
 

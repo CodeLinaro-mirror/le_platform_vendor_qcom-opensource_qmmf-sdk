@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderPostProcAlg"
+#define LOG_TAG "RecorderPostProcAlg"
 
 #include <stdio.h>
 #include <sys/mman.h>
@@ -44,10 +44,10 @@ using namespace qmmf_alg_plugin;
 
 PostProcAlg::PostProcAlg(std::string lib)
     : Lib_(lib),
-      reprocess_flag_(false),
-      ready_to_start_(false),
-      pass_through_(false) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+      state_(State::CREATED),
+      abort_(nullptr),
+      in_fight_count_(0) {
+  QMMF_INFO("%s: Enter", __func__);
 
   try {
     Utils::LoadLib(Lib_, lib_handle_);
@@ -57,7 +57,7 @@ PostProcAlg::PostProcAlg(std::string lib)
     std::vector<uint8_t> calibration_data;
     algo_ = LoadPluginFunc(calibration_data);
   } catch (const std::exception &e) {
-    QMMF_ERROR("%s:%s: Error loading: %s exception: %s", TAG, __func__,
+    QMMF_ERROR("%s: Error loading: %s exception: %s", __func__,
         Lib_.c_str(), e.what());
     throw e;
   }
@@ -66,11 +66,12 @@ PostProcAlg::PostProcAlg(std::string lib)
   property_get("persist.qmmf.postproc.skipalgo", prop_val, "0");
   pass_through_ = (0 == atoi(prop_val)) ? false : true;
 
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  algo_caps_ = algo_->GetCaps();
+
 }
 
 PostProcAlg::~PostProcAlg() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
   buffs_.clear();
 
@@ -80,33 +81,29 @@ PostProcAlg::~PostProcAlg() {
   try {
     Utils::UnloadLib(lib_handle_);
   } catch (const std::exception &e) {
-    QMMF_ERROR("%s:%s: Error releasing: %s exception: %s", TAG, __func__,
+    QMMF_ERROR("%s: Error releasing: %s exception: %s", __func__,
         Lib_.c_str(), e.what());
     throw e;
   }
 
-  QMMF_INFO("%s:%s: Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
 status_t PostProcAlg::Initialize(const PostProcIOParam &in_param,
                                  const PostProcIOParam &out_param) {
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
-  if (ready_to_start_) {
-    QMMF_ERROR("%s:%s: Failed: Already configured.", TAG, __func__);
-    return BAD_VALUE;
-  }
-
-  if (reprocess_flag_) {
-    QMMF_ERROR("%s:%s: Failed: Wrong state.", TAG, __func__);
+  recursive_lock_guard lock(lock_);
+  if (state_ != State::CREATED) {
+    QMMF_ERROR("%s: Failed: Wrong state %d", __func__, state_);
     return BAD_VALUE;
   }
 
   algo_->SetCallbacks(this);
 
-  ready_to_start_ = true;
+  state_ = State::INITIALIZED;
 
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
 
   return NO_ERROR;
 }
@@ -134,16 +131,14 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   input_param.scanline = requirements.scanline_;
   input_param.format   = GetQmmfFormat(requirements.formats_.front());
 
-  Capabilities caps = algo_->GetCaps();
-
   // set number of needed buffer for rotation
-  if (caps.inplace_processing_) {
+  if (algo_caps_.inplace_processing_) {
     // increase buffer count if algo is in place
-    input_param.buffer_count += caps.out_buffer_requirements_.count_;
+    input_param.buffer_count += algo_caps_.out_buffer_requirements_.count_;
   } else {
     // set buffer count if algo is not in place
     input_param.buffer_count =
-      kBufCount + caps.in_buffer_requirements_.count_;
+      kBufCount + algo_caps_.in_buffer_requirements_.count_;
   }
 
   // set number of needed buffer for rotation if client does not limit it
@@ -156,11 +151,9 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
 }
 
 status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
-  Capabilities caps = algo_->GetCaps();
-
-  if (caps.out_buffer_requirements_.pixel_formats_.
+  if (algo_caps_.out_buffer_requirements_.pixel_formats_.
         count(GetAlgFormat(output.format)) == 0) {
-    QMMF_ERROR("%s:%s: Output format %d alg %x not supported", TAG, __func__,
+    QMMF_ERROR("%s: Output format %d alg %x not supported", __func__,
         output.format, (unsigned int)GetAlgFormat(output.format));
     return BAD_TYPE;
   }
@@ -169,19 +162,17 @@ status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
-  Capabilities algo_caps = algo_->GetCaps();
-
-  caps.output_buff_        = algo_caps.out_buffer_requirements_.count_;
-  caps.min_width_          = algo_caps.out_buffer_requirements_.min_width_;
-  caps.min_height_         = algo_caps.out_buffer_requirements_.min_height_;
-  caps.max_width_          = algo_caps.out_buffer_requirements_.min_width_;
-  caps.max_height_         = algo_caps.out_buffer_requirements_.min_height_;
-  caps.crop_support_       = algo_caps.crop_support_;
-  caps.scale_support_      = algo_caps.scale_support_;
-  caps.inplace_processing_ = algo_caps.inplace_processing_;
+  caps.output_buff_        = algo_caps_.out_buffer_requirements_.count_;
+  caps.min_width_          = algo_caps_.out_buffer_requirements_.min_width_;
+  caps.min_height_         = algo_caps_.out_buffer_requirements_.min_height_;
+  caps.max_width_          = algo_caps_.out_buffer_requirements_.min_width_;
+  caps.max_height_         = algo_caps_.out_buffer_requirements_.min_height_;
+  caps.crop_support_       = algo_caps_.crop_support_;
+  caps.scale_support_      = algo_caps_.scale_support_;
+  caps.inplace_processing_ = algo_caps_.inplace_processing_;
   caps.usage_              = 0;
 
-  for (auto fmt : algo_caps.out_buffer_requirements_.pixel_formats_) {
+  for (auto fmt : algo_caps_.out_buffer_requirements_.pixel_formats_) {
     caps.formats_.insert(GetQmmfFormat(fmt));
   }
 
@@ -196,12 +187,15 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
 }
 
 status_t PostProcAlg::Start(const int32_t stream_id) {
-  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
-  if (!ready_to_start_) {
+  QMMF_INFO("%s: Enter %p", __func__, this);
+
+  recursive_lock_guard lock(lock_);
+  if (state_ != State::INITIALIZED) {
+    QMMF_ERROR("%s: Failed: Wrong state %d", __func__, state_);
     return BAD_VALUE;
   }
 
-  reprocess_flag_ = true;
+  state_ = State::ACTIVE;
 
   char prop[PROPERTY_VALUE_MAX];
   property_get("persist.qmmf.postproc.dump.in", prop, "0");
@@ -209,7 +203,7 @@ status_t PostProcAlg::Start(const int32_t stream_id) {
     dump_in_frame_ = false;
   } else {
     dump_in_frame_ = true;
-    QMMF_INFO("%s:%s: Enable input frame dump", TAG, __func__);
+    QMMF_INFO("%s: Enable input frame dump", __func__);
   }
 
   property_get("persist.qmmf.postproc.dump.out", prop, "0");
@@ -217,34 +211,50 @@ status_t PostProcAlg::Start(const int32_t stream_id) {
     dump_out_frame_ = false;
   } else {
     dump_out_frame_ = true;
-    QMMF_INFO("%s:%s: Enable output frame dump", TAG, __func__);
+    QMMF_INFO("%s: Enable output frame dump", __func__);
   }
 
-  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+  QMMF_INFO("%s: Exit %p", __func__, this);
 
   return NO_ERROR;
 }
 
 status_t PostProcAlg::Stop() {
-  QMMF_INFO("%s:%s: Enter %p", TAG, __func__, this);
+  QMMF_INFO("%s: Enter %p", __func__, this);
 
-  ready_to_start_ = false;
+  recursive_lock_guard lock(lock_);
+  state_ = State::INITIALIZED;
 
-  reprocess_flag_ = false;
+  QMMF_INFO("%s: Exit %p", __func__, this);
+  return NO_ERROR;
+}
 
-  QMMF_INFO("%s:%s: Exit %p", TAG, __func__, this);
+status_t PostProcAlg::Abort(std::shared_ptr<void> &abort) {
+  QMMF_INFO("%s: Enter %p", __func__, this);
+
+  recursive_lock_guard lock(lock_);
+  if (in_fight_count_ > 0) {
+    QMMF_VERBOSE("%s: Acquire abort done handler", __func__);
+    abort_ = abort;
+  }
+
+  // todo: Some algorithms does not return buffers on abort
+  //algo_->Abort();
+
+  state_ = State::ABORTED;
+
+  QMMF_INFO("%s: Exit %p", __func__, this);
   return NO_ERROR;
 }
 
 status_t PostProcAlg::Delete() {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
+  recursive_lock_guard lock(lock_);
   algo_->Abort();
+  state_ = State::CREATED;
 
-  reprocess_flag_ = false;
-  ready_to_start_ = false;
-
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -252,7 +262,7 @@ status_t PostProcAlg::Configure(const std::string config_json_data) {
   try {
     algo_->Configure(config_json_data);
   } catch (const std::exception &e) {
-    QMMF_ERROR("%s:%s: Error while configuring exception: %s", TAG,
+    QMMF_ERROR("%s: Error while configuring exception: %s",
         __func__, e.what());
     return BAD_VALUE;
   }
@@ -271,18 +281,19 @@ status_t PostProcAlg::Process(
     return NO_ERROR;
   }
 
-  if (reprocess_flag_ == true) {
+  recursive_lock_guard lock(lock_);
+  if (state_ == State::ACTIVE) {
     std::vector<AlgBuffer> in_alg_buffers;
     auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Fail to prepare in buffers", TAG, __func__);
+      QMMF_ERROR("%s: Fail to prepare in buffers", __func__);
       return BAD_VALUE;
     }
 
     std::vector<AlgBuffer> out_alg_buffers;
     ret = PrepareAlgBuffer(out_alg_buffers, out_buffers);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: Fail to prepare out buffers", TAG, __func__);
+      QMMF_ERROR("%s: Fail to prepare out buffers", __func__);
       return BAD_VALUE;
     }
 
@@ -290,7 +301,7 @@ status_t PostProcAlg::Process(
       algo_->RegisterInputBuffers(in_alg_buffers);
       algo_->RegisterOutputBuffers(out_alg_buffers);
     } catch (const std::exception &e) {
-      QMMF_ERROR("%s:%s: Error registering buffers exception: %s", TAG,
+      QMMF_ERROR("%s: Error registering buffers exception: %s",
           __func__, e.what());
       throw e;
     }
@@ -304,18 +315,24 @@ status_t PostProcAlg::Process(
     try {
       algo_->Process(in_alg_buffers, out_alg_buffers);
     } catch (const std::exception &e) {
-      QMMF_ERROR("%s:%s: Error while processing exception: %s", TAG,
+      QMMF_ERROR("%s: Error while processing exception: %s",
           __func__, e.what());
       algo_->UnregisterInputBuffers(in_alg_buffers);
       algo_->UnregisterOutputBuffers(out_alg_buffers);
       return BAD_VALUE;
     }
+
+    if (algo_caps_.inplace_processing_) {
+      in_fight_count_ += 1;
+    } else {
+      in_fight_count_ += 2;
+    }
   } else {
     for (auto iter : in_buffers) {
-      listener_->OnFrameReady(iter);
+      listener_->OnFrameProcessed(iter);
     }
     for (auto iter : out_buffers ) {
-      listener_->OnFrameProcessed(iter);
+      listener_->OnFrameReady(iter);
     }
   }
 
@@ -323,13 +340,19 @@ status_t PostProcAlg::Process(
 }
 
 void PostProcAlg::OnFrameProcessed(const AlgBuffer &input_buffer) {
-
   const std::vector<AlgBuffer> buffers = {input_buffer};
   algo_->UnregisterInputBuffers(buffers);
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(input_buffer);
   listener_->OnFrameProcessed(buf);
+
+  recursive_lock_guard lock(lock_);
+  in_fight_count_--;
+  if (in_fight_count_ == 0 && state_ == State::ABORTED) {
+    QMMF_VERBOSE("%s: Release abort done handler", __func__);
+    abort_ = nullptr;
+  }
 }
 
 void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
@@ -343,10 +366,17 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(output_buffer);
   listener_->OnFrameReady(buf);
+
+  recursive_lock_guard lock(lock_);
+  in_fight_count_--;
+  if (in_fight_count_ == 0 && state_ == State::ABORTED) {
+    QMMF_VERBOSE("%s: Release abort done handler", __func__);
+    abort_ = nullptr;
+  }
 }
 
 void PostProcAlg::OnError(RuntimeError err) {
-  QMMF_ERROR("%s:%s: Error %d", TAG, __func__, err);
+  QMMF_ERROR("%s: Error %d", __func__, err);
   listener_->OnError(err);
 }
 
@@ -398,7 +428,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
 
   for (auto stream_buffer : stream_buffs) {
     if (stream_buffer.fd == -1 || stream_buffer.data == nullptr) {
-      QMMF_ERROR("%s:%s buffer FD %d address %p", TAG, __func__,
+      QMMF_ERROR("%s buffer FD %d address %p", __func__,
           stream_buffer.fd, stream_buffer.data);
       return BAD_VALUE;
     }
@@ -423,7 +453,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
           stride_in_bytes;
     }
 
-    QMMF_INFO("%s:%s Buffer format: %d", TAG, __func__, stream_buffer.info.format);
+    QMMF_INFO("%s Buffer format: %d", __func__, stream_buffer.info.format);
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
                   stream_buffer.fd,
                   stream_buffer.size,
@@ -439,7 +469,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
 
     // store stream buffer because we need to return this buffer to upper layer
     if (buffs_.count(stream_buffer.fd) != 0) {
-      QMMF_ERROR("%s:%s Failed to add FD %d", TAG, __func__, stream_buffer.fd);
+      QMMF_ERROR("%s Failed to add FD %d", __func__, stream_buffer.fd);
       return BAD_VALUE;
     }
     buffs_[stream_buffer.fd] = stream_buffer;
@@ -568,17 +598,17 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
 
   FILE *file = fopen(file_name.c_str(), "w+");
   if (!file) {
-    QMMF_ERROR("%s:%s Unable to open: %s", TAG, __func__, file_name.c_str());
+    QMMF_ERROR("%s Unable to open: %s", __func__, file_name.c_str());
     return;
   }
 
   auto written_len = fwrite(buf.vaddr_, sizeof(uint8_t), buf.size_, file);
   if (buf.size_ != written_len) {
-    QMMF_ERROR("%s:%s Bad Write error %d", TAG, __func__, errno);
+    QMMF_ERROR("%s Bad Write error %d", __func__, errno);
     fclose(file);
     return;
   }
-  QMMF_INFO("%s:%s: Dump %s frame to %s\n", TAG, __func__,
+  QMMF_INFO("%s: Dump %s frame to %s\n", __func__,
       input ? "input" : "output", file_name.c_str());
 
   fclose(file);
@@ -589,7 +619,7 @@ StreamBuffer PostProcAlg::GetStreamBuffer(const AlgBuffer &algo_buf) {
 
   int32_t fd = algo_buf.fd_;
   if (buffs_.count(fd) == 0) {
-    QMMF_ERROR("%s:%s Failed to find entry for FD %d ", TAG, __func__, fd);
+    QMMF_ERROR("%s Failed to find entry for FD %d ", __func__, fd);
     assert(0);
   }
 
