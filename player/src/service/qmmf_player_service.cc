@@ -297,7 +297,15 @@ namespace player {
 
     case PLAYER_STOP:
     {
-      ret = Stop();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      const PictureParam* params = reinterpret_cast<const PictureParam*>
+                                                   (blob.data());
+
+      ret = Stop(*params);
+      blob.release();
       reply->writeInt32(ret);
       return NO_ERROR;
     }
@@ -305,7 +313,15 @@ namespace player {
 
     case PLAYER_PAUSE:
     {
-      ret = Pause();
+      uint32_t blob_size;
+      data.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blob_size, &blob);
+      const PictureParam* params = reinterpret_cast<const PictureParam*>
+                                                   (blob.data());
+
+      ret = Pause(*params);
+      blob.release();
       reply->writeInt32(ret);
       return NO_ERROR;
     }
@@ -336,23 +352,6 @@ namespace player {
       dir = data.readUint32();
       ret = SetTrickMode(static_cast<TrickModeSpeed>(speed),
           static_cast<TrickModeDirection>(dir));
-      reply->writeInt32(ret);
-      return NO_ERROR;
-    }
-    break;
-
-    case PLAYER_GRAB_PICTURE:
-    {
-      uint32_t blob_size;
-      data.readUint32(&blob_size);
-      android::Parcel::ReadableBlob blob;
-      data.readBlob(blob_size, &blob);
-      void* params = const_cast<void*>(blob.data());
-      PictureParam picture_params;
-      assert(blob_size == sizeof(picture_params));
-      memcpy(&picture_params, params, blob_size);
-      ret = GrabPicture(static_cast<PictureParam>(picture_params));
-      blob.release();
       reply->writeInt32(ret);
       return NO_ERROR;
     }
@@ -577,14 +576,14 @@ status_t PlayerService::Start() {
   return ret;
 }
 
-status_t PlayerService::Stop() {
+status_t PlayerService::Stop(const PictureParam& params) {
   QMMF_DEBUG("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
   assert(player_ != NULL);
 
-  auto ret = player_->Stop();
+  auto ret = player_->Stop(params);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: Stop failed!", __func__);
     return BAD_VALUE;
@@ -593,14 +592,14 @@ status_t PlayerService::Stop() {
   return ret;
 }
 
-status_t PlayerService::Pause() {
+status_t PlayerService::Pause(const PictureParam& params) {
   QMMF_DEBUG("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
   assert(player_ != NULL);
 
-  auto ret = player_->Pause();
+  auto ret = player_->Pause(params);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: Pause failed!", __func__);
     return BAD_VALUE;
@@ -641,7 +640,8 @@ status_t PlayerService::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-status_t PlayerService::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
+status_t PlayerService::SetTrickMode(TrickModeSpeed speed,
+                                     TrickModeDirection dir) {
   QMMF_DEBUG("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
@@ -651,22 +651,6 @@ status_t PlayerService::SetTrickMode(TrickModeSpeed speed, TrickModeDirection di
   auto ret = player_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: SetTrickMode failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit ", __func__);
-  return ret;
-}
-
-status_t PlayerService::GrabPicture(PictureParam param) {
-  QMMF_DEBUG("%s: Enter ", __func__);
-  if (!connected_)
-    return NO_INIT;
-
-  assert(player_ != NULL);
-
-  auto ret = player_->GrabPicture(param);
-  if (ret != NO_ERROR) {
-    QMMF_INFO("%s: GrabPicture failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);

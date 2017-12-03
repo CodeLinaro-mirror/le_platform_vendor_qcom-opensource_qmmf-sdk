@@ -71,16 +71,15 @@ class PlayerTest {
   void Connect();
   void Disconnect();
 
-  void Prepare();
+  void Prepare(bool with_pts);
   void Delete();
   void Start();
-  void Stop();
-  void Pause();
+  void Stop(bool with_grab);
+  void Pause(bool with_grab);
   void Resume();
 
   void SetPosition();
   void SetTrickMode();
-  void GrabPicture();
 
   void PlayerHandler(EventType event_type,
                      void* event_data,
@@ -96,7 +95,7 @@ class PlayerTest {
                          void* event_data,
                          size_t event_data_size);
 
-  void GrabPictureDataCB(BufferDescriptor& buffer);
+  void GrabPictureDataCB(uint32_t track_id, BufferDescriptor& buffer);
 
   bool IsStopPlaying();
   int32_t StopPlayback();
@@ -172,13 +171,15 @@ class CmdMenu {
       CONNECT_CMD                       = '1',
       DISCONNECT_CMD                    = '2',
       PREPARE_CMD                       = '3',
-      START_CMD                         = '4',
-      STOP_CMD                          = '5',
-      PAUSE_CMD                         = '6',
-      RESUME_CMD                        = '7',
-      DELETE_CMD                        = '8',
+      PREPARE_PTS_CMD                   = '4',
+      START_CMD                         = '5',
+      STOP_CMD                          = '6',
+      STOP_WITH_GRAB_CMD                = 'a',
+      PAUSE_CMD                         = '7',
+      PAUSE_WITH_GRAB_CMD               = 'b',
+      RESUME_CMD                        = '8',
+      DELETE_CMD                        = '9',
       TRICK_MODE_CMD                    = 'T',
-      GRAB_PICTURE                      = 'P',
       SEEK_CMD                          = 'S',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',

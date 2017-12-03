@@ -82,17 +82,15 @@ class PlayerClient {
 
   status_t Start();
 
-  status_t Stop();
+  status_t Stop(const PictureCallback& handler, const PictureParam& params);
 
-  status_t Pause();
+  status_t Pause(const PictureCallback& handler, const PictureParam& params);
 
   status_t Resume();
 
   status_t SetPosition(int64_t seek_time);
 
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
-
-  status_t GrabPicture(PictureParam param, PictureCallback& cb);
 
   status_t SetAudioTrackParam(uint32_t track_id,
                               CodecParamType type,
@@ -116,7 +114,8 @@ class PlayerClient {
                              void *event_data,
                              size_t event_data_size);
 
-  void NotifyGrabPictureData(BufferDescriptor& buffer);
+  void NotifyGrabPictureData(uint32_t track_id,
+                             BufferDescriptor& buffer);
 
  private:
 
@@ -190,7 +189,8 @@ class ServiceCallbackHandler : public BnPlayerServiceCallback {
                              void *event_data,
                              size_t event_data_size) override;
 
-  void NotifyGrabPictureData(BufferDescriptor& buffer) override;
+  void NotifyGrabPictureData(uint32_t track_id,
+                             BufferDescriptor& buffer) override;
 
   PlayerClient *client_;
 };

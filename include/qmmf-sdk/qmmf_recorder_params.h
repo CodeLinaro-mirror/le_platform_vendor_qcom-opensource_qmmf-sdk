@@ -53,9 +53,8 @@ namespace recorder {
 
 #define MAX_IN_DEVICES 4
 
-#define SENSOR_VENDOR_MODE_OFFSET (24)
-#define SENSOR_VENDOR_MODE_MASK (0xff)
 #define MAX_AUDIO_INPUT_DEVICES (10)
+#define MAX_AUDIO_PROFILE (80)
 #define MAX_THUMBNAIL_IMAGE_PARAM (2)
 
 typedef int32_t status_t;
@@ -222,6 +221,7 @@ struct AudioTrackCreateParam {
   uint32_t                sample_rate;
   uint32_t                channels;
   uint32_t                bit_depth;
+  char                    profile[MAX_AUDIO_PROFILE];
   AudioFormat             format;
   AudioCodecParams        codec_params;
   DeviceId                out_device;
@@ -236,6 +236,7 @@ struct AudioTrackCreateParam {
     stream << "sample_rate[" << sample_rate << "] ";
     stream << "channels[" << channels << "] ";
     stream << "bit_depth[" << bit_depth << "] ";
+    stream << "profile[" << ::std::string(profile) << "] ";
     stream << "format["
            << static_cast<::std::underlying_type<AudioFormat>::type>(format)
            << "] ";
@@ -445,15 +446,6 @@ struct CameraStartParam {
     stream << "flags[" << flags << "]";
     return stream.str();
   };
-
-  void setSensorVendorMode(int32_t sensor_vendor_mode) {
-    flags &= ~(SENSOR_VENDOR_MODE_MASK);
-    flags |= sensor_vendor_mode << SENSOR_VENDOR_MODE_OFFSET;
-  };
-
-  int32_t getSensorVendorMode() const {
-    return flags >> SENSOR_VENDOR_MODE_OFFSET;
-  }
 };
 
 /// \brief For thumbnail images only kJPEG is supported

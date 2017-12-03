@@ -54,7 +54,7 @@ class RemoteCallBack : public RefBase {
   void NotifyAudioTrackEvent(uint32_t track_id, EventType event_type,
                              void *event_data, size_t event_data_size);
 
-  void NotifyGrabPictureData(BufferDescriptor& buffer);
+  void NotifyGrabPictureData(uint32_t track_id, BufferDescriptor& buffer);
 
  private:
   sp<IPlayerServiceCallback> client_cb_handle_;

@@ -231,7 +231,9 @@ status_t VideoDecoderCore::StartTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
-status_t VideoDecoderCore::StopTrackDecoder(uint32_t track_id) {
+status_t VideoDecoderCore::StopTrackDecoder(uint32_t track_id,
+                                            const PictureParam& params,
+                                            BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -243,7 +245,7 @@ status_t VideoDecoderCore::StopTrackDecoder(uint32_t track_id) {
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret = track_decoder->StopDecoder();
+  auto ret = track_decoder->StopDecoder(params, grab_buffer);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: track_id(%d) StopDecoder failed!", __func__,
       track_id);
@@ -256,7 +258,9 @@ status_t VideoDecoderCore::StopTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
-status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id) {
+status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id,
+                                             const PictureParam& params,
+                                             BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -268,7 +272,7 @@ status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id) {
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret = track_decoder->PauseDecoder();
+  auto ret = track_decoder->PauseDecoder(params, grab_buffer);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: track_id(%d) PauseDecoder failed!", __func__,
      track_id);
@@ -688,7 +692,8 @@ status_t VideoTrackDecoder::StartDecoder() {
   return ret;
 }
 
-status_t VideoTrackDecoder::StopDecoder() {
+status_t VideoTrackDecoder::StopDecoder(const PictureParam& params,
+                                        BufferDescriptor* grab_buffer) {
   QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
   auto ret = 0;
 
@@ -705,7 +710,7 @@ status_t VideoTrackDecoder::StopDecoder() {
     return ret;
   }
 
-  ret = video_track_sink_->StopSink();
+  ret = video_track_sink_->StopSink(params, grab_buffer);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
@@ -729,10 +734,11 @@ status_t VideoTrackDecoder::StopDecoder() {
   return ret;
 }
 
-status_t VideoTrackDecoder::PauseDecoder() {
+status_t VideoTrackDecoder::PauseDecoder(const PictureParam& params,
+                                         BufferDescriptor* grab_buffer) {
   QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
 
-  auto ret = video_track_sink_->PauseSink();
+  auto ret = video_track_sink_->PauseSink(params, grab_buffer);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) PauseSink failed!", __func__,
         TrackId());
@@ -854,12 +860,11 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   QMMF_DEBUG("%s: Enter track_id(%d) frames_to_decode_.Size(%d) ",
       __func__, TrackId(),frames_to_decode_.Size());
 
-  if (frames_to_decode_.Size() <= 0 && !stop_received_) {
+  while (frames_to_decode_.Size() <= 0 && !stop_received_) {
     QMMF_DEBUG("%s track_id(%d) No Filled buffer available for AVCodec, wait for new buffer",
                __func__, TrackId());
     std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
     std::chrono::seconds wait_time(1);
-
     wait_for_frame_.WaitFor(lock, wait_time);
   }
   if (stop_received_) return NO_ERROR;

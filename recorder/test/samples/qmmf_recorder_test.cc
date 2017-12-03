@@ -29,6 +29,8 @@
 
 #define LOG_TAG "RecorderTest"
 
+#include <string>
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/time.h>
@@ -3006,7 +3008,7 @@ status_t RecorderTest::CreateAudioPCMFluenceTrack() {
   TrackInfo info;
   memset(&info, 0x0, sizeof info);
   info.track_id   = 101;
-  info.track_type = TrackType::kAudioPCM;
+  info.track_type = TrackType::kAudioPCMFP;
   info.session_id = session_id;
   info.camera_id = camera_id_;
   info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
@@ -3015,12 +3017,6 @@ status_t RecorderTest::CreateAudioPCMFluenceTrack() {
   assert(ret == 0);
   tracks.push_back(audio_pcm_track);
   sessions_.insert(std::make_pair(session_id, tracks));
-
-  bool enable = true;
-  ret = recorder_.SetAudioTrackParam(session_id, info.track_id,
-                                     CodecParamType::kAudioFluencePro,
-                                     &enable, sizeof(enable));
-  assert(ret == 0);
 
   TEST_INFO("%s: Exit", __func__);
   return ret;
@@ -3571,6 +3567,7 @@ status_t RecorderTest::DeleteSession() {
   for (auto track : it->second) {
       assert(track != nullptr);
       if (track->GetTrackType() == TrackType::kAudioPCM ||
+          track->GetTrackType() == TrackType::kAudioPCMFP ||
           track->GetTrackType() == TrackType::kAudioAAC ||
           track->GetTrackType() == TrackType::kAudioAMR ||
           track->GetTrackType() == TrackType::kAudioG711) {
@@ -4228,6 +4225,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     // Delete all the tracks associated to session.
     for (uint32_t i=0;i < tracks.size();i++) {
       if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
+            tracks[i]->GetTrackType() == TrackType::kAudioPCMFP ||
             tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
             tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
             tracks[i]->GetTrackType() == TrackType::kAudioG711) {
@@ -5680,6 +5678,11 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       case TrackType::kAudioPCM:
         audio_track_params.format = AudioFormat::kPCM;
         break;
+      case TrackType::kAudioPCMFP:
+        audio_track_params.format = AudioFormat::kPCM;
+        ::std::string("record_fluence").copy(audio_track_params.profile,
+                      strlen("record_fluence"));
+        break;
       case TrackType::kAudioAAC:
         audio_track_params.format = AudioFormat::kAAC;
         audio_track_params.codec_params.aac.format = AACFormat::kADTS;
@@ -5719,6 +5722,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
 
     switch (track_info.track_type) {
       case TrackType::kAudioPCM:
+      case TrackType::kAudioPCMFP:
       case TrackType::kAudioG711:
         // Configure .wav output.
         ret = wav_output_.Configure(kDefaultAudioFilenamePrefix,
@@ -5773,6 +5777,7 @@ status_t TestTrack::Prepare() {
   }
 
   if (track_info_.track_type == TrackType::kAudioPCM ||
+      track_info_.track_type == TrackType::kAudioPCMFP ||
       track_info_.track_type == TrackType::kAudioG711) {
     ret = wav_output_.Open();
     assert(ret == NO_ERROR);
@@ -5798,6 +5803,7 @@ status_t TestTrack::CleanUp() {
     dump_bitstream_.Close();
     break;
     case TrackType::kAudioPCM:
+    case TrackType::kAudioPCMFP:
     case TrackType::kAudioG711:
     wav_output_.Close();
     break;
@@ -6125,6 +6131,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
 
   switch (track_info_.track_type) {
     case TrackType::kAudioPCM:
+    case TrackType::kAudioPCMFP:
     case TrackType::kAudioG711:
       for (const BufferDescriptor& buffer : buffers) {
         ret = wav_output_.Write(buffer);

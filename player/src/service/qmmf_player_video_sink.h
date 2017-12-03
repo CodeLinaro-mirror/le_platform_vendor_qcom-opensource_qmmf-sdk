@@ -86,7 +86,9 @@ class VideoSink {
 
   status_t StartTrackSink(uint32_t track_id);
 
-  status_t StopTrackSink(uint32_t track_id);
+  status_t StopTrackSink(uint32_t track_id,
+                         const PictureParam& params,
+                         BufferDescriptor* grab_buffer);
 
   status_t DeleteTrackSink(uint32_t track_id);
 
@@ -112,9 +114,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t StartSink();
 
-  status_t StopSink();
+  status_t StopSink(const PictureParam& params, BufferDescriptor* grab_buffer);
 
-  status_t PauseSink();
+  status_t PauseSink(const PictureParam& params, BufferDescriptor* grab_buffer);
 
   status_t ResumeSink();
 
@@ -148,8 +150,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t UpdateCropParameters(void* arg);
 
-  status_t GrabPicture(PictureParam param, BufferDescriptor& buffer);
-
   status_t Dispatcher(const BufferDescriptor& codec_buffer);
 
   static void RendererThread(VideoTrackSink* video_sink);
@@ -159,6 +159,10 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
+
+  static void PtsThreadEntry(VideoTrackSink* sink);
+
+  void PtsThread();
 
   VideoTrackParams        track_params_;
   TrackCb                 callback_;
@@ -177,12 +181,13 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   bool                    stopplayback_;
   bool                    paused_;
   uint32_t                decoded_frame_number_;
+  uint64_t                last_queued_timestamp_;
 
   Display*   display_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
-  SurfaceConfig surface_config;
+  SurfaceConfig surface_config_;
   bool display_started_;
 
   typedef struct BufInfo {
@@ -221,7 +226,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TrickModeDirection                     playback_dir_;
   uint32_t                               displayed_frames_;
   std::mutex                             state_change_lock_;
-  bool                                   grab_picture_;
   int32_t                                ion_device_;
 
   int32_t                                grabpicture_file_fd_;
@@ -239,6 +243,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<BufferDescriptor>              decoded_buffer_queue_;
   ::std::thread*                         displayed_buffer_thread_;
   TSQueue<BufferDescriptor>              displayed_buffer_queue_;
+  ::std::thread*                         pts_thread_;
 };
 
 };  // namespace player

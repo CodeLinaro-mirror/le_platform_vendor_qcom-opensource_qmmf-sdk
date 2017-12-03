@@ -3808,6 +3808,10 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
                buf_header->pBuffer);
   QMMF_VERBOSE("%s buf_header->pAppPrivate[%p]", __func__,
                buf_header->pAppPrivate);
+  QMMF_VERBOSE("%s buf_header->nFlags[0x%x]", __func__,
+               buf_header->nFlags);
+  QMMF_VERBOSE("%s buf_header->nFilledLen[%u]", __func__,
+               buf_header->nFilledLen);
 
   AVCodec *avcodec = (AVCodec *)app_data;
   assert(buf_header->pBuffer);

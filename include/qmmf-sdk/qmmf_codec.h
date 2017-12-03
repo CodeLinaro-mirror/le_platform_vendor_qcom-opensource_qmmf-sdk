@@ -87,7 +87,6 @@ enum class CodecParamType {
   kUseLtrType,
   kAudioEffectsParamType,
   kAudioVolumeParamType,
-  kAudioFluencePro,
   kDecodeOperatingRate,
   kEnableFrameRepeat,
   kVQZipInfo,

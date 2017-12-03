@@ -74,12 +74,14 @@ enum class EventType {
   kEOSRendered,
   kStopped,
   kInputBufferNotify,
+  kPresentationTimestamp,
 };
 
 enum class VideoCodecType {
   kHEVC,
   kAVC,
-  kJPEG
+  kJPEG,
+  kYUV,
 };
 
 // Video track create time parameters
@@ -90,6 +92,7 @@ enum class VideoCodecType {
 struct VideoTrackCreateParam {
   size_t buffer_size;
   uint32_t num_buffers;
+  uint32_t pts_callback_interval; // milliseconds; set to 0 to disable
   uint32_t width;
   uint32_t height;
   uint32_t frame_rate;
@@ -105,6 +108,7 @@ struct VideoTrackCreateParam {
     ::std::stringstream stream;
     stream << "buffer_size[" << buffer_size << "] ";
     stream << "num_buffers[" << num_buffers << "] ";
+    stream << "pts_callback_interval[" << pts_callback_interval << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
@@ -136,6 +140,7 @@ struct VideoTrackCreateParam {
 struct AudioTrackCreateParam {
   size_t buffer_size;
   uint32_t num_buffers;
+  uint32_t pts_callback_interval; // milliseconds; set to 0 to disable
   uint32_t sample_rate;
   uint32_t channels;
   uint32_t bit_depth;
@@ -148,6 +153,7 @@ struct AudioTrackCreateParam {
     ::std::stringstream stream;
     stream << "buffer_size[" << buffer_size << "] ";
     stream << "num_buffers[" << num_buffers << "] ";
+    stream << "pts_callback_interval[" << pts_callback_interval << "] ";
     stream << "sample_rate[" << sample_rate << "] ";
     stream << "channels[" << channels << "] ";
     stream << "bit_depth[" << bit_depth << "] ";
@@ -165,6 +171,8 @@ struct AudioTrackCreateParam {
 };
 
 struct PictureParam {
+  bool enable;
+  VideoCodecType format;
   uint32_t width;
   uint32_t height;
   uint32_t quality;
@@ -200,10 +208,12 @@ struct TrackCb {
 };
 
 struct PictureCallback {
-  std::function<void(EventType event_type,
+  std::function<void(uint32_t track_id,
+                     EventType event_type,
                      void *event_data,
                      size_t event_data_size)> event_cb;
-  std::function<void(BufferDescriptor& buffer)> data_cb;
+  std::function<void(uint32_t track_id,
+                     BufferDescriptor& buffer)> data_cb;
 };
 
 }; // namespace player

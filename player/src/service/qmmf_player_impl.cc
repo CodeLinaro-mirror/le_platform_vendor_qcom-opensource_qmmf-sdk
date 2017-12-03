@@ -503,7 +503,7 @@ status_t PlayerImpl::Start() {
   return ret;
 }
 
-status_t PlayerImpl::Stop() {
+status_t PlayerImpl::Stop(const PictureParam& params) {
   QMMF_INFO("%s: Enter", __func__);
   Mutex::Autolock lock(state_lock_);
 
@@ -520,7 +520,11 @@ status_t PlayerImpl::Stop() {
 
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
+        BufferDescriptor grab_buffer;
+        ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
+                                                    params, &grab_buffer);
+        if (grab_buffer.data != nullptr)
+          NotifyGrabPictureDataCallback(tracks_[i].track_id, grab_buffer);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         if (tracks_[i].codec == AudioFormat::kAMR ||
             tracks_[i].codec == AudioFormat::kG711)
@@ -543,7 +547,7 @@ status_t PlayerImpl::Stop() {
   return ret;
 }
 
-status_t PlayerImpl::Pause() {
+status_t PlayerImpl::Pause(const PictureParam& params) {
   QMMF_INFO("%s: Enter", __func__);
   Mutex::Autolock lock(state_lock_);
 
@@ -558,7 +562,11 @@ status_t PlayerImpl::Pause() {
 
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
-        ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+        BufferDescriptor grab_buffer;
+        ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id,
+                                                     params, &grab_buffer);
+        if (grab_buffer.data != nullptr)
+          NotifyGrabPictureDataCallback(tracks_[i].track_id, grab_buffer);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         if (tracks_[i].codec == AudioFormat::kAMR ||
             tracks_[i].codec == AudioFormat::kG711)
@@ -681,26 +689,6 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
             ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
         }
       }
-    }
-  }
-
-  QMMF_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t PlayerImpl::GrabPicture(PictureParam param) {
-  QMMF_INFO("%s: Enter", __func__);
-  status_t ret = NO_ERROR;
-
-  BufferDescriptor pbuffer;
-  memset(&pbuffer, 0x0, sizeof pbuffer);
-
-  for (const TrackInfo& track : tracks_) {
-    if (track.type == TrackType::kVideo) {
-      ret = (video_sink_->GetTrackSink(track.track_id))->GrabPicture(param,
-          pbuffer);
-      NotifyGrabPictureDataCallback(pbuffer);
-      break;
     }
   }
 
@@ -845,9 +833,10 @@ void PlayerImpl::NotifyAudioTrackEventCallback(uint32_t track_id,
   QMMF_INFO("%s: Exit", __func__);
 }
 
-void PlayerImpl::NotifyGrabPictureDataCallback(BufferDescriptor& buffer){
+void PlayerImpl::NotifyGrabPictureDataCallback(uint32_t track_id,
+                                               BufferDescriptor& buffer) {
   QMMF_INFO("%s: Enter", __func__);
-  remote_cb_->NotifyGrabPictureData(buffer);
+  remote_cb_->NotifyGrabPictureData(track_id, buffer);
   QMMF_INFO("%s: Exit", __func__);
 }
 

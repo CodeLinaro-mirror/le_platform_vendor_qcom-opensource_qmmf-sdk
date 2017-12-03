@@ -195,22 +195,24 @@ status_t Player::Start() {
   return ret;
 }
 
-status_t Player::Stop() {
+status_t Player::Stop(const PictureCallback& handler,
+                      const PictureParam& params) {
   QMMF_INFO("%s: Enter", __func__);
   assert(player_client_ != nullptr);
 
-  auto ret = player_client_->Stop();
+  auto ret = player_client_->Stop(handler, params);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: Stop failed!", __func__);
   }
   return ret;
 }
 
-status_t Player::Pause() {
+status_t Player::Pause(const PictureCallback& handler,
+                       const PictureParam& params) {
   QMMF_INFO("%s: Enter", __func__);
   assert(player_client_ != nullptr);
 
-  auto ret = player_client_->Pause();
+  auto ret = player_client_->Pause(handler, params);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Pause failed!", __func__);
   }
@@ -249,18 +251,6 @@ status_t Player::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {
   auto ret = player_client_->SetTrickMode(speed, dir);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: SetTrickMode failed!", __func__);
-  }
-  QMMF_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t Player::GrabPicture(PictureParam param, PictureCallback& cb) {
-  QMMF_INFO("%s: Enter", __func__);
-  assert(player_client_ != nullptr);
-
-  auto ret = player_client_->GrabPicture(param, cb);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: GrabPicture failed!", __func__);
   }
   QMMF_INFO("%s: Exit", __func__);
   return ret;
