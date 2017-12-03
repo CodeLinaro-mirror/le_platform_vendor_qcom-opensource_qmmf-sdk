@@ -185,6 +185,7 @@ struct SnapshotInfo {
 enum class TrackType {
   kNone,
   kAudioPCM,
+  kAudioPCMFP,
   kAudioAAC,
   kAudioAMR,
   kAudioG711,
