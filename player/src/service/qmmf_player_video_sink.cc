@@ -478,7 +478,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 #endif
   }
 
-  if (codec_buffer.flag & OMX_BUFFERFLAG_EOS)
+  if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
     callback_.event_cb(TrackId(), EventType::kEOSRendered, nullptr, 0);
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
