@@ -11555,8 +11555,8 @@ TEST_F(RecorderGtest, FrameRepeat) {
   assert(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
-  uint32_t width  = 3840;
-  uint32_t height = 2160;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
   CodecParamType param_type = CodecParamType::kFrameRateType;
   CodecParamType fr_repeat = CodecParamType::kEnableFrameRepeat;
   float fps;
