@@ -32,6 +32,14 @@ av_codec_audio_decode_test_SOURCES  = test/sample/qmmf_audio_decode_test.cc
 av_codec_audio_decode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_audio_decode_test_LDADD    = libav_codec.la
 
+if ENABLE_JPEG_TURBO
+# Bin Program for Standalone Jpeg turbo decode test
+bin_PROGRAMS += jpeg_turbo_decode_test
+jpeg_turbo_decode_test_SOURCES = test/sample/jpeg-turbo/jpeg_turbo_decode_test.cc
+jpeg_turbo_decode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
+jpeg_turbo_decode_test_LDFLAGS  = -llog -ljpeg -lturbojpeg
+endif
+
 Export qmmf-sdk headers:
 sdkincdir=$(includedir)/qmmf-sdk
 sdkinc_HEADERS = $(top_srcdir)/include/qmmf-sdk/qmmf_avcodec.h
