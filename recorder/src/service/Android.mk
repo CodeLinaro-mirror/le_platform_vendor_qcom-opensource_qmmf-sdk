@@ -18,7 +18,9 @@ LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
 LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
-
+ifeq ($(TARGET_USES_GRALLOC1),true)
+LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
+endif
 # reprocess-related includes
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/stack/common \
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/mm-image-codec/qomx_core \
