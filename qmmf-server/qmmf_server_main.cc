@@ -69,9 +69,16 @@ int32_t main(int32_t argc, char **argv) {
   INFO("Service(%s) Added successfully!", QMMF_SYSTEM_SERVICE_NAME);
 
   // Add audio service.
-  defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
+  bool is_audio_service_disabled = false;
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("audio.service.disabled", prop, "0");
+  is_audio_service_disabled = atoi(prop);
+  if (!is_audio_service_disabled) {
+    defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
+            new qmmf::common::audio::AudioService(), false);
+    INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
+  }
 
   //Add Recorder service.
   defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
