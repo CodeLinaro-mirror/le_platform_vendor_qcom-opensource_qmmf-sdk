@@ -14,6 +14,7 @@ BUILD_COMPONENTS += recorder/src/service/post-process/modules/algo
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-reproc
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/jpeg-encoder
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/test
+BUILD_COMPONENTS += recorder/src/service/post-process/modules/frame-skip
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest

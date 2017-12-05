@@ -89,14 +89,12 @@ class PlayerService: public BnInterface<IPlayerService> {
 
   status_t Prepare() override;
   status_t Start() override;
-  status_t Stop() override;
-  status_t Pause() override;
+  status_t Stop(const PictureParam& params) override;
+  status_t Pause(const PictureParam& params) override;
   status_t Resume() override;
 
   status_t SetPosition(int64_t seek_time) override;
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) override;
-
-  status_t GrabPicture(PictureParam param) override;
 
   status_t SetAudioTrackParam(uint32_t track_id,
                             CodecParamType type,

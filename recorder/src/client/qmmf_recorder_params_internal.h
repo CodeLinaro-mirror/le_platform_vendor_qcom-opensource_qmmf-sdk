@@ -32,6 +32,8 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <cstring>
+#include <string>
 
 #include <binder/Parcel.h>
 
@@ -55,6 +57,7 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
     parcel->writeUint32(sample_rate);
     parcel->writeUint32(channels);
     parcel->writeUint32(bit_depth);
+    parcel->writeCString(profile);
     parcel->writeInt32(static_cast<int32_t>(format));
     switch (format) {
       case AudioFormat::kPCM:
@@ -86,6 +89,7 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
     sample_rate = parcel.readUint32();
     channels = parcel.readUint32();
     bit_depth = parcel.readUint32();
+    ::std::string(parcel.readCString()).copy(profile, sizeof(profile));
     format = static_cast<AudioFormat>(parcel.readInt32());
     switch (format) {
       case AudioFormat::kPCM:

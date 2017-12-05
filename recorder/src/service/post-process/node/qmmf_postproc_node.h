@@ -58,6 +58,7 @@ enum class PostProcNodeState {
   LINKED,
   STARTING,
   ACTIVE,
+  ABORT,
   STOPPING,
 };
 
@@ -83,6 +84,8 @@ class InputHandler : public PostProcThread {
  private:
 
   status_t GetInputBuffers(std::vector<StreamBuffer> &in_buffs);
+
+  status_t ReturnInputBuffers(std::vector<StreamBuffer> &in_buffs);
 
   status_t GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
                             const std::vector<StreamBuffer> &in_buffs);
@@ -138,6 +141,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    status_t Initialize(const PostProcIOParam &in_param,
                        const PostProcIOParam &out_param);
 
+   status_t Delete();
+
    status_t Configure(const std::string &config_json_data);
 
    PostProcIOParam GetInput(const PostProcIOParam &out);
@@ -163,6 +168,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
    status_t Start(const int32_t stream_id);
 
    status_t Stop();
+
+   status_t Abort(std::shared_ptr<void> &abort);
 
    std::string& GetName() { return name_; }
 

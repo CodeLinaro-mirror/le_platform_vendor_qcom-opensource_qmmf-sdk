@@ -53,9 +53,8 @@ namespace recorder {
 
 #define MAX_IN_DEVICES 4
 
-#define SENSOR_VENDOR_MODE_OFFSET (24)
-#define SENSOR_VENDOR_MODE_MASK (0xff)
 #define MAX_AUDIO_INPUT_DEVICES (10)
+#define MAX_AUDIO_PROFILE (80)
 #define MAX_THUMBNAIL_IMAGE_PARAM (2)
 
 typedef int32_t status_t;
@@ -222,6 +221,7 @@ struct AudioTrackCreateParam {
   uint32_t                sample_rate;
   uint32_t                channels;
   uint32_t                bit_depth;
+  char                    profile[MAX_AUDIO_PROFILE];
   AudioFormat             format;
   AudioCodecParams        codec_params;
   DeviceId                out_device;
@@ -236,6 +236,7 @@ struct AudioTrackCreateParam {
     stream << "sample_rate[" << sample_rate << "] ";
     stream << "channels[" << channels << "] ";
     stream << "bit_depth[" << bit_depth << "] ";
+    stream << "profile[" << ::std::string(profile) << "] ";
     stream << "format["
            << static_cast<::std::underlying_type<AudioFormat>::type>(format)
            << "] ";
@@ -284,13 +285,14 @@ struct VideoTrackCreateParam {
         break;
       default: {
         // Nothing to do for other formats
+        codec_param = {};
       }
     }
 
     // Setting LPM,VQZipInfo parameters
     low_power_mode = false;
     do_vqzip = false;
-    memset(&vqzip_params, 0x00, sizeof(vqzip_params));
+    vqzip_params = {};
   }
 
   ::std::string ToString() const {
@@ -339,6 +341,8 @@ struct VideoTrackCreateParam {
     codec_param.avc.sar_enabled = false;
     codec_param.avc.sar_width = 0;
     codec_param.avc.sar_height = 0;
+    codec_param.avc.slice_enabled = false;
+    codec_param.avc.slice_header_spacing = 1024;
   }
 
   void setHEVCDefaultVideoParam() {
@@ -364,6 +368,7 @@ struct VideoTrackCreateParam {
     codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
     codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
     codec_param.hevc.ltr_count = 0;
+    codec_param.hevc.insert_aud_delimiter = true;
     codec_param.hevc.hier_layer = 0;
     codec_param.hevc.prepend_sps_pps_to_idr = false;
     codec_param.hevc.sar_enabled = false;
@@ -441,15 +446,6 @@ struct CameraStartParam {
     stream << "flags[" << flags << "]";
     return stream.str();
   };
-
-  void setSensorVendorMode(int32_t sensor_vendor_mode) {
-    flags &= ~(SENSOR_VENDOR_MODE_MASK);
-    flags |= sensor_vendor_mode << SENSOR_VENDOR_MODE_OFFSET;
-  };
-
-  int32_t getSensorVendorMode() const {
-    return flags >> SENSOR_VENDOR_MODE_OFFSET;
-  }
 };
 
 /// \brief For thumbnail images only kJPEG is supported

@@ -134,6 +134,9 @@ class AudioRawTrackSink {
   static void ThreadEntry(AudioRawTrackSink* sink);
   void Thread();
 
+  static void PtsThreadEntry(AudioRawTrackSink* sink);
+  void PtsThread();
+
   void ErrorHandler(const int32_t error);
   void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
   void StoppedHandler();
@@ -150,6 +153,10 @@ class AudioRawTrackSink {
   ::std::mutex message_lock_;
   ::std::queue<AudioMessage> messages_;
   ::std::condition_variable signal_;
+
+  ::std::thread* pts_thread_;
+  ::std::mutex pts_message_lock_;
+  ::std::queue<AudioMessage> pts_messages_;
 
   // disable copy, assignment, and move
   AudioRawTrackSink(const AudioRawTrackSink&) = delete;

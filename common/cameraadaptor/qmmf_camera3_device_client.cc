@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#define TAG "CameraAdaptor"
+#define LOG_TAG "CameraAdaptor"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +42,8 @@ using namespace qcamera;
 extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
+
+uint32_t qmmf_log_level;
 
 namespace qmmf {
 
@@ -73,6 +75,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_raw_only_(false),
       hfr_mode_enabled_(false),
       prepare_handler_() {
+  QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
   camera_module_callbacks_t::camera_device_status_change = &deviceStatusChange;
@@ -387,11 +390,11 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 
   camera3_stream_configuration config;
   memset(&config, 0, sizeof(config));
-  if (hfr_mode_enabled_) {
+  if (is_raw_only_) {
+    config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
+  } else if (hfr_mode_enabled_) {
     config.operation_mode =
         CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
-  } else if (is_raw_only_) {
-    config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
   } else if (!is_pp_enabled) {
     config.operation_mode =
         QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
@@ -493,7 +496,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     case STATE_CONFIGURED:
     case STATE_RUNNING:
       if (!cache) {
-        QMMF_INFO("%s:%s: Stream is not cached, Issue internal reconfig!", TAG,
+        QMMF_INFO("%s: Stream is not cached, Issue internal reconfig!",
             __func__);
         res = InternalPauseAndWaitLocked();
         if (0 != res) {
@@ -536,7 +539,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       reconfig_ = true;
       res = ConfigureStreamsLocked();
       if (0 != res) {
-        QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+        QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
         goto exit;
       }
@@ -626,7 +629,7 @@ int32_t Camera3DeviceClient::CreateInputStream(
   if (wasActive) {
     res = ConfigureStreamsLocked();
     if (0 != res) {
-      QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+      QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
       goto exit;
     }
@@ -714,7 +717,7 @@ int32_t Camera3DeviceClient::CreateStream(
   if (wasActive) {
     res = ConfigureStreamsLocked(outputConfiguration.is_pp_enabled);
     if (0 != res) {
-      QMMF_ERROR("%s:Can't reconfigure device for new stream %d: %s (%d)",
+      QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
       goto exit;
     }

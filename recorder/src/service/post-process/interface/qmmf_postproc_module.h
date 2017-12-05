@@ -68,6 +68,7 @@ struct PostProcIOParam {
   BufferFormat format;
   int32_t      gralloc_flags;
   uint32_t     buffer_count;
+  uint32_t     buffer_max;
 };
 
 /** PostProcCaps:
@@ -156,6 +157,8 @@ class IPostProcModule {
    virtual status_t Start(const int32_t stream_id) = 0;
 
    virtual status_t Stop() = 0;
+
+   virtual status_t Abort(std::shared_ptr<void> &abort) = 0;
 
    virtual PostProcIOParam GetInput(const PostProcIOParam &out) = 0;
 

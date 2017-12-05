@@ -372,6 +372,8 @@ class TrackSource : public ICodecSource {
   uint64_t time_stamp_;
 
   uint32_t num_consumers_;
+
+  int32_t rotation_;
 };
 
 }; //namespace recorder

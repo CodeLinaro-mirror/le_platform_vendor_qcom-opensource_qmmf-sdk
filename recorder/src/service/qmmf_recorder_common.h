@@ -49,7 +49,7 @@
 
 //#define NO_FRAME_PROCESS
 
-#define BUFFER_WAIT_TIMEOUT 500000000  // 500 ms
+#define BUFFER_WAIT_TIMEOUT 1000000000  // 1 sec
 
 // Enable DUMP_BITSTREAM to enable encoded data at TrackEncoder layer.
 //#define DUMP_BITSTREAM
@@ -123,6 +123,8 @@ struct CameraStreamParam {
   float              frame_rate;
   uint32_t           id;
   bool               low_power_mode;
+  bool               wait_aec_mode;
+  int32_t            rotation;
 };
 
 struct Buffer {

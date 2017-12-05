@@ -49,6 +49,15 @@ enum class PostProcHalMode {
   kRawReprocess,
 };
 
+enum class PostProcHalState {
+  CREATED,
+  INITIALIZED,
+  STARTING,
+  ACTIVE,
+  ABORTED,
+  STOPPING,
+};
+
 class CameraContext;
 
 class CameraHalReproc : public IPostProcModule {
@@ -79,6 +88,8 @@ class CameraHalReproc : public IPostProcModule {
 
    status_t Stop() override;
 
+   status_t Abort(std::shared_ptr<void> &abort) override;
+
    PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
    status_t ValidateOutput(const PostProcIOParam &output) override;
@@ -88,6 +99,8 @@ class CameraHalReproc : public IPostProcModule {
  private:
 
    static const int64_t kMetaTimeout = 1000000000; // 1 second
+
+   static const int32_t kBufCount = 3; // count for buffer rotation
 
    struct ReprocessBundle {
      StreamBuffer   buffer;
@@ -110,13 +123,17 @@ class CameraHalReproc : public IPostProcModule {
    status_t ValidateInput(const PostProcIOParam& input,
                           const PostProcIOParam& output);
 
-   status_t StartProcessing();
-
    void StreamCb(StreamBuffer &in_buff);
 
    void AddBuff(const StreamBuffer buf);
 
    void AddMeta(const CameraMetadata &metadata);
+
+   status_t StartProcessing(bool from_cp);
+
+   status_t CreateDeviceStreams();
+
+   status_t DeleteDeviceStreams();
 
    IPostProc*                   context_;
    IPostProcEventListener       *listener_;
@@ -124,7 +141,10 @@ class CameraHalReproc : public IPostProcModule {
    CameraMetadata               static_meta_;
 
    std::mutex                   module_lock_;
-   bool                         ready_to_start_;
+   PostProcHalState             state_;
+   std::mutex                   abort_lock_;
+   std::shared_ptr<void>        abort_;
+   bool                         frame_processing_;
 
    Camera3Request               reprocess_request_;
 
@@ -138,11 +158,6 @@ class CameraHalReproc : public IPostProcModule {
    std::list<ReprocessBundle>   reproc_partial_list_;
    std::list<ReprocessBundle>   reproc_ready_list_;
    std::mutex                   reproc_lock_;
-
-   QCondition                   reproc_wait_;
-   std::mutex                   reproc_wait_lock_;
-   bool                         frame_processing_;
-   bool                         batch_processing_;
 };
 
 }; //namespace recorder

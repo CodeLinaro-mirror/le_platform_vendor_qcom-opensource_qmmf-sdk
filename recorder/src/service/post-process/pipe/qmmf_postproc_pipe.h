@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include "common/utils/qmmf_condition.h"
 #include "../node/qmmf_postproc_node.h"
 #include "../factory/qmmf_postproc_factory.h"
 
@@ -52,6 +53,8 @@ struct PipeIOParam {
   uint32_t image_quality;
   int32_t gralloc_flags;
   uint32_t buffer_count;
+  uint32_t max_internal_buffers;
+  bool frame_skip;
 };
 
 enum class PostProcPipeState {
@@ -74,6 +77,8 @@ class PostProcPipe {
    status_t CreatePipe(const PipeIOParam &pipe_out_param,
        const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
+   status_t DeletePipe();
+
    status_t Configure(const std::string &config_json_data);
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
@@ -85,6 +90,8 @@ class PostProcPipe {
    status_t Start(const int32_t stream_id);
 
    status_t Stop();
+
+   status_t Abort();
 
    sp<IBufferConsumer>& GetConsumerIntf();
 
@@ -116,6 +123,8 @@ class PostProcPipe {
 
    bool SupportsJPEGFormat(const std::set<BufferFormat> &formats);
 
+   static const uint32_t         kWaitAbortTimeout = 2000000000; // 2 sec.
+
    PostProcPipeState             state_;
 
    std::vector<std::shared_ptr<PostProcNode>> pipe_;
@@ -125,6 +134,10 @@ class PostProcPipe {
    std::shared_ptr<PostProcFactory> factory_;
 
    bool                          use_hal_jpeg_;
+
+   bool                          abort_done_;
+   QCondition                    abort_signal_;
+   std::mutex                    abort_lock_;
 
 };
 

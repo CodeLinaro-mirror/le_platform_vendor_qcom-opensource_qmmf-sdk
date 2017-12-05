@@ -26,7 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "AVCodecJpegEncode"
+#define LOG_TAG "AVCodecJpegEncode"
 
 #include <cmath>
 #include <chrono>
@@ -93,7 +93,7 @@ typedef struct {
 void JPEGEncodeCb(jpeg_job_status_t status, uint32_t, uint32_t,
                   mm_jpeg_output_t *output, void *user_data) {
   if (status == JPEG_JOB_STATUS_ERROR) {
-    QMMF_ERROR("%s:%s Jpeg Encoder ran into an error", TAG, __func__);
+    QMMF_ERROR("%s Jpeg Encoder ran into an error", __func__);
   } else {
     JPEGEncoder::EncodeCb(output, user_data);
   }
@@ -115,12 +115,12 @@ JPEGEncoder::JPEGEncoder()
 
   void *libjpeg_interface = dlopen(kJPEGEncodeLibName, RTLD_NOW);
   if (!libjpeg_interface) {
-    QMMF_ERROR("%s:%s could not open jpeg library", TAG, __func__);
+    QMMF_ERROR("%s could not open jpeg library", __func__);
   } else {
     cfg->jpeg_open_proc_ =
         (jpeg_open_proc_t)dlsym(libjpeg_interface, "jpeg_open");
     if (!cfg->jpeg_open_proc_) {
-      QMMF_ERROR("%s:%s could not dlsym jpeg_open", TAG, __func__);
+      QMMF_ERROR("%s could not dlsym jpeg_open", __func__);
     }
   }
   // setup internal config structures. performed only once
@@ -264,7 +264,7 @@ status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size,
   std::lock_guard<std::mutex> l(cfg->encode_lock_);
   if (in_buffer.img_in_buf.data == nullptr ||
       in_buffer.img_out_buf.data == nullptr) {
-    QMMF_ERROR("%s:%s can't pass nullptr plane pointer", TAG, __func__);
+    QMMF_ERROR("%s can't pass nullptr plane pointer", __func__);
     return BAD_VALUE;
   }
 
@@ -274,7 +274,7 @@ status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size,
   auto ret = cfg->ops_.create_session(cfg->handle_, &cfg->params_,
                                       &cfg->job_.encode_job.session_id);
   if (cfg->job_.encode_job.session_id == 0) {
-    QMMF_ERROR("%s:%s Could not create Jpeg Session", TAG, __func__);
+    QMMF_ERROR("%s Could not create Jpeg Session", __func__);
     return ret;
   }
 
@@ -284,14 +284,14 @@ status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size,
     std::chrono::nanoseconds wait_time(kJPEGEncodeWaitTime);
     if (cfg->enc_done_cond_.wait_for(ul, wait_time) ==
         std::cv_status::timeout) {
-      QMMF_ERROR("%s:%s JPEG Encode Time Out Happened", TAG, __func__);
+      QMMF_ERROR("%s JPEG Encode Time Out Happened", __func__);
       ret = TIMED_OUT;
       goto jpeg_encode_exit;
     }
     jpeg_size = job_result_size_;
     job_result_size_ = 0;
   } else {
-    QMMF_ERROR("%s:%s could not start encode job", TAG, __func__);
+    QMMF_ERROR("%s could not start encode job", __func__);
     goto jpeg_encode_exit;
   }
 // Clean Up
@@ -342,7 +342,7 @@ void *JPEGEncoder::JpegEncodeThread(void *arg) {
     // Get a YUV Buffer from Track source
     ret = jpeg_encode->getInputBufferSource()->GetBuffer(buffer_in, nullptr);
     if (ret != 0) {
-      QMMF_ERROR("%s:%s InputSource Read failed", TAG, __func__);
+      QMMF_ERROR("%s InputSource Read failed", __func__);
       thread_stop = true;
     }
 
@@ -367,7 +367,7 @@ void *JPEGEncoder::JpegEncodeThread(void *arg) {
       buf_vaaddr = mmap(nullptr, buffer_in.size, PROT_READ | PROT_WRITE,
                         MAP_SHARED, native_handle_in->data[0], 0);
       if (buf_vaaddr == MAP_FAILED) {
-        QMMF_ERROR("%s:%s MAP_FAILED for input", TAG, __func__);
+        QMMF_ERROR("%s MAP_FAILED for input", __func__);
         break;
       }
       // Add Entry to map
@@ -391,7 +391,7 @@ void *JPEGEncoder::JpegEncodeThread(void *arg) {
     // Send buffer for encode
     jpeg_encode->Encode(img_buffer, jpeg_size, jpeg_encode->jpeg_quality_);
     if (0 == jpeg_size) {
-      QMMF_ERROR("%s:%s: JPEG size is 0!", TAG, __func__);
+      QMMF_ERROR("%s: JPEG size is 0!", __func__);
     } else {
       buffer_out.timestamp = buffer_in.timestamp;
       buffer_out.size = jpeg_size;
@@ -453,7 +453,7 @@ status_t JPEGEncoder::ConfigureCodec(CodecMimeType codec_type,
   cfg->handle_ =
       cfg->jpeg_open_proc_(&cfg->ops_, nullptr, cfg->pic_size_, nullptr);
   if (cfg->handle_ == 0) {
-    QMMF_ERROR("%s:%s could not open a jpeg handle", TAG, __func__);
+    QMMF_ERROR("%s could not open a jpeg handle", __func__);
     if (cfg->handle_) {
       cfg->ops_.close(cfg->handle_);
       cfg->handle_ = 0;
@@ -473,7 +473,7 @@ status_t JPEGEncoder::GetBufferRequirements(uint32_t port_type,
   } else {
     // for input port not required.
   }
-  QMMF_INFO("%s:%s %s: buf count(%d), buf size(%d)", TAG, __func__,
+  QMMF_INFO("%s %s: buf count(%d), buf size(%d)", __func__,
             PORT_NAME(port_type), *buf_count, *buf_size);
   return NO_ERROR;
 }

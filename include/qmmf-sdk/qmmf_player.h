@@ -78,13 +78,20 @@ class Player
                             size_t meta_size,
                             TrackMetaBufferType meta_type);
 
-  // starts track playback
+  // Starts track playback
   status_t Start();
 
-  // stops track playback
-  status_t Stop();
+  // Stops track playback. Optionally grabs the last video frame rendered to
+  // display and returns the buffer
+  status_t Stop(const PictureCallback& handler = {nullptr, nullptr},
+                const PictureParam& params = {false, VideoCodecType::kYUV,
+                                              0, 0, 0});
 
-  status_t Pause();
+  // Pauses track playback. Optionally grabs the last video frame rendered to
+  // display and returns the buffer
+  status_t Pause(const PictureCallback& handler = {nullptr, nullptr},
+                 const PictureParam& params = {false, VideoCodecType::kYUV,
+                                               0, 0, 0});
 
   // Resumes the currently paused playback
   status_t Resume();
@@ -95,11 +102,6 @@ class Player
 
   // set playback rate and direction of playback.
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
-
-  // This API can be called only in pause state. This would grab the last
-  // video frame rendered to display and do a jpeg encode and returns
-  // the encoded buffer
-  status_t GrabPicture(PictureParam param, PictureCallback& cb);
 
   status_t SetAudioTrackParam(uint32_t track_id,
                               CodecParamType type,

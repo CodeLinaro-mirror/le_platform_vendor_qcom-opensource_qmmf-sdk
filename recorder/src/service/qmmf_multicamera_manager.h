@@ -35,7 +35,6 @@
 #include <future>
 #include <mutex>
 
-#include <utils/Log.h>
 #include <qcom/display/gralloc_priv.h>
 #include <qmmf-plugin/qmmf_alg_intf.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>
@@ -159,9 +158,10 @@ class MultiCameraManager : public CameraInterface {
   bool                     snapshot_configured_;
 
   std::shared_ptr<SnapshotStitching>    snapshot_stitch_algo_;
-  std::shared_ptr<ICameraPostProcess>   jpeg_encoder_;
+  std::shared_ptr<CameraJpeg>           jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
   std::shared_ptr<GrallocMemory>        jpeg_memory_pool_;
+  std::vector<ImageThumbnail>           thumbnails_;
 
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;

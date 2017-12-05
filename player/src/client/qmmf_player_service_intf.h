@@ -71,7 +71,6 @@ enum QMMF_PLAYER_SERVICE_CMDS {
   PLAYER_RESUME,
   PLAYER_SET_POSITION,
   PLAYER_SET_TRICKMODE,
-  PLAYER_GRAB_PICTURE,
 };
 
 
@@ -154,14 +153,13 @@ class IPlayerService : public IInterface {
 
   virtual status_t Prepare() = 0;
   virtual status_t Start() = 0;
-  virtual status_t Stop() = 0;
-  virtual status_t Pause() = 0;
+  virtual status_t Stop(const PictureParam& params) = 0;
+  virtual status_t Pause(const PictureParam& params) = 0;
   virtual status_t Resume() = 0;
 
   virtual status_t SetPosition(int64_t seek_time) = 0;
-  virtual status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) = 0;
-
-  virtual status_t GrabPicture(PictureParam param) = 0;
+  virtual status_t SetTrickMode(TrickModeSpeed speed,
+                                TrickModeDirection dir) = 0;
 
   virtual status_t SetAudioTrackParam(uint32_t track_id,
                                       CodecParamType type,
@@ -197,7 +195,8 @@ class IPlayerServiceCallback : public IInterface {
                                      void *event_data,
                                      size_t event_data_size) = 0;
 
-  virtual void NotifyGrabPictureData(BufferDescriptor& buffer) = 0;
+  virtual void NotifyGrabPictureData(uint32_t track_id,
+                                     BufferDescriptor& buffer) = 0;
 };
 
 // This class is responsible to provide callbacks from player service.

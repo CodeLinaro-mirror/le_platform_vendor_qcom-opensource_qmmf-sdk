@@ -144,6 +144,11 @@ class Recorder360Gtest : public ::testing::Test {
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
 
+  void VideoTrackYUVTwoDataCb(uint32_t session_id,
+                              uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers);
+
   void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers);

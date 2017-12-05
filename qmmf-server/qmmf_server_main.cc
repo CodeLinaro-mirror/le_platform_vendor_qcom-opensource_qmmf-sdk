@@ -35,6 +35,7 @@
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
 #include <binder/IPCThreadState.h>
+#include <cutils/properties.h>
 
 #include "common/audio/src/service/qmmf_audio_service.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
@@ -57,7 +58,10 @@ using namespace system;
     ALOGD(__VA_ARGS__); \
 } while(0)
 
+uint32_t qmmf_log_level;
+
 int32_t main(int32_t argc, char **argv) {
+  QMMF_GET_LOG_LEVEL();
 
   //Add System service.
   defaultServiceManager()->addService(String16(QMMF_SYSTEM_SERVICE_NAME),

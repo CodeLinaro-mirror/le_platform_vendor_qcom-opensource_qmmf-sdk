@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "AudioBackendSink"
+#define LOG_TAG "AudioBackendSink"
 
 #include "common/audio/src/service/qmmf_audio_backend_sink.h"
 
@@ -80,7 +80,7 @@ AudioBackendSink::AudioBackendSink(const AudioHandle audio_handle,
       thread_(nullptr),
       using_offload_(false),
       current_io_handle_(kIOHandleMin) {
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 }
 
@@ -89,10 +89,10 @@ AudioBackendSink::~AudioBackendSink() {}
 int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
                                const vector<DeviceId>& devices,
                                const AudioMetadata& metadata) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   for (const DeviceId device : devices)
-    QMMF_VERBOSE("%s: %s() INPARAM: device[%d]", TAG, __func__, device);
-  QMMF_VERBOSE("%s: %s() INPARAM: metadata[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() INPARAM: device[%d]", __func__, device);
+  QMMF_VERBOSE("%s() INPARAM: metadata[%s]", __func__,
                metadata.ToString().c_str());
   int32_t result = 0;
 
@@ -104,12 +104,12 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
     case AudioState::kIdle:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -118,8 +118,8 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
   qahw_module_ = const_cast<qahw_module_handle_t *>
                            (modules[AudioHAL::kPrimary]);
   if (qahw_module_ == nullptr) {
-    QMMF_ERROR("%s: %s() QAHW module[%s] is not currently loaded",
-               TAG, __func__, QAHW_MODULE_ID_PRIMARY);
+    QMMF_ERROR("%s() QAHW module[%s] is not currently loaded",
+               __func__, QAHW_MODULE_ID_PRIMARY);
     return -ENOMEM;
   }
 
@@ -151,7 +151,7 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
           config.format = AUDIO_FORMAT_PCM_32_BIT;
           break;
         default:
-          QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
+          QMMF_ERROR("%s() invalid sample size: %d", __func__,
                      metadata.sample_size);
           return -EINVAL;
       }
@@ -212,14 +212,14 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
           break;
 
         default:
-          QMMF_ERROR("%s: %s() invalid format: %d", TAG, __func__,
+          QMMF_ERROR("%s() invalid format: %d", __func__,
                      static_cast<int32_t>(metadata.format));
           return -EINVAL;
       }
       break;
 
     default:
-      QMMF_ERROR("%s: %s() invalid format: %d", TAG, __func__,
+      QMMF_ERROR("%s() invalid format: %d", __func__,
                  static_cast<int32_t>(metadata.format));
       return -EINVAL;
   }
@@ -242,7 +242,7 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
       case 244: config.offload_info.bit_width = 24; break;
       case 32:  config.offload_info.bit_width = 32; break;
       default:
-        QMMF_ERROR("%s: %s() invalid sample size: %d", TAG, __func__,
+        QMMF_ERROR("%s() invalid sample size: %d", __func__,
                    metadata.sample_size);
         return -EINVAL;
     }
@@ -268,7 +268,7 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
                                    AUDIO_DEVICE_OUT_SPEAKER, flags, &config,
                                    &qahw_stream_, "output_stream");
   if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to open output stream: %d[%s]", TAG, __func__,
+    QMMF_ERROR("%s() failed to open output stream: %d[%s]", __func__,
                result, strerror(result));
     return result;
   }
@@ -277,26 +277,26 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
     result = qahw_out_set_callback(qahw_stream_,
                                    AudioBackendSink::CallbackEntry, this);
     if (result != 0) {
-      QMMF_ERROR("%s: %s() failed to set callback: %d[%s]", TAG, __func__,
+      QMMF_ERROR("%s() failed to set callback: %d[%s]", __func__,
                  result, strerror(result));
       return result;
     }
   }
 
   state_ = AudioState::kIdle;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return result;
 }
 
 int32_t AudioBackendSink::Close() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   int32_t result = 0;
 
   switch (state_) {
     case AudioState::kNew:
-      QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
+      QMMF_WARN("%s() nothing to do, state is: %d", __func__,
                 static_cast<int>(state_));
       return 0;
       break;
@@ -306,12 +306,12 @@ int32_t AudioBackendSink::Close() {
     case AudioState::kConnect:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -325,20 +325,20 @@ int32_t AudioBackendSink::Close() {
 
   result = qahw_close_output_stream(qahw_stream_);
   if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to close output stream: %d[%s]",
-               TAG, __func__, result, strerror(result));
+    QMMF_ERROR("%s() failed to close output stream: %d[%s]",
+               __func__, result, strerror(result));
     return result;
   }
 
   state_ = AudioState::kNew;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return result;
 }
 
 int32_t AudioBackendSink::Start() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kIdle:
@@ -348,12 +348,12 @@ int32_t AudioBackendSink::Start() {
     case AudioState::kConnect:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -370,25 +370,25 @@ int32_t AudioBackendSink::Start() {
 
   thread_ = new thread(AudioBackendSink::ThreadEntry, this);
   if (thread_ == nullptr) {
-    QMMF_ERROR("%s: %s() unable to allocate thread", TAG, __func__);
+    QMMF_ERROR("%s() unable to allocate thread", __func__);
     return -ENOMEM;
   }
 
   state_ = AudioState::kRunning;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return 0;
 }
 
 int32_t AudioBackendSink::Stop() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kNew:
     case AudioState::kConnect:
     case AudioState::kIdle:
-      QMMF_WARN("%s: %s() nothing to do, state is: %d", TAG, __func__,
+      QMMF_WARN("%s() nothing to do, state is: %d", __func__,
                 static_cast<int>(state_));
       return 0;
       break;
@@ -397,7 +397,7 @@ int32_t AudioBackendSink::Stop() {
       // proceed
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -419,14 +419,14 @@ int32_t AudioBackendSink::Stop() {
     messages_.pop();
 
   state_ = AudioState::kIdle;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return 0;
 }
 
 int32_t AudioBackendSink::Pause() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kRunning:
@@ -436,12 +436,12 @@ int32_t AudioBackendSink::Pause() {
     case AudioState::kConnect:
     case AudioState::kIdle:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -456,14 +456,14 @@ int32_t AudioBackendSink::Pause() {
   signal_.notify_one();
 
   state_ = AudioState::kPaused;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return 0;
 }
 
 int32_t AudioBackendSink::Resume() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kPaused:
@@ -473,12 +473,12 @@ int32_t AudioBackendSink::Resume() {
     case AudioState::kConnect:
     case AudioState::kIdle:
     case AudioState::kRunning:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -493,16 +493,16 @@ int32_t AudioBackendSink::Resume() {
   signal_.notify_one();
 
   state_ = AudioState::kRunning;
-  QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+  QMMF_DEBUG("%s() state is now %d", __func__,
              static_cast<int>(state_));
 
   return 0;
 }
 
 int32_t AudioBackendSink::SendBuffers(const vector<AudioBuffer>& buffers) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   for (const AudioBuffer& buffer : buffers)
-    QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s]", TAG, __func__,
+    QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
 
   switch (state_) {
@@ -513,12 +513,12 @@ int32_t AudioBackendSink::SendBuffers(const vector<AudioBuffer>& buffers) {
     case AudioState::kNew:
     case AudioState::kConnect:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -538,7 +538,7 @@ int32_t AudioBackendSink::SendBuffers(const vector<AudioBuffer>& buffers) {
 }
 
 int32_t AudioBackendSink::GetLatency(int32_t* latency) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kIdle:
@@ -548,12 +548,12 @@ int32_t AudioBackendSink::GetLatency(int32_t* latency) {
     case AudioState::kConnect:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -561,12 +561,12 @@ int32_t AudioBackendSink::GetLatency(int32_t* latency) {
 
   *latency = qahw_out_get_latency(qahw_stream_);
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: latency[%d]", TAG, __func__, *latency);
+  QMMF_VERBOSE("%s() OUTPARAM: latency[%d]", __func__, *latency);
   return 0;
 }
 
 int32_t AudioBackendSink::GetBufferSize(int32_t* buffer_size) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kIdle:
@@ -576,12 +576,12 @@ int32_t AudioBackendSink::GetBufferSize(int32_t* buffer_size) {
     case AudioState::kConnect:
     case AudioState::kRunning:
     case AudioState::kPaused:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -589,17 +589,17 @@ int32_t AudioBackendSink::GetBufferSize(int32_t* buffer_size) {
 
   *buffer_size = qahw_out_get_buffer_size(qahw_stream_);
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%d]", TAG, __func__,
+  QMMF_VERBOSE("%s() OUTPARAM: buffer_size[%d]", __func__,
                *buffer_size);
   return 0;
 }
 
 int32_t AudioBackendSink::SetParam(const AudioParamType type,
                                    const AudioParamData& data) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: type[%d]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__,
                static_cast<int>(type));
-  QMMF_VERBOSE("%s: %s() INPARAM: data[%s]", TAG, __func__,
+  QMMF_VERBOSE("%s() INPARAM: data[%s]", __func__,
                data.ToString(type).c_str());
 
   switch (state_) {
@@ -610,12 +610,12 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
       break;
     case AudioState::kNew:
     case AudioState::kConnect:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
                  __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
                  static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -628,14 +628,14 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
 
         int result = qahw_out_set_volume(qahw_stream_, volume, volume);
         if (result != 0) {
-          QMMF_ERROR("%s: %s() failed to set volume[%f]: %d[%s]",
-                     TAG, __func__, volume, result, strerror(result));
+          QMMF_ERROR("%s() failed to set volume[%f]: %d[%s]",
+                     __func__, volume, result, strerror(result));
           return result;
         }
       }
       break;
     case AudioParamType::kDevice:
-      QMMF_WARN("%s: %s() invalid operation", TAG, __func__);
+      QMMF_WARN("%s() invalid operation", __func__);
       break;
     case AudioParamType::kCustom:
       {
@@ -645,15 +645,15 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
 
         int result = qahw_out_set_parameters(qahw_stream_, keyvalue.c_str());
         if (result != 0) {
-          QMMF_ERROR("%s: %s() failed to set custom parameter[%s]: %d[%s]",
-                     TAG, __func__, keyvalue.c_str(), result,
+          QMMF_ERROR("%s() failed to set custom parameter[%s]: %d[%s]",
+                     __func__, keyvalue.c_str(), result,
                      strerror(result));
           return result;
         }
       }
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown parameter: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown parameter: %d", __func__,
                  static_cast<int>(type));
       return -ENOSYS;
       break;
@@ -665,13 +665,13 @@ int32_t AudioBackendSink::SetParam(const AudioParamType type,
 int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
                                               uint64_t* time)
 {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (state_) {
     case AudioState::kIdle:
     case AudioState::kNew:
     case AudioState::kConnect:
-      QMMF_ERROR("%s: %s() invalid operation for current state: %d", TAG,
+      QMMF_ERROR("%s() invalid operation for current state: %d",
           __func__, static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -680,7 +680,7 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
       // proceed
       break;
     default:
-      QMMF_ERROR("%s: %s() unknown state: %d", TAG, __func__,
+      QMMF_ERROR("%s() unknown state: %d", __func__,
           static_cast<int>(state_));
       return -ENOSYS;
       break;
@@ -688,27 +688,27 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
 
   int result = qahw_out_get_render_position(qahw_stream_, frames);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() Failed to get render position : %d", TAG,
+    QMMF_ERROR("%s() Failed to get render position : %d",
         __func__, result);
   }
 
-  QMMF_VERBOSE("%s: %s() Total Frames Rendered : %u", TAG, __func__, *frames);
+  QMMF_VERBOSE("%s() Total Frames Rendered : %u", __func__, *frames);
 
   uint64_t frame;
   struct timespec tv;
 
   result = qahw_out_get_presentation_position(qahw_stream_, &frame, &tv);
   if (result < 0) {
-    QMMF_ERROR("%s: %s() Failed to get presentation position: %d",
-               TAG, __func__, result);
+    QMMF_ERROR("%s() Failed to get presentation position: %d",
+               __func__, result);
   }
 
   *time = (uint64_t)(tv.tv_sec) * 1000000 + (uint64_t)(tv.tv_nsec) / 1000;
 
-  QMMF_VERBOSE("%s: %s() Total Frames Rendered (%llu) Time (%llu)", TAG,
+  QMMF_VERBOSE("%s() Total Frames Rendered (%llu) Time (%llu)",
       __func__, frame, *time);
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: frames[%u] time[%llu]", TAG, __func__,
+  QMMF_VERBOSE("%s() OUTPARAM: frames[%u] time[%llu]", __func__,
       *frames, *time);
   return 0;
 }
@@ -716,10 +716,10 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
 int AudioBackendSink::CallbackEntry(qahw_stream_callback_event_t event,
                                     void* param,
                                     void* cookie) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   if (cookie == nullptr) {
-    QMMF_ERROR("%s: %s() invalid cookie given", TAG, __func__);
+    QMMF_ERROR("%s() invalid cookie given", __func__);
     return 0;
   }
 
@@ -729,11 +729,11 @@ int AudioBackendSink::CallbackEntry(qahw_stream_callback_event_t event,
 
 int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
                                void* param) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   switch (event) {
     case QAHW_STREAM_CBK_EVENT_WRITE_READY:
-      QMMF_DEBUG("%s: %s() received WRITE_READY event", TAG, __func__);
+      QMMF_DEBUG("%s() received WRITE_READY event", __func__);
       {
         AudioMessage message;
         message.type = AudioMessageType::kMessageWriteDone;
@@ -746,7 +746,7 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
       break;
 
     case QAHW_STREAM_CBK_EVENT_DRAIN_READY:
-      QMMF_DEBUG("%s: %s() received DRAIN_READY event", TAG, __func__);
+      QMMF_DEBUG("%s() received DRAIN_READY event", __func__);
       {
         AudioMessage message;
         message.type = AudioMessageType::kMessageFlushDone;
@@ -759,16 +759,16 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
       break;
 
     case QAHW_STREAM_CBK_EVENT_ADSP:
-      QMMF_DEBUG("%s: %s() received ADSP event", TAG, __func__);
+      QMMF_DEBUG("%s() received ADSP event", __func__);
       break;
 
     case QAHW_STREAM_CBK_EVENT_ERROR:
-      QMMF_ERROR("%s: %s() received ERROR event", TAG, __func__);
+      QMMF_ERROR("%s() received ERROR event", __func__);
       Stop();
       break;
 
     default:
-      QMMF_ERROR("%s: %s() invalid event[%d]", TAG, __func__, event);
+      QMMF_ERROR("%s() invalid event[%d]", __func__, event);
       break;
   }
 
@@ -776,13 +776,13 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
 }
 
 void AudioBackendSink::ThreadEntry(AudioBackendSink* backend) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   backend->Thread();
 }
 
 void AudioBackendSink::Thread() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
   queue<AudioBuffer> buffers;
   int result;
 
@@ -796,10 +796,10 @@ void AudioBackendSink::Thread() {
   bool keep_running = true;
   while (keep_running) {
     // wait until there is something to do
-    if (buffers.empty() && messages_.empty()) {
+    while (buffers.empty() && messages_.empty()) {
       unique_lock<mutex> lk(message_lock_);
       if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
-        QMMF_WARN("%s: %s() timed out on wait", TAG, __func__);
+        QMMF_WARN("%s() timed out on wait", __func__);
     }
 
     // process the next pending message
@@ -809,55 +809,55 @@ void AudioBackendSink::Thread() {
 
       switch (message.type) {
         case AudioMessageType::kMessagePause:
-          QMMF_DEBUG("%s: %s-MessagePause() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessagePause() TRACE", __func__);
           paused = true;
 
           result = qahw_out_pause(qahw_stream_);
           if (result < 0) {
-            QMMF_ERROR("%s: %s() failed to pause output stream: %d[%s]", TAG,
+            QMMF_ERROR("%s() failed to pause output stream: %d[%s]",
                        __func__, result, strerror(result));
             error_handler_(audio_handle_, result);
           }
           break;
 
         case AudioMessageType::kMessageResume:
-          QMMF_DEBUG("%s: %s-MessageResume() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageResume() TRACE", __func__);
           paused = false;
 
           result = qahw_out_resume(qahw_stream_);
           if (result < 0) {
-            QMMF_ERROR("%s: %s() failed to resume output stream: %d[%s]", TAG,
+            QMMF_ERROR("%s() failed to resume output stream: %d[%s]",
                        __func__, result, strerror(result));
             error_handler_(audio_handle_, result);
           }
           break;
 
         case AudioMessageType::kMessageStop:
-          QMMF_DEBUG("%s: %s-MessageStop() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageStop() TRACE", __func__);
           paused = false;
           eof_received = false;
           stop_received = true;
           break;
 
         case AudioMessageType::kMessageBuffer:
-          QMMF_DEBUG("%s: %s-MessageBuffer() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageBuffer() TRACE", __func__);
           for (const AudioBuffer& buffer : message.buffers) {
-            QMMF_VERBOSE("%s: %s() INPARAM: buffer[%s] to queue[%u]",
-                         TAG, __func__, buffer.ToString().c_str(),
+            QMMF_VERBOSE("%s() INPARAM: buffer[%s] to queue[%u]",
+                         __func__, buffer.ToString().c_str(),
                          buffers.size());
             buffers.push(buffer);
-            QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                         TAG, __func__, buffers.size());
+            QMMF_VERBOSE("%s() buffers queue is now %u deep",
+                         __func__, buffers.size());
           }
           break;
 
         case AudioMessageType::kMessageWriteDone:
-          QMMF_DEBUG("%s: %s-MessageWriteDone() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageWriteDone() TRACE", __func__);
           pending_write = false;
           break;
 
         case AudioMessageType::kMessageFlushDone:
-          QMMF_DEBUG("%s: %s-MessageFlushDone() TRACE", TAG, __func__);
+          QMMF_DEBUG("%s-MessageFlushDone() TRACE", __func__);
           keep_running = false;
           break;
       }
@@ -870,8 +870,8 @@ void AudioBackendSink::Thread() {
     if (!buffers.empty() && !paused && !flushing && !pending_write &&
         !stop_received && keep_running) {
       AudioBuffer& buffer = buffers.front();
-      QMMF_VERBOSE("%s: %s() processing next buffer[%s] from queue[%u]",
-                   TAG, __func__, buffer.ToString().c_str(), buffers.size());
+      QMMF_VERBOSE("%s() processing next buffer[%s] from queue[%u]",
+                   __func__, buffer.ToString().c_str(), buffers.size());
 
       qahw_out_buffer_t qahw_buffer;
       memset(&qahw_buffer, 0, sizeof(qahw_out_buffer_t));
@@ -881,7 +881,7 @@ void AudioBackendSink::Thread() {
 
       result = qahw_out_write(qahw_stream_, &qahw_buffer);
       if (result < 0) {
-        QMMF_ERROR("%s: %s() failed to write output stream: %d[%s]", TAG,
+        QMMF_ERROR("%s() failed to write output stream: %d[%s]",
                    __func__, result, strerror(result));
         error_handler_(audio_handle_, result);
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
@@ -891,8 +891,8 @@ void AudioBackendSink::Thread() {
       } else if (static_cast<size_t>(result) == qahw_buffer.bytes) {
         bytes_written += result;
       } else {
-        QMMF_ERROR("%s: %s() incomplete write to output stream for non-offload stream",
-                   TAG, __func__);
+        QMMF_ERROR("%s() incomplete write to output stream for non-offload stream",
+                   __func__);
         error_handler_(audio_handle_, -1);
       }
 
@@ -908,8 +908,8 @@ void AudioBackendSink::Thread() {
         // return empty buffer to client
         buffer_handler_(audio_handle_, buffer);
         buffers.pop();
-        QMMF_VERBOSE("%s: %s() buffers queue is now %u deep",
-                     TAG, __func__, buffers.size());
+        QMMF_VERBOSE("%s() buffers queue is now %u deep",
+                     __func__, buffers.size());
       }
     }
 
@@ -921,8 +921,8 @@ void AudioBackendSink::Thread() {
       if (using_offload_) {
         result = qahw_out_drain(qahw_stream_, QAHW_DRAIN_ALL);
         if (result != 0) {
-          QMMF_ERROR("%s: %s() failed to drain the output stream: %d[%s]",
-                     TAG, __func__, result, strerror(result));
+          QMMF_ERROR("%s() failed to drain the output stream: %d[%s]",
+                     __func__, result, strerror(result));
           error_handler_(audio_handle_, result);
         }
         pending_flush = true;
@@ -934,8 +934,8 @@ void AudioBackendSink::Thread() {
 
   result = qahw_out_standby(qahw_stream_);
   if (result != 0) {
-    QMMF_ERROR("%s: %s() failed to put output stream in standby: %d[%s]",
-               TAG, __func__, result, strerror(result));
+    QMMF_ERROR("%s() failed to put output stream in standby: %d[%s]",
+               __func__, result, strerror(result));
     error_handler_(audio_handle_, result);
   }
 
@@ -944,7 +944,7 @@ void AudioBackendSink::Thread() {
       messages_.pop();
 
     state_ = AudioState::kIdle;
-    QMMF_DEBUG("%s: %s() state is now %d", TAG, __func__,
+    QMMF_DEBUG("%s() state is now %d", __func__,
                static_cast<int>(state_));
 
     // notify client that endpoint has stopped

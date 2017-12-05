@@ -277,7 +277,8 @@ class RecorderImpl {
   ClientCameraIdMap     client_cameraid_map_;
   std::mutex            camera_map_lock_;
 
-  bool                  client_died_;
+  typedef std::map<uint32_t, bool> ClientStatusMap;
+  ClientStatusMap       client_status_map_;
   std::mutex            client_died_lock_;
 
   // Not allowed

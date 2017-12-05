@@ -65,6 +65,8 @@ class PostProcTest : public IPostProcModule {
 
    status_t Stop() override;
 
+   status_t Abort(std::shared_ptr<void> &abort) override;
+
    PostProcIOParam GetInput(const PostProcIOParam &out) override;
 
    status_t ValidateOutput(const PostProcIOParam &output) override;

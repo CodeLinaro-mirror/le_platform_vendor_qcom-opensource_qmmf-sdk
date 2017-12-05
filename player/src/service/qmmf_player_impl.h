@@ -81,14 +81,12 @@ class PlayerImpl {
 
   status_t Prepare();
   status_t Start();
-  status_t Stop();
-  status_t Pause();
+  status_t Stop(const PictureParam& params);
+  status_t Pause(const PictureParam& params);
   status_t Resume();
 
   status_t SetPosition(int64_t seek_time);
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
-
-  status_t GrabPicture(PictureParam param);
 
   status_t SetAudioTrackParam(uint32_t track_id,
                               CodecParamType type,
@@ -107,7 +105,8 @@ class PlayerImpl {
                                      void *event_data, size_t event_data_size);
   void NotifyAudioTrackEventCallback(uint32_t track_id, EventType event_type,
                                      void *event_data, size_t event_data_size);
-  void NotifyGrabPictureDataCallback(BufferDescriptor& buffer);
+  void NotifyGrabPictureDataCallback(uint32_t track_id,
+                                     BufferDescriptor& buffer);
 
  private:
 

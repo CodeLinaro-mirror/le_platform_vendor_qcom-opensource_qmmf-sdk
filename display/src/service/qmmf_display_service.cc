@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "DisplayService"
+#define LOG_TAG "DisplayService"
 
 #include "display/src/service/qmmf_display_service.h"
 #include <sys/time.h>
@@ -45,23 +45,23 @@ namespace display {
 
 DisplayService::DisplayService()
   :connected_(false) {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
-  QMMF_INFO("%s:%s: DisplayService Instantiated! ", TAG, __func__);
-  QMMF_INFO("%s:%s: Exit ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_INFO("%s: DisplayService Instantiated! ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
 }
 
 DisplayService::~DisplayService()
 {
-  QMMF_INFO("%s:%s: Enter ", TAG, __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   death_notifier_.clear();
   client_handlers_.clear();
-  QMMF_INFO("%s:%s: Exit ", TAG, __func__);
+  QMMF_INFO("%s: Exit ", __func__);
 }
 
 status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
     Parcel* reply, uint32_t flag)
 {
-  QMMF_LEVEL2("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL2("%s: Enter ", __func__);
   CHECK_INTERFACE(IDisplayService, data, reply);
   int32_t ret = 0;
 
@@ -232,8 +232,8 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
             ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
             ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
             if(ret != NO_ERROR) {
-              QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
-                  TAG, __func__, ion_info_fd.fd, ret, errno);
+              QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
+                  __func__, ion_info_fd.fd, ret, errno);
             }
             ion_fd_mapping.insert({surface_buffer.plane_info[0].ion_fd,
                 ion_fd});
@@ -344,17 +344,17 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
 
 status_t DisplayService::Connect() {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
 
   ion_device_ = open("/dev/ion", O_RDONLY);
   if (ion_device_ < 0) {
-    QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
+    QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
   }
 
   display_ = DisplayImpl::CreateDisplayCore();
   if (!display_) {
-    QMMF_ERROR("%s:%s: Can't create Display Instance!!", TAG, __func__);
+    QMMF_ERROR("%s: Can't create Display Instance!!", __func__);
     return NO_MEMORY;
   }
 
@@ -363,18 +363,18 @@ status_t DisplayService::Connect() {
 
   death_notifier_ = new DeathNotifier(this);
   if (NULL == death_notifier_.get()) {
-    QMMF_ERROR("%s:%s: Unable to allocate death notifier!", TAG, __func__);
+    QMMF_ERROR("%s: Unable to allocate death notifier!", __func__);
     return NO_MEMORY;
   }
 
   connected_ = true;
-  QMMF_INFO("%s:%s: EXIT ", TAG, __func__);
+  QMMF_INFO("%s: EXIT ", __func__);
   return ret;
 }
 
 status_t DisplayService::Disconnect() {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   int32_t ret = NO_ERROR;
   if (!connected_)
     return NO_INIT;
@@ -393,7 +393,7 @@ status_t DisplayService::Disconnect() {
   }
 
 
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
 
   return ret;
 }
@@ -401,7 +401,7 @@ status_t DisplayService::Disconnect() {
 status_t DisplayService::CreateDisplay(const sp<IDisplayServiceCallback>&
     service_cb, DisplayType display_type, DisplayHandle* display_handle) {
 
-  QMMF_INFO("%s:%s: Enter", TAG, __func__);
+  QMMF_INFO("%s: Enter", __func__);
   sp<RemoteCallBack>           remote_callback;
 
   remote_callback = new RemoteCallBack(service_cb);
@@ -416,20 +416,20 @@ status_t DisplayService::CreateDisplay(const sp<IDisplayServiceCallback>&
   remote_callback_.insert({*display_handle, remote_callback});
 
   connected_ = true;
-  QMMF_INFO("%s:%s: EXIT ", TAG, __func__);
+  QMMF_INFO("%s: EXIT ", __func__);
   return ret;
 }
 
 status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   int32_t ret = NO_ERROR;
   if (!connected_)
     return NO_INIT;
 
   auto remote_callback = remote_callback_.find(display_handle);
   if (remote_callback == remote_callback_.end()) {
-    QMMF_ERROR("%s: %s() no remote_callback for handle[%d]", TAG, __func__,
+    QMMF_ERROR("%s() no remote_callback for handle[%d]", __func__,
                display_handle);
     return -EINVAL;
   }
@@ -443,7 +443,7 @@ status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
   }
   assert(ret == NO_ERROR);
 
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
 
   return ret;
 }
@@ -451,11 +451,11 @@ status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
 status_t DisplayService::CreateSurface(DisplayHandle display_handle,
     SurfaceConfig &surface_config,
     uint32_t* surface_id) {
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
 
   if(!connected_) {
-    QMMF_WARN("%s:%s: Connect Should be called, before calling CreateSurface!!",
-        TAG, __func__);
+    QMMF_WARN("%s: Connect Should be called, before calling CreateSurface!!",
+        __func__);
     return NO_INIT;
   }
   assert(display_ != NULL);
@@ -463,34 +463,34 @@ status_t DisplayService::CreateSurface(DisplayHandle display_handle,
   auto ret = display_->CreateSurface(display_handle, surface_config,
       surface_id);
   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Can't create surface!!", TAG, __func__);
+    QMMF_ERROR("%s: Can't create surface!!", __func__);
     return ret;
   }
-  QMMF_INFO("%s:%s: Exit", TAG, __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t DisplayService::DestroySurface(DisplayHandle display_handle,
     const uint32_t surface_id) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
 
   assert(display_ != NULL);
 
-  QMMF_INFO("%s:%s: surface_id:%d", TAG, __func__, surface_id);
+  QMMF_INFO("%s: surface_id:%d", __func__, surface_id);
   auto ret = display_->DestroySurface(display_handle, surface_id);
   if(ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: Can't destroy surface!!", TAG, __func__);
+    QMMF_ERROR("%s: Can't destroy surface!!", __func__);
     return ret;
   }
-  QMMF_LEVEL1("%s:%s: Exit", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t DisplayService::DequeueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -498,7 +498,7 @@ status_t DisplayService::DequeueSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->DequeueSurfaceBuffer(display_handle, surface_id,
       surface_buffer);
   assert(ret == NO_ERROR);
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 
@@ -506,7 +506,7 @@ status_t DisplayService::QueueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer,
     SurfaceParam &surface_param) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -515,32 +515,32 @@ status_t DisplayService::QueueSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->QueueSurfaceBuffer(display_handle, surface_id,
       surface_buffer, surface_param);
   assert(ret == NO_ERROR);
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::GetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
   assert(display_ != NULL);
 
-  QMMF_INFO("%s:%s: param_type:%d", TAG, __func__, param_type);
+  QMMF_INFO("%s: param_type:%d", __func__, param_type);
   auto ret = display_->GetDisplayParam(display_handle, param_type, param,
       param_size);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: GetDisplayParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: GetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::SetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -548,16 +548,16 @@ status_t DisplayService::SetDisplayParam(DisplayHandle display_handle,
   auto ret = display_->SetDisplayParam(display_handle, param_type, param,
       param_size);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: SetDisplayParam failed!", TAG, __func__);
+    QMMF_ERROR("%s: SetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::DequeueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -566,16 +566,16 @@ status_t DisplayService::DequeueWBSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->DequeueWBSurfaceBuffer(display_handle, surface_id,
       surface_buffer);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: DequeueWBSurfaceBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s: DequeueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::QueueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, const SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s:%s: Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -584,9 +584,9 @@ status_t DisplayService::QueueWBSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->QueueWBSurfaceBuffer(display_handle, surface_id,
       surface_buffer);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: QueueWBSurfaceBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s: QueueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s: Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s: Exit ", __func__);
   return ret;
 }
 

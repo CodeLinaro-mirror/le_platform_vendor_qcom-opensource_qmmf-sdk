@@ -31,7 +31,6 @@
 
 #include <mutex>
 
-#include <utils/Log.h>
 #include <qcom/display/gralloc_priv.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -49,18 +48,29 @@ using namespace cameraadaptor;
 
 #define VIDEO_STREAM_BUFFER_COUNT    11
 #define PREVIEW_STREAM_BUFFER_COUNT  10
+#define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            4
-
-//FIXME: This is temporary change until necessary vendor mode changes are merged
-// in HAL3.
-#define QCAMERA3_VENDOR_SENSOR_MODE 1
 
 namespace recorder {
 
 class CameraPort;
 class IBufferConsumer;
 class IBufferProducer;
+
+struct AECData {
+  uint8_t state;
+  int64_t timestamp;
+
+  AECData()
+    : state(ANDROID_CONTROL_AE_STATE_INACTIVE),
+      timestamp(-1) {}
+
+  void Reset() {
+    state = ANDROID_CONTROL_AE_STATE_INACTIVE;
+    timestamp = -1;
+  }
+};
 
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create
 // Different types of streams (preview, video, and snashot). this class has a
@@ -166,6 +176,8 @@ class CameraContext : public CameraInterface,
 
   bool IsInputSupported();
 
+  AECData GetAECData();
+
   status_t CreateZSLStream(const CameraStartParam &param);
 
   status_t CreateSnapshotStream(const ImageParam &param);
@@ -202,7 +214,7 @@ class CameraContext : public CameraInterface,
 
   std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
 
-  bool IsPostProcNeeded(const ImageParam &param);
+  bool IsPostProcNeeded(const ImageParam &param, const uint32_t sequence_cnt);
 
   CameraPort* GetPort(const uint32_t track_id);
 
@@ -218,8 +230,6 @@ class CameraContext : public CameraInterface,
 
   int32_t PostProcStart(int32_t stream_id);
 
-  status_t PostProcAddResult(const CaptureResult &result);
-
   template <typename T>
   bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,
                        uint32_t frame_number);
@@ -228,7 +238,9 @@ class CameraContext : public CameraInterface,
   bool UpdatePartialTag(CameraMetadata &result, int32_t tag, const T *value,
                         uint32_t frame_number);
 
-  void HandleFinalResult(const CaptureResult &capture_result);
+  void HandleFinalResult(const CaptureResult &result);
+
+  status_t ValideteCaptureParams(const ImageParam &image_param);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -249,13 +261,20 @@ class CameraContext : public CameraInterface,
   // Stream ids that have been removed from capture requests.
   std::set<int32_t>        removed_stream_ids_;
 
+  int64_t                  last_frame_number_;
+
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   std::vector<int32_t>     snapshot_request_id_;
   ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
-  uint32_t                 burst_cnt_;
+  int64_t                  last_snapshot_id_;
+  int64_t                  curr_snapshot_id_;
+  uint32_t                 capture_cnt_;
+  bool                     capture_done_;
+  std::mutex               capture_lock_;
+  QCondition               capture_signal_;
   bool                     postproc_enable_;
   bool                     cancel_capture_ = false;
 
@@ -273,9 +292,6 @@ class CameraContext : public CameraInterface,
   // Maps of buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
-  // User define value for sensor mode
-  int32_t sensor_vendor_mode_;
-
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;
   bool                     hfr_supported_;
@@ -287,24 +303,25 @@ class CameraContext : public CameraInterface,
   std::shared_ptr<PostProcPipe> postproc_pipe_;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
-  bool                     aec_done_;
-
-  std::mutex               capture_count_lock_;
-  QCondition               capture_count_signal_;
 
   std::mutex               pending_frames_lock_;
   QCondition               pending_frames_;
 
+  AECData                  aec_;
   std::mutex               aec_lock_;
-  QCondition               aec_signal_;
+  QCondition               aec_state_updated_;
 
-  static const uint32_t    kWaitPendingFramesTimeout = 500000000; // 500 ms.
+  static const uint32_t    kWaitAecTimeout = 500000000; // 500 ms.
+  static const uint32_t    kWaitPendingFramesTimeout = 1500000000; // 1500 ms.
 
   std::string              pipe_config_json_data_;
 
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
+  SnapshotMode             snapshot_type_;
+  SnapshotMode             new_snapshot_type_;
+  bool                     postproc_frame_skip_;
 };
 
 enum class CameraPortType {
@@ -387,12 +404,18 @@ class CameraPort {
   size_t                 batch_size_;
   uint32_t               port_id_;
 
+  // Indicates whether and for which frame the AE has converged after start.
+  bool                   aec_converged_;
+  int64_t                aec_timestamp_;
+
   std::map<uintptr_t, sp<IBufferConsumer> >consumers_;
 
   std::shared_ptr<PostProcPipe> postproc_pipe_;
-  std::mutex             consumer_lock_;
   sp<IBufferConsumer>    consumer_;
+
+  std::mutex             consumer_lock_;
   std::mutex             stop_lock_;
+  std::mutex             aec_lock_;
 
   std::string            pipe_config_json_data_;
 };

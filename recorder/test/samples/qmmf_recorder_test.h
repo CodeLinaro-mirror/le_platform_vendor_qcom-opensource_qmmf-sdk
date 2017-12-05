@@ -185,6 +185,7 @@ struct SnapshotInfo {
 enum class TrackType {
   kNone,
   kAudioPCM,
+  kAudioPCMFP,
   kAudioAAC,
   kAudioAMR,
   kAudioG711,
@@ -200,44 +201,47 @@ struct TrackInfo {
   uint32_t  height;
   float     fps;
   TrackType track_type;
-  uint32_t  bitrate;
-  int32_t  ltr_count;
+  int32_t   ltr_count;
   uint32_t  session_id;
   uint32_t  track_id;
   int32_t   camera_id;
   uint32_t  low_power_mode;
   DeviceId  device_id;
+  AVCParams avcparams;
+  HEVCParams hevcparams;
 
   TrackInfo()
       : width(3840),
         height(2160),
         fps(30),
         track_type(TrackType::kVideoAVC),
-        bitrate(6000000),
         ltr_count(0),
         session_id(-1),
         track_id(1),
         camera_id(0),
         low_power_mode(0),
-        device_id(0) {}
+        device_id(0),
+        avcparams(),
+        hevcparams() {}
 
   TrackInfo(uint32_t width, uint32_t height, float fps, TrackType track_type,
-            uint32_t bitrate, int32_t ltr_count, uint32_t session_id,
-            uint32_t track_id, int32_t camera_id, uint32_t low_power_mode,
-            DeviceId device_id)
+            int32_t ltr_count, uint32_t session_id, uint32_t track_id,
+            int32_t camera_id, uint32_t low_power_mode,
+            DeviceId device_id, AVCParams avcparams,
+            HEVCParams hevcparams)
       : width(width),
         height(height),
         fps(fps),
         track_type(track_type),
-        bitrate(bitrate),
         ltr_count(ltr_count),
         session_id(session_id),
         track_id(track_id),
         camera_id(camera_id),
         low_power_mode(low_power_mode),
-        device_id(device_id) {}
+        device_id(device_id),
+        avcparams(avcparams),
+        hevcparams(hevcparams) {}
 };
-
 
 struct RGBAValues {
   double red;

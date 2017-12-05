@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "SystemTestWav"
+#define LOG_TAG "SystemTestWav"
 
 #include "system/test/samples/qmmf_system_test_wav.h"
 
@@ -62,17 +62,17 @@ static const char *kFilenameSuffix = ".wav";
 const int SystemTestWav::kEOF = 1;
 
 SystemTestWav::SystemTestWav() : data_size_(0), direction_(-1) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 }
 
 SystemTestWav::~SystemTestWav() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 }
 
 int32_t SystemTestWav::Configure(const string& filename_prefix,
                                  size_t* buffer_size) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: filename_prefix[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: filename_prefix[%s]", __func__,
                filename_prefix.c_str());
 
   filename_ = filename_prefix;
@@ -81,7 +81,7 @@ int32_t SystemTestWav::Configure(const string& filename_prefix,
 
   input_.open(filename_.c_str(), ios::in | ios::binary);
   if (!input_.is_open()) {
-    QMMF_ERROR("%s: %s() error opening file[%s]", TAG, __func__,
+    QMMF_ERROR("%s() error opening file[%s]", __func__,
                filename_.c_str());
     return -EBADF;
   }
@@ -91,7 +91,7 @@ int32_t SystemTestWav::Configure(const string& filename_prefix,
   if (header_.riff_header.riff_id != kIdRiff ||
       header_.riff_header.wave_id != kIdWave) {
     input_.close();
-    QMMF_ERROR("%s: %s() file[%s] is not WAV format", TAG, __func__,
+    QMMF_ERROR("%s() file[%s] is not WAV format", __func__,
                filename_.c_str());
     return -EDOM;
   }
@@ -126,7 +126,7 @@ int32_t SystemTestWav::Configure(const string& filename_prefix,
       header_.chunk_format.num_channels != 1 ||
       header_.chunk_format.sample_rate != 48000 ||
       header_.chunk_format.bits_per_sample != 16) {
-    QMMF_ERROR("%s: %s() WAV file[%s] is incorrect PCM format", TAG, __func__,
+    QMMF_ERROR("%s() WAV file[%s] is incorrect PCM format", __func__,
                filename_.c_str());
     return -EDOM;
   }
@@ -134,14 +134,14 @@ int32_t SystemTestWav::Configure(const string& filename_prefix,
   input_.close();
   direction_ = 0;
 
-  QMMF_VERBOSE("%s: %s() OUTPARAM: buffer_size[%zu]", TAG, __func__,
+  QMMF_VERBOSE("%s() OUTPARAM: buffer_size[%zu]", __func__,
                *buffer_size);
   return 0;
 }
 
 int32_t SystemTestWav::Configure(const string& filename_prefix) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: filename_prefix[%s]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: filename_prefix[%s]", __func__,
                filename_prefix.c_str());
 
   filename_ = filename_prefix;
@@ -173,17 +173,17 @@ int32_t SystemTestWav::Configure(const string& filename_prefix) {
 }
 
 int32_t SystemTestWav::Open() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   if (filename_.empty()) {
-    QMMF_ERROR("%s: %s() called in unconfigured state", TAG, __func__);
+    QMMF_ERROR("%s() called in unconfigured state", __func__);
     return -EPERM;
   }
 
   if (direction_) {
     output_.open(filename_.c_str(), ios::out | ios::binary | ios::trunc);
     if (!output_.is_open()) {
-      QMMF_ERROR("%s: %s() error opening file[%s]", TAG, __func__,
+      QMMF_ERROR("%s() error opening file[%s]", __func__,
                  filename_.c_str());
       return -EBADF;
     }
@@ -192,7 +192,7 @@ int32_t SystemTestWav::Open() {
   } else {
     input_.open(filename_.c_str(), ios::in | ios::binary);
     if (!input_.is_open()) {
-      QMMF_ERROR("%s: %s() error opening file[%s]", TAG, __func__,
+      QMMF_ERROR("%s() error opening file[%s]", __func__,
                  filename_.c_str());
       return -EBADF;
     }
@@ -204,13 +204,13 @@ int32_t SystemTestWav::Open() {
 }
 
 void SystemTestWav::Close() {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
+  QMMF_DEBUG("%s() TRACE", __func__);
 
   if (direction_) {
     if (output_.is_open()) {
       int frames = data_size_ / (header_.chunk_format.num_channels *
                                  header_.chunk_format.bits_per_sample / 8);
-      QMMF_INFO("%s: %s() wrote %d frames", TAG, __func__, frames);
+      QMMF_INFO("%s() wrote %d frames", __func__, frames);
 
       // finalize the file
       header_.data_header.data_size = frames *
@@ -230,12 +230,12 @@ void SystemTestWav::Close() {
 }
 
 int32_t SystemTestWav::Read(void* buffer) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%p]", TAG, __func__, buffer);
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: buffer[%p]", __func__, buffer);
 
   input_.read(reinterpret_cast<char*>(buffer), data_size_);
   if (input_.gcount() != data_size_) {
-    QMMF_ERROR("%s: %s() could not read entire buffer", TAG, __func__);
+    QMMF_ERROR("%s() could not read entire buffer", __func__);
     return -EIO;
   }
 
@@ -243,9 +243,9 @@ int32_t SystemTestWav::Read(void* buffer) {
 }
 
 int32_t SystemTestWav::Write(void* buffer, const size_t buffer_size) {
-  QMMF_DEBUG("%s: %s() TRACE", TAG, __func__);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer[%p]", TAG, __func__, buffer);
-  QMMF_VERBOSE("%s: %s() INPARAM: buffer_size[%zu]", TAG, __func__,
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: buffer[%p]", __func__, buffer);
+  QMMF_VERBOSE("%s() INPARAM: buffer_size[%zu]", __func__,
                buffer_size);
 
   streampos before = output_.tellp();

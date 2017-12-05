@@ -27,12 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define TAG "RecorderPostProcFactory"
+#define LOG_TAG "RecorderPostProcFactory"
 
 #include <dirent.h>
 
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
+#include "../modules/frame-skip/qmmf_postproc_frame_skip.h"
 #include "../modules/test/qmmf_postproc_test.h"
 #include "../modules/algo/qmmf_postproc_algo.h"
 
@@ -81,7 +82,7 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
 
   DIR *dp = opendir(plugins_path.c_str());
   if (nullptr == dp) {
-    QMMF_ERROR("%s:%s: Failed to open plugins folder: %s", TAG, __func__,
+    QMMF_ERROR("%s: Failed to open plugins folder: %s", __func__,
         strerror(errno));
     return PERMISSION_DENIED;
   }
@@ -115,7 +116,7 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
       delete plugin;
       Utils::UnloadLib(lib_handle);
     } catch (const std::exception &e) {
-      QMMF_ERROR("%s:%s: Error getting plugin info for %s exception: %s", TAG,
+      QMMF_ERROR("%s: Error getting plugin info for %s exception: %s",
           __func__, library.c_str(), e.what());
       return FAILED_TRANSACTION;
     }
@@ -209,6 +210,8 @@ PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
     module = std::make_shared<CameraHalReproc>(context);
   } else if (name == "Test") {
     module = std::make_shared<PostProcTest>();
+  } else if (name == "FrameSkip") {
+    module = std::make_shared<PostProcFrameSkip>();
   } else {
     QMMF_ERROR("%s: Invalid post process engine: %s", __func__, name.c_str());
     return node;
