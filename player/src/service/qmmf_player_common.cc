@@ -53,6 +53,10 @@ extern "C" void DebugVideoTrackCreateParam (const char* _func_,
 {
   QMMF_VERBOSE("%s width = %u", _func_, track_params.width);
   QMMF_VERBOSE("%s height = %u", _func_, track_params.height);
+  QMMF_VERBOSE("%s dest start_x = %.1f", _func_, track_params.destRect.start_x);
+  QMMF_VERBOSE("%s dest start_y = %.1f", _func_, track_params.destRect.start_y);
+  QMMF_VERBOSE("%s dest width = %u", _func_, track_params.destRect.width);
+  QMMF_VERBOSE("%s dest height = %u", _func_, track_params.destRect.height);
   QMMF_VERBOSE("%s codec = %u", _func_, track_params.codec);
   QMMF_VERBOSE("%s out_device = %u", _func_, track_params.out_device);
 }

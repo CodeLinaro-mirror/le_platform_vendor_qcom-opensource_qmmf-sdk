@@ -62,9 +62,6 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
-#define DISPLAY_WIDTH 1920
-#define DISPLAY_HEIGHT 1080
-
 namespace qmmf {
 namespace player {
 
