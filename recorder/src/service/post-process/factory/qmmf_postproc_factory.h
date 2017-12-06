@@ -70,6 +70,10 @@ class PostProcFactory {
 
  private:
 
+   status_t LoadSupportedPlugins();
+
+   status_t UnloadSupportedPlugins();
+
    int32_t GetUniqueId();
 
    bool IsPlugin(std::string entry);
@@ -81,6 +85,7 @@ class PostProcFactory {
    static const std::string      plugin_suffix;
 
    SupportedPlugins supported_plugins_;
+   std::vector<void *> plugin_handles_;
    std::map<std::string, std::string> plugin_libraries_;
 
    std::map<uint32_t, std::shared_ptr<PostProcNode> > plugin_nodes_;
