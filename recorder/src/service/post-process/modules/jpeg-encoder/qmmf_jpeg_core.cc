@@ -100,14 +100,29 @@ uint8_t JpegEncoder::DEFAULT_QTABLE_1[] = {
 void EncodeCbGlobal(jpeg_job_status_t status, uint32_t /*client_hdl*/,
                     uint32_t /*jobId*/, mm_jpeg_output_t *p_output,
                     void *userData) {
+
+  if (userData == nullptr) {
+    ALOGE("%s: Encoder cb: userData is NULL !!!", __func__);
+    return;
+  }
+
+  JpegEncoder *enc = (JpegEncoder *)userData;
+  if (!enc->IsRunningState()) {
+    ALOGE("%s: Encoder job status is not running discard the cb !!!", __func__);
+    return;
+  }
+
+  mm_jpeg_output_t e_output;
   if (status == JPEG_JOB_STATUS_ERROR) {
     ALOGE("%s: Encoder ran into an error", __func__);
+    e_output.buf_vaddr = nullptr;
+    e_output.fd = -1;
+    e_output.buf_filled_len = 0;
   } else {
-    JpegEncoder *enc = (JpegEncoder *)userData;
-    if (enc != nullptr) {
-      enc->EncodeCb(p_output, userData);
-    }
+    e_output = *p_output;
   }
+
+  enc->EncodeCb(&e_output, userData, (status == JPEG_JOB_STATUS_ERROR));
 }
 
 JpegEncoder *JpegEncoder::getInstance() {
@@ -126,6 +141,7 @@ JpegEncoder::JpegEncoder() :
     cfg_(NULL),
     job_result_ptr_(NULL),
     job_result_size_(0),
+    state_(State::CREATED),
     libjpeg_interface_(nullptr) {
   cfg_ = new JpegEncoderParams;
   JE_GET_PARAMS(cfg);
@@ -369,11 +385,13 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
   }
 
   if (!cfg->ops_.start_job(&cfg->job_, &cfg->job_id_)) {
+    state_ = State::RUNING;
     std::unique_lock<std::mutex> ul(cfg->enc_done_lock_);
     cfg->enc_done_cond_.Wait(ul);
     ul.unlock();
 
-    if (jpeg_size) {
+    uint32_t result_size = 0;
+    if (job_result_size_) {
       /* add a valid jpeg header */
       camera3_jpeg_blob_t jpegHeader;
       jpegHeader.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
@@ -381,8 +399,12 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
       uint8_t *jpegEof = &cfg->params_.dest_buf[0].buf_vaddr[job_result_size_];
       memcpy(jpegEof, &jpegHeader, sizeof(jpegHeader));
 
-      *jpeg_size = job_result_size_ + sizeof(jpegHeader) + 1;
+      result_size = job_result_size_ + sizeof(jpegHeader) + 1;
     }
+    if (jpeg_size) {
+      *jpeg_size = result_size;
+    }
+
   } else {
     ALOGE("%s: could not start encode job", __func__);
     goto jpeg_encode_exit;
@@ -399,15 +421,19 @@ jpeg_encode_exit:
     cfg->handle_ = 0;
   }
 
+  state_ = State::CREATED;
   return job_result_ptr_;
 }
 
-void JpegEncoder::EncodeCb(void *p_output, void *userData) {
+void JpegEncoder::EncodeCb(void *p_output, void *userData, bool error) {
   JpegEncoder *enc = (JpegEncoder *)userData;
   mm_jpeg_output_t *output = (mm_jpeg_output_t *)p_output;
 
   enc->job_result_ptr_ = output->buf_vaddr;
   enc->job_result_size_ = output->buf_filled_len;
+  if (error) {
+    enc->state_ = State::ABORTED;
+  }
 
   JpegEncoderParams *cfg = (JpegEncoderParams *)enc->cfg_;
   cfg->enc_done_cond_.Signal();

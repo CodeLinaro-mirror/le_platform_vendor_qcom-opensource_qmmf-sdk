@@ -958,17 +958,20 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
       content_size = buffer.size;
       break;
     case BufferFormat::kBLOB:
-      vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
-          buffer.fd, 0);
-      assert(vaddr != nullptr);
-      assert(0 < buffer.info.num_planes);
-      content_size = GetJpegSize((uint8_t*) vaddr,
-                                 buffer.info.plane_info[0].width);
-      QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
-      assert(0 < content_size);
-      if (vaddr) {
-        munmap(vaddr, buffer.size);
-        vaddr = nullptr;
+      if (!(buffer.flags &
+            static_cast<uint32_t>(BufferFlags::kFlagCorrupted))) {
+        vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+            buffer.fd, 0);
+        assert(vaddr != nullptr);
+        assert(0 < buffer.info.num_planes);
+        content_size = GetJpegSize((uint8_t*) vaddr,
+                                   buffer.info.plane_info[0].width);
+        QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
+        assert(0 < content_size);
+        if (vaddr) {
+          munmap(vaddr, buffer.size);
+          vaddr = nullptr;
+        }
       }
       width  = -1;
       height = -1;
@@ -988,6 +991,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   bn_buffer.height    = height;
   bn_buffer.buffer_id = buffer.fd;
   bn_buffer.capacity  = buffer.size;
+  bn_buffer.flag      = buffer.flags;
 
   MetaData meta_data{};
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
