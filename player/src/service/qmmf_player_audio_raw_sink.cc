@@ -909,6 +909,7 @@ void AudioRawTrackSink::PtsThreadEntry(AudioRawTrackSink* sink) {
 void AudioRawTrackSink::PtsThread() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
+  uint64_t previous_timestamp = 0UL;
 
   bool paused = false;
   bool keep_running = true;
@@ -956,9 +957,13 @@ void AudioRawTrackSink::PtsThread() {
                   __func__, result, strerror(result));
       } else {
         uint64_t timestamp = frames / (track_params_.params.sample_rate / 1000);
-        callback_.event_cb(track_params_.track_id,
-                           EventType::kPresentationTimestamp, &timestamp,
-                           sizeof(timestamp));
+        if (timestamp != previous_timestamp) {
+          QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__);
+          callback_.event_cb(track_params_.track_id,
+                             EventType::kPresentationTimestamp, &timestamp,
+                             sizeof(timestamp));
+        }
+        previous_timestamp = timestamp;
       }
     }
   }
