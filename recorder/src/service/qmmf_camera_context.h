@@ -242,14 +242,14 @@ class CameraContext : public CameraInterface,
 
   status_t ValideteCaptureParams(const ImageParam &image_param);
 
+  std::string GetSnapshotJsonConfig();
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
   std::mutex               device_access_lock_;
   CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
-
-  std::vector<uint32_t>    capture_plugins_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
@@ -266,7 +266,6 @@ class CameraContext : public CameraInterface,
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   std::vector<int32_t>     snapshot_request_id_;
-  ImageParam               snapshot_param_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
   int64_t                  last_snapshot_id_;
@@ -314,14 +313,17 @@ class CameraContext : public CameraInterface,
   static const uint32_t    kWaitAecTimeout = 500000000; // 500 ms.
   static const uint32_t    kWaitPendingFramesTimeout = 1500000000; // 1500 ms.
 
-  std::string              pipe_config_json_data_;
-
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
-  SnapshotMode             snapshot_type_;
-  SnapshotMode             new_snapshot_type_;
-  bool                     postproc_frame_skip_;
+
+  // snapshot configuration
+  ImageParam                    snapshot_param_;
+  std::vector<uint32_t>         capture_plugins_;
+  std::vector<ImageThumbnail>   thumbnails_;
+  SnapshotMode                  snapshot_type_;
+  SnapshotMode                  new_snapshot_type_;
+  bool                          postproc_frame_skip_;
 };
 
 enum class CameraPortType {

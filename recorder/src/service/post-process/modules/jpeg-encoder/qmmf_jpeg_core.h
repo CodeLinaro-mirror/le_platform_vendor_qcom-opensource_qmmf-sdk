@@ -70,6 +70,7 @@ class JpegEncoder {
     uint8_t *img_data[3];
     uint8_t *out_data[3];
     CameraBufferMetaData source_info;
+    uint32_t image_quality;
     std::vector<jpeg_thumbnail> thumbnail_data;
   };
 
