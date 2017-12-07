@@ -317,7 +317,8 @@ status_t AudioEncoderCore::ReturnTrackBuffer(const uint32_t track_id,
 }
 
 AudioTrackEncoder::AudioTrackEncoder()
-    : avcodec_(nullptr) {
+    : avcodec_(nullptr),
+      eos_received_(false) {
   QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s:() TRACE", __func__);
 }
@@ -349,6 +350,8 @@ status_t AudioTrackEncoder::Start(const shared_ptr<ICodecSource> &track_source,
   int32_t iresult;
   uint32_t count, size;
   vector<BufferDescriptor> dummy_list;
+
+  eos_received_ = false;
 
   avcodec_ = new AVCodec();
   if(avcodec_ == nullptr) {
@@ -475,6 +478,13 @@ status_t AudioTrackEncoder::Stop() {
 
   delete avcodec_;
   avcodec_ = nullptr;
+
+  if (!eos_received_) {
+    unique_lock<mutex> lk(mutex_);
+    if (eos_signal_.WaitFor(lk, seconds(5)) != 0)
+      QMMF_WARN("%s() timed out waiting for EOS-marked buffer to return",
+                __func__);
+  }
 
   return return_value;
 }
@@ -617,6 +627,14 @@ status_t AudioTrackEncoder::OnBufferReturnFromClient(
     buffers_.push(codec_buffer);
     mutex_.unlock();
     signal_.Signal();
+
+    if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      QMMF_DEBUG("%s() received buffer with EOS", __func__);
+      eos_mutex_.lock();
+      eos_received_ = true;
+      eos_mutex_.unlock();
+      eos_signal_.Signal();
+    }
   }
 
   return ::android::NO_ERROR;
