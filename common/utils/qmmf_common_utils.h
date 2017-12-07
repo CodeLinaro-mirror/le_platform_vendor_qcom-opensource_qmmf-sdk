@@ -109,6 +109,9 @@ class Common {
       case BufferFormat::kNV21:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
+      case BufferFormat::kRAW8:
+        return HAL_PIXEL_FORMAT_RAW8;
+        break;
       case BufferFormat::kRAW10:
         return HAL_PIXEL_FORMAT_RAW10;
         break;
@@ -145,6 +148,9 @@ class Common {
         break;
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV21;
+        break;
+      case HAL_PIXEL_FORMAT_RAW8:
+        return BufferFormat::kRAW8;
         break;
       case HAL_PIXEL_FORMAT_RAW10:
         return BufferFormat::kRAW10;

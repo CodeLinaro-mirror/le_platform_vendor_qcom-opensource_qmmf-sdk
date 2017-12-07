@@ -246,6 +246,8 @@ class CameraContext : public CameraInterface,
 
   status_t ValideteCaptureParams(const ImageParam &image_param);
 
+  bool IsRawOnly(const int32_t format);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;

@@ -262,6 +262,7 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
 
 bool PostProcPipe::IsRAWFormat(const BufferFormat &format) {
   switch (format) {
+    case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
@@ -303,6 +304,7 @@ bool PostProcPipe::IsFormatSupported(const std::set<BufferFormat> &formats,
 
 bool PostProcPipe::SupportsRAWFormat(const std::set<BufferFormat> &formats) {
   if (formats.count(BufferFormat::kRAW10) != 0 ||
+      formats.count(BufferFormat::kRAW8)  != 0 ||
       formats.count(BufferFormat::kRAW12) != 0 ||
       formats.count(BufferFormat::kRAW16) != 0) {
     return true;

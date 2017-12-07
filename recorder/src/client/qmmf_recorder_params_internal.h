@@ -134,6 +134,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         JPEGParamsInternal(codec_param.jpeg).ToParcel(parcel);
         break;
       case VideoFormat::kYUV:
+      case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
@@ -159,6 +160,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         codec_param.jpeg = JPEGParamsInternal().FromParcel(parcel);
         break;
       case VideoFormat::kYUV:
+      case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
