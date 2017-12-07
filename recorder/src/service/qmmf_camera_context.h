@@ -244,6 +244,8 @@ class CameraContext : public CameraInterface,
 
   std::string GetSnapshotJsonConfig();
 
+  bool IsRawOnly(const int32_t format);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;

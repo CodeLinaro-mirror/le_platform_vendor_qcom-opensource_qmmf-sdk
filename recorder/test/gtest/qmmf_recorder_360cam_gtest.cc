@@ -18407,6 +18407,9 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
         case BufferFormat::kBLOB:
         ext_str = "jpg";
         break;
+        case BufferFormat::kRAW8:
+        ext_str = "raw8";
+        break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";
         break;

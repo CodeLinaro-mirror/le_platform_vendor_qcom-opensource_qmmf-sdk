@@ -166,6 +166,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
 
   // Query RAW dimensions if input format is RAW
   if (input_param.format == BufferFormat::kRAW10 ||
+      input_param.format == BufferFormat::kRAW8 ||
       input_param.format == BufferFormat::kRAW12 ||
       input_param.format == BufferFormat::kRAW16) {
     camera_metadata_entry_t entry;

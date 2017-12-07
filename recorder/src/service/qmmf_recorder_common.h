@@ -71,6 +71,7 @@ enum class TrackType {
 enum class CameraStreamFormat {
   kNV12,
   kNV21,
+  kRAW8,
   kRAW10,
   kRAW12,
 };

@@ -3582,6 +3582,76 @@ TEST_F(RecorderGtest, RawBayerRDI12Snapshot) {
 }
 
 /*
+* RawBayerRDI8Snapshot: This test will test BayerRDI (8 bits packed) snapshot.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - BayerRDI 8 bits
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, RawBayerRDI8Snapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+  int32_t w = 0, h = 0;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  // Check Supported bayer snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    for (uint32_t i = 0 ; i < entry.count; i += 2) {
+      w = entry.data.i32[i+0];
+      h = entry.data.i32[i+1];
+      TEST_INFO("%s: (%d) Supported RAW RDI W(%d):H(%d)",
+          __func__, i, w, h);
+    }
+  }
+  assert(w > 0 && h > 0);
+  ImageParam image_param{};
+  image_param.width        = w;
+  image_param.height       = h;
+  image_param.image_format = ImageFormat::kBayerRDI8BIT;
+
+  std::vector<CameraMetadata> meta_array;
+  meta_array.push_back(meta);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    assert(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWith1080pYUVTrack: This test will test session with one 1080p YUV track.
 * Api test sequence:
 *  - StartCamera
@@ -16783,6 +16853,9 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         break;
         case BufferFormat::kBLOB:
         ext_str = "jpg";
+        break;
+        case BufferFormat::kRAW8:
+        ext_str = "raw8";
         break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";

@@ -3815,7 +3815,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
 
     if ( (is_dump_jpg_enabled_ && cam_buf_meta.format == BufferFormat::kBLOB)
       || (is_dump_raw_enabled_ && (cam_buf_meta.format == BufferFormat::kRAW10
-          || cam_buf_meta.format == BufferFormat::kRAW16))
+          || cam_buf_meta.format == BufferFormat::kRAW16
+          || cam_buf_meta.format == BufferFormat::kRAW8))
       || (is_dump_yuv_enabled_ && (cam_buf_meta.format == BufferFormat::kNV12
           || cam_buf_meta.format == BufferFormat::kNV21))) {
       switch (cam_buf_meta.format) {
@@ -3827,6 +3828,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
         break;
         case BufferFormat::kBLOB:
         ext_str = "jpg";
+        break;
+        case BufferFormat::kRAW8:
+        ext_str = "raw8";
         break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";
@@ -3939,6 +3943,8 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   // JPEG, RAW & NV12UBWC
   if ( (meta_data.format == BufferFormat::kBLOB)
       || (meta_data.format == BufferFormat::kRAW10)
+      || (meta_data.format == BufferFormat::kRAW8)
+      || (meta_data.format == BufferFormat::kRAW12)
       || (meta_data.format == BufferFormat::kNV12UBWC) ){
     written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
   } else {

@@ -950,6 +950,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
+    case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
@@ -1156,6 +1157,8 @@ status_t TrackSource::Init() {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
   } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
+  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI8BIT) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW8;
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
@@ -1284,6 +1287,7 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
   bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
@@ -1666,6 +1670,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {

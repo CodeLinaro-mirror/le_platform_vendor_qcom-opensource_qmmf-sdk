@@ -392,6 +392,8 @@ PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {
     return kNv21;
   case BufferFormat::kBLOB:
     return kJpeg;
+  case BufferFormat::kRAW8:
+    return kRawBggrMipi8;
   case BufferFormat::kRAW10:
     return kRawBggrMipi10;
   case BufferFormat::kRAW12:
@@ -413,6 +415,8 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
     return BufferFormat::kNV21;
   case kJpeg:
     return BufferFormat::kBLOB;
+  case kRawBggrMipi8:
+    return BufferFormat::kRAW8;
   case kRawBggrMipi10:
     return BufferFormat::kRAW10;
   case kRawBggrMipi12:
