@@ -248,6 +248,7 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
     cfg->job_.encode_job.thumb_dim.crop.width = 0;
     cfg->job_.encode_job.thumb_dim.crop.height = 0;
     cfg->params_.thumb_dim = cfg->job_.encode_job.thumb_dim;
+    cfg->params_.thumb_quality = thumbnail_data[0].thumb_quality;
 
     if (thumb_cnt == 2) {
       cfg->params_.encode_second_thumbnail = 1;
@@ -351,6 +352,7 @@ void *JpegEncoder::Encode(size_t *jpeg_size) {
   cfg->params_.src_main_buf[0].buf_vaddr = in_buffer_.img_data[0];
   cfg->params_.src_thumb_buf[0].buf_vaddr = in_buffer_.img_data[0];
   cfg->params_.dest_buf[0].buf_vaddr = in_buffer_.out_data[0];
+  cfg->params_.quality = in_buffer_.image_quality;
   // thumbnail data
   UpdateThumbnailData(in_buffer_.source_info);
 
