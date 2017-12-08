@@ -58,7 +58,6 @@ CameraContext::CameraContext()
       camera_id_(-1),
       streaming_request_id_(-1),
       last_frame_number_(-1),
-      snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       sequence_cnt_(1),
       last_snapshot_id_(-1),
       curr_snapshot_id_(-1),
@@ -72,6 +71,7 @@ CameraContext::CameraContext()
       batch_stream_id_(-1),
       partial_metadata_required_(false),
       partial_result_count_(0),
+      snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
       postproc_frame_skip_(false) {
@@ -731,10 +731,28 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   return ret;
 }
 
+std::string CameraContext::GetSnapshotJsonConfig() {
+  Json::Value root(Json::objectValue);
+
+  for (size_t i = 0; i < thumbnails_.size(); i++) {
+    root["thumbnail"][i]["width"] = thumbnails_[i].width;
+    root["thumbnail"][i]["height"] = thumbnails_[i].height;
+    root["thumbnail"][i]["quality"] = thumbnails_[i].quality;
+  }
+
+  root["frameskip"] = postproc_frame_skip_;
+  root["jpeg quality"] = snapshot_param_.image_quality;
+
+  Json::FastWriter fastWriter;
+  auto config = fastWriter.write(root);
+
+  QMMF_INFO("%s: Snapshot configuration: %s", __func__, config.c_str());
+
+  return config;
+}
+
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   capture_plugins_.clear();
-  pipe_config_json_data_.clear();
-  Json::Value root(Json::objectValue);
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
@@ -761,27 +779,18 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   }
 
   if (config.Exists(QMMF_IMAGE_THUMBNAIL)) {
+    thumbnails_.clear();
     for (size_t i = 0; i < config.EntryCount(QMMF_IMAGE_THUMBNAIL); i++) {
-      ImageThumbnail thumbnail;
-      config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnail, i);
-      root["thumbnail"][i]["width"] = thumbnail.width;
-      root["thumbnail"][i]["height"] = thumbnail.height;
-      root["thumbnail"][i]["quality"] = thumbnail.quality;
+      thumbnails_.push_back(ImageThumbnail());
+      config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnails_[i], i);
     }
   }
 
   if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
     PostprocFrameSkip frame_skip;
     config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
-    root["frameskip"] = frame_skip.frame_skip;
     postproc_frame_skip_ = frame_skip.frame_skip > 0 ? true : false;
   }
-
-  Json::FastWriter fastWriter;
-  pipe_config_json_data_ = fastWriter.write(root);
-
-  QMMF_INFO("%s: Thumbnail configuration: %s", __func__,
-      pipe_config_json_data_.c_str());
 
   return NO_ERROR;
 }
@@ -2121,7 +2130,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     return ret;
   }
 
-  ret = postproc_pipe_->Configure(pipe_config_json_data_);
+  ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
   if (ret != NO_ERROR) {
     return ret;
   }
@@ -2222,8 +2231,6 @@ status_t CameraPort::Init() {
     postproc_pipe_ = std::make_shared<PostProcPipe>(context_);
     assert(postproc_pipe_.get() != nullptr);
 
-    pipe_config_json_data_.clear();
-
     PipeIOParam out_param;
     out_param.width = cam_stream_params_.width;
     out_param.height = cam_stream_params_.height;
@@ -2239,7 +2246,7 @@ status_t CameraPort::Init() {
       return ret;
     }
 
-    ret = postproc_pipe_->Configure(pipe_config_json_data_);
+    ret = postproc_pipe_->Configure("");
     if (ret != NO_ERROR) {
       return ret;
     }

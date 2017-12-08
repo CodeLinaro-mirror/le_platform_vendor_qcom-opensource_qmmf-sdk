@@ -51,6 +51,7 @@ const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
 
 PostProcJpeg::PostProcJpeg()
     : jpeg_encoder_(nullptr),
+      image_quality_(95),
       state_(State::CREATED),
       abort_(nullptr) {
   QMMF_VERBOSE("%s: Enter", __func__);
@@ -165,23 +166,27 @@ status_t PostProcJpeg::Configure(const std::string config_json_data) {
     return NO_ERROR;
   }
 
-  if (!root.isMember("thumbnail") || root["thumbnail"].empty()) {
-    QMMF_INFO("%s:no thumbnail configuration", __func__);
-    return NO_ERROR;
+  if (!root.isMember("jpeg quality") || root["jpeg quality"].empty()) {
+    QMMF_INFO("%s:no jpeg quality configuration", __func__);
+  } else {
+    image_quality_ = root["jpeg quality"].asUInt();
   }
 
-  thumbnail_data_.clear();
-  for (Json::Value::ArrayIndex i = 0; i < root["thumbnail"].size(); i++) {
-    QMMF_INFO("%s:add thumbnail[%d] dim %dx%d quality %d", __func__, i,
-        root["thumbnail"][i]["width"].asUInt(),
-        root["thumbnail"][i]["height"].asUInt(),
-        root["thumbnail"][i]["quality"].asUInt());
+  if (!root.isMember("thumbnail") || root["thumbnail"].empty()) {
+    QMMF_INFO("%s:no thumbnail configuration", __func__);
+  } else {
+    thumbnail_data_.clear();
+    for (Json::Value::ArrayIndex i = 0; i < root["thumbnail"].size(); i++) {
+      QMMF_INFO("%s:add thumbnail[%d] dim %dx%d quality %d", __func__, i,
+          root["thumbnail"][i]["width"].asUInt(),
+          root["thumbnail"][i]["height"].asUInt(),
+          root["thumbnail"][i]["quality"].asUInt());
 
-    reprocjpegencoder::JpegEncoder::jpeg_thumbnail thumb(
-        root["thumbnail"][i]["width"].asUInt(),
-        root["thumbnail"][i]["height"].asUInt(),
-        root["thumbnail"][i]["quality"].asUInt());
-    thumbnail_data_.emplace_back(thumb);
+      thumbnail_data_.emplace_back(
+          root["thumbnail"][i]["width"].asUInt(),
+          root["thumbnail"][i]["height"].asUInt(),
+          root["thumbnail"][i]["quality"].asUInt());
+    }
   }
 
   QMMF_VERBOSE("%s: Exit %p", __func__, this);
@@ -238,6 +243,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
     jpeg_encoder_->in_buffer_.img_data[0] = (uint8_t*)buf_vaaddr;
     jpeg_encoder_->in_buffer_.out_data[0] = (uint8_t*)out_vaaddr;
     jpeg_encoder_->in_buffer_.source_info = in_buffer.info;
+    jpeg_encoder_->in_buffer_.image_quality = image_quality_;
     jpeg_encoder_->in_buffer_.thumbnail_data = thumbnail_data_;
     auto buf_vaddr = jpeg_encoder_->Encode(&jpeg_size);
     if (!buf_vaddr) {
