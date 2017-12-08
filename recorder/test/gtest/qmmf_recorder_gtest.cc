@@ -16644,8 +16644,10 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
 
   size_t written_len;
 
-  if (meta_data.meta_flag  &
-      static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+  if ((meta_data.meta_flag  &
+      static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) &&
+      !(buffer.flag  &
+      static_cast<uint32_t>(BufferFlags::kFlagCorrupted))) {
     CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
     TEST_DBG("%s: format(0x%x)", __func__, cam_buf_meta.format);
     TEST_DBG("%s: num_planes=%d", __func__, cam_buf_meta.num_planes);
@@ -17375,6 +17377,8 @@ status_t RecorderGtest::SetCameraFocalLength(const float focal_length) {
     camera_metadata_entry_t entry;
     entry = meta.find(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
     for (uint32_t i = 0 ; i < entry.count; i++) {
+      TEST_ERROR("%s: EVG focal_length: %f", __func__, entry.data.f[i]);
+
       if (entry.data.f[i] == focal_length) {
         ret = recorder_.GetCameraParam(camera_id_, meta);
         assert(ret == NO_ERROR);

@@ -33,6 +33,8 @@
 #include <sstream>
 #include <json/json.h>
 
+#include "qmmf-sdk/qmmf_buffer.h"
+
 #include "qmmf_jpeg.h"
 
 namespace qmmf {
@@ -254,6 +256,10 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
     out_buffer.data = nullptr;
     out_buffer.filled_length = jpeg_size;
     out_buffer.timestamp = in_buffer.timestamp;
+    if (jpeg_size == 0) {
+      out_buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagCorrupted);
+      QMMF_ERROR("%s: The Jpeg out buffer is corrupted!!!", __func__);
+    }
 
   } else {
     QMMF_VERBOSE("%s: SKIPP JPEG", __func__);

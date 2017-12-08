@@ -40,6 +40,11 @@ namespace reprocjpegencoder {
 class JpegEncoder {
 
  private:
+  enum class State {
+    CREATED,
+    RUNING,
+    ABORTED
+  };
 
   void FillImgData(const CameraBufferMetaData& source_info);
 
@@ -48,6 +53,7 @@ class JpegEncoder {
   void *cfg_;
   void *job_result_ptr_;
   size_t job_result_size_;
+  State state_;
 
   static uint8_t DEFAULT_QTABLE_0[];
   static uint8_t DEFAULT_QTABLE_1[];
@@ -79,7 +85,9 @@ class JpegEncoder {
 
   void *Encode(size_t *jpeg_size);
 
-  void EncodeCb(void *p_output, void *userData);
+  void EncodeCb(void *p_output, void *userData, bool error);
+
+  bool IsRunningState() { return (state_ == State::RUNING); }
 
   static JpegEncoder *getInstance();
 
