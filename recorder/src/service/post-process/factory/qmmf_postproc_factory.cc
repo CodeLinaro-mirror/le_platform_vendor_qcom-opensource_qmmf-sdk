@@ -52,8 +52,6 @@ const std::string PostProcFactory::plugin_suffix = ".so";
 std::shared_ptr<PostProcFactory> PostProcFactory::getInstance() {
   if (instance_.get() == nullptr) {
     instance_ = std::make_shared<PostProcFactory>();
-    auto ret = instance_->LoadSupportedPlugins();
-    assert(ret == NO_ERROR);
   }
   return instance_;
 }
@@ -62,7 +60,6 @@ void PostProcFactory::releaseInstance() {
   QMMF_INFO("%s: destroying instance object.", __func__);
   if (instance_.get() == nullptr) {
     QMMF_INFO("%s: Reset reprocess Ids.", __func__);
-    instance_->UnloadSupportedPlugins();
     ids_ = 0x00f00000;
   }
   instance_ = nullptr;
@@ -78,7 +75,8 @@ int32_t PostProcFactory::GetUniqueId() {
   return ids_++;
 }
 
-status_t PostProcFactory::LoadSupportedPlugins() {
+status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
+
   std::vector<std::string> libraries;
   auto plugins_path = Utils::GetAlgLibFolder();
 
@@ -112,31 +110,16 @@ status_t PostProcFactory::LoadSupportedPlugins() {
       auto caps = plugin->GetCaps();
       PluginInfo plugin_info(caps.plugin_name_, caps.lib_version_,
                       caps.runtime_enable_disable_);
-      supported_plugins_.push_back(plugin_info);
+      plugins->push_back(plugin_info);
       plugin_libraries_.emplace(plugin_info.name, library);
-      plugin_handles_.push_back(lib_handle);
 
       delete plugin;
+      Utils::UnloadLib(lib_handle);
     } catch (const std::exception &e) {
       QMMF_ERROR("%s: Error getting plugin info for %s exception: %s",
           __func__, library.c_str(), e.what());
       return FAILED_TRANSACTION;
     }
-  }
-
-  return NO_ERROR;
-}
-
-status_t PostProcFactory::UnloadSupportedPlugins() {
-  for (auto handle : plugin_handles_) {
-    Utils::UnloadLib(handle);
-  }
-  return NO_ERROR;
-}
-
-status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
-  for (auto plugin : supported_plugins_) {
-    plugins->push_back(plugin);
   }
 
   return NO_ERROR;
