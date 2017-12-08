@@ -328,7 +328,7 @@ int32_t RecorderIon::Import(const BufferDescriptor& stream_buffer,
   audio_buffer->capacity = request_size_;
   audio_buffer->size = stream_buffer.size;
   audio_buffer->timestamp = stream_buffer.timestamp;
-  audio_buffer->flags = 0;
+  audio_buffer->flags = stream_buffer.flag;
 
   QMMF_VERBOSE("%s() OUTPARAM: audio_buffer[%s]", __func__,
                audio_buffer->ToString().c_str());
@@ -379,7 +379,7 @@ int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
   codec_buffer->capacity = request_size_;
   codec_buffer->size = bn_buffer.size;
   codec_buffer->timestamp = bn_buffer.timestamp;
-  codec_buffer->flag = 0;
+  codec_buffer->flag = bn_buffer.flag;
 
   QMMF_VERBOSE("%s() OUTPARAM: codec_buffer[%s]", __func__,
                codec_buffer->ToString().c_str());
