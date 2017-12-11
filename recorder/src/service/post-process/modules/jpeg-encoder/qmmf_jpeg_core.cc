@@ -245,8 +245,10 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
     cfg->job_.encode_job.thumb_dim.dst_dim.height = thumbnail_data[0].height;
     cfg->job_.encode_job.thumb_dim.crop.top = 0;
     cfg->job_.encode_job.thumb_dim.crop.left = 0;
-    cfg->job_.encode_job.thumb_dim.crop.width = 0;
-    cfg->job_.encode_job.thumb_dim.crop.height = 0;
+    cfg->job_.encode_job.thumb_dim.crop.width =
+        source_info.plane_info[0].width;
+    cfg->job_.encode_job.thumb_dim.crop.height =
+        source_info.plane_info[0].height;
     cfg->params_.thumb_dim = cfg->job_.encode_job.thumb_dim;
     cfg->params_.thumb_quality = thumbnail_data[0].thumb_quality;
 
@@ -263,8 +265,10 @@ void JpegEncoder::UpdateThumbnailData(const CameraBufferMetaData& source_info) {
           thumbnail_data[1].height;
       cfg->job_.encode_job.second_thumb_dim.crop.top = 0;
       cfg->job_.encode_job.second_thumb_dim.crop.left = 0;
-      cfg->job_.encode_job.second_thumb_dim.crop.width = 0;
-      cfg->job_.encode_job.second_thumb_dim.crop.height = 0;
+      cfg->job_.encode_job.second_thumb_dim.crop.width =
+          source_info.plane_info[0].width;
+      cfg->job_.encode_job.second_thumb_dim.crop.height =
+          source_info.plane_info[0].height;
       cfg->params_.second_thumb_dim = cfg->job_.encode_job.second_thumb_dim;
       QMMF_INFO("%s: Encode second thumbnail is enabled", __func__);
     }
