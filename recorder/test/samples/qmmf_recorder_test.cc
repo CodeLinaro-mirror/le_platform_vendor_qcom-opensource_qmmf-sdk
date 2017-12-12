@@ -4013,8 +4013,11 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     if (current_camera_id == -1)
         current_camera_id = camera_id_;
     camera_params.frame_rate = current_camera_info->camera_fps;
+    CameraResultCb result_cb = [&] (uint32_t camera_id,
+            const CameraMetadata &result) {
+            CameraResultCallbackHandler(camera_id, result); };
     printf("%s StartCamera (%d)\n",__func__, current_camera_id);
-    ret = recorder_.StartCamera(current_camera_id, camera_params);
+    ret = recorder_.StartCamera(current_camera_id, camera_params, result_cb);
     if(ret != 0) {
       ALOGE("%s StartCamera (%d) Failed!", __func__, current_camera_id);
       return ret;
