@@ -52,6 +52,7 @@ LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
+LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 
 LOCAL_MODULE = libqmmf_recorder_service
 

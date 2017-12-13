@@ -34,6 +34,8 @@
 
 #include "qmmf_camera_hal_reproc.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 namespace recorder {

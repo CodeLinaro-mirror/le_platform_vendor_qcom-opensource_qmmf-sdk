@@ -36,6 +36,8 @@
 
 #include "qmmf_postproc_algo.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 namespace recorder {

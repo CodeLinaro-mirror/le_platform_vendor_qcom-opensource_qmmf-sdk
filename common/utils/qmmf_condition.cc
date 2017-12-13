@@ -29,6 +29,8 @@
 
 #include "qmmf_condition.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 #if (defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)) || (defined(_LIBCPP_THREADING_SUPPORT))
