@@ -31,9 +31,9 @@
 
 namespace qmmf {
 
-#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+#if (defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)) || (defined(_LIBCPP_THREADING_SUPPORT))
 
-#ifdef __GTHREAD_COND_INIT
+#if defined(__GTHREAD_COND_INIT) || defined(_LIBCPP_CONDVAR_INITIALIZER)
   QCondition::QCondition() noexcept = default;
 #else
   QCondition::QCondition() noexcept {
@@ -42,23 +42,24 @@ namespace qmmf {
 #endif
 
   QCondition::~QCondition() noexcept {
-    __gthread_cond_destroy(&cond_);
+    qthread_cond_destroy(&cond_);
   }
 
   void QCondition::Signal() {
-    auto status = __gthread_cond_signal(&cond_);
+    auto status = qthread_cond_signal(&cond_);
     assert(status == 0);
   }
 
   void QCondition::SignalAll() {
-    auto status = __gthread_cond_broadcast(&cond_);
+    auto status = qthread_cond_broadcast(&cond_);
     assert(status == 0);
   }
 
   void QCondition::Wait(std::unique_lock<std::mutex>& lock) {
-    auto status = __gthread_cond_wait(&cond_, lock.mutex()->native_handle());
+    auto status = qthread_cond_wait(&cond_, lock.mutex()->native_handle());
     assert(status == 0);
   }
 
-#endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
-};
+#endif // (_GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1) || (_LIBCPP_THREADING_SUPPORT)
+
+};  //namespace qmmf

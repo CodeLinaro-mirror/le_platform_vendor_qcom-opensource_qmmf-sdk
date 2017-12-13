@@ -14,6 +14,8 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_SRC_FILES := qmmf_condition.cc
 
+LOCAL_SHARED_LIBRARIES += libc++
+
 LOCAL_MODULE = libqmmf_utils
 
 include $(BUILD_SHARED_LIBRARY)
