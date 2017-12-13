@@ -169,6 +169,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return ret;
   }
 
+#ifndef DISABLE_PP_JPEG
   jpeg_encoder_ = std::make_shared<CameraJpeg>();
   jpeg_memory_pool_ = std::make_shared<GrallocMemory>();
   ret = jpeg_memory_pool_->Initialize();
@@ -179,6 +180,9 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     jpeg_encoder_ = nullptr;
     return NO_INIT;
   }
+#else
+  QMMF_WARN("%s: JPEG Postproc not supported.", __func__);
+#endif
 
   // Wait for all asynchronous tasks to complete and return status.
   for (auto& result : results) {
@@ -862,8 +866,9 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;
   }
-
+#ifndef DISABLE_PP_JPEG
   jpeg_encoder_->Configure(thumbnails_);
+#endif
   jpeg_encoder_->Start();
 
   // Set buffer params for jpeg encoding.

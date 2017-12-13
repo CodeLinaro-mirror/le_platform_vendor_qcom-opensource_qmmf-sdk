@@ -37,8 +37,10 @@ LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
+ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
+endif
 LOCAL_SRC_FILES += qmmf_exif_generator.cc
 LOCAL_SRC_FILES += qmmf_camera_reprocess_impl.cc
 LOCAL_SRC_FILES += post-process/factory/qmmf_postproc_factory.cc

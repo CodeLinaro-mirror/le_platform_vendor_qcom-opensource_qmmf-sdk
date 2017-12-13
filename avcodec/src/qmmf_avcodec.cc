@@ -30,7 +30,9 @@
 
 #include "qmmf-sdk/qmmf_avcodec.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#ifndef DISABLE_PP_JPEG
 #include "common/codecadaptor/src/qmmf_jpeg_encode.h"
+#endif
 
 uint32_t qmmf_log_level;
 
@@ -40,10 +42,17 @@ namespace avcodec {
 IAVCodec* IAVCodec::CreateAVCodec(CodecMimeType mimetype) {
   IAVCodec* instance = nullptr;
   QMMF_GET_LOG_LEVEL();
-  if (mimetype == CodecMimeType::kMimeTypeJPEG)
+  if (mimetype == CodecMimeType::kMimeTypeJPEG) {
+#ifndef DISABLE_PP_JPEG
     instance = new JPEGEncoder();
-  else
+#else
+    QMMF_ERROR("%s() JPEG Posproc not supported", __func__);
+    return instance;
+#endif
+  } else {
     instance = new AVCodec();
+  }
+
   if (instance == nullptr)
     QMMF_ERROR("%s() can't instantiate IAVCodec", __func__);
   else
