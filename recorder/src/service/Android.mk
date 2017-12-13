@@ -17,6 +17,7 @@ LOCAL_CFLAGS += -DENABLE_360=1
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
 
 # reprocess-related includes
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/stack/common \
@@ -53,6 +54,8 @@ LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
+
+LOCAL_STATIC_LIBRARIES += libjsoncpp
 
 LOCAL_MODULE = libqmmf_recorder_service
 
