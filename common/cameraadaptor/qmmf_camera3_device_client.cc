@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -43,15 +43,14 @@
 #define SET_ERR_L(fmt, ...) \
   SetErrorStateLocked("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
 using namespace qcamera;
-extern "C" {
-extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
-}
 
 uint32_t qmmf_log_level;
 
 namespace qmmf {
 
 namespace cameraadaptor {
+
+std::mutex Camera3DeviceClient::vendor_tag_mutex_;
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -130,9 +129,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     alloc_device_interface_ = nullptr;
   }
 
-  if (camera_module_->get_vendor_tag_ops) {
-    set_camera_metadata_vendor_ops(nullptr);
-  }
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -176,10 +173,24 @@ int32_t Camera3DeviceClient::Initialize() {
   }
 
   if (camera_module_->get_vendor_tag_ops) {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     vendor_tag_ops_ = vendor_tag_ops_t();
     camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
 
-    res = set_camera_metadata_vendor_ops(&vendor_tag_ops_);
+    sp<VendorTagDescriptor> vendor_tag_desc;
+    res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                       vendor_tag_desc);
+
+    if (0 != res) {
+      QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+          "received error %s (%d). Camera clients will not be able to use"
+          "vendor tags", __FUNCTION__, strerror(res), res);
+      goto exit;
+    }
+
+    // Set the global descriptor to use with camera metadata
+    res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
+
     if (0 != res) {
       QMMF_ERROR(
           "%s: Could not set vendor tag descriptor, "
@@ -222,6 +233,8 @@ exit:
     delete alloc_device_interface_;
     alloc_device_interface_ = nullptr;
   }
+
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
 
   if (NULL != camera_module_) {
     dlclose(camera_module_->common.dso);
