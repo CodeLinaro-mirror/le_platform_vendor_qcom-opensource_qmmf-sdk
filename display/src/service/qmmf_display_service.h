@@ -30,6 +30,7 @@
 #pragma once
 
 #include <map>
+#include <mutex>
 
 #include "display/src/client/qmmf_display_service_intf.h"
 #include "display/src/service/qmmf_display_common.h"
@@ -107,14 +108,18 @@ class DisplayService : public BnInterface<IDisplayService> {
       override;
 
 
-  DisplayImpl*                 display_;
-  std::map<DisplayHandle, sp<RemoteCallBack>> remote_callback_;
-  sp<DeathNotifier> death_notifier_;
-  std::map<DisplayHandle, sp<IDisplayServiceCallback>> client_handlers_;
-  bool                         connected_;
-  ion_fd_map ion_fd_mapping;
-  use_buffer_map use_buffer_mapping;
-  int32_t              ion_device_;
+  DisplayImpl*                                          display_;
+  std::map<DisplayHandle, sp<RemoteCallBack>>           remote_callback_;
+  sp<DeathNotifier>                                     death_notifier_;
+  std::map<DisplayHandle, sp<IDisplayServiceCallback>>  client_handlers_;
+  bool                                                  connected_;
+  ion_fd_map                                            ion_fd_mapping;
+  use_buffer_map                                        use_buffer_mapping;
+  int32_t                                               ion_device_;
+  std::mutex                                            fd_map_lock_;
+  std::mutex                                            use_buffer_map_lock_;
+  std::mutex                                            remote_callback_lock_;
+  std::mutex                                            client_handlers_lock_;
 };
 
 }; //namespace display

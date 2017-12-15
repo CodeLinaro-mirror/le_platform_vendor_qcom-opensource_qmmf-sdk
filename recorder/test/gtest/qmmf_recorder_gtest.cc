@@ -17284,7 +17284,7 @@ status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
   if (display_started_) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.size;
