@@ -31,6 +31,9 @@
 
 #include <map>
 #include <vector>
+#include <mutex>
+#include <thread>
+#include <condition_variable>
 
 #include <hardware/gralloc.h>
 #include <utils/KeyedVector.h>
@@ -130,17 +133,18 @@ class DisplayImpl : public DisplayEventHandler
 
  private:
 
-  Mutex                        mLock;
-  pthread_mutex_t thread_lock_;
-  pthread_t                    pid_;
-  Locker     vsync_callback_locker_;
+  std::mutex       thread_lock_;
+  ::std::thread*   handle_vsync_thread_;
+  Locker           vsync_callback_locker_;
 
   /**Not allowed */
   DisplayImpl();
   DisplayImpl(const DisplayImpl&);
   DisplayImpl& operator=(const DisplayImpl&);
   bool running_;
-  static void* HandleVSync(void *ptr);
+
+  static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
+  void HandleVSync();
   static DisplayImpl* instance_;
   DisplayBufferAllocator buffer_allocator_;
   DisplayBufferSyncHandler buffer_sync_handler_;
@@ -149,8 +153,8 @@ class DisplayImpl : public DisplayEventHandler
 
   typedef struct Buff_Info {
     bool  queued;
-    bool  dequed;
-    bool  commited;
+    bool  dequeued;
+    bool  committed;
   }Buff_Info;
 
   typedef struct SurfaceInfo {
@@ -171,9 +175,11 @@ class DisplayImpl : public DisplayEventHandler
     SurfaceinfoMap surfaceinfo_;
   }DisplayInfo;
 
-  DisplayHandle current_handle_;
-  bool vsync_state_;
-  std::map<DisplayHandle, DisplayInfo*> displayinfo_;
+  DisplayHandle                          current_handle_;
+  bool                                   vsync_state_;
+  std::map<DisplayHandle, DisplayInfo*>  displayinfo_;
+  uint32_t                               num_of_display_clients_;
+  std::mutex                             layer_lock_;
 };
 
 }; // namespace display

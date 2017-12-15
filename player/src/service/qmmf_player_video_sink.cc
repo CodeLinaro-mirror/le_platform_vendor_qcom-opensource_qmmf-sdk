@@ -944,7 +944,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     lock_guard<mutex> lock(grab_picture_lock);
 
     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
-    surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
+    surface_buffer_.buf_id = codec_buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config_.width, 128);
     surface_buffer_.plane_info[0].size = codec_buffer.size;
