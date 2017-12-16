@@ -78,6 +78,10 @@ class AudioTrackEncoder : public ::qmmf::avcodec::ICodecSource {
 
   std::mutex mutex_;
   QCondition signal_;
+
+  bool eos_received_;
+  ::std::mutex eos_mutex_;
+  QCondition eos_signal_;
 };
 
 class AudioEncoderCore {

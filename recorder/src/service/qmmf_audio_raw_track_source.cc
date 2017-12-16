@@ -471,10 +471,6 @@ void AudioRawTrackSource::Thread() {
       meta_buffers.push_back(meta_data);
       track_params_.data_cb(bn_buffers, meta_buffers);
 
-      if (stop_received &&
-          buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-        keep_running = false;
-
       buffers.pop();
       QMMF_VERBOSE("%s() buffers queue is now %u deep",
                    __func__, buffers.size());
@@ -487,19 +483,24 @@ void AudioRawTrackSource::Thread() {
                    __func__, track_params_.track_id,
                    bn_buffer.ToString().c_str(), bn_buffers.size());
 
-      AudioBuffer buffer;
-      ion_.Import(bn_buffer, &buffer);
+      if (stop_received &&
+          bn_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+        keep_running = false;
+      } else {
+        AudioBuffer buffer;
+        ion_.Import(bn_buffer, &buffer);
 
-      memset(buffer.data, 0x00, buffer.capacity);
-      buffer.size = 0;
-      buffer.timestamp = 0;
+        memset(buffer.data, 0x00, buffer.capacity);
+        buffer.size = 0;
+        buffer.timestamp = 0;
 
-      int32_t result = end_point_->SendBuffers({buffer});
-      if (result < 0) {
-        QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
-                   __func__, result, strerror(result));
-        assert(false);
-        // TODO(kwestfie@codeaurora.org): send notification to application
+        int32_t result = end_point_->SendBuffers({buffer});
+        if (result < 0) {
+          QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
+                     __func__, result, strerror(result));
+          assert(false);
+          // TODO(kwestfie@codeaurora.org): send notification to application
+        }
       }
 
       bn_buffers.pop();
