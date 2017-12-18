@@ -398,7 +398,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
     delete surfaceinfo;
     ret = FreeLayer(display_handle, *surface_id);
     if (ret != NO_ERROR) {
-     QMMF_DEBUG("%s: Failed to free surface_id::%u", __func__, surface_id);
+     QMMF_DEBUG("%s: Failed to free surface_id::%u", __func__, *surface_id);
     }
     return error;
   }
@@ -407,7 +407,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   if (!surface_config.use_buffer) {
     for(uint32_t i=0; i<surface_config.buffer_count;i++) {
       BufferInfo* buf_info = new BufferInfo();
-      BufferState* buf_state = new BufferState();
+      BufferState* buf_state = new BufferState(BufferStates::kStateFree);
 
       buf_info->buffer_config.width = surface_config.width;
       buf_info->buffer_config.height = surface_config.height;
@@ -419,9 +419,6 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
       buf_info->alloc_buffer_info.stride = 0;
       buf_info->alloc_buffer_info.size = 0;
       surfaceinfo->allocate_buffer_mode = !surface_config.use_buffer;
-      buf_state->committed = 0;
-      buf_state->queued = 0;
-      buf_state->dequeued = 0;
       error = buffer_allocator_.AllocateBuffer(buf_info);
       surfaceinfo->buffer_info.insert({buf_info->alloc_buffer_info.fd,
           buf_info});
@@ -433,7 +430,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
         return -ENOMEM;
       }
       QMMF_DEBUG("%s Surface id::%u Number of buffers to allocate::%u "
-          "Service Allocated Buffer Ion_Fd::%d", __func__, surface_id,
+          "Service Allocated Buffer Ion_Fd::%d", __func__, *surface_id,
           surface_config.buffer_count, buf_info->alloc_buffer_info.fd);
     }
   }
@@ -526,11 +523,14 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
 
   for (auto it = surfaceinfo->second->buffer_state.begin();
           it != surfaceinfo->second->buffer_state.end(); ++it) {
-      if (!it->second->dequeued && !it->second->queued &&
-          !it->second->committed) {
-        it->second->dequeued =1;
-        it->second->queued = 0;
-        it->second->committed = 0;
+      if (it->second->GetState() == BufferStates::kStateFree) {
+      BufferStates state = it->second->SetState(BufferStates::kStateDequeued);
+      if (state != BufferStates::kStateDequeued) {
+        QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d ", __func__,
+            static_cast<std::underlying_type<BufferStates>::type>
+                       (BufferStates::kStateDequeued), it->first);
+        return -EPERM;
+      }
       auto buffer_info = surfaceinfo->second->buffer_info.find(it->first);
       if (buffer_info != surfaceinfo->second->buffer_info.end()) {
         BufferInfo* bufferinfo = buffer_info->second;
@@ -541,9 +541,10 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
         surface_buffer.format =
             static_cast<SurfaceFormat>(bufferinfo->buffer_config.format);
         surface_buffer.plane_info[0].ion_fd = bufferinfo->alloc_buffer_info.fd;
-        QMMF_DEBUG("%s State of Buffer Ion_Fd::%u queued::%u dequeued::%u "
-            "committed::%u", __func__, surface_buffer.plane_info[0].ion_fd,
-            it->second->queued, it->second->dequeued, it->second->committed);
+        QMMF_DEBUG("%s State of Buffer Ion_Fd::%d, state::%u ",  __func__,
+            surface_buffer.plane_info[0].ion_fd,
+            static_cast<std::underlying_type<BufferStates>::type>
+                       (it->second->GetState()));
         surface_buffer.buf_id = it->first;
         surface_buffer.plane_info[0].offset = 0;
         surface_buffer.plane_info[0].stride = bufferinfo->alloc_buffer_info.stride;
@@ -554,13 +555,6 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
       }
     }
   }
-  for (auto it = surfaceinfo->second->buffer_state.begin();
-       it != surfaceinfo->second->buffer_state.end(); ++it) {
-       if(it->second->committed == 1) {
-         it->second->dequeued =0;
-         it->second->committed = 0;
-       }
-   }
 
   for (auto it = surfaceinfo->second->buffer_state.begin();
        it != surfaceinfo->second->buffer_state.end(); ++it) {
@@ -638,58 +632,64 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->input_buffer.buffer_id = surface_buffer.buf_id;
   layer->flags.updating = true;
 
-  for (auto it = surfaceinfo->second->buffer_state.begin();
-      it != surfaceinfo->second->buffer_state.end(); ++it) {
-    it->second->queued = 0;
-  }
-
   if (surfaceinfo->second->allocate_buffer_mode) {
     auto buf_state = surfaceinfo->second->buffer_state.find(surface_buffer.buf_id);
-    buf_state->second->queued = 1;
-    buf_state->second->dequeued = 0;
-    buf_state->second->committed = 0;
-    QMMF_DEBUG("%s: State of Internal Buffer Ion_Fd::%u queued::%u dequeued::%u "
-        "committed::%u", __func__, surface_buffer.buf_id,
-        buf_state->second->queued, buf_state->second->dequeued,
-        buf_state->second->committed);
+    if (buf_state->second->GetState() == BufferStates::kStateDequeued) {
+      BufferStates state = buf_state->second->SetState(BufferStates::kStateQueued);
+      if (state != BufferStates::kStateQueued) {
+        QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d", __func__,
+            static_cast<std::underlying_type<BufferStates>::type>
+            (BufferStates::kStateQueued), surface_buffer.plane_info[0].ion_fd);
+        return -EPERM;
+      } else {
+        QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
+            __func__, surface_buffer.plane_info[0].ion_fd,
+            static_cast<std::underlying_type<BufferStates>::type>
+            (BufferStates::kStateFree));
+      }
+    }
   } else {
-    std::map<int32_t, BufferState*>::iterator it;
-    for (it = surfaceinfo->second->buffer_state.begin() ;
-          it != surfaceinfo->second->buffer_state.end(); ++it) {
-      if (!it->second->queued && it->first == surface_buffer.buf_id) {
-        auto buffer_info = surfaceinfo->second->buffer_info.find(it->first);
-        if (buffer_info != surfaceinfo->second->buffer_info.end()) {
-          QMMF_DEBUG("%s Clint Allocated it->first::%u surface_buffer.buf_id::%u ",
-              __func__, it->first, surface_buffer.buf_id);
-          BufferInfo* bufferinfo = buffer_info->second;
-          if (bufferinfo) {
-            bufferinfo->buffer_config.width =
-                surface_buffer.plane_info[0].width;
-            bufferinfo->buffer_config.height =
-                surface_buffer.plane_info[0].height;
-            bufferinfo->buffer_config.format =
-                static_cast<LayerBufferFormat>(surface_buffer.format);
-            bufferinfo->alloc_buffer_info.stride =
-                surface_buffer.plane_info[0].stride;
-            bufferinfo->alloc_buffer_info.size =
-                surface_buffer.plane_info[0].size;
-            bufferinfo->alloc_buffer_info.fd =
-                surface_buffer.plane_info[0].ion_fd;
-            it->second->queued = 1;
-            it->second->committed = 0;
-            QMMF_DEBUG("%s: State of Buffer Ion_Fd::%u queued::%u dequeued::%u "
-                "committed::%u", __func__, bufferinfo->alloc_buffer_info.fd,
-                it->second->queued, it->second->dequeued, it->second->committed);
-            break;
+    std::map<int32_t, BufferState*>::iterator it =
+        surfaceinfo->second->buffer_state.find(surface_buffer.buf_id);
+    if (it != surfaceinfo->second->buffer_state.end()) {
+      auto buffer_info = surfaceinfo->second->buffer_info.find(it->first);
+      if (buffer_info != surfaceinfo->second->buffer_info.end()) {
+        QMMF_DEBUG("%s Clint Allocated it->first::%u surface_buffer.buf_id::%u ",
+            __func__, it->first, surface_buffer.buf_id);
+        BufferInfo* bufferinfo = buffer_info->second;
+        if (bufferinfo) {
+          bufferinfo->buffer_config.width =
+              surface_buffer.plane_info[0].width;
+          bufferinfo->buffer_config.height =
+              surface_buffer.plane_info[0].height;
+          bufferinfo->buffer_config.format =
+              static_cast<LayerBufferFormat>(surface_buffer.format);;
+          bufferinfo->alloc_buffer_info.stride =
+              surface_buffer.plane_info[0].stride;
+          bufferinfo->alloc_buffer_info.size =
+              surface_buffer.plane_info[0].size;
+          bufferinfo->alloc_buffer_info.fd =
+              surface_buffer.plane_info[0].ion_fd;
+          if (it->second->GetState() == BufferStates::kStateDequeued) {
+            BufferStates state = it->second->SetState(BufferStates::kStateQueued);
+            if (state != BufferStates::kStateQueued) {
+              QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                  __func__, static_cast<std::underlying_type<BufferStates>::type>
+                  (BufferStates::kStateQueued), surface_buffer.plane_info[0].ion_fd);
+              return -EPERM;
+            }
+          } else {
+            QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
+                __func__, surface_buffer.plane_info[0].ion_fd,
+                static_cast<std::underlying_type<BufferStates>::type>
+                (BufferStates::kStateQueued));
           }
         }
       }
     }
     if (it == surfaceinfo->second->buffer_state.end()) {
       BufferInfo* bufferinfo = new BufferInfo();
-      BufferState* bufferstate = new BufferState();
-      bufferstate->queued = 1;
-      bufferstate->committed = 0;
+      BufferState* bufferstate = new BufferState(BufferStates::kStateQueued);
       int32_t buf_id = surface_buffer.buf_id;
       bufferinfo->buffer_config.width =surface_buffer.plane_info[0].width;
       bufferinfo->buffer_config.height = surface_buffer.plane_info[0].height;
@@ -697,16 +697,17 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
           static_cast<LayerBufferFormat>(surface_buffer.format);
       bufferinfo->buffer_config.buffer_count = 1;
       bufferinfo->alloc_buffer_info.fd = surface_buffer.plane_info[0].ion_fd;
-      QMMF_DEBUG("%s: State of Client Mode End Buffer Ion_Fd::%u queued::%u "
-          "dequeued::%u committed::%u", __func__, buf_id, bufferstate->queued,
-          bufferstate->dequeued, bufferstate->committed);
+      QMMF_DEBUG("%s: State of Buffer Ion_Fd::%d has been set to state:%u",
+          __func__, bufferinfo->alloc_buffer_info.fd,
+          static_cast<std::underlying_type<BufferStates>::type>
+         (BufferStates::kStateQueued));
       bufferinfo->alloc_buffer_info.stride =
           surface_buffer.plane_info[0].stride;
       bufferinfo->alloc_buffer_info.size = surface_buffer.plane_info[0].size;
       surfaceinfo->second->buffer_info.insert({buf_id, bufferinfo});
       surfaceinfo->second->buffer_state.insert({buf_id, bufferstate});
       for (auto it = surfaceinfo->second->buffer_state.begin();
-              it != surfaceinfo->second->buffer_state.end(); ++it) {
+          it != surfaceinfo->second->buffer_state.end(); ++it) {
         QMMF_DEBUG("%s Client Allocated buf_id_use map buf_id::%u "
             "buf_id_use->second::0x%p ", __func__, it->first, it->second);
       }
@@ -1018,19 +1019,56 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
       if (!queued_buffers_only)
         push_layer =1;
       else {
-        for (auto it = surfaceinfo->second->buffer_state.begin() ;
-            it != surfaceinfo->second->buffer_state.end(); ++it) {
-          QMMF_DEBUG("%s Layer::%u Initial State of Buffer Ion_Fd::%u is "
-              "queued::%u dequeued::%u committed::%u", __func__, it,it->first,
-              it->second->queued, it->second->dequeued, it->second->committed);
-          if (it->second->queued) {
-            push_layer = 1;
-            it->second->committed = 1;
+        std::map<int32_t, BufferState*>::iterator it_queued_buffer;
+        std::map<int32_t, BufferState*>::iterator it_committed_buffer;
+        for (it_queued_buffer = surfaceinfo->second->buffer_state.begin();
+             it_queued_buffer != surfaceinfo->second->buffer_state.end();
+             ++it_queued_buffer) {
+          if (it_queued_buffer->second->GetState() == BufferStates::kStateQueued) {
+            break;
           }
-
-          QMMF_DEBUG("%s Layer::%u Final State of Buffer Ion_Fd::%u is "
-              "queued::%u dequeued::%u committed::%u", __func__, it, it->first,
-              it->second->queued, it->second->dequeued, it->second->committed);
+        }
+        for (it_committed_buffer = surfaceinfo->second->buffer_state.begin();
+             it_committed_buffer != surfaceinfo->second->buffer_state.end();
+             ++it_committed_buffer) {
+          if (it_committed_buffer->second->GetState() == BufferStates::kStateCommitted) {
+            break;
+          }
+        }
+        if (it_queued_buffer != surfaceinfo->second->buffer_state.end()) {
+          BufferStates state =
+              it_queued_buffer->second->SetState(BufferStates::kStateCommitted);
+          if (state != BufferStates::kStateCommitted) {
+            QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                __func__,
+                static_cast<std::underlying_type<BufferStates>::type>
+                (BufferStates::kStateCommitted), it_queued_buffer->first);
+          } else {
+            QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
+                __func__, it_queued_buffer->first,
+                static_cast<std::underlying_type<BufferStates>::type>
+                           (BufferStates::kStateCommitted));
+          }
+          if (it_committed_buffer != surfaceinfo->second->buffer_state.end()) {
+            BufferStates state =
+                it_committed_buffer->second->SetState(BufferStates::kStateFree);
+            if (state != BufferStates::kStateFree) {
+              QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                  __func__,
+                  static_cast<std::underlying_type<BufferStates>::type>
+                             (BufferStates::kStateFree), it_committed_buffer->first);
+            } else {
+              QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
+                  __func__, it_committed_buffer->first,
+                  static_cast<std::underlying_type<BufferStates>::type>
+                             (BufferStates::kStateFree));
+            }
+          }
+          push_layer = 1;
+        } else if (it_committed_buffer != surfaceinfo->second->buffer_state.end()) {
+          push_layer = 1;
+        } else {
+          push_layer = 0;
         }
       }
       if(push_layer) {
