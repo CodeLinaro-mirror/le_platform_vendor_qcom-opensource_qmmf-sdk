@@ -152,11 +152,80 @@ class DisplayImpl : public DisplayEventHandler
   static CoreInterface* core_intf_;
   alloc_device_t *gralloc_device_;
 
-  typedef struct BufferState {
-    bool  queued;
-    bool  dequeued;
-    bool  committed;
-  } BufferState;
+  enum class BufferStates {
+    kStateFree      = 1, // x1 = 0, x2 = 0, x3 = 0
+    kStateDequeued  = 2, // x1 = 1, x2 = 0, x3 = 0
+    kStateQueued    = 3, // x1 = 0, x2 = 1, x3 = 0
+    kStateCommitted = 4, // x1 = 0, x2 = 1, x3 = 1
+    kInvalid        = 0x7FFFFFFF, // (!x1 & x2) | (!x2 & !x3) = 1
+  };
+
+  class BufferState {
+   public:
+    BufferState(const BufferStates state) {
+      current_state_ = state;
+      dequeued_  = GetDequeuedState(state);
+      queued_    = GetQueuedState(state);
+      committed_ = GetCommitedState(state);
+    }
+
+    inline BufferStates GetState() {return current_state_;}
+    BufferStates SetState(const BufferStates state) {
+      if (IsStateTransitionValid(current_state_, state)) {
+        dequeued_  = GetDequeuedState(state);
+        queued_    = GetQueuedState(state);
+        committed_ = GetCommitedState(state);
+        current_state_ = state;
+      }
+      return current_state_;
+    }
+   private:
+    bool  dequeued_;   // x1
+    bool  queued_;     // x2
+    bool  committed_;  // x3
+    BufferStates current_state_;
+    inline bool GetDequeuedState(const BufferStates state) {
+      if (state == BufferStates::kStateDequeued)
+        return true;
+      else
+        return false;
+    }
+
+    inline bool GetQueuedState(const BufferStates state) {
+      if (state == BufferStates::kStateQueued ||
+          state == BufferStates::kStateCommitted)
+        return true;
+      else
+        return false;
+    }
+
+    inline bool GetCommitedState(const BufferStates state) {
+      if (state == BufferStates::kStateCommitted)
+        return true;
+      else
+        return false;
+    }
+
+    bool IsStateTransitionValid(const BufferStates old_state,
+                                const BufferStates new_state) {
+      if (old_state == BufferStates::kInvalid)
+        return false;
+      else if (old_state == BufferStates::kStateDequeued
+               && new_state == BufferStates::kStateQueued)
+        return true;
+      else if (old_state == BufferStates::kStateQueued
+               && new_state == BufferStates::kStateCommitted)
+        return true;
+      else if (old_state == BufferStates::kStateCommitted
+               && new_state == BufferStates::kStateFree)
+        return true;
+      else if (old_state == BufferStates::kStateFree
+               && new_state == BufferStates::kStateDequeued)
+        return true;
+      else
+        return false;
+    }
+  };
 
   typedef struct SurfaceInfo {
     Layer*                           layer;
