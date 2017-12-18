@@ -31,7 +31,11 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_device_client.h"
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 
 // Convenience macros for transitioning to the error state
 #define SET_ERR(fmt, ...) \

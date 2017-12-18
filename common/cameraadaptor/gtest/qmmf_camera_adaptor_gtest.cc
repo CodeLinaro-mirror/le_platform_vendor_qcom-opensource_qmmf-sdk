@@ -32,7 +32,12 @@
 #include <math.h>
 #include <log/log.h>
 #include <qcom/display/gralloc_priv.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
+
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera_adaptor_gtest.h"
 

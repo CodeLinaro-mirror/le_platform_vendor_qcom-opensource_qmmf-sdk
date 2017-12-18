@@ -37,7 +37,11 @@
 #include <utils/Log.h>
 #include <assert.h>
 #include <system/graphics.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
