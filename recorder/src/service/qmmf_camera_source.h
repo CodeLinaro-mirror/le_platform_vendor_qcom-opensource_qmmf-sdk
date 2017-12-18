@@ -311,10 +311,13 @@ class TrackSource : public ICodecSource {
   bool                     eos_acked_;
   std::mutex               eos_lock_;
 
-  std::mutex               lock_;
+  std::mutex               frame_lock_;
   QCondition               wait_for_frame_;
 
+  std::mutex               lock_;
+
   // will be used till we make stop api as async.
+  bool                     is_idle_;
   std::mutex               idle_lock_;
   QCondition               wait_for_idle_;
 

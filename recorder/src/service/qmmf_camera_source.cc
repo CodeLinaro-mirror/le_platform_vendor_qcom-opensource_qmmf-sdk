@@ -1047,6 +1047,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
+      is_idle_(false),
       active_overlays_(0),
       input_count_(0),
       count_(0),
@@ -1260,11 +1261,14 @@ status_t TrackSource::DeInit() {
 status_t TrackSource::StartTrack() {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
 
   assert(camera_interface_.get() != nullptr);
 
-  std::lock_guard<std::mutex> lock(stop_lock_);
+  std::lock_guard<std::mutex> stop_lock(stop_lock_);
   is_stop_ = false;
+
+  std::lock_guard<std::mutex> eos_lock(eos_lock_);
   eos_acked_ = false;
 
   sp<IBufferConsumer> consumer;
@@ -1302,8 +1306,13 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
   {
     std::lock_guard<std::mutex> lock(stop_lock_);
+    if (is_stop_ == true) {
+      QMMF_WARN("%s: Track(%x) already stopped!", __func__, TrackId());
+      return NO_ERROR;
+    }
     is_stop_ = true;
   }
   // Stop sequence when encoder is involved.
@@ -1323,7 +1332,6 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   //    the status:kPortIdle, and at this point client's stop method can be
   //    returned.
 
-  bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
@@ -1333,13 +1341,15 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     if (is_force_cleanup) {
       QMMF_INFO("%s: track_id(%x) stopping in force mode!", __func__,
           TrackId());
-      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> lk(buffer_list_lock_);
       for (auto it = buffer_list_.begin(); it != buffer_list_.end(); it++) {
         StreamBuffer buffer = it->second;
         ReturnBufferToProducer(buffer);
       }
       buffer_list_.clear();
-      wait = false;
+
+      std::lock_guard<std::mutex> idle_lock(idle_lock_);
+      is_idle_ = true;
     }
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
@@ -1371,28 +1381,24 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     }
     QMMF_INFO("%s: Pipe stop done(%x)", __func__, TrackId());
     {
-      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> lk(buffer_list_lock_);
       QMMF_DEBUG("%s: track_id(%x) buffer_list_.size(%d)", __func__,
           TrackId(), buffer_list_.size());
-      if (buffer_list_.size() == 0) {
-        wait = false;
-      }
     }
   } else {
       QMMF_DEBUG("%s: track_id(%x), Wait for Encoder to return being encoded"
           " buffers!",  __func__, TrackId());
   }
-  std::unique_lock<std::mutex> lock(idle_lock_);
+  std::unique_lock<std::mutex> idle_lock(idle_lock_);
   std::chrono::nanoseconds wait_time(kWaitDuration);
 
-  while (wait) {
-    auto ret = wait_for_idle_.WaitFor(lock, wait_time);
+  while (!is_idle_) {
+    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
     if (ret != 0) {
-        QMMF_ERROR("%s: track_id(%x) StopTrack Timed out happend! Encoder"
-        "failed to go in Idle state!",  __func__, TrackId());
+      QMMF_ERROR("%s: track_id(%x) StopTrack Timed out happened! Encoder"
+          " failed to go in Idle state!",  __func__, TrackId());
       return TIMED_OUT;
     }
-    wait = false;
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return NO_ERROR;
@@ -1418,7 +1424,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
       {
-        std::unique_lock<std::mutex> lock(lock_);
+        std::unique_lock<std::mutex> lock(frame_lock_);
         for(auto it : buffer_map_) {
           if (stream_buffer_map_.find(it.first) !=  stream_buffer_map_.end()) {
             QMMF_INFO("%s: track_id(%x) fd: %d stream_id: %x", __func__,
@@ -1461,7 +1467,12 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
           " encoder!!",  __func__, TrackId());
       // wait_for_idle_ will not be needed once we make stop api as async.
       std::lock_guard<std::mutex> lock(idle_lock_);
+      is_idle_ = true;
       wait_for_idle_.Signal();
+    } else if (status == CodecPortStatus::kPortStart) {
+      std::lock_guard<std::mutex> lock(idle_lock_);
+      is_idle_ = false;
+      QMMF_INFO("%s: Track(%x) encoder started",  __func__, TrackId());
     }
   }
 
@@ -1476,7 +1487,7 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
   bool timeout = false;
 
   {
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     std::chrono::nanoseconds wait_time(kWaitDuration);
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
@@ -1552,7 +1563,7 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
 
   bool found = false;
 
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
     if ((*iter).handle ==  buffer.data) {
@@ -1580,7 +1591,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: Enter track_id(%x)", __func__, TrackId());
   {
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     buffer_map_.insert(std::make_pair(buffer.handle, 1));
     stream_buffer_map_.emplace(buffer.handle, buffer);
   }
@@ -1600,7 +1611,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
         // Return buffer if track is stoped and EOS is acknowledged by AVCodec.
         QMMF_INFO("%s: Track(%x) Stoped and eos is acked!", __func__,
           TrackId());
-        std::unique_lock<std::mutex> lock(lock_);
+        std::unique_lock<std::mutex> lock(frame_lock_);
         ReturnBufferToProducer(buffer);
         return;
       }
@@ -1656,7 +1667,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
                 __func__,track_params_.params.camera_id,
                 TrackId(),buffer.frame_number,input_frame_rate_);
     }
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     ReturnBufferToProducer(buffer);
     return;
   }
@@ -1725,7 +1736,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     if (IsStop()) {
       QMMF_DEBUG("%s: track_id(%x) Stop is triggred, Stop giving raw buffer"
           " to client!",  __func__, TrackId());
-      std::unique_lock<std::mutex> lock(lock_);
+      std::unique_lock<std::mutex> lock(frame_lock_);
       ReturnBufferToProducer(buffer);
       return;
     }
@@ -1744,6 +1755,10 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     {
       std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       buffer_list_.insert(std::make_pair(buffer.fd, buffer));
+    }
+    {
+      std::lock_guard<std::mutex> idle_lock(idle_lock_);
+      is_idle_ = false;
     }
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
@@ -1771,7 +1786,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
   assert(bn_buffers.size() > 0);
   assert(buffer_consumer_impl_ != nullptr);
 
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
     QMMF_VERBOSE("%s: track_id(%x) bn_buffers[%d].ion_fd=%d", __func__,
         TrackId(), i, bn_buffers[i].ion_fd);
@@ -1786,20 +1801,20 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
       buffer_list_.erase(it);
     }
   }
-  if (IsStop()) {
-    if (buffer_list_.size() > 0) {
-      QMMF_INFO("%s: track_id(%x) Stop is triggered, but still num raw "
-          "buffers(%d) are with client!",  __func__, TrackId(),
-          buffer_list_.size());
-    } else {
-      // wait_for_idle_ will not be needed once we make stop api as async.
-      QMMF_INFO("%s: track_id(%x) Stop is triggered, all raw buffers are"
-          " returned from client!",  __func__, TrackId());
-      std::lock_guard<std::mutex> lock(idle_lock_);
-      wait_for_idle_.Signal();
-    }
+  QMMF_DEBUG("%s: Track(%x) buffer count still with client = %d", __func__,
+      TrackId(), buffer_list_.size());
+
+  if (buffer_list_.size() == 0) {
+    std::lock_guard<std::mutex> lock(idle_lock_);
+    // wait_for_idle_ will not be needed once we make stop api as async.
+    QMMF_DEBUG("%s: Track(%x) All buffers have been returned from client!",
+        __func__, TrackId());
+
+    is_idle_ = true;
+    wait_for_idle_.Signal();
   }
-  QMMF_VERBOSE("%s: Exit track_id(%x)", __func__, TrackId());
+
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -1841,7 +1856,7 @@ bool TrackSource::IsStop() {
 void TrackSource::ClearInputQueue() {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   // Once connection is broken b/w port and trackSoure there is no chance to
   // get new buffers in frames_received_ queue.
   uint32_t size = frames_received_.Size();
@@ -2042,7 +2057,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
 void TrackSource::NotifyBufferReturned(StreamBuffer& buffer) {
   QMMF_DEBUG("%s: Enter track_id(%x) fd: %d ts: %lld", __func__,
       TrackId(), buffer.fd, buffer.timestamp);
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   ReturnBufferToProducer(buffer);
 }
 

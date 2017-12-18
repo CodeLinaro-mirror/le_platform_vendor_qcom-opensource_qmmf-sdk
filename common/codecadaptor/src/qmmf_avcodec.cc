@@ -2647,6 +2647,10 @@ status_t AVCodec::StartCodec() {
     pthread_create(&port_reconfig_thread_id_, nullptr, ThreadRun, (void*)this);
   }
 
+  CodecPortStatus status = CodecPortStatus::kPortStart;
+  getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,
+                                          static_cast<void*>(&status));
+
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
   QMMF_INFO("%s Exit", __func__);
