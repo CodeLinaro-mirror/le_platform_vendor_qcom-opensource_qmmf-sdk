@@ -204,7 +204,7 @@ class CameraContext : public CameraInterface,
 
   void ReprocessCaptureCallback(StreamBuffer buffer);
 
-  void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
+  void CameraErrorCb(CameraErrorCode error_code, const CaptureResultExtras &);
 
   void CameraIdleCb();
 

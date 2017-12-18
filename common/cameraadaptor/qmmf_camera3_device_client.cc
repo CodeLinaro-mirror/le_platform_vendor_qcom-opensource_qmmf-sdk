@@ -1156,14 +1156,13 @@ void Camera3DeviceClient::HandleCaptureResult(
     }
   }
 
-  RemovePendingRequestLocked(idx);
-
-  pthread_mutex_unlock(&pending_requests_lock_);
-
   if (0 < shutterTimestamp) {
     ReturnOutputBuffers(result->output_buffers, result->num_output_buffers,
                         shutterTimestamp, result->frame_number);
   }
+
+  RemovePendingRequestLocked(idx);
+  pthread_mutex_unlock(&pending_requests_lock_);
 
   if (NULL != result->input_buffer) {
     StreamBuffer input_buffer;
@@ -1361,6 +1360,22 @@ void Camera3DeviceClient::ReturnOutputBuffers(
   for (size_t i = 0; i < numBuffers; i++) {
     Camera3Stream *stream = Camera3Stream::CastTo(outputBuffers[i].stream);
     stream->ReturnBufferToClient(outputBuffers[i], timestamp, frame_number);
+
+    if (CAMERA3_BUFFER_STATUS_ERROR == outputBuffers[i].status) {
+      CaptureResultExtras resultExtras;
+      ssize_t idx = pending_requests_vector_.indexOfKey(frame_number);
+
+      if (idx >= 0) {
+        PendingRequest &r = pending_requests_vector_.editValueAt(idx);
+        r.status = CAMERA3_MSG_ERROR_BUFFER;
+        resultExtras = r.resultExtras;
+      } else {
+        resultExtras.frameNumber = frame_number;
+        QMMF_ERROR("%s: Camera %d: cannot find pending request for "
+            "frame %u\n", __func__, id_, resultExtras.frameNumber);
+      }
+      client_cb_.errorCb(ERROR_CAMERA_BUFFER, resultExtras);
+    }
   }
 }
 
