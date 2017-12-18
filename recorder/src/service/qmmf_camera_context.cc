@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1837,30 +1837,38 @@ status_t CameraContext::CaptureZSLImage() {
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
 
-  QMMF_WARN("%s: Camera Client: error_code:%d RequestId:%d FrameNumber:%d\n",
-      __func__, error_code, result.requestId, result.frameNumber);
+  QMMF_WARN("%s: Camera: %d, Error: %d, Request: %d, FrameNumber: %d",
+      __func__, camera_id_, error_code, result.requestId, result.frameNumber);
 
-  if (nullptr != error_cb_) {
-    RecorderErrorData error_data {};
-    error_data.camera_id = camera_id_;
-    error_data.error_code = error_code;
-    error_cb_(error_data);
+  switch (error_code) {
+    case ERROR_CAMERA_DEVICE:
+      QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
+      break;
+    case ERROR_CAMERA_REQUEST:
+    case ERROR_CAMERA_BUFFER: {
+      std::unique_lock<std::mutex> lock(pending_frames_lock_);
+      auto stream_ids = removed_stream_ids_;
+
+      for (auto& stream_id : stream_ids) {
+        if (last_frame_number_map_[stream_id] == result.frameNumber) {
+          last_frame_number_map_.erase(stream_id);
+          removed_stream_ids_.erase(stream_id);
+        }
+      }
+      pending_frames_.Signal();
+      break;
+    }
+    default:
+      QMMF_WARN("%s: Camera: %d, Error %d won't be handled by CameraContext!",
+          __func__, camera_id_, error_code);
+      break;
   }
 
-  std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-  if (last_frame_number_map_.size() > 0 && removed_stream_ids_.size() > 0) {
-    QMMF_DEBUG("%s: last_frame_mumber.size(%d) & emoved_stream_ids_.size(%d)"
-        "& last_frame_number_(%lld)", __func__,
-        last_frame_number_map_.size(), removed_stream_ids_.size(),
-        last_frame_number_);
-    if (result.frameNumber == last_frame_number_) {
-      QMMF_WARN("%s: Request corresponds to last_frame_number(%lld) is"
-       "missed! Notify pending frame wait!!", __func__,
-       last_frame_number_);
-      pending_frames_.Signal();
-      removed_stream_ids_.clear();
-      last_frame_number_map_.clear();
-    }
+  if (nullptr != error_cb_) {
+    RecorderErrorData data {};
+    data.camera_id = camera_id_;
+    data.error_code = error_code;
+    error_cb_(data);
   }
 }
 
