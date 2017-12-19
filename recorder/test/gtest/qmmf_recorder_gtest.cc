@@ -12575,12 +12575,20 @@ TEST_F(RecorderGtest,
     assert(ret == NO_ERROR);
     CameraMetadata meta;
     // Enable EIS before Start Session
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
+
+    // Enable YUV LCAC
+    uint8_t enable_lcac = 1;
+    ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+    assert(ret == NO_ERROR);
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    assert(ret == NO_ERROR);
+
     // Store Session 1 tracks
     std::vector<uint32_t> session1_track_ids;
     session1_track_ids.push_back(session1_trackid_avc);
@@ -12592,15 +12600,6 @@ TEST_F(RecorderGtest,
     // Let session run for 5 sec, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(5);
-    // Now Enable YUV LCAC
-    auto status = recorder_.GetCameraParam(camera_id_, meta);
-    if (NO_ERROR == status) {
-      uint8_t enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      assert(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      assert(ret == NO_ERROR);
-    }
     // Session 2 Track: 1920x1440p @30 AVC
     uint32_t session_id2;
     ret = recorder_.CreateSession(session_status_cb, &session_id2);
@@ -13215,7 +13214,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     sessions_.insert(std::make_pair(session_id, track_ids));
     // Enable EIS before Start Session
     CameraMetadata meta;
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
 
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -13228,6 +13227,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     sleep(record_duration_ / 2);
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
+
     if (NO_ERROR == ret) {
       uint8_t enable_lcac = 1;
       ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
@@ -13337,7 +13337,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     sessions_.insert(std::make_pair(session_id, track_ids));
     // Enable EIS before Start Session
     CameraMetadata meta;
-    auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    auto ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
 
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -13351,6 +13351,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_ / 2);
+
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       uint8_t enable_lcac = 1;
@@ -15844,8 +15845,8 @@ TEST_F(RecorderGtest,
     assert(session_id3 > 0);
     assert(ret == NO_ERROR);
 
-    width = 640;
-    height = 480;
+    width = 480;
+    height = 640;
     video_track_param.camera_id = camera_id_;
     video_track_param.width = width;
     video_track_param.height = height;
@@ -15858,8 +15859,12 @@ TEST_F(RecorderGtest,
       VideoTrackYUVDataCb(session_id3, track_id, buffers, meta_buffers);
     };
 
+    rotate_param.flags = RotationFlags::kRotate90;  // 90 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
     ret = recorder_.CreateVideoTrack(session_id3, session3_yuv_trackid,
-                                     video_track_param, video_track_cb);
+                                     video_track_param, extra_param,
+                                     video_track_cb);
     assert(ret == NO_ERROR);
 
     // Store Session 3 tracks
@@ -15870,7 +15875,7 @@ TEST_F(RecorderGtest,
 
     if (use_display_) {
       ret =
-          StartDisplay(DisplayType::kPrimary, width, height, width / 2, height);
+          StartDisplay(DisplayType::kPrimary, width, height, width, height/2);
       if (ret != 0) {
         TEST_ERROR("%s: StartDisplay Failed!!", __func__);
       }
@@ -16234,8 +16239,8 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
     assert(session_id2 > 0);
     assert(ret == NO_ERROR);
 
-    width = 640;
-    height = 480;
+    width = 480;
+    height = 640;
     video_track_param.camera_id = camera_id_;
     video_track_param.width = width;
     video_track_param.height = height;
@@ -16248,8 +16253,12 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
       VideoTrackYUVDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
+    rotate_param.flags = RotationFlags::kRotate90;  // 90 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
     ret = recorder_.CreateVideoTrack(session_id2, session2_yuv_trackid,
-                                     video_track_param, video_track_cb);
+                                     video_track_param, extra_param,
+                                     video_track_cb);
     assert(ret == NO_ERROR);
 
     // Store Session 2 tracks
@@ -16261,7 +16270,7 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
 
     if (use_display_) {
       ret =
-          StartDisplay(DisplayType::kPrimary, width, height, width / 2, height);
+          StartDisplay(DisplayType::kPrimary, width, height, width, height/2);
       if (ret != 0) {
         TEST_ERROR("%s: StartDisplay Failed!!", __func__);
       }
