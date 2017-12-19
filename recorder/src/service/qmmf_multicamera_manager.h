@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -118,6 +118,10 @@ class MultiCameraManager : public CameraInterface {
   std::vector<int32_t>& GetSupportedFps() override;
 
  private:
+  friend class StitchingBase;
+  friend class StreamStitching;
+  friend class SnapshotStitching;
+
   void ResultCallback(uint32_t camera_id, const CameraMetadata &meta);
 
   status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
@@ -185,6 +189,7 @@ class MultiCameraManager : public CameraInterface {
   QCondition               wait_for_jpeg_;
 
   std::mutex               lock_;
+  QCondition               capture_done_;
 
   static const uint32_t kWaitJPEGTimeout = 100000000; // 100 ms
   static const uint32_t kAecConvergeTimeout = 500000000; // 500 ms
@@ -250,7 +255,7 @@ class StitchingBase : public Camera3Thread {
     uint32_t                       frame_rate;
   };
 
-  StitchingBase(InitParams &param);
+  StitchingBase(InitParams &param, MultiCameraManager *mgr);
   virtual ~StitchingBase();
 
   status_t Initialize();
@@ -275,9 +280,10 @@ class StitchingBase : public Camera3Thread {
   // Method for returning an output buffer back to the memory pool.
   status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
 
+  MultiCameraManager       *manager_;
+
   InitParams               params_;
   bool                     stop_frame_sync_;
-  bool                     use_frame_sync_timeout;
   std::string              work_thread_name_;
 
   uint32_t                 skip_camera_id_;
@@ -329,7 +335,7 @@ class StitchingBase : public Camera3Thread {
 
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
-  StitchLibInterface       stitch_lib_;
+  StitchLibInterface                    stitch_lib_;
   std::shared_ptr<GrallocMemory>        memory_pool_;
 
   // Map of incoming filled buffers for each of the actual cameras
@@ -358,7 +364,8 @@ class StitchingBase : public Camera3Thread {
   QCondition               wait_for_sync_frames_;
 
   static const uint32_t kWaitBuffersTimeout = 100000000; // 100 ms
-  static const uint32_t kFrameSyncTimeout   = 50000000;  // 50 ms
+  static const uint32_t kVideoFrameSyncTimeout = 50000000;  // 50 ms
+  static const uint32_t kImageFrameSyncTimeout = 400000000;  // 400 ms
 
   static const uint8_t kUnsyncedQueueMaxSize = 3;
 
@@ -368,7 +375,7 @@ class StitchingBase : public Camera3Thread {
 
 class StreamStitching : public StitchingBase {
  public:
-  StreamStitching(InitParams &param);
+  StreamStitching(InitParams &param, MultiCameraManager *mgr);
   ~StreamStitching();
 
   // Methods for establishing buffer communication link between the
@@ -405,13 +412,10 @@ class StreamStitching : public StitchingBase {
 
 class SnapshotStitching : public StitchingBase {
  public:
-  SnapshotStitching(InitParams &param,
-      std::map<uint32_t, std::shared_ptr<CameraContext> > &contexts);
+  SnapshotStitching(InitParams &param, MultiCameraManager *mgr);
   ~SnapshotStitching();
 
-  void SetClientCallback(const StreamSnapshotCb& cb) {
-    client_snapshot_cb_ = cb;
-  }
+  void SetClientCallback(const StreamSnapshotCb& cb) { snapshot_cb_ = cb; }
 
   // A callback method for handling incoming buffers from CameraContexts.
   void FrameAvailableCb(uint32_t count, StreamBuffer &buffer);
@@ -427,10 +431,7 @@ class SnapshotStitching : public StitchingBase {
   // Maps of buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
 
-  // Map of camera id and CameraContext taken from MultiCameraManager.
-  std::map<uint32_t, std::shared_ptr<CameraContext> > camera_contexts_;
-
-  StreamSnapshotCb         client_snapshot_cb_;
+  StreamSnapshotCb         snapshot_cb_;
   std::mutex               snapshot_lock_;
 };
 
