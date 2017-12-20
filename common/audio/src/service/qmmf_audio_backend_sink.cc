@@ -48,6 +48,17 @@
 #include "common/audio/src/service/qmmf_audio_common.h"
 #include "common/utils/qmmf_log.h"
 
+#ifdef ANDROID_O_OR_ABOVE
+// TODO: Resolve header dependencies once available
+#define AUDIO_FORMAT_AAC_LATM       (0x23000000UL)
+#define AUDIO_FORMAT_AAC_LATM_LC    (AUDIO_FORMAT_AAC_LATM |\
+                                      AUDIO_FORMAT_AAC_SUB_LC)
+#define AUDIO_FORMAT_AAC_LATM_HE_V1 (AUDIO_FORMAT_AAC_LATM |\
+                                      AUDIO_FORMAT_AAC_SUB_HE_V1)
+#define AUDIO_FORMAT_AAC_LATM_HE_V2 (AUDIO_FORMAT_AAC_LATM |\
+                                      AUDIO_FORMAT_AAC_SUB_HE_V2)
+#endif
+
 namespace qmmf {
 namespace common {
 namespace audio {
@@ -198,13 +209,25 @@ int32_t AudioBackendSink::Open(const qahw_module_handle_t * const modules[],
         case AACFormat::kMP4FF:
           switch (metadata.codec_params.aac.mode) {
             case AACMode::kAALC:
+#ifdef ANDROID_O_OR_ABOVE
+              config.format = static_cast<audio_format_t>(AUDIO_FORMAT_AAC_LATM_LC);
+#else
               config.format = AUDIO_FORMAT_AAC_LATM_LC;
+#endif
               break;
             case AACMode::kHEVC_v1:
+#ifdef ANDROID_O_OR_ABOVE
+              config.format = static_cast<audio_format_t>(AUDIO_FORMAT_AAC_LATM_HE_V1);
+#else
               config.format = AUDIO_FORMAT_AAC_LATM_HE_V1;
+#endif
               break;
             case AACMode::kHEVC_v2:
+#ifdef ANDROID_O_OR_ABOVE
+              config.format = static_cast<audio_format_t>(AUDIO_FORMAT_AAC_LATM_HE_V2);
+#else
               config.format = AUDIO_FORMAT_AAC_LATM_HE_V2;
+#endif
               break;
             default:
               break;

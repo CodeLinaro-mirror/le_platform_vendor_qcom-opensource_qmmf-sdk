@@ -42,7 +42,11 @@
 #include <sys/types.h>
 
 #include <hardware/hardware.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 #include <cutils/properties.h>
 
 #include "recorder/src/service/qmmf_multicamera_manager.h"
@@ -55,6 +59,8 @@ namespace recorder {
 
 static const char *kSideBySideLib = "libqmmf_alg_side_by_side.so";
 static const char *k360StitchLib = "libqmmf_alg_polaris_stitch.so";
+
+using namespace qcamera;
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
@@ -169,6 +175,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     return ret;
   }
 
+#ifndef DISABLE_PP_JPEG
   jpeg_encoder_ = std::make_shared<CameraJpeg>();
   jpeg_memory_pool_ = std::make_shared<GrallocMemory>();
   ret = jpeg_memory_pool_->Initialize();
@@ -179,6 +186,9 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
     jpeg_encoder_ = nullptr;
     return NO_INIT;
   }
+#else
+  QMMF_WARN("%s: JPEG Postproc not supported.", __func__);
+#endif
 
   // Wait for all asynchronous tasks to complete and return status.
   for (auto& result : results) {
@@ -360,7 +370,7 @@ status_t MultiCameraManager::CaptureImage(const std::vector<CameraMetadata>
   std::vector<CameraMetadata> capture_meta = meta;
 
   const uint8_t sync_req = 1;
-  capture_meta[0].update(qcamera::QCAMERA3_DUALCAM_SYNCHRONIZED_REQUEST,
+  capture_meta[0].update(QCAMERA3_DUALCAM_SYNCHRONIZED_REQUEST,
                          &sync_req, 1);
 
   auto camera_ids = virtual_camera_map_[virtual_camera_id_];
@@ -862,8 +872,9 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
     return ret;
   }
-
+#ifndef DISABLE_PP_JPEG
   jpeg_encoder_->Configure(thumbnails_);
+#endif
   jpeg_encoder_->Start();
 
   // Set buffer params for jpeg encoding.
@@ -1115,17 +1126,17 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
     is_main = 1;
   }
 
-  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
-  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
+  meta.update(QCAMERA3_DUALCAM_LINK_IS_MAIN, &is_main, 1);
+  meta.update(QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID, &related_id, 1);
 
   uint8_t sync = 1;
-  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
+  meta.update(QCAMERA3_DUALCAM_LINK_ENABLE, &sync, 1);
 
-  uint8_t role = qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
-  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
+  uint8_t role = QCAMERA3_DUALCAM_LINK_CAMERA_ROLE_BAYER;
+  meta.update(QCAMERA3_DUALCAM_LINK_CAMERA_ROLE, &role, 1);
 
-  uint8_t sync_mode = qcamera::QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
-  meta.update(qcamera::QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
+  uint8_t sync_mode = QCAMERA3_DUALCAM_LINK_3A_360_CAMERA;
+  meta.update(QCAMERA3_DUALCAM_LINK_3A_SYNC_MODE, &sync_mode, 1);
 
   return NO_ERROR;
 }

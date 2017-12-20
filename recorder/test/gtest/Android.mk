@@ -17,10 +17,14 @@ LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 
 LOCAL_SRC_FILES := qmmf_recorder_gtest.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue
+LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_display_client
 LOCAL_SHARED_LIBRARIES += libcamera_client
 
 LOCAL_MODULE = qmmf_recorder_gtest
+
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
 
 include $(BUILD_NATIVE_TEST)
 
@@ -40,6 +44,10 @@ LOCAL_SHARED_LIBRARIES += libcamera_client
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_display_client
 
 LOCAL_MODULE = qmmf_recorder_360cam_gtest
+
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
 
 include $(BUILD_NATIVE_TEST)
 

@@ -604,6 +604,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     return ret;
   }
 
+#ifndef DISABLE_VID_LPM
+  // LPM not supported on specific targets
   char prop[PROPERTY_VALUE_MAX];
   property_get("persist.qmmf.video.enc.lpm", prop, "0");
   if (atoi(prop) == 1) {
@@ -619,6 +621,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       return ret;
     }
   }
+#endif
 
   switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
@@ -761,6 +764,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     }
   }
 
+#ifndef DISABLE_VID_QP_RANGE
+  // QP Range not supported on specific targets
   if (enable_qp_range) {
     OMX_QCOM_VIDEO_PARAM_QPRANGETYPE qp_range;
     InitOMXParams(&qp_range);
@@ -783,6 +788,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       return ret;
     }
   }
+#endif
 
   if (enable_qp_IBP_range) {
     OMX_QCOM_VIDEO_PARAM_IPB_QPRANGETYPE qp_range;

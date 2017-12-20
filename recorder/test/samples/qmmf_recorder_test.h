@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <camera/CameraMetadata.h>
-#include <QCamera3VendorTags.h>
+
 #include <cutils/properties.h>
 #include <cutils/trace.h>
 #include <linux/input.h>

@@ -38,7 +38,11 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 #include <sys/time.h>
 #include <sys/time.h>
 #include <chrono>
@@ -9965,8 +9969,7 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
 
   // run session for some time
   sleep(5);
-
-  int dump_fd = open(DUMP_META_PATH, O_WRONLY|O_CREAT);
+  int dump_fd = open(DUMP_META_PATH, O_WRONLY|O_CREAT, 0644);
   assert(0 <= dump_fd);
 
   CameraMetadata meta;
@@ -17343,7 +17346,7 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   bitstream_filepath += std::to_string(dumpinfo.height) + ".";
   bitstream_filepath += extn;
   int32_t file_fd = open(bitstream_filepath.c_str(),
-                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
+                          O_CREAT | O_WRONLY | O_TRUNC, 0644);
   if (file_fd <= 0) {
     TEST_ERROR("%s File open failed!", __func__);
     return BAD_VALUE;

@@ -701,7 +701,8 @@ void VideoTrackSink::PtsThread() {
         timestamp = last_queued_timestamp_ / 1000;
       }
       if (timestamp != previous_timestamp) {
-        QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__);
+        QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__,
+                   timestamp, track_params_.track_id);
         callback_.event_cb(track_params_.track_id,
                            EventType::kPresentationTimestamp,
                            &timestamp, sizeof(timestamp));

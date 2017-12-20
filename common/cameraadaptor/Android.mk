@@ -14,6 +14,9 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
+LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
+endif
 
 LOCAL_SRC_FILES := qmmf_camera3_device_client.cc
 LOCAL_SRC_FILES += qmmf_camera3_monitor.cc
@@ -45,6 +48,10 @@ LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_adaptor_gtest
 
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
+
 include $(BUILD_NATIVE_TEST)
 
 # Dual adaptor gtest app
@@ -60,6 +67,10 @@ LOCAL_SRC_FILES := gtest/qmmf_dual_camera_adaptor_gtest.cc
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_dual_adaptor_gtest
+
+ifeq ($(LOCAL_VENDOR_MODULE),true)
+LOCAL_VENDOR_MODULE := false
+endif
 
 include $(BUILD_NATIVE_TEST)
 
