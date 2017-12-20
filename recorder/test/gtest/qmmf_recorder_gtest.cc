@@ -18180,7 +18180,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
     }
 
     bool dump_file;
-    bool dump_thumbnail;
+    bool dump_thumbnail = false;
     if (cam_buf_meta.format == BufferFormat::kBLOB) {
       dump_file = (is_dump_jpeg_enabled_) ? true : false;
       dump_thumbnail = (dump_file && is_dump_thumb_enabled_) ? true : false;
