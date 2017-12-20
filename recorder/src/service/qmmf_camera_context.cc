@@ -1883,8 +1883,9 @@ status_t CameraContext::ResumeActiveStreams(bool state_only) {
 }
 
 status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
-  QMMF_DEBUG("%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n",
-      __func__, buffer.stream_id, buffer.handle, buffer.timestamp);
+  QMMF_DEBUG("%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
+      "frame_number: %d", __func__, buffer.camera_id, buffer.stream_id,
+      buffer.handle, buffer.timestamp, buffer.frame_number);
 
   auto ret = camera_device_->ReturnStreamBuffer(buffer);
   assert(ret == NO_ERROR);
@@ -2743,7 +2744,7 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
   // Assign camera id to the stream buffer.
   buffer.camera_id = context_->camera_id_;
 
-  QMMF_VERBOSE("%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
+  QMMF_DEBUG("%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
       "frame_number: %d", __func__, buffer.camera_id, buffer.stream_id,
       buffer.handle, buffer.timestamp, buffer.frame_number);
 
