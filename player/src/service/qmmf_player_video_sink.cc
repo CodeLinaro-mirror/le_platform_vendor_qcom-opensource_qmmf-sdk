@@ -835,7 +835,10 @@ status_t VideoTrackSink::CreateDisplay(
       static_cast<float>(track_param.params.width),
       static_cast<float>(track_param.params.height)};
 
-  surface_param_.dst_rect = { 0.0, 0.0, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+  surface_param_.dst_rect = {
+      track_param.params.destRect.start_x, track_param.params.destRect.start_y,
+      static_cast<float>(track_param.params.destRect.width),
+      static_cast<float>(track_param.params.destRect.height)};
 
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
@@ -843,9 +846,33 @@ status_t VideoTrackSink::CreateDisplay(
   surface_param_.frame_rate=track_param.params.frame_rate;
   surface_param_.z_order = 0;
   surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
+
+  switch (track_param.params.rotation) {
+    case 0:
+    case 360:
+      surface_param_.surface_transform.rotation = 0.0f;
+      surface_param_.surface_transform.flip_horizontal = 0;
+      surface_param_.surface_transform.flip_vertical = 0;
+      break;
+    case 90:
+      surface_param_.surface_transform.rotation = 90.0f;
+      surface_param_.surface_transform.flip_horizontal = 0;
+      surface_param_.surface_transform.flip_vertical = 0;
+      break;
+    case 180:
+      surface_param_.surface_transform.rotation = 0.0f;
+      surface_param_.surface_transform.flip_horizontal = 1;
+      surface_param_.surface_transform.flip_vertical = 1;
+      break;
+    case 270:
+      surface_param_.surface_transform.rotation = 90.0f;
+      surface_param_.surface_transform.flip_horizontal = 1;
+      surface_param_.surface_transform.flip_vertical = 1;
+      break;
+    default:
+      QMMF_ERROR("%s:%s Wrong value entered for rotation (0/90/180/270)");
+      break;
+  }
 
   QMMF_INFO("%s: Exit", __func__);
   return res;
