@@ -79,6 +79,8 @@ struct FaceInfo {
 
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
+#define DEFAULT_BURST_COUNT         "30"
+
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
 
@@ -100,6 +102,8 @@ struct FaceInfo {
 #define PROP_RECORD_DURATION        "persist.qmmf.rec.gtest.recdur"
 // Prop to enable JPEG thumbnail dumping
 #define PROP_DUMP_THUMBNAIL         "persist.qmmf.rec.gtest.thumb"
+// Prop to set Burst snapshot count
+#define PROP_BURST_N_IMAGES         "persist.qmmf.rec.gtest.burstcnt"
 
 // Prop to set Track Resolutions and FPS
 #define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
@@ -311,6 +315,7 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_thumb_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+  uint32_t              burst_image_count_;
   std::mutex            error_lock_;
   bool                  camera_error_;
 
