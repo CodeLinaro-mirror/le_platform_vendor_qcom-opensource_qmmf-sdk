@@ -2490,6 +2490,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
   std::condition_variable  ae_converge_signal;
   std::mutex ae_converge_mutex;
+  bool ae_converged = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -2497,6 +2498,9 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
           uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
           if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            TEST_INFO("%s: AE is converged!!!", __func__);
+            std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+            ae_converged = true;
             ae_converge_signal.notify_one();
           }
         }
@@ -2547,14 +2551,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   assert(ret == NO_ERROR);
 
   // Record for sometime
-  // Wait for AE convergence
-  std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-  auto status = ae_converge_signal.wait_for(ae_converge_lock,
-    std::chrono::seconds(30 / frame_rate + 1));
-
-  assert(status == std::cv_status::no_timeout);
-
-  fprintf(stderr,"AE Converged succesfuly\n");
+  sleep(2);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -2626,11 +2623,6 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  // AE lock for snapshot
-  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-  assert(ret == NO_ERROR);
-
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
   fps_range[0] = frame_rate;
@@ -2648,12 +2640,25 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      if (!ae_converged) {
+        TEST_INFO("%s: Wait for AE to Converged!", __func__);
+        auto status = ae_converge_signal.wait_for(ae_converge_lock,
+        std::chrono::seconds(30 / frame_rate + 1));
+        assert(status == std::cv_status::no_timeout);
+        TEST_INFO("%s: AE Converged succesfuly", __func__);
+      } else {
+        TEST_INFO("%s: AE is already converged!", __func__);
+      }
+    }
     // Lock AE
     CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     assert(ret == NO_ERROR);
 
-    ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     assert(ret == NO_ERROR);
 
@@ -2666,6 +2671,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
     sleep(10);
 
+    {
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      ae_converged = false;
+    }
     // Unlock AE
     ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
@@ -2741,9 +2750,11 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
   // Auto burst modes: 3 in 1 or 5 in 1 or 10 in 1 or 15 in 1 frames per second
   std::vector<uint32_t> auto_burst_modes = {3, 5, 10, 15};
 
+  std::condition_variable  ae_converge_signal;
+  std::mutex ae_converge_mutex;
+  bool ae_converged = false;
+
   for (auto rate : auto_burst_modes) {
-    std::condition_variable  ae_converge_signal;
-    std::mutex ae_converge_mutex;
 
     CameraResultCb result_cb = [&] (uint32_t camera_id,
         const CameraMetadata &result) {
@@ -2751,6 +2762,9 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
             uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
             if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
               (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+              TEST_INFO("%s: AE is converged!!!", __func__);
+              std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+              ae_converged = true;
               ae_converge_signal.notify_one();
             }
           }
@@ -2800,14 +2814,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     assert(ret == NO_ERROR);
 
     // Record for sometime
-    // Wait for AE convergence
-    std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-    auto status = ae_converge_signal.wait_for(ae_converge_lock,
-      std::chrono::seconds(30 / rate + 1));
-
-    assert(status == std::cv_status::no_timeout);
-
-    fprintf(stderr,"AE Converged succesfuly\n");
+    sleep(2);
 
     ImageParam image_param{};
     image_param.width         = 3840;
@@ -2879,11 +2886,6 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     ret = recorder_.ConfigImageCapture(camera_id_, image_config);
     assert(ret == NO_ERROR);
 
-    // AE lock for snapshot
-    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-    assert(ret == NO_ERROR);
-
     // Set frame rate otherwise default value is used
     int32_t fps_range[2];
     fps_range[0] = rate;
@@ -2903,12 +2905,26 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
           test_info_->name(), i);
 
+      {
+        // Wait for AE to converge.
+        std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+        if (!ae_converged) {
+          TEST_INFO("%s: Wait for AE to Converged!", __func__);
+          auto status = ae_converge_signal.wait_for(ae_converge_lock,
+          std::chrono::seconds(30 / rate + 1));
+          assert(status == std::cv_status::no_timeout);
+          TEST_INFO("%s: AE Converged succesfuly", __func__);
+        } else {
+          TEST_INFO("%s: AE is already converged!", __func__);
+        }
+      }
+
       // Lock AE
       CameraMetadata video_meta;
       ret = recorder_.GetCameraParam(camera_id_, video_meta);
       assert(ret == NO_ERROR);
 
-      ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
       ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
       assert(ret == NO_ERROR);
 
@@ -2920,6 +2936,12 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       assert(ret == NO_ERROR);
 
       sleep(10);
+
+      {
+        // AE and wait for to converge for next round of run.
+        std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+        ae_converged = false;
+      }
 
       // Unlock AE
       ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
@@ -2996,6 +3018,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
   std::condition_variable  ae_converge_signal;
   std::mutex ae_converge_mutex;
+  bool ae_converged = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -3003,6 +3026,8 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
           uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
           if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            TEST_INFO("%s: AE is converged!!", __func__);
+            ae_converged = true;
             ae_converge_signal.notify_one();
           }
         }
@@ -3052,14 +3077,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   assert(ret == NO_ERROR);
 
   // Record for sometime
-  // Wait for AE convergence
-  std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-  auto status = ae_converge_signal.wait_for(ae_converge_lock,
-    std::chrono::seconds(30 / preview_frame_rate + 1));
-
-  assert(status == std::cv_status::no_timeout);
-
-  fprintf(stderr,"AE Converged succesfuly\n");
+  sleep(2);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -3143,11 +3161,6 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  // AE lock for snapshot
-  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-  assert(ret == NO_ERROR);
-
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
   fps_range[0] = preview_frame_rate;
@@ -3162,12 +3175,26 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    // Lock AE
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      if (!ae_converged) {
+        TEST_INFO("%s: Wait for AE to Converged!", __func__);
+        auto status = ae_converge_signal.wait_for(ae_converge_lock,
+        std::chrono::seconds(30 / preview_frame_rate + 1));
+        assert(status == std::cv_status::no_timeout);
+        TEST_INFO("%s: AE Converged succesfuly", __func__);
+      } else {
+        TEST_INFO("%s: AE is already converged!", __func__);
+      }
+    }
+
     CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     assert(ret == NO_ERROR);
 
-    ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    // Lock AE for snapshot
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     assert(ret == NO_ERROR);
 
@@ -3181,6 +3208,12 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
     ret = recorder_.CancelCaptureImage(camera_id_);
     assert(ret == NO_ERROR);
+
+    {
+      // AE and wait for to converge for next round of run.
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      ae_converged = false;
+    }
 
     // Unlock AE
     ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
