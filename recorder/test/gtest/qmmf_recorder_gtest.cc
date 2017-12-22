@@ -114,6 +114,8 @@ void RecorderGtest::SetUp() {
   record_duration_ = atoi(prop_val);
   property_get(PROP_DUMP_THUMBNAIL, prop_val, "0");
   is_dump_thumb_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_BURST_N_IMAGES, prop_val, DEFAULT_BURST_COUNT);
+  burst_image_count_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -1942,7 +1944,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 2;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
@@ -2040,7 +2042,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
 
   meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
@@ -2223,7 +2225,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
@@ -2413,7 +2415,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
@@ -2632,7 +2634,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
