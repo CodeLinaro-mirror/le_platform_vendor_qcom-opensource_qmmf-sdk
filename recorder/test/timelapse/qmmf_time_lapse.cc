@@ -147,11 +147,13 @@ int32_t TimeLapse::Init() {
     return ret;
   }
 
+#ifndef DISABLE_DISPLAY
   ret = StartDisplay(DisplayType::kPrimary);
   if (NO_ERROR != ret) {
     printf("%s StartDisplay Failed: %d!!", __func__, ret);
     return ret;
   }
+#endif
 
   ret = recorder_.GetDefaultCaptureParam(params_.camera_id, static_info_);
   if (NO_ERROR != ret) {
@@ -216,11 +218,13 @@ int32_t TimeLapse::DeInit() {
     return ret;
   }
 
+#ifndef DISABLE_DISPLAY
   ret = StopDisplay(DisplayType::kPrimary);
   if (NO_ERROR != ret) {
     printf("%s StopDisplay failed: %d!!", __func__, ret);
     return ret;
   }
+#endif
 
   return recorder_.Disconnect();
 }
@@ -229,9 +233,11 @@ void TimeLapse::PreviewTrackHandler(uint32_t track_id,
                                     vector<BufferDescriptor> buffers,
                                     vector<MetaData> meta_buffers) {
   if (!buffers.empty()) {
+#ifndef DISABLE_DISPLAY
     MetaData meta_data = meta_buffers[0];
     CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
     PushFrameToDisplay(buffers[0],cam_buf_meta);
+#endif
 
     if (0 < last_capture_ts_) {
       uint64_t delta = buffers[0].timestamp - last_capture_ts_;
@@ -364,6 +370,7 @@ FAIL:
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
 }
 
+#ifndef DISABLE_DISPLAY
 void TimeLapse::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
 }
@@ -473,7 +480,7 @@ status_t TimeLapse::PushFrameToDisplay(BufferDescriptor& buffer,
   }
   return NO_ERROR;
 }
-
+#endif
 
 } //namespace timelapse ends here
 } //namespace qmmf ends here

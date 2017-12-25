@@ -385,15 +385,25 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
     video_track_param.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
     video_track_param.height      = m_sTrackInfo_.sVideo.ulHeight;
     video_track_param.width       = m_sTrackInfo_.sVideo.ulWidth;
+    video_track_param.destRect.height     = 1080;
+    video_track_param.destRect.width      = 1920;
+    video_track_param.destRect.start_x    = 0.0;
+    video_track_param.destRect.start_y    = 0.0;
+    video_track_param.rotation = 0;
     video_track_param.bitrate     = m_sTrackInfo_.sVideo.ulBitRate;
     video_track_param.num_buffers = 1;
     video_track_param.out_device  = VideoOutSubtype::kHDMI;
 
     TEST_INFO("%s video_track_id_ : %d ", __func__, video_track_id_);
 
-    TEST_INFO("%s height : %d width %d frame_rate %d, bitrate %d ",
+    TEST_INFO(
+        "%s height : %d width %d dest height %d dest width %d dest start_x %f "
+        "dest start_y %f frame_rate %d, bitrate %d rotation %d",
         __func__, video_track_param.height, video_track_param.width,
-        video_track_param.frame_rate, video_track_param.bitrate);
+        video_track_param.destRect.height, video_track_param.destRect.width,
+        video_track_param.destRect.start_x, video_track_param.destRect.start_y,
+        video_track_param.frame_rate, video_track_param.bitrate,
+        video_track_param.rotation);
   }
 
   TEST_INFO("%s: Exit", __func__);

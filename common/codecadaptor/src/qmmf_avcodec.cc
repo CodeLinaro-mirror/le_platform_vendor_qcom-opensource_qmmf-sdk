@@ -82,6 +82,8 @@ using ::std::stringstream;
 using ::std::underlying_type;
 using ::std::vector;
 
+static const string PROP_POWER_HINT = "qmmf.power.hint.on";
+
 template<class T>
 static void InitOMXParams(T *params) {
   memset(params, 0x0, sizeof(T));
@@ -113,6 +115,8 @@ struct __attribute__((packed)) AudioEncoderMetadata {
 // static
 OMX_CALLBACKTYPE AVCodec::callbacks_ = {
     &OnEvent, &OnEmptyBufferDone, &OnFillBufferDone};
+
+uint32_t AVCodec::power_hint_ = 0;
 
 AVCodec::AVCodec()
     : state_(OMX_StateLoaded),
@@ -2348,11 +2352,19 @@ status_t AVCodec::ReleaseBuffer() {
   return ret;
 }
 
-status_t AVCodec::StartCodec() {
+void AVCodec::setPowerHint(){
+  QMMF_INFO("%s Start Encoding: set power hint ON", __func__);
+  std::lock_guard<std::mutex> lock(power_mtx_);
+  power_hint_++;
+  if (power_hint_ == 1) {
+    property_set(PROP_POWER_HINT.c_str(), "true");
+  }
+}
 
+status_t AVCodec::StartCodec() {
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
-
+  setPowerHint();
   isEOSonOutput_ = false;
 
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
@@ -2582,8 +2594,16 @@ status_t AVCodec::StartCodec() {
   return ret;
 }
 
-status_t AVCodec::StopCodec(bool do_flush) {
+void AVCodec::endPowerHint(){
+  QMMF_INFO("%s Finish Encoding: set power hint OFF", __func__);
+  std::lock_guard<std::mutex> lock(power_mtx_);
+  power_hint_--;
+  if (power_hint_ == 0) {
+    property_set(PROP_POWER_HINT.c_str(), "false");
+  }
+}
 
+status_t AVCodec::StopCodec(bool do_flush) {
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
 
@@ -2742,6 +2762,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
   QMMF_INFO("%s Exit", __func__);
+  endPowerHint();
   return ret;
 }
 

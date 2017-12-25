@@ -84,6 +84,25 @@ enum class VideoCodecType {
   kYUV,
 };
 
+struct Rect {
+  float start_x;
+  float start_y;
+  uint32_t width;
+  uint32_t height;
+
+  Rect()
+   : start_x(0.0),
+     start_y(0.0),
+     width(1920),
+     height(1080) {}
+
+  Rect(uint32_t start_x, uint32_t start_y, uint32_t width, uint32_t height)
+   : start_x(start_x),
+     start_y(start_y),
+     width(width),
+     height(height) {}
+};
+
 // Video track create time parameters
 // buffer_size and num_buffers is an optional parameter if the clients
 // know what the optimal size for the track input buffers are.
@@ -93,6 +112,8 @@ struct VideoTrackCreateParam {
   size_t buffer_size;
   uint32_t num_buffers;
   uint32_t pts_callback_interval; // milliseconds; set to 0 to disable
+  Rect srcRect;
+  Rect destRect;
   uint32_t width;
   uint32_t height;
   uint32_t frame_rate;
@@ -103,6 +124,7 @@ struct VideoTrackCreateParam {
   bool enable_vqzip_extradata;
   VideoCodecType codec;
   VideoOutSubtype out_device;
+  uint32_t rotation;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -111,6 +133,11 @@ struct VideoTrackCreateParam {
     stream << "pts_callback_interval[" << pts_callback_interval << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
+    stream << "dest start_x[" << destRect.start_x << "] ";
+    stream << "dest start_y[" << destRect.start_y << "] ";
+    stream << "dest width[" << destRect.width << "] ";
+    stream << "dest height[" << destRect.height << "] ";
+    stream << "Rotation[" << rotation << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "bitrate[" << bitrate << "] ";
     stream << "enable_downscalar[" << ::std::boolalpha << enable_downscalar
