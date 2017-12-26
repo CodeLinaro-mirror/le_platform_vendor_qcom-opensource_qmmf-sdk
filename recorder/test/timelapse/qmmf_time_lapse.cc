@@ -405,7 +405,6 @@ status_t TimeLapse::StartDisplay(DisplayType display_type) {
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
-  surface_config.context = 0;
   res = display_->CreateSurface(surface_config, &surface_id_);
   assert(res == 0);
 

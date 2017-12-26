@@ -34,6 +34,7 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
+#include <set>
 
 #include <hardware/gralloc.h>
 #include <utils/KeyedVector.h>
@@ -115,9 +116,9 @@ class DisplayImpl : public DisplayEventHandler
  protected:
   inline void SetRect(const SurfaceRect &source, LayerRect *target);
   Layer* AllocateLayer(DisplayHandle display_handle, uint32_t* surface_id);
-  void FreeLayer(DisplayHandle display_handle, const uint32_t surface_id);
+  status_t FreeLayer(DisplayHandle display_handle, const uint32_t surface_id);
   Layer* GetLayer(DisplayHandle display_handle, const uint32_t surface_id);
-  LayerStack* GetLayerStack(DisplayHandle display_handle,
+  LayerStack* GetLayerStack(DisplayType display_type,
       bool queued_buffers_only);
 
   // DisplayEventHandler methods
@@ -136,12 +137,12 @@ class DisplayImpl : public DisplayEventHandler
   std::mutex       thread_lock_;
   ::std::thread*   handle_vsync_thread_;
   Locker           vsync_callback_locker_;
+  bool             running_;
 
   /**Not allowed */
   DisplayImpl();
   DisplayImpl(const DisplayImpl&);
   DisplayImpl& operator=(const DisplayImpl&);
-  bool running_;
 
   static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
   void HandleVSync();
@@ -151,35 +152,41 @@ class DisplayImpl : public DisplayEventHandler
   static CoreInterface* core_intf_;
   alloc_device_t *gralloc_device_;
 
-  typedef struct Buff_Info {
+  typedef struct BufferState {
     bool  queued;
     bool  dequeued;
     bool  committed;
-  }Buff_Info;
+  } BufferState;
 
   typedef struct SurfaceInfo {
-    void* mmapbuf;
-    Layer* layer;
-    std::map<int32_t, BufferInfo*> buffer_info;
-    std::map<int32_t, Buff_Info*> buf_id_use;
-    bool buffer_internal;
-  }SurfaceInfo;
+    Layer*                           layer;
+    // map of buffer id and buffer info
+    std::map<int32_t, BufferInfo*>   buffer_info;
+    // map of buffer id and buffer state
+    std::map<int32_t, BufferState*>  buffer_state;
+    bool                             allocate_buffer_mode;
+  } SurfaceInfo;
 
-  typedef std::map<uint32_t, SurfaceInfo*> SurfaceinfoMap;
-  typedef struct DisplayInfo {
-    DisplayType       display_type;
-    DisplayInterface* display_intf;
-    uint32_t          layer_count;
-    uint32_t          num_of_clients;
-    sp<RemoteCallBack>           remote_cb_;
-    SurfaceinfoMap surfaceinfo_;
-  }DisplayInfo;
+  typedef struct DisplayClientInfo {
+    DisplayType                      display_type;
+    uint32_t                         num_of_client_layers;
+    sp<RemoteCallBack>               remote_cb;
+  } DisplayClientInfo;
 
-  DisplayHandle                          current_handle_;
-  bool                                   vsync_state_;
-  std::map<DisplayHandle, DisplayInfo*>  displayinfo_;
-  uint32_t                               num_of_display_clients_;
-  std::mutex                             layer_lock_;
+  typedef struct DisplayTypeInfo {
+    std::set<uint32_t>               surface_id_set;
+    uint32_t                         num_of_clients;
+    DisplayInterface*                display_intf;
+  } DisplayTypeInfo;
+
+  bool                                         vsync_state_;
+  DisplayHandle                                current_handle_;
+  uint32_t                                     unique_surface_id_;
+  std::mutex                                   api_lock_;
+  std::mutex                                   layer_lock_;
+  std::map<DisplayHandle, DisplayClientInfo*>  display_client_info_map_;
+  std::map<DisplayType, DisplayTypeInfo*>      display_type_info_map_;
+  std::map<uint32_t, SurfaceInfo*>             surface_info_map_;
 };
 
 }; // namespace display
