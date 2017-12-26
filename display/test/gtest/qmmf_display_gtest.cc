@@ -1084,7 +1084,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 0;
+    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1593,7 +1593,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
+    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;

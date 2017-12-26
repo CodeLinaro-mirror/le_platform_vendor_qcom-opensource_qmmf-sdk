@@ -243,6 +243,8 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
               ion_fd = surface_buffer.plane_info[0].ion_fd;
               surface_buffer.plane_info[0].ion_fd =
                   dup(data.readFileDescriptor());
+              QMMF_DEBUG("%s OnTransact client ion_fd::%d ", __func__,
+                  surface_buffer.plane_info[0].ion_fd);
               struct ion_fd_data ion_info_fd;
               memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
               ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
