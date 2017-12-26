@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,7 +28,6 @@
 */
 
 #include <inttypes.h>
-#include <utils/String8.h>
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_time_lapse.h"
 
@@ -58,8 +57,8 @@ int32_t TimeLapse::Run() {
     printf("%s: Image capture failed: %d\n", __func__, ret);
     goto EXIT;
   } else {
-    Mutex::Autolock l(snapshot_lock_);
-    snapshot_cond_.wait(snapshot_lock_);
+    std::unique_lock<std::mutex> l(snapshot_lock_);
+    snapshot_cond_.Wait(l);
   }
 
   ret = CreateSession();
@@ -81,8 +80,8 @@ int32_t TimeLapse::Run() {
   }
 
   while (0 < count) {
-    Mutex::Autolock l(lapse_lock_);
-    lapse_cond_.wait(lapse_lock_);
+    std::unique_lock<std::mutex> l(lapse_lock_);
+    lapse_cond_.Wait(l);
     ret = CaptureImage();
     if (NO_ERROR != ret) {
       printf("%s: Image capture failed: %d\n", __func__, ret);
@@ -91,9 +90,9 @@ int32_t TimeLapse::Run() {
     count--;
   }
   if (NO_ERROR == ret) {
-    Mutex::Autolock l(snapshot_lock_);
+    std::unique_lock<std::mutex> l(snapshot_lock_);
     while (snapshot_count_ < params_.count) {
-      snapshot_cond_.wait(snapshot_lock_);
+      snapshot_cond_.Wait(l);
     }
   }
 
@@ -138,8 +137,7 @@ int32_t TimeLapse::Init() {
     return ret;
   }
 
-  CameraStartParam camera_start_params;
-  memset(&camera_start_params, 0x0, sizeof camera_start_params);
+  CameraStartParam camera_start_params{};
   camera_start_params.zsl_mode         = false;
   camera_start_params.frame_rate       = 30;
 
@@ -238,10 +236,10 @@ void TimeLapse::PreviewTrackHandler(uint32_t track_id,
     if (0 < last_capture_ts_) {
       uint64_t delta = buffers[0].timestamp - last_capture_ts_;
       assert(0 < delta);
-      delta = ns2ms(delta);
+      delta = delta / 1000000;
       if (delta >= params_.period) {
-        Mutex::Autolock l(lapse_lock_);
-        lapse_cond_.signal();
+        std::lock_guard<std::mutex> l(lapse_lock_);
+        lapse_cond_.Signal();
         last_capture_ts_ = buffers[0].timestamp;
       }
     } else {
@@ -278,8 +276,7 @@ int32_t TimeLapse::StopSession() {
 }
 
 int32_t TimeLapse::AddPreviewTrack() {
-  VideoTrackCreateParam video_track_param;
-  memset(&video_track_param, 0x0, sizeof video_track_param);
+  VideoTrackCreateParam video_track_param{};
 
   video_track_param.camera_id   = params_.camera_id;
   video_track_param.width       = params_.preview_width;
@@ -306,8 +303,7 @@ int32_t TimeLapse::DeletePreviewTrack() {
 }
 
 int32_t TimeLapse::CaptureImage(bool store) {
-  ImageParam image_param;
-  memset(&image_param, 0x0, sizeof image_param);
+  ImageParam image_param{};
   image_param.width         = params_.snapshot_width;
   image_param.height        = params_.snapshot_height;
   image_param.image_format  = ImageFormat::kJPEG;
@@ -325,8 +321,8 @@ int32_t TimeLapse::CaptureImage(bool store) {
                               BufferDescriptor buffer,
                               MetaData meta_data)
       { recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
-        Mutex::Autolock l(snapshot_lock_);
-        snapshot_cond_.signal();
+        std::lock_guard<std::mutex> l(snapshot_lock_);
+        snapshot_cond_.Signal();
       } };
   }
 
@@ -338,15 +334,15 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
                            uint32_t image_sequence_count,
                            BufferDescriptor buffer, MetaData meta_data) {
 
-  String8 file_path;
   size_t written_len;
-  Mutex::Autolock l(snapshot_lock_);
+  std::lock_guard<std::mutex> l(snapshot_lock_);
 
-  file_path.appendFormat("/data/misc/qmmf/time_lapse_%llu.jpg", snapshot_count_);
-  FILE *file = fopen(file_path.string(), "w+");
+  std::string file_path("/data/misc/qmmf/time_lapse_");
+  file_path += std::to_string(snapshot_count_) + ".jpg";
+  FILE *file = fopen(file_path.c_str(), "w+");
   if (!file) {
     printf("%s: Unable to open file(%s)", __func__,
-               file_path.string());
+               file_path.c_str());
     goto FAIL;
   }
 
@@ -357,7 +353,7 @@ void TimeLapse::SnapshotCb(uint32_t camera_id,
     goto FAIL;
   }
   snapshot_count_++;
-  snapshot_cond_.signal();
+  snapshot_cond_.Signal();
 
 FAIL:
   if (file != NULL) {
@@ -377,7 +373,7 @@ void TimeLapse::DisplayVSyncHandler(int64_t time_stamp) {
 
 status_t TimeLapse::StartDisplay(DisplayType display_type) {
   int32_t res = 0;
-  SurfaceConfig surface_config;
+  SurfaceConfig surface_config{};
   DisplayCb  display_status_cb;
 
   display_= new Display();
@@ -395,8 +391,6 @@ status_t TimeLapse::StartDisplay(DisplayType display_type) {
 
   res = display_->CreateDisplay(display_type, display_status_cb);
   assert(res == 0);
-
-  memset(&surface_config, 0x0, sizeof surface_config);
 
   surface_config.width = params_.preview_width;
   surface_config.height = params_.preview_height;

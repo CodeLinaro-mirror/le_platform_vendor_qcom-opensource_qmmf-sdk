@@ -18,7 +18,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <libgralloc/gralloc_priv.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
@@ -410,7 +410,7 @@ int32_t Camera3Stream::GetBuffer(camera3_stream_buffer *buffer) {
   }
 
   if (GetPendingBufferCountLocked() == total_buffer_count_) {
-      QMMF_DEBUG(
+    QMMF_DEBUG(
         "%s: Already retrieved maximum buffers (%d), waiting on a"
         "free one\n",
         __func__, total_buffer_count_);

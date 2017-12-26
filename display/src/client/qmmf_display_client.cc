@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define TAG "DisplayClient"
+#define LOG_TAG "DisplayClient"
 #define BINDERTAG "DisplayServiceBinder"
 
 #include <binder/Parcel.h>
@@ -43,6 +43,8 @@
 
 #include "display/src/client/qmmf_display_client.h"
 #include "display/src/service/qmmf_display_common.h"
+
+uint32_t qmmf_log_level;
 
 namespace qmmf {
 
@@ -66,15 +68,16 @@ DisplayClient::DisplayClient()
     , ion_device_(-1)
     , display_handle_(-1)
 {
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  QMMF_GET_LOG_LEVEL();
+  QMMF_INFO("%s Enter ", __func__);
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s:%s Exit (0x%p)", TAG, __func__, this);
+  QMMF_INFO("%s Exit (0x%p)", __func__, this);
 }
 
 DisplayClient::~DisplayClient()
 {
-  QMMF_INFO("%s:%s Enter ", TAG, __func__);
+  QMMF_INFO("%s Enter ", __func__);
 
   if (!session_cb_list_.isEmpty()) {
     session_cb_list_.clear();
@@ -83,21 +86,19 @@ DisplayClient::~DisplayClient()
   if(display_handle_ && display_service_!= nullptr) {
     auto ret = display_service_->DestroyDisplay(display_handle_);
     if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DestroyDisplay failed!", TAG, __func__);
+      QMMF_ERROR("%s DestroyDisplay failed!", __func__);
     }
 
     if (context_ == 0) {
       buf_info_map::iterator it;
-      for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-          ++it) {
+      for (it=buf_info_map_.begin(); it!=buf_info_map_.end(); it++) {
         if (it->second) {
           ret = munmap( it->second->pointer, it->second->frame_len);
           if(ret != 0) {
-            QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+            QMMF_ERROR("%s munmap Failed!!", __func__);
           }
           delete (it->second);
         }
-        buf_info_map_.erase(it);
       }
       buf_info_map_.clear();
     }
@@ -108,29 +109,29 @@ DisplayClient::~DisplayClient()
     display_service_ = nullptr;
   }
 
-  QMMF_INFO("%s:%s Exit 0x%p", TAG, __func__, this);
+  QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
 
 status_t DisplayClient::Connect()
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (checkServiceStatus()) {
-    QMMF_WARN("%s:%s Client is already connected to service!", TAG, __func__);
+    QMMF_WARN("%s Client is already connected to service!", __func__);
     return NO_ERROR;
   }
 
   //TODO: close in disconnect.
   ion_device_ = open("/dev/ion", O_RDONLY);
   if (ion_device_ < 0) {
-    QMMF_ERROR("%s:%s: Can't open Ion device!", TAG, __func__);
+    QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
   }
 
   death_notifier_ = new DeathNotifier(this);
   if (nullptr == death_notifier_.get()) {
-    QMMF_ERROR("%s:%s Unable to allocate death notifier!", TAG, __func__);
+    QMMF_ERROR("%s Unable to allocate death notifier!", __func__);
     return NO_MEMORY;
   }
 
@@ -140,7 +141,7 @@ status_t DisplayClient::Connect()
   service_handle = service_manager->getService
       (String16(QMMF_DISPLAY_SERVICE_NAME));
   if(service_handle.get() == nullptr) {
-    QMMF_ERROR("%s:%s Can't get (%s) service", __func__, TAG,
+    QMMF_ERROR("%s Can't get (%s) service", __func__,
         QMMF_DISPLAY_SERVICE_NAME);
     return NO_INIT;
   }
@@ -150,7 +151,7 @@ status_t DisplayClient::Connect()
 
   auto ret = display_service_->Connect();
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s Can't connect to (%s) service", __func__, TAG,
+    QMMF_ERROR("%s Can't connect to (%s) service", __func__,
         QMMF_DISPLAY_SERVICE_NAME);
   }
 
@@ -158,13 +159,13 @@ status_t DisplayClient::Connect()
     session_cb_list_.clear();
   }
 
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::Disconnect()
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -173,7 +174,7 @@ status_t DisplayClient::Disconnect()
 
   auto ret = display_service_->Disconnect();
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s Disconnect failed!", TAG, __func__);
+    QMMF_ERROR("%s Disconnect failed!", __func__);
   }
 
   close(ion_device_);
@@ -186,13 +187,13 @@ status_t DisplayClient::Disconnect()
   death_notifier_.clear();
   death_notifier_ = NULL;
 
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::CreateDisplay(DisplayType type, DisplayCb& cb)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -205,16 +206,16 @@ status_t DisplayClient::CreateDisplay(DisplayType type, DisplayCb& cb)
   sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
   auto ret = display_service_->CreateDisplay(handler, type, &display_handle_);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s CreateDisplay failed!", TAG, __func__);
+    QMMF_ERROR("%s CreateDisplay failed!", __func__);
   }
   display_type_ = type;
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::DestroyDisplay(DisplayType type)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
   int32_t ret = 0;
 
@@ -225,34 +226,33 @@ status_t DisplayClient::DestroyDisplay(DisplayType type)
   if(type == display_type_) {
     ret = display_service_->DestroyDisplay(display_handle_);
     if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DestroyDisplay failed!", TAG, __func__);
+      QMMF_ERROR("%s DestroyDisplay failed!", __func__);
     }
   }
 
   if (context_ == 0) {
     buf_info_map::iterator it;
-    for (it=buf_info_map_.begin(); it!=buf_info_map_.end();
-        ++it) {
+    for (it=buf_info_map_.begin(); it!=buf_info_map_.end(); it++) {
       if (it->second) {
         ret = munmap( it->second->pointer, it->second->frame_len);
         if(ret != 0) {
-          QMMF_ERROR("%s:%s munmap Failed!!", TAG, __func__);
+          QMMF_ERROR("%s munmap Failed!!", __func__);
         }
         delete (it->second);
       }
-      buf_info_map_.erase(it);
     }
     buf_info_map_.clear();
   }
+
   display_handle_=-1;
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::CreateSurface(SurfaceConfig &surface_config,
     uint32_t* surface_id)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -262,18 +262,18 @@ status_t DisplayClient::CreateSurface(SurfaceConfig &surface_config,
   auto ret = display_service_->CreateSurface(display_handle_, surface_config,
       surface_id);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s CreateSurface failed!", TAG, __func__);
+    QMMF_ERROR("%s CreateSurface failed!", __func__);
   }
 
   context_ = surface_config.context;
 
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::DestroySurface(const uint32_t surface_id)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -282,16 +282,16 @@ status_t DisplayClient::DestroySurface(const uint32_t surface_id)
 
   auto ret = display_service_->DestroySurface(display_handle_, surface_id);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DestroySurface failed!", TAG, __func__);
+      QMMF_ERROR("%s DestroySurface failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::DequeueSurfaceBuffer(const uint32_t surface_id,
     SurfaceBuffer &surface_buffer)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -301,7 +301,7 @@ status_t DisplayClient::DequeueSurfaceBuffer(const uint32_t surface_id,
   auto ret = display_service_->DequeueSurfaceBuffer(display_handle_,
       surface_id, surface_buffer);
   if(NO_ERROR != ret) {
-      QMMF_ERROR("%s:%s DequeueSurfaceBuffer failed!", TAG, __func__);
+      QMMF_ERROR("%s DequeueSurfaceBuffer failed!", __func__);
   }
 
   if (context_ == 0) {
@@ -323,8 +323,8 @@ status_t DisplayClient::DequeueSurfaceBuffer(const uint32_t surface_id,
           ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
           ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
           if(ret != NO_ERROR) {
-            QMMF_ERROR("%s:%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
-                TAG, __func__, ion_info_fd.fd, ret, errno);
+            QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
+                __func__, ion_info_fd.fd, ret, errno);
           }
           void* vaddr = mmap(NULL, (size_t)surface_buffer.capacity,
               PROT_READ | PROT_WRITE, MAP_SHARED, ion_info_fd.fd, 0);
@@ -335,14 +335,14 @@ status_t DisplayClient::DequeueSurfaceBuffer(const uint32_t surface_id,
       surface_buffer.plane_info[0].buf = buf_info_map->second->pointer;
     }
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::QueueSurfaceBuffer(const uint32_t surface_id,
     SurfaceBuffer &surface_buffer, SurfaceParam &surface_param) {
 
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
   if (!checkServiceStatus()) {
     return NO_INIT;
@@ -369,17 +369,17 @@ status_t DisplayClient::QueueSurfaceBuffer(const uint32_t surface_id,
   auto ret = display_service_->QueueSurfaceBuffer(display_handle_, surface_id,
       surface_buffer, surface_param);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s QueueSurfaceBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s QueueSurfaceBuffer failed!", __func__);
   }
 
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::GetDisplayParam(DisplayParamType param_type,
     void *param, size_t param_size)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -389,16 +389,16 @@ status_t DisplayClient::GetDisplayParam(DisplayParamType param_type,
   auto ret = display_service_->GetDisplayParam(display_handle_, param_type,
       param, param_size);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s GetDisplayParam failed!", TAG, __func__);
+    QMMF_ERROR("%s GetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::SetDisplayParam(DisplayParamType param_type,
     void *param, size_t param_size)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -408,16 +408,16 @@ status_t DisplayClient::SetDisplayParam(DisplayParamType param_type,
   auto ret = display_service_->SetDisplayParam(display_handle_, param_type,
       param, param_size);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s SetDisplayParam failed!", TAG, __func__);
+    QMMF_ERROR("%s SetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::DequeueWBSurfaceBuffer(const uint32_t surface_id,
         SurfaceBuffer &surface_buffer)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -427,16 +427,16 @@ status_t DisplayClient::DequeueWBSurfaceBuffer(const uint32_t surface_id,
   auto ret = display_service_->DequeueWBSurfaceBuffer(display_handle_,
       surface_id, surface_buffer);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s DequeueWBSurfaceBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s DequeueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 status_t DisplayClient::QueueWBSurfaceBuffer(const uint32_t surface_id,
         const SurfaceBuffer &surface_buffer)
 {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
 
   if (!checkServiceStatus()) {
@@ -446,38 +446,38 @@ status_t DisplayClient::QueueWBSurfaceBuffer(const uint32_t surface_id,
   auto ret = display_service_->QueueWBSurfaceBuffer(display_handle_,
       surface_id, surface_buffer);
   if(NO_ERROR != ret) {
-    QMMF_ERROR("%s:%s QueueWBSurfaceBuffer failed!", TAG, __func__);
+    QMMF_ERROR("%s QueueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
   return ret;
 }
 
 bool DisplayClient::checkServiceStatus() {
 
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   bool connected = true;
   if (NULL == display_service_.get()) {
-    QMMF_WARN("%s:%s Not connected to display service!", TAG, __func__);
+    QMMF_WARN("%s Not connected to display service!", __func__);
     connected = false;
   }
   return connected;
 }
 void DisplayClient::notifyDisplayEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 void DisplayClient::notifySessionEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 void DisplayClient::notifyVSyncEvent(int64_t time_stamp) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   display_cb_.VSyncCb(time_stamp);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 
@@ -536,12 +536,6 @@ public:
     data.writeInt32(static_cast<int32_t>(display_handle));
     remote()->transact(uint32_t(QMMF_DISPLAY_SERVICE_CMDS::
         DISPLAY_DESTROY_DISPLAY), data, &reply);
-
-    ion_fd_map::iterator it_fd;
-    for (it_fd=ion_fd_mapping.begin();
-        it_fd!=ion_fd_mapping.end(); ++it_fd) {
-      ion_fd_mapping.erase(it_fd);
-    }
     ion_fd_mapping.clear();
     use_buffer_mapping.clear();
 
@@ -788,32 +782,32 @@ IMPLEMENT_META_INTERFACE(DisplayService, QMMF_DISPLAY_SERVICE_NAME);
 
 ServiceCallbackHandler::ServiceCallbackHandler(DisplayClient* client)
     : client_(client) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 ServiceCallbackHandler::~ServiceCallbackHandler() {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::notifyDisplayEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::notifySessionEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 void ServiceCallbackHandler::notifyVSyncEvent(int64_t time_stamp) {
-  QMMF_LEVEL1("%s:%s Enter ", TAG, __func__);
+  QMMF_LEVEL1("%s Enter ", __func__);
   assert(client_ != NULL);
   client_->notifyVSyncEvent(time_stamp);
-  QMMF_LEVEL1("%s:%s Exit ", TAG, __func__);
+  QMMF_LEVEL1("%s Exit ", __func__);
 }
 
 
@@ -854,7 +848,7 @@ status_t BnDisplayServiceCallback::onTransact(uint32_t code,
                                                Parcel* reply,
                                                uint32_t flags) {
 
-  QMMF_LEVEL2("%s:%s: Enter:(BnDisplayServiceCallback::onTransact)", TAG,
+  QMMF_LEVEL2("%s: Enter:(BnDisplayServiceCallback::onTransact)",
       __func__);
   CHECK_INTERFACE(IDisplayServiceCallback, data, reply);
 
@@ -877,7 +871,7 @@ status_t BnDisplayServiceCallback::onTransact(uint32_t code,
     }
     break;
     default: {
-      QMMF_ERROR("%s:%s Method not supported ", TAG, __func__);
+      QMMF_ERROR("%s Method not supported ", __func__);
     }
     break;
   }

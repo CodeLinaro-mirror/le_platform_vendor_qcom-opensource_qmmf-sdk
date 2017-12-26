@@ -182,7 +182,7 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  CameraMetadata &meta) override;
 
   status_t CreateOverlayObject(const uint32_t client_id,
                                const uint32_t track_id, OverlayParam *param,
@@ -228,9 +228,9 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   RecorderImpl*       recorder_;
   // Map of client ids and their death notifiers.
-  DefaultKeyedVector<uint32_t, sp<DeathNotifier> > death_notifier_list_;
+  std::map<uint32_t, sp<DeathNotifier> > death_notifier_list_;
   // Map of client ids and their callback handlers.
-  DefaultKeyedVector<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
+  std::map<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
   uint32_t    unique_client_id_;
   std::mutex  lock_;
 };

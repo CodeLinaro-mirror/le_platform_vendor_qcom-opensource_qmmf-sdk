@@ -27,7 +27,7 @@
 #include <hardware/gralloc.h>
 #include <camera/CameraMetadata.h>
 
-#include "common/qmmf_common_utils.h"
+#include "common/utils/qmmf_common_utils.h"
 
 #define MAX_PLANE 3
 
@@ -50,6 +50,7 @@ typedef struct {
   int32_t grallocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
+  bool is_pp_enabled = true;
 } CameraStreamParameters;
 
 typedef struct Camera3Request_t {

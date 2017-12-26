@@ -29,17 +29,18 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <libgralloc/gralloc_priv.h>
-#include <media/msm_media_info.h>
 #include <memory>
 #include <thread>
-#include <utils/RefBase.h>
 
-#include "common/qmmf_common_utils.h"
+#include <utils/Timers.h>
+#include <media/msm_media_info.h>
+#include <qcom/display/gralloc_priv.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+
+#include "common/utils/qmmf_common_utils.h"
+#include "common/utils/qmmf_condition.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
-#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 namespace qmmf {
 
@@ -175,7 +176,7 @@ class CameraRescalerMemPool {
 
    RescalerMemPoolParams         init_params_;
    std::mutex                    buffer_lock_;
-   std::condition_variable       wait_for_buffer_;
+   QCondition                    wait_for_buffer_;
 
    static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
    uint32_t                      buffer_cnt_;
@@ -226,12 +227,11 @@ class CameraRescalerBase : public CameraRescalerThread,
   std::map<uint32_t, map_data_t>    mapped_buffs_;
   List<StreamBuffer>                bufs_list_;
   std::mutex                        wait_lock_;
-  std::condition_variable           wait_;
+  QCondition                        wait_;
   IRescaler*                        rescaler_;
 };
 
-class CameraRescaler: public CameraRescalerBase,
-                      public RefBase {
+class CameraRescaler: public CameraRescalerBase {
  public:
 
   CameraRescaler();

@@ -200,6 +200,18 @@ enum class SurfaceFormat {
 };
 
 /*
+ * This structure defines rotation and flip values for a display layer.
+ * rotation: rotate the layer based on left most pixel coordinate.
+ * flip_horizontal: Mirror reversal of the layer across a horizontal axis.
+ * flip_vertical: Mirror reversal of the layer across a vertical axis.
+*/
+typedef struct SurfaceTransform {
+  float rotation;
+  bool flip_horizontal;
+  bool flip_vertical;
+} SurfaceTransform;
+
+/*
  * Input configuration params set by the client for buffer allocation.
  * buffer_count: Number of buffers to be allocated/used.
  * cache: To allocate cached or uncached gralloc buffers.
@@ -215,6 +227,7 @@ typedef struct SurfaceConfig {
   bool cache;
   bool use_buffer;
   bool context;
+  SurfaceTransform surface_transform;
 } SurfaceConfig;
 
 /*
@@ -241,18 +254,6 @@ typedef struct SurfaceBuffer {
   int32_t release_fence;
   size_t   capacity;
 } SurfaceBuffer;
-
-/*
- * This structure defines rotation and flip values for a display layer.
- * rotation: rotate the layer based on left most pixel coordinate.
- * flip_horizontal: Mirror reversal of the layer across a horizontal axis.
- * flip_vertical: Mirror reversal of the layer across a vertical axis.
-*/
-typedef struct SurfaceTransform {
-  float rotation;
-  bool flip_horizontal;
-  bool flip_vertical;
-} SurfaceTransform;
 
 /*
  * This structure defines a rectanglular area inside a display layer.
