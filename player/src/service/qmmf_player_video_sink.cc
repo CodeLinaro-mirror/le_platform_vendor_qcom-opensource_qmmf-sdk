@@ -689,6 +689,7 @@ void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
 
 void VideoTrackSink::PtsThread() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  uint64_t previous_timestamp = 0UL;
 
   while (!stopplayback_) {
     sleep_for(milliseconds(track_params_.params.pts_callback_interval));
@@ -699,14 +700,20 @@ void VideoTrackSink::PtsThread() {
         lock_guard<mutex> lock(grab_picture_lock);
         timestamp = last_queued_timestamp_ / 1000;
       }
-      callback_.event_cb(track_params_.track_id,
-                         EventType::kPresentationTimestamp,
-                         &timestamp, sizeof(timestamp));
+      if (timestamp != previous_timestamp) {
+        QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__,
+                   timestamp, track_params_.track_id);
+        callback_.event_cb(track_params_.track_id,
+                           EventType::kPresentationTimestamp,
+                           &timestamp, sizeof(timestamp));
+      }
+      previous_timestamp = timestamp;
     }
   }
 
   QMMF_DEBUG("%s() exiting", __func__);
 }
+
 void VideoTrackSink::DisplayedBufferThread(VideoTrackSink* video_sink) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
   video_sink->DisplayedBuffer();

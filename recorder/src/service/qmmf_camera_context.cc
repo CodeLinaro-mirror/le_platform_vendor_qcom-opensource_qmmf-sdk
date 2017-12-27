@@ -35,6 +35,11 @@
 #include <math.h>
 #include <sys/mman.h>
 #include <json/json.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
+#include <QCamera3VendorTags.h>
+#endif
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"

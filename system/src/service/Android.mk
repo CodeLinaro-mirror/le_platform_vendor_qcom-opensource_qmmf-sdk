@@ -28,6 +28,7 @@ LOCAL_SHARED_LIBRARIES += libqmmf_system_client
 LOCAL_SHARED_LIBRARIES += libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libbinder
 LOCAL_SHARED_LIBRARIES += libhardware
+LOCAL_SHARED_LIBRARIES += libqtisoundtriggerhw
 
 LOCAL_MODULE = libqmmf_system_service
 

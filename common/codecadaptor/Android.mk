@@ -19,6 +19,8 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_SRC_FILES := src/qmmf_omx_client.cc
 LOCAL_SRC_FILES += src/qmmf_avcodec.cc
 
+LOCAL_SHARED_LIBRARIES += libqmmf_utils
+
 LOCAL_MODULE = libqmmf_codec_adaptor
 
 include $(BUILD_SHARED_LIBRARY)

@@ -205,7 +205,12 @@ PostProcFactory::GetProcNode(const std::string &name, IPostProc* context) {
   std::shared_ptr<IPostProcModule> module;
 
   if (name == "JpegEncode") {
+#ifndef DISABLE_PP_JPEG
     module = std::make_shared<PostProcJpeg>();
+#else
+    QMMF_ERROR("%s: JPEG Postproc not supported, returning.", __func__);
+    return node;
+#endif
   } else if (name == "HALReprocess") {
     module = std::make_shared<CameraHalReproc>(context);
   } else if (name == "Test") {

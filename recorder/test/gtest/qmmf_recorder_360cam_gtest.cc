@@ -38,7 +38,11 @@
 #include <assert.h>
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>

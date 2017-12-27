@@ -38,7 +38,11 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 #include <sys/time.h>
 #include <sys/time.h>
 #include <chrono>
@@ -9965,8 +9969,7 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
 
   // run session for some time
   sleep(5);
-
-  int dump_fd = open(DUMP_META_PATH, O_WRONLY|O_CREAT);
+  int dump_fd = open(DUMP_META_PATH, O_WRONLY|O_CREAT, 0644);
   assert(0 <= dump_fd);
 
   CameraMetadata meta;
@@ -16419,54 +16422,98 @@ status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
                                       uint64_t tv_ms) {
   uint8_t thumb_num = 0;
   uint8_t *in_img = (uint8_t*)buffer.data;
-  uint32_t end_block = 0;
-  uint32_t start_block = 0;
+  uint32_t block_size = 0;
+  uint32_t block_start = 0;
+  uint32_t block_end = 0;
 
   for (uint32_t i = 0; i < buffer.size - 1; i++) {
+    // search for marker
     if (in_img[i] == 0xFF) {
+      // search for App1 and App2 marker
       if ((in_img[i + 1] == 0xE1) || (in_img[i + 1] == 0xE2)) {
-        if (i < (buffer.size - 4)) { // prevent bad access
-          end_block = ((256UL * in_img[i + 2]) + in_img[i + 3]);
-          start_block = i;
-        } else {
+        if (i >= buffer.size - 4) { // prevent bad access
           break;
         }
-      } else if (in_img[i + 1] == 0xD8) {
-        if (end_block != 0){
-          auto w_size = (end_block - (i - start_block)) + 2;
-          if ((i + w_size) > buffer.size) {
-            ALOGE("%s: Unable to write. Overflow thumb file.", __func__);
-            break;
-          }
 
-          std::string thumb_path("/data/misc/qmmf/snapshot_");
-          thumb_path += std::to_string(image_sequence_count) + "_";
-          thumb_path += std::to_string(tv_ms) + "_thumb_";
-          thumb_path += std::to_string(thumb_num) + ".jpg";
+        block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
+        block_start = i + 2; // AppN marker is not part of block
+        block_end   = block_start + block_size - 1;
 
-          FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
-          if (!thumb_file) {
-            ALOGE("%s: Unable to open thumb_file(%s)", __func__,
+        // Skip App marker and size
+        i += 3;
+
+      // Search for start of thumbnail or continue with multy segment thumbnail
+      } else if (in_img[i + 1] == 0xD8 && block_size) {
+        uint32_t thumbnail_size = 0;
+
+        uint32_t w_size = (block_end + 1) - i;
+        if (i + w_size > buffer.size) {
+          ALOGE("%s: Unable to write. Overflow thumb file. %d > %d",
+              __func__, i + w_size, buffer.size);
+          break;
+        }
+
+        std::string thumb_path = "/data/misc/qmmf/snapshot_" +
+                                 std::to_string(image_sequence_count) + "_" +
+                                 std::to_string(tv_ms) + "_thumb_" +
+                                 std::to_string(thumb_num) + ".jpg";
+
+        FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
+        if (!thumb_file) {
+          ALOGE("%s: Unable to open thumb_file(%s)", __func__,
+              thumb_path.c_str());
+          return BAD_VALUE;
+        }
+
+        for (;;) {
+          auto len = fwrite(&in_img[i], sizeof(uint8_t), w_size, thumb_file);
+          if (len != w_size) {
+            ALOGE("%s: Fail to store thumbnail (%s)", __func__,
                 thumb_path.c_str());
+            fclose(thumb_file);
             return BAD_VALUE;
           }
-          auto len = fwrite(&in_img[i], sizeof(uint8_t), w_size, thumb_file);
-          TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
-              __func__, i, len, thumb_path.c_str());
-          fclose(thumb_file);
+          thumbnail_size += len;
 
-          i += (w_size - 2); //(end_block - start_block);
-          end_block = 0;
-          start_block = 0;
-          thumb_num++;
-          // max supported thumbnails is 2
-          if (thumb_num > 1 ){
+          // Move to end of block
+          i += w_size;
+
+          // Check for end of thumbnail
+          if (in_img[i - 2] == 0xFF && in_img[i - 1] == 0xD9) {
+            TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
+                __func__, i, thumbnail_size, thumb_path.c_str());
             break;
+          } else if (i + 4 < buffer.size && // prevent bad access
+                     in_img[i] == 0xFF && in_img[i + 1] == 0xE2) {
+            block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
+            block_start = i + 2; // AppN marker is not part of block
+            block_end   = block_start + block_size - 1;
+
+            i = block_start + 2; // Skip length
+            w_size = (block_end + 1) - i;
+          } else {
+            ALOGE("%s: Cannot parse thumbnail (%s)", __func__,
+                thumb_path.c_str());
+            fclose(thumb_file);
+            return BAD_VALUE;
           }
+        }
+
+        fclose(thumb_file);
+        thumb_file = nullptr;
+
+        i--; // because of increment in main loop
+        block_size = 0;
+        block_end = 0;
+        thumb_num++;
+        // max supported thumbnails is 2
+        if (thumb_num > 1) {
+          break;
         }
       }
     }
   }
+
   return NO_ERROR;
 }
 
@@ -17301,7 +17348,7 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   bitstream_filepath += std::to_string(dumpinfo.height) + ".";
   bitstream_filepath += extn;
   int32_t file_fd = open(bitstream_filepath.c_str(),
-                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
+                          O_CREAT | O_WRONLY | O_TRUNC, 0644);
   if (file_fd <= 0) {
     TEST_ERROR("%s File open failed!", __func__);
     return BAD_VALUE;

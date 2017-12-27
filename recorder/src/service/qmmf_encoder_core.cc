@@ -331,7 +331,12 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
   QMMF_INFO("%s: Enter track_id(%x)", __func__, track_params.track_id);
   track_params_ = track_params;
   if (track_params.params.format_type == VideoFormat::kJPEG) {
+#ifndef DISABLE_PP_JPEG
     avcodec_ = new JPEGEncoder();
+#else
+    QMMF_ERROR("%s: JPEG Postproc not supported", __func__);
+    return -EINVAL;
+#endif
   } else {
     avcodec_ = new AVCodec();
   }

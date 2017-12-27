@@ -37,13 +37,78 @@
 
 namespace qmmf {
 
-#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+#if (defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)) || (defined(_LIBCPP_THREADING_SUPPORT))
 
 /**
  * Custom condition implementation using platform independent
  * libstdc++ gthread and based on c++11 std::condition_variable.
  */
 class QCondition {
+#if defined(_GLIBCXX_HAS_GTHREADS) && defined(_GLIBCXX_USE_C99_STDINT_TR1)
+  typedef __gthread_cond_t  qthread_cond_t;
+  typedef __gthread_mutex_t qthread_mutex_t;
+  typedef __gthread_time_t  qthread_time_t;
+
+  static inline int
+  qthread_cond_broadcast(qthread_cond_t *condition) {
+    return __gthread_cond_broadcast(condition);
+  }
+
+  static inline int
+  qthread_cond_signal(qthread_cond_t *condition) {
+    return __gthread_cond_signal(condition);
+  }
+
+  static inline int
+  qthread_cond_wait(qthread_cond_t *codition, qthread_mutex_t *mutex) {
+    return __gthread_cond_wait(codition, mutex);
+  }
+
+  static inline int
+  qthread_cond_timedwait(qthread_cond_t *condition, qthread_mutex_t *mutex,
+                         const qthread_time_t *timeout) {
+    qthread_time_t duration = *timeout;
+    return __gthread_cond_timedwait(condition, mutex, &duration);
+  }
+
+  static inline int
+  qthread_cond_destroy(qthread_cond_t *condition) {
+    return __gthread_cond_destroy(condition);
+  }
+
+#elif defined(_LIBCPP_THREADING_SUPPORT)
+  typedef std::__libcpp_condvar_t qthread_cond_t;
+  typedef std::__libcpp_mutex_t   qthread_mutex_t;
+  typedef timespec                qthread_time_t;
+
+  static inline int
+  qthread_cond_broadcast(qthread_cond_t *condition) {
+    return std::__libcpp_condvar_broadcast(condition);
+  }
+
+  static inline int
+  qthread_cond_signal(qthread_cond_t *condition) {
+    return std::__libcpp_condvar_signal(condition);
+  }
+
+  static inline int
+  qthread_cond_wait(qthread_cond_t *codition, qthread_mutex_t *mutex) {
+    return std::__libcpp_condvar_wait(codition, mutex);
+  }
+
+  static inline int
+  qthread_cond_timedwait(qthread_cond_t *condition, qthread_mutex_t *mutex,
+                         const qthread_time_t *timeout) {
+    qthread_time_t duration = *timeout;
+    return std::__libcpp_condvar_timedwait(condition, mutex, &duration);
+  }
+
+  static inline int
+  qthread_cond_destroy(qthread_cond_t *condition) {
+    return std::__libcpp_condvar_destroy(condition);
+  }
+#endif
+
   typedef std::chrono::system_clock system_clock_t;
   typedef std::chrono::steady_clock steady_clock_t;
 
@@ -135,10 +200,12 @@ class QCondition {
   }
 
  private:
-#ifdef __GTHREAD_COND_INIT
-  __gthread_cond_t cond_ = __GTHREAD_COND_INIT;
+#if defined(__GTHREAD_COND_INIT)
+  qthread_cond_t cond_ = __GTHREAD_COND_INIT;
+#elif defined(_LIBCPP_CONDVAR_INITIALIZER)
+  qthread_cond_t cond_ = _LIBCPP_CONDVAR_INITIALIZER;
 #else
-  __gthread_cond_t cond_;
+  qthread_cond_t cond_;
 #endif
 
   template<typename _Clock, typename _Duration>
@@ -151,18 +218,17 @@ class QCondition {
     auto sec = std::chrono::time_point_cast<std::chrono::seconds>(stp);
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(stp - sec);
 
-    __gthread_time_t timestamp = {
+    qthread_time_t timestamp = {
       static_cast<std::time_t>(sec.time_since_epoch().count()),
       static_cast<long>(ns.count())
     };
-
-    __gthread_cond_timedwait(&cond_, lock.mutex()->native_handle(), &timestamp);
+    qthread_cond_timedwait(&cond_, lock.mutex()->native_handle(), &timestamp);
 
     // Check the timeout condition based on the given unknown clock.
     return (_Clock::now() < tp) ? 0 : -ETIMEDOUT;
   }
 };
 
-#endif // _GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1
+#endif // (_GLIBCXX_HAS_GTHREADS && _GLIBCXX_USE_C99_STDINT_TR1) || (_LIBCPP_THREADING_SUPPORT)
 
 };  // namespace qmmf.

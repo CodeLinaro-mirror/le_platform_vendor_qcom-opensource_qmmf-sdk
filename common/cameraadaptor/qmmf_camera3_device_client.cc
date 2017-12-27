@@ -31,7 +31,11 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_device_client.h"
+#ifdef ANDROID_O_OR_ABOVE
+#include "common/utils/qmmf_common_utils.h"
+#else
 #include <QCamera3VendorTags.h>
+#endif
 
 // Convenience macros for transitioning to the error state
 #define SET_ERR(fmt, ...) \
@@ -390,6 +394,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 
   camera3_stream_configuration config;
   memset(&config, 0, sizeof(config));
+#ifndef DISABLE_OP_MODES
   if (is_raw_only_) {
     config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
   } else if (hfr_mode_enabled_) {
@@ -401,6 +406,9 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   } else {
     config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
   }
+#else
+  config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
+#endif
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
