@@ -277,7 +277,6 @@ status_t DisplayClient::DestroySurface(const uint32_t surface_id)
           if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
             QMMF_ERROR("%s ION free failed: %d[%s]", __func__, -errno,
                 strerror(errno));
-            return -errno;
           }
 
           auto stat = munmap(it.second->pointer, it.second->frame_len);
@@ -673,7 +672,7 @@ public:
           for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
               it != use_buffer_mapping_.end(); ++it) {
             if (it->first == surface_id) {
-              if (it->second == 1) {
+              if (it->second == true) {
                 surface_buffer.plane_info[0].ion_fd = fd;
               }
               else {
@@ -746,7 +745,7 @@ public:
       if (it_fd==ion_fd_mapping_.end()) {
         for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
             it != use_buffer_mapping_.end(); ++it) {
-          if (it->first == surface_id && it->second == 1) {
+          if (it->first == surface_id && it->second == true) {
             data.writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
             QMMF_DEBUG("%s Transact client ion_fd::%d ", __func__,
                 surface_buffer.plane_info[0].ion_fd);
