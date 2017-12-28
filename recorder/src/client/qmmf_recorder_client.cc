@@ -100,9 +100,11 @@ RecorderClient::~RecorderClient() {
   QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
 
+#ifndef USE_VENDOR_TAG_DESC
 extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
+#endif
 
 status_t RecorderClient::Connect(const RecorderCb& cb) {
 
@@ -164,6 +166,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
       track_cb_list_.clear();
     }
   }
+#ifndef USE_VENDOR_TAG_DESC
   if (nullptr == camera_module_) {
     //TODO: Instead of quering vendor tag ops directly from HAL module
     //      devise a mechanism to share them from service side.
@@ -189,6 +192,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
       }
     }
   }
+#endif
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -261,7 +265,23 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
                                            enable_result_cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s StartCamera failed!", __func__);
+    return ret;
   }
+#ifdef USE_VENDOR_TAG_DESC
+  sp<VendorTagDescriptor> vendor_tag_desc = new VendorTagDescriptor();
+  ret = GetVendorTagDescriptor(vendor_tag_desc);
+  if (0 != ret) {
+    QMMF_ERROR("%s: Unable to GetVendorTagDescriptor : %d\n", __func__, ret);
+    return ret;
+  }
+
+  // Set the global descriptor to use with camera metadata
+  ret = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
+  if (0 != ret) {
+    QMMF_ERROR("%s: Unable to setAsGlobalVendorTagDescriptor : %d\n", __func__, ret);
+    return ret;
+  }
+#endif
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -276,6 +296,12 @@ status_t RecorderClient::StopCamera(const uint32_t camera_id) {
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
+
+#ifdef USE_VENDOR_TAG_DESC
+  // Clear global tag descriptor for the process
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+#endif
+
   assert(client_id_ > 0);
   auto ret = recorder_service_->StopCamera(client_id_, camera_id);
   if (NO_ERROR != ret) {
@@ -1144,6 +1170,24 @@ status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
+
+#ifdef USE_VENDOR_TAG_DESC
+status_t RecorderClient::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetVendorTagDescriptor(desc);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s GetVendorTagDescriptor failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+#endif
 
 bool RecorderClient::CheckServiceStatus() {
 
@@ -2236,6 +2280,19 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return reply.readInt32();
   }
 
+#ifdef USE_VENDOR_TAG_DESC
+  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_VENDOR_TAG_DESCRIPTOR), data, &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+      ret = desc->readFromParcel(&reply);
+    }
+    return ret;
+  }
+#endif
 };
 
 IMPLEMENT_META_INTERFACE(RecorderService, QMMF_RECORDER_SERVICE_NAME);
