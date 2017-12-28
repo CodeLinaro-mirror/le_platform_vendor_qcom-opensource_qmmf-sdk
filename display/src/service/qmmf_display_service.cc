@@ -38,10 +38,13 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <vector>
 
 namespace qmmf {
 
 namespace display {
+
+using std::vector;
 
 DisplayService::DisplayService()
   :connected_(false) {
@@ -97,7 +100,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
         ret = DestroyDisplay(display_handle);
         {
           std::lock_guard<std::mutex> lock(fd_map_lock_);
-          ion_fd_mapping.clear();
+          ion_fd_mapping_.clear();
         }
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -121,7 +124,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       ret = CreateSurface(display_handle, surface_config, &surface_id);
       {
         std::lock_guard<std::mutex> lock(use_buffer_map_lock_);
-        use_buffer_mapping.insert({surface_id, surface_config.use_buffer});
+        use_buffer_mapping_.insert({surface_id, surface_config.use_buffer});
       }
       reply->writeUint32(surface_id);
       reply->writeInt32(ret);
@@ -136,12 +139,45 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       uint32_t surface_id;
       data.readUint32(&surface_id);
       ret = DestroySurface(display_handle, surface_id);
-      for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-          it != use_buffer_mapping.end(); ++it) {
-        if (it->first == surface_id) {
-          use_buffer_mapping.erase(surface_id);
-          break;
+      vector<int32_t> remove_fds;
+      auto use_buffer = use_buffer_mapping_.find(surface_id);
+      if (use_buffer != use_buffer_mapping_.end()) {
+        if (use_buffer->second == true) {
+          for (auto& it : buf_info_map_) {
+            if (it.second) {
+              if (it.second->surface_id == surface_id) {
+                struct ion_handle_data ion_handle;
+                memset(&ion_handle, 0, sizeof(ion_handle));
+                ion_handle.handle = it.second->ion_handle;
+                if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+                  QMMF_ERROR("%s ION free failed: %d[%s]", __func__, -errno,
+                      strerror(errno));
+                }
+
+                if (it.second->ion_fd > 0) {
+                  auto stat = close(it.second->ion_fd);
+                  if (0 != stat) {
+                    QMMF_ERROR("%s Failed to close ION fd: %d : %d[%s]", __func__,
+                        it.second->ion_fd, -errno, strerror(errno));
+                    return -errno;
+                  }
+                }
+                if (it.second != nullptr) {
+                  delete (it.second);
+                  it.second = nullptr;
+                }
+                remove_fds.push_back(it.first);
+              }
+            }
+          }
         }
+      }
+      for (auto fd : remove_fds) {
+        buf_info_map_.erase(fd);
+      }
+      use_buffer = use_buffer_mapping_.find(surface_id);
+      if (use_buffer != use_buffer_mapping_.end()) {
+        use_buffer_mapping_.erase(surface_id);
       }
       reply->writeInt32(ret);
       return NO_ERROR;
@@ -167,13 +203,13 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       {
         std::lock_guard<std::mutex> lock(fd_map_lock_);
         if (surface_buffer.buf_id != -1) {
-          for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end();
+          for (it_fd = ion_fd_mapping_.begin(); it_fd != ion_fd_mapping_.end();
               ++it_fd) {
             if(it_fd->first == surface_buffer.plane_info[0].ion_fd) {
-              for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-                  it != use_buffer_mapping.end(); ++it) {
+              for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
+                  it != use_buffer_mapping_.end(); ++it) {
                 if (it->first == surface_id) {
-                  if (it->second == 1)
+                  if (it->second == true)
                     reply->writeInt32(it_fd->second);
                   else
                     reply->writeInt32(it_fd->first);
@@ -182,17 +218,17 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
               }
             }
           }
-          if (it_fd == ion_fd_mapping.end()) {
-            ion_fd_mapping.insert({surface_buffer.plane_info[0].ion_fd, 1});
+          if (it_fd == ion_fd_mapping_.end()) {
+            ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd, 1});
             reply->writeInt32(0);
             reply->writeInt32(surface_buffer.plane_info[0].ion_fd);
             reply->writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
           }
         }
 
-        for (auto it = ion_fd_mapping.begin(); it!=ion_fd_mapping.end(); ++it) {
-          QMMF_DEBUG("%s ion_fd_mapping service_ion_fd::%d "
-              "client_ion_fd::%d ", __func__, it->first, it->second);
+        for (auto& it : ion_fd_mapping_) {
+          QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
+              "client_ion_fd::%d ", __func__, it.first, it.second);
         }
       }
       return NO_ERROR;
@@ -227,18 +263,18 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       blob.release();
       {
         std::lock_guard<std::mutex> lock(fd_map_lock_);
-        for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-            it != use_buffer_mapping.end(); ++it) {
-          if (it->first == surface_id && it->second == 1) {
+        for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
+            it != use_buffer_mapping_.end(); ++it) {
+          if (it->first == surface_id && it->second == true) {
             ion_fd_map::iterator it_fd;
-            for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end();
+            for (it_fd = ion_fd_mapping_.begin(); it_fd != ion_fd_mapping_.end();
                 ++it_fd) {
               if (it_fd->second == surface_buffer.plane_info[0].ion_fd) {
                 surface_buffer.plane_info[0].ion_fd = it_fd->first;
                 break;
               }
             }
-            if(it_fd == ion_fd_mapping.end()) {
+            if(it_fd == ion_fd_mapping_.end()) {
               int32_t ion_fd;
               ion_fd = surface_buffer.plane_info[0].ion_fd;
               surface_buffer.plane_info[0].ion_fd =
@@ -253,15 +289,22 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
                 QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
                     __func__, ion_info_fd.fd, ret, errno);
               }
-              ion_fd_mapping.insert({surface_buffer.plane_info[0].ion_fd,
+              ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
                   ion_fd});
+              BufInfo* bufinfo = new BufInfo();
+              bufinfo->ion_fd = surface_buffer.plane_info[0].ion_fd;
+              bufinfo->pointer = nullptr;
+              bufinfo->frame_len =  surface_buffer.plane_info[0].size;
+              bufinfo->ion_handle = ion_info_fd.handle;
+              bufinfo->surface_id = surface_id;
+              buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, bufinfo});
             }
             break;
           }
         }
-        for (auto it = ion_fd_mapping.begin(); it!=ion_fd_mapping.end(); ++it) {
-          QMMF_DEBUG("%s ion_fd_mapping service_ion_fd::%d "
-              "client_ion_fd::%d ", __func__, it->first, it->second);
+        for (auto& it : ion_fd_mapping_) {
+          QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
+              "client_ion_fd::%d ", __func__, it.first, it.second);
         }
       }
 
