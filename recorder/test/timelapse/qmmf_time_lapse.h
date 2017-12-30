@@ -94,6 +94,7 @@ class TimeLapse {
                   uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
+#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type,
                               void *event_data, size_t event_data_size);
 
@@ -105,6 +106,7 @@ class TimeLapse {
 
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
                               CameraBufferMetaData& meta_data);
+#endif
 
   Recorder              recorder_;
   CameraMetadata        static_info_;
@@ -120,11 +122,13 @@ class TimeLapse {
 
   static const uint32_t kPreviewTrackId;
 
+#ifndef DISABLE_DISPLAY
   Display*   display_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
   bool display_started_;
+#endif
 };
 
 } //namespace timelapse ends here

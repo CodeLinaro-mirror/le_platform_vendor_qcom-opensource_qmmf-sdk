@@ -53,7 +53,10 @@ LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_postproc_algo libqmmf_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
-LOCAL_SHARED_LIBRARIES += libqmmf_overlay libqmmf_display_client
+LOCAL_SHARED_LIBRARIES += libqmmf_overlay
+ifneq ($(DISABLE_DISPLAY),1)
+LOCAL_SHARED_LIBRARIES += libqmmf_display_client
+endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 

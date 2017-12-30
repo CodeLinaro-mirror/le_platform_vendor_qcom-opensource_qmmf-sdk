@@ -227,6 +227,10 @@ struct AudioTrackCreateParam {
   DeviceId                out_device;
   uint32_t                flags;
 
+  AudioTrackCreateParam() {
+    memset(profile, 0x0, sizeof(profile));
+  }
+
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "in_devices[";

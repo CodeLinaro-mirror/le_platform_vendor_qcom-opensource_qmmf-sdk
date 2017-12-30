@@ -56,6 +56,39 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+#ifdef TARGET_USES_GRALLOC1
+  typedef gralloc1_device_t* mem_alloc_device;
+#else
+  typedef alloc_device_t*    mem_alloc_device;
+#endif
+
+class IAllocDevice {
+ public:
+   virtual ~IAllocDevice() {};
+
+   static IAllocDevice* CreateAllocDevice(hw_module_t const* module);
+
+   mem_alloc_device GetDevice() { return device_; }
+   void SetDevice(mem_alloc_device device) { device_ = device; }
+
+ private:
+   mem_alloc_device          device_;
+};
+
+#ifdef TARGET_USES_GRALLOC1
+class Gralloc1Device : public IAllocDevice {
+ public:
+   Gralloc1Device(hw_module_t const * module);
+   ~Gralloc1Device();
+};
+#else
+class GrallocDevice : public IAllocDevice {
+ public:
+   GrallocDevice(hw_module_t const * module);
+   ~GrallocDevice();
+};
+#endif
+
 class Camera3DeviceClient : public camera3_callback_ops,
                             public camera_module_callbacks_t,
                             public RefBase {
@@ -162,8 +195,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool HandlePartialResult(uint32_t frameNumber, const CameraMetadata &partial,
                            const CaptureResultExtras &resultExtras);
 
-  alloc_device_t *GetGrallocDevice() { return gralloc_device_; }
-
   /**Not allowed */
   Camera3DeviceClient(const Camera3DeviceClient &);
   Camera3DeviceClient &operator=(const Camera3DeviceClient &);
@@ -206,7 +237,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   uint32_t number_of_cameras_;
   struct camera_info static_info_;
   CameraMetadata device_info_;
-  alloc_device_t *gralloc_device_;
+  IAllocDevice* alloc_device_interface_;
 
   Vector<int32_t> repeating_requests_;
   int32_t next_request_id_;

@@ -246,6 +246,13 @@ status_t TranscodeBuffer::CreateTranscodeBuffersVector(
     return ret;
   }
 
+  // Harcoding the number of output buffers for video encoder
+  // because of hardcoding present in the avcodec for output port
+  // for video encoder
+  if (owner == BufferOwner::kTranscoderSink) {
+    count = OUTPUT_MAX_COUNT;
+  }
+
   for (uint32_t i = 0; i < count; i++) {
     TranscodeBuffer buffer(owner, OwnerIndex(owner) | i);
     ret = buffer.Allocate(size);

@@ -39,7 +39,9 @@
 
 #include "common/audio/src/service/qmmf_audio_service.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
+#ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
+#endif
 #include "player/src/service/qmmf_player_service.h"
 #include "system/src/service/qmmf_system_service.h"
 
@@ -83,10 +85,14 @@ int32_t main(int32_t argc, char **argv) {
                   new qmmf::player::PlayerService(), false);
   INFO("Service(%s) Added successfully!", QMMF_PLAYER_SERVICE_NAME);
 
+#ifndef DISABLE_DISPLAY
   //Add Display service.
   defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
                   new qmmf::display::DisplayService(), false);
   INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
+#else
+  INFO("Display Service disabled, continuing..");
+#endif
 
   android::ProcessState::self()->startThreadPool();
   IPCThreadState::self()->joinThreadPool();

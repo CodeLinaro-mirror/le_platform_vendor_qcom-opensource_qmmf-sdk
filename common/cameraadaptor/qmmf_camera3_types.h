@@ -24,7 +24,11 @@
 #include <functional>
 #include <hardware/camera_common.h>
 #include <hardware/camera3.h>
+#ifdef TARGET_USES_GRALLOC1
+#include <hardware/gralloc1.h>
+#else
 #include <hardware/gralloc.h>
+#endif
 #include <camera/CameraMetadata.h>
 
 #include "common/utils/qmmf_common_utils.h"
