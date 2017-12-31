@@ -30,6 +30,9 @@
 #pragma once
 
 #include <camera/CameraMetadata.h>
+#ifdef USE_VENDOR_TAG_DESC
+#include <camera/VendorTagDescriptor.h>
+#endif
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -225,6 +228,10 @@ class RecorderService : public BnInterface<IRecorderService> {
   bool IsClientValid(const uint32_t client_id);
 
   status_t DisconnectInternal(const uint32_t client_id);
+
+#ifdef USE_VENDOR_TAG_DESC
+  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
+#endif
 
   RecorderImpl*       recorder_;
   // Map of client ids and their death notifiers.
