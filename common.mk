@@ -1,6 +1,6 @@
 LOCAL_CPP_EXTENSION := .cc
 
-LOCAL_CFLAGS := -Wall -Wextra -Werror -std=c++11 -fexceptions
+LOCAL_CFLAGS := -Wall -Wextra -Werror -std=c++14 -fexceptions
 # TODO functions have unused input parameters
 LOCAL_CFLAGS += -Wno-unused-parameter
 # Suppress unused variable caused by assert only for release variant
