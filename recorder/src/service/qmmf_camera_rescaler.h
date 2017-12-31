@@ -34,13 +34,14 @@
 
 #include <utils/Timers.h>
 #include <media/msm_media_info.h>
-#include <qcom/display/gralloc_priv.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_condition.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
+#include "common/cameraadaptor/qmmf_camera3_stream.h"
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
 namespace qmmf {
 
@@ -167,8 +168,9 @@ class CameraRescalerMemPool {
    status_t AllocGrallocBuffer(buffer_handle_t *buf);
 
    status_t FreeGrallocBuffer(buffer_handle_t buf);
-
-   alloc_device_t               *gralloc_device_;
+   IAllocDevice                 *alloc_device_interface_;
+   IMemAllocator                *mem_alloc_interface_;
+   mem_alloc_device              alloc_device_;
    buffer_handle_t              *gralloc_slots_;
    uint32_t                      buffers_allocated_;
    uint32_t                      pending_buffer_count_;

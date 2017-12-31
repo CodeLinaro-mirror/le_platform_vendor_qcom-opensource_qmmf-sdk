@@ -28,6 +28,9 @@
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
+#ifdef USE_VENDOR_TAG_DESC
+#include <camera/VendorTagDescriptor.h>
+#endif
 
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"

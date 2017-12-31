@@ -19,6 +19,9 @@ ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display/sdm
 endif
+ifeq ($(TARGET_USES_GRALLOC1),true)
+LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
+endif
 
 LOCAL_SRC_FILES := qmmf_server_main.cc
 
