@@ -164,10 +164,6 @@ class RecorderClient {
                                 const void *param,
                                 const uint32_t param_size);
 
-#ifdef USE_VENDOR_TAG_DESC
-  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc);
-#endif
-
   // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size);
@@ -220,9 +216,7 @@ class RecorderClient {
     NotifyServerDeathCB notify_server_death_;
   };
 
-#ifndef USE_VENDOR_TAG_DESC
   vendor_tag_ops_t     vendor_tag_ops_;
-#endif
   camera_module_t      *camera_module_;
   std::mutex           lock_;
   sp<IRecorderService> recorder_service_;

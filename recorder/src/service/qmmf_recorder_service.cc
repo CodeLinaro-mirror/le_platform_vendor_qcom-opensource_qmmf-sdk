@@ -656,22 +656,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-#ifdef USE_VENDOR_TAG_DESC
-      case RECORDER_GET_VENDOR_TAG_DESCRIPTOR: {
-        sp<VendorTagDescriptor> desc;
-        ret = GetVendorTagDescriptor(desc);
-        reply->writeInt32(ret);
-        if (NO_ERROR == ret) {
-          ret = desc->writeToParcel(reply);
-          if (NO_ERROR != ret) {
-            QMMF_ERROR("%s: VendorTagDescriptor parcel write failed: %d\n",
-                       __func__, ret);
-          }
-        }
-        return ret;
-      }
-      break;
-#endif
       default: {
         QMMF_ERROR("RecorderService:%s:Method is not supported !",__func__);
         reply->writeInt32(-1);
@@ -1596,17 +1580,6 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   return ret;
 }
 
-#ifdef USE_VENDOR_TAG_DESC
-status_t RecorderService::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
-  int32_t res = 0;
-
-  desc = VendorTagDescriptor::getGlobalVendorTagDescriptor();
-  if (desc == NULL) {
-    res = BAD_VALUE;
-  }
-  return res;
-}
-#endif
 }; //namespace recorder
 
 }; //namespace qmmf
