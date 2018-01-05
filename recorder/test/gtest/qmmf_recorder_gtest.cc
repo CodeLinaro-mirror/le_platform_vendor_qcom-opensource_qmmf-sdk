@@ -1485,14 +1485,17 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "EdgeSmooth") {
       ret = recorder_.CreatePlugin(&edge_smooth_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, edge_smooth_plugin);
+      found = true;
     }
   }
+  assert(found == true);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
@@ -1646,14 +1649,17 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin);
+      found = true;
     }
   }
+  assert(found == true);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
@@ -1805,22 +1811,29 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
     }
   }
+  assert(found == true);
+
+  found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "EdgeSmooth") {
       ret = recorder_.CreatePlugin(&edge_smooth_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, edge_smooth_plugin, 1);
+      found = true;
     }
   }
+  assert(found == true);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
@@ -2199,14 +2212,17 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "YuvCac") {
       ret = recorder_.CreatePlugin(&yuv_cac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, yuv_cac_plugin, 0);
+      found = true;
     }
   }
+  assert(found == true);
 
   ImageThumbnail thumbnail;
 
@@ -2389,14 +2405,17 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
     }
   }
+  assert(found == true);
 
   ImageThumbnail thumbnail;
 
@@ -2601,14 +2620,17 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
     }
   }
+  assert(found == true);
 
   ImageThumbnail thumbnail;
 
@@ -2864,14 +2886,17 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     ret = recorder_.GetSupportedPlugins(&supported_plugins);
     assert(ret == NO_ERROR);
 
+    bool found = false;
     for (auto const& plugin_info : supported_plugins) {
       if (plugin_info.name == "BayerLcac") {
         ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
         assert(ret == NO_ERROR);
 
         image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+        found = true;
       }
     }
+    assert(found == true);
 
     ImageThumbnail thumbnail;
 
@@ -3127,14 +3152,17 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   ret = recorder_.GetSupportedPlugins(&supported_plugins);
   assert(ret == NO_ERROR);
 
+  bool found = false;
   for (auto const& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       assert(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
     }
   }
+  assert(found == true);
 
   SnapshotType snapshot_type;
   snapshot_type.type = SnapshotMode::kContinuous;
@@ -7426,14 +7454,17 @@ TEST_F(RecorderGtest, SessionWith4KHazeBusterEncTrack) {
     ret = recorder_.GetSupportedPlugins(&supported_plugins);
     assert(ret == NO_ERROR);
 
+    bool found = false;
     for (auto const& plugin_info : supported_plugins) {
       if (plugin_info.name == "HazeBuster") {
         ret = recorder_.CreatePlugin(&haze_buster_plugin.uid, plugin_info);
         assert(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, haze_buster_plugin);
+        found = true;
       }
     }
+    assert(found == true);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
@@ -7558,14 +7589,17 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
     ret = recorder_.GetSupportedPlugins(&supported_plugins);
     assert(ret == NO_ERROR);
 
+    bool found = false;
     for (auto const& plugin_info : supported_plugins) {
       if (plugin_info.name == "HazeBuster") {
         ret = recorder_.CreatePlugin(&haze_buster_plugin4k.uid, plugin_info);
         assert(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, haze_buster_plugin4k);
+        found = true;
       }
     }
+    assert(found == true);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      video_track_param, extra_param,
@@ -7588,14 +7622,17 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
       VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     PostprocPlugin haze_buster_plugin1080p;
+    found = false;
     for (auto const& plugin_info : supported_plugins) {
       if (plugin_info.name == "HazeBuster") {
         ret = recorder_.CreatePlugin(&haze_buster_plugin1080p.uid, plugin_info);
         assert(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, haze_buster_plugin1080p);
+        found = true;
       }
     }
+    assert(found == true);
 
     ret = recorder_.CreateVideoTrack(session_id, video_trackid_1080p,
                                      video_track_param, extra_param,
