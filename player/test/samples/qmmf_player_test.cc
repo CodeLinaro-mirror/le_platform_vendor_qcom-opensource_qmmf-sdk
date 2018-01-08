@@ -29,18 +29,27 @@
 
 #define LOG_TAG "PlayerTest"
 
+#include <assert.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <utils/String8.h>
-#include <assert.h>
 #include <unistd.h>
-#include <string.h>
+#include <utils/String8.h>
 #include <fstream>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
 
+using display::DisplayEventType;
+using display::DisplayType;
+using display::Display;
+using display::DisplayCb;
+using display::SurfaceBuffer;
+using display::SurfaceParam;
+using display::SurfaceConfig;
+using display::SurfaceBlending;
+using display::SurfaceFormat;
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -50,6 +59,28 @@
 #else
 #define TEST_DBG(...) ((void)0)
 #endif
+
+// Prop to enable Gfx along with Video Playback
+static const std::string prop_enable_gfx_with_playback =
+    "persist.qmmf.player.enable.gfx";
+
+// Prop to set Gfx plane date update rate
+static const std::string prop_gfx_plane_update_rate =
+    "persist.qmmf.gfx.update.rate";
+
+// Default gfx plane data update rate is 30 which means
+// in every 500 ms (30*16666) gfx plane data will update.
+// use persist.qmmf.gfx.update.rate properity to change
+// gfx plane data update rate.
+static const std::string default_gfx_plane_update_rate = "30";
+
+// Prop to set number of Gfx frames
+static const std::string prop_gfx_plane_frame_count =
+    "persist.qmmf.gfx.frame.count";
+
+// Default count of gfx frames is 1, to change
+// count use persist.qmmf.gfx.frame.count properity.
+static const std::string default_gfx_plane_frame_count = "1";
 
 // Enable this define to dump audio bitstream from demuxer
 //#define DUMP_AUDIO_BITSTREAM
@@ -108,6 +139,10 @@ void PlayerTest::PlayerHandler(EventType event_type,
     {
       std::lock_guard<std::mutex> lock(lock_);
       start_again_ = true;
+    }
+
+    if (enable_gfx_) {
+      push_gfx_content_to_display_ = false;
     }
 
     printf("\nPlayback has finished.\n");
@@ -200,11 +235,27 @@ PlayerTest::PlayerTest(char* filename)
       playback_dir_(TrickModeDirection::kNormalForward),
       grabpicture_file_fd_(-1),
       trick_mode_enabled_(false),
-      current_playback_time_(0) {
+      current_playback_time_(0),
+      display_started_(false) {
   TEST_INFO("%s: Enter", __func__);
 
   if (filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(prop_enable_gfx_with_playback.c_str(), prop_val, "0");
+  if (atoi(prop_val) == 0) {
+    enable_gfx_ = false;
+  } else {
+    enable_gfx_ = true;
+    property_get(prop_gfx_plane_update_rate.c_str(), prop_val,
+        default_gfx_plane_update_rate.c_str());
+    gfx_plane_update_rate_= atoi(prop_val);
+
+    property_get(prop_gfx_plane_frame_count.c_str(), prop_val,
+        default_gfx_plane_frame_count.c_str());
+    gfx_plane_frame_count_= atoi(prop_val);
+  }
 
   TEST_INFO("%s: Exit", __func__);
 }
@@ -450,6 +501,16 @@ void PlayerTest::Start() {
     video_state_ = State::kRunning;
     video_thread_ = new std::thread(PlayerTest::VideoThreadEntry, this);
     assert(video_thread_ != nullptr);
+  }
+
+  if (enable_gfx_) {
+    push_gfx_content_to_display_ = true;
+    if (display_started_ == false) {
+      auto ret = StartDisplay(DisplayType::kPrimary);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s: StartDisplay Failed: %d!!", __func__, ret);
+      }
+    }
   }
 
   TEST_INFO("%s: Exit", __func__);
@@ -713,6 +774,10 @@ void PlayerTest::Stop(bool with_grab) {
     }
   }
 
+  if (enable_gfx_) {
+    push_gfx_content_to_display_ = false;
+  }
+
 #ifdef DUMP_AUDIO_BITSTREAM
   if (srcFile_audio_.is_open())
     srcFile_audio_.close();
@@ -737,6 +802,10 @@ void PlayerTest::Pause(bool with_grab) {
 
   if (audio_state_ == State::kRunning) audio_state_ = State::kPaused;
   if (video_state_ == State::kRunning) video_state_ = State::kPaused;
+
+  if (enable_gfx_) {
+    push_gfx_content_to_display_ = false;
+  }
 
   if (with_grab) {
     PictureParam param;
@@ -770,6 +839,10 @@ void PlayerTest::Resume() {
   if (audio_state_ == State::kPaused) audio_state_ = State::kRunning;
   if (video_state_ == State::kPaused) video_state_ = State::kRunning;
 
+  if (enable_gfx_) {
+    push_gfx_content_to_display_ = true;
+  }
+
   auto result = player_.Resume();
   assert(result == NO_ERROR);
 
@@ -784,13 +857,12 @@ void PlayerTest::SetPosition() {
 
   uint64_t time;
   printf("\n");
-  printf("****** Seek *******\n" );
+  printf("****** Seek *******\n");
   printf("Enter time between [0 to %llu sec] :: ", clip_duration / 1000000);
   scanf("%llu", &time);
 
-  FileSourceStatus mFSStatus =
-      m_pDemux_->SeekAbsolutePosition(time * 1000, true,
-                                      static_cast<int64_t>(current_time / 1000));
+  FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(
+      time * 1000, true, static_cast<int64_t>(current_time / 1000));
   if (mFSStatus == FILE_SOURCE_FAIL)
     TEST_INFO("%s: Failed to seek %u to %llu sec", __func__,
               static_cast<uint32_t>(mFSStatus), time);
@@ -808,16 +880,15 @@ void PlayerTest::SetTrickMode() {
     uint32_t dir, speed;
 
     printf("\n");
-    printf("****** Set Trick Mode *******\n" );
+    printf("****** Set Trick Mode *******\n");
     printf(" Enter Trick Mode Type [Normal Playback->1, FF->2, SF->3, REW->4]): ");
     scanf("%d", &dir);
     printf(" Enter Trick Mode Speed/Factor of (supported "
         "[Normal Playback or REW->1 :::: FF,SF-> 2, 4, 8]): ");
     scanf("%d", &speed);
 
-    if ((speed >= 1 && speed <= 8 && (!(speed & (speed-1))))
-        && (dir >=1  && dir <= 4)) {
-
+    if ((speed >= 1 && speed <= 8 && (!(speed & (speed - 1)))) &&
+        (dir >= 1 && dir <= 4)) {
       if (dir == 1 && speed == 1 && (!IsTrickModeEnabled())) {
         std::lock_guard<std::mutex> lock(lock_);
         trick_mode_enabled_ = false;
@@ -831,14 +902,13 @@ void PlayerTest::SetTrickMode() {
 
         // seek audio tracks to current playback time when normal playback
         if (dir == 1 && speed == 1) {
-          FileSourceStatus mFSStatus =
-              m_pDemux_->SeekAbsolutePosition(audio_track_id_,
-                  static_cast<int>(current_time / 1000), false, -1,
-                  FS_SEEK_MODE::FS_SEEK_DEFAULT);
+          FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(
+              audio_track_id_, static_cast<int>(current_time / 1000), false, -1,
+              FS_SEEK_MODE::FS_SEEK_DEFAULT);
 
           if (mFSStatus == FILE_SOURCE_FAIL)
             TEST_INFO("%s: Failed to seek %u", __func__,
-                static_cast<uint32_t>(mFSStatus));
+                      static_cast<uint32_t>(mFSStatus));
 
           {
             std::lock_guard<std::mutex> lock(lock_);
@@ -853,9 +923,11 @@ void PlayerTest::SetTrickMode() {
         assert(result == NO_ERROR);
       }
     } else {
-      TEST_INFO("%s:Wrong trick mode type or speed, supported values are "
+      TEST_INFO(
+          "%s:Wrong trick mode type or speed, supported values are "
           "trick mode type [Normal Playback->1, FF->2, SF->3] "
-          "speed [Normal Playback->1, 2, 4, 8]",  __func__);
+          "speed [Normal Playback->1, 2, 4, 8]",
+          __func__);
     }
   }
   TEST_INFO("%s: Exit", __func__);
@@ -869,6 +941,13 @@ bool PlayerTest::IsTrickModeEnabled() {
 void PlayerTest::Delete() {
   TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
+
+  if (enable_gfx_ && (display_started_ == true)) {
+    auto ret = StopDisplay(DisplayType::kPrimary);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: StopDisplay failed: %d!!", __func__, ret);
+    }
+  }
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
@@ -908,14 +987,13 @@ uint32_t PlayerTest::GetCurrentPlaybackTime() {
   std::lock_guard<std::mutex> lock(time_lock_);
 
   TEST_INFO("%s: Current video playback time %lld", __func__,
-      static_cast<int64_t>(current_playback_time_/1000));
+            static_cast<int64_t>(current_playback_time_ / 1000));
 
   TEST_INFO("%s: Exit", __func__);
   return current_playback_time_;
 }
 
 uint32_t PlayerTest::CreateDataSource() {
-
   TEST_INFO("%s: Enter", __func__);
   uint32_t eErr = MM_STATUS_ErrorNone;
 
@@ -1151,6 +1229,201 @@ ERROR_BAIL:
 
   TEST_ERROR("%s: Return Status %u", __func__, eErr);
   return eErr;
+}
+
+void PlayerTest::DisplayCallbackHandler(DisplayEventType event_type,
+                                        void* event_data,
+                                        size_t event_data_size) {}
+
+void PlayerTest::DisplayVSyncHandler(int64_t time_stamp) {}
+
+status_t PlayerTest::StartDisplay(DisplayType display_type) {
+  TEST_INFO("%s: Enter", __func__);
+  int32_t res = 0;
+  SurfaceConfig surface_config{};
+  DisplayCb display_status_cb;
+
+  display_ = new Display();
+  assert(display_ != nullptr);
+
+  res = display_->Connect();
+  assert(res == 0);
+
+  display_status_cb.EventCb = [&](DisplayEventType event_type, void* event_data,
+                                  size_t event_data_size) {
+    DisplayCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  display_status_cb.VSyncCb = [&](int64_t time_stamp) {
+    DisplayVSyncHandler(time_stamp);
+  };
+
+  res = display_->CreateDisplay(display_type, display_status_cb);
+  assert(res == 0);
+
+  surface_config.width = 352;
+  surface_config.height = 288;
+  surface_config.format = SurfaceFormat::kFormatBGRA8888;
+  surface_config.buffer_count = 4;
+  surface_config.cache = 0;
+  surface_config.use_buffer = 0;
+  auto ret = display_->CreateSurface(surface_config, &surface_id_);
+  if (ret != 0) {
+    TEST_ERROR("%s: CreateSurface Failed!!", __func__);
+    return ret;
+  }
+
+  memset(&surface_param_, 0x0, sizeof surface_param_);
+
+  surface_param_.src_rect = {0.0, 0.0, static_cast<float>(352),
+                             static_cast<float>(288)};
+  surface_param_.dst_rect = {0.0, 0.0, static_cast<float>(352),
+                             static_cast<float>(288)};
+  surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
+  surface_param_.surface_flags.cursor = 0;
+  surface_param_.frame_rate = 30;
+  surface_param_.z_order = 1;
+  surface_param_.solid_fill_color = 0;
+  surface_param_.surface_transform.rotation = 0.0f;
+  surface_param_.surface_transform.flip_horizontal = 0;
+  surface_param_.surface_transform.flip_vertical = 0;
+
+  display_thread_ = new std::thread(PlayerTest::DisplayThreadEntry, this);
+  assert(display_thread_ != nullptr);
+
+  display_started_ = true;
+
+  TEST_INFO("%s: Exit", __func__);
+  return res;
+}
+
+status_t PlayerTest::StopDisplay(DisplayType display_type) {
+  TEST_INFO("%s: Enter", __func__);
+  int32_t res = 0;
+
+  if (display_started_ == true) {
+    display_started_ = false;
+
+    if (display_thread_ != nullptr) {
+      display_thread_->join();
+      delete display_thread_;
+      display_thread_ = nullptr;
+    }
+
+    res = display_->DestroySurface(surface_id_);
+    if (res != 0) {
+      TEST_ERROR("%s: DestroySurface Failed!!", __func__);
+      return res;
+    }
+
+    res = display_->DestroyDisplay(display_type);
+    if (res != 0) {
+      TEST_ERROR("%s: DestroyDisplay Failed!!", __func__);
+      return res;
+    }
+    res = display_->Disconnect();
+
+    if (display_ != nullptr) {
+      delete display_;
+      display_ = nullptr;
+    }
+  }
+  TEST_INFO("%s: Exit", __func__);
+  return res;
+}
+
+int32_t PlayerTest::DequeueSurfaceBuffer() {
+  TEST_DBG("%s: Enter", __func__);
+  memset(&surface_buffer_, 0x0, sizeof surface_buffer_);
+
+  surface_buffer_.format = SurfaceFormat::kFormatBGRA8888;
+  surface_buffer_.acquire_fence = 0;
+  surface_buffer_.release_fence = 0;
+
+  auto ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
+  if (ret != 0) {
+    TEST_ERROR("%s: DequeueSurfaceBuffer Failed!!", __func__);
+  }
+  TEST_DBG("%s: Exit", __func__);
+  return 0;
+}
+
+int32_t PlayerTest::QueueSurfaceBuffer() {
+  TEST_DBG("%s: Enter", __func__);
+
+  std::ostringstream gfx_frame_path;
+
+  static uint32_t frame_number = 1;
+  gfx_frame_path << "/data/misc/qmmf/gfx/frame_";
+  gfx_frame_path << frame_number << ".rgb";
+
+  TEST_DBG("%s:queue gfx frame::%s", __func__, (gfx_frame_path.str()).c_str());
+  gfx_frame_.open((gfx_frame_path.str()).c_str(),
+      std::ios::in | std::ios::binary);
+  if (!gfx_frame_) {
+    TEST_ERROR("%s: Unable to open gfx frame", __func__);
+  } else {
+
+    gfx_frame_.seekg (0, gfx_frame_.end);
+    uint32_t frame_size = gfx_frame_.tellg();
+    gfx_frame_.seekg (0, gfx_frame_.beg);
+    TEST_INFO("%s: Gfx frame size is ::%u", __func__, frame_size);
+
+    int32_t offset = 0;
+    uint32_t total_frame_data_read = 0;
+
+    for (uint32_t i = 0; i < surface_buffer_.plane_info[0].height; i++) {
+      gfx_frame_.read(reinterpret_cast<char*>(surface_buffer_.plane_info[0].buf)
+          + surface_buffer_.plane_info[0].offset + offset,
+          surface_buffer_.plane_info[0].width * 4);
+
+      TEST_DBG("%s: chunk of frame read::%d", __func__, gfx_frame_.gcount());
+
+      total_frame_data_read += gfx_frame_.gcount();
+
+      offset += ((surface_buffer_.plane_info[0].width +
+                ((surface_buffer_.plane_info[0].width % 64) ?
+                (64 - (surface_buffer_.plane_info[0].width % 64)) : 0)) *4);
+    }
+
+    if (total_frame_data_read != frame_size ) {
+      TEST_ERROR("%s: Failed to read complete frame::%u read size::%u",
+          __func__, frame_size, total_frame_data_read);
+    }
+    gfx_frame_.close();
+  }
+
+  auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
+                                          surface_param_);
+  if (ret != 0) {
+    TEST_ERROR("%s: QueueSurfaceBuffer Failed!!", __func__);
+  }
+
+  ++frame_number;
+  if (frame_number == (gfx_plane_frame_count_ + 1)) {
+    frame_number = 1;
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return 0;
+}
+
+void PlayerTest::DisplayThreadEntry(PlayerTest* player_test) {
+  TEST_INFO("%s: Enter", __func__);
+  player_test->DisplayThread();
+  TEST_INFO("%s: Exit", __func__);
+}
+
+void PlayerTest::DisplayThread() {
+  while (display_started_) {
+    if (push_gfx_content_to_display_) {
+      DequeueSurfaceBuffer();
+      QueueSurfaceBuffer();
+      usleep(16666*gfx_plane_update_rate_);
+    } else {
+     usleep(16666);
+   }
+  }
 }
 
 void CmdMenu::HelpMenu(const char * test_name){

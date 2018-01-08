@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <cutils/properties.h>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -37,6 +38,8 @@
 #include <thread>
 
 #include <qmmf-sdk/qmmf_buffer.h>
+#include <qmmf-sdk/qmmf_display.h>
+#include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_player.h>
 #include <qmmf-sdk/qmmf_player_params.h>
 
@@ -129,6 +132,16 @@ class PlayerTest {
   static void VideoThreadEntry(PlayerTest* player_test);
   void VideoThread();
 
+  void DisplayCallbackHandler(display::DisplayEventType event_type,
+                              void *event_data, size_t event_data_size);
+  void DisplayVSyncHandler(int64_t time_stamp);
+  status_t StartDisplay(display::DisplayType display_type);
+  status_t StopDisplay(display::DisplayType display_type);
+  int32_t DequeueSurfaceBuffer();
+  int32_t QueueSurfaceBuffer();
+  static void DisplayThreadEntry(PlayerTest* player_test);
+  void DisplayThread();
+
   Player player_;
 
   std::mutex                      lock_;
@@ -161,6 +174,17 @@ class PlayerTest {
   std::mutex                      time_lock_;
   bool                            trick_mode_enabled_;
   uint64_t                        current_playback_time_;
+  bool                            enable_gfx_;
+  std::thread*                    display_thread_;
+  display::Display*               display_;
+  uint32_t                        surface_id_;
+  display::SurfaceParam           surface_param_;
+  display::SurfaceBuffer          surface_buffer_;
+  bool                            display_started_;
+  std::ifstream                   gfx_frame_;
+  uint32_t                        gfx_plane_update_rate_;
+  uint32_t                        gfx_plane_frame_count_;
+  bool                            push_gfx_content_to_display_;
 
   PlayerTest();
 };
