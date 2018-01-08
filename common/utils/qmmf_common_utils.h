@@ -42,12 +42,15 @@
 #include <system/graphics.h>
 #include <system/window.h>
 #include <qcom/display/gralloc_priv.h>
+#include <camera/CameraMetadata.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
+
+using namespace android;
 
 typedef int32_t status_t;
 
@@ -168,7 +171,138 @@ class Common {
         return BufferFormat::kUnsupported;
     }
   }
-};
+
+  /** ValidateResFromStreamConfigs
+  *
+  * Validates whether input resolution is available in
+  * stream configurations.
+  *
+  * return: true if available
+  **/
+  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+                                           const uint32_t width,
+                                           const uint32_t height) {
+    bool is_supported = false;
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+           }
+         }
+       }
+     }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+                 " not available", __func__);
+      return false;
+    }
+    return is_supported;
+  }
+
+
+
+  /** ValidateResFromProcessedSizes
+   *
+   * Validates whether input resolution is available in
+   * processed sizes.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height) {
+    bool is_supported = false;
+#ifdef ANDROID_O_OR_ABOVE
+    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          is_supported = true;
+          break;
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES"
+                 " not available", __func__);
+      return false;
+    }
+#endif
+    return is_supported;
+  }
+
+  /** ValidateResFromJpegSizes
+   *
+   * Validates whether input resolution is available in
+   * jpeg sizes.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+                                       const uint32_t width,
+                                       const uint32_t height) {
+    bool is_supported = false;
+#ifdef ANDROID_O_OR_ABOVE
+    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          is_supported = true;
+          break;
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_JPEG_SIZES"
+                 " not available", __func__);
+      return false;
+    }
+#endif
+    return is_supported;
+  }
+
+  /** ValidateResFromRawSizes
+   *
+   * Validates whether input resolution is available in
+   * raw sizes.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+                                      const uint32_t width,
+                                      const uint32_t height) {
+    bool is_supported = false;
+#ifdef ANDROID_O_OR_ABOVE
+    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          is_supported = true;
+          break;
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_JPEG_SIZES"
+                 " not available", __func__);
+      return false;
+    }
+#endif
+    return is_supported;
+  }
+};  // class Common
 
 // Thread safe Queue
 template <class T>

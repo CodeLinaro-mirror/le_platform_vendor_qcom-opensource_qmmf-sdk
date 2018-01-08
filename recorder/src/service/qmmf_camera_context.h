@@ -240,7 +240,7 @@ class CameraContext : public CameraInterface,
 
   void HandleFinalResult(const CaptureResult &result);
 
-  status_t ValideteCaptureParams(const ImageParam &image_param);
+  status_t ValidateCaptureParams(const ImageParam &image_param);
 
   std::string GetSnapshotJsonConfig();
 

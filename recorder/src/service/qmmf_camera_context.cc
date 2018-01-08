@@ -544,67 +544,38 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::ValideteCaptureParams(const ImageParam &image_param) {
+status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
   if (snapshot_request_.metadata.isEmpty()) {
     QMMF_ERROR("%s Camera is not started Or it is started in zsl mode!!",
                __func__);
     return BAD_VALUE;
   }
 
-  //Validate in params
   bool res_supported = false;
-  camera_metadata_entry_t entry;
-  CameraMetadata& meta = snapshot_request_.metadata;
   if (image_param.image_format == ImageFormat::kBayerRDI10BIT ||
       image_param.image_format == ImageFormat::kBayerRDI8BIT ||
       image_param.image_format == ImageFormat::kBayerRDI12BIT) {
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
-            image_param.height == static_cast<uint32_t>(entry.data.i32[i+1])) {
-          res_supported = true;
-          break;
-        }
-      }
-    }
+    res_supported = Common::ValidateResFromRawSizes(
+        snapshot_request_.metadata,
+        image_param.width,
+        image_param.height);
   } else if (image_param.image_format == ImageFormat::kNV12) {
-    // Check Supported snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-              break;
-            }
-          }
-        }
-      }
-    }
+    res_supported = Common::ValidateResFromStreamConfigs(
+        snapshot_request_.metadata,
+        image_param.width,
+        image_param.height);
   } else if (image_param.image_format == ImageFormat::kJPEG) {
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        if(image_param.width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
-           image_param.height == static_cast<uint32_t>(entry.data.i32[i+1])) {
-          res_supported = true;
-          break;
-        }
-      }
-    }
+    res_supported = Common::ValidateResFromProcessedSizes(
+        snapshot_request_.metadata,
+        image_param.width,
+        image_param.height);
   }
 
   if (res_supported != true) {
-    QMMF_ERROR("%s Unsuported Snapshot resolution %d x %d!",
+    QMMF_ERROR("%s Unsupported Snapshot resolution %d x %d!",
                __func__, image_param.width, image_param.height);
     return BAD_VALUE;
   }
-
   return NO_ERROR;
 }
 
@@ -635,8 +606,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
     }
 
     if (reconfigure_needed) {
-
-      auto ret = ValideteCaptureParams(param);
+      auto ret = ValidateCaptureParams(param);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s Failed during snapshot validation", __func__);
         return ret;
@@ -1705,68 +1675,30 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
                                            const uint32_t height) {
 
   QMMF_VERBOSE("%s Enter ", __func__);
-
-  camera_metadata_entry_t entry;
   bool supported = false;
-  uint32_t w, h;
 
   switch (format) {
     case ImageFormat::kJPEG:
-    //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available in static
-    // meta.
-    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
-      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        w = entry.data.i32[i+0];
-        h = entry.data.i32[i+1];
-        QMMF_INFO("%s:(%d) Supported Jpeg:(%d)x(%d)",__func__, i, w, h);
-        if(w == width && h == height) {
-          supported = true;
-          break;
-        }
-      }
-    }
-    supported = true;
-    break;
+      //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available
+      // in static meta.
+      supported = Common::ValidateResFromJpegSizes(static_meta_,
+                                                   width,
+                                                   height);
+      break;
     case ImageFormat::kNV12:
-    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            w = entry.data.i32[i+1];
-            h = entry.data.i32[i+2];
-            QMMF_DEBUG("%s: (%d) Supported Raw YUV:(%d)x(%d)",__func__,
-                i, w, h);
-            if(w == width && h == height) {
-              supported = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-    break;
-    case ImageFormat::kBayerRDI8BIT:
+      supported = Common::ValidateResFromStreamConfigs(static_meta_,
+                                                       width,
+                                                       height);
+      break;
+	case ImageFormat::kBayerRDI8BIT:
     case ImageFormat::kBayerRDI10BIT:
     case ImageFormat::kBayerRDI12BIT:
-    if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-      entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        w = entry.data.i32[i+0];
-        h = entry.data.i32[i+1];
-        QMMF_INFO("%s: (%d) Supported RAW RDI W(%d):H(%d)", __func__, i,
-            width, height);
-        if(w == width && h == height) {
-          supported = true;
-          break;
-        }
-      }
-    }
-    break;
+      supported = Common::ValidateResFromRawSizes(static_meta_,
+                                                  width,
+                                                  height);
+      break;
     default:
-    break;
+      break;
   }
   if (!supported) {
     QMMF_ERROR("%s: format(0x%x):width(%d):height(%d) not supported!",
