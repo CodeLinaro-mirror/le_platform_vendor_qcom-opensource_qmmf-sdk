@@ -319,8 +319,17 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
 
   surface_param.src_rect = { 0.0, 0.0, static_cast<float>(surface_config.width),
       static_cast<float>(surface_config.height) };
-  surface_param.dst_rect = { 0.0, 0.0, static_cast<float>(surface_config.width),
-      static_cast<float>(surface_config.height) };
+  if (surface_config.surface_transform.rotation == 90.0f ||
+      surface_config.surface_transform.rotation == 270.0f) {
+    surface_param.dst_rect = { 0.0, 0.0,
+        static_cast<float>(surface_config.height),
+        static_cast<float>(surface_config.width) };
+  } else {
+    surface_param.dst_rect = { 0.0, 0.0,
+        static_cast<float>(surface_config.width),
+        static_cast<float>(surface_config.height) };
+  }
+
   surface_param.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param.surface_flags.cursor = 0;
   surface_param.frame_rate = 30;
