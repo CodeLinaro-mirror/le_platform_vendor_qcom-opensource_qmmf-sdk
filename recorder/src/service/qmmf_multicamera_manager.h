@@ -35,7 +35,6 @@
 #include <future>
 #include <mutex>
 
-#include <qcom/display/gralloc_priv.h>
 #include <qmmf-plugin/qmmf_alg_intf.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -55,7 +54,7 @@ static const uint32_t kVirtualCameraIdOffset = 1000;
 
 class StreamStitching;
 class SnapshotStitching;
-class GrallocMemory;
+class HWMemory;
 
 class MultiCameraManager : public CameraInterface {
  public:
@@ -162,7 +161,7 @@ class MultiCameraManager : public CameraInterface {
   std::shared_ptr<SnapshotStitching>    snapshot_stitch_algo_;
   std::shared_ptr<CameraJpeg>           jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  std::shared_ptr<GrallocMemory>        jpeg_memory_pool_;
+  std::shared_ptr<HWMemory>        jpeg_memory_pool_;
   std::vector<ImageThumbnail>           thumbnails_;
 
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
@@ -196,46 +195,46 @@ class MultiCameraManager : public CameraInterface {
   static const uint32_t kHeight4K = 1920;
 };
 
-class GrallocMemory {
+class HWMemory {
  public:
   struct BufferParams {
     uint32_t width;
     uint32_t height;
     int32_t  format;
-    int32_t  gralloc_flags;
+    MemAllocFlags  alloc_flags;
     uint32_t max_size;
     uint32_t max_buffer_count;
   };
 
-  GrallocMemory(alloc_device_t *gralloc_device = nullptr);
-  ~GrallocMemory();
+  HWMemory(alloc_device_t *alloc_device = nullptr);
+  ~HWMemory();
 
   status_t Initialize();
   status_t Configure(BufferParams &params);
 
-  status_t GetBuffer(buffer_handle_t &buffer);
-  status_t ReturnBuffer(const buffer_handle_t &buffer);
+  status_t GetBuffer(IBufferHandle &buffer);
+  status_t ReturnBuffer(const IBufferHandle &buffer);
 
   status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                            buffer_handle_t &buffer);
+                            IBufferHandle &handle);
 
  private:
-  status_t GetBufferLocked(buffer_handle_t &buffer);
-  status_t ReturnBufferLocked(const buffer_handle_t &buffer);
+  status_t GetBufferLocked(IBufferHandle &buffer);
+  status_t ReturnBufferLocked(const IBufferHandle &buffer);
 
-  status_t AllocGrallocBuffer(buffer_handle_t *buf);
-  status_t FreeGrallocBuffer(buffer_handle_t buf);
+  status_t AllocHWMemBuffer(IBufferHandle *buf);
+  status_t FreeHWMemBuffer(IBufferHandle buf);
 
   BufferParams             params_;
-  alloc_device_t           *gralloc_device_;
-  buffer_handle_t          *gralloc_slots_;
+  IAllocDevice             *alloc_device_interface_;
+  IBufferHandle            *mem_alloc_slots_;
   uint32_t                 buffers_allocated_;
   uint32_t                 pending_buffer_count_;
 
-  // Pool with allocated gralloc buffers, the bool value indicates
+  // Pool with allocated buffers, the bool value indicates
   // if the buffer has been returned to the producer and is available
   // to be used.
-  std::map<buffer_handle_t, bool> gralloc_buffers_;
+  std::map<IBufferHandle, bool> mem_alloc_buffers_;
 
   std::mutex               buffer_lock_;
   QCondition               wait_for_buffer_;
@@ -257,7 +256,7 @@ class StitchingBase : public ThreadHelper {
   virtual ~StitchingBase();
 
   status_t Initialize();
-  status_t Configure(GrallocMemory::BufferParams &param);
+  status_t Configure(HWMemory::BufferParams &param);
 
   int32_t Run();
   void RequestExitAndWait() override;
@@ -313,7 +312,7 @@ class StitchingBase : public ThreadHelper {
   status_t StopFrameSync();
 
   status_t ReturnUnsyncedBuffers(uint32_t camera_id);
-  status_t ReturnProcessedBuffer(buffer_handle_t &handle,
+  status_t ReturnProcessedBuffer(IBufferHandle &handle,
                                  qmmf_alg_status_t status);
 
   status_t InitLibrary();
@@ -334,7 +333,7 @@ class StitchingBase : public ThreadHelper {
   static void ProcessCallback(qmmf_alg_cb_t *cb_data);
 
   StitchLibInterface                    stitch_lib_;
-  std::shared_ptr<GrallocMemory>        memory_pool_;
+  std::shared_ptr<HWMemory>             memory_pool_;
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.
@@ -345,9 +344,9 @@ class StitchingBase : public ThreadHelper {
   std::queue<std::map<uint32_t, StreamBuffer> > synced_buffer_queue_;
 
   // Map of the stream buffers that are given to the library for processing.
-  std::map<buffer_handle_t, StreamBuffer> process_buffers_map_;
+  std::map<IBufferHandle, StreamBuffer> process_buffers_map_;
 
-  // List containing all gralloc buffers file descriptors that have been
+  // List containing all buffers file descriptors that have been
   // registered by the library.
   std::set<int32_t> registered_buffers_;
 

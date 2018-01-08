@@ -14,6 +14,7 @@ libqmmf_display_service_la_SOURCES = $(source_files)
 
 libqmmf_display_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_display_service_la_CPPFLAGS += -I$(top_srcdir)/
+libqmmf_display_service_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_display_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_display_service_la_CPPFLAGS += -I$(DISPLAYSYNC_CFLAGS)
 libqmmf_display_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils

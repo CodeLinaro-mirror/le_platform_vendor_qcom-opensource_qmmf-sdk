@@ -22,7 +22,7 @@ endif
 
 LOCAL_SRC_FILES := qmmf_camera_hal_reproc.cc
 
-LOCAL_SHARED_LIBRARIES += libcamera_client
+LOCAL_SHARED_LIBRARIES += libcamera_client libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_camera_hal_reproc
 

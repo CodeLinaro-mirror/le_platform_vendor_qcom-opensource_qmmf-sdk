@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -25,23 +25,13 @@
 #include <pthread.h>
 #include <hardware/camera_common.h>
 #include <hardware/camera3.h>
-#ifdef TARGET_USES_GRALLOC1
-#include <hardware/gralloc1.h>
-#else
-#include <hardware/gralloc.h>
-#endif
-
-#ifdef TARGET_USES_GBM
-#include <gbm.h>
-#include <gbm_priv.h>
-#include <unordered_map>
-#endif
 
 #include <utils/String8.h>
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
 
 #include "qmmf_camera3_types.h"
+#include "qmmf_memory_interface.h"
 
 using namespace android;
 
@@ -51,159 +41,12 @@ namespace cameraadaptor {
 
 class Camera3Monitor;
 
-#ifdef TARGET_USES_GRALLOC1
-   typedef gralloc1_device_t* mem_alloc_device;
-   typedef gralloc1_error_t   mem_alloc_error;
-#elif TARGET_USES_GBM
-   typedef gbm_device*        mem_alloc_device;
-   typedef int32_t            mem_alloc_error;
-#else
-   typedef alloc_device_t*    mem_alloc_device;
-   typedef int32_t            mem_alloc_error;
-#endif
-
-class IMemAllocator {
- public:
-   IMemAllocator(mem_alloc_device device) : device_(device) {};
-   virtual ~IMemAllocator() {};
-
-   static IMemAllocator* CreateMemAllocator(mem_alloc_device device);
-
-   mem_alloc_device GetDevice() { return device_; }
-
-   virtual mem_alloc_error AllocBuffer(buffer_handle_t *buf,
-                                       int32_t width,
-                                       int32_t height,
-                                       int32_t format,
-                                       int32_t usage,
-                                       uint32_t *stride) = 0;
-
-   virtual mem_alloc_error FreeBuffer(buffer_handle_t buf) = 0;
-
-   virtual mem_alloc_error GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) = 0;
-
- private:
-   mem_alloc_device          device_;
-};
-
-#ifdef TARGET_USES_GRALLOC1
-class Gralloc1Allocator : public IMemAllocator {
-  public:
-   Gralloc1Allocator(mem_alloc_device device);
-   ~Gralloc1Allocator() {};
-
-   mem_alloc_error AllocBuffer(buffer_handle_t *buf,
-                               int32_t width,
-                               int32_t height,
-                               int32_t format,
-                               int32_t usage,
-                               uint32_t *stride) override;
-
-   mem_alloc_error FreeBuffer(buffer_handle_t buf) override;
-
-   mem_alloc_error GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) override;
-
-  private:
-   int32_t (*CreateDescriptor)(mem_alloc_device device,
-                               gralloc1_buffer_descriptor_t* pCreatedDescriptor);
-
-   int32_t (*DestroyDescriptor)(mem_alloc_device device,
-                                gralloc1_buffer_descriptor_t descriptor);
-
-   int32_t (*SetDimensions)(mem_alloc_device device,
-                            gralloc1_buffer_descriptor_t descriptor,
-                            uint32_t width, uint32_t height);
-
-   int32_t (*SetFormat)(mem_alloc_device device,
-                        gralloc1_buffer_descriptor_t descriptor,
-                        int32_t format);
-
-   int32_t (*SetProducerUsage)(mem_alloc_device device,
-                               gralloc1_buffer_descriptor_t descriptor,
-                               uint64_t usage);
-
-   int32_t (*SetConsumerUsage)(mem_alloc_device device,
-                               gralloc1_buffer_descriptor_t descriptor,
-                               uint64_t usage);
-
-   int32_t (*Allocate)(mem_alloc_device device, uint32_t numDescriptors,
-                       const gralloc1_buffer_descriptor_t* pDescriptors,
-                       buffer_handle_t* pAllocatedBuffers);
-
-   int32_t (*GetStride)(mem_alloc_device device, buffer_handle_t buffer,
-                        uint32_t* pStride);
-
-   int32_t (*Release)(mem_alloc_device device, buffer_handle_t buffer);
-
-   int32_t (*Lock)(mem_alloc_device device, buffer_handle_t buffer,
-                   uint64_t producerUsage, uint64_t consumerUsage,
-                   const gralloc1_rect_t* accessRegion, void** outData,
-                   int32_t acquireFence);
-
-   int32_t (*UnLock)(mem_alloc_device device, buffer_handle_t buffer,
-                     int32_t* outReleaseFence);
-
-   mem_alloc_error (*Perform)(mem_alloc_device device, int32_t operation, ...);
-};
-#elif TARGET_USES_GBM
-class GbmAllocator : public IMemAllocator {
- public:
-   GbmAllocator(mem_alloc_device device);
-   ~GbmAllocator() {};
-
-   mem_alloc_error AllocBuffer(buffer_handle_t *buf,
-                               int32_t width,
-                               int32_t height,
-                               int32_t format,
-                               int32_t usage,
-                               uint32_t *stride) override;
-
-   mem_alloc_error FreeBuffer(buffer_handle_t buf) override;
-
-   mem_alloc_error GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) override;
-
- private:
-   uint32_t GetUsageFlagInfo(int32_t user_flag);
-
-   uint32_t GetFormatInfo(int32_t user_format);
-};
-#else
-class GrallocAllocator : public IMemAllocator {
- public:
-   GrallocAllocator(mem_alloc_device device);
-   ~GrallocAllocator() {};
-
-   mem_alloc_error AllocBuffer(buffer_handle_t *buf,
-                               int32_t width,
-                               int32_t height,
-                               int32_t format,
-                               int32_t usage,
-                               uint32_t *stride) override;
-
-   mem_alloc_error FreeBuffer(buffer_handle_t buf) override;
-
-   mem_alloc_error GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) override;
-};
-#endif
-
 class Camera3Stream : public camera3_stream {
 
  public:
   Camera3Stream(int id, size_t maxSize,
                 const CameraStreamParameters &outputConfiguration,
-                mem_alloc_device device, Camera3Monitor &monitor);
+                IAllocDevice *device, Camera3Monitor &monitor);
   virtual ~Camera3Stream();
 
   camera3_stream *BeginConfigure();
@@ -218,6 +61,8 @@ class Camera3Stream : public camera3_stream {
 
   int32_t GetBuffer(camera3_stream_buffer *buffer);
   int32_t ReturnBuffer(const StreamBuffer &buffer);
+  std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
+
   void ReturnBufferToClient(const camera3_stream_buffer &buffer,
                             int64_t timestamp, int64_t frame_number);
 
@@ -241,13 +86,13 @@ class Camera3Stream : public camera3_stream {
 
   int32_t EndPrepareLocked();
   int32_t PopulateMetaInfo(CameraBufferMetaData &info,
-                           struct private_handle_t *priv_handle);
+                           IBufferHandle &handle);
 
   /**Not allowed */
   Camera3Stream(const Camera3Stream &);
   Camera3Stream &operator=(const Camera3Stream &);
 
-  IMemAllocator* mem_alloc_interface_;
+  IAllocDevice* mem_alloc_interface_;
 
   uint32_t current_buffer_stride_;
   const int32_t id_;
@@ -270,14 +115,14 @@ class Camera3Stream : public camera3_stream {
   uint32_t pending_buffer_count_;
 
   StreamCallback callbacks_;
-  uint32_t old_usage_, client_usage_;
+  MemAllocFlags old_usage_, client_usage_;
   uint32_t old_max_buffers_, client_max_buffers_;
   pthread_cond_t output_buffer_returned_signal_;
   static const int64_t BUFFER_WAIT_TIMEOUT = 1e9;  // 1 sec.
 
-  KeyedVector<buffer_handle_t, bool> gralloc_buffers_;
-  buffer_handle_t *gralloc_slots_;
-  uint32_t gralloc_buffer_allocated_;
+  KeyedVector<IBufferHandle , bool> mem_alloc_buffers_;
+  IBufferHandle *mem_alloc_slots_;
+  uint32_t hw_buffer_allocated_;
 
   Camera3Monitor &monitor_;
   int32_t monitor_id_;

@@ -7,6 +7,7 @@ lib_LTLIBRARIES = libqmmf_player_client.la
 
 libqmmf_player_client_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_player_client_la_CPPFLAGS += -I$(top_srcdir)/
+libqmmf_player_client_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_player_client_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_player_client_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 

@@ -10394,6 +10394,120 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUVEIS) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+TEST_F(RecorderGtest, SessionWithOverlayPlugin) {
+fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+        test_info_->test_case_name(), test_info_->name());
+
+auto ret = Init();
+ASSERT_TRUE(ret == NO_ERROR);
+
+VideoFormat format_type = VideoFormat::kAVC;
+uint32_t width = 3840;
+uint32_t height = 2160;
+
+ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+ASSERT_TRUE(ret == NO_ERROR);
+
+for (uint32_t i = 1; i <= iteration_count_; i++) {
+  fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+  TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+            test_info_->name(), i);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                          height, 30};
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
+                                   void *event_data,
+                                   size_t event_data_size) -> void {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  CameraMetadata meta;
+  // Enable YUV LCAC
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == ret) {
+    uint8_t enable_lcac = 1;
+    meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.033;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.033;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
+
+    // Enable EIS
+    uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Let session run for record_duration_, during this time buffer with valid
+  // data would be received in track callback (VideoTrackDataCb).
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+  dump_bitstream_.CloseAll();
+}
+ret = recorder_.StopCamera(camera_id_);
+ASSERT_TRUE(ret == NO_ERROR);
+
+ret = DeInit();
+ASSERT_TRUE(ret == NO_ERROR);
+
+fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+        test_info_->test_case_name(), test_info_->name());
+}
+
 /*
 * SessionWith1080pEncTrackWithHazeBuster: This test will test session with
 *        1080p h264 track and post processing. Post processing pipe is

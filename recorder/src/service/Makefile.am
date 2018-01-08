@@ -34,6 +34,7 @@ libqmmf_recorder_service_la_SOURCES = $(source_files)
 
 libqmmf_recorder_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
+libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -DHFR_THRESHOLD=30
 libqmmf_recorder_service_la_CPPFLAGS += -DAEC_WAIT_TIMEOUT=500000000

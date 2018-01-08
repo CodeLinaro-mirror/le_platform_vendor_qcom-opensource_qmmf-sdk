@@ -4,6 +4,7 @@ lib_LTLIBRARIES = libqmmf_common_resizer_fastcv.la
 libqmmf_common_resizer_fastcv_la_SOURCES = qmmf_resizer_fastCV.cc
 
 libqmmf_common_resizer_fastcv_la_CPPFLAGS = -I$(top_srcdir)/include
+libqmmf_common_resizer_fastcv_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_common_resizer_fastcv_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_common_resizer_fastcv_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 

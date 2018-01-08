@@ -22,7 +22,7 @@ endif
 
 LOCAL_SRC_FILES := qmmf_postproc_test.cc
 
-LOCAL_SHARED_LIBRARIES += libcamera_client
+LOCAL_SHARED_LIBRARIES += libcamera_client libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_postproc_test
 
