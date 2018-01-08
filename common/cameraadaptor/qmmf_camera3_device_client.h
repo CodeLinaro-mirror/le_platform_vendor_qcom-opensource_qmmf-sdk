@@ -64,50 +64,6 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
-#ifdef TARGET_USES_GRALLOC1
-  typedef gralloc1_device_t* mem_alloc_device;
-#elif TARGET_USES_GBM
-  typedef gbm_device*        mem_alloc_device;
-#else
-  typedef alloc_device_t*    mem_alloc_device;
-#endif
-
-class IAllocDevice {
- public:
-   virtual ~IAllocDevice() {};
-
-   static IAllocDevice* CreateAllocDevice(hw_module_t const* module);
-
-   mem_alloc_device GetDevice() { return device_; }
-   void SetDevice(mem_alloc_device device) { device_ = device; }
-
- private:
-   mem_alloc_device          device_;
-};
-
-#ifdef TARGET_USES_GRALLOC1
-class Gralloc1Device : public IAllocDevice {
- public:
-   Gralloc1Device(hw_module_t const * module);
-   ~Gralloc1Device();
-};
-#elif TARGET_USES_GBM
-class GbmDevice : public IAllocDevice {
- public:
-   GbmDevice(hw_module_t const * module);
-   ~GbmDevice();
-
- private:
-   int32_t dev_mem_fd_;
-};
-#else
-class GrallocDevice : public IAllocDevice {
- public:
-   GrallocDevice(hw_module_t const * module);
-   ~GrallocDevice();
-};
-#endif
-
 class Camera3DeviceClient : public camera3_callback_ops,
                             public camera_module_callbacks_t,
                             public RefBase {

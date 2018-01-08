@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,11 +28,6 @@
 */
 
 #pragma once
-#ifdef ANDROID_O_OR_ABOVE
-#include <cutils/native_handle.h>
-#else
-#include <system/window.h>
-#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -335,7 +330,7 @@ typedef struct {
   uint8_t *vaddr;
   int32_t fd;
   uint32_t size;
-  buffer_handle_t handle;
+  void *handle;
   void *priv;
 } qmmf_alg_buffer_t;
 

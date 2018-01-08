@@ -9,3 +9,4 @@ libqmmf_utils_la_SOURCES = $(source_files)
 
 libqmmf_utils_la_CPPFLAGS = -I$(top_srcdir)/
 libqmmf_utils_la_CPPFLAGS += -I$(top_srcdir)/include
+libqmmf_utils_la_CPPFLAGS += -I$(top_srcdir)/common/memory

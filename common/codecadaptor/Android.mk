@@ -22,7 +22,7 @@ ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES += src/qmmf_jpeg_encode.cc
 endif
 
-LOCAL_SHARED_LIBRARIES += libqmmf_utils
+LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_memory_interface
 ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
 endif

@@ -23,7 +23,7 @@ LOCAL_SRC_FILES += qmmf_recorder_client_ion.cc
 LOCAL_SRC_FILES += qmmf_recorder_extra_param.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata libcamera_client
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libbinder
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libbinder libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_recorder_client
 

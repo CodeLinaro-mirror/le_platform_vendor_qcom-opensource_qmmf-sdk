@@ -28,6 +28,8 @@ ifneq ($(DISABLE_SYSTEM_SERVICE),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_system_service
 endif
 
+LOCAL_SHARED_LIBRARIES += libqmmf_memory_interface
+
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_service
 endif

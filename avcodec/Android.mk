@@ -18,7 +18,7 @@ LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := src/qmmf_avcodec.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor
+LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_av_codec
 
@@ -34,7 +34,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := test/sample/qmmf_avcodec_test.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils libhardware
+LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils libhardware libqmmf_memory_interface
 
 LOCAL_MODULE = qmmf_av_codec_test
 
@@ -50,7 +50,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := test/gtest/qmmf_avcodec_gtest.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils
+LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils libqmmf_memory_interface
 
 ifeq ($(LOCAL_VENDOR_MODULE),true)
 LOCAL_VENDOR_MODULE := false
@@ -70,7 +70,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := test/sample/qmmf_audio_decode_test.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils
+LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils libqmmf_memory_interface
 
 LOCAL_MODULE = qmmf_av_codec_audio_decode_test
 

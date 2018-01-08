@@ -24,6 +24,7 @@ LOCAL_SRC_FILES := qmmf_postproc_frame_skip.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_client
 LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
+LOCAL_SHARED_LIBRARIES += libcamera_client libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_postproc_frame_skip
 
