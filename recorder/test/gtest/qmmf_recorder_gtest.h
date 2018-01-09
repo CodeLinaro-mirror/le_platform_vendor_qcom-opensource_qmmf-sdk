@@ -368,6 +368,45 @@ class RecorderGtest : public ::testing::Test {
   SurfaceParam          gfx_surface_param_;
   SurfaceBuffer         gfx_surface_buffer_;
   SurfaceConfig         gfx_surface_config_;
+
 #endif
+
+  struct TestEventWait {
+    std::condition_variable signal_;
+    std::mutex mutex_;
+    bool done_;
+    uint32_t cnt_;
+    uint32_t wait_sec_;
+
+    TestEventWait() : signal_(), mutex_(), done_(false), cnt_(1), wait_sec_(2) {
+    }
+
+    void Done() {
+          std::unique_lock<std::mutex> lock(mutex_);
+          if (!(--cnt_)) {
+            done_ = true;
+            signal_.notify_one();
+         }
+    }
+
+    void Reset(const uint32_t cnt) {
+      std::unique_lock<std::mutex> lock(mutex_);
+      done_ = false;
+      cnt_ = cnt;
+    }
+
+    status_t Wait() {
+      std::unique_lock<std::mutex> lock(mutex_);
+      while (!done_) {
+        auto status = signal_.wait_for(lock,
+                                       std::chrono::seconds(wait_sec_ * cnt_));
+        if (status != std::cv_status::no_timeout) {
+          return TIMED_OUT;
+        }
+      }
+      return NO_ERROR;
+    }
+  } test_wait_;
+
 };
 
