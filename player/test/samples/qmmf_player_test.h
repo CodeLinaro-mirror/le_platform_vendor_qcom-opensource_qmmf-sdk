@@ -132,6 +132,7 @@ class PlayerTest {
   static void VideoThreadEntry(PlayerTest* player_test);
   void VideoThread();
 
+#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(display::DisplayEventType event_type,
                               void *event_data, size_t event_data_size);
   void DisplayVSyncHandler(int64_t time_stamp);
@@ -141,6 +142,7 @@ class PlayerTest {
   int32_t QueueSurfaceBuffer();
   static void DisplayThreadEntry(PlayerTest* player_test);
   void DisplayThread();
+#endif
 
   Player player_;
 
@@ -175,16 +177,19 @@ class PlayerTest {
   bool                            trick_mode_enabled_;
   uint64_t                        current_playback_time_;
   bool                            enable_gfx_;
+  bool                            display_started_;
+  uint32_t                        gfx_plane_update_rate_;
+  uint32_t                        gfx_plane_frame_count_;
+  bool                            push_gfx_content_to_display_;
+
+#ifndef DISABLE_DISPLAY
   std::thread*                    display_thread_;
   display::Display*               display_;
   uint32_t                        surface_id_;
   display::SurfaceParam           surface_param_;
   display::SurfaceBuffer          surface_buffer_;
-  bool                            display_started_;
   std::ifstream                   gfx_frame_;
-  uint32_t                        gfx_plane_update_rate_;
-  uint32_t                        gfx_plane_frame_count_;
-  bool                            push_gfx_content_to_display_;
+#endif
 
   PlayerTest();
 };

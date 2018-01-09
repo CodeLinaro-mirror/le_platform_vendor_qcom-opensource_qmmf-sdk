@@ -503,6 +503,7 @@ void PlayerTest::Start() {
     assert(video_thread_ != nullptr);
   }
 
+#ifndef DISABLE_DISPLAY
   if (enable_gfx_) {
     push_gfx_content_to_display_ = true;
     if (display_started_ == false) {
@@ -512,6 +513,7 @@ void PlayerTest::Start() {
       }
     }
   }
+#endif
 
   TEST_INFO("%s: Exit", __func__);
 }
@@ -942,12 +944,14 @@ void PlayerTest::Delete() {
   TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
+#ifndef DISABLE_DISPLAY
   if (enable_gfx_ && (display_started_ == true)) {
     auto ret = StopDisplay(DisplayType::kPrimary);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: StopDisplay failed: %d!!", __func__, ret);
     }
   }
+#endif
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
@@ -1231,6 +1235,7 @@ ERROR_BAIL:
   return eErr;
 }
 
+#ifndef DISABLE_DISPLAY
 void PlayerTest::DisplayCallbackHandler(DisplayEventType event_type,
                                         void* event_data,
                                         size_t event_data_size) {}
@@ -1425,6 +1430,7 @@ void PlayerTest::DisplayThread() {
    }
   }
 }
+#endif
 
 void CmdMenu::HelpMenu(const char * test_name){
   printf("\n Player Test Usage:\n");
