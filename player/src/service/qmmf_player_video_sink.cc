@@ -836,7 +836,6 @@ status_t VideoTrackSink::CreateDisplay(
   surface_config_.buffer_count = track_param.params.num_buffers;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
-  surface_config_.context = 1;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s CreateSurface Failed!!", __func__);
@@ -944,7 +943,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     lock_guard<mutex> lock(grab_picture_lock);
 
     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
-    surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
+    surface_buffer_.buf_id = codec_buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config_.width, 128);
     surface_buffer_.plane_info[0].size = codec_buffer.size;

@@ -143,11 +143,17 @@ AC_ARG_WITH([openmax],
          [Specify the location of OpenMAX headers]),
       [openmax_incdir=$withval])
 
+AC_ARG_WITH([displaysync],
+      AC_HELP_STRING([with-displaysync=@<:@dir@:>@],
+         [Specify the location of Display Sync headers]),
+      [displaysync_incdir=$withval])
+
 AC_SUBST([CAMERASTACKCOMMON_CFLAGS], "${camcommon_incdir}")
 AC_SUBST([CAMERAINTERFACE_CFLAGS], "${camiface_incdir}")
 AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
 AC_SUBST([OMXCORE_CFLAGS], "${omxcore_incdir}")
 AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
+AC_SUBST([DISPLAYSYNC_CFLAGS], "${displaysync_incdir}")
 
 AC_SUBST([CFLAGS])
 AC_SUBST([CPPFLAGS])

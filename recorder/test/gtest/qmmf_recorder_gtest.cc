@@ -17203,7 +17203,6 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
   surface_config_.buffer_count = 1;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
-  surface_config_.context = 0;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   assert(res == 0);
 
@@ -17291,7 +17290,7 @@ status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
   if (display_started_) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.size;
@@ -17320,7 +17319,7 @@ int32_t RecorderGtest::DequeueGfxSurfaceBuffer() {
   TEST_DBG("%s: Enter", __func__);
   auto ret = 0;
 
-  memset(&surface_buffer_, 0x0, sizeof surface_buffer_);
+  memset(&gfx_surface_buffer_, 0x0, sizeof gfx_surface_buffer_);
 
   gfx_surface_buffer_.format = SurfaceFormat::kFormatBGRA8888;
   gfx_surface_buffer_.acquire_fence = 0;
@@ -17361,7 +17360,7 @@ int32_t RecorderGtest::QueueGfxSurfaceBuffer() {
   gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
   gfx_surface_param_.surface_flags.cursor = 0;
   gfx_surface_param_.frame_rate = 30;
-  gfx_surface_param_.z_order = 0;
+  gfx_surface_param_.z_order = 1;
   gfx_surface_param_.solid_fill_color = 0;
 
   auto ret = display_->QueueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_,

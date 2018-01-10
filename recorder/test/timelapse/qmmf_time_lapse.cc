@@ -405,7 +405,6 @@ status_t TimeLapse::StartDisplay(DisplayType display_type) {
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
-  surface_config.context = 0;
   res = display_->CreateSurface(surface_config, &surface_id_);
   assert(res == 0);
 
@@ -457,7 +456,7 @@ status_t TimeLapse::PushFrameToDisplay(BufferDescriptor& buffer,
   if (display_started_ == 1) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.size;
