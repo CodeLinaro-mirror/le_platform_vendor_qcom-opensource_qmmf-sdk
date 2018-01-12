@@ -2077,8 +2077,13 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.format = stream_param.format;
   out_param.frame_rate = frame_rate;
   out_param.gralloc_flags = stream_param.grallocFlags;
-  out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
-  out_param.max_internal_buffers = 0; // unlimited
+  if (snapshot_type_ == SnapshotMode::kContinuous) {
+    out_param.buffer_count = 1;
+    out_param.max_internal_buffers = 1;
+  } else {
+    out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
+    out_param.max_internal_buffers = REPROC_STREAM_BUFFER_COUNT;
+  }
   out_param.frame_skip = postproc_frame_skip_;
   out_param.exif_en = exif_en_;
 
