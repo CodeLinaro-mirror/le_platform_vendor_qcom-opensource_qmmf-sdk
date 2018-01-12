@@ -3103,6 +3103,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       }
 
       // Lock AE
+
       CameraMetadata video_meta;
       ret = recorder_.GetCameraParam(camera_id_, video_meta);
       assert(ret == NO_ERROR);
@@ -4607,6 +4608,14 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_/2);
+
+    uint32_t jpeg_quality = 50;
+    ret = recorder_.SetVideoTrackParam(session_id, video_track_id_mjpeg,
+                                       CodecParamType::kJPEGQuality,
+                                       &jpeg_quality, sizeof(jpeg_quality));
     assert(ret == NO_ERROR);
 
     sleep(record_duration_);

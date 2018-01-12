@@ -98,10 +98,9 @@ class JPEGEncoder : public IAVCodec {
 
   static void* JpegEncodeThread(void* arg);
 
-  status_t Encode(const snapshot_info& in_buffer, size_t& jpeg_size,
-                  const uint32_t quality);
+  status_t Encode(const snapshot_info& in_buffer, size_t& jpeg_size);
 
-  void FillImgData(const snapshot_info& in_buffer, uint32_t quality);
+  void FillImgData(const snapshot_info& in_buffer);
 
   std::shared_ptr<ICodecSource>& getInputBufferSource() {
     return input_source_;
@@ -134,11 +133,12 @@ class JPEGEncoder : public IAVCodec {
   void* cfg_;
   size_t job_result_size_;
 
-  uint32_t jpeg_quality_;
-  uint32_t thumbnail_width_;
-  uint32_t thumbnail_height_;
-  uint32_t thumbnail_quality_;
-  bool enable_thumbnail_;
+  uint32_t    jpeg_quality_;
+  uint32_t    thumbnail_width_;
+  uint32_t    thumbnail_height_;
+  uint32_t    thumbnail_quality_;
+  bool        enable_thumbnail_;
+  std::mutex  param_lock_;
 
   static uint8_t kDefautlQTable0[];
   static uint8_t kDefautlQTable1[];
