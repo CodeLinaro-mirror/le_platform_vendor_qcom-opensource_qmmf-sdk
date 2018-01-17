@@ -1687,8 +1687,6 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
 
   switch (format) {
     case ImageFormat::kJPEG:
-      //TODO: ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available
-      // in static meta.
       supported = Common::ValidateResFromJpegSizes(static_meta_,
                                                    width,
                                                    height);
@@ -1698,7 +1696,7 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
                                                        width,
                                                        height);
       break;
-	case ImageFormat::kBayerRDI8BIT:
+    case ImageFormat::kBayerRDI8BIT:
     case ImageFormat::kBayerRDI10BIT:
     case ImageFormat::kBayerRDI12BIT:
       supported = Common::ValidateResFromRawSizes(static_meta_,

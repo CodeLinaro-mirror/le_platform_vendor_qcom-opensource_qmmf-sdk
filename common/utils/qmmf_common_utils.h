@@ -194,10 +194,10 @@ class Common {
                 && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
               is_supported = true;
               break;
-           }
-         }
-       }
-     }
+            }
+          }
+        }
+      }
     } else {
       QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
                  " not available", __func__);
@@ -242,8 +242,11 @@ class Common {
 
   /** ValidateResFromJpegSizes
    *
-   * Validates whether input resolution is available in
-   * jpeg sizes.
+   * Validates whether input resolution is available in jpeg sizes.
+   * Since ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available
+   * in static meta, jpeg size needs to be validated from available
+   * stream configuration, by filtering the resolutions with
+   * HAL_PIXEL_FORMAT_BLOB.
    *
    * return: true if available
    **/
@@ -251,24 +254,25 @@ class Common {
                                        const uint32_t width,
                                        const uint32_t height) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
-    is_supported = ValidateResFromStreamConfigs(meta, width, height);
-#else
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_JPEG_SIZES)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_JPEG_SIZES);
-      for (uint32_t i = 0 ; i < entry.count; i += 2) {
-        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
-          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
-          is_supported = true;
-          break;
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
         }
       }
     } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_JPEG_SIZES"
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
                  " not available", __func__);
       return false;
     }
-#endif
     return is_supported;
   }
 
@@ -296,7 +300,7 @@ class Common {
         }
       }
     } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_JPEG_SIZES"
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_RAW_SIZES"
                  " not available", __func__);
       return false;
     }
