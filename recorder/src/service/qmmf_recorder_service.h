@@ -226,19 +226,21 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   void ClientDeathHandler(const uint32_t client_id);
 
-  bool IsClientValid(const uint32_t client_id);
+  bool IsRecorderInitialized();
 
   status_t DisconnectInternal(const uint32_t client_id);
 
   status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
 
-  RecorderImpl*       recorder_;
+  std::unique_ptr<RecorderImpl>           recorder_;
+
   // Map of client ids and their death notifiers.
-  std::map<uint32_t, sp<DeathNotifier> > death_notifier_list_;
+  std::map<uint32_t, sp<DeathNotifier> >  death_notifier_list_;
   // Map of client ids and their callback handlers.
   std::map<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
-  uint32_t    unique_client_id_;
-  std::mutex  lock_;
+
+  uint32_t                     unique_client_id_;
+  std::mutex                   lock_;
 };
 
 }; //namespace qmmf
