@@ -145,6 +145,7 @@ class CameraHalReproc : public IPostProcModule {
    std::mutex                   abort_lock_;
    std::shared_ptr<void>        abort_;
    bool                         frame_processing_;
+   bool                         mipi_raw_;
 
    Camera3Request               reprocess_request_;
 

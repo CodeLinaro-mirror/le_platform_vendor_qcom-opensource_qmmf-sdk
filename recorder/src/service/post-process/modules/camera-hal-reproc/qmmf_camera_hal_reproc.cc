@@ -46,6 +46,12 @@ CameraHalReproc::CameraHalReproc(IPostProc* context)
       frame_processing_(false) {
   QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.postproc.mipi_raw", prop_val, "1");
+  mipi_raw_ = (0 == atoi(prop_val)) ? false : true;
+  QMMF_VERBOSE("%s: mipi_raw_ %d", __func__, mipi_raw_);
+
   state_ = PostProcHalState::CREATED;
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -149,7 +155,11 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   case BufferFormat::kNV12:
   case BufferFormat::kNV12UBWC:
   case BufferFormat::kNV21:
-    input_param.format = BufferFormat::kRAW16;
+    if (mipi_raw_) {
+      input_param.format = BufferFormat::kRAW10;
+    } else {
+      input_param.format = BufferFormat::kRAW16;
+    }
     break;
   default:
     QMMF_ERROR("%s: Error: output format %d is not supported\n",
