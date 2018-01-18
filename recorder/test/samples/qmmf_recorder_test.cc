@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -5612,7 +5612,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.in_devices_num = 0;
     audio_track_params.in_devices[audio_track_params.in_devices_num++] =
         track_info.device_id;
-    audio_track_params.sample_rate = 16000;
+    audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
     audio_track_params.flags       = 0;
@@ -5625,6 +5625,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         audio_track_params.format = AudioFormat::kPCM;
         ::std::string("record_fluence").copy(audio_track_params.profile,
                       strlen("record_fluence"));
+        audio_track_params.sample_rate = 16000;
         break;
       case TrackType::kAudioAAC:
         audio_track_params.format = AudioFormat::kAAC;
