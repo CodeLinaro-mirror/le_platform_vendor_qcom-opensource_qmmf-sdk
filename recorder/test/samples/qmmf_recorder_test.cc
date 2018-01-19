@@ -75,11 +75,11 @@ static const char* kDefaultHistogramStatsFilename =
 static const char* kDefaultAECAWBStatsFilename =
     "/data/AEC_AWB_stats.txt";
 
-const char kAutoModeArgs[] = {
-    AutoModeOptions::kWidth, ':',
-    AutoModeOptions::kHeight, ':',
-    AutoModeOptions::kFps, ':',
-    AutoModeOptions::kTrackType, ':',
+const char kAutoOrWarmBootModeArgs[] = {
+    AutoOrWarmBootModeOptions::kWidth, ':',
+    AutoOrWarmBootModeOptions::kHeight, ':',
+    AutoOrWarmBootModeOptions::kFps, ':',
+    AutoOrWarmBootModeOptions::kTrackType, ':',
     '\n'
 };
 
@@ -4898,9 +4898,8 @@ READ_FAILED:
   return -1;
 }
 
-int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
-                                          char *argv[],
-                                          VideoTrackCreateParam *track_param) {
+int32_t RecorderTest::ParseAutoOrWarmBootModeParams(int32_t argc,
+                                          char *argv[], TrackInfo& track_info) {
   ALOGD("%s: Enter ",__func__);
 
   if (argc != 10) {
@@ -4909,37 +4908,37 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
 
   int32_t val, opt;
   optind = 2;
-  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
+  while ((opt = getopt(argc, argv, kAutoOrWarmBootModeArgs)) != -1) {
     switch (opt) {
-      case AutoModeOptions::kWidth:
+      case AutoOrWarmBootModeOptions::kWidth:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid width = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->width = val;
+        track_info.width = val;
         break;
-      case AutoModeOptions::kHeight:
+      case AutoOrWarmBootModeOptions::kHeight:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid height = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->height = val;
+        track_info.height = val;
         break;
-      case AutoModeOptions::kFps:
+      case AutoOrWarmBootModeOptions::kFps:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid FPS = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->frame_rate = val;
+        track_info.fps = val;
         break;
-      case AutoModeOptions::kTrackType:
+      case AutoOrWarmBootModeOptions::kTrackType:
         if (!strcmp(optarg, "AVC")) {
-          track_param->format_type = VideoFormat::kAVC;
+          track_info.track_type = TrackType::kVideoAVC;
         } else if (!strcmp(optarg, "HEVC")) {
-          track_param->format_type = VideoFormat::kHEVC;
+          track_info.track_type = TrackType::kVideoHEVC;
         } else {
           TEST_ERROR("%s: Invalid TrackType = %s", __func__, optarg);
           return -EINVAL;
@@ -4949,96 +4948,9 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
         return -EINVAL;
     }
   }
-
-  track_param->camera_id   = camera_id_;
-  track_param->codec_param.avc.idr_interval = 1;
-  track_param->codec_param.avc.bitrate      = 10000000;
-  track_param->codec_param.avc.profile = AVCProfileType::kHigh;
-  track_param->codec_param.avc.level   = AVCLevelType::kLevel3;
-  track_param->codec_param.avc.ratecontrol_type =
-      VideoRateControlType::kMaxBitrate;
-  track_param->codec_param.avc.qp_params.enable_init_qp = true;
-  track_param->codec_param.avc.qp_params.init_qp.init_IQP = 27;
-  track_param->codec_param.avc.qp_params.init_qp.init_PQP = 28;
-  track_param->codec_param.avc.qp_params.init_qp.init_BQP = 28;
-  track_param->codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-  track_param->codec_param.avc.qp_params.enable_qp_range = true;
-  track_param->codec_param.avc.qp_params.qp_range.min_QP = 10;
-  track_param->codec_param.avc.qp_params.qp_range.max_QP = 51;
-  track_param->codec_param.avc.qp_params.enable_qp_IBP_range = true;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-  track_param->codec_param.avc.ltr_count = 4;
-  track_param->codec_param.avc.insert_aud_delimiter = true;
 
   return 0;
   ALOGD("%s: Exit ",__func__);
-}
-
-int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
-                                              TrackInfo *track_info) {
-  TEST_INFO("%s: Enter ", __func__);
-
-  if (argc != 10) {
-    return -EINVAL;
-  }
-
-  int32_t val, opt;
-  optind = 2;
-  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
-    switch (opt) {
-      case AutoModeOptions::kWidth:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid width = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->width = val;
-      }
-      break;
-      case AutoModeOptions::kHeight:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid height = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->height = val;
-      }
-      break;
-      case AutoModeOptions::kFps:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid FPS = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->fps = val;
-      }
-      break;
-      case AutoModeOptions::kTrackType:
-      {
-        if (!strcmp(optarg, "AVC")) {
-          track_info->track_type = TrackType::kVideoAVC;
-        } else if (!strcmp(optarg, "HEVC")) {
-          track_info->track_type = TrackType::kVideoHEVC;
-        } else {
-          TEST_ERROR("%s: Invalid TrackType = %s", __func__, optarg);
-          return -EINVAL;
-        }
-      }
-      break;
-      default:
-        return -EINVAL;
-    }
-  }
-  TEST_INFO("%s: Exit ", __func__);
-  return 0;
 }
 
 int32_t RecorderTest::StartRecording(
@@ -5176,7 +5088,7 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
   TrackInfo track_info;
 
   if (argc > 2) {
-    ret = ParseWarmBootTestParams(argc, argv, &track_info);
+    ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
     if (ret != 0) {
       TEST_ERROR(
           "%s:Usage: recorder_test testwarmboot -w <width> -h <height>"
@@ -5270,26 +5182,33 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
   TrackCb video_track_cb;
   SessionCb session_status_cb;
   uint32_t session_id;
-  VideoTrackCreateParam video_track_param{};
+  TrackInfo track_info;
 
-  auto ret = ParseAutoModeParams(argc, argv, &video_track_param);
+  auto ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
   if (ret != 0) {
     TEST_ERROR("%s:Usage: recorder_test --auto -w <width> -h <height>"
                " -f <fps> -t <AVC/HEVC>",  __func__);
-    goto exit;
+    return ret;
   }
 
   ret = Connect();
   if (NO_ERROR  != ret) {
     ALOGE("%s Connect Failed!!", __func__);
-    goto exit;
+    return ret;
   }
+
+  VideoFormat videoformat = (track_info.track_type == TrackType::kVideoAVC)
+                                ? VideoFormat::kAVC
+                                : VideoFormat::kHEVC;
+  VideoTrackCreateParam video_track_param{camera_id_, videoformat,
+                                          track_info.width, track_info.height,
+                                          track_info.fps};
 
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = video_track_param.frame_rate;
+  camera_params.frame_rate          = track_info.fps;
   camera_params.flags               = 0x0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
@@ -5362,7 +5281,6 @@ disconnect:
     ALOGE("%s Disconnect Failed!!", __func__);
   }
 
-exit:
   ALOGD("%s: Exit ",__func__);
   return ret;
 }

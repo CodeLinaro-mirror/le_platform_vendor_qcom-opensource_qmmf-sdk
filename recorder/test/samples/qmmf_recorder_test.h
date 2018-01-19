@@ -298,7 +298,7 @@ enum class TNRTuningCmd {
   kMotionDetectionSensitivity  = '2'
 };
 
-enum AutoModeOptions : char {
+enum AutoOrWarmBootModeOptions : char {
   kWidth      = 'w',
   kHeight     = 'h',
   kFps        = 'f',
@@ -548,8 +548,8 @@ class RecorderTest {
   }
 
   // Auto Mode
-  int32_t ParseAutoModeParams(int32_t argc, char *argv[],
-                              VideoTrackCreateParam *track_param);
+  int32_t ParseAutoOrWarmBootModeParams(int32_t argc, char *argv[],
+                              TrackInfo& track_info);
 
   int32_t RunAutoMode(int32_t argc, char* argv[]);
 
@@ -604,8 +604,6 @@ class RecorderTest {
   int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
   void InitSupportedVideoStabilizationModes();
 
-  int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
-                                  TrackInfo* track_info);
   int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
   int32_t StopRecording();
 
