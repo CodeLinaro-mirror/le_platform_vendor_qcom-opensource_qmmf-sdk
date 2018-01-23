@@ -3087,7 +3087,6 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
       native_handle = reinterpret_cast<buffer_handle_t>(stream_buffer.data);
       assert(native_handle != nullptr);
-      assert(native_handle->data[0] != 0);
     }
 
     buf_header = avcodec->GetInputBufferHdr(stream_buffer);
@@ -3234,9 +3233,18 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
 
     header = *free_input_buffhdr_list_.Begin();
     encoder_media_buffer_type* media_buffer =
-        (encoder_media_buffer_type*)header->pBuffer;
+        reinterpret_cast<encoder_media_buffer_type*>(header->pBuffer);
+    media_buffer->buffer_type =
+        MetadataBufferType::kMetadataBufferTypeGrallocSource;
     media_buffer->meta_handle =
         reinterpret_cast<buffer_handle_t>(buffer.data);
+
+    private_handle_t *handle = reinterpret_cast<private_handle_t *>(buffer.data);
+    QMMF_VERBOSE("%s fd = %d offset = %u size = %u width = %d height = %d "
+        "unaligned_width = %d unaligned_height = %d", __func__,
+        handle->fd, handle->offset, handle->size, handle->width, handle->height,
+        handle->unaligned_width, handle->unaligned_height);
+
     used_input_buffhdr_list_.PushBack(header);
     free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());
     QMMF_VERBOSE("%s free_input_buffhdr_list_.Size = %d", __func__,
