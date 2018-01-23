@@ -54,6 +54,7 @@ struct PipeIOParam {
   uint32_t buffer_count;
   uint32_t max_internal_buffers;
   bool frame_skip;
+  bool exif_en;
 };
 
 enum class PostProcPipeState {

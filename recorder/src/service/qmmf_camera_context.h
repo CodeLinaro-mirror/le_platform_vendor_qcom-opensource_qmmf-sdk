@@ -325,6 +325,7 @@ class CameraContext : public CameraInterface,
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
   bool                          postproc_frame_skip_;
+  bool                          exif_en_;
 };
 
 enum class CameraPortType {

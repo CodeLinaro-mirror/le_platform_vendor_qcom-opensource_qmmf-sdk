@@ -69,6 +69,13 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
                                   PipeIOParam &pipe_in_param) {
   std::shared_ptr<PostProcNode> node;
 
+  if (!pipe_out_param.exif_en && use_hal_jpeg_) {
+    QMMF_INFO("%s: Unsuported configuration exif_en = false and use_hal_jpeg_",
+        __func__);
+    // use qmmf jpeg encoder
+    use_hal_jpeg_ = false;
+  }
+
   // Add frame skip module at the begin of pipe
   if (pipe_out_param.frame_skip) {
     node = factory_->GetProcNode("FrameSkip");

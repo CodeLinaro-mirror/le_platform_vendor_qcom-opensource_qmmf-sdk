@@ -79,7 +79,8 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
-      postproc_frame_skip_(false) {
+      postproc_frame_skip_(false),
+      exif_en_(true) {
   camera_start_params_ = {};
 }
 
@@ -494,7 +495,8 @@ int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
 bool CameraContext::IsPostProcNeeded(const ImageParam &param,
                                      const uint32_t sequence_cnt) {
   if (((sequence_cnt > 1) && (param.image_format == ImageFormat::kJPEG)) ||
-      !capture_plugins_.empty()) {
+      !capture_plugins_.empty() ||
+      (!exif_en_ && (param.image_format == ImageFormat::kJPEG))) {
     return true;
   } else {
     return false;
@@ -769,6 +771,12 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     PostprocFrameSkip frame_skip;
     config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
     postproc_frame_skip_ = frame_skip.frame_skip > 0 ? true : false;
+  }
+
+  if (config.Exists(QMMF_EXIF)) {
+    ImageExif exif;
+    config.Fetch(QMMF_EXIF, exif, 0);
+    exif_en_ = exif.enable;
   }
 
   return NO_ERROR;
@@ -2074,6 +2082,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
   out_param.max_internal_buffers = 0; // unlimited
   out_param.frame_skip = postproc_frame_skip_;
+  out_param.exif_en = exif_en_;
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);
