@@ -328,7 +328,7 @@ class CameraContext : public CameraInterface,
   std::vector<ImageThumbnail>   thumbnails_;
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
-  bool                          postproc_frame_skip_;
+  uint32_t                      postproc_frame_skip_;
   bool                          exif_en_;
 };
 
