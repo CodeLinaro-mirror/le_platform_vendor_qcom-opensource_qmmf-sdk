@@ -174,7 +174,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
       assert(ret == NO_ERROR);
     }
 
-    ret = PostProcCreatePipeAndUpdateStreams(stream_param, param.image_quality,
+    ret = PostProcCreatePipeAndUpdateStreams(stream_param,
                             camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
   }
@@ -2059,19 +2059,17 @@ status_t CameraContext::PostProcDelete() {
 
 status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
                                         CameraStreamParameters& stream_param,
-                                        uint32_t image_quality,
                                         uint32_t frame_rate,
                                         const std::vector<uint32_t> &plugins) {
 
   postproc_pipe_ = std::make_shared<PostProcPipe>(this);
   assert(postproc_pipe_.get() != nullptr);
 
-  PipeIOParam out_param;
+  PipeIOParam out_param{};
   out_param.width = stream_param.width;
   out_param.height = stream_param.height;
   out_param.format = stream_param.format;
   out_param.frame_rate = frame_rate;
-  out_param.image_quality = image_quality;
   out_param.gralloc_flags = stream_param.grallocFlags;
   out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
   out_param.max_internal_buffers = 0; // unlimited
@@ -2186,12 +2184,11 @@ status_t CameraPort::Init() {
     postproc_pipe_ = std::make_shared<PostProcPipe>(context_);
     assert(postproc_pipe_.get() != nullptr);
 
-    PipeIOParam out_param;
+    PipeIOParam out_param{};
     out_param.width = cam_stream_params_.width;
     out_param.height = cam_stream_params_.height;
     out_param.format = cam_stream_params_.format;
     out_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
-    out_param.image_quality = 100;
     out_param.gralloc_flags = cam_stream_params_.grallocFlags;
     out_param.buffer_count = cam_stream_params_.bufferCount;
 

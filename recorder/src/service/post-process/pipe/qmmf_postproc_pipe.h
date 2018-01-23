@@ -50,7 +50,6 @@ struct PipeIOParam {
   uint32_t scanline;
   uint32_t frame_rate;
   int32_t format;
-  uint32_t image_quality;
   int32_t gralloc_flags;
   uint32_t buffer_count;
   uint32_t max_internal_buffers;
