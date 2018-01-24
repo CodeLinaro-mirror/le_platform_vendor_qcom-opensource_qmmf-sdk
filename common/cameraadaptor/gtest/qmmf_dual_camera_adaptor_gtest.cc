@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -205,8 +205,11 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
     request.streamIds.add(ret);
     /* during multi camera we need to use Raw only mode to avoid
      * allocating unneeded resources */
-    bool isRawOnly = (format == HAL_PIXEL_FORMAT_RAW10);
-    ret = ctx.device->EndConfigure(false, isRawOnly);
+    bool is_raw_only = (format == HAL_PIXEL_FORMAT_RAW10);
+    StreamConfiguration stream_config = StreamConfiguration();
+    stream_config.is_raw_only = is_raw_only;
+
+    ret = ctx.device->EndConfigure(stream_config);
     if (0 != ret) {
       printf("%s: Unable to complete camera configuration: %d %s\n", __func__,
              ret, strerror(-ret));

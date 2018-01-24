@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -190,6 +190,10 @@ class CameraContext : public CameraInterface,
 
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
+
+#ifdef USE_FPS_IDX
+  uint32_t GetSensorModeIndex(uint32_t frame_rate);
+#endif
 
   void InitHFRModes();
 

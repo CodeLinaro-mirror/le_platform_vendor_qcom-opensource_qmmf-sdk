@@ -44,6 +44,7 @@ libqmmf_recorder_service_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
 if ENABLE_360
 libqmmf_recorder_service_la_CPPFLAGS += -DENABLE_360
 endif
+libqmmf_recorder_service_la_CPPFLAGS += -DHFR_THRESHOLD=30
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata

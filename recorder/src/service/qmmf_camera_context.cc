@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -49,9 +49,13 @@ namespace qmmf {
 namespace recorder {
 
 //Framerate after which we need to run in constrained mode.
+#ifndef HFR_THRESHOLD
 float CameraContext::kConstrainedModeThreshold = 30.0f;
-//Framerate at which batch requests are needed.
+#else
+float CameraContext::kConstrainedModeThreshold = HFR_THRESHOLD;
+#endif
 
+//Framerate at which batch requests are needed.
 #ifdef _DRONE_
 float CameraContext::kHFRBatchModeThreshold = 90.0f;
 #else
@@ -928,6 +932,19 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
     return BAD_VALUE;
   }
 
+  if (extra_param.Exists(QMMF_VIDEO_HDR_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_VIDEO_HDR_MODE);
+
+    for (size_t i = 0; i < entry_count; ++i) {
+      VideoHDRMode vid_hdr_mode;
+      extra_param.Fetch(QMMF_VIDEO_HDR_MODE, vid_hdr_mode, i);
+      if (vid_hdr_mode.enable == true) {
+        QMMF_INFO("%s: HDR is ON..", __func__);
+        (const_cast<CameraStreamParam&>(param).is_zzhdr_enabled) = true;
+      }
+    }
+  }
+
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
@@ -1250,15 +1267,34 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
         is_constrained_mode = true;
       }
     }
+
     QMMF_VERBOSE("%s: is_constrained_mode(%d)", __func__,
         is_constrained_mode);
 
 
-
+    uint32_t fps_sensormode_index = 0;
+#ifdef USE_FPS_IDX
+    // For 60-90 fps are overlap fps i.e HFR in 8053 where normal in RD. Hence
+    // overlap fps in 8053 set OpMode 0x1 whereas in RD as index of sensor
+    // mode table
+    if ((60 <=  frame_rate &&  frame_rate <= 90 )) {
+      fps_sensormode_index = GetSensorModeIndex(frame_rate);
+      QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
+                fps_sensormode_index, frame_rate);
+    }
+#endif
 
     auto is_raw_only = IsRawOnly(params.format);
-    ret = camera_device_->EndConfigure(is_constrained_mode, is_raw_only,
-                                       batch_size_, params.is_pp_enabled);
+
+    StreamConfiguration stream_config{};
+    stream_config.is_constrained_high_speed = is_constrained_mode;
+    stream_config.is_raw_only = is_raw_only;
+    stream_config.batch_size = batch_size_;
+    stream_config.fps_sensormode_index = fps_sensormode_index;
+    stream_config.params = &params;
+
+    ret = camera_device_->EndConfigure(stream_config);
+
     assert(ret == NO_ERROR);
   }
 
@@ -1271,6 +1307,46 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   QMMF_VERBOSE("%s: Exit", __func__);
   return ret;
 }
+
+#ifdef USE_FPS_IDX
+// This take frame rate as argument and return index of 60fps sensor mode
+uint32_t CameraContext::GetSensorModeIndex(uint32_t frame_rate) {
+  String8 tag_name("SensorModeTable");
+  String8 section_name("org.quic.camera2.sensormode.info");
+  uint32_t sensor_mode_table_tagid;
+  sp<VendorTagDescriptor> vendor_tag_desc =
+      VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  if (nullptr == vendor_tag_desc.get()) {
+    return 0;
+  }
+
+  status_t result = vendor_tag_desc->lookupTag(tag_name, section_name,
+                                               &sensor_mode_table_tagid);
+  if (result != 0) {
+    return 0;
+  }
+  if (static_meta_.exists(sensor_mode_table_tagid)) {
+    camera_metadata_entry_t entry = static_meta_.find(sensor_mode_table_tagid);
+    int32_t num_rows = entry.data.i32[0];
+    int32_t data_len = entry.data.i32[1];
+    int32_t index = 1;
+    int32_t width, height, fps;
+    for (int i =0; i < num_rows*data_len ; i += data_len) {
+      width = entry.data.i32[i+2];
+      height = entry.data.i32[i+3];
+      fps = entry.data.i32[i+4];
+      if (frame_rate <= static_cast<uint32_t>(fps) &&
+        ((fps - frame_rate) < 30)) {
+        QMMF_INFO("%s: SELECTED SENSOR MODE WIDTH:%d HEIGHT:%d FPS:%d",
+                  __func__, width, height, fps);
+        return index;
+      }
+      index++;
+    }
+  }
+  return 0;
+}
+#endif
 
 status_t CameraContext::CreateDeviceInputStream(
     CameraInputStreamParameters& params, int32_t* stream_id) {
@@ -2219,6 +2295,7 @@ status_t CameraPort::Init() {
     cam_stream_params_.width  = in_param.width;
     cam_stream_params_.height = in_param.height;
   }
+  cam_stream_params_.is_zzhdr_enabled = params_.is_zzhdr_enabled;
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
