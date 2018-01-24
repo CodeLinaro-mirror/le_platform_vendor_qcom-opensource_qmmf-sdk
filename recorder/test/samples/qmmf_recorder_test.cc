@@ -104,6 +104,9 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s: Enter", __func__);
   static_info_.clear();
   use_display = 0;
+#ifdef ANDROID_O_OR_ABOVE
+  vendor_tag_desc_ = nullptr;
+#endif
   TEST_KPI_GET_MASK();
   TEST_INFO("%s: Exit kpi_debug_mask=%d", __func__, kpi_debug_mask);
 
@@ -245,6 +248,72 @@ status_t RecorderTest::RemovePreviewTrack() {
   return ret;
 }
 
+#ifdef ANDROID_O_OR_ABOVE
+/**
+ * This function can be called only after StartCamera. It tries to fetch
+ * tag_id, on success, returns true and fills vendor tag_id. On failure,
+ * returns false.
+ */
+bool RecorderTest::VendorTagSupported(const String8& name,
+                                      const String8& section,
+                                      uint32_t* tag_id) {
+  TEST_DBG("%s: Enter", __func__);
+  bool is_available = false;
+  status_t result = 0;
+
+  if (nullptr == tag_id) {
+    TEST_ERROR("%s: tag_id is not allocated, returning", __func__);
+    return false;
+  }
+
+  if (nullptr == vendor_tag_desc_.get()) {
+    vendor_tag_desc_ = VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    if (nullptr == vendor_tag_desc_.get()) {
+      TEST_ERROR("%s: Failed in fetching vendor tag descriptor", __func__);
+      return false;
+    }
+  }
+
+  result = vendor_tag_desc_->lookupTag(name, section, tag_id);
+  if (0 != result) {
+    TEST_ERROR("%s: TagId lookup failed with error: %d", __func__, result);
+    return false;
+  } else {
+    TEST_INFO("%s: name = %s, section = %s, tag_id = 0x%x",
+              __func__, name.string(), section.string(), *tag_id);
+    is_available = true;
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return is_available;
+}
+
+/**
+ * This function can be called only after StartCamera. It checks whether
+ * tag_id is present in given meta, on success, returns true and fills
+ * vendor tag_id. On failure, returns false.
+ */
+bool RecorderTest::VendorTagExistsInMeta(const CameraMetadata& meta,
+                                         const String8& name,
+                                         const String8& section,
+                                         uint32_t* tag_id) {
+  TEST_DBG("%s: Enter", __func__);
+  bool is_available = false;
+
+  if (VendorTagSupported(name, section, tag_id)) {
+    if (meta.exists(*tag_id)) {
+      is_available = true;
+    } else {
+      TEST_ERROR("%s: TagId does not exist in given meta", __func__);
+      return false;
+    }
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return is_available;
+}
+#endif
+
 status_t RecorderTest::GetCurrentAFMode(int32_t camera_id, int32_t& mode) {
   CameraMetadata meta;
 
@@ -271,7 +340,7 @@ status_t RecorderTest::ToggleAFMode(int32_t camera_id, const AfMode& af_mode) {
   status_t ret = NO_ERROR;
   int32_t current_mode = 0;
 
-  switch(af_mode){
+  switch (af_mode){
     case AfMode::kOff:
       mode = ANDROID_CONTROL_AF_MODE_OFF;
       break;
@@ -383,7 +452,7 @@ void RecorderTest::InitSupportedNRModes() {
     entry = static_info_.find(
         ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.u8[i]) {
+      switch (entry.data.u8[i]) {
         case ANDROID_NOISE_REDUCTION_MODE_OFF:
           supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
           break;
@@ -413,8 +482,16 @@ int32_t RecorderTest::ToggleVHDR() {
   CameraMetadata meta;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
-      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+    uint32_t hdr_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+    if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+        String8("org.codeaurora.qcamera3.video_hdr_mode"),
+        &hdr_mode_vtag)) {
+#else
+    hdr_mode_vtag = QCAMERA3_VIDEO_HDR_MODE;
+    if (meta.exists(hdr_mode_vtag)) {
+#endif
+      int32_t mode = meta.find(hdr_mode_vtag).data.i32[0];
       vhdr_modes_iter it = supported_hdr_modes_.begin();
       vhdr_modes_iter next;
       while (it != supported_hdr_modes_.end()) {
@@ -425,13 +502,13 @@ int32_t RecorderTest::ToggleVHDR() {
           } else {
             next = it;
           }
-          meta.update(QCAMERA3_VIDEO_HDR_MODE, &next->first, 1);
+          meta.update(hdr_mode_vtag, &next->first, 1);
           status = recorder_.SetCameraParam(camera_id_, meta);
           if (NO_ERROR != status) {
             ALOGE("%s Failed to apply: %s\n",
                   __func__, next->second.c_str());
           } else {
-              uint8_t current_mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.u8[0];
+              uint8_t current_mode = meta.find(hdr_mode_vtag).data.u8[0];
               TEST_KPI_ASYNC_BEGIN("ShdrToggle",
                                    static_cast<int32_t>(current_mode));
           }
@@ -449,10 +526,19 @@ int32_t RecorderTest::ToggleVHDR() {
 std::string RecorderTest::GetCurrentVHDRMode() {
   CameraMetadata meta;
   std::string ret(FEATURE_NOT_AVAILABLE);
+  uint32_t hdr_mode_vtag;
+
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
-      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+#ifdef ANDROID_O_OR_ABOVE
+    if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+        String8("org.codeaurora.qcamera3.video_hdr_mode"),
+        &hdr_mode_vtag)) {
+#else
+    hdr_mode_vtag = QCAMERA3_VIDEO_HDR_MODE;
+    if (meta.exists(hdr_mode_vtag)) {
+#endif
+      int32_t mode = meta.find(hdr_mode_vtag).data.i32[0];
       for (auto it : supported_hdr_modes_) {
         if ((it).first == mode) {
           ret = (it).second;
@@ -464,7 +550,7 @@ std::string RecorderTest::GetCurrentVHDRMode() {
       //modes supported. In case there are set the first available.
       if (!supported_hdr_modes_.empty()) {
         vhdr_modes_iter start = supported_hdr_modes_.begin();
-        meta.update(QCAMERA3_VIDEO_HDR_MODE, &start->first, 1);
+        meta.update(hdr_mode_vtag, &start->first, 1);
         status = recorder_.SetCameraParam(camera_id_, meta);
         if (NO_ERROR != status) {
           ALOGE("%s Failed to apply: %s\n",
@@ -480,11 +566,36 @@ std::string RecorderTest::GetCurrentVHDRMode() {
 
 void RecorderTest::InitSupportedVHDRModes() {
   camera_metadata_entry_t entry;
+  uint32_t hdr_supported_modes_vtag;
 
-  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
-    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+#ifdef ANDROID_O_OR_ABOVE
+  if (!VendorTagSupported(String8("vhdr_supported_modes"),
+      String8("org.codeaurora.qcamera3.video_hdr_mode"),
+      &hdr_supported_modes_vtag)) {
+    TEST_WARN("%s: vhdr_supported_modes is not supported", __func__);
+    return;
+  }
+  if (static_info_.exists(hdr_supported_modes_vtag)) {
+    entry = static_info_.find(hdr_supported_modes_vtag);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
+        case VideoHDRAvailableModes::kVideoHdrOff:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case VideoHDRAvailableModes::kVideoHdrOn:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s Invalid VHDR mode: %d\n", __func__, entry.data.i32[i]);
+      }
+    }
+  }
+#else
+  hdr_supported_modes_vtag = QCAMERA3_AVAILABLE_VIDEO_HDR_MODES;
+  if (static_info_.exists(hdr_supported_modes_vtag)) {
+    entry = static_info_.find(hdr_supported_modes_vtag);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_VIDEO_HDR_MODE_OFF:
           supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -492,14 +603,12 @@ void RecorderTest::InitSupportedVHDRModes() {
           supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
           break;
         default:
-          ALOGE("%s Invalid VHDR mode: %d\n", __func__,
-                entry.data.i32[i]);
+          ALOGE("%s Invalid VHDR mode: %d\n", __func__, entry.data.i32[i]);
       }
     }
   }
+#endif
 }
-
-
 
 int32_t RecorderTest::ToggleIR() {
   CameraMetadata meta;
@@ -544,7 +653,7 @@ void RecorderTest::InitSupportedBinningCorrectionModes() {
   if (static_info_.exists(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES)) {
     entry = static_info_.find(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_BINNING_CORRECTION_MODE_OFF:
           supported_bc_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -647,7 +756,7 @@ void RecorderTest::InitSupportedVideoStabilizationModes() {
       static_info_.find(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
   if (entry.count > 0) {
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.u8[i]) {
+      switch (entry.data.u8[i]) {
         case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF:
           supported_vs_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
           break;
@@ -741,7 +850,7 @@ status_t RecorderTest::SetVideoStabilization(const int32_t& camera_id,
   CameraMetadata meta;
   auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -753,7 +862,7 @@ status_t RecorderTest::SetVideoStabilization(const int32_t& camera_id,
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
     ret = recorder_.SetCameraParam(camera_id, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set video stabilization\n",
+      TEST_ERROR("%s Failed to set video stabilization\n",
                  __func__);
       return ret;
     }
@@ -796,7 +905,7 @@ int32_t RecorderTest::SetAntibandingMode() {
   scanf("%d", &input);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
 
-  switch(input) {
+  switch (input) {
     case 1:
       mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
       break;
@@ -863,7 +972,7 @@ void RecorderTest::InitSupportedIRModes() {
   if (static_info_.exists(QCAMERA3_IR_AVAILABLE_MODES)) {
     entry = static_info_.find(QCAMERA3_IR_AVAILABLE_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_IR_MODE_OFF:
           supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -878,13 +987,13 @@ void RecorderTest::InitSupportedIRModes() {
   }
 }
 
-status_t RecorderTest::GetSharpnessStrength(int32_t &strength) {
+status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
   TEST_INFO("%s: Enter", __func__);
   CameraMetadata meta;
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -895,26 +1004,46 @@ status_t RecorderTest::GetSharpnessStrength(int32_t &strength) {
     meta.update(ANDROID_EDGE_MODE, &edge_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set edge to OFF\n",
-                 __func__);
+      TEST_ERROR("%s Failed to set edge to OFF\n", __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
 
-  if (meta.exists(QCAMERA3_SHARPNESS_STRENGTH)) {
-    strength = meta.find(QCAMERA3_SHARPNESS_STRENGTH).data.i32[0];
-  }  else {
+  uint32_t sharpness_strength_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(meta, String8("strength"),
+      String8("org.codeaurora.qcamera3.sharpness"),
+      &sharpness_strength_vtag)) {
+#else
+  sharpness_strength_vtag = QCAMERA3_SHARPNESS_STRENGTH;
+  if (meta.exists(sharpness_strength_vtag)) {
+#endif
+    strength = meta.find(sharpness_strength_vtag).data.i32[0];
+  } else {
+    TEST_DBG("%s sharpness_strength_vtag does not exist!\n", __func__);
+
     // In case camera didn't set default.
     // Setting the value to MIN possible by default.
-    strength = static_info_.find(QCAMERA3_SHARPNESS_RANGE).data.i32[0];
+    uint32_t sharpness_range_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+    if (!VendorTagSupported(String8("range"),
+        String8("org.codeaurora.qcamera3.sharpness"),
+        &sharpness_range_vtag)) {
+      TEST_ERROR("%s: sharpness range is not supported", __func__);
+      return -1;
+    }
+#else
+    sharpness_range_vtag = QCAMERA3_SHARPNESS_RANGE;
+#endif
+    strength = static_info_.find(sharpness_range_vtag).data.i32[0];
     ret = SetSharpnessStrength(strength);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sharpness strength:%d\n",
+      TEST_ERROR("%s Failed to apply sharpness strength:%d\n",
                  __func__, strength);
       return ret;
     }
@@ -930,14 +1059,25 @@ status_t RecorderTest::SetSharpnessStrength(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
-  meta.update(QCAMERA3_SHARPNESS_STRENGTH, &val, 1);
+  uint32_t sharpness_strength_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (!VendorTagSupported(String8("strength"),
+      String8("org.codeaurora.qcamera3.sharpness"),
+      &sharpness_strength_vtag)) {
+    TEST_ERROR("%s: sharpness strength is not supported", __func__);
+    return -1;
+  }
+#else
+  sharpness_strength_vtag = QCAMERA3_SHARPNESS_STRENGTH;
+#endif
+  meta.update(sharpness_strength_vtag, &val, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to apply sharpness value: %d\n",
+    TEST_ERROR("%s Failed to apply sharpness value: %d\n",
                __func__, val);
     return ret;
   }
@@ -952,14 +1092,14 @@ status_t RecorderTest::GetSensorSensitivity(int32_t *sensitivity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
   if (meta.exists(ANDROID_SENSOR_SENSITIVITY)) {
     *sensitivity = meta.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -973,7 +1113,7 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -985,13 +1125,13 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
     meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set AE control mode to OFF\n",
+      TEST_ERROR("%s Failed to set AE control mode to OFF\n",
                  __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
@@ -1000,12 +1140,12 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
     meta.update(ANDROID_SENSOR_SENSITIVITY, &val, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sensitivity value: %d\n",
+      TEST_ERROR("%s Failed to apply sensitivity value: %d\n",
                  __func__, val);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1019,7 +1159,7 @@ status_t RecorderTest::GetExposureTime(int64_t *time_ns) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1027,7 +1167,7 @@ status_t RecorderTest::GetExposureTime(int64_t *time_ns) {
     TEST_INFO("%s: Exit", __func__);
     *time_ns = meta.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1041,7 +1181,7 @@ status_t RecorderTest::SetExposureTime(const int64_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1049,12 +1189,12 @@ status_t RecorderTest::SetExposureTime(const int64_t& val) {
     meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &val, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply exposure time value: %lld\n",
+      TEST_ERROR("%s Failed to apply exposure time value: %lld\n",
                  __func__, val);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1069,7 +1209,7 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1082,13 +1222,13 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
                 &nr_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set AE control mode to OFF\n",
+      TEST_ERROR("%s Failed to set AE control mode to OFF\n",
                  __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
@@ -1102,7 +1242,7 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
     uint8_t strength = static_info_.find(QCAMERA3_WNR_RANGE).data.u8[0];
     ret = SetWNRStrength(static_cast<int32_t>(strength));
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply WNR strength: %d\n",
+      TEST_ERROR("%s Failed to apply WNR strength: %d\n",
                  __func__, strength);
       *wnr_strength = -1;
       return ret;
@@ -1120,7 +1260,7 @@ status_t RecorderTest::SetWNRStrength(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1128,7 +1268,7 @@ status_t RecorderTest::SetWNRStrength(const int32_t& val) {
   meta.update(ANDROID_NOISE_REDUCTION_STRENGTH, &strength, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to apply WNR strength : %u\n",
+    TEST_ERROR("%s Failed to apply WNR strength : %u\n",
                __func__, (uint32_t)val);
     return ret;
   }
@@ -1143,14 +1283,14 @@ status_t RecorderTest::GetTNRIntensity(float *intensity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
   if (meta.exists(QCAMERA3_TNR_INTENSITY)) {
     *intensity = meta.find(QCAMERA3_TNR_INTENSITY).data.f[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1164,7 +1304,7 @@ status_t RecorderTest::SetTNRIntensity(const float& intensity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1172,12 +1312,12 @@ status_t RecorderTest::SetTNRIntensity(const float& intensity) {
     meta.update(QCAMERA3_TNR_INTENSITY, &intensity, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply TNR intensity value: %f\n",
+      TEST_ERROR("%s Failed to apply TNR intensity value: %f\n",
                  __func__, intensity);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     ret = -ENOENT;
   }
 
@@ -1191,7 +1331,7 @@ status_t RecorderTest::GetTNRMotionDetectionSensitivity(float *sensitivity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1199,7 +1339,7 @@ status_t RecorderTest::GetTNRMotionDetectionSensitivity(float *sensitivity) {
     *sensitivity =
         meta.find(QCAMERA3_TNR_MOTION_DETECTION_SENSITIVITY).data.f[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1214,7 +1354,7 @@ status_t RecorderTest::SetTNRMotionDetectionSensitivity(const float&
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1222,12 +1362,12 @@ status_t RecorderTest::SetTNRMotionDetectionSensitivity(const float&
     meta.update(QCAMERA3_TNR_MOTION_DETECTION_SENSITIVITY, &sensitivity, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sensitivity value: %f\n",
+      TEST_ERROR("%s Failed to apply sensitivity value: %f\n",
                  __func__, sensitivity);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1249,7 +1389,7 @@ status_t RecorderTest::SetTNRLevel() {
     tnr_tuning_min = entry.data.f[0];
     tnr_tuning_max = entry.data.f[1];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1265,7 +1405,7 @@ status_t RecorderTest::SetTNRLevel() {
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
 
@@ -1312,17 +1452,32 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   std::ofstream hist_stats_file;
   hist_stats_file.open(kDefaultHistogramStatsFilename, std::ofstream::app);
-
   TEST_INFO("Dumping raw histogram stats to %s\n",
-            kDefaultHistogramStatsFilename);
-  if (meta.exists(QCAMERA3_HISTOGRAM_STATS)) {
-    uint32_t buckets =
-        static_cast<uint32_t>
-           (static_info_.find(QCAMERA3_HISTOGRAM_BUCKETS).data.i32[0]);
-    camera_metadata_ro_entry entry;
-    entry = meta.find(QCAMERA3_HISTOGRAM_STATS);
+      kDefaultHistogramStatsFilename);
 
+  uint32_t histogram_stats_vtag;
+  uint32_t histogram_buckets_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(meta, String8("stats"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_stats_vtag)) {
+
+    if (!VendorTagSupported(String8("buckets"),
+        String8("org.codeaurora.qcamera3.histogram"),
+        &histogram_buckets_vtag)) {
+      return -EINVAL;
+    }
+#else
+  histogram_stats_vtag = QCAMERA3_HISTOGRAM_STATS;
+  if (meta.exists(histogram_stats_vtag)) {
+    histogram_buckets_vtag = QCAMERA3_HISTOGRAM_BUCKETS;
+#endif
+    uint32_t buckets = static_cast<uint32_t>(
+        static_info_.find(histogram_buckets_vtag).data.i32[0]);
     hist_stats_file << "Buckets=" << buckets << std::endl;
+
+    camera_metadata_ro_entry entry;
+    entry = meta.find(histogram_stats_vtag);
 
     const char* channels[] = {"R", "GR", "GB", "B"};
     const int32_t *channel_stats_ptr[4];
@@ -1341,7 +1496,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
     }
     hist_stats_file.close();
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     hist_stats_file.close();
     return -ENOENT;
   }
@@ -1349,17 +1504,27 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
   CameraMetadata temp_meta;
   auto ret = recorder_.GetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
+
   // Setting mode to OFF after dumping
-  if (temp_meta.exists(QCAMERA3_HISTOGRAM_MODE)) {
-    const uint8_t mode = QCAMERA3_HISTOGRAM_MODE_OFF;
-    temp_meta.update(QCAMERA3_HISTOGRAM_MODE, &mode, 1);
+  uint32_t histogram_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(temp_meta, String8("enable"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_mode_vtag)) {
+    const uint8_t hist_mode = StatisticsHistogramModeValues
+        ::kStatisticsHistogramModeOff;
+#else
+  histogram_mode_vtag = QCAMERA3_HISTOGRAM_MODE;
+  if (temp_meta.exists(histogram_mode_vtag)) {
+    const uint8_t hist_mode = QCAMERA3_HISTOGRAM_MODE_OFF;
+#endif
+    temp_meta.update(histogram_mode_vtag, &hist_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, temp_meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to Histogram mode to ON\n",
-                 __func__);
+      TEST_ERROR("%s Failed to set Histogram mode to OFF\n", __func__);
       return ret;
     } else {
       TEST_INFO("Histogram mode set to off\n");
@@ -1429,7 +1594,7 @@ status_t RecorderTest::GetRawAECAWBStatistic(const CameraMetadata& meta) {
     }
     raw_stats_file.close();
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     raw_stats_file.close();
     return -ENOENT;
   }
@@ -1438,14 +1603,14 @@ status_t RecorderTest::GetRawAECAWBStatistic(const CameraMetadata& meta) {
   CameraMetadata temp_meta;
   status_t ret = recorder_.GetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
   const int32_t mode = QCAMERA3_EXPOSURE_DATA_OFF;
   temp_meta.update(QCAMERA3_EXPOSURE_DATA_ENABLE, &mode, 1);
   ret = recorder_.SetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to set edge to OFF\n",
+    TEST_ERROR("%s Failed to set edge to OFF\n",
                __func__);
     return ret;
   } else {
@@ -1523,7 +1688,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
   image_param.width = snapshot_info.width;
   image_param.height = snapshot_info.height;
 
-  switch(snapshot_info.type) {
+  switch (snapshot_info.type) {
     case SnapshotType::kNone:
       TEST_INFO("Snapshot format(%d) is not correct\n",snapshot_info.type);
       break;
@@ -3263,7 +3428,7 @@ status_t RecorderTest::SetParams() {
     printf("Enter set param option\n");
     scanf("%d", &input);
 
-    switch(input) {
+    switch (input) {
       case 0:
         break;
       case 1:
@@ -3365,15 +3530,25 @@ status_t RecorderTest::SetDynamicCameraParam() {
 
     switch (static_cast<DynamicCameraParamsCmd>(input)) {
       case DynamicCameraParamsCmd::kSharpness: {
-        if (static_info_.exists(QCAMERA3_SHARPNESS_RANGE)) {
-          entry = static_info_.find(QCAMERA3_SHARPNESS_RANGE);
+        uint32_t sharpness_range_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+        if (!VendorTagSupported(String8("range"),
+            String8("org.codeaurora.qcamera3.sharpness"),
+            &sharpness_range_vtag)) {
+          TEST_WARN("%s: sharpness range is not supported", __func__);
+          break;
+        }
+#else
+        sharpness_range_vtag = QCAMERA3_SHARPNESS_RANGE;
+#endif
+        if (static_info_.exists(sharpness_range_vtag)) {
+          entry = static_info_.find(sharpness_range_vtag);
           range_min = entry.data.i32[0];
           range_max = entry.data.i32[1];
           int32_t sharpness_strength;
           ret = GetSharpnessStrength(sharpness_strength);
           if (ret != 0) {
-            TEST_ERROR("%s: failed to get sharpness strength",
-                       __func__);
+            TEST_ERROR("%s: failed to get sharpness strength", __func__);
             break;
           }
           std::cout << "Enter Sharpness Value (Current:" << sharpness_strength;
@@ -3381,8 +3556,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
           std::cin >> sharpness_strength;
           ret = SetSharpnessStrength(sharpness_strength);
           if (ret != 0) {
-            TEST_ERROR("%s: failed to set sharpness strength",
-                       __func__);
+            TEST_ERROR("%s: failed to set sharpness strength", __func__);
             break;
           }
         }
@@ -3487,13 +3661,22 @@ status_t RecorderTest::SetDynamicCameraParam() {
       }
       case DynamicCameraParamsCmd::kDumpHistogramStats: {
         // Enabling Histogram stats in Metadata
-        if (meta.exists(QCAMERA3_HISTOGRAM_MODE)) {
+        uint32_t histogram_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+        if (VendorTagExistsInMeta(meta, String8("enable"),
+            String8("org.codeaurora.qcamera3.histogram"),
+            &histogram_mode_vtag)) {
+          const uint8_t hist_mode = StatisticsHistogramModeValues
+              ::kStatisticsHistogramModeOn;
+#else
+        histogram_mode_vtag = QCAMERA3_HISTOGRAM_MODE;
+        if (meta.exists(histogram_mode_vtag)) {
           const uint8_t hist_mode = QCAMERA3_HISTOGRAM_MODE_ON;
-          meta.update(QCAMERA3_HISTOGRAM_MODE, &hist_mode, 1);
+#endif
+          meta.update(histogram_mode_vtag, &hist_mode, 1);
           ret = recorder_.SetCameraParam(camera_id_, meta);
           if (ret != 0) {
-            TEST_ERROR("%s Failed to Histogram mode to ON\n",
-                       __func__);
+            TEST_ERROR("%s Failed to set Histogram mode to ON\n", __func__);
             break;
           }
           dump_histogram_stats_ = true;
@@ -4149,6 +4332,39 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
     status = recorder_.GetCameraParam(current_camera_id, meta);
     if (NO_ERROR == status) {
+#ifdef ANDROID_O_OR_ABOVE
+      uint32_t hdr_mode_vtag;
+      if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+          String8("org.codeaurora.qcamera3.video_hdr_mode"),
+          &hdr_mode_vtag)) {
+        if (current_camera_info->vhdr) {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOn;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+        } else {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOff;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"Off");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+        }
+        status = recorder_.SetCameraParam(current_camera_id, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s Failed to apply: TNR/VHDR\n",__func__);
+          return status;
+        }
+      } else {
+        // In case camera didn't set default turn on HDR if user requested
+        if (current_camera_info->vhdr) {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOn;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s Failed to apply SHDR\n", __func__);
+            return status;
+          }
+        }
+      }
+#else
       if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
         if (current_camera_info->vhdr) {
           const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
@@ -4165,7 +4381,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
           return status;
         }
       } else {
-      //In case camera didn't set default turn on HDR if user requested
+        // In case camera didn't set default turn on HDR if user requested
         if (current_camera_info->vhdr) {
           const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
           ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
@@ -4177,9 +4393,10 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
           }
         }
       }
+#endif
+
       // TODO: This value is still under discussion and verification
       PARAMETER_SETTLE_INTERVAL(2);
-
     }
     // TNR/SHDR - End
 
@@ -5333,6 +5550,28 @@ bool CameraMetaDataParser::IsTNREnabled(const CameraMetadata& metadata) {
 bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
   TEST_DBG("%s: Enter", __func__);
   bool ret = false;
+
+#ifdef ANDROID_O_OR_ABOVE
+  uint32_t hdr_mode_vtag;
+  sp<VendorTagDescriptor> vendor_tag_desc = VendorTagDescriptor
+      ::getGlobalVendorTagDescriptor();
+  status_t result = vendor_tag_desc->lookupTag(String8("vhdr_mode"),
+      String8("org.codeaurora.qcamera3.video_hdr_mode"), &hdr_mode_vtag);
+  if (0 != result) {
+    TEST_ERROR("%s: TagId lookup failed with error: %d", __func__, result);
+    return false;
+  }
+  if (metadata.exists(hdr_mode_vtag)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(hdr_mode_vtag);
+    uint8_t vhdr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: vhdr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(vhdr_camera_mode));
+    if (VideoHDRAvailableModes::kVideoHdrOn == vhdr_camera_mode) {
+      ret = true;
+    }
+  }
+#else
   if (metadata.exists(QCAMERA3_VIDEO_HDR_MODE)) {
     TEST_DBG("%s: Meta Exists!", __func__);
     camera_metadata_ro_entry entry = metadata.find(QCAMERA3_VIDEO_HDR_MODE);
@@ -5343,6 +5582,7 @@ bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
       ret = true;
     }
   }
+#endif
   TEST_DBG("%s: Exit ret=%d", __func__, static_cast<uint32_t>(ret));
   return ret;
 }

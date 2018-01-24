@@ -34,6 +34,9 @@
 #include <vector>
 
 #include <camera/CameraMetadata.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include <camera/VendorTagDescriptor.h>
+#endif
 
 #include <cutils/properties.h>
 #include <cutils/trace.h>
@@ -154,6 +157,18 @@ using ::qmmf::display::SurfaceFormat;
 
 #ifndef CLIP
 #define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
+#endif
+
+#ifdef ANDROID_O_OR_ABOVE
+enum VideoHDRAvailableModes : int32_t {
+  kVideoHdrOff,
+  kVideoHdrOn
+};
+
+enum StatisticsHistogramModeValues : uint8_t {
+  kStatisticsHistogramModeOff,
+  kStatisticsHistogramModeOn
+};
 #endif
 
 enum class AfMode {
@@ -512,6 +527,12 @@ class RecorderTest {
   int32_t ToggleVideoStabilizationMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
+#ifdef ANDROID_O_OR_ABOVE
+  bool VendorTagSupported(const String8& name, const String8& section,
+                          uint32_t* tag_id);
+  bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
+                             const String8& section, uint32_t* tag_id);
+#endif
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
@@ -641,6 +662,10 @@ class RecorderTest {
   uint32_t     burst_snapshot_count_;
   std::mutex   error_lock_;
   bool         camera_error_;
+
+#ifdef ANDROID_O_OR_ABOVE
+  sp<VendorTagDescriptor> vendor_tag_desc_;
+#endif
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
