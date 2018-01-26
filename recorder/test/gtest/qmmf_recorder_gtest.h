@@ -90,6 +90,7 @@ struct FaceInfo {
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
 #define DEFAULT_BURST_COUNT         "30"
+#define IMAGE_QUALITY               "95"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
@@ -128,6 +129,8 @@ struct FaceInfo {
 // Prop to determine whether to create or delete session
 #define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
+// Prop to set JPEG Quality
+#define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
@@ -349,6 +352,7 @@ class RecorderGtest : public ::testing::Test {
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
   uint32_t              burst_image_count_;
+  uint32_t              default_jpeg_quality_;
   std::mutex            error_lock_;
   bool                  camera_error_;
 

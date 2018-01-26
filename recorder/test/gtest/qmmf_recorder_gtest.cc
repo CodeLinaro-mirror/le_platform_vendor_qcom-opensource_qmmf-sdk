@@ -69,7 +69,6 @@
 static const uint32_t kZslWidth      = 1920;
 static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
-static const int32_t kDefaultJpegQuality = 85;
 
 #if USE_SKIA
 static const uint32_t kColorDarkGray   = 0xFF202020;
@@ -135,6 +134,8 @@ void RecorderGtest::SetUp() {
   is_dump_thumb_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_BURST_N_IMAGES, prop_val, DEFAULT_BURST_COUNT);
   burst_image_count_ = atoi(prop_val);
+  property_get(PROP_JPEG_QUALITY, prop_val, IMAGE_QUALITY);
+  default_jpeg_quality_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -588,7 +589,7 @@ TEST_F(RecorderGtest, 1080pZSLCapture) {
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
 
@@ -712,7 +713,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
 
@@ -837,7 +838,7 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
 
@@ -971,7 +972,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
 
@@ -1127,7 +1128,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   image_param.width         = camera_start_params_.zsl_width;
   image_param.height        = camera_start_params_.zsl_height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
 
@@ -1476,7 +1477,7 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -1613,7 +1614,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithEdgeSmooth) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -1777,7 +1778,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCAC) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -1939,7 +1940,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithLCACandEdgeSmooth) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2068,7 +2069,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2103,9 +2104,6 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
-
 
   ImageConfigParam image_config;
   ImageThumbnail thumbnail;
@@ -2185,7 +2183,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2220,8 +2218,6 @@ TEST_F(RecorderGtest, BurstSnapshot) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   uint32_t num_images = burst_image_count_;
   for (uint32_t i = 0; i < num_images; i++) {
@@ -2340,7 +2336,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2533,7 +2529,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -2748,7 +2744,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -3014,7 +3010,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     image_param.width         = 3840;
     image_param.height        = 2160;
     image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -3281,7 +3277,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -3474,7 +3470,7 @@ TEST_F(RecorderGtest, MaxSnapshotThumb) {
   int32_t thumb_size[2] = {0,0};
   ImageParam image_param{};
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -4495,7 +4491,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
     image_param.width = 1920;
     image_param.height = 1080;
     image_param.image_format = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
                                BufferDescriptor buffer,
@@ -5127,7 +5123,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -5372,7 +5368,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     image_param.width         = 1920;
     image_param.height        = 1080;
     image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -5648,7 +5644,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -5836,7 +5832,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -7266,7 +7262,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   image_param.width         = 1920;
   image_param.height        = 1080;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10574,7 +10570,7 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10609,8 +10605,6 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   uint32_t num_images = 30;
   for (uint32_t i = 0; i < num_images; i++) {
@@ -10730,7 +10724,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10762,8 +10756,6 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   meta_array.push_back(meta);
 
@@ -10898,7 +10890,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -10930,8 +10922,6 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
                                 BufferDescriptor buffer,
                                 MetaData meta_data) -> void
       { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   meta_array.push_back(meta);
 
@@ -11097,7 +11087,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -11130,8 +11120,6 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
                               BufferDescriptor buffer,
                               MetaData meta_data) -> void
     { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   meta_array.push_back(meta);
 
@@ -11229,7 +11217,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   image_param.width         = width;
   image_param.height        = height;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -12823,7 +12811,7 @@ TEST_F(RecorderGtest,
     image_param.width         = max_w;
     image_param.height        = max_h;
     image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                                 BufferDescriptor buffer,
@@ -13079,7 +13067,7 @@ TEST_F(RecorderGtest,
     image_param.width = max_w;
     image_param.height = max_h;
     image_param.image_format = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
                                BufferDescriptor buffer,
@@ -13334,7 +13322,7 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     image_param.width         = max_w;
     image_param.height        = max_h;
     image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                                 BufferDescriptor buffer,
@@ -13803,7 +13791,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     image_param.width = max_w;
     image_param.height = max_h;
     image_param.image_format = ImageFormat::kJPEG;
-    image_param.image_quality = 95;
+    image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
 
@@ -14280,7 +14268,7 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   image_param.width         = 3840;
   image_param.height        = 2160;
   image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -14313,8 +14301,6 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
                               BufferDescriptor buffer,
                               MetaData meta_data) -> void
     { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-  meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
   meta_array.push_back(meta);
 
