@@ -110,7 +110,8 @@ TranscodeBuffer::~TranscodeBuffer() {
   }
 }
 
-status_t TranscodeBuffer::Allocate(const uint32_t size) {
+status_t TranscodeBuffer::Allocate(const uint32_t size, const uint32_t width,
+                                   const uint32_t height) {
   QMMF_DEBUG("%s Enter", __func__);
 
   status_t ret = 0;
@@ -119,8 +120,6 @@ status_t TranscodeBuffer::Allocate(const uint32_t size) {
     return -1;
   }
 
-  int nFds = 1;
-  int nInts = 3;
   int32_t ionType = ION_HEAP(ION_IOMMU_HEAP_ID);
   struct ion_allocation_data alloc;
   void* data = nullptr;
@@ -164,20 +163,26 @@ status_t TranscodeBuffer::Allocate(const uint32_t size) {
   buf_info_.buf_size = alloc.len;
   buf_info_.capacity = size;
 
-  meta_handle_ = (native_handle_create(1, 16));
+  //Allocate buffer for MetaData Handle
+  meta_handle_ = new private_handle_t(static_cast<int>(ionFdData.fd),
+      static_cast<unsigned int>(alloc.len),
+      private_handle_t::PRIV_FLAGS_FRAMEBUFFER, 1,
+      HAL_PIXEL_FORMAT_NV12_ENCODEABLE, width, height);
+
   if (meta_handle_ == nullptr) {
-    QMMF_ERROR("%s Failed to allocate metabuffer handle", __func__);
+    QMMF_ERROR("%s failed to allocated metabuffer handle", __func__);
     goto NATIVE_HANDLE_CREATION_FAILED;
   }
+  QMMF_INFO("%s  buffer native handle(%p)", __func__, meta_handle_);
 
-  meta_handle_->version = sizeof(native_handle_t);
-  meta_handle_->numFds  = nFds;
-  meta_handle_->numInts = nInts;
-  meta_handle_->data[0] = ionFdData.fd;
-  meta_handle_->data[1] = 0;  // offset
-  meta_handle_->data[2] = alloc.len;
-  meta_handle_->data[3] = 0x200000;
-  meta_handle_->data[4] = alloc.len;
+  meta_handle_->unaligned_width  = width;
+  meta_handle_->unaligned_height = height;
+
+  QMMF_INFO("%s fd = %d offset = %u size = %u width = %d height = %d "
+      "unaligned_width = %d unaligned_height = %d", __func__, meta_handle_->fd,
+      meta_handle_->offset, meta_handle_->size, meta_handle_->width,
+      meta_handle_->height, meta_handle_->unaligned_width,
+      meta_handle_->unaligned_height);
 
   QMMF_DEBUG("%s Exit", __func__);
   return ret;
@@ -211,10 +216,10 @@ void TranscodeBuffer::Release() {
     buf_info_.fd = -1;
   }
 
-  if (meta_handle_->data[0]) {
-    close(meta_handle_->data[0]);
-    meta_handle_->data[0] = -1;
-    native_handle_delete(meta_handle_);
+  if (meta_handle_) {
+    close(meta_handle_->fd);
+    meta_handle_->fd = -1;
+    delete meta_handle_;
     meta_handle_ = nullptr;
   }
 
@@ -224,6 +229,7 @@ void TranscodeBuffer::Release() {
 status_t TranscodeBuffer::CreateTranscodeBuffersVector(
     const shared_ptr<IAVCodec>& avcodec,
     const BufferOwner owner, const uint32_t port_index,
+    const uint32_t width, const uint32_t height,
     vector<TranscodeBuffer>* buffer_list) {
   QMMF_INFO("%s Enter", __func__);
 
@@ -255,7 +261,7 @@ status_t TranscodeBuffer::CreateTranscodeBuffersVector(
 
   for (uint32_t i = 0; i < count; i++) {
     TranscodeBuffer buffer(owner, OwnerIndex(owner) | i);
-    ret = buffer.Allocate(size);
+    ret = buffer.Allocate(size, width, height);
     if (ret != 0) {
       QMMF_ERROR("%s Failed to allocate %uth buffer", __func__, i + 1);
       goto release_buffer;
@@ -365,9 +371,12 @@ status_t VQZipInfoExtractor::Init() {
     return ret;
   }
 
-  input_source_impl_ = make_shared<InputCodecSourceImpl>(avcodec_, this);
-  output_source_impl_ = make_shared<OutputCodecSourceImpl>(avcodec_, this);
-
+  input_source_impl_ = make_shared<InputCodecSourceImpl>
+                                  (avcodec_, codec_param.video_dec_param.width,
+                                   codec_param.video_dec_param.height, this);
+  output_source_impl_ = make_shared<OutputCodecSourceImpl>
+                                   (avcodec_, codec_param.video_dec_param.width,
+                                    codec_param.video_dec_param.height, this);
   ret = input_source_impl_->Prepare();
   if (ret != 0) {
     QMMF_ERROR("VQZipInfoExtractor:%s Failed to prepare Inputport of VQZipExtractor",
@@ -544,8 +553,9 @@ void VQZipInfoExtractor::ReleaseResources() {
 }
 
 VQZipInfoExtractor::InputCodecSourceImpl::InputCodecSourceImpl(
-    const shared_ptr<IAVCodec>& avcodec, VQZipInfoExtractor* const src)
-    : avcodec_(avcodec), source_(src) {
+    const shared_ptr<IAVCodec>& avcodec, const uint32_t width,
+    const uint32_t height, VQZipInfoExtractor* const src)
+    : avcodec_(avcodec), width_(width), height_(height), source_(src) {
   QMMF_DEBUG("VQZipInfoExtractor:%s Enter", __func__);
   QMMF_DEBUG("VQZipInfoExtractor:%s Exit", __func__);
 }
@@ -560,7 +570,8 @@ status_t VQZipInfoExtractor::InputCodecSourceImpl::Prepare() {
 
   status_t ret = 0;
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kVQZipInputPort, kPortIndexInput, &buffer_list_);
+      avcodec_, BufferOwner::kVQZipInputPort, kPortIndexInput,
+      width_, height_, &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("VQZipInfoExtractor:%s Failed to alllocate Input buffers",
                __func__);
@@ -678,8 +689,9 @@ status_t VQZipInfoExtractor::InputCodecSourceImpl::NotifyPortEvent(
 }
 
 VQZipInfoExtractor::OutputCodecSourceImpl::OutputCodecSourceImpl(
-    const shared_ptr<IAVCodec>& avcodec, VQZipInfoExtractor* const sink)
-    : avcodec_(avcodec), sink_(sink) {
+    const shared_ptr<IAVCodec>& avcodec, const uint32_t width,
+    const uint32_t height, VQZipInfoExtractor* const sink)
+    : avcodec_(avcodec), width_(width), height_(height), sink_(sink) {
   QMMF_DEBUG("VQZipInfoExtractor:%s Enter", __func__);
   QMMF_DEBUG("VQZipInfoExtractor:%s Exit", __func__);
 }
@@ -694,7 +706,8 @@ status_t VQZipInfoExtractor::OutputCodecSourceImpl::Prepare() {
 
   status_t ret = 0;
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kVQZipOutputPort, kPortIndexOutput, &buffer_list_);
+      avcodec_, BufferOwner::kVQZipOutputPort, kPortIndexOutput,
+      width_, height_, &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("VQZipInfoExtractor:%s Failed to allocate Output buffers",
                __func__);
@@ -823,7 +836,7 @@ status_t VQZipInfoExtractor::OutputCodecSourceImpl::NotifyPortEvent(
                      __func__);
           ret = TranscodeBuffer::CreateTranscodeBuffersVector(
               avcodec_, BufferOwner::kVQZipOutputPort, kPortIndexOutput,
-              &buffer_list_);
+              width_, height_, &buffer_list_);
           if (ret != 0) {
             QMMF_ERROR("VQZipInfoExtractor:%s Buffer allocation failed",
                        __func__);

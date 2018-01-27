@@ -97,7 +97,11 @@ status_t TranscoderTrack::PreparePipeline() {
     goto release_resources;
   }
 
-  ret = transcoder_pipe_->PreparePipeline();
+  ret = transcoder_pipe_->PreparePipeline(
+      params_.source_params.video_dec_param.width,
+      params_.source_params.video_dec_param.height,
+      params_.sink_params.video_enc_param.width,
+      params_.sink_params.video_enc_param.height);
   if (ret != 0) {
     QMMF_ERROR("%s Failed to Prepare pipeline on pipe side", __func__);
     goto release_resources;
