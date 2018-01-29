@@ -2692,7 +2692,20 @@ status_t AVCodec::StopCodec(bool do_flush) {
   port_status_ = false;
 
   //DeRegister buffer on both port
-  for (uint32_t i = 0; i < in_buff_hdr_size_; i++) {
+  //First query number of buffers registered and then give buffer
+  //free request to ensure only registered buffer are de-registered
+  OMX_PARAM_PORTDEFINITIONTYPE port_def;
+  InitOMXParams(&port_def);
+  port_def.nPortIndex = kPortIndexInput;
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+            (OMX_PTR)&port_def);
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to get port definiton on %s", __func__,
+        PORT_NAME(kPortIndexInput));
+    return ret;
+  }
+  uint32_t reg_buf_count = port_def.nBufferCountActual;
+  for (uint32_t i = 0; i < reg_buf_count; i++) {
     ret = omx_client_->FreeBuffer(in_buff_hdr_[i], kPortIndexInput);
     if(ret != 0) {
       QMMF_ERROR("%s Failed to free buffer on %s", __func__,
