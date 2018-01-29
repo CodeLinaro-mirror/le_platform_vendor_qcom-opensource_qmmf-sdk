@@ -43,9 +43,12 @@
 #define SET_ERR_L(fmt, ...) \
   SetErrorStateLocked("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
 using namespace qcamera;
+
+#ifndef USE_VENDOR_TAG_DESC
 extern "C" {
 extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
 }
+#endif
 
 uint32_t qmmf_log_level;
 
@@ -62,7 +65,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       camera_module_(NULL),
       device_(NULL),
       number_of_cameras_(0),
-      gralloc_device_(NULL),
+      alloc_device_interface_(NULL),
       next_request_id_(0),
       frame_number_(0),
       next_shutter_frame_number_(0),
@@ -125,12 +128,18 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     monitor_.RequestExit();
   }
 
-  if (NULL != gralloc_device_) {
-    gralloc_device_->common.close(&gralloc_device_->common);
+  if (nullptr != alloc_device_interface_) {
+    delete alloc_device_interface_;
+    alloc_device_interface_ = nullptr;
   }
+
+#ifndef USE_VENDOR_TAG_DESC
   if (camera_module_->get_vendor_tag_ops) {
     set_camera_metadata_vendor_ops(nullptr);
   }
+#else
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+#endif
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -140,6 +149,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
 int32_t Camera3DeviceClient::Initialize() {
   int32_t res = 0;
   hw_module_t const *module = NULL;
+  mem_alloc_device alloc_device = nullptr;
 
   pthread_mutex_lock(&lock_);
 
@@ -176,7 +186,23 @@ int32_t Camera3DeviceClient::Initialize() {
     vendor_tag_ops_ = vendor_tag_ops_t();
     camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
 
+#ifndef USE_VENDOR_TAG_DESC
     res = set_camera_metadata_vendor_ops(&vendor_tag_ops_);
+#else
+    sp<VendorTagDescriptor> vendor_tag_desc;
+    res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                       vendor_tag_desc);
+
+    if (0 != res) {
+      QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+          "received error %s (%d). Camera clients will not be able to use"
+          "vendor tags", __FUNCTION__, strerror(res), res);
+      goto exit;
+    }
+
+    // Set the global descriptor to use with camera metadata
+    res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
+#endif
     if (0 != res) {
       QMMF_ERROR(
           "%s: Could not set vendor tag descriptor, "
@@ -194,18 +220,16 @@ int32_t Camera3DeviceClient::Initialize() {
     goto exit;
   }
 
-  module->methods->open(module, GRALLOC_HARDWARE_GPU0,
-                        (struct hw_device_t **)&gralloc_device_);
-  if (0 != res) {
-    QMMF_ERROR("%s: Could not open Gralloc module: %s (%d) \n", __func__,
-               strerror(-res), res);
+  alloc_device_interface_ = IAllocDevice::CreateAllocDevice(module);
+  alloc_device = alloc_device_interface_->GetDevice();
+  if (!alloc_device) {
+    QMMF_ERROR("%s: Error in opening allocator device \n", __func__);
     goto exit;
   }
-
   QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s\n", __func__,
-            gralloc_device_->common.module->author,
-            gralloc_device_->common.module->hal_api_version,
-            gralloc_device_->common.module->name);
+            alloc_device->common.module->author,
+            alloc_device->common.module->hal_api_version,
+            alloc_device->common.module->name);
 
   state_ = STATE_CLOSED;
   next_stream_id_ = 0;
@@ -216,6 +240,15 @@ int32_t Camera3DeviceClient::Initialize() {
   return res;
 
 exit:
+
+  if (nullptr != alloc_device_interface_) {
+    delete alloc_device_interface_;
+    alloc_device_interface_ = nullptr;
+  }
+
+#ifdef USE_VENDOR_TAG_DESC
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+#endif
 
   if (NULL != camera_module_) {
     dlclose(camera_module_->common.dso);
@@ -659,6 +692,7 @@ int32_t Camera3DeviceClient::CreateStream(
   Camera3Stream *newStream = NULL;
   int32_t blobBufferSize = 0;
   bool wasActive = false;
+  mem_alloc_device alloc_device = nullptr;
   pthread_mutex_lock(&lock_);
 
   if (nullptr == outputConfiguration.cb) {
@@ -705,8 +739,14 @@ int32_t Camera3DeviceClient::CreateStream(
       goto exit;
     }
   }
+
+  alloc_device = alloc_device_interface_->GetDevice();
+  if (!alloc_device) {
+    QMMF_ERROR("%s: Error in opening allocator device \n", __func__);
+    goto exit;
+  }
   newStream = new Camera3Stream(next_stream_id_, blobBufferSize,
-                                outputConfiguration, gralloc_device_, monitor_);
+                                outputConfiguration, alloc_device, monitor_);
   if (NULL == newStream) {
     res = -ENOMEM;
     goto exit;
@@ -1986,6 +2026,47 @@ void Camera3DeviceClient::torchModeStatusChange(
   // TODO: No implementation yet
 }
 
+#ifdef TARGET_USES_GRALLOC1
+Gralloc1Device::Gralloc1Device(hw_module_t const * module) {
+  mem_alloc_device alloc_device;
+  int32_t res = gralloc1_open(module, &alloc_device);
+  if ((0 != res) || (nullptr == alloc_device)) {
+    QMMF_ERROR("%s: Could not open Gralloc module: %s (%d) \n", __func__,
+               strerror(-res), res);
+  } else {
+    SetDevice(alloc_device);
+  }
+}
+
+Gralloc1Device::~Gralloc1Device() {
+  mem_alloc_device alloc_device = GetDevice();
+  gralloc1_close(alloc_device);
+}
+
+IAllocDevice* IAllocDevice::CreateAllocDevice(hw_module_t const* module) {
+  return (new Gralloc1Device(module));
+}
+#else
+GrallocDevice::GrallocDevice(hw_module_t const * module) {
+  mem_alloc_device alloc_device;
+  module->methods->open(module, GRALLOC_HARDWARE_GPU0,
+                        (struct hw_device_t **)&alloc_device);
+  if (nullptr == alloc_device) {
+    QMMF_ERROR("%s: Could not open Gralloc module.\n", __func__);
+  } else {
+    SetDevice(alloc_device);
+  }
+}
+
+GrallocDevice::~GrallocDevice() {
+  mem_alloc_device alloc_device = GetDevice();
+  alloc_device->common.close(&alloc_device->common);
+}
+
+IAllocDevice* IAllocDevice::CreateAllocDevice(hw_module_t const* module) {
+  return (new GrallocDevice(module));
+}
+#endif  // TARGET_USES_GRALLOC1
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here

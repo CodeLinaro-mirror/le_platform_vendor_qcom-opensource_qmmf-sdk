@@ -31,7 +31,12 @@
 #include <sys/time.h>
 #include <math.h>
 #include <log/log.h>
+
+#ifdef TARGET_USES_GRALLOC1
+#include <libgralloc1/gralloc_priv.h>
+#else
 #include <qcom/display/gralloc_priv.h>
+#endif
 #ifdef ANDROID_O_OR_ABOVE
 #include "common/utils/qmmf_common_utils.h"
 #else
@@ -531,9 +536,10 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
                                   StreamBuffer &buffer, CalcSize &calcSize) {
   int32_t ret = 0;
 
-  alloc_device_t *grallocDevice = device_client_->GetGrallocDevice();
+  mem_alloc_device allocDevice =
+      device_client_->alloc_device_interface_->GetDevice();
 
-  if (NULL != grallocDevice) {
+  if (NULL != allocDevice) {
     FILE *f = fopen(path.string(), "w+");
     if (NULL == f) {
       printf("%s:Unable to open file(%s) \n", __func__, strerror(errno));
@@ -541,7 +547,7 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
     }
 
     gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
-        grallocDevice->common.module);
+        allocDevice->common.module);
     struct android_ycbcr grallocBuffer;
     if ((BufferFormat::kNV12 == buffer.info.format) ||
         (BufferFormat::kNV21 == buffer.info.format)) {

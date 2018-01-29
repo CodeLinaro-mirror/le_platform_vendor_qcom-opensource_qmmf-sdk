@@ -38,10 +38,13 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <vector>
 
 namespace qmmf {
 
 namespace display {
+
+using std::vector;
 
 DisplayService::DisplayService()
   :connected_(false) {
@@ -61,7 +64,7 @@ DisplayService::~DisplayService()
 status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
     Parcel* reply, uint32_t flag)
 {
-  QMMF_LEVEL2("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   CHECK_INTERFACE(IDisplayService, data, reply);
   int32_t ret = 0;
 
@@ -95,7 +98,10 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
         DisplayHandle display_handle = static_cast<DisplayHandle>
             (data.readInt32());
         ret = DestroyDisplay(display_handle);
-        ion_fd_mapping.clear();
+        {
+          std::lock_guard<std::mutex> lock(fd_map_lock_);
+          ion_fd_mapping_.clear();
+        }
         reply->writeInt32(ret);
         return NO_ERROR;
     }
@@ -116,7 +122,10 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       uint32_t surface_id;
       blob.release();
       ret = CreateSurface(display_handle, surface_config, &surface_id);
-      use_buffer_mapping.insert({surface_id, surface_config.use_buffer});
+      {
+        std::lock_guard<std::mutex> lock(use_buffer_map_lock_);
+        use_buffer_mapping_.insert({surface_id, surface_config.use_buffer});
+      }
       reply->writeUint32(surface_id);
       reply->writeInt32(ret);
 
@@ -130,12 +139,45 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       uint32_t surface_id;
       data.readUint32(&surface_id);
       ret = DestroySurface(display_handle, surface_id);
-      for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-          it != use_buffer_mapping.end(); ++it) {
-        if (it->first == surface_id) {
-          use_buffer_mapping.erase(surface_id);
-          break;
+      vector<int32_t> remove_fds;
+      auto use_buffer = use_buffer_mapping_.find(surface_id);
+      if (use_buffer != use_buffer_mapping_.end()) {
+        if (use_buffer->second == true) {
+          for (auto& it : buf_info_map_) {
+            if (it.second) {
+              if (it.second->surface_id == surface_id) {
+                struct ion_handle_data ion_handle;
+                memset(&ion_handle, 0, sizeof(ion_handle));
+                ion_handle.handle = it.second->ion_handle;
+                if (ioctl(ion_device_, ION_IOC_FREE, &ion_handle) < 0) {
+                  QMMF_ERROR("%s ION free failed: %d[%s]", __func__, -errno,
+                      strerror(errno));
+                }
+
+                if (it.second->ion_fd > 0) {
+                  auto stat = close(it.second->ion_fd);
+                  if (0 != stat) {
+                    QMMF_ERROR("%s Failed to close ION fd: %d : %d[%s]", __func__,
+                        it.second->ion_fd, -errno, strerror(errno));
+                    return -errno;
+                  }
+                }
+                if (it.second != nullptr) {
+                  delete (it.second);
+                  it.second = nullptr;
+                }
+                remove_fds.push_back(it.first);
+              }
+            }
+          }
         }
+      }
+      for (auto fd : remove_fds) {
+        buf_info_map_.erase(fd);
+      }
+      use_buffer = use_buffer_mapping_.find(surface_id);
+      if (use_buffer != use_buffer_mapping_.end()) {
+        use_buffer_mapping_.erase(surface_id);
       }
       reply->writeInt32(ret);
       return NO_ERROR;
@@ -158,27 +200,35 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       memset(blob.data(), 0x0, blob_size);
       memcpy(blob.data(), reinterpret_cast<void*>(&surface_buffer), blob_size);
       ion_fd_map::iterator it_fd;
-      if(surface_buffer.buf_id != -1) {
-        for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end();
-            ++it_fd) {
-          if(it_fd->first == surface_buffer.plane_info[0].ion_fd) {
-            for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-                it != use_buffer_mapping.end(); ++it) {
-              if (it->first == surface_id) {
-                if (it->second == 1)
-                  reply->writeInt32(it_fd->second);
-                else
-                  reply->writeInt32(it_fd->first);
-                break;
+      {
+        std::lock_guard<std::mutex> lock(fd_map_lock_);
+        if (surface_buffer.buf_id != -1) {
+          for (it_fd = ion_fd_mapping_.begin(); it_fd != ion_fd_mapping_.end();
+              ++it_fd) {
+            if(it_fd->first == surface_buffer.plane_info[0].ion_fd) {
+              for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
+                  it != use_buffer_mapping_.end(); ++it) {
+                if (it->first == surface_id) {
+                  if (it->second == true)
+                    reply->writeInt32(it_fd->second);
+                  else
+                    reply->writeInt32(it_fd->first);
+                  break;
+                }
               }
             }
           }
+          if (it_fd == ion_fd_mapping_.end()) {
+            ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd, 1});
+            reply->writeInt32(0);
+            reply->writeInt32(surface_buffer.plane_info[0].ion_fd);
+            reply->writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
+          }
         }
-        if(it_fd == ion_fd_mapping.end()) {
-          ion_fd_mapping.insert({surface_buffer.plane_info[0].ion_fd, 1});
-          reply->writeInt32(0);
-          reply->writeInt32(surface_buffer.plane_info[0].ion_fd);
-          reply->writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
+
+        for (auto& it : ion_fd_mapping_) {
+          QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
+              "client_ion_fd::%d ", __func__, it.first, it.second);
         }
       }
       return NO_ERROR;
@@ -211,39 +261,57 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       memset(&surface_param, 0x0, sizeof surface_param);
       memcpy(&surface_param, params, blob_size);
       blob.release();
-      for (use_buffer_map::iterator it = use_buffer_mapping.begin();
-          it != use_buffer_mapping.end(); ++it) {
-        if (it->first == surface_id && it->second == 1) {
-          ion_fd_map::iterator it_fd;
-          for (it_fd = ion_fd_mapping.begin(); it_fd != ion_fd_mapping.end();
-              ++it_fd) {
-            if (it_fd->second == surface_buffer.plane_info[0].ion_fd) {
-              surface_buffer.plane_info[0].ion_fd = it_fd->first;
-              break;
+      {
+        std::lock_guard<std::mutex> lock(fd_map_lock_);
+        for (use_buffer_map::iterator it = use_buffer_mapping_.begin();
+            it != use_buffer_mapping_.end(); ++it) {
+          if (it->first == surface_id && it->second == true) {
+            ion_fd_map::iterator it_fd;
+            for (it_fd = ion_fd_mapping_.begin(); it_fd != ion_fd_mapping_.end();
+                ++it_fd) {
+              if (it_fd->second == surface_buffer.plane_info[0].ion_fd) {
+                surface_buffer.plane_info[0].ion_fd = it_fd->first;
+                break;
+              }
             }
-          }
-          if(it_fd == ion_fd_mapping.end()) {
-            int32_t ion_fd;
-            ion_fd = surface_buffer.plane_info[0].ion_fd;
-            surface_buffer.plane_info[0].ion_fd =
-                dup(data.readFileDescriptor());
-            struct ion_fd_data ion_info_fd;
-            memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
-            ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
-            ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
-            if(ret != NO_ERROR) {
-              QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
-                  __func__, ion_info_fd.fd, ret, errno);
+            if(it_fd == ion_fd_mapping_.end()) {
+              int32_t ion_fd;
+              ion_fd = surface_buffer.plane_info[0].ion_fd;
+              surface_buffer.plane_info[0].ion_fd =
+                  dup(data.readFileDescriptor());
+              QMMF_DEBUG("%s OnTransact client ion_fd::%d ", __func__,
+                  surface_buffer.plane_info[0].ion_fd);
+              struct ion_fd_data ion_info_fd;
+              memset(&ion_info_fd, 0x0, sizeof(ion_info_fd));
+              ion_info_fd.fd = surface_buffer.plane_info[0].ion_fd;
+              ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info_fd);
+              if(ret != NO_ERROR) {
+                QMMF_ERROR("%s: ION_IOC_IMPORT failed for fd(%d) ret:%d errno:%d",
+                    __func__, ion_info_fd.fd, ret, errno);
+              }
+              ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
+                  ion_fd});
+              BufInfo* bufinfo = new BufInfo();
+              bufinfo->ion_fd = surface_buffer.plane_info[0].ion_fd;
+              bufinfo->pointer = nullptr;
+              bufinfo->frame_len =  surface_buffer.plane_info[0].size;
+              bufinfo->ion_handle = ion_info_fd.handle;
+              bufinfo->surface_id = surface_id;
+              buf_info_map_.insert({surface_buffer.plane_info[0].ion_fd, bufinfo});
             }
-            ion_fd_mapping.insert({surface_buffer.plane_info[0].ion_fd,
-                ion_fd});
+            break;
           }
-          break;
+        }
+        for (auto& it : ion_fd_mapping_) {
+          QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
+              "client_ion_fd::%d ", __func__, it.first, it.second);
         }
       }
+
       ret = QueueSurfaceBuffer(display_handle, surface_id, surface_buffer,
           surface_param);
       reply->writeInt32(ret);
+
       return NO_ERROR;
     }
     break;
@@ -338,7 +406,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
     break;
   }
 
-  QMMF_LEVEL2("%s: DisplayService::Exit ",__func__);
+  QMMF_DEBUG("%s: DisplayService::Exit ",__func__);
   return 0;
 }
 
@@ -346,10 +414,13 @@ status_t DisplayService::Connect() {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  ion_device_ = open("/dev/ion", O_RDONLY);
-  if (ion_device_ < 0) {
-    QMMF_ERROR("%s: Can't open Ion device!", __func__);
-    return NO_INIT;
+  std::unique_lock<std::mutex> lock(client_handlers_lock_);
+  if (client_handlers_.size() == 0) {
+    ion_device_ = open("/dev/ion", O_RDONLY);
+    if (ion_device_ < 0) {
+      QMMF_ERROR("%s: Can't open Ion device!", __func__);
+      return NO_INIT;
+    }
   }
 
   display_ = DisplayImpl::CreateDisplayCore();
@@ -374,26 +445,34 @@ status_t DisplayService::Connect() {
 
 status_t DisplayService::Disconnect() {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   int32_t ret = NO_ERROR;
   if (!connected_)
     return NO_INIT;
 
-  close(ion_device_);
+  std::unique_lock<std::mutex> lock(client_handlers_lock_);
+  if (client_handlers_.size() == 0) {
+    close(ion_device_);
 
-  if (death_notifier_.get() != nullptr) {
-    death_notifier_.clear();
-    death_notifier_ = nullptr;
+    if (death_notifier_.get() != nullptr) {
+      death_notifier_.clear();
+      death_notifier_ = nullptr;
+    }
   }
 
   if (display_)
   {
     ret = display_->Disconnect();
-    delete display_;
+    if (client_handlers_.size() == 0) {
+        delete display_;
+        display_ = nullptr;
+    } else {
+      QMMF_INFO("%s() Cant destroy.display as there are more client of "
+          "display::%u",__func__, client_handlers_.size());
+    }
   }
 
-
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
 
   return ret;
 }
@@ -411,10 +490,23 @@ status_t DisplayService::CreateDisplay(const sp<IDisplayServiceCallback>&
 
   IInterface::asBinder(remote_callback->getRemoteClient())
       ->linkToDeath(death_notifier_);
-  client_handlers_.insert({*display_handle,
-      remote_callback->getRemoteClient()});
-  remote_callback_.insert({*display_handle, remote_callback});
 
+  {
+    std::lock_guard<std::mutex> lock(remote_callback_lock_);
+    remote_callback_.insert({*display_handle, remote_callback});
+    for (std::map<DisplayHandle, sp<RemoteCallBack>>::iterator it =
+        remote_callback_.begin(); it!=remote_callback_.end(); ++it) {
+      QMMF_DEBUG("%s remote_callback DisplayHandle::%u ", __func__, it->first);
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(client_handlers_lock_);
+    client_handlers_.insert({*display_handle,
+        remote_callback->getRemoteClient()});
+    QMMF_INFO("%s: Added display handle::%d Number of display handle::%d",
+        __func__, *display_handle, client_handlers_.size());
+  }
   connected_ = true;
   QMMF_INFO("%s: EXIT ", __func__);
   return ret;
@@ -422,28 +514,45 @@ status_t DisplayService::CreateDisplay(const sp<IDisplayServiceCallback>&
 
 status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   int32_t ret = NO_ERROR;
   if (!connected_)
     return NO_INIT;
 
-  auto remote_callback = remote_callback_.find(display_handle);
-  if (remote_callback == remote_callback_.end()) {
-    QMMF_ERROR("%s() no remote_callback for handle[%d]", __func__,
-               display_handle);
-    return -EINVAL;
-  }
-
-  IInterface::asBinder(remote_callback->second->getRemoteClient())
-      ->unlinkToDeath(death_notifier_);
-
-  if (display_)
   {
-    ret = display_->DestroyDisplay(display_handle);
-  }
-  assert(ret == NO_ERROR);
+    std::lock_guard<std::mutex> lock(remote_callback_lock_);
+    auto remote_callback = remote_callback_.find(display_handle);
+    if (remote_callback == remote_callback_.end()) {
+      QMMF_ERROR("%s() no remote_callback for handle[%d]", __func__,
+                 display_handle);
+      return -EINVAL;
+    }
 
-  QMMF_LEVEL1("%s: Exit ", __func__);
+    for (std::map<DisplayHandle, sp<RemoteCallBack>>::iterator it =
+        remote_callback_.begin(); it!=remote_callback_.end(); ++it) {
+      QMMF_DEBUG("%s remote_callback DisplayHandle::%u ", __func__, it->first);
+    }
+
+    IInterface::asBinder(remote_callback->second->getRemoteClient())
+        ->unlinkToDeath(death_notifier_);
+
+     remote_callback_.erase(display_handle);
+
+    if (display_)
+    {
+      ret = display_->DestroyDisplay(display_handle);
+    }
+    assert(ret == NO_ERROR);
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(client_handlers_lock_);
+    client_handlers_.erase(display_handle);
+    QMMF_INFO("%s: Removed display handle::%d Number of display handle::%d",
+        __func__, display_handle, client_handlers_.size());
+  }
+
+  QMMF_INFO("%s: Exit ", __func__);
 
   return ret;
 }
@@ -451,7 +560,7 @@ status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
 status_t DisplayService::CreateSurface(DisplayHandle display_handle,
     SurfaceConfig &surface_config,
     uint32_t* surface_id) {
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
   if(!connected_) {
     QMMF_WARN("%s: Connect Should be called, before calling CreateSurface!!",
@@ -473,7 +582,7 @@ status_t DisplayService::CreateSurface(DisplayHandle display_handle,
 status_t DisplayService::DestroySurface(DisplayHandle display_handle,
     const uint32_t surface_id) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
 
   assert(display_ != NULL);
 
@@ -483,14 +592,14 @@ status_t DisplayService::DestroySurface(DisplayHandle display_handle,
     QMMF_ERROR("%s: Can't destroy surface!!", __func__);
     return ret;
   }
-  QMMF_LEVEL1("%s: Exit", __func__);
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t DisplayService::DequeueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -498,7 +607,7 @@ status_t DisplayService::DequeueSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->DequeueSurfaceBuffer(display_handle, surface_id,
       surface_buffer);
   assert(ret == NO_ERROR);
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 
@@ -506,7 +615,7 @@ status_t DisplayService::QueueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer,
     SurfaceParam &surface_param) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -515,14 +624,14 @@ status_t DisplayService::QueueSurfaceBuffer(DisplayHandle display_handle,
   auto ret = display_->QueueSurfaceBuffer(display_handle, surface_id,
       surface_buffer, surface_param);
   assert(ret == NO_ERROR);
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::GetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -534,13 +643,13 @@ status_t DisplayService::GetDisplayParam(DisplayHandle display_handle,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::SetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -550,14 +659,14 @@ status_t DisplayService::SetDisplayParam(DisplayHandle display_handle,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetDisplayParam failed!", __func__);
   }
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::DequeueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -568,14 +677,14 @@ status_t DisplayService::DequeueWBSurfaceBuffer(DisplayHandle display_handle,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: DequeueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 
 status_t DisplayService::QueueWBSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, const SurfaceBuffer &surface_buffer) {
 
-  QMMF_LEVEL1("%s: Enter ", __func__);
+  QMMF_INFO("%s: Enter ", __func__);
   if (!connected_)
     return NO_INIT;
 
@@ -586,7 +695,7 @@ status_t DisplayService::QueueWBSurfaceBuffer(DisplayHandle display_handle,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: QueueWBSurfaceBuffer failed!", __func__);
   }
-  QMMF_LEVEL1("%s: Exit ", __func__);
+  QMMF_INFO("%s: Exit ", __func__);
   return ret;
 }
 

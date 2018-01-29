@@ -11440,13 +11440,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    VideoTrackCreateParam master_video_track_param{};
-
-    master_video_track_param.camera_id   = multicam_id_;
-    master_video_track_param.width       = 3840;
-    master_video_track_param.height      = 1920;
-    master_video_track_param.frame_rate  = 24;
-    master_video_track_param.format_type = VideoFormat::kAVC;
+    VideoTrackCreateParam master_video_track_param {multicam_id_,VideoFormat::kAVC,
+                                                    3840, 1920, 24};
 
     master_video_track_param.codec_param.avc.idr_interval = 1;
     master_video_track_param.codec_param.avc.bitrate = 12000000;
@@ -11514,12 +11509,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     // Second Track
     uint32_t video_track_id_480p = 2;
 
-    VideoTrackCreateParam second_video_track_param{};
-    second_video_track_param.camera_id = multicam_id_;
-    second_video_track_param.width = 960;
-    second_video_track_param.height = 480;
-    second_video_track_param.frame_rate = 24;
-    second_video_track_param.format_type = VideoFormat::kAVC;
+    VideoTrackCreateParam second_video_track_param{multicam_id_,VideoFormat::kAVC,
+                                                   960, 480, 24};
 
     second_video_track_param.codec_param.avc.idr_interval = 1;
     second_video_track_param.codec_param.avc.bitrate = 12000000;
@@ -11581,12 +11572,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
 
-    VideoTrackCreateParam video_track_param{};
-    video_track_param.camera_id = multicam_id_;
-    video_track_param.width = 1440;
-    video_track_param.height = 720;
-    video_track_param.frame_rate = 24;
-    video_track_param.format_type = VideoFormat::kYUV;
+    VideoTrackCreateParam video_track_param{multicam_id_,VideoFormat::kYUV,
+                                            1440, 720, 24};
+
     video_track_param.low_power_mode = true;
 
     TrackCb yuv_track_cb3;

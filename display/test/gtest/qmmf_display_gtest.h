@@ -103,7 +103,6 @@ class DisplayGtest : public ::testing::Test {
   typedef struct BufInfo {
     BufferInfo buffer_info;
     void* buf;
-    int32_t buf_id;
   } BufInfo;
 
   typedef struct SurfaceData {

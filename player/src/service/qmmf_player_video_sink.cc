@@ -180,7 +180,9 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false),
       paused_(false),
       decoded_frame_number_(0),
+#ifndef DISABLE_DISPLAY
       display_started_(0),
+#endif
       playback_speed_(TrickModeSpeed::kSpeed_1x),
       playback_dir_(TrickModeDirection::kNormalForward),
       displayed_frames_(0),
@@ -247,11 +249,16 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) 
   current_width = track_param.params.width;
   current_height = track_param.params.height;
 
-  auto ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
+  status_t ret = 0;
+#ifndef DISABLE_DISPLAY
+  ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
   if (ret != 0) {
     QMMF_ERROR("%s CreateDisplay Failed!!", __func__);
     return ret;
   }
+#else
+  QMMF_WARN("%s Display not supported!", __func__);
+#endif
 
   uint32_t buffer_size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12,
       track_param.params.width, track_param.params.height);
@@ -405,13 +412,17 @@ status_t VideoTrackSink::ResumeSink() {
 
 status_t VideoTrackSink::DeleteSink() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
-  auto ret = 0;
+  status_t ret = 0;
 
+#ifndef DISABLE_DISPLAY
   ret = DeleteDisplay(display::DisplayType::kPrimary);
   if (ret != 0) {
     QMMF_ERROR("%s DeleteDisplay Failed!!", __func__);
     return ret;
   }
+#else
+  QMMF_WARN("%s Display not supported!", __func__);
+#endif
 
   video_track_decoder_.reset();
 
@@ -614,7 +625,6 @@ void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
 void VideoTrackSink::Renderer() {
   QMMF_INFO("%s: Enter ", __func__);
 
-  status_t ret = 0;
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
 
   while (!stopplayback_) {
@@ -641,13 +651,16 @@ void VideoTrackSink::Renderer() {
         ReturnBufferToCodec(codec_buffer);
         decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
       } else {
+#ifndef DISABLE_DISPLAY
         QMMF_DEBUG("%s PushFrameToDisplay codec_buffer.fd ::  %d",
             __func__, codec_buffer.fd);
-        ret = PushFrameToDisplay(codec_buffer);
+        status_t ret = PushFrameToDisplay(codec_buffer);
         if (ret != 0) {
           QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
         }
-
+#else
+        QMMF_WARN("%s Display not supported!", __func__);
+#endif
         if (playback_dir_ == TrickModeDirection::kSlowForward) {
           QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
               (float)(sleep_time_us *
@@ -781,6 +794,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
   return NO_ERROR;
 }
 
+#ifndef DISABLE_DISPLAY
 status_t VideoTrackSink::CreateDisplay(
     display::DisplayType display_type,
     VideoTrackParams& track_param) {
@@ -822,7 +836,6 @@ status_t VideoTrackSink::CreateDisplay(
   surface_config_.buffer_count = track_param.params.num_buffers;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
-  surface_config_.context = 1;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s CreateSurface Failed!!", __func__);
@@ -835,7 +848,10 @@ status_t VideoTrackSink::CreateDisplay(
       static_cast<float>(track_param.params.width),
       static_cast<float>(track_param.params.height)};
 
-  surface_param_.dst_rect = { 0.0, 0.0, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+  surface_param_.dst_rect = {
+      track_param.params.destRect.start_x, track_param.params.destRect.start_y,
+      static_cast<float>(track_param.params.destRect.width),
+      static_cast<float>(track_param.params.destRect.height)};
 
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
@@ -843,9 +859,33 @@ status_t VideoTrackSink::CreateDisplay(
   surface_param_.frame_rate=track_param.params.frame_rate;
   surface_param_.z_order = 0;
   surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
+
+  switch (track_param.params.rotation) {
+    case 0:
+    case 360:
+      surface_param_.surface_transform.rotation = 0.0f;
+      surface_param_.surface_transform.flip_horizontal = 0;
+      surface_param_.surface_transform.flip_vertical = 0;
+      break;
+    case 90:
+      surface_param_.surface_transform.rotation = 90.0f;
+      surface_param_.surface_transform.flip_horizontal = 0;
+      surface_param_.surface_transform.flip_vertical = 0;
+      break;
+    case 180:
+      surface_param_.surface_transform.rotation = 0.0f;
+      surface_param_.surface_transform.flip_horizontal = 1;
+      surface_param_.surface_transform.flip_vertical = 1;
+      break;
+    case 270:
+      surface_param_.surface_transform.rotation = 90.0f;
+      surface_param_.surface_transform.flip_horizontal = 1;
+      surface_param_.surface_transform.flip_vertical = 1;
+      break;
+    default:
+      QMMF_ERROR("%s:%s Wrong value entered for rotation (0/90/180/270)");
+      break;
+  }
 
   QMMF_INFO("%s: Exit", __func__);
   return res;
@@ -903,7 +943,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     lock_guard<mutex> lock(grab_picture_lock);
 
     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
-    surface_buffer_.buf_id = static_cast<int32_t>(codec_buffer.fd);
+    surface_buffer_.buf_id = codec_buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = ROUND_TO(surface_config_.width, 128);
     surface_buffer_.plane_info[0].size = codec_buffer.size;
@@ -940,6 +980,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 
    return NO_ERROR;
 }
+#endif
 
 status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
                                                uint32_t size) {

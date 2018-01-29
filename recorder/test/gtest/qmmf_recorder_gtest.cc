@@ -114,6 +114,8 @@ void RecorderGtest::SetUp() {
   record_duration_ = atoi(prop_val);
   property_get(PROP_DUMP_THUMBNAIL, prop_val, "0");
   is_dump_thumb_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_BURST_N_IMAGES, prop_val, DEFAULT_BURST_COUNT);
+  burst_image_count_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -123,9 +125,11 @@ void RecorderGtest::SetUp() {
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
+#ifndef DISABLE_DISPLAY
   use_display_ = false;
   display_started_ = false;
   enable_gfx_ = false;
+#endif
 
   TEST_INFO("%s Exit ", __func__);
 }
@@ -1940,7 +1944,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 2;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
@@ -2038,7 +2042,7 @@ TEST_F(RecorderGtest, BurstSnapshot) {
 
   meta.update(ANDROID_JPEG_QUALITY, &kDefaultJpegQuality, 1);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t i = 0; i < num_images; i++) {
     meta_array.push_back(meta);
   }
@@ -2221,7 +2225,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
@@ -2411,7 +2415,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
@@ -2490,6 +2494,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
   std::condition_variable  ae_converge_signal;
   std::mutex ae_converge_mutex;
+  bool ae_converged = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -2497,6 +2502,9 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
           uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
           if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            TEST_INFO("%s: AE is converged!!!", __func__);
+            std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+            ae_converged = true;
             ae_converge_signal.notify_one();
           }
         }
@@ -2547,14 +2555,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   assert(ret == NO_ERROR);
 
   // Record for sometime
-  // Wait for AE convergence
-  std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-  auto status = ae_converge_signal.wait_for(ae_converge_lock,
-    std::chrono::seconds(30 / frame_rate + 1));
-
-  assert(status == std::cv_status::no_timeout);
-
-  fprintf(stderr,"AE Converged succesfuly\n");
+  sleep(2);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -2626,11 +2627,6 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  // AE lock for snapshot
-  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-  assert(ret == NO_ERROR);
-
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
   fps_range[0] = frame_rate;
@@ -2638,7 +2634,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
   assert(ret == NO_ERROR);
 
-  uint32_t num_images = 30;
+  uint32_t num_images = burst_image_count_;
   for (uint32_t num = 0; num < num_images; num++) {
     meta_array.push_back(meta);
   }
@@ -2648,12 +2644,25 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      if (!ae_converged) {
+        TEST_INFO("%s: Wait for AE to Converged!", __func__);
+        auto status = ae_converge_signal.wait_for(ae_converge_lock,
+        std::chrono::seconds(30 / frame_rate + 1));
+        assert(status == std::cv_status::no_timeout);
+        TEST_INFO("%s: AE Converged succesfuly", __func__);
+      } else {
+        TEST_INFO("%s: AE is already converged!", __func__);
+      }
+    }
     // Lock AE
     CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     assert(ret == NO_ERROR);
 
-    ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     assert(ret == NO_ERROR);
 
@@ -2666,6 +2675,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
     sleep(10);
 
+    {
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      ae_converged = false;
+    }
     // Unlock AE
     ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
@@ -2741,9 +2754,11 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
   // Auto burst modes: 3 in 1 or 5 in 1 or 10 in 1 or 15 in 1 frames per second
   std::vector<uint32_t> auto_burst_modes = {3, 5, 10, 15};
 
+  std::condition_variable  ae_converge_signal;
+  std::mutex ae_converge_mutex;
+  bool ae_converged = false;
+
   for (auto rate : auto_burst_modes) {
-    std::condition_variable  ae_converge_signal;
-    std::mutex ae_converge_mutex;
 
     CameraResultCb result_cb = [&] (uint32_t camera_id,
         const CameraMetadata &result) {
@@ -2751,6 +2766,9 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
             uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
             if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
               (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+              TEST_INFO("%s: AE is converged!!!", __func__);
+              std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+              ae_converged = true;
               ae_converge_signal.notify_one();
             }
           }
@@ -2800,14 +2818,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     assert(ret == NO_ERROR);
 
     // Record for sometime
-    // Wait for AE convergence
-    std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-    auto status = ae_converge_signal.wait_for(ae_converge_lock,
-      std::chrono::seconds(30 / rate + 1));
-
-    assert(status == std::cv_status::no_timeout);
-
-    fprintf(stderr,"AE Converged succesfuly\n");
+    sleep(2);
 
     ImageParam image_param{};
     image_param.width         = 3840;
@@ -2879,11 +2890,6 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     ret = recorder_.ConfigImageCapture(camera_id_, image_config);
     assert(ret == NO_ERROR);
 
-    // AE lock for snapshot
-    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-    assert(ret == NO_ERROR);
-
     // Set frame rate otherwise default value is used
     int32_t fps_range[2];
     fps_range[0] = rate;
@@ -2903,12 +2909,26 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
           test_info_->name(), i);
 
+      {
+        // Wait for AE to converge.
+        std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+        if (!ae_converged) {
+          TEST_INFO("%s: Wait for AE to Converged!", __func__);
+          auto status = ae_converge_signal.wait_for(ae_converge_lock,
+          std::chrono::seconds(30 / rate + 1));
+          assert(status == std::cv_status::no_timeout);
+          TEST_INFO("%s: AE Converged succesfuly", __func__);
+        } else {
+          TEST_INFO("%s: AE is already converged!", __func__);
+        }
+      }
+
       // Lock AE
       CameraMetadata video_meta;
       ret = recorder_.GetCameraParam(camera_id_, video_meta);
       assert(ret == NO_ERROR);
 
-      ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
       ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
       assert(ret == NO_ERROR);
 
@@ -2920,6 +2940,12 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
       assert(ret == NO_ERROR);
 
       sleep(10);
+
+      {
+        // AE and wait for to converge for next round of run.
+        std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+        ae_converged = false;
+      }
 
       // Unlock AE
       ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
@@ -2996,6 +3022,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
   std::condition_variable  ae_converge_signal;
   std::mutex ae_converge_mutex;
+  bool ae_converged = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -3003,6 +3030,8 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
           uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
           if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
             (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            TEST_INFO("%s: AE is converged!!", __func__);
+            ae_converged = true;
             ae_converge_signal.notify_one();
           }
         }
@@ -3052,14 +3081,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   assert(ret == NO_ERROR);
 
   // Record for sometime
-  // Wait for AE convergence
-  std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
-  auto status = ae_converge_signal.wait_for(ae_converge_lock,
-    std::chrono::seconds(30 / preview_frame_rate + 1));
-
-  assert(status == std::cv_status::no_timeout);
-
-  fprintf(stderr,"AE Converged succesfuly\n");
+  sleep(2);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -3143,11 +3165,6 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   assert(ret == NO_ERROR);
 
-  // AE lock for snapshot
-  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
-  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
-  assert(ret == NO_ERROR);
-
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
   fps_range[0] = preview_frame_rate;
@@ -3162,12 +3179,26 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    // Lock AE
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      if (!ae_converged) {
+        TEST_INFO("%s: Wait for AE to Converged!", __func__);
+        auto status = ae_converge_signal.wait_for(ae_converge_lock,
+        std::chrono::seconds(30 / preview_frame_rate + 1));
+        assert(status == std::cv_status::no_timeout);
+        TEST_INFO("%s: AE Converged succesfuly", __func__);
+      } else {
+        TEST_INFO("%s: AE is already converged!", __func__);
+      }
+    }
+
     CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     assert(ret == NO_ERROR);
 
-    ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    // Lock AE for snapshot
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     assert(ret == NO_ERROR);
 
@@ -3181,6 +3212,12 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
 
     ret = recorder_.CancelCaptureImage(camera_id_);
     assert(ret == NO_ERROR);
+
+    {
+      // AE and wait for to converge for next round of run.
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      ae_converged = false;
+    }
 
     // Unlock AE
     ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
@@ -12538,12 +12575,20 @@ TEST_F(RecorderGtest,
     assert(ret == NO_ERROR);
     CameraMetadata meta;
     // Enable EIS before Start Session
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
+
+    // Enable YUV LCAC
+    uint8_t enable_lcac = 1;
+    ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+    assert(ret == NO_ERROR);
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    assert(ret == NO_ERROR);
+
     // Store Session 1 tracks
     std::vector<uint32_t> session1_track_ids;
     session1_track_ids.push_back(session1_trackid_avc);
@@ -12555,15 +12600,6 @@ TEST_F(RecorderGtest,
     // Let session run for 5 sec, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(5);
-    // Now Enable YUV LCAC
-    auto status = recorder_.GetCameraParam(camera_id_, meta);
-    if (NO_ERROR == status) {
-      uint8_t enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      assert(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      assert(ret == NO_ERROR);
-    }
     // Session 2 Track: 1920x1440p @30 AVC
     uint32_t session_id2;
     ret = recorder_.CreateSession(session_status_cb, &session_id2);
@@ -13178,7 +13214,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     sessions_.insert(std::make_pair(session_id, track_ids));
     // Enable EIS before Start Session
     CameraMetadata meta;
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
 
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -13191,6 +13227,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     sleep(record_duration_ / 2);
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
+
     if (NO_ERROR == ret) {
       uint8_t enable_lcac = 1;
       ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
@@ -13300,7 +13337,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     sessions_.insert(std::make_pair(session_id, track_ids));
     // Enable EIS before Start Session
     CameraMetadata meta;
-    auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    auto ret = recorder_.GetCameraParam(camera_id_, meta);
     assert(ret == NO_ERROR);
 
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -13314,6 +13351,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_ / 2);
+
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       uint8_t enable_lcac = 1;
@@ -13503,6 +13541,7 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
 
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * Session1080pYUVTrackWithDisplay: This test will be used to test display
 * functionality. This test will create session with 1080p YUV track and
@@ -13614,6 +13653,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 /*
 * 1080pVideo4KVideoTypeSnapshot: This test will test session with 1080p
@@ -14193,6 +14233,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
 
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse:
 *    This test will create three concurrent sessions 1440p Enc track for storage,
@@ -15265,6 +15306,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplayAlongWithGfxPlane) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 /* SessionWith1080pYUVTrackFocalLength: This test will test session with one
 * 1080p YUV track. Api test sequence:
@@ -15356,6 +15398,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrackFocalLength) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWith1440pEnc480pEnc480pDisplayWithEISLCACTNRLandscapeMode:
 *    This test will create three concurrent sessions 1440p Enc track for
@@ -15802,8 +15845,8 @@ TEST_F(RecorderGtest,
     assert(session_id3 > 0);
     assert(ret == NO_ERROR);
 
-    width = 640;
-    height = 480;
+    width = 480;
+    height = 640;
     video_track_param.camera_id = camera_id_;
     video_track_param.width = width;
     video_track_param.height = height;
@@ -15816,8 +15859,12 @@ TEST_F(RecorderGtest,
       VideoTrackYUVDataCb(session_id3, track_id, buffers, meta_buffers);
     };
 
+    rotate_param.flags = RotationFlags::kRotate90;  // 90 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
     ret = recorder_.CreateVideoTrack(session_id3, session3_yuv_trackid,
-                                     video_track_param, video_track_cb);
+                                     video_track_param, extra_param,
+                                     video_track_cb);
     assert(ret == NO_ERROR);
 
     // Store Session 3 tracks
@@ -15828,7 +15875,7 @@ TEST_F(RecorderGtest,
 
     if (use_display_) {
       ret =
-          StartDisplay(DisplayType::kPrimary, width, height, width / 2, height);
+          StartDisplay(DisplayType::kPrimary, width, height, width, height/2);
       if (ret != 0) {
         TEST_ERROR("%s: StartDisplay Failed!!", __func__);
       }
@@ -16192,8 +16239,8 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
     assert(session_id2 > 0);
     assert(ret == NO_ERROR);
 
-    width = 640;
-    height = 480;
+    width = 480;
+    height = 640;
     video_track_param.camera_id = camera_id_;
     video_track_param.width = width;
     video_track_param.height = height;
@@ -16206,8 +16253,12 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
       VideoTrackYUVDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
+    rotate_param.flags = RotationFlags::kRotate90;  // 90 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
     ret = recorder_.CreateVideoTrack(session_id2, session2_yuv_trackid,
-                                     video_track_param, video_track_cb);
+                                     video_track_param, extra_param,
+                                     video_track_cb);
     assert(ret == NO_ERROR);
 
     // Store Session 2 tracks
@@ -16219,7 +16270,7 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
 
     if (use_display_) {
       ret =
-          StartDisplay(DisplayType::kPrimary, width, height, width / 2, height);
+          StartDisplay(DisplayType::kPrimary, width, height, width, height/2);
       if (ret != 0) {
         TEST_ERROR("%s: StartDisplay Failed!!", __func__);
       }
@@ -16272,6 +16323,7 @@ TEST_F(RecorderGtest, SessionWith480pEnc480pDisplayWithEISLCACPortraitMode) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+#endif
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
@@ -16612,6 +16664,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
   }
 
+#ifndef DISABLE_DISPLAY
   if (use_display_) {
     if (enable_gfx_) {
       DequeueGfxSurfaceBuffer();
@@ -16619,6 +16672,7 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
     PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
   }
+#endif
 
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
@@ -17104,6 +17158,7 @@ void RecorderGtest::ClearSurface() {
 #endif
 }
 
+#ifndef DISABLE_DISPLAY
 void RecorderGtest::DisplayCallbackHandler(DisplayEventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
@@ -17148,7 +17203,6 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
   surface_config_.buffer_count = 1;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
-  surface_config_.context = 0;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   assert(res == 0);
 
@@ -17236,7 +17290,7 @@ status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
   if (display_started_) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.size;
@@ -17265,7 +17319,7 @@ int32_t RecorderGtest::DequeueGfxSurfaceBuffer() {
   TEST_DBG("%s: Enter", __func__);
   auto ret = 0;
 
-  memset(&surface_buffer_, 0x0, sizeof surface_buffer_);
+  memset(&gfx_surface_buffer_, 0x0, sizeof gfx_surface_buffer_);
 
   gfx_surface_buffer_.format = SurfaceFormat::kFormatBGRA8888;
   gfx_surface_buffer_.acquire_fence = 0;
@@ -17306,7 +17360,7 @@ int32_t RecorderGtest::QueueGfxSurfaceBuffer() {
   gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
   gfx_surface_param_.surface_flags.cursor = 0;
   gfx_surface_param_.frame_rate = 30;
-  gfx_surface_param_.z_order = 0;
+  gfx_surface_param_.z_order = 1;
   gfx_surface_param_.solid_fill_color = 0;
 
   auto ret = display_->QueueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_,
@@ -17318,6 +17372,7 @@ int32_t RecorderGtest::QueueGfxSurfaceBuffer() {
   TEST_DBG("%s: Exit", __func__);
   return 0;
 }
+#endif
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s: Enter", __func__);

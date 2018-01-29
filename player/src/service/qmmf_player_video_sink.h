@@ -62,9 +62,6 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
-#define DISPLAY_WIDTH 1920
-#define DISPLAY_HEIGHT 1080
-
 namespace qmmf {
 namespace player {
 
@@ -138,6 +135,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
                            void* event_data) override;
 
+#ifndef DISABLE_DISPLAY
   status_t CreateDisplay(display::DisplayType display_type,
       VideoTrackParams& track_param);
 
@@ -147,6 +145,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
       void *event_data, size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
+#endif
 
   status_t UpdateCropParameters(void* arg);
 
@@ -183,12 +182,14 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   uint32_t                decoded_frame_number_;
   uint64_t                last_queued_timestamp_;
 
+#ifndef DISABLE_DISPLAY
   Display*   display_;
+  bool display_started_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
+#endif
   SurfaceBuffer surface_buffer_;
   SurfaceConfig surface_config_;
-  bool display_started_;
 
   typedef struct BufInfo {
     // FD at service
@@ -206,7 +207,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   void DumpYUVData(BufferDescriptor& codec_buffer);
 #endif
 
+#ifndef DISABLE_DISPLAY
   status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
+#endif
 
   status_t SkipFrame();
 

@@ -79,6 +79,8 @@ struct FaceInfo {
 
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
+#define DEFAULT_BURST_COUNT         "30"
+
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
 
@@ -100,6 +102,8 @@ struct FaceInfo {
 #define PROP_RECORD_DURATION        "persist.qmmf.rec.gtest.recdur"
 // Prop to enable JPEG thumbnail dumping
 #define PROP_DUMP_THUMBNAIL         "persist.qmmf.rec.gtest.thumb"
+// Prop to set Burst snapshot count
+#define PROP_BURST_N_IMAGES         "persist.qmmf.rec.gtest.burstcnt"
 
 // Prop to set Track Resolutions and FPS
 #define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
@@ -261,12 +265,13 @@ class RecorderGtest : public ::testing::Test {
 
   void ClearSurface();
 
+#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
                               size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
 
-  status_t StartDisplay(DisplayType display_type, 
+  status_t StartDisplay(DisplayType display_type,
                      uint32_t src_width, uint32_t src_height,
                      uint32_t dst_width, uint32_t dst_height);
 
@@ -278,6 +283,7 @@ class RecorderGtest : public ::testing::Test {
   int32_t DequeueGfxSurfaceBuffer();
 
   int32_t QueueGfxSurfaceBuffer();
+#endif
 
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
@@ -309,8 +315,11 @@ class RecorderGtest : public ::testing::Test {
   bool                  is_dump_thumb_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+  uint32_t              burst_image_count_;
   std::mutex            error_lock_;
   bool                  camera_error_;
+
+#ifndef DISABLE_DISPLAY
   bool                  use_display_;
   bool                  display_started_;
   Display               *display_;
@@ -318,11 +327,13 @@ class RecorderGtest : public ::testing::Test {
   SurfaceParam          surface_param_;
   SurfaceBuffer         surface_buffer_;
   SurfaceConfig         surface_config_;
+
   FILE                  *gfx_file;
   bool                  enable_gfx_;
   uint32_t              gfx_surface_id_;
   SurfaceParam          gfx_surface_param_;
   SurfaceBuffer         gfx_surface_buffer_;
   SurfaceConfig         gfx_surface_config_;
+#endif
 };
 

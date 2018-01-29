@@ -1084,7 +1084,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 0;
+    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1193,7 +1193,6 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
         new_buf_info->buffer_info.alloc_buffer_info.fd = -1;
         new_buf_info->buffer_info.alloc_buffer_info.stride = 0;
         new_buf_info->buffer_info.alloc_buffer_info.size = 0;
-        new_buf_info->buf_id = i;
         new_buf_info->buf = nullptr;
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
@@ -1246,7 +1245,7 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
       BufferInfo* bufferinfo = &new_buf_info->buffer_info;
       surface_data->surface_buffer.plane_info[0].ion_fd =
           bufferinfo->alloc_buffer_info.fd;
-      surface_data->surface_buffer.buf_id = 0;
+      surface_data->surface_buffer.buf_id = bufferinfo->alloc_buffer_info.fd;
       surface_data->surface_buffer.format =
           (SurfaceFormat)bufferinfo->buffer_config.format;
       surface_data->surface_buffer.plane_info[0].stride =
@@ -1428,7 +1427,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
         new_buf_info->buffer_info.alloc_buffer_info.fd = -1;
         new_buf_info->buffer_info.alloc_buffer_info.stride = 0;
         new_buf_info->buffer_info.alloc_buffer_info.size = 0;
-        new_buf_info->buf_id = i;
         new_buf_info->buf = nullptr;
         buffers.push_back(new_buf_info);
         ret = buffer_allocator_.AllocateBuffer(&new_buf_info->buffer_info);
@@ -1481,7 +1479,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
       BufferInfo* bufferinfo = &new_buf_info->buffer_info;
       surface_data->surface_buffer.plane_info[0].ion_fd =
           bufferinfo->alloc_buffer_info.fd;
-      surface_data->surface_buffer.buf_id = 0;
+      surface_data->surface_buffer.buf_id = bufferinfo->alloc_buffer_info.fd;
       surface_data->surface_buffer.format =
           (SurfaceFormat)bufferinfo->buffer_config.format;
       surface_data->surface_buffer.plane_info[0].stride =
@@ -1595,7 +1593,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_ExternalBuffer) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
+    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1703,17 +1701,18 @@ void DisplayGtest::DisplayThread() {
     }
 
     int32_t ret;
-    static int32_t buf_id = -1;
+    static uint32_t buf_index = 0;
     for (surface_data_map::iterator it = surface_data_.begin();
          it != surface_data_.end(); ++it) {
       SurfaceData* surface_data = it->second;
       assert(surface_data != nullptr);
 
       if (surface_data->buffer_ready) {
+        TEST_INFO("%s: For Surface ID::%u QueueSurfaceBuffer FD %d", __func__,
+            surface_data->surface_id, surface_data->surface_buffer.buf_id);
         ret = display_->QueueSurfaceBuffer(surface_data->surface_id,
                                            surface_data->surface_buffer,
                                            surface_data->surface_param);
-        buf_id = surface_data->surface_buffer.buf_id;
         surface_data->buffer_ready = 0;
         if (ret != 0) {
           TEST_ERROR("%s: QueueSurfaceBuffer Failed!!", __func__);
@@ -1733,18 +1732,21 @@ void DisplayGtest::DisplayThread() {
           TEST_ERROR("%s: DequeueSurfaceBuffer Failed!!", __func__);
         }
 
+        TEST_INFO("%s: For Surface ID::%u DequeueSurfaceBuffer FD %d", __func__,
+            surface_data->surface_id, surface_data->surface_buffer.buf_id);
+
         if (surface_data->surface_buffer.buf_id == -1) {
           TEST_INFO("%s: No buf available !!", __func__);
           if (buf_info.size()) {
             auto bufinfo = buf_info.find(surface_data->surface_id);
             BufInfo* new_buf_info =
-                bufinfo->second.at((buf_id + 1) % bufinfo->second.size());
+                bufinfo->second.at(buf_index);
             BufferInfo* bufferinfo = &new_buf_info->buffer_info;
             assert(bufferinfo != nullptr);
             surface_data->surface_buffer.plane_info[0].ion_fd =
                 bufferinfo->alloc_buffer_info.fd;
             surface_data->surface_buffer.buf_id =
-                (buf_id + 1) % bufinfo->second.size();
+                bufferinfo->alloc_buffer_info.fd;
             surface_data->surface_buffer.format =
                 (SurfaceFormat)bufferinfo->buffer_config.format;
             surface_data->surface_buffer.plane_info[0].stride =
@@ -1763,6 +1765,10 @@ void DisplayGtest::DisplayThread() {
                      surface_data->surface_buffer.plane_info[0].ion_fd, 0);
 
             assert(surface_data->surface_buffer.plane_info[0].buf != nullptr);
+            ++buf_index;
+            if (buf_index == (bufinfo->second.size())) {
+              buf_index = 0;
+            }
           } else {
             continue;
           }

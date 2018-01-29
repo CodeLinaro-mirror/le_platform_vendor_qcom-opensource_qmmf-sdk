@@ -3160,12 +3160,14 @@ status_t RecorderTest::StartSession() {
         || (type == TrackType::kVideoHEVC)
         || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
+#ifndef DISABLE_DISPLAY
       if (use_display == 1) {
         auto ret = track->StartDisplay(DisplayType::kPrimary);
         if(ret != 0) {
           ALOGE("%s StartDisplay Failed!!", __func__);
         }
       }
+#endif
     }
   }
   uint32_t session_id = it->first;
@@ -3186,12 +3188,14 @@ status_t RecorderTest::StopSession() {
   assert(result == NO_ERROR);
 
   for (auto track : it->second) {
+#ifndef DISABLE_DISPLAY
     if (use_display == 1) {
       auto ret = track->StopDisplay(DisplayType::kPrimary);
       if(ret != 0) {
         ALOGE("%s StopDisplay Failed!!", __func__);
       }
     }
+#endif
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
@@ -4013,8 +4017,11 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     if (current_camera_id == -1)
         current_camera_id = camera_id_;
     camera_params.frame_rate = current_camera_info->camera_fps;
+    CameraResultCb result_cb = [&] (uint32_t camera_id,
+            const CameraMetadata &result) {
+            CameraResultCallbackHandler(camera_id, result); };
     printf("%s StartCamera (%d)\n",__func__, current_camera_id);
-    ret = recorder_.StartCamera(current_camera_id, camera_params);
+    ret = recorder_.StartCamera(current_camera_id, camera_params, result_cb);
     if(ret != 0) {
       ALOGE("%s StartCamera (%d) Failed!", __func__, current_camera_id);
       return ret;
@@ -5502,8 +5509,11 @@ void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
 }
 
 TestTrack::TestTrack(RecorderTest* recorder_test)
-    : recorder_test_(recorder_test), num_yuv_frames_(0),
-      display_started_(0) {
+    : recorder_test_(recorder_test),
+      num_yuv_frames_(0) {
+#ifndef DISABLE_DISPLAY
+  display_started_ = false;
+#endif
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
   TEST_DBG("%s: Exit", __func__);
@@ -6200,8 +6210,9 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
               num_yuv_frames_ = 0;
             }
           }
-
+#ifndef DISABLE_DISPLAY
           PushFrameToDisplay(buffers[i], cam_buf_meta);
+#endif
         }
       }
     break;
@@ -6230,6 +6241,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
   TEST_DBG("%s: Exit", __func__);
 }
 
+#ifndef DISABLE_DISPLAY
 void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   TEST_DBG("%s Enter ", __func__);
@@ -6269,7 +6281,6 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
-  surface_config.context = 0;
   res = display_->CreateSurface(surface_config, &surface_id_);
   assert(res == 0);
 
@@ -6325,7 +6336,7 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
   if (display_started_ == 1) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = 0;
+    surface_buffer_.buf_id = buffer.fd;
     surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
     surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
     surface_buffer_.plane_info[0].size = buffer.size;
@@ -6348,6 +6359,7 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
   }
   return NO_ERROR;
 }
+#endif
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
 

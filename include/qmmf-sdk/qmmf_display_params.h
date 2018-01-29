@@ -216,7 +216,6 @@ typedef struct SurfaceTransform {
  * buffer_count: Number of buffers to be allocated/used.
  * cache: To allocate cached or uncached gralloc buffers.
  * use_buffer: The client will allocate the buffers or display adapter
- * context: display adapter call made in service context (1) or client context (0)
  * shall use it.
 */
 typedef struct SurfaceConfig {
@@ -226,7 +225,6 @@ typedef struct SurfaceConfig {
   uint32_t buffer_count;
   bool cache;
   bool use_buffer;
-  bool context;
   SurfaceTransform surface_transform;
 } SurfaceConfig;
 
