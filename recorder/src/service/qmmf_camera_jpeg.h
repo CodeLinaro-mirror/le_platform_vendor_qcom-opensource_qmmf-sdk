@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,12 +37,12 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
+#include "common/exif-generator/qmmf_exif_generator.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/post-process/interface/qmmf_postproc_module.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
 
 #include "qmmf_jpeg_encoder.h"
-#include "qmmf_exif_generator.h"
 
 
 namespace qmmf {

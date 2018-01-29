@@ -44,7 +44,7 @@ ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
 endif
-LOCAL_SRC_FILES += qmmf_exif_generator.cc
+
 LOCAL_SRC_FILES += qmmf_camera_reprocess_impl.cc
 LOCAL_SRC_FILES += post-process/factory/qmmf_postproc_factory.cc
 LOCAL_SRC_FILES += post-process/node/qmmf_postproc_node.cc
@@ -57,6 +57,7 @@ LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay
+LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
