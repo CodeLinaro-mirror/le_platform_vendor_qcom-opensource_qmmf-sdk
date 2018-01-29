@@ -60,16 +60,19 @@ const uint32_t TimeLapse::kLPMTrackWidth = 640;
 const uint32_t TimeLapse::kLPMTrackHeight = 480;
 const uint32_t TimeLapse::kThresholdTime = 3000;
 const uint32_t TimeLapse::kSanpShotBufferReturnedWaitTimeOut = 2;  // 2 sec
+const uint32_t TimeLapse::kJPEGImageQuality = 95;
 
 const uint32_t EncoderSource::kEOSFlag = 1;
 
 TimeLapse::TimeLapse(const TimeLapseParams &params)
-    : params_(params),
-      video_time_lapse_mode_(VideoTimeLapseMode::kModeOne),
+    : avcodec_(nullptr),
+      params_(params),
+      time_lapse_mode_(TimeLapseMode::kModeOne),
       session_id_(0),
       ion_device_(-1),
       snapshot_count_(0),
-      atomic_stop_(false) {
+      atomic_stop_(false),
+      video_encode_(true) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter ", __func__);
 
   ion_device_ = open("/dev/ion", O_RDONLY);
@@ -88,7 +91,10 @@ TimeLapse::TimeLapse(const TimeLapseParams &params)
 TimeLapse::~TimeLapse() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter ", __func__);
 
-  if (avcodec_) delete avcodec_;
+  if (avcodec_ != nullptr) {
+    delete avcodec_;
+    avcodec_ = nullptr;
+  }
 
   close(ion_device_);
   ion_device_ = -1;
@@ -109,24 +115,24 @@ int32_t TimeLapse::Start() {
     return ret;
   }
 
-  ret = StartAVCodec();
-  if (NO_ERROR != ret) {
-    ALOGE("%s: StartAVCodec Failed", __func__);
-    return ret;
+  if (params_.time_lapse_interval <= kThresholdTime) {
+    time_lapse_mode_ = TimeLapseMode::kModeOne;
+  } else {
+    time_lapse_mode_ = TimeLapseMode::kModeTwo;
+  }
+  time_lapse_thread_ = thread(TimeLapse::TimeLapseModeThread, this);
+
+  if (static_cast<TimeLapseType>(params_.time_lapse_type) ==
+      TimeLapseType::kPhotoTimeLapse) {
+    video_encode_ = false;
   }
 
-  if (static_cast<TimeLapseMode>(params_.time_lapse_mode) ==
-      TimeLapseMode::kVideoTimeLapse) {
-    if (params_.time_lapse_interval <= kThresholdTime) {
-      video_time_lapse_mode_ = VideoTimeLapseMode::kModeOne;
-    } else {
-      video_time_lapse_mode_ = VideoTimeLapseMode::kModeTwo;
+  if (video_encode_) {
+    ret = StartAVCodec();
+    if (NO_ERROR != ret) {
+      ALOGE("%s: StartAVCodec Failed", __func__);
+      return ret;
     }
-    time_lapse_thread_ = thread(TimeLapse::TimeLapseModeThread, this);
-  } else if (static_cast<TimeLapseMode>(params_.time_lapse_mode) ==
-             TimeLapseMode::kPhotoTimeLapse) {
-    ALOGE("%s: Currently JPEG Mode is not supported", __func__);
-    return INVALID_OPERATION;
   }
 
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Exit", __func__);
@@ -136,10 +142,9 @@ int32_t TimeLapse::Start() {
 void TimeLapse::TimeLapseModeThread(TimeLapse *timelapse) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
 
-  if (timelapse->video_time_lapse_mode_ == VideoTimeLapseMode::kModeOne) {
+  if (timelapse->time_lapse_mode_ == TimeLapseMode::kModeOne) {
     timelapse->StartTimeLapseModeOne();
-  } else if (timelapse->video_time_lapse_mode_ ==
-             VideoTimeLapseMode::kModeTwo) {
+  } else if (timelapse->time_lapse_mode_ == TimeLapseMode::kModeTwo) {
     timelapse->StartTimeLapseModeTwo();
   }
 
@@ -175,12 +180,19 @@ int32_t TimeLapse::StartTimeLapseModeOne() {
   }
 
   while (!atomic_stop_) {
-    ret = TakeYUVSnapshotandEnqueuetoEncoder();
-    if (NO_ERROR != ret) {
-      ALOGE("%s: Take YUV Snapshtot Failed", __func__);
-      break;
+    if (video_encode_) {
+      ret = TakeYUVSnapshotandEnqueuetoEncoder();
+      if (NO_ERROR != ret) {
+        ALOGE("%s: Take YUV Snapshot Failed", __func__);
+        break;
+      }
+    } else {
+      ret = TakeJPEGSnapshot();
+      if (NO_ERROR != ret) {
+        ALOGE("%s: Take JPEG Snapshot Failed", __func__);
+        break;
+      }
     }
-
     sleep_for(std::chrono::milliseconds(params_.time_lapse_interval));
   }
 
@@ -246,9 +258,16 @@ int32_t TimeLapse::StartTimeLapseModeTwo() {
     snapshot_buffer_returnerd_future_ =
         snapshot_buffer_returned_promise_.get_future();
 
-    ret = TakeYUVSnapshotandEnqueuetoEncoder();
-    if (NO_ERROR != ret) {
-      ALOGE("%s: Take YUV Snapshtot Failed", __func__);
+    if (video_encode_) {
+      ret = TakeYUVSnapshotandEnqueuetoEncoder();
+      if (NO_ERROR != ret) {
+        ALOGE("%s: Take YUV Snapshot Failed", __func__);
+      }
+    } else {
+      ret = TakeJPEGSnapshot();
+      if (NO_ERROR != ret) {
+         ALOGE("%s: Take JPEG Snapshot Failed", __func__);
+      }
     }
 
     auto status = snapshot_buffer_returnerd_future_.wait_for(
@@ -425,16 +444,20 @@ int32_t TimeLapse::Stop() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
   int32_t ret;
 
-  ret = StopAVCodec();
-  if (NO_ERROR != ret) {
-    ALOGE("%s: StopAVCodec Failed", __func__);
+  if (video_encode_) {
+    ret = StopAVCodec();
+    if (NO_ERROR != ret) {
+      ALOGE("%s: StopAVCodec Failed", __func__);
+    }
   }
 
   atomic_stop_ = true;
 
-  ret = ReleaseBuffer();
-  if (NO_ERROR != ret) {
-    ALOGE("%s: failed to release allocated buffers", __func__);
+  if (video_encode_) {
+    ret = ReleaseBuffer();
+    if (NO_ERROR != ret) {
+      ALOGE("%s: failed to release allocated buffers", __func__);
+    }
   }
 
   time_lapse_thread_.join();
@@ -533,7 +556,77 @@ void TimeLapse::ReturnYUVSnapshotBuffer(BufferDescriptor &buffer) {
     ALOGE("%s: ReturnImageCaptureBuffer failed", __func__);
   }
 
-  if (video_time_lapse_mode_ == VideoTimeLapseMode::kModeTwo) {
+  if (time_lapse_mode_ == TimeLapseMode::kModeTwo) {
+    snapshot_buffer_returned_promise_.set_value(1);
+  }
+
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s: Exit", __func__);
+}
+
+int32_t TimeLapse::TakeJPEGSnapshot() {
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
+
+  ImageParam image_param{params_.width, params_.height, kJPEGImageQuality,
+      ImageFormat::kJPEG};
+
+  std::vector<android::CameraMetadata> meta_array;
+  ImageCaptureCb cb;
+  cb = {[&](uint32_t camera_id, uint32_t image_count, BufferDescriptor buffer,
+            MetaData meta_data) {
+    JPEGSnapshotCb(camera_id, image_count, buffer, meta_data);
+  }};
+
+  int32_t ret =
+      recorder_.CaptureImage(params_.camera_id, image_param, 1, meta_array, cb);
+  if (NO_ERROR != ret) {
+    ALOGE("%s: CaptureImage Failed", __func__);
+  }
+
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s: Exit", __func__);
+  return ret;
+}
+
+void TimeLapse::JPEGSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
+                              BufferDescriptor buffer, MetaData meta_data) {
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
+  int32_t ret = 0;
+
+  std::ofstream snapshot_file;
+  std::ostringstream snapshot_file_path;
+  std::streampos before;
+  std::streampos after;
+
+  auto time_now = std::chrono::system_clock::now();
+  auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+      time_now.time_since_epoch());
+
+  snapshot_file_path << jpeg_snapshot_file_name_preamble;
+  snapshot_file_path << params_.width << "x" << params_.height << "_";
+  snapshot_file_path << time_us.count() << ".jpg";
+
+  snapshot_file.open(snapshot_file_path.str(),
+      std::ios::out | std::ios::binary | std::ios::trunc);
+
+  if (snapshot_file.is_open()) {
+    before = snapshot_file.tellp();
+    snapshot_file.write(reinterpret_cast<const char *>(buffer.data), buffer.size);
+    after = snapshot_file.tellp();
+    if (after - before != buffer.size) {
+      ALOGE("%s: Bad Write error (%d):(%s)\n", __func__, errno, strerror(errno));
+    }
+    snapshot_file.close();
+  } else {
+    ALOGE("%s: error opening file[%s]", __func__,
+        (snapshot_file_path.str()).c_str());
+  }
+
+  // Return buffer back to recorder service.
+  ret = recorder_.ReturnImageCaptureBuffer(params_.camera_id, buffer);
+  if (NO_ERROR != ret) {
+    ALOGE("%s: ReturnImageCaptureBuffer failed", __func__);
+  }
+
+  if (time_lapse_mode_ == TimeLapseMode::kModeTwo) {
     snapshot_buffer_returned_promise_.set_value(1);
   }
 
@@ -844,7 +937,7 @@ int32_t EncoderSource::GetBuffer(BufferDescriptor &codec_buffer,
 
   std::unique_lock<mutex> lock(wait_for_frame_lock_);
   while (input_free_buffer_list_.size() <= 0) {
-    ALOGW("EncoderSource:%s: No sanpshot available wait for snapshot",
+    ALOGW("EncoderSource:%s: No snapshot available wait for snapshot",
           __func__);
     wait_for_frame_.Wait(lock);
   }

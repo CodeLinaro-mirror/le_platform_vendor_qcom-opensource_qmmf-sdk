@@ -69,13 +69,15 @@ typedef struct ion_allocation_data IonHandleData;
 
 static const std::string yuv_snapshot_file_name_preamble =
     "/data/misc/qmmf/video_time_lapse_sanpshot_";
+static const std::string jpeg_snapshot_file_name_preamble =
+    "/data/misc/qmmf/photo_time_lapse_sanpshot_";
 static const std::string video_time_lapse_file_name_preamble =
     "/data/misc/qmmf/video_time_lapse_";
 
 // Prop to enable YUV snapshot dumping from YUV track
 #define PROP_DUMP_YUV_SNAPSHOT "persist.qmmf.time.lapse.dumpyuv"
 
-enum class TimeLapseMode {
+enum class TimeLapseType {
   kVideoTimeLapse,
   kPhotoTimeLapse,
 };
@@ -92,7 +94,7 @@ enum class ImageEncodeFormat {
 
 struct TimeLapseParams {
   uint32_t camera_id;
-  uint32_t time_lapse_mode;
+  uint32_t time_lapse_type;
   uint32_t time_lapse_interval;  // [ms.]
   uint32_t width;
   uint32_t height;
@@ -180,6 +182,10 @@ class TimeLapse {
                      qmmf::recorder::MetaData meta_data);
   void DumpYUVSnapShot(const qmmf::BufferDescriptor& buffer);
   void ReturnYUVSnapshotBuffer(qmmf::BufferDescriptor& buffer);
+  int32_t TakeJPEGSnapshot();
+  void JPEGSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
+                     qmmf::BufferDescriptor buffer,
+                     qmmf::recorder::MetaData meta_data);
   int32_t StartCamera();
   int32_t StopCamera();
   int32_t CreateSession();
@@ -195,7 +201,7 @@ class TimeLapse {
   int32_t DeleteLPMTrack();
   bool ResolutionSupported(uint32_t width, uint32_t height);
 
-  enum class VideoTimeLapseMode {
+  enum class TimeLapseMode {
     kModeOne,
     kModeTwo,
   };
@@ -206,7 +212,7 @@ class TimeLapse {
   std::shared_ptr<EncoderSink> encoder_sink_;
   android::CameraMetadata static_info_;
   TimeLapseParams params_;
-  VideoTimeLapseMode video_time_lapse_mode_;
+  TimeLapseMode time_lapse_mode_;
   std::thread time_lapse_thread_;
   uint32_t session_id_;
   int32_t ion_device_;
@@ -216,9 +222,11 @@ class TimeLapse {
   static const uint32_t kLPMTrackHeight;
   static const uint32_t kThresholdTime;
   static const uint32_t kSanpShotBufferReturnedWaitTimeOut;
+  static const uint32_t kJPEGImageQuality;
   std::atomic<bool> atomic_stop_;
   std::promise<int32_t> snapshot_buffer_returned_promise_;
   std::future<int32_t> snapshot_buffer_returnerd_future_;
+  bool video_encode_;
   bool is_dump_yuv_snapshot_enabled_;
   std::queue<qmmf::BufferDescriptor> yuv_sanpshot_queue_;
   std::vector<qmmf::BufferDescriptor> input_buffer_list_;

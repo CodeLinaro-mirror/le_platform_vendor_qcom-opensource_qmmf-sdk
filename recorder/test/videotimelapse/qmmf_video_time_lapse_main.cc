@@ -38,8 +38,8 @@ const uint32_t kDefaultTimeLapseInterval = 500;
 const uint32_t kDefaultWidth = 3840;
 const uint32_t kDefaultHeight = 2160;
 const uint32_t kDefaultFPS = 30;
-const uint32_t kDefaultTimeLpaseMode =
-    static_cast<uint32_t>(TimeLapseMode::kVideoTimeLapse);
+const uint32_t kDefaultTimeLpaseType =
+    static_cast<uint32_t>(TimeLapseType::kVideoTimeLapse);
 const uint32_t kDefaultVideoEncodeFormat =
     static_cast<uint32_t>(VideoEncodeFormat::kAVC);
 const uint32_t kDefaultImageEncodeFormat =
@@ -48,7 +48,7 @@ const uint32_t kDefaultRecDuration = 120;
 
 enum Arguments : char {
   kCameraId = 'c',
-  kTimeLapseMode = 'm',
+  kTimeLapseType = 't',
   kTimeLapseInterval = 'i',
   kWidth = 'w',
   kHeight = 'h',
@@ -60,7 +60,7 @@ enum Arguments : char {
 
 const char kArgs[] = {Arguments::kCameraId,
                       ':',
-                      Arguments::kTimeLapseMode,
+                      Arguments::kTimeLapseType,
                       ':',
                       Arguments::kTimeLapseInterval,
                       ':',
@@ -86,7 +86,7 @@ struct UsageDescription {
 
 const UsageDescription kDescription[] = {
     {Arguments::kCameraId, "camera_id ", kDefaultCameraId},
-    {Arguments::kTimeLapseMode, "time_lapse_mode ", kDefaultTimeLpaseMode},
+    {Arguments::kTimeLapseType, "time_lapse_type ", kDefaultTimeLpaseType},
     {Arguments::kTimeLapseInterval, "time_lapse_interval [ms.] ",
      kDefaultTimeLapseInterval},
     {Arguments::kWidth, "width ", kDefaultWidth},
@@ -123,7 +123,7 @@ void print_usage() {
 
 void print_params(const TimeLapseParams &params) {
   printf("CameraId: %u\n", params.camera_id);
-  printf("Time Lapse Mode: %u\n", params.time_lapse_mode);
+  printf("Time Lapse Type: %u\n", params.time_lapse_type);
   printf("Time lapse interval: %u[ms]\n", params.time_lapse_interval);
   printf("Width: %u\n", params.width);
   printf("Height: %u\n", params.height);
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
 
   TimeLapseParams params = {
       kDefaultCameraId,
-      kDefaultTimeLpaseMode,
+      kDefaultTimeLpaseType,
       kDefaultTimeLapseInterval,
       kDefaultWidth,
       kDefaultHeight,
@@ -167,14 +167,14 @@ int main(int argc, char *argv[]) {
           }
           params.camera_id = static_cast<decltype(params.camera_id)>(val);
           break;
-        case Arguments::kTimeLapseMode:
+        case Arguments::kTimeLapseType:
           val = atoi(optarg);
           if (0 > val) {
-            printf("%s: Invalid Time Lapse Mode: %d\n", __func__, val);
+            printf("%s: Invalid Time Lapse Type: %d\n", __func__, val);
             exit(EXIT_FAILURE);
           }
-          params.time_lapse_mode =
-              static_cast<decltype(params.time_lapse_mode)>(val);
+          params.time_lapse_type =
+              static_cast<decltype(params.time_lapse_type)>(val);
           break;
         case Arguments::kTimeLapseInterval:
           val = atoi(optarg);
