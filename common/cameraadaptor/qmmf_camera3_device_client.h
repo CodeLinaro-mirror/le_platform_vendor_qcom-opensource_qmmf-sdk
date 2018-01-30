@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -28,6 +28,8 @@
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
+#include <camera/VendorTagDescriptor.h>
+#include <mutex>
 
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"
@@ -265,6 +267,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
+  static std::mutex vendor_tag_mutex_;
 };
 
 }  // namespace cameraadaptor ends here

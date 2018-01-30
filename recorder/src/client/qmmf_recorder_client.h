@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -164,6 +164,8 @@ class RecorderClient {
                                 const void *param,
                                 const uint32_t param_size);
 
+  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc);
+
   // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,
                            size_t event_data_size);
@@ -216,7 +218,6 @@ class RecorderClient {
     NotifyServerDeathCB notify_server_death_;
   };
 
-  vendor_tag_ops_t     vendor_tag_ops_;
   camera_module_t      *camera_module_;
   std::mutex           lock_;
   sp<IRecorderService> recorder_service_;
@@ -257,6 +258,8 @@ class RecorderClient {
   std::mutex  track_buf_map_lock_;
 
   std::map<uint32_t, BufInfo> snapshot_buffers_;
+  // VendorTagDescriptor
+  sp<VendorTagDescriptor> vendor_tag_desc_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {

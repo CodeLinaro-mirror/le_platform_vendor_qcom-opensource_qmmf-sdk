@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -654,6 +654,20 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         blob.release();
         reply->writeUint32(ret);
         return NO_ERROR;
+      }
+      break;
+      case RECORDER_GET_VENDOR_TAG_DESCRIPTOR: {
+        sp<VendorTagDescriptor> desc;
+        ret = GetVendorTagDescriptor(desc);
+        reply->writeInt32(ret);
+        if (NO_ERROR == ret) {
+          ret = desc->writeToParcel(reply);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s: VendorTagDescriptor parcel write failed: %d\n",
+                       __func__, ret);
+          }
+        }
+        return ret;
       }
       break;
       default: {
@@ -1578,6 +1592,16 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return ret;
+}
+
+status_t RecorderService::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+  int32_t res = 0;
+
+  desc = VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  if (desc == nullptr) {
+    res = BAD_VALUE;
+  }
+  return res;
 }
 
 }; //namespace recorder

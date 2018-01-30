@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,6 +30,7 @@
 #pragma once
 
 #include <camera/CameraMetadata.h>
+#include <camera/VendorTagDescriptor.h>
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -225,6 +226,8 @@ class RecorderService : public BnInterface<IRecorderService> {
   bool IsClientValid(const uint32_t client_id);
 
   status_t DisconnectInternal(const uint32_t client_id);
+
+  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
 
   RecorderImpl*       recorder_;
   // Map of client ids and their death notifiers.
