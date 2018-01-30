@@ -32,7 +32,9 @@
 #include <dirent.h>
 
 #include "../modules/camera-hal-reproc/qmmf_camera_hal_reproc.h"
+#ifndef DISABLE_PP_JPEG
 #include "../modules/jpeg-encoder/qmmf_jpeg.h"
+#endif
 #include "../modules/frame-skip/qmmf_postproc_frame_skip.h"
 #include "../modules/test/qmmf_postproc_test.h"
 #include "../modules/algo/qmmf_postproc_algo.h"

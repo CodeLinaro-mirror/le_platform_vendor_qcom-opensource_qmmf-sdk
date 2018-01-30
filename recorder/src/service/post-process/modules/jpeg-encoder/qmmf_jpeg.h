@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -88,8 +88,9 @@ class PostProcJpeg : public IPostProcModule {
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
-  std::vector<reprocjpegencoder::JpegEncoder::jpeg_thumbnail> thumbnail_data_;
-  uint32_t                       image_quality_;
+  reprocjpegencoder::JpegEncoder::encode_params jpeg_params_;
+  uint32_t                       image_width_;
+  uint32_t                       image_height_;
 
   std::mutex                     state_lock_;
   State                          state_;
