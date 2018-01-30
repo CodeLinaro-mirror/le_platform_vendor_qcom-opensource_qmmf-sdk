@@ -749,8 +749,8 @@ public:
             data.writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
             QMMF_DEBUG("%s Transact client ion_fd::%d ", __func__,
                 surface_buffer.plane_info[0].ion_fd);
+            break;
           }
-          break;
         }
       }
 
