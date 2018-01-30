@@ -1889,8 +1889,9 @@ void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
   assert(remote_cb_handle_ != nullptr);
   assert(client_id > 0);
 
-  std::lock_guard<std::mutex> lock(client_died_lock_);
+  std::unique_lock<std::mutex> lock(client_died_lock_);
   auto client_died = client_status_map_[client_id];
+  lock.unlock();
   if (client_died) {
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
@@ -1911,8 +1912,9 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
   assert(remote_cb_handle_ != nullptr);
   assert(client_id > 0);
 
-  std::lock_guard<std::mutex> lock(client_died_lock_);
+  std::unique_lock<std::mutex> lock(client_died_lock_);
   auto client_died = client_status_map_[client_id];
+  lock.unlock();
   if (client_died) {
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
