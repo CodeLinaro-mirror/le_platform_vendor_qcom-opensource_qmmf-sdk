@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -50,6 +50,10 @@
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include "recorder/test/gtest/qmmf_recorder_gtest.h"
+#ifdef USE_SURFACEFLINGER
+#include <sys/mman.h>
+#include <android/native_window.h>
+#endif
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
@@ -129,6 +133,10 @@ void RecorderGtest::SetUp() {
   use_display_ = false;
   display_started_ = false;
   enable_gfx_ = false;
+#endif
+
+#ifdef USE_SURFACEFLINGER
+  use_sf_ = false;
 #endif
 
   TEST_INFO("%s Exit ", __func__);
@@ -13648,6 +13656,120 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
 
 }
 
+#ifdef USE_SURFACEFLINGER
+/*
+* Session4kYUVTrackWithDisplay: This test will be used to test display
+* functionality. This test will create session with 4k YUV track and
+* push received YUV cb frames to display.
+* API test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartStream
+*   - StartVideoTrack
+*   - StopSession
+*   - StopStream
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+
+TEST_F(RecorderGtest, Session4kYUVTrackWithDisplay) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  assert(ret == NO_ERROR);
+
+  use_sf_ = true;
+  uint32_t stream_width  = FHD_1080p_STREAM_WIDTH*2;
+  uint32_t stream_height = FHD_1080p_STREAM_HEIGHT*2;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  assert(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    assert(session_id > 0);
+    assert(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id_1 = 1;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1,
+                                     video_track_param, video_track_cb);
+    assert(ret == NO_ERROR);
+
+    sfdisplay_ = new SFDisplaySink(stream_width, stream_height);
+    if (nullptr == sfdisplay_) {
+      TEST_ERROR("%s: Failed to create SFDisplaySink", __func__);
+      use_sf_ = false;
+    }
+
+    ret = recorder_.StartSession(session_id);
+    assert(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    assert(ret == NO_ERROR);
+
+    if(use_sf_) {
+      delete sfdisplay_;
+      sfdisplay_ = nullptr;
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1);
+    assert(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    assert(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  assert(ret == NO_ERROR);
+
+  ret = DeInit();
+  assert(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+#endif
+
 #ifndef DISABLE_DISPLAY
 /*
 * Session1080pYUVTrackWithDisplay: This test will be used to test display
@@ -16781,6 +16903,14 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
   }
 #endif
 
+#ifdef USE_SURFACEFLINGER
+    if (use_sf_) {
+      sfdisplay_->HandlePreviewBuffer(buffers[0],
+          meta_buffers[0].cam_buffer_meta_data);
+    }
+#endif
+
+
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   assert(ret == NO_ERROR);
 
@@ -17599,3 +17729,146 @@ status_t RecorderGtest::SetCameraFocalLength(const float focal_length) {
   }
   return NO_ERROR;
 }
+
+#ifdef USE_SURFACEFLINGER
+float GetFormatBpp(int32_t format) {
+  //formats taken from graphics.h
+  switch (format) {
+    case HAL_PIXEL_FORMAT_RGBA_8888:
+    case HAL_PIXEL_FORMAT_RGBX_8888:
+    case HAL_PIXEL_FORMAT_BGRA_8888:
+      return 4;
+    case HAL_PIXEL_FORMAT_RGB_565:
+    case HAL_PIXEL_FORMAT_RGBA_5551:
+    case HAL_PIXEL_FORMAT_RGBA_4444:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+    case HAL_PIXEL_FORMAT_YCbCr_422_I:
+      return 2;
+    case HAL_PIXEL_FORMAT_YV12:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+      return 1.5;
+    default:
+      return -1;
+  }
+}
+
+SFDisplaySink::SFDisplaySink(uint32_t width, uint32_t height) {
+  TEST_INFO("%s: Enter 0x%p",__func__, this);
+
+  auto ret = CreatePreviewSurface(width, height);
+  if (ret != 0) {
+    TEST_ERROR("%s: CreatePreviewSurface failed!",__func__);
+  }
+
+  TEST_INFO("%s: Exit",__func__);
+}
+
+SFDisplaySink::~SFDisplaySink() {
+  TEST_INFO("%s: Enter 0x%p",__func__, this);
+
+  DestroyPreviewSurface();
+
+  TEST_INFO("%s: Exit",__func__);
+}
+
+int32_t SFDisplaySink::CreatePreviewSurface(uint32_t width, uint32_t height) {
+  TEST_INFO("%s: Enter ",__func__);
+
+  DisplayInfo dinfo;
+  auto ret = NO_ERROR;
+  sp<IBinder> display(SurfaceComposerClient::getBuiltInDisplay(
+      ISurfaceComposer::eDisplayIdMain));
+  SurfaceComposerClient::getDisplayInfo(display, &dinfo);
+
+  surface_client_ = new SurfaceComposerClient();
+
+  if(surface_client_.get() == nullptr) {
+    TEST_ERROR("%s:Connection to Surface Composer failed!", __func__);
+    return -1;
+  }
+  surface_control_ = surface_client_->createSurface(
+      String8("QMMFRecorderService"),
+      width, height, HAL_PIXEL_FORMAT_YCrCb_420_SP, 0);
+
+  if (surface_control_.get() == nullptr) {
+    TEST_ERROR("%s: Preview surface creation failed!",__func__);
+    return -1;
+  }
+
+  preview_surface_ = surface_control_->getSurface();
+  if (preview_surface_.get() == nullptr) {
+    TEST_ERROR("%s: Preview surface creation failed!",__func__);
+  }
+
+  surface_client_->openGlobalTransaction();
+
+  surface_control_->setLayer(0x7fffffff);
+  surface_control_->setPosition(0, 0);
+  surface_control_->setSize(width, height);
+  surface_control_->show();
+
+  surface_client_->closeGlobalTransaction();
+
+  TEST_INFO("%s: Exit ",__func__);
+  return ret;
+}
+
+void SFDisplaySink::DestroyPreviewSurface() {
+  TEST_INFO("%s: Enter ",__func__);
+  if(preview_surface_.get() != nullptr) {
+    preview_surface_.clear();
+  }
+  if(surface_control_.get () != nullptr) {
+    surface_control_->clear();
+    surface_control_.clear();
+  }
+  if(surface_client_.get() != nullptr) {
+    surface_client_->dispose();
+    surface_client_.clear();
+  }
+  TEST_INFO("%s: Exit ",__func__);
+}
+
+void SFDisplaySink::HandlePreviewBuffer(BufferDescriptor &buffer,
+    CameraBufferMetaData &meta_data) {
+  TEST_INFO("%s: Enter ",__func__);
+
+  if (buffer.data == nullptr) {
+    TEST_ERROR("%s: No buffer!!", __func__);
+    return;
+  }
+
+  ANativeWindow_Buffer info;
+  preview_surface_->lock(&info, nullptr);
+
+  char* img = reinterpret_cast<char *>(info.bits);
+  if (img == nullptr) {
+    TEST_ERROR("%s: No Surface flinger buffer!!", __func__);
+    return;
+  }
+  uint32_t dst_offset = 0;
+  uint32_t src_offset = 0;
+
+  for ( int32_t i = 0; i < info.height; i++ ) {
+    memcpy(img + dst_offset,
+        reinterpret_cast<unsigned char *>(buffer.data) + src_offset,
+        info.width);
+    src_offset += info.width;
+    dst_offset += info.stride;
+  }
+
+  src_offset += info.width * (info.height % 32);
+
+  for ( int32_t i = 0; i < info.height/2; i++ ) {
+    memcpy(img + dst_offset,
+        reinterpret_cast<unsigned char *>(buffer.data) + src_offset,
+        info.width);
+    src_offset += info.width;
+    dst_offset += info.stride;
+  }
+
+  preview_surface_->unlockAndPost();
+
+  TEST_INFO("%s: Exit ",__func__);
+}
+#endif

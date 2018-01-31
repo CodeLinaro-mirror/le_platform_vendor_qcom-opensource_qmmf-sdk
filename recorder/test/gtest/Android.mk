@@ -23,6 +23,10 @@ LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
 LOCAL_SHARED_LIBRARIES += libcamera_client
 
+ifeq ($(USE_SURFACEFLINGER),1)
+LOCAL_SHARED_LIBRARIES += libgui libandroid
+endif
+
 LOCAL_MODULE = qmmf_recorder_gtest
 
 ifeq ($(LOCAL_VENDOR_MODULE),true)

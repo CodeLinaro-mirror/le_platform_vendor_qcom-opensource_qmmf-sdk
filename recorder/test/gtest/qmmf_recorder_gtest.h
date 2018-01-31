@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -38,6 +38,8 @@
 #include <mutex>
 #include <cutils/properties.h>
 
+
+
 #if USE_SKIA
 #include <SkCanvas.h>
 #elif USE_CAIRO
@@ -49,6 +51,13 @@
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+
+#ifdef USE_SURFACEFLINGER
+#include <ui/DisplayInfo.h>
+#include <gui/Surface.h>
+#include <gui/SurfaceComposerClient.h>
+#include <gui/ISurfaceComposer.h>
+#endif
 
 using namespace qmmf;
 using namespace recorder;
@@ -135,6 +144,28 @@ struct RGBAValues {
   double blue;
   double alpha;
 };
+
+#ifdef USE_SURFACEFLINGER
+class SFDisplaySink
+{
+ public:
+  SFDisplaySink(uint32_t width, uint32_t height);
+
+  ~SFDisplaySink();
+
+  void HandlePreviewBuffer(BufferDescriptor &buffer,
+      CameraBufferMetaData &meta_data);
+
+ private:
+  int32_t CreatePreviewSurface(uint32_t width, uint32_t height);
+
+  void DestroyPreviewSurface();
+
+  sp<SurfaceComposerClient> surface_client_;
+  sp<Surface>               preview_surface_;
+  sp<SurfaceControl>        surface_control_;
+};
+#endif
 
 class DumpBitStream {
  public:
@@ -254,7 +285,10 @@ class RecorderGtest : public ::testing::Test {
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
-
+#ifdef USE_SURFACEFLINGER
+  SFDisplaySink         *sfdisplay_;
+  bool                  use_sf_;
+#endif
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
