@@ -235,7 +235,7 @@ status_t SystemDevices::Mute(const SystemHandle system_handle,
   AudioEndPoint end_point;
 
   AudioEventHandler audio_handler =
-    [this] (AudioEventType event_type, const AudioEventData& event_data)
+    [] (AudioEventType event_type, const AudioEventData& event_data)
            -> void {
       switch (event_type) {
         case AudioEventType::kError:
