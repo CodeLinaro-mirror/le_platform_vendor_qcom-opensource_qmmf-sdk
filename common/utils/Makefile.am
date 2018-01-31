@@ -1,5 +1,6 @@
 # Build qmmf_utils.so
 source_files = qmmf_condition.cc
+source_files += qmmf_exif_converter.cc
 
 lib_LTLIBRARIES = libqmmf_utils.la
 
