@@ -39,6 +39,7 @@
 #include <utils/String8.h>
 #include <cutils/native_handle.h>
 #include <media/msm_media_info.h>
+#include <qcom/display/gralloc_priv.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "qmmf-sdk/qmmf_avcodec.h"
@@ -98,8 +99,14 @@ private:
 
   status_t ReleaseBuffer();
 
+#ifndef ANDROID_O_OR_ABOVE
+  status_t InitializeGralloc();
+#endif
+
   IAVCodec*                             avcodec_;
   int32_t                               ion_device_;
+  uint32_t                              width_;
+  uint32_t                              height_;
   std::mutex                            stop_lock_;
   bool                                  stop_;
   vector<BufferDescriptor>              input_buffer_list_;
@@ -109,12 +116,17 @@ private:
   shared_ptr<InputCodecSourceImpl>      input_source_impl_;
   shared_ptr<OutputCodecSourceImpl>     output_source_impl_;
   DefaultKeyedVector<String8, uint32_t> dynamic_params_;
+#ifndef ANDROID_O_OR_ABOVE
+  alloc_device_t                        *gralloc_device_;
+  vector<buffer_handle_t>               gralloc_buffers_;
+#endif
 }; //class CodecTest
 
 class InputCodecSourceImpl : public ICodecSource {
 
 public:
-  InputCodecSourceImpl(char* file_name, uint32_t num_frame);
+  InputCodecSourceImpl(char* file_name, uint32_t num_frame,
+                       uint32_t width, uint32_t height);
 
   ~InputCodecSourceImpl();
 
@@ -138,6 +150,8 @@ private:
   std::mutex                wait_for_frame_lock_;
   QCondition                wait_for_frame_;
   int32_t                   num_frame_read;
+  uint32_t                  width_;
+  uint32_t                  height_;
   vector<BufferDescriptor>  input_list_;
   TSQueue<BufferDescriptor> input_free_buffer_queue_;
   TSQueue<BufferDescriptor> input_occupy_buffer_queue_;
