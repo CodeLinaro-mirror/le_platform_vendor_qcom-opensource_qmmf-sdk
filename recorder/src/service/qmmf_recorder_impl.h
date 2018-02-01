@@ -223,69 +223,89 @@ class RecorderImpl {
   void CameraErrorCb(uint32_t client_id, RecorderErrorData &error);
 
  private:
+  enum class ClientState {
+    kAlive,
+    kDead,
+  };
 
-  bool IsClientValid(const uint32_t client_id);
-  bool IsSessionIdValid(const uint32_t client_id, const uint32_t session_id);
-  bool IsSessionValid(const uint32_t client_id, const uint32_t session_id);
-  bool IsSessionStarted(const uint32_t session_id);
-  bool IsTrackValid(const uint32_t client_id, const uint32_t session_id,
-                    const uint32_t track_id);
-  bool IsTrackValid(const uint32_t client_id, const uint32_t track_id);
-  bool IsCameraOwned(const uint32_t client_id, const uint32_t camera_id);
+  enum class SessionState {
+    kActive,
+    kPause,
+    kIdle,
+  };
+
+  struct TrackInfo {
+    uint32_t         track_id;
+    TrackType        type;
+    union {
+      VideoFormat video;
+      AudioFormat audio;
+    } format;
+  };
+
+  // <client track id, TrackInfo>
+  typedef std::map<uint32_t, TrackInfo> TrackInfoMap;
+  // <session id, map <tracks> >
+  typedef std::map<uint32_t, TrackInfoMap> SessionTrackMap;
+  // <client id, <session_id, vector<client track id, service track id> > >
+  typedef std::map<uint32_t, SessionTrackMap> ClientSessionMap;
+
+  // <client id, set<camera ids> >
+  typedef std::map<uint32_t, std::set<uint32_t> > ClientCameraIdMap;
+
+  // <client id, ClientState>
+  typedef std::map<uint32_t, ClientState> ClientStateMap;
+
+  // <session_id, SessionState>
+  typedef std::map<uint32_t, SessionState> ClientSessionStateMap;
+
+  bool IsClientValid(const uint32_t& client_id);
+  bool IsClientAlive(const uint32_t& client_id);
+  bool IsSessionValid(const uint32_t& client_id, const uint32_t& session_id);
+  bool IsTrackValid(const uint32_t& client_id, const uint32_t& session_id,
+                    const uint32_t& track_id);
+  bool IsTrackValid(const uint32_t& client_id, const uint32_t& track_id);
+  bool IsCameraValid(const uint32_t& client_id, const uint32_t& camera_id);
+  bool IsCameraOwned(const uint32_t& client_id, const uint32_t& camera_id);
+
+  bool IsSessionActive(const uint32_t& session_id);
+  bool IsSessionPaused(const uint32_t& session_id);
+  bool IsSessionIdle(const uint32_t& session_id);
+  void ChangeSessionState(const uint32_t& session_id, const SessionState& state);
 
   //Validate the input params during CreateAudioTrack requests.
   bool IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param);
 
-  uint32_t GetUniqueServiceTrackId(const uint32_t client_id,
-                                   const uint32_t session_id,
-                                   const uint32_t track_id);
+  uint32_t GetUniqueServiceTrackId(const uint32_t& client_id,
+                                   const uint32_t& session_id,
+                                   const uint32_t& track_id);
 
-  typedef struct TrackInfo {
-    uint32_t         track_id;
-    TrackType        type;
-    VideoTrackParams video_params;
-    AudioTrackParams audio_params;
-    //TODO: Add union and pack AudioTrack params.
-  } TrackInfo;
+  TrackInfo GetServiceTrackInfo(const uint32_t& client_id,
+                                const uint32_t& session_id,
+                                const uint32_t& track_id);
 
-  status_t GetServiceTrackInfo(const uint32_t client_id,
-                               const uint32_t session_id,
-                               const uint32_t client_track_id,
-                               TrackInfo* track_info);
+  uint32_t GetServiceTrackId(const uint32_t& client_id,
+                             const uint32_t& track_id);
 
-  status_t GetServiceTrackInfo(const uint32_t client_id,
-                               const uint32_t client_track_id,
-                               TrackInfo* track_info);
+  uint32_t                      unique_session_id_;
 
-  uint32_t              unique_session_id_;
-  CameraSource*         camera_source_;
-  EncoderCore*          encoder_core_;
-  AudioSource*          audio_source_;
-  AudioEncoderCore*     audio_encoder_core_;
-  //std::vector<uint32_t>      session_ids_;
-  RemoteCallbackHandle  remote_cb_handle_;
+  CameraSource*                 camera_source_;
+  EncoderCore*                  encoder_core_;
+  AudioSource*                  audio_source_;
+  AudioEncoderCore*             audio_encoder_core_;
 
-  //std::map<uint32_t, std::vector<TrackInfo> > sessions_;
-  std::map<uint32_t, bool> sessions_state_;
+  RemoteCallbackHandle          remote_cb_handle_;
 
-  // <client track id, service track id, track info>
-  typedef std::tuple<uint32_t, uint32_t, TrackInfo> TrackTuple;
-  // <session id, vector <tracks> >
-  typedef std::map<uint32_t, std::vector<TrackTuple> > SessionTrackMap;
-  // <client id, <session_id, vector<client track id, service track id> > >
-  typedef std::map<uint32_t, SessionTrackMap> ClientSessionMap;
+  ClientSessionMap              client_session_map_;
+  std::mutex                    client_session_lock_;
 
-  ClientSessionMap      client_session_map_;
-  std::mutex            client_session_lock_;
+  ClientCameraIdMap             client_cameraid_map_;
+  std::mutex                    camera_map_lock_;
 
-  // <client id, vector<camera ids> >
-  typedef std::map<uint32_t, std::vector<uint32_t> > ClientCameraIdMap;
-  ClientCameraIdMap     client_cameraid_map_;
-  std::mutex            camera_map_lock_;
+  ClientStateMap                client_state_;
+  std::mutex                    client_state_lock_;
 
-  typedef std::map<uint32_t, bool> ClientStatusMap;
-  ClientStatusMap       client_status_map_;
-  std::mutex            client_died_lock_;
+  ClientSessionStateMap         sessions_state_;
 
   // Not allowed
   RecorderImpl();
