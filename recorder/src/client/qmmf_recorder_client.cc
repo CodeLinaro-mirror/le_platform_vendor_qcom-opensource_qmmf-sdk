@@ -2765,8 +2765,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
           meta = nullptr;
         }
       }
-
-      return ret;
+      return NO_ERROR;
     }
     break;
     default: {

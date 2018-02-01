@@ -407,7 +407,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
 
         reply->writeInt32(ret);
-        return ret;
+        return NO_ERROR;
       }
       break;
       case RECORDER_CONFIG_IMAGECAPTURE: {
@@ -420,7 +420,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         ImageConfigParam config(blob.data(), blob_size);
         ret = ConfigImageCapture(client_id, camera_id, config);
         reply->writeInt32(ret);
-        return ret;
+        return NO_ERROR;
       }
       break;
       case RECORDER_CANCEL_IMAGECAPTURE: {
@@ -429,7 +429,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&camera_id);
         ret = CancelCaptureImage(client_id, camera_id);
         reply->writeInt32(ret);
-        return ret;
+        return NO_ERROR;
       }
       break;
       case  RECORDER_RETURN_IMAGECAPTURE_BUFFER: {
@@ -438,7 +438,8 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&camera_id);
         data.readUint32(&buffer_id);
         ret = ReturnImageCaptureBuffer(client_id, camera_id, buffer_id);
-        return ret;
+        reply->writeInt32(ret);
+        return NO_ERROR;
       }
       break;
       case RECORDER_SET_CAMERA_PARAMS: {
@@ -480,7 +481,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
-        return ret;
+        return NO_ERROR;
       }
       break;
       case RECORDER_GET_DEFAULT_CAPTURE_PARAMS: {
@@ -497,7 +498,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
-        return ret;
+        return NO_ERROR;
       }
       break;
       case RECORDER_CREATE_OVERLAYOBJECT: {
@@ -638,6 +639,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
             virtual_camera_id);
         reply->writeUint32(virtual_camera_id);
         reply->writeInt32(ret);
+        return NO_ERROR;
       }
       break;
       case RECORDER_CONFIGURE_MULTICAMERA: {
@@ -667,7 +669,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
-        return ret;
+        return NO_ERROR;
       }
       break;
       default: {
