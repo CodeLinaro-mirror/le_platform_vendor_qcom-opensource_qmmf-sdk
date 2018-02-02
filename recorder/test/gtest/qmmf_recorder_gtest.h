@@ -42,6 +42,7 @@
 
 #if USE_SKIA
 #include <SkCanvas.h>
+#include <SkString.h>
 #elif USE_CAIRO
 #include <cairo/cairo.h>
 #endif
@@ -127,9 +128,6 @@ struct FaceInfo {
 // Prop to determine whether to create or delete session
 #define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
-
-#define TEXT_SIZE                   40
-#define DATETIME_PIXEL_SIZE         30
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;

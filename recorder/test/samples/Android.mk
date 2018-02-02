@@ -11,9 +11,12 @@ ifneq (,$(BUILD_QMMMF))
 include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
+LOCAL_CFLAGS += -DUSE_SKIA=1
+LOCAL_CFLAGS += -DUSE_CAIRO=0
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
 LOCAL_SRC_FILES  := qmmf_recorder_test.cc
 LOCAL_SRC_FILES  += qmmf_recorder_test_wav.cc
@@ -21,7 +24,7 @@ LOCAL_SRC_FILES  += qmmf_recorder_test_aac.cc
 LOCAL_SRC_FILES  += qmmf_recorder_test_amr.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_recorder_client
-LOCAL_SHARED_LIBRARIES += libcamera_client
+LOCAL_SHARED_LIBRARIES += libcamera_client libskia
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif

@@ -90,6 +90,18 @@ static const int32_t kHistogramColorChannels = 4;
 static const int32_t kMinLTRCount = 0;
 static const int32_t kMaxLTRCount = 4;
 
+#if USE_SKIA
+static const uint32_t kColorLightGray  = 0xFFCCCCCC;
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorLightGreen = 0xFF33CC00;
+static const uint32_t kColorLightBlue  = 0xFF189BF2;
+#elif USE_CAIRO
+static const uint32_t kColorLightGray  = 0xCCCCCCFF;
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
+
 RecorderTest::RecorderTest() :
             camera_id_(0),
             session_enabled_(false),
@@ -6126,7 +6138,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.dst_rect.start_y = 50;
   object_params.dst_rect.width   = 192;
   object_params.dst_rect.height  = 108;
-  object_params.color    = 0x202020FF; //Dark Gray
+  object_params.color            = kColorRed;
   object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
@@ -6145,7 +6157,7 @@ status_t TestTrack::EnableOverlay() {
   // Create BoundingBox type overlay.
   object_params = {};
   object_params.type  = OverlayType::kBoundingBox;
-  object_params.color = 0x33CC00FF; //Light Green
+  object_params.color = kColorLightGreen;
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 100;
   object_params.dst_rect.start_y = 200;
@@ -6167,7 +6179,7 @@ status_t TestTrack::EnableOverlay() {
   object_params = {};
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kRandom;
-  object_params.color = 0x189BF2FF; //Light Blue
+  object_params.color = kColorLightBlue;
   object_params.dst_rect.start_x = 200;
   object_params.dst_rect.start_y = 800;
   object_params.dst_rect.width   = 480;
@@ -6188,7 +6200,7 @@ status_t TestTrack::EnableOverlay() {
   // Create PrivacyMask type overlay.
   object_params = {};
   object_params.type = OverlayType::kPrivacyMask;
-  object_params.color = 0xFF9933FF; //Fill mask with color.
+  object_params.color = kColorLightGray; //light gray
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 800;
   object_params.dst_rect.start_y = 250;
@@ -6229,8 +6241,32 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
-
+  std::string text("User Text Bolb Test");
 #if USE_SKIA
+  int32_t text_size = 40;
+  //Create Skia canvas outof ION memory.
+  SkImageInfo imageInfo = SkImageInfo::Make(width, height,
+      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+
+#ifdef ANDROID_O_OR_ABOVE
+  canvas_ = (SkCanvas::MakeRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width * 4)).release();
+#else
+  canvas_ = SkCanvas::NewRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width * 4);
+#endif
+
+  canvas_->clear(SK_AlphaOPAQUE);
+  SkPaint paint;
+  paint.setColor(kColorRed);
+  paint.setTextSize(SkIntToScalar(text_size));
+  paint.setAntiAlias(true);
+
+  int32_t x = 0;
+  int32_t y = width - text_size/2;
+  SkString sk_text(text.c_str(), text.length());
+  canvas_->drawText(sk_text.c_str(), sk_text.size(), x, y, paint);
+  canvas_->flush();
 
 #elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
@@ -6256,7 +6292,7 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
        font_extent.max_y_advance);
 
   cairo_text_extents_t text_extents;
-  cairo_text_extents (cr_context_, "User Text Bolb Test", &text_extents);
+  cairo_text_extents (cr_context_, text.c_str(), &text_extents);
 
   TEST_DBG("%s: Custom text: te.x_bearing=%f, te.y_bearing=%f,"
       " te.width=%f, te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
@@ -6278,13 +6314,20 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   // Draw Text.
   RGBAValues text_color{};
-  ExtractColorValues(0x189BF2FF, &text_color);
+  ExtractColorValues(kColorRed, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
 
-  cairo_show_text (cr_context_, "User Text Bolb Test");
+  cairo_show_text (cr_context_, text.c_str());
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush(cr_surface_);
+
+  if (cr_surface_) {
+    cairo_surface_destroy(cr_surface_);
+  }
+  if (cr_context_) {
+    cairo_destroy(cr_context_);
+  }
 #endif
 
   TEST_DBG("%s: Exit", __func__);

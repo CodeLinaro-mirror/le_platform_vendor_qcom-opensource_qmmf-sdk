@@ -53,6 +53,7 @@
 
 #if USE_SKIA
 #include <SkCanvas.h>
+#include <SkString.h>
 #elif USE_CAIRO
 #include <cairo/cairo.h>
 #endif

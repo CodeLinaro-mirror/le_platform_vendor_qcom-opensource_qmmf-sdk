@@ -72,16 +72,32 @@ static const uint32_t kZslHeight     = 1080;
 static const uint32_t kZslQDepth     = 10;
 static const int32_t kDefaultJpegQuality = 85;
 
-#define COLOR_DARK_GRAY 0x202020FF;
-#define COLOR_YELLOW    0xFFFF00FF;
-#define COLOR_BLUE      0x0000CCFF;
-#define COLOR_WHITE     0xFFFFFFFF;
-#define COLOR_ORANGE    0xFF8000FF;
-#define COLOR_LIGHT_GREEN 0x33CC00FF;
-#define COLOR_LIGHT_BLUE 0x189BF2FF;
+#if USE_SKIA
+static const uint32_t kColorDarkGray   = 0xFF202020;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0xFF0000CC;
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFFFF8000;
+static const uint32_t kColorLightGreen = 0xFF33CC00;
+static const uint32_t kColorLightBlue  = 0xFF189BF2;
+#elif USE_CAIRO
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
 
-#define FHD_1080p_STREAM_WIDTH 1920
-#define FHD_1080p_STREAM_HEIGHT 1080
+#define FHD_1080p_STREAM_WIDTH    1920
+#define FHD_1080p_STREAM_HEIGHT   1080
+#define TEXT_SIZE                 40
+#define DATETIME_PIXEL_SIZE       30
+#define DATETIME_TEXT_BUF_WIDTH   192
+#define DATETIME_TEXT_BUF_HEIGHT  108
 
 using namespace qcamera;
 
@@ -8579,7 +8595,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   OverlayParam object_params{};
   object_params.type = OverlayType::kDateType;
   object_params.location = OverlayLocationType::kBottomLeft;
-  object_params.color    = COLOR_DARK_GRAY;
+  object_params.color    = kColorDarkGray;
   object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
@@ -8606,27 +8622,27 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
       object_params.location = OverlayLocationType::kTopLeft;
       object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
       object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
-      object_params.color    = COLOR_DARK_GRAY;
+      object_params.color    = kColorDarkGray;
     } else if (location == 1) {
       object_params.location = OverlayLocationType::kTopRight;
       object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_24HR;
       object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
-      object_params.color    = COLOR_YELLOW;
+      object_params.color    = kColorYellow;
     } else if (location == 2) {
       object_params.location = OverlayLocationType::kCenter;
       object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_24HR;
       object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
-      object_params.color    = COLOR_BLUE;
+      object_params.color    = kColorBlue;
     } else if (location == 3) {
       object_params.location = OverlayLocationType::kBottomLeft;
       object_params.date_time.time_format = OverlayTimeFormatType::kHHMM_AMPM;
       object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
-      object_params.color    = COLOR_WHITE;
+      object_params.color    = kColorWhilte;
     } else if (location == 4) {
       object_params.location = OverlayLocationType::kBottomRight;
       object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
       object_params.date_time.date_format = OverlayDateFormatType::kYYYYMMDD;
-      object_params.color    = COLOR_ORANGE;
+      object_params.color    = kColorOrange;
     } else {
       location = -1;
     }
@@ -8759,7 +8775,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   // Create BoundingBox type overlay.
   OverlayParam object_params{};
   object_params.type  = OverlayType::kBoundingBox;
-  object_params.color = COLOR_LIGHT_GREEN;
+  object_params.color = kColorLightGreen;
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 20;
   object_params.dst_rect.start_y = 20;
@@ -8919,7 +8935,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   // Create BoundingBox type overlay.
   OverlayParam object_params{};
   object_params.type  = OverlayType::kBoundingBox;
-  object_params.color = COLOR_LIGHT_GREEN;
+  object_params.color = kColorLightGreen;
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 40;
   object_params.dst_rect.start_y = 40;
@@ -9080,7 +9096,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   OverlayParam object_params{};
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kTopRight;
-  object_params.color    = COLOR_LIGHT_BLUE;
+  object_params.color    = kColorLightBlue;
   std::string user_text("Simple User Text For Testing!!");
   user_text.copy(object_params.user_text, user_text.length());
 
@@ -9104,27 +9120,27 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
     // Update custom with text color and location on video.
     if (location == 0) {
       object_params.location = OverlayLocationType::kTopLeft;
-      object_params.color    = COLOR_LIGHT_BLUE;
+      object_params.color    = kColorLightBlue;
       std::string user_text("TopLeft:Simple User Text!!");
       user_text.copy(object_params.user_text, user_text.length());
     } else if (location == 1) {
       object_params.location = OverlayLocationType::kTopRight;
-      object_params.color    = COLOR_YELLOW;
+      object_params.color    = kColorYellow;
       std::string user_text("TopRight:Simple User Text!!");
       user_text.copy(object_params.user_text, user_text.length());
     } else if (location == 2) {
       object_params.location = OverlayLocationType::kCenter;
-      object_params.color    = COLOR_BLUE;
+      object_params.color    = kColorBlue;
       std::string user_text("Center:Simple User Text!!");
       user_text.copy(object_params.user_text, user_text.length());
     } else if (location == 3) {
       object_params.location = OverlayLocationType::kBottomLeft;
-      object_params.color    = COLOR_WHITE;
+      object_params.color    = kColorWhilte;
       std::string user_text("BottomLeft:Simple User Text!!");
       user_text.copy(object_params.user_text, user_text.length());
     } else if (location == 4) {
       object_params.location = OverlayLocationType::kBottomRight;
-      object_params.color    = COLOR_ORANGE;
+      object_params.color    = kColorOrange;
       std::string user_text("BottomRight:Simple User Text!!");
       user_text.copy(object_params.user_text, user_text.length());
     } else {
@@ -9471,42 +9487,59 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
   ret = recorder_.SetOverlay(video_track_id, static_img_id);
   assert(ret == 0);
 
-  //Mimic moving Static Image blob type.
-  for (uint32_t j = 0; j < 100; ++j) {
-    ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
-                                           object_params);
-    assert(ret == 0);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+      test_info_->name(), i);
 
-    object_params.type = OverlayType::kStaticImage;
-    object_params.location = OverlayLocationType::kRandom;
-    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    // Mimic moving Static Image blob type.
+    for (uint32_t j = 0; j < 100; ++j) {
+      ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
+                                             object_params);
+      assert(ret == 0);
 
-    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
-        object_params.dst_rect.width) < static_cast<int32_t> (width)) ? object_params.dst_rect.start_x + 5 : 20;
+      object_params.type = OverlayType::kStaticImage;
+      object_params.location = OverlayLocationType::kRandom;
+      object_params.image_info.image_type = OverlayImageType::kBlobType;
 
-    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
-        object_params.dst_rect.width) < static_cast<int32_t> (width)) ? object_params.dst_rect.width + 5 : 200;
+      object_params.dst_rect.start_x =
+          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+           static_cast<int32_t>(width))
+              ? object_params.dst_rect.start_x + 5
+              : 20;
 
-    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
-        object_params.dst_rect.height) < static_cast<int32_t> (height)) ? object_params.dst_rect.start_y + 2 : 20;
+      object_params.dst_rect.width =
+          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+           static_cast<int32_t>(width))
+              ? object_params.dst_rect.width + 5
+              : 200;
 
-    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
-        object_params.dst_rect.height) < static_cast<int32_t> (height)) ? object_params.dst_rect.height + 2 : 100;
+      object_params.dst_rect.start_y =
+          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+           static_cast<int32_t>(height))
+              ? object_params.dst_rect.start_y + 2
+              : 20;
 
-    object_params.image_info.image_size   = image_size;
-    object_params.image_info.image_buffer = image_buffer;
-    object_params.image_info.source_rect.start_x = 0;
-    object_params.image_info.source_rect.start_y = 0;
-    object_params.image_info.source_rect.width  = 451;
-    object_params.image_info.source_rect.height = 109;
-    object_params.image_info.buffer_updated = false;
+      object_params.dst_rect.height =
+          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+           static_cast<int32_t>(height))
+              ? object_params.dst_rect.height + 2
+              : 100;
 
-    ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
-                                              object_params);
-    assert(ret == 0);
-    usleep(250000);
+      object_params.image_info.image_size = image_size;
+      object_params.image_info.image_buffer = image_buffer;
+      object_params.image_info.source_rect.start_x = 0;
+      object_params.image_info.source_rect.start_y = 0;
+      object_params.image_info.source_rect.width = 451;
+      object_params.image_info.source_rect.height = 109;
+      object_params.image_info.buffer_updated = false;
+
+      ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
+                                                object_params);
+      assert(ret == 0);
+      usleep(250000);
+    }
   }
-
   // Remove overlay object from video track.
   ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
   assert(ret == 0);
@@ -9669,46 +9702,63 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   ret = recorder_.SetOverlay(video_track_id, static_img_id);
   assert(ret == 0);
 
-  //Mimic movement and buffer update for static image blob type.
-  for (uint32_t j = 0; j < 100; ++j) {
-    ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
-                                           object_params);
-    assert(ret == 0);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
 
-    object_params.type = OverlayType::kStaticImage;
-    object_params.location = OverlayLocationType::kRandom;
-    object_params.image_info.image_type = OverlayImageType::kBlobType;
+    // Mimic movement and buffer update for static image blob type.
+    for (uint32_t j = 0; j < 100; ++j) {
+      ret = recorder_.GetOverlayObjectParams(video_track_id, static_img_id,
+                                             object_params);
+      assert(ret == 0);
 
-    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
-        object_params.dst_rect.width) < static_cast<int32_t> (width)) ? object_params.dst_rect.start_x + 5 : 20;
+      object_params.type = OverlayType::kStaticImage;
+      object_params.location = OverlayLocationType::kRandom;
+      object_params.image_info.image_type = OverlayImageType::kBlobType;
 
-    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
-        object_params.dst_rect.width) < static_cast<int32_t> (width)) ? object_params.dst_rect.width + 5 : 200;
+      object_params.dst_rect.start_x =
+          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+           static_cast<int32_t>(width))
+              ? object_params.dst_rect.start_x + 5
+              : 20;
 
-    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
-        object_params.dst_rect.height) < static_cast<int32_t> (height)) ? object_params.dst_rect.start_y + 2 : 20;
+      object_params.dst_rect.width =
+          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+           static_cast<int32_t>(width))
+              ? object_params.dst_rect.width + 5
+              : 200;
 
-    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
-        object_params.dst_rect.height) < static_cast<int32_t> (height)) ? object_params.dst_rect.height + 2 : 100;
+      object_params.dst_rect.start_y =
+          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+           static_cast<int32_t>(height))
+              ? object_params.dst_rect.start_y + 2
+              : 20;
 
-    object_params.image_info.image_size   = image_size;
-    object_params.image_info.image_buffer = image_buffer;
-    object_params.image_info.source_rect.start_x = 0;
-    object_params.image_info.source_rect.start_y = 0;
-    object_params.image_info.source_rect.width  = 451;
-    object_params.image_info.source_rect.height = 109;
-    object_params.image_info.buffer_updated = true;
+      object_params.dst_rect.height =
+          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+           static_cast<int32_t>(height))
+              ? object_params.dst_rect.height + 2
+              : 100;
 
-    DrawOverlay(object_params.image_info.image_buffer,
-      object_params.image_info.source_rect.width,
-      object_params.image_info.source_rect.height);
+      object_params.image_info.image_size = image_size;
+      object_params.image_info.image_buffer = image_buffer;
+      object_params.image_info.source_rect.start_x = 0;
+      object_params.image_info.source_rect.start_y = 0;
+      object_params.image_info.source_rect.width = 451;
+      object_params.image_info.source_rect.height = 109;
+      object_params.image_info.buffer_updated = true;
 
-    ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
-                                              object_params);
-    assert(ret == 0);
-    usleep(500000);
+      DrawOverlay(object_params.image_info.image_buffer,
+                  object_params.image_info.source_rect.width,
+                  object_params.image_info.source_rect.height);
+
+      ret = recorder_.UpdateOverlayObjectParams(video_track_id, static_img_id,
+                                                object_params);
+      assert(ret == 0);
+      usleep(500000);
+    }
   }
-
   // Remove overlay object from video track.
   ret = recorder_.RemoveOverlay(video_track_id, static_img_id);
   assert(ret == 0);
@@ -18040,7 +18090,7 @@ void RecorderGtest::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
         uint32_t bbox_id;
         object_params = {};
         object_params.type  = OverlayType::kBoundingBox;
-        object_params.color = COLOR_LIGHT_GREEN;
+        object_params.color = kColorLightGreen;
         object_params.dst_rect.start_x = info.face_rect[i].left;
         object_params.dst_rect.start_y = info.face_rect[i].top;
         object_params.dst_rect.width   = info.face_rect[i].width;
@@ -18065,6 +18115,17 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   status_t ret = 0;
 
 #if USE_SKIA
+  //Create Skia canvas outof ION memory.
+  SkImageInfo imageInfo = SkImageInfo::Make(width, height,
+      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+
+#ifdef ANDROID_O_OR_ABOVE
+  canvas_ = (SkCanvas::MakeRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width *4)).release();
+#else
+  canvas_ = SkCanvas::NewRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width *4);
+#endif
 
 #elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
@@ -18092,14 +18153,35 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   TEST_INFO("%s: date:time (%s:%s)", __func__, date_buf, time_buf);
 
-  double x_date, x_time, y_date, y_time;
-  x_date = x_time = y_date = y_time = 0.0;
-
-  ClearSurface();
+  double x_date, y_date;
+  x_date = y_date = 0.0;
 
 #if USE_SKIA
+  canvas_->clear(SK_AlphaOPAQUE);
+
+  int32_t date_len = strlen(date_buf);
+  int32_t time_len = strlen(time_buf);
+
+  SkPaint paint;
+  paint.setColor(kColorRed);
+  paint.setTextSize(SkIntToScalar(DATETIME_PIXEL_SIZE));
+  paint.setAntiAlias(true);
+  paint.setTextScaleX(1);
+
+  SkString date_text(date_buf, date_len);
+  canvas_->drawText(date_text.c_str(), date_text.size(), x_date, y_date, paint);
+
+  SkString time_text(time_buf, time_len);
+  int32_t per_char_size = DATETIME_TEXT_BUF_WIDTH/date_text.size();
+  float x_time = (DATETIME_TEXT_BUF_WIDTH - (time_text.size() * per_char_size));
+  x_time = x_time > 0 ? (x_time) : 0;
+  float y_time = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE/2;
+  canvas_->drawText(time_text.c_str(), time_text.size(), x_time, y_time, paint);
+  canvas_->flush();
+  usleep(1000);
 
 #elif USE_CAIRO
+  ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
                           CAIRO_FONT_WEIGHT_BOLD);
   cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
@@ -18135,7 +18217,7 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   // Draw date.
   RGBAValues text_color{};
-  ExtractColorValues(0x0000CCFF, &text_color);
+  ExtractColorValues(kColorRed, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
 
@@ -18152,13 +18234,20 @@ status_t RecorderGtest::DrawOverlay(void *data, int32_t width, int32_t height) {
   // Calculate the x_time to draw the time text extact middle of buffer.
   // Use x_width which usally few pixel less than the width of the actual
   // drawn text.
-  x_time = (width - time_text_extents.width)/2.0; // width_ is buffer width.
-  y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
+  double x_time = (width - time_text_extents.width)/2.0; // width_ is buffer width.
+  double y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
   cairo_move_to (cr_context_, x_time, y_time);
   cairo_show_text (cr_context_, time_buf);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush(cr_surface_);
+
+  if (cr_surface_) {
+    cairo_surface_destroy(cr_surface_);
+  }
+  if (cr_context_) {
+    cairo_destroy(cr_context_);
+  }
 #endif
 
   TEST_DBG("%s: Exit", __func__);

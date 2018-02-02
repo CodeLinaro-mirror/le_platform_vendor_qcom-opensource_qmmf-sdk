@@ -1306,12 +1306,12 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
 
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo;
-  imageInfo.Make(width_, height_, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  SkImageInfo imageInfo = SkImageInfo::Make(width_, height_,
+      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
 #ifdef ANDROID_O_OR_ABOVE
   canvas_ = (SkCanvas::MakeRasterDirect(imageInfo, mem_info.vaddr,
-                                      width_ *4)).get();
+                                      width_ *4)).release();
 #else
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       width_ *4);
@@ -1638,13 +1638,12 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
 
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo;
-  imageInfo.Make(BOUNDING_BOX_BUF_WIDTH, BOUNDING_BOX_BUF_HEIGHT,
-                 kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  SkImageInfo imageInfo = SkImageInfo::Make(BOUNDING_BOX_BUF_WIDTH,
+      BOUNDING_BOX_BUF_HEIGHT, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
 #ifdef ANDROID_O_OR_ABOVE
   canvas_ = (SkCanvas::MakeRasterDirect(imageInfo, mem_info.vaddr,
-                                      BOUNDING_BOX_BUF_WIDTH *4)).get();
+                                      BOUNDING_BOX_BUF_WIDTH *4)).release();
 #else
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       BOUNDING_BOX_BUF_WIDTH *4);
@@ -1924,12 +1923,12 @@ int32_t OverlayItemText::CreateSurface() {
 
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo;
-  imageInfo.Make(width_, height_, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  SkImageInfo imageInfo = SkImageInfo::Make(width_, height_,
+      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
 #ifdef ANDROID_O_OR_ABOVE
   canvas_ = (SkCanvas::MakeRasterDirect(imageInfo, mem_info.vaddr,
-                                      width_ * 4)).get();
+                                      width_ * 4)).release();
 #else
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       width_ * 4);
@@ -2148,13 +2147,12 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   assert (cr_context_ != nullptr);
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo;
-  imageInfo.Make(PMASK_BOX_BUF_WIDTH, PMASK_BOX_BUF_HEIGHT,
-                 kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  SkImageInfo imageInfo = SkImageInfo::Make(PMASK_BOX_BUF_WIDTH,
+      PMASK_BOX_BUF_HEIGHT, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
 #ifdef ANDROID_O_OR_ABOVE
   canvas_ = (SkCanvas::MakeRasterDirect(imageInfo, mem_info.vaddr,
-                                      PMASK_BOX_BUF_WIDTH *4)).get();
+                                      PMASK_BOX_BUF_WIDTH *4)).release();
 #else
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
                                       PMASK_BOX_BUF_WIDTH *4);
