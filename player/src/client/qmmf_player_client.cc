@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -67,6 +67,11 @@ PlayerClient::PlayerClient()
       ion_device_(-1) {
   QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s Enter ", __func__);
+
+#ifdef ANDROID_O_OR_ABOVE
+  ProcessState::initWithDriver("/dev/vndbinder");
+#endif
+
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
   QMMF_INFO("%s Exit (0x%p)", __func__, this);
