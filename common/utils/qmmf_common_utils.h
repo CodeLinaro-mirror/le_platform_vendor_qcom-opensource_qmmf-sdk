@@ -41,6 +41,7 @@
 
 #include <system/graphics.h>
 #include <system/window.h>
+#include <sys/mman.h>
 #include <qcom/display/gralloc_priv.h>
 #include <camera/CameraMetadata.h>
 
@@ -301,6 +302,105 @@ class Common {
     }
 #endif
     return is_supported;
+  }
+
+  /** DumpStreamBuffer
+   *
+   * Dump stream buffer in /data/misc/qmmf
+   *
+   * return: none
+   **/
+  static void DumpStreamBuffer(StreamBuffer &buf,
+                               std::string name = "",
+                               bool input = false) {
+    std::string file_name = "/data/misc/qmmf/img_" + name + "_";
+
+    switch (buf.info.format) {
+      case BufferFormat::kNV12:
+        file_name += "nv12";
+        break;
+      case BufferFormat::kNV12UBWC:
+        file_name += "nv12ubwc";
+        break;
+      case BufferFormat::kNV21:
+        file_name += "nv21";
+        break;
+      case BufferFormat::kBLOB:
+        file_name += "jpeg";
+        break;
+      case BufferFormat::kRAW10:
+        file_name += "raw10";
+        break;
+      case BufferFormat::kRAW12:
+        file_name += "raw12";
+        break;
+      case BufferFormat::kRAW16:
+        file_name += "raw16";
+        break;
+      default:
+        std::stringstream sstream;
+        sstream << std::hex << (int)buf.info.format;
+        file_name += sstream.str();
+        break;
+    }
+
+    file_name +=
+        "_dim_"      + std::to_string(buf.info.plane_info[0].width) +
+        "x"          + std::to_string(buf.info.plane_info[0].height) +
+        "_stride_"   + std::to_string(buf.info.plane_info[0].stride) +
+        "_scanline_" + std::to_string(buf.info.plane_info[0].scanline) +
+        "_frame_"    + std::to_string(buf.frame_number) +
+        "_"          + (input ? "input" : "output");
+
+    switch (buf.info.format) {
+      case BufferFormat::kRAW10:
+      case BufferFormat::kRAW12:
+      case BufferFormat::kRAW16:
+        file_name += ".raw";
+        break;
+      case BufferFormat::kNV12:
+      case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV21:
+        file_name += ".yuv";
+        break;
+      case BufferFormat::kBLOB:
+        file_name += ".jpg";
+        break;
+      default:
+        file_name += ".bin";
+        break;
+    }
+
+    FILE *file = fopen(file_name.c_str(), "w+");
+    if (!file) {
+      QMMF_ERROR("%s:%s Unable to open: %s", __func__, name.c_str(),
+          file_name.c_str());
+      return;
+    }
+
+    void *vaaddr = mmap(nullptr, buf.size, PROT_READ  | PROT_WRITE, MAP_SHARED,
+        buf.fd, 0);
+    if (vaaddr == MAP_FAILED) {
+      QMMF_ERROR("%s:%s: ION mmap failed: error(%s):(%d) size: %d fd: %d",
+          __func__, name.c_str(), strerror(errno), errno, buf.size, buf.fd);
+      fclose(file);
+      return;
+    }
+
+    auto written_len = fwrite(vaaddr, sizeof(uint8_t), buf.size, file);
+    if (buf.size != written_len) {
+      QMMF_ERROR("%s:%s Bad Write error %d size %d written %d", __func__,
+          name.c_str(), errno, buf.size, written_len);
+      munmap(vaaddr, buf.size);
+      fclose(file);
+      return;
+    }
+
+    QMMF_INFO("%s:%s: Dump %s frame to %s\n", __func__, name.c_str(),
+        input ? "input" : "output", file_name.c_str());
+
+    munmap(vaaddr, buf.size);
+    fclose(file);
   }
 };  // class Common
 
