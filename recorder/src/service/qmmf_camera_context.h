@@ -224,7 +224,6 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcCreatePipeAndUpdateStreams(
                                       CameraStreamParameters& stream_param,
-                                      uint32_t image_quality,
                                       uint32_t frame_rate,
                                       const std::vector<uint32_t> &plugins);
 
