@@ -54,6 +54,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <qcom/display/gralloc_priv.h>
 
 #include <qmmf-sdk/qmmf_avcodec.h>
 #include <qmmf-sdk/qmmf_codec.h>
@@ -106,7 +107,7 @@ typedef std::function<void(qmmf::BufferDescriptor&)> ReturnBufferCB;
 class EncoderSource : public qmmf::avcodec::ICodecSource {
  public:
   EncoderSource(ReturnBufferCB& return_buffer_cb, const uint32_t fps,
-                uint32_t buffer_size);
+                uint32_t buffer_size, const uint32_t width, const uint32_t height);
   ~EncoderSource();
   int32_t GetBuffer(qmmf::BufferDescriptor& codec_buffer,
                     void* client_data) override;
@@ -114,9 +115,11 @@ class EncoderSource : public qmmf::avcodec::ICodecSource {
                        void* client_data) override;
   int32_t NotifyPortEvent(qmmf::avcodec::PortEventType event_type,
                           void* event_data) override;
-  void ConsumeBuffer(qmmf::BufferDescriptor& buffer);
+  void ConsumeBuffer(qmmf::BufferDescriptor& buffer,
+                     qmmf::recorder::MetaData& meta_data);
   void SetEOS();
   int32_t BufferStatus();
+  int32_t FromQmmfToHalFormat(qmmf::BufferFormat& buffer_format);
 
  private:
   std::atomic<bool> atomic_eos_;
@@ -128,6 +131,9 @@ class EncoderSource : public qmmf::avcodec::ICodecSource {
   uint64_t time_stamp_;
   uint32_t buffer_size_;
   uint32_t encode_fps_;
+  uint32_t encode_width_;
+  uint32_t encode_height_;
+  int32_t  buffer_format_;
   static const uint32_t kEOSFlag;
 };  // Class EncoderSource
 

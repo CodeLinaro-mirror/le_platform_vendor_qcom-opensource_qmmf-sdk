@@ -53,6 +53,7 @@ using namespace qmmf::avcodec;
 using namespace android;
 
 #define TIMELAPSE_DEBUG 0
+#define OUTPUT_BUFFER_COUNT (6)
 
 const uint32_t TimeLapse::kLPMTrackId = 1;
 const uint32_t TimeLapse::kLPMTrackWidth = 640;
@@ -288,7 +289,9 @@ int32_t TimeLapse::StartTimeLapseModeTwo() {
     ALOGD_IF(TIMELAPSE_DEBUG, "%s: Pipeline reconfiguration time =%lld ms",
              __func__, diff);
 
-    sleep_for(std::chrono::milliseconds(params_.time_lapse_interval - diff));
+    if (!atomic_stop_) {
+      sleep_for(std::chrono::milliseconds(params_.time_lapse_interval - diff));
+    }
   }
 
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Exit", __func__);
@@ -516,7 +519,7 @@ void TimeLapse::YUVSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
     DumpYUVSnapShot(buffer);
   }
 
-  encoder_source_->ConsumeBuffer(buffer);
+  encoder_source_->ConsumeBuffer(buffer, meta_data);
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Exit", __func__);
 }
 
@@ -588,7 +591,8 @@ int32_t TimeLapse::SetupAVCodec(const TimeLapseParams &params) {
     return ret;
   }
 
-  encoder_source_ = make_shared<EncoderSource>(ret_buf_cb, params_.fps, size);
+  encoder_source_ = make_shared<EncoderSource>(ret_buf_cb, params_.fps, size,
+      params.width, params.height);
   if (encoder_source_.get() == nullptr) {
     ALOGE("%s: failed to create input source", __func__);
     return NO_MEMORY;
@@ -677,6 +681,7 @@ int32_t TimeLapse::AllocateBuffer(uint32_t index) {
     return ret;
   }
 
+  count = OUTPUT_BUFFER_COUNT;
   struct ion_allocation_data alloc;
   struct ion_fd_data ionFdData;
 
@@ -785,13 +790,16 @@ int32_t TimeLapse::ReleaseBuffer() {
 }
 
 EncoderSource::EncoderSource(ReturnBufferCB &return_buffer_cb,
-                             const uint32_t fps, uint32_t buffer_size)
+                             const uint32_t fps, uint32_t buffer_size,
+                             const uint32_t width, const uint32_t height)
     : atomic_eos_(false), time_stamp_(0) {
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Enter ", __func__);
 
   buffer_size_ = buffer_size;
   encode_fps_ = fps;
   return_buffer_cb_ = return_buffer_cb;
+  encode_width_ = width;
+  encode_height_ = height;
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Exit", __func__);
 }
 
@@ -807,7 +815,8 @@ int32_t EncoderSource::NotifyPortEvent(PortEventType event_type,
   return 0;
 }
 
-void EncoderSource::ConsumeBuffer(BufferDescriptor &buffer) {
+void EncoderSource::ConsumeBuffer(BufferDescriptor& buffer,
+                                  MetaData& meta_data) {
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Enter ", __func__);
 
   std::unique_lock<mutex> lock(wait_for_frame_lock_);
@@ -819,6 +828,8 @@ void EncoderSource::ConsumeBuffer(BufferDescriptor &buffer) {
            buffer.capacity);
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: codec_buffer.size(%d)", __func__,
            buffer.size);
+
+  buffer_format_ = FromQmmfToHalFormat(meta_data.cam_buffer_meta_data.format);
 
   input_free_buffer_list_.push_back(buffer);
   wait_for_frame_.Signal();
@@ -841,39 +852,30 @@ int32_t EncoderSource::GetBuffer(BufferDescriptor &codec_buffer,
   BufferDescriptor &buffer = *input_free_buffer_list_.begin();
   lock.unlock();
 
-  int num_fds = 1;
-  int num_ints = 3;
+  private_handle_t *meta_handle = new private_handle_t(static_cast<int>(buffer.fd),
+      static_cast<unsigned int>(buffer.size),
+      private_handle_t::PRIV_FLAGS_VIDEO_ENCODER, 1,
+      static_cast<int>(buffer_format_), static_cast<int>(encode_width_),
+      static_cast<int>(encode_height_));
 
-  // Allocate buffer for MetaData Handle
-  native_handle_t *meta_handle = (native_handle_create(1, 16));
   if (meta_handle == nullptr) {
-    ALOGE("EncoderSource:%s: failed to allocated metabuffer handle", __func__);
+    ALOGD_IF(TIMELAPSE_DEBUG, "%s failed to allocated metabuffer handle", __func__);
     return NO_MEMORY;
   }
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s buffer native handle(%p)", __func__, meta_handle);
 
-  meta_handle->version = sizeof(native_handle_t);
-  meta_handle->numFds = num_fds;
-  meta_handle->numInts = num_ints;
-  meta_handle->data[0] = buffer.fd;
-  meta_handle->data[1] = 0;  // offset
-  meta_handle->data[4] = buffer_size_;
-
-  codec_buffer.data =
-      const_cast<void *>(reinterpret_cast<const void *>(meta_handle));
-  codec_buffer.fd = buffer.fd;
-  codec_buffer.capacity = buffer.capacity;
-  codec_buffer.size = buffer.size;
+  meta_handle->unaligned_width  = static_cast<int>(encode_width_);
+  meta_handle->unaligned_height = static_cast<int>(encode_height_);
+  codec_buffer.data = reinterpret_cast<void*>(meta_handle);
 
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: codec_buffer.data(0x%p)",
            __func__, codec_buffer.data);
-  ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: codec_buffer.fd(%d)", __func__,
-           codec_buffer.fd);
-  ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: buffer.capacity(%d)", __func__,
-           codec_buffer.capacity);
-  ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: codec_buffer.size(%d)", __func__,
-           codec_buffer.size);
-  ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: required buffer size(%d)",
-           __func__, buffer_size_);
+
+  ALOGD_IF(TIMELAPSE_DEBUG, "%s fd = %d offset = %u size = %u width = %d "
+      "height = %d unaligned_width = %d unaligned_height = %d", __func__,
+      meta_handle->fd, meta_handle->offset, meta_handle->size,
+      meta_handle->width, meta_handle->height, meta_handle->unaligned_width,
+      meta_handle->unaligned_height);
 
   if (atomic_eos_) {
     codec_buffer.flag = kEOSFlag;
@@ -911,10 +913,8 @@ int32_t EncoderSource::ReturnBuffer(BufferDescriptor &codec_buffer,
   return_buffer_cb_(buffer);
   input_occupy_buffer_list_.erase(input_occupy_buffer_list_.begin());
 
-  native_handle_t *meta_handle =
-      reinterpret_cast<native_handle_t *>(codec_buffer.data);
-  native_handle_delete(meta_handle);
-  meta_handle = nullptr;
+  delete reinterpret_cast<private_handle_t *>(codec_buffer.data);
+  codec_buffer.data = nullptr;
 
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Exit ", __func__);
   return NO_ERROR;
@@ -935,6 +935,27 @@ int32_t EncoderSource::BufferStatus() {
 }
 
 void EncoderSource::SetEOS() { atomic_eos_ = true; }
+
+int32_t EncoderSource::FromQmmfToHalFormat(BufferFormat& buffer_format) {
+      int32_t format;
+  ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSource:%s: Buffer Format:%d ", __func__,
+      buffer_format);
+  switch (buffer_format) {
+    case BufferFormat::kNV12:
+      format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
+      break;
+    case BufferFormat::kNV12UBWC:
+      format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
+      break;
+    case BufferFormat::kNV21:
+      format = HAL_PIXEL_FORMAT_NV21_ZSL;
+      break;
+    default:
+      format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
+      break;
+  }
+  return format;
+}
 
 EncoderSink::EncoderSink(string file_name) {
   ALOGD_IF(TIMELAPSE_DEBUG, "EncoderSink:%s: Enter ", __func__);
