@@ -10627,9 +10627,7 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
                                cb);
     assert(ret == NO_ERROR);
 
-    auto ran = std::rand() % 4;
-    auto sleep_time = (ran == 0) ? ran : ran + 1;
-    sleep(sleep_time);
+    sleep(5);
 
     ret = recorder_.CancelCaptureImage(camera_id_);
     assert(ret == NO_ERROR);
