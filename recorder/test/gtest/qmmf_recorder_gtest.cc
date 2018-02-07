@@ -17903,100 +17903,76 @@ status_t RecorderGtest::DumpQueue(AVQueue *queue, int32_t file_fd) {
 }
 
 status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
+                                      const CameraBufferMetaData& meta_data,
                                       uint32_t image_sequence_count,
                                       uint64_t tv_ms) {
   uint8_t thumb_num = 0;
   uint8_t *in_img = (uint8_t*)buffer.data;
-  uint32_t block_size = 0;
-  uint32_t block_start = 0;
-  uint32_t block_end = 0;
+  const CameraBufferMetaData &info = meta_data;
 
-  for (uint32_t i = 0; i < buffer.size - 1; i++) {
-    // search for marker
-    if (in_img[i] == 0xFF) {
-      // search for App1 and App2 marker
-      if ((in_img[i + 1] == 0xE1) || (in_img[i + 1] == 0xE2)) {
-        if (i >= buffer.size - 4) { // prevent bad access
-          break;
-        }
+  if (meta_data.format != BufferFormat::kBLOB) {
+    TEST_INFO("%s: Skip Thumbnail bump. In_fmt: %d \n",
+        __func__, meta_data.format);
+    return NO_INIT;
+  }
 
-        block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
-        block_start = i + 2; // AppN marker is not part of block
-        block_end   = block_start + block_size - 1;
+  if (info.num_planes > 1) {
+    std::string thumb_path = "/data/misc/qmmf/snapshot_" +
+                             std::to_string(image_sequence_count) + "_" +
+                             std::to_string(tv_ms) + "_thumb_" +
+                             std::to_string(thumb_num) + ".jpg";
 
-        // Skip App marker and size
-        i += 3;
-
-      // Search for start of thumbnail or continue with multy segment thumbnail
-      } else if (in_img[i + 1] == 0xD8 && block_size) {
-        uint32_t thumbnail_size = 0;
-
-        uint32_t w_size = (block_end + 1) - i;
-        if (i + w_size > buffer.size) {
-          ALOGE("%s: Unable to write. Overflow thumb file. %d > %d",
-              __func__, i + w_size, buffer.size);
-          break;
-        }
-
-        std::string thumb_path = "/data/misc/qmmf/snapshot_" +
-                                 std::to_string(image_sequence_count) + "_" +
-                                 std::to_string(tv_ms) + "_thumb_" +
-                                 std::to_string(thumb_num) + ".jpg";
-
-        FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
-        if (!thumb_file) {
-          ALOGE("%s: Unable to open thumb_file(%s)", __func__,
-              thumb_path.c_str());
-          return BAD_VALUE;
-        }
-
-        for (;;) {
-          auto len = fwrite(&in_img[i], sizeof(uint8_t), w_size, thumb_file);
-          if (len != w_size) {
-            ALOGE("%s: Fail to store thumbnail (%s)", __func__,
-                thumb_path.c_str());
-            fclose(thumb_file);
-            return BAD_VALUE;
-          }
-          thumbnail_size += len;
-
-          // Move to end of block
-          i += w_size;
-
-          // Check for end of thumbnail
-          if (in_img[i - 2] == 0xFF && in_img[i - 1] == 0xD9) {
-            TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
-                __func__, i, thumbnail_size, thumb_path.c_str());
-            break;
-          } else if (i + 4 < buffer.size && // prevent bad access
-                     in_img[i] == 0xFF && in_img[i + 1] == 0xE2) {
-            block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
-            block_start = i + 2; // AppN marker is not part of block
-            block_end   = block_start + block_size - 1;
-
-            i = block_start + 2; // Skip length
-            w_size = (block_end + 1) - i;
-          } else {
-            ALOGE("%s: Cannot parse thumbnail (%s)", __func__,
-                thumb_path.c_str());
-            fclose(thumb_file);
-            return BAD_VALUE;
-          }
-        }
-
-        fclose(thumb_file);
-        thumb_file = nullptr;
-
-        i--; // because of increment in main loop
-        block_size = 0;
-        block_end = 0;
-        thumb_num++;
-        // max supported thumbnails is 2
-        if (thumb_num > 1) {
-          break;
-        }
-      }
+    // First thumbnail
+    FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
+    if (!thumb_file) {
+      TEST_ERROR("%s: Unable to open thumb_file(%s)", __func__,
+          thumb_path.c_str());
+      return BAD_VALUE;
     }
+
+    auto len = fwrite(&in_img[info.plane_info[0].offset], sizeof(uint8_t),
+                      info.plane_info[0].size, thumb_file);
+    if (len != info.plane_info[0].size) {
+      TEST_ERROR("%s: Fail to store thumbnail (%s)", __func__,
+          thumb_path.c_str());
+      fclose(thumb_file);
+      return BAD_VALUE;
+    }
+    TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
+        __func__, thumb_num, info.plane_info[0].size, thumb_path.c_str());
+    fclose(thumb_file);
+    thumb_file = nullptr;
+    thumb_num++;
+
+    // Second thumbnail
+    thumb_path = "/data/misc/qmmf/snapshot_" +
+                             std::to_string(image_sequence_count) + "_" +
+                             std::to_string(tv_ms) + "_thumb_" +
+                             std::to_string(thumb_num) + ".jpg";
+
+    thumb_file = fopen(thumb_path.c_str(), "w+");
+    if (!thumb_file) {
+      TEST_ERROR("%s: Unable to open thumb_file(%s)", __func__,
+          thumb_path.c_str());
+      return BAD_VALUE;
+    }
+
+    uint32_t thumbnail_size = 0;
+    for (uint32_t i = 1; i < info.num_planes; i++) {
+      auto len = fwrite(&in_img[info.plane_info[i].offset], sizeof(uint8_t),
+                         info.plane_info[i].size, thumb_file);
+      if (len != info.plane_info[i].size) {
+        TEST_ERROR("%s: Fail to store thumbnail (%s)", __func__,
+            thumb_path.c_str());
+        fclose(thumb_file);
+        return BAD_VALUE;
+      }
+      thumbnail_size += len;
+    }
+    TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
+        __func__, thumb_num, thumbnail_size, thumb_path.c_str());
+    fclose(thumb_file);
+    thumb_file = nullptr;
   }
 
   return NO_ERROR;
@@ -18189,7 +18165,7 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
 
   if (meta_data.meta_flag  &
       static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
-    CameraBufferMetaData cam_buf_meta = meta_data.cam_buffer_meta_data;
+    CameraBufferMetaData& cam_buf_meta = meta_data.cam_buffer_meta_data;
     TEST_DBG("%s: format(0x%x)", __func__, cam_buf_meta.format);
     TEST_DBG("%s: num_planes=%d", __func__, cam_buf_meta.num_planes);
     for (uint8_t i = 0; i < cam_buf_meta.num_planes; ++i) {
@@ -18268,7 +18244,8 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
                 buffer.data, written_len, file_path.c_str());
 
       if (dump_thumbnail) {
-        auto ret = DumpThumbnail(buffer, image_sequence_count, tv_ms);
+        auto ret = DumpThumbnail(buffer, cam_buf_meta,
+                                 image_sequence_count, tv_ms);
         if (ret != NO_ERROR) {
           TEST_INFO("%s: Dump thumbnail faile failed!\n", __func__);
         }

@@ -74,6 +74,7 @@ struct StreamBuffer {
   uint32_t pending_encodes_per_frame;
   uint32_t encodes_per_frame_count;
   bool needs_return;
+  bool second_thumb;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -89,6 +90,7 @@ struct StreamBuffer {
     stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
     stream << "needs_return[" << ::std::boolalpha << needs_return
            << ::std::noboolalpha << "] ";
+    stream << "second_thumb[" << second_thumb << "] ";
     return stream.str();
   }
 };

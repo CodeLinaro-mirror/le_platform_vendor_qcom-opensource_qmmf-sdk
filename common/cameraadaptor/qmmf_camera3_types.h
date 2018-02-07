@@ -33,8 +33,6 @@
 
 #include "common/utils/qmmf_common_utils.h"
 
-#define MAX_PLANE 3
-
 using namespace android;
 
 namespace qmmf {

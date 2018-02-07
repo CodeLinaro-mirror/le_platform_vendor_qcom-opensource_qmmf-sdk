@@ -39,7 +39,7 @@ namespace qmmf {
 
 typedef int32_t CodecId;
 
-#define MAX_PLANE 3
+#define MAX_PLANE 8
 #define QMMF_ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
 enum class CodecType {
@@ -518,6 +518,8 @@ struct PlaneInfo {
   uint32_t scanline;
   uint32_t width;
   uint32_t height;
+  uint32_t offset; //offset in bytes
+  uint32_t size;   // size of plane
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -525,6 +527,8 @@ struct PlaneInfo {
     stream << "scanline[" << scanline << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "]";
+    stream << "offset[" << offset << "] ";
+    stream << "size[" << size << "]";
     return stream.str();
   }
 };

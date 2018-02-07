@@ -257,6 +257,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
 
     out_buffer.info.format = BufferFormat::kBLOB;
     out_buffer.info.plane_info[0].width = jpeg_size;
+    out_buffer.second_thumb = (thumbnail_data_.size() == 2);
     out_buffer.data = nullptr;
     out_buffer.filled_length = jpeg_size;
     out_buffer.timestamp = in_buffer.timestamp;

@@ -271,6 +271,7 @@ class RecorderGtest : public ::testing::Test {
   status_t DumpQueue(AVQueue *queue, int32_t file_fd);
 
   status_t DumpThumbnail(BufferDescriptor buffer,
+                         const CameraBufferMetaData& meta_data,
                          uint32_t image_sequence_count,
                          uint64_t tv_ms);
 

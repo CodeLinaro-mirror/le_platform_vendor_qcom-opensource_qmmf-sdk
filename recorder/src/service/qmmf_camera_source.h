@@ -175,6 +175,8 @@ class CameraSource {
 
   bool IsCopyStream(const VideoTrackParams& params);
 
+  status_t ParseThumb(uint8_t* vaddr, uint32_t size, StreamBuffer& buffer);
+
   // Map of camera id and CameraContext.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
 
