@@ -191,7 +191,7 @@ class CameraContext : public CameraInterface,
 
   status_t PauseActiveStreams(bool immedialtely = true);
 
-  status_t ResumeActiveStreams(bool streaming_capture);
+  status_t ResumeActiveStreams(bool state_only = false);
 
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
@@ -285,12 +285,8 @@ class CameraContext : public CameraInterface,
   std::vector<int32_t>     snapshot_request_id_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
-  int64_t                  last_snapshot_id_;
-  int64_t                  curr_snapshot_id_;
   uint32_t                 capture_cnt_;
-  bool                     capture_done_;
   std::mutex               capture_lock_;
-  QCondition               capture_signal_;
   bool                     postproc_enable_;
   bool                     cancel_capture_ = false;
 
