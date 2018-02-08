@@ -63,6 +63,8 @@ class Camera3RequestHandler : public Camera3Thread {
 
   void TogglePause(bool pause);
 
+  void TogglePause(bool pause, bool &pending_request);
+
   bool IsStreamActive(Camera3Stream &stream);
   void FinishConfiguration(uint32_t batch_size);
 

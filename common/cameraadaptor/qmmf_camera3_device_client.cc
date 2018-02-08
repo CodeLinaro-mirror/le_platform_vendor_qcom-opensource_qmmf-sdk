@@ -1916,9 +1916,13 @@ int32_t Camera3DeviceClient::InternalPauseAndWaitLocked() {
 }
 
 int32_t Camera3DeviceClient::InternalResumeLocked() {
-  int32_t res;
+  int32_t res = 0;
 
-  request_handler_.TogglePause(false);
+  bool pending_request;
+  request_handler_.TogglePause(false, pending_request);
+  if (pending_request == false) {
+    return res;
+  }
 
   res = WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
   if (0 != res) {
