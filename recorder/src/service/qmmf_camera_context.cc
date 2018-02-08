@@ -71,10 +71,7 @@ CameraContext::CameraContext()
       streaming_request_id_(-1),
       last_frame_number_(-1),
       sequence_cnt_(1),
-      last_snapshot_id_(-1),
-      curr_snapshot_id_(-1),
       capture_cnt_(0),
-      capture_done_(true),
       postproc_enable_(false),
       result_cb_(nullptr),
       error_cb_(nullptr),
@@ -774,17 +771,12 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
 
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
+      cancel_capture_ = false;
       auto request_id = camera_device_->SubmitRequestList(requests,
                                                           streaming,
                                                           &last_frame_number);
       assert(request_id >= 0);
       snapshot_request_id_ = camera_device_->GetRequestIds();
-      capture_done_ = false;
-      if (snapshot_type_ == SnapshotMode::kContinuous) {
-        last_snapshot_id_ = -1;
-      } else {
-        last_snapshot_id_ = last_frame_number;
-      }
     }
     device_access_lock_.unlock();
     QMMF_INFO("%s: Request for non-zsl submitted successfully",
@@ -867,10 +859,6 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     config.Fetch(QMMF_SNAPSHOT_TYPE, type);
 
     std::unique_lock<std::mutex> lock(capture_lock_);
-    if (capture_done_ == false && snapshot_type_ != type.type) {
-      QMMF_ERROR("%s: %d capture is ongoing", __func__, snapshot_type_);
-      return INVALID_OPERATION;
-    }
     new_snapshot_type_ = type.type;
   }
 
@@ -908,14 +896,8 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     HighQualityCaptureSetup setup;
     config.Fetch(QMMF_JPEG_CAPTURE_SETUP, setup);
 
-    std::unique_lock<std::mutex> lock(capture_lock_);
-    if (capture_done_ == false &&
-        new_jpeg_input_format_ != setup.jpeg_input_format) {
-      QMMF_ERROR("%s: %d capture is ongoing", __func__, new_jpeg_input_format_);
-      return INVALID_OPERATION;
-    }
-
     // if new jpeg input format is different than existing restart the pipe
+    std::unique_lock<std::mutex> lock(capture_lock_);
     if (new_jpeg_input_format_ != setup.jpeg_input_format) {
       new_jpeg_input_format_ = setup.jpeg_input_format;
       restart_pipe_ = true;
@@ -933,11 +915,9 @@ status_t CameraContext::CancelCaptureImage() {
   QMMF_INFO("%s: Enter", __func__);
 
   if (!snapshot_request_.streamIds.empty() && !snapshot_request_id_.empty()) {
-    if (snapshot_type_ == SnapshotMode::kContinuous) {
-      // Update request check all active ports and  prepare request only
-      // for active streams which uses port. This discards snapshot streaming.
-      UpdateRequest(true);
-      last_snapshot_id_ = last_frame_number_;
+    {
+      std::unique_lock<std::mutex> lock(capture_lock_);
+      cancel_capture_ = true;
     }
 
     if (postproc_enable_) {
@@ -948,33 +928,11 @@ status_t CameraContext::CancelCaptureImage() {
       }
     }
 
-    {
-      std::unique_lock<std::mutex> lock(capture_lock_);
-      std::chrono::nanoseconds wait_time(kWaitPendingFramesTimeout);
-      cancel_capture_ = true;
-
-      while (capture_done_ == false) {
-        // Capture is not complete yet, wait till pending buffers are returned.
-        if (postproc_enable_) {
-          QMMF_INFO("%s: Cancel request is waiting for frame %lld",
-              __func__, last_snapshot_id_);
-        } else {
-          QMMF_INFO("%s: Cancel request with pending buffer(%d)!",
-              __func__, sequence_cnt_ - capture_cnt_);
-        }
-
-        auto ret = capture_signal_.WaitFor(lock, wait_time);
-        if (ret != 0) {
-          QMMF_ERROR("%s: Timed out on Wait", __func__);
-          return TIMED_OUT;
-        }
-      }
-      cancel_capture_ = false;
-      QMMF_INFO("%s: Capture is complete!", __func__);
-    }
-
+    PauseActiveStreams();
     PostProcDelete();
     DeleteSnapshotStream();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    ResumeActiveStreams();
   }
 
   QMMF_INFO("%s: Exit", __func__);
@@ -1873,7 +1831,7 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
   return ret;
 }
 
-status_t CameraContext::ResumeActiveStreams(bool streaming_capture) {
+status_t CameraContext::ResumeActiveStreams(bool state_only) {
   QMMF_VERBOSE("%s Enter ", __func__);
   status_t ret = NO_ERROR;
 
@@ -1882,9 +1840,9 @@ status_t CameraContext::ResumeActiveStreams(bool streaming_capture) {
     return NO_ERROR;
   }
 
-  QMMF_INFO("%s: Restart Ports! streaming %d", __func__, streaming_capture);
+  QMMF_INFO("%s: Restart Ports! streaming %d", __func__, state_only);
   for (auto port : active_ports_) {
-    if (streaming_capture) {
+    if (state_only) {
       // If snapshot capture request is streaming, than we should only
       // resume the port state. Other wise restarting of port will
       // overwrite snapshot capture request.
@@ -1962,18 +1920,6 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
         auto ret = camera_device_->ReturnStreamBuffer(buffer);
         assert(ret == NO_ERROR);
       }
-    }
-
-    // Check if this is the last frame. If post processing is enabled
-    // we have to wait post processing pipe to return the buffers.
-    if (!postproc_enable_ && capture_cnt_ == sequence_cnt_) {
-      QMMF_INFO("%s: Capture done.", __func__);
-      capture_done_ = true;
-      capture_signal_.Signal();
-    }
-
-    // return if cancel capture because we already returned the buffer
-    if (cancel_capture_) {
       return;
     }
   }
@@ -2358,20 +2304,6 @@ void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
       __func__, buffer.handle, buffer.fd, buffer.stream_id,
       buffer.timestamp);
   ReturnStreamBuffer(buffer);
-
-  // If snapshot post processing is enabled we have to wait
-  // post process pipe to return all buffers
-  if (!snapshot_request_.streamIds.empty() &&
-      !snapshot_request_id_.empty() && postproc_enable_) {
-    std::unique_lock<std::mutex> lock(capture_lock_);
-    curr_snapshot_id_ = buffer.frame_number;
-
-    if (last_snapshot_id_ == curr_snapshot_id_) {
-      QMMF_INFO("%s: Capture done.", __func__);
-      capture_done_ = true;
-      capture_signal_.Signal();
-    }
-  }
 }
 
 status_t CameraContext::PostProcDelete() {
