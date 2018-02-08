@@ -43,6 +43,10 @@
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 
+#ifndef JPEG_BLOB_OFFSET
+#define JPEG_BLOB_OFFSET (1)
+#endif
+
 namespace qmmf {
 
 namespace recorder {
@@ -926,7 +930,7 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
   if (width > blob_size) {
-    size_t offset = width - blob_size - 1;
+    size_t offset = width - blob_size - JPEG_BLOB_OFFSET;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
