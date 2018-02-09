@@ -333,6 +333,7 @@ class CmdMenu;
    bool                              vhdr;
    bool                              binning_correct;
    bool                              video_stabilize;
+   bool                              lcac_yuv;
    CameraInitInfo():
         camera_id(-1),
         camera_fps(0),
@@ -341,7 +342,8 @@ class CmdMenu;
         tnr(false),
         vhdr(false),
         binning_correct(false),
-        video_stabilize(false){};
+        video_stabilize(false),
+        lcac_yuv(false){};
  };
 
 class TestInitParams {

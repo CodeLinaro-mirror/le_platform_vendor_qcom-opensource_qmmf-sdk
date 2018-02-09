@@ -37,6 +37,7 @@ TNR                    : 0
 VHDR                   : 0
 BinningCorrect         : 0
 VideoStabilize         : 0
+LCACYUV                : 0
 
 #First Stream Encoder Params
 Width                  : 3840
