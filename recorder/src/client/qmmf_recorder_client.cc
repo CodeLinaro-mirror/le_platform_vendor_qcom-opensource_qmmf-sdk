@@ -1412,9 +1412,9 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
                 "vaddr(0x%p)",  __func__, bn_buffers[i].buffer_id,
                 buf_info.ion_fd, buf_info.pointer);
           }
-        } else {
-          QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
         }
+      } else {
+        QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
       }
     }
     if (!is_mapped) {
