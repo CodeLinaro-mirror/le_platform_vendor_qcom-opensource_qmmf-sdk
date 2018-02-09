@@ -393,8 +393,14 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   is_raw_only_ = stream_config.is_raw_only;
   batch_size_ = stream_config.batch_size;
 
-  bool res = ConfigureStreamsLocked(stream_config.params->is_pp_enabled,
-                                    stream_config.params->is_zzhdr_enabled,
+  bool is_pp_enabled = true;
+  bool is_zzhdr_enabled = false;
+  if (stream_config.params) {
+    is_pp_enabled = stream_config.params->is_pp_enabled;
+    is_zzhdr_enabled = stream_config.params->is_zzhdr_enabled;
+  }
+
+  bool res = ConfigureStreamsLocked(is_pp_enabled, is_zzhdr_enabled,
                                     stream_config.fps_sensormode_index);
 
   pthread_mutex_unlock(&lock_);
