@@ -248,8 +248,7 @@ status_t PostProcNode::Stop() {
   }
 
   in_.RequestExitAndWait();
-  in_.FlushBufs([this] (StreamBuffer &buf) -> void
-             { NotifyBufferReturn(buf); } );
+  in_.UnMapBufs();
 
   QMMF_VERBOSE("%s:%s: The Lip thread is stopped Id_: %d", __func__,
       name_.c_str(), id_);
@@ -265,8 +264,7 @@ status_t PostProcNode::Stop() {
   QMMF_VERBOSE("%s:%s: The Node thread is stopped", __func__,
       name_.c_str());
 
-  out_.FlushBufs([this] (StreamBuffer &buf) -> void
-          { NotifyBufferReturned(buf); } );
+  ReturnBuffers();
 
   {
     std::lock_guard<std::mutex> lock(state_lock_);
@@ -282,10 +280,8 @@ status_t PostProcNode::Stop() {
 status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
   QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
 
-  {
-    std::lock_guard<std::mutex> lock(state_lock_);
-    state_ = PostProcNodeState::ABORT;
-  }
+  std::lock_guard<std::mutex> lock(state_lock_);
+  state_ = PostProcNodeState::ABORT;
 
   status_t ret = module_->Abort(abort);
   if (ret != NO_ERROR) {
@@ -293,6 +289,8 @@ status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
         name_.c_str(), ret);
     return ret;
   }
+
+  ReturnBuffers();
 
   QMMF_INFO("%s:%s: Exit: State %d ", __func__, name_.c_str(), state_);
   return ret;
@@ -379,6 +377,16 @@ status_t PostProcNode::ProcessOutputBuffer(StreamBuffer &buffer) {
   return NO_ERROR;
 }
 
+status_t PostProcNode::ReturnBuffers() {
+  in_.FlushBufs([this] (StreamBuffer &buf) -> void
+             { NotifyBufferReturn(buf); } );
+
+  out_.FlushBufs([this] (StreamBuffer &buf) -> void
+          { NotifyBufferReturned(buf); } );
+
+  return NO_ERROR;
+}
+
 void InputHandler::AddBuf(StreamBuffer& buffer) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   bufs_list_.push_back(buffer);
@@ -393,7 +401,6 @@ void InputHandler::FlushBufs(std::function<void(StreamBuffer&)> BuffHandler) {
     BuffHandler(buffer);
   }
   bufs_list_.clear();
-  UnMapBufs();
 }
 
 status_t InputHandler::MapBuf(StreamBuffer& buffer) {
