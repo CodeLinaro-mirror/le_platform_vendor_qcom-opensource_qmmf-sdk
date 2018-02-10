@@ -83,7 +83,7 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
-      postproc_frame_skip_(false),
+      postproc_frame_skip_(0),
       exif_en_(true) {
   camera_start_params_ = {};
 }
@@ -774,7 +774,7 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
     PostprocFrameSkip frame_skip;
     config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
-    postproc_frame_skip_ = frame_skip.frame_skip > 0 ? true : false;
+    postproc_frame_skip_ = frame_skip.frame_skip;
   }
 
   if (config.Exists(QMMF_EXIF)) {
@@ -2160,7 +2160,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
     out_param.max_internal_buffers = REPROC_STREAM_BUFFER_COUNT;
   }
-  out_param.frame_skip = postproc_frame_skip_;
+  out_param.frame_skip = postproc_frame_skip_ > 0 ? true : false;;
   out_param.exif_en = exif_en_;
 
   PipeIOParam in_param;
