@@ -115,7 +115,8 @@ class DisplayImpl : public DisplayEventHandler
 
  protected:
   inline void SetRect(const SurfaceRect &source, LayerRect *target);
-  Layer* AllocateLayer(DisplayHandle display_handle, uint32_t* surface_id);
+  Layer* AllocateLayer(DisplayHandle display_handle, uint32_t* surface_id,
+      uint32_t z_order);
   status_t FreeLayer(DisplayHandle display_handle, const uint32_t surface_id);
   Layer* GetLayer(DisplayHandle display_handle, const uint32_t surface_id);
   LayerStack* GetLayerStack(DisplayType display_type,
@@ -243,7 +244,7 @@ class DisplayImpl : public DisplayEventHandler
   } DisplayClientInfo;
 
   typedef struct DisplayTypeInfo {
-    std::set<uint32_t>               surface_id_set;
+    std::map<uint32_t, uint32_t>     z_order_surface_id_map;
     uint32_t                         num_of_clients;
     DisplayInterface*                display_intf;
   } DisplayTypeInfo;

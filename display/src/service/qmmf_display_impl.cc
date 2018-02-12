@@ -268,7 +268,7 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
 
   {
     std::unique_lock<std::mutex> lock(api_lock_);
-    assert(display_type_info->second->surface_id_set.size() == 0);
+    assert(display_type_info->second->z_order_surface_id_map.size() == 0);
 
     DisplayInterface* displayintf = display_type_info->second->display_intf;
     assert(displayintf != nullptr);
@@ -333,7 +333,6 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   surface_param.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param.surface_flags.cursor = 0;
   surface_param.frame_rate = 30;
-  surface_param.z_order = 0;
   surface_param.solid_fill_color = 0;
 
   auto display_client_info = display_client_info_map_.find(display_handle);
@@ -350,7 +349,7 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   SurfaceInfo* surfaceinfo = new SurfaceInfo();
   assert(surfaceinfo != nullptr);
 
-  Layer* layer = AllocateLayer(display_handle, surface_id);
+  Layer* layer = AllocateLayer(display_handle, surface_id, surface_config.z_order);
   assert(layer != nullptr);
 
   surfaceinfo->layer=layer;
@@ -859,7 +858,7 @@ void DisplayImpl::HandleVSync() {
 
       {
         std::unique_lock<std::mutex> lock(layer_lock_);
-        if (it->second->surface_id_set.size() == 0) {
+        if (it->second->z_order_surface_id_map.size() == 0) {
           continue;
         }
       }
@@ -931,7 +930,7 @@ void DisplayImpl::SetRect(const SurfaceRect &source, LayerRect *target) {
 }
 
 Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
-    uint32_t* surface_id) {
+    uint32_t* surface_id, uint32_t z_order) {
   QMMF_INFO("%s: Enter", __func__);
   std::unique_lock<std::mutex> lock(layer_lock_);
 
@@ -948,7 +947,8 @@ Layer* DisplayImpl::AllocateLayer(DisplayHandle display_handle,
   *surface_id = ++unique_surface_id_;
 
   auto display_type_info = display_type_info_map_.find(display_client_info->second->display_type);
-  display_type_info->second->surface_id_set.insert(*surface_id);
+  display_type_info->second->z_order_surface_id_map.insert(
+      std::pair<uint32_t, uint32_t>(z_order, *surface_id));
 
   QMMF_INFO("%s: Exit", __func__);
 
@@ -979,7 +979,16 @@ status_t DisplayImpl::FreeLayer(DisplayHandle display_handle,
   surfaceinfo->second->layer = nullptr;
   display_client_info->second->num_of_client_layers--;
   auto display_type_info = display_type_info_map_.find(display_client_info->second->display_type);
-  display_type_info->second->surface_id_set.erase(surface_id);
+
+  uint32_t surface_id_key;
+  for(auto &it : display_type_info->second->z_order_surface_id_map) {
+    if (it.second == surface_id) {
+      surface_id_key = it.first;
+      break;
+    }
+  }
+
+  display_type_info->second->z_order_surface_id_map.erase(surface_id_key);
 
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
@@ -1016,9 +1025,9 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
 
   LayerStack* layer_stack = new LayerStack();
 
-  for(auto it = display_type_info->second->surface_id_set.begin();
-          it != display_type_info->second->surface_id_set.end(); it++) {
-    auto surfaceinfo = surface_info_map_.find(*it);
+  for(auto it = display_type_info->second->z_order_surface_id_map.begin();
+          it != display_type_info->second->z_order_surface_id_map.end(); it++) {
+    auto surfaceinfo = surface_info_map_.find(it->second);
     if (surfaceinfo == surface_info_map_.end()) {
       QMMF_ERROR("%s() no display_type::%d", __func__, display_type);
       continue;
