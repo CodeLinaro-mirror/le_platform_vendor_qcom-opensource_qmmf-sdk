@@ -205,5 +205,6 @@ AC_CONFIG_FILES([ \
     player/test/samples/Makefile \
     player/test/gtest/Makefile \
     player/test/transcode_app/Makefile \
+    player/test/screen-nail/Makefile  \
 ])
 AC_OUTPUT
