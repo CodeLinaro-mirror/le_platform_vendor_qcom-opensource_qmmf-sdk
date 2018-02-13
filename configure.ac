@@ -176,6 +176,7 @@ AC_CONFIG_FILES([ \
     common/codecadaptor/Makefile \
     common/avqueue/Makefile \
     common/exif-generator/Makefile \
+    common/jpeg-encoder/Makefile \
     plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \

@@ -31,9 +31,6 @@
 
 #include <vector>
 
-#include <hardware/camera3.h>
-#include <mm_jpeg_interface.h>
-
 #include "common/utils/qmmf_condition.h"
 
 
@@ -42,12 +39,6 @@
 namespace qmmf {
 
 namespace reprocjpegencoder {
-
-
-typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
-                                     mm_jpeg_mpo_ops_t *,
-                                     mm_dimension,
-                                     cam_related_system_calibration_data_t *);
 
 class JpegEncoder {
  public:
@@ -69,27 +60,16 @@ class JpegEncoder {
     CameraBufferMetaData source_info;
     uint32_t image_quality;
     std::vector<jpeg_thumbnail> thumbnail_data;
+    uint32_t exif_size;
+    void*    exif_data;
   };
 
  private:
-  typedef struct {
-    jpeg_open_proc_t jpeg_open_proc;
-    uint32_t handle_;
-    mm_dimension pic_size_;
-    mm_jpeg_ops_t ops_;
-    mm_jpeg_encode_params_t params_;
-    mm_jpeg_job_t job_;
-    uint32_t job_id_;
-    std::mutex encode_lock_;
-    std::mutex enc_done_lock_;
-    QCondition enc_done_cond_;
-  } JpegEncoderParams;
-
   int32_t ConfigureMainImage(const encode_params &params);
 
   int32_t ConfigureThumbnails(const encode_params &params);
 
-  JpegEncoderParams cfg_;
+  void* cfg_;
   void *job_result_ptr_;
   size_t job_result_size_;
 
