@@ -47,6 +47,10 @@
 #include <cairo/cairo.h>
 #endif
 
+#ifdef ANDROID_O_OR_ABOVE
+#include <camera/VendorTagDescriptor.h>
+#endif
+
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
@@ -131,6 +135,20 @@ struct FaceInfo {
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
 // Prop to set JPEG Quality
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
+
+#ifdef ANDROID_O_OR_ABOVE
+enum ISOModes : int64_t {
+  kISOModeAuto = 0,
+  kISOModeDeblur,
+  kISOMode100,
+  kISOMode200,
+  kISOMode400,
+  kISOMode800,
+  kISOMode1600,
+  kISOMode3200,
+  kISOModeEnd
+};
+#endif
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
@@ -280,6 +298,14 @@ class RecorderGtest : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+#ifdef ANDROID_O_OR_ABOVE
+  bool VendorTagSupported(const String8& name, const String8& section,
+                          uint32_t* tag_id);
+
+  bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
+                             const String8& section, uint32_t* tag_id);
+#endif
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
@@ -291,8 +317,10 @@ class RecorderGtest : public ::testing::Test {
   SFDisplaySink         *sfdisplay_;
   bool                  use_sf_;
 #endif
+
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
+
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
 
   status_t DrawOverlay(void *data, int32_t width, int32_t height);
@@ -374,6 +402,10 @@ class RecorderGtest : public ::testing::Test {
 
 #endif
 
+#ifdef ANDROID_O_OR_ABOVE
+  sp<VendorTagDescriptor> vendor_tag_desc_;
+#endif
+
   struct TestEventWait {
     std::condition_variable signal_;
     std::mutex mutex_;
@@ -410,6 +442,5 @@ class RecorderGtest : public ::testing::Test {
       return NO_ERROR;
     }
   } test_wait_;
-
 };
 
