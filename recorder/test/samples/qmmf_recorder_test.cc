@@ -4339,6 +4339,17 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         }
       }
     }
+
+    if (current_camera_info->lcac_yuv) {
+      ALOGI("%s Enable LCAC YUV \n", __func__);
+      uint8_t enable_lcac = 1;
+      status = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+      status = recorder_.SetCameraParam(current_camera_id, meta);
+      if (NO_ERROR != status) {
+        ALOGE("%s Failed to Enable LCAC YUV \n", __func__);
+        return status;
+      }
+    }
     // TODO: This value is still under discussion and verification
     PARAMETER_SETTLE_INTERVAL(2);
 
@@ -4809,6 +4820,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
       current_camera_info->binning_correct = atoi(value) ? true : false;
     } else if (!strncmp("VideoStabilize", key, strlen("VideoStablize"))) {
       current_camera_info->video_stabilize = atoi(value) ? true : false;
+    } else if (!strncmp("LCACYUV", key, strlen("LCACYUV"))) {
+      current_camera_info->lcac_yuv = atoi(value) ? true : false;
     } else if (!strncmp("Width", key, strlen("Width"))) {
       track_info.width = atoi(value);
     } else if (!strncmp("Height", key, strlen("Height"))) {
