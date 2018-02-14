@@ -1128,7 +1128,8 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     meta.append(streaming_active_requests_[0].metadata);
   } else {
-    QMMF_ERROR("%s No active requests present!\n", __func__);
+    QMMF_ERROR("%s No active request present. Return static meta!\n", __func__);
+    meta.append(static_meta_);
     return NO_INIT;
   }
   QMMF_DEBUG("%s: Exit", __func__);
