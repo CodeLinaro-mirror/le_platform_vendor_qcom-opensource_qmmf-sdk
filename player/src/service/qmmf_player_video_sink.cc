@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -180,6 +180,7 @@ VideoTrackSink::VideoTrackSink()
       stopplayback_(false),
       paused_(false),
       decoded_frame_number_(0),
+      seek_time_(0),
 #ifndef DISABLE_DISPLAY
       display_started_(0),
 #endif
@@ -443,6 +444,16 @@ status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
   return NO_ERROR;
 }
 
+status_t VideoTrackSink::SetPosition(int64_t seek_time) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: seek_time(%lld)", __func__, seek_time);
+
+  seek_time_ = static_cast<uint64_t>(seek_time);
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
+}
+
 void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
@@ -576,11 +587,17 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
   return NO_ERROR;
 }
 
-status_t VideoTrackSink::SkipFrame() {
+status_t VideoTrackSink::SkipFrame(uint64_t timestamp) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
-  if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
-      playback_dir_ == TrickModeDirection::kSlowForward ) {
+  QMMF_VERBOSE("%s comparing seek_time[%llu] to timestamp[%llu]",
+               __func__, seek_time_, timestamp);
+  if (seek_time_ && (timestamp < seek_time_)) {
+    QMMF_DEBUG("%s track_id(%d) discarding frame: seek_time[%llu] timestamp[%llu]",
+               __func__, TrackId(), seek_time_, timestamp);
+    return true;
+  } else if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
+             playback_dir_ == TrickModeDirection::kSlowForward ) {
     return false;
 
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_2x) {
@@ -644,7 +661,7 @@ void VideoTrackSink::Renderer() {
           " timestamps is %llu buffer.fd is %d ",  __func__, TrackId(),
           decoded_frame_number_, codec_buffer.timestamp, codec_buffer.fd);
 
-      if (SkipFrame()) {
+      if (SkipFrame(codec_buffer.timestamp)) {
         QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
             decoded_frame_number_);
 
@@ -883,7 +900,8 @@ status_t VideoTrackSink::CreateDisplay(
       surface_param_.surface_transform.flip_vertical = 1;
       break;
     default:
-      QMMF_ERROR("%s:%s Wrong value entered for rotation (0/90/180/270)");
+      QMMF_ERROR("%s Wrong value entered for rotation (0/90/180/270)",
+                 __func__);
       break;
   }
 
