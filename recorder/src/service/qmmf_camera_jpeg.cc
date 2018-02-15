@@ -102,7 +102,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
   capture_client_cb_ = cb;
   input_stream_id_   = stream_id;
   num_images_        = num_images;
-  jpeg_quality_      = jpeg_quality;
+  jpeg_params_.image_quality = jpeg_quality;
   ready_to_start_    = true;
 
   Run("Camera Jpeg");
@@ -148,10 +148,10 @@ status_t CameraJpeg::Delete() {
 
 status_t CameraJpeg::Configure(const std::vector<ImageThumbnail> &thumbs) {
 
-  thumbnails.clear();
+  jpeg_params_.thumbnail_data.clear();
   for (auto const& thumb : thumbs) {
-    jpeg_thumbnail jpeg_thumbnail(thumb.width, thumb.height, thumb.quality);
-    thumbnails.push_back(jpeg_thumbnail);
+    JpegEncoder::jpeg_thumbnail jpeg_thumbnail(thumb.width, thumb.height, thumb.quality);
+    jpeg_params_.thumbnail_data.push_back(jpeg_thumbnail);
   }
   return NO_ERROR;
 }
@@ -179,7 +179,6 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     results_.erase(in_buffer.timestamp);
   }
 
-  snapshot_info img_buffer;
   if (buf_vaaddr != MAP_FAILED || out_vaaddr != MAP_FAILED) {
     if (!meta.isEmpty()) {
       unsigned char *exif_buffer = new unsigned char[getExifTempBuffSize()];
@@ -192,22 +191,33 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       delete[] exif_buffer;
 
       if (exif_size != 0) {
-        img_buffer.exif_size = getExifEntitiesSize();
-        img_buffer.exif_data = getExifEntitiesData();
+        jpeg_params_.exif_size = getExifEntitiesSize();
+        jpeg_params_.exif_data = getExifEntitiesData();
       } else {
         QMMF_ERROR("%s Empty exif section!", __func__);
-        img_buffer.exif_size = 0;
-        img_buffer.exif_data = (void*)0;
+        jpeg_params_.exif_size = 0;
+        jpeg_params_.exif_data = (void*)0;
       }
     }
 
+  auto ret = jpeg_encoder_->Init(in_buffer.info.plane_info[0].width,
+                                 in_buffer.info.plane_info[0].height);
+  if (ret != 0) {
+    QMMF_ERROR("%s: failed to inint Jpeg Encoder", __func__);
+    munmap(buf_vaaddr, in_buffer.size);
+    munmap(out_vaaddr, out_buffer.size);
+    out_buffer.data = nullptr;
+    return;
+  }
     size_t jpeg_size = 0;
-    img_buffer.img_data[0] = static_cast<uint8_t*>(buf_vaaddr);
-    img_buffer.out_data[0] = static_cast<uint8_t*>(out_vaaddr);
-    img_buffer.source_info = in_buffer.info;
-    img_buffer.thumbnails = thumbnails;
-    auto buf_vaddr = reinterpret_cast<uint8_t *>(
-        jpeg_encoder_->Encode(img_buffer, jpeg_size, jpeg_quality_));
+    jpeg_params_.img_data[0] = static_cast<uint8_t*>(buf_vaaddr);
+    jpeg_params_.out_data[0] = static_cast<uint8_t*>(out_vaaddr);
+    jpeg_params_.source_info = in_buffer.info;
+
+    ret = jpeg_encoder_->Encode(jpeg_params_, jpeg_size);
+    if (ret != 0) {
+      QMMF_ERROR("%s: Jpeg Encode fails", __func__);
+    }
 
     if (0 == jpeg_size) {
       QMMF_ERROR("%s: JPEG size is 0!", __func__);
@@ -215,13 +225,16 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       out_buffer.info.plane_info[0].width = jpeg_size;
       out_buffer.data = out_vaaddr;
       out_buffer.filled_length = jpeg_size;
+      out_buffer.second_thumb = false;
       AddJpegHeader(out_buffer);
     }
 
-    memcpy(buf_vaaddr, buf_vaddr, jpeg_size);
+    memcpy(buf_vaaddr, out_vaaddr, jpeg_size);
     munmap(buf_vaaddr, in_buffer.size);
     munmap(out_vaaddr, out_buffer.size);
     out_buffer.data = nullptr;
+
+    jpeg_encoder_->DeInit();
   } else {
     QMMF_INFO("%s: SKIPP JPEG", __func__);
   }

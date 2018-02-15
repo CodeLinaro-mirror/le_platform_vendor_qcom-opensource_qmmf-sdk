@@ -40,17 +40,15 @@
 #include "common/exif-generator/qmmf_exif_generator.h"
 #include "common/utils/qmmf_exif_converter.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 #include "recorder/src/service/post-process/interface/qmmf_postproc_module.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
-
-#include "qmmf_jpeg_encoder.h"
-
 
 namespace qmmf {
 
 namespace recorder {
 
-using namespace jpegencoder;
+using namespace reprocjpegencoder;
 
 class CameraJpeg : public Camera3Thread,
                    public ICameraPostProcess,
@@ -108,12 +106,12 @@ class CameraJpeg : public Camera3Thread,
   bool                     reprocess_flag_;
   bool                     ready_to_start_;
   uint32_t                 num_images_;
-  uint32_t                 jpeg_quality_;
 
   JpegEncoder*             jpeg_encoder_;
   PostProcCb               capture_client_cb_;
 
-  std::vector<jpeg_thumbnail> thumbnails;
+  std::vector<JpegEncoder::jpeg_thumbnail> thumbnails;
+  reprocjpegencoder::JpegEncoder::encode_params jpeg_params_;
 
   QCondition               wait_for_buffer_;
   std::mutex               buffer_lock_;
