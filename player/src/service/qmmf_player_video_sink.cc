@@ -836,6 +836,7 @@ status_t VideoTrackSink::CreateDisplay(
   surface_config_.buffer_count = track_param.params.num_buffers;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
+  surface_config_.z_order = 1;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   if (res != 0) {
     QMMF_ERROR("%s CreateSurface Failed!!", __func__);
@@ -857,7 +858,6 @@ status_t VideoTrackSink::CreateDisplay(
       SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
   surface_param_.frame_rate=track_param.params.frame_rate;
-  surface_param_.z_order = 0;
   surface_param_.solid_fill_color = 0;
 
   switch (track_param.params.rotation) {

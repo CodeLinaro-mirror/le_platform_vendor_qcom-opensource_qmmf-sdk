@@ -18664,6 +18664,7 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
   surface_config_.buffer_count = 1;
   surface_config_.cache = 0;
   surface_config_.use_buffer = 1;
+  surface_config_.z_order = 1;
   res = display_->CreateSurface(surface_config_, &surface_id_);
   EXPECT_TRUE(res == 0);
 
@@ -18674,7 +18675,6 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
   surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
   surface_param_.frame_rate = 30;
-  surface_param_.z_order = 0;
   surface_param_.solid_fill_color = 0;
   surface_param_.surface_transform.rotation = 0.0f;
   surface_param_.surface_transform.flip_horizontal = 0;
@@ -18688,6 +18688,7 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
     gfx_surface_config_.buffer_count = 4;
     gfx_surface_config_.cache = 0;
     gfx_surface_config_.use_buffer = 0;
+    gfx_surface_config_.z_order = 2;
     auto ret = display_->CreateSurface(gfx_surface_config_, &gfx_surface_id_);
     if (ret != 0) {
       TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -18700,7 +18701,6 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
     gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
     gfx_surface_param_.surface_flags.cursor = 0;
     gfx_surface_param_.frame_rate = 30;
-    gfx_surface_param_.z_order = 1;
     gfx_surface_param_.solid_fill_color = 0;
     gfx_surface_param_.surface_transform.rotation = 0.0f;
     gfx_surface_param_.surface_transform.flip_horizontal = 0;
@@ -18821,7 +18821,6 @@ int32_t RecorderGtest::QueueGfxSurfaceBuffer() {
   gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
   gfx_surface_param_.surface_flags.cursor = 0;
   gfx_surface_param_.frame_rate = 30;
-  gfx_surface_param_.z_order = 1;
   gfx_surface_param_.solid_fill_color = 0;
 
   auto ret = display_->QueueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_,

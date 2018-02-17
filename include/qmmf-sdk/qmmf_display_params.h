@@ -226,6 +226,7 @@ typedef struct SurfaceConfig {
   bool cache;
   bool use_buffer;
   SurfaceTransform surface_transform;
+  uint32_t z_order;
 } SurfaceConfig;
 
 /*
@@ -315,7 +316,6 @@ typedef struct SurfaceParam {
     SurfaceRect dst_rect;
     SurfaceBlending surface_blending;
     SurfaceFlags surface_flags;
-    uint32_t z_order;
     uint8_t plane_alpha;
     uint32_t frame_rate;
     uint32_t solid_fill_color;
