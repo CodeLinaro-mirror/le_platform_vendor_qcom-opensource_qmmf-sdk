@@ -92,6 +92,7 @@ enum class CodecParamType {
   kEnableFrameRepeat,
   kVQZipInfo,
   kJPEGQuality,
+  kDisplayParam,
 };
 
 enum class AVCProfileType {

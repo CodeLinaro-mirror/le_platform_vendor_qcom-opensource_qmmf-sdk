@@ -83,6 +83,8 @@ class PlayerTest {
 
   void SetPosition();
   void SetTrickMode();
+  void SetVolume();
+  void SetDisplayParam();
 
   void PlayerHandler(EventType event_type,
                      void* event_data,
@@ -181,6 +183,7 @@ class PlayerTest {
   uint32_t                        gfx_plane_update_rate_;
   uint32_t                        gfx_plane_frame_count_;
   bool                            push_gfx_content_to_display_;
+  int32_t                         volume_;
 
 #ifndef DISABLE_DISPLAY
   std::thread*                    display_thread_;
@@ -210,6 +213,8 @@ class CmdMenu {
       DELETE_CMD                        = '9',
       TRICK_MODE_CMD                    = 'T',
       SEEK_CMD                          = 'S',
+      VOLUME_CMD                        = 'V',
+      DISPLAY_PARAM_CMD                 = 'D',
       EXIT_CMD                          = 'X',
       NEXT_CMD                          = '\n',
       INVALID_CMD                       = '0'
