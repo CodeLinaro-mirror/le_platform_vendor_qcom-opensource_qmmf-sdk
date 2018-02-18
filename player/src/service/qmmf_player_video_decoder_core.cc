@@ -380,15 +380,14 @@ status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != NULL);
 
-  auto ret =  track_decoder->SetTrickMode(speed, dir);
+  auto ret = track_decoder->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) SetTrackTrickMode failed!", __func__,
-     track_id);
+    QMMF_INFO("%s: track_id(%d) SetTrackTrickMode failed!", __func__, track_id);
     return ret;
   }
 
   QMMF_INFO("%s: track_id(%d) SetTrackTrickMode Successful!",
-     __func__, track_id);
+      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }

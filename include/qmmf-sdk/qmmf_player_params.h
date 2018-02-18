@@ -205,6 +205,12 @@ struct PictureParam {
   uint32_t quality;
 };
 
+struct DisplayParam {
+  Rect srcRect;
+  Rect destRect;
+  uint32_t rotation;
+};
+
 enum class TrickModeSpeed {
   kSpeed_1x = 1 << 0,
   kSpeed_2x = 1 << 1,

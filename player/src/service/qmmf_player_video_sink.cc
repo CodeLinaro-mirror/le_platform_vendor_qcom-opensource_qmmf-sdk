@@ -175,6 +175,32 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
   return ret;
 }
 
+status_t VideoSink::SetVideoTrackSinkParams(uint32_t track_id,
+                                            CodecParamType param_type,
+                                            void* param,
+                                            uint32_t param_size) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  auto ret = 0;
+
+#ifndef DISABLE_DISPLAY
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  assert(track_sink.get() != NULL);
+
+  ret =  track_sink->SetVideoSinkParams(param_type, param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s: track_id(%d) SetVideoSinkParams failed!", __func__,
+        track_id);
+   return ret;
+  }
+
+  QMMF_INFO("%s: track_id(%d) SetVideoSinkParams Successful!",
+     __func__, track_id);
+#endif
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 VideoTrackSink::VideoTrackSink()
     : current_width(0),
       current_height(0),
@@ -896,7 +922,47 @@ status_t VideoTrackSink::CreateDisplay(
   surface_param_.frame_rate=track_param.params.frame_rate;
   surface_param_.solid_fill_color = 0;
 
-  switch (track_param.params.rotation) {
+  SetDisplayOrientation(track_param.params.rotation);
+
+  QMMF_INFO("%s: Exit", __func__);
+  return res;
+}
+
+status_t VideoTrackSink::SetVideoSinkParams(CodecParamType param_type,
+                                            void* param, uint32_t param_size) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  if (param_type == CodecParamType::kDisplayParam) {
+     DisplayParam* display_param = reinterpret_cast<DisplayParam*>(param);
+
+    if (display_param->srcRect.width !=0 &&
+        display_param->srcRect.height != 0) {
+      surface_param_.src_rect = { display_param->srcRect.start_x,
+          display_param->srcRect.start_y,
+          static_cast<float>(display_param->srcRect.width),
+          static_cast<float>(display_param->srcRect.height)};
+    }
+
+    if (display_param->destRect.width !=0 &&
+        display_param->destRect.height != 0) {
+      surface_param_.dst_rect = { display_param->destRect.start_x,
+          display_param->destRect.start_y,
+          static_cast<float>(display_param->destRect.width),
+          static_cast<float>(display_param->destRect.height)};
+    }
+
+    SetDisplayOrientation(display_param->rotation);
+  }
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t VideoTrackSink::SetDisplayOrientation(uint32_t angle) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Set Display Orientation (%u)", __func__, angle);
+
+  switch (angle) {
     case 0:
     case 360:
       surface_param_.surface_transform.rotation = 0.0f;
@@ -920,13 +986,12 @@ status_t VideoTrackSink::CreateDisplay(
       break;
     default:
       QMMF_ERROR("%s Wrong value entered for rotation (0/90/180/270)",
-                 __func__);
+         __func__);
       break;
   }
 
-  QMMF_INFO("%s: Exit", __func__);
-  return res;
-
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
