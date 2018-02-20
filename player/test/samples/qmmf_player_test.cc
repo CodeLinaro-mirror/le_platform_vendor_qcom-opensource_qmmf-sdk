@@ -871,6 +871,9 @@ void PlayerTest::SetPosition() {
   else
     TEST_INFO("%s: Seek to %llu sec", __func__, time);
 
+  auto result = player_.SetPosition(static_cast<int64_t>(time * 1000000));
+  assert(result == NO_ERROR);
+
   TEST_INFO("%s: Exit", __func__);
 }
 
