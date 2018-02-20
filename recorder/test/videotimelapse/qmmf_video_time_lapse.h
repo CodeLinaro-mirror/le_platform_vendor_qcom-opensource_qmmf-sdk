@@ -80,6 +80,10 @@ static const std::string video_time_lapse_file_name_preamble =
 enum class TimeLapseType {
   kVideoTimeLapse,
   kPhotoTimeLapse,
+  kStitchedVideoTimeLapse,
+  kSideBySideVideoTimeLapse,
+  kStitchedPhotoTimeLapse,
+  kSideBySidePhotoTimeLapse,
 };
 
 enum class VideoEncodeFormat {
@@ -94,6 +98,7 @@ enum class ImageEncodeFormat {
 
 struct TimeLapseParams {
   uint32_t camera_id;
+  uint32_t camera_id_2;
   uint32_t time_lapse_type;
   uint32_t time_lapse_interval;  // [ms.]
   uint32_t width;
@@ -213,8 +218,11 @@ class TimeLapse {
   android::CameraMetadata static_info_;
   TimeLapseParams params_;
   TimeLapseMode time_lapse_mode_;
+  qmmf::recorder::MultiCameraConfigType multicam_type_;
+  qmmf::recorder::CameraStartParam multicam_start_params_;
   std::thread time_lapse_thread_;
   uint32_t session_id_;
+  uint32_t cam_id_;
   int32_t ion_device_;
   uint64_t snapshot_count_;
   static const uint32_t kLPMTrackId;
@@ -228,6 +236,7 @@ class TimeLapse {
   std::future<int32_t> snapshot_buffer_returnerd_future_;
   bool video_encode_;
   bool is_dump_yuv_snapshot_enabled_;
+  bool multicam_mode_;
   std::queue<qmmf::BufferDescriptor> yuv_sanpshot_queue_;
   std::vector<qmmf::BufferDescriptor> input_buffer_list_;
   std::vector<qmmf::BufferDescriptor> output_buffer_list_;

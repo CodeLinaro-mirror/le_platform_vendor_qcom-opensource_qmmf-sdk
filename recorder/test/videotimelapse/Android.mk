@@ -6,7 +6,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
 
-# Build recorder test application binary
+# Build video time lapse test application binary
 
 include $(CLEAR_VARS)
 
