@@ -1,9 +1,13 @@
 /*
- * CameraID        : 0 (Hires camera), 1 (Optic flow camera).
+ * CameraID        : 0 (Rear camera), 1 (Front camera), 2 (Logical Camera).
  * CameraFPS       : 30 (default), max FPS required for HFR use cases.
  *                 : Eg: Set to 60 for 1080p60 + 480p30 use case.
  * SnapshotType    : None (Disable snapshot),JPEG (JPEG snapshot),
  *                 : RAWYUV (Raw YUV snapshot),RAWRDI (Raw snapshot).
+ * SnapshotCameraID: ID of the camera which has to take the snapshot.
+ *                 : Currently, as individual control of Camera is not abstracted
+ *                 : in mult-camera usecases, typically, its value should be same
+ *                 : as that of CameraID.
  * SnapshotWidth   : Width of snapshot,0 (Take snapshot with max size).
  * SnapshotHeight  : Height of snapshot,0 (Take snapshot with max size).
  * SnapshotCount   : Count of snapshot (The Max count of continus snapshot is 30).
@@ -27,6 +31,7 @@
 CameraID               : 0
 CameraFPS              : 30
 SnapshotType           : None
+SnapshotCameraID       : 0
 SnapshotWidth          : 3840
 SnapshotHeight         : 2160
 SnapshotCount          : 0
