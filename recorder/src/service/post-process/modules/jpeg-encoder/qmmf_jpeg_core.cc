@@ -146,15 +146,8 @@ JpegEncoder::JpegEncoder() :
   cfg_.params_.burst_mode = 0;
 
   /* Qtable */
-  cfg_.job_.encode_job.qtable[0].eQuantizationTable = OMX_IMAGE_QuantizationTableLuma;
-  cfg_.job_.encode_job.qtable[1].eQuantizationTable = OMX_IMAGE_QuantizationTableChroma;
-  cfg_.job_.encode_job.qtable_set[0] = 1;
-  cfg_.job_.encode_job.qtable_set[1] = 1;
-
-  for (int i = 0; i < (int)sizeof(JpegEncoder::DEFAULT_QTABLE_0); i++) {
-    cfg_.job_.encode_job.qtable[0].nQuantizationMatrix[i] = JpegEncoder::DEFAULT_QTABLE_0[i];
-    cfg_.job_.encode_job.qtable[1].nQuantizationMatrix[i] = JpegEncoder::DEFAULT_QTABLE_1[i];
-  }
+  cfg_.job_.encode_job.qtable_set[0] = 0;
+  cfg_.job_.encode_job.qtable_set[1] = 0;
 
   cfg_.job_.job_type = JPEG_JOB_TYPE_ENCODE;
   cfg_.job_.encode_job.src_index = 0;
