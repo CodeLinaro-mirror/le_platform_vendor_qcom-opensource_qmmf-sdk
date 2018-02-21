@@ -15582,8 +15582,10 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
 
     // for next iteration rotation param shold be set to 0 degree
     // else stream configuration error will come.
-   rotate_param.flags = RotationFlags::kNone; //0 Degree
-   extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+    rotate_param.flags = RotationFlags::kNone; //0 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -15592,13 +15594,12 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
 
 /*
-* SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse:
+* SessionWith1440pEnc480pEnc480pDisplayTrack2FPSVideoTimeLapse:
 *    This test will create three concurrent sessions 1440p Enc track for storage,
 *    480p Enc track for streaming, 480p YUV track for display with  YUV LCAC and
 *    TNR is enabled, here camera starting at 4fps then skipping frame to get 2FPS.
@@ -16078,8 +16079,10 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack2FPSVideoTimeLap
 
     // for next iteration rotation param shold be set to 0 degree
     // else stream configuration error will come.
-   rotate_param.flags = RotationFlags::kNone; //0 Degree
-   extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+    rotate_param.flags = RotationFlags::kNone; //0 Degree
+    extra_param.Update(QMMF_VIDEO_ROTATE, rotate_param);
+
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -16088,7 +16091,6 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack2FPSVideoTimeLap
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
