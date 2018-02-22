@@ -4120,9 +4120,11 @@ TEST_F(RecorderGtest, HFRModeSwitch) {
 
     ret = DeInit();
     ASSERT_TRUE(ret == NO_ERROR);
+    dump_bitstream_.CloseAll();
+
   }
 
-  dump_bitstream_.CloseAll();
+
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -5428,7 +5430,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
-
+    dump_bitstream_.CloseAll();
   } // End iteration count loop.
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -5436,7 +5438,6 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -7980,6 +7981,8 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id2);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.DeleteSession(session_id);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -7992,7 +7995,6 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -11768,7 +11770,8 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     ret = recorder_.DeleteSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-     ClearSessions();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -11776,7 +11779,6 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12017,6 +12019,7 @@ TEST_F(RecorderGtest, FrameRepeat) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -12024,7 +12027,7 @@ TEST_F(RecorderGtest, FrameRepeat) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
+
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -12186,6 +12189,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -12194,7 +12198,6 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -12457,6 +12460,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -12465,7 +12469,6 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -12601,6 +12604,7 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -12609,7 +12613,6 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -12850,6 +12853,7 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -12858,7 +12862,6 @@ TEST_F(RecorderGtest,
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -13107,6 +13110,7 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -13115,7 +13119,6 @@ TEST_F(RecorderGtest,
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -13367,6 +13370,7 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -13375,7 +13379,6 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
@@ -13538,6 +13541,7 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -13546,7 +13550,6 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -13660,6 +13663,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -13667,7 +13671,6 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
@@ -13820,6 +13823,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     ClearSessions();
+    dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -13827,7 +13831,6 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
