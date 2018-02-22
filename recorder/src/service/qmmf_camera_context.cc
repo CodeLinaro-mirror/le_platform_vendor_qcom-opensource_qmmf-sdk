@@ -500,7 +500,8 @@ bool CameraContext::IsPostProcNeeded(const ImageParam &param,
                                      const uint32_t sequence_cnt) {
   if (((sequence_cnt > 1) && (param.image_format == ImageFormat::kJPEG)) ||
       !capture_plugins_.empty() ||
-      (!exif_en_ && (param.image_format == ImageFormat::kJPEG))) {
+      (!exif_en_ && (param.image_format == ImageFormat::kJPEG)) ||
+      (!thumbnails_.empty() && (param.image_format == ImageFormat::kJPEG))) {
     return true;
   } else {
     return false;
@@ -603,7 +604,8 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
       snapshot_type_ = new_snapshot_type_;
-
+      QMMF_INFO("%s: PostProc is %s", __func__, postproc_enable_ ?
+          "Enabled" : "Disabled");
       if (snapshot_type_ == SnapshotMode::kContinuous) {
         sequence_cnt_ = 1;
       } else {
