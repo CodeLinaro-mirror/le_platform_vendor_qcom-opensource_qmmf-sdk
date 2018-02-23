@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,28 +31,25 @@
 
 #include <vector>
 
+#include <hardware/camera3.h>
+#include <mm_jpeg_interface.h>
+
+#include "common/utils/qmmf_condition.h"
+
+
 #include <qmmf-sdk/qmmf_codec.h>
 
 namespace qmmf {
 
 namespace reprocjpegencoder {
 
+
+typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
+                                     mm_jpeg_mpo_ops_t *,
+                                     mm_dimension,
+                                     cam_related_system_calibration_data_t *);
+
 class JpegEncoder {
-
- private:
-
-  void FillImgData(const CameraBufferMetaData& source_info);
-
-  void UpdateThumbnailData(const CameraBufferMetaData& source_info);
-
-  void *cfg_;
-  void *job_result_ptr_;
-  size_t job_result_size_;
-
-  static uint8_t DEFAULT_QTABLE_0[];
-  static uint8_t DEFAULT_QTABLE_1[];
-  static JpegEncoder *encoder_instance_;
-
  public:
 
   struct jpeg_thumbnail {
@@ -66,7 +63,7 @@ class JpegEncoder {
         width(width), height(height), thumb_quality(thumb_quality) {}
   };
 
-  struct snapshot_info {
+  struct encode_params {
     uint8_t *img_data[3];
     uint8_t *out_data[3];
     CameraBufferMetaData source_info;
@@ -74,19 +71,31 @@ class JpegEncoder {
     std::vector<jpeg_thumbnail> thumbnail_data;
   };
 
-  JpegEncoder();
+ private:
+  typedef struct {
+    jpeg_open_proc_t jpeg_open_proc;
+    uint32_t handle_;
+    mm_dimension pic_size_;
+    mm_jpeg_ops_t ops_;
+    mm_jpeg_encode_params_t params_;
+    mm_jpeg_job_t job_;
+    uint32_t job_id_;
+    std::mutex encode_lock_;
+    std::mutex enc_done_lock_;
+    QCondition enc_done_cond_;
+  } JpegEncoderParams;
 
-  ~JpegEncoder();
+  int32_t ConfigureMainImage(const encode_params &params);
 
-  void *Encode(size_t *jpeg_size);
+  int32_t ConfigureThumbnails(const encode_params &params);
 
-  void EncodeCb(void *p_output, void *userData);
+  JpegEncoderParams cfg_;
+  void *job_result_ptr_;
+  size_t job_result_size_;
 
-  static JpegEncoder *getInstance();
-
-  static void releaseInstance();
-
-  snapshot_info in_buffer_;
+  static uint8_t DEFAULT_QTABLE_0[];
+  static uint8_t DEFAULT_QTABLE_1[];
+  static JpegEncoder *encoder_instance_;
 
   void *libjpeg_interface_;
 
@@ -95,6 +104,24 @@ class JpegEncoder {
 
   static const uint32_t kDefaultSecondThumbWidth;
   static const uint32_t kDefaultSecondThumbHeight;
+
+ public:
+
+  JpegEncoder();
+
+  ~JpegEncoder();
+
+  int32_t Init(uint32_t width, uint32_t height);
+
+  int32_t DeInit();
+
+  int32_t Encode(encode_params &params, size_t &jpeg_size /* output */);
+
+  void EncodeCb(void *p_output, void *userData);
+
+  static JpegEncoder *getInstance();
+
+  static void releaseInstance();
 };
 
 }; //namespace reprocjpegencoder ends here

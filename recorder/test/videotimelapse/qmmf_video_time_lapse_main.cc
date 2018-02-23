@@ -33,7 +33,8 @@
 
 #include "qmmf_video_time_lapse.h"
 
-const uint32_t kDefaultCameraId = 0;
+const uint32_t kDefaultCameraId1 = 0;
+const uint32_t kDefaultCameraId2 = 1;
 const uint32_t kDefaultTimeLapseInterval = 500;
 const uint32_t kDefaultWidth = 3840;
 const uint32_t kDefaultHeight = 2160;
@@ -47,7 +48,8 @@ const uint32_t kDefaultImageEncodeFormat =
 const uint32_t kDefaultRecDuration = 120;
 
 enum Arguments : char {
-  kCameraId = 'c',
+  kCameraId1 = 'c',
+  kCameraId2 = 'b',
   kTimeLapseType = 't',
   kTimeLapseInterval = 'i',
   kWidth = 'w',
@@ -58,7 +60,9 @@ enum Arguments : char {
   kRecDuration = 'd',
 };
 
-const char kArgs[] = {Arguments::kCameraId,
+const char kArgs[] = {Arguments::kCameraId1,
+                      ':',
+                      Arguments::kCameraId2,
                       ':',
                       Arguments::kTimeLapseType,
                       ':',
@@ -85,7 +89,8 @@ struct UsageDescription {
 };
 
 const UsageDescription kDescription[] = {
-    {Arguments::kCameraId, "camera_id ", kDefaultCameraId},
+    {Arguments::kCameraId1, "camera_id_1 ", kDefaultCameraId1},
+    {Arguments::kCameraId2, "camera_id_2 ", kDefaultCameraId2},
     {Arguments::kTimeLapseType, "time_lapse_type ", kDefaultTimeLpaseType},
     {Arguments::kTimeLapseInterval, "time_lapse_interval [ms.] ",
      kDefaultTimeLapseInterval},
@@ -123,6 +128,7 @@ void print_usage() {
 
 void print_params(const TimeLapseParams &params) {
   printf("CameraId: %u\n", params.camera_id);
+  printf("CameraId2: %u\n", params.camera_id_2);
   printf("Time Lapse Type: %u\n", params.time_lapse_type);
   printf("Time lapse interval: %u[ms]\n", params.time_lapse_interval);
   printf("Width: %u\n", params.width);
@@ -140,7 +146,8 @@ int main(int argc, char *argv[]) {
   int32_t ret;
 
   TimeLapseParams params = {
-      kDefaultCameraId,
+      kDefaultCameraId1,
+      kDefaultCameraId2,
       kDefaultTimeLpaseType,
       kDefaultTimeLapseInterval,
       kDefaultWidth,
@@ -159,13 +166,21 @@ int main(int argc, char *argv[]) {
 
     while ((opt = getopt(argc, argv, kArgs)) != -1) {
       switch (opt) {
-        case Arguments::kCameraId:
+        case Arguments::kCameraId1:
           val = atoi(optarg);
           if (0 > val) {
             printf("%s: Invalid Camera ID: %d\n", __func__, val);
             exit(EXIT_FAILURE);
           }
           params.camera_id = static_cast<decltype(params.camera_id)>(val);
+          break;
+        case Arguments::kCameraId2:
+          val = atoi(optarg);
+          if (0 > val) {
+            printf("%s: Invalid Camera ID: %d\n", __func__, val);
+            exit(EXIT_FAILURE);
+          }
+          params.camera_id_2= static_cast<decltype(params.camera_id_2)>(val);
           break;
         case Arguments::kTimeLapseType:
           val = atoi(optarg);

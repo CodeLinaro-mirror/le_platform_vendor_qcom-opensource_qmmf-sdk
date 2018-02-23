@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -389,6 +389,30 @@ status_t VideoDecoderCore::SetTrackTrickMode(uint32_t track_id,
 
   QMMF_INFO("%s: track_id(%d) SetTrackTrickMode Successful!",
      __func__, track_id);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
+status_t VideoDecoderCore::SetPosition(uint32_t track_id, int64_t seek_time) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_id);
+  QMMF_DEBUG("%s: seek_time(%lld)", __func__, seek_time);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%d)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
+  assert(track_decoder.get() != NULL);
+
+  auto ret =  track_decoder->SetPosition(seek_time);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s: track_id(%d) SetPosition failed!", __func__, track_id);
+    return ret;
+  }
+
+  QMMF_INFO("%s: track_id(%d) SetPosition Successful!", __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
@@ -849,6 +873,18 @@ status_t VideoTrackDecoder::SetTrickMode(TrickModeSpeed speed,
         __func__, TrackId());
     return ret;
   }
+
+  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  return ret;
+}
+
+status_t VideoTrackDecoder::SetPosition(int64_t seek_time) {
+  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: seek_time(%lld)", __func__, seek_time);
+
+  auto ret = video_track_sink_->SetPosition(seek_time);
+  if (ret != NO_ERROR)
+    QMMF_ERROR("%s: track_id(%d) SetPosition failed!", __func__, TrackId());
 
   QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
