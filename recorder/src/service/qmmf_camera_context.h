@@ -133,11 +133,12 @@ class CameraContext : public CameraInterface,
   status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                   int32_t* stream_id) override;
+                                   int32_t* stream_id,
+                                   bool cache = false) override;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              uint32_t frame_rate, int32_t* stream_id)
-                              override;
+                              uint32_t frame_rate, int32_t* stream_id,
+                              bool cache = false) override;
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,

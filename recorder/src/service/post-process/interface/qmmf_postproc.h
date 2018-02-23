@@ -45,10 +45,12 @@ public:
 
   virtual status_t CreateDeviceStream(CameraStreamParameters& params,
                                       uint32_t frame_rate,
-                                      int32_t* stream_id) = 0;
+                                      int32_t* stream_id,
+                                      bool cache) = 0;
 
   virtual status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                           int32_t* stream_id) = 0;
+                                           int32_t* stream_id,
+                                           bool cache) = 0;
 
   virtual status_t SubmitRequest(Camera3Request request,
                                  bool is_streaming,

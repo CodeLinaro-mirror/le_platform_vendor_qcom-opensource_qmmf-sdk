@@ -1308,7 +1308,8 @@ bool CameraContext::IsRawOnly(const int32_t format) {
 
 status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
-                                           int32_t* stream_id) {
+                                           int32_t* stream_id,
+                                           bool cache) {
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_VERBOSE("%s: Enter", __func__);
@@ -1332,7 +1333,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
   // without calling it.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
   }
@@ -1347,7 +1348,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     bool is_constrained_mode = false;
     if (hfr_supported_) {
       for (auto iter : active_ports_) {
@@ -1453,7 +1454,7 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t frame_rate) {
 #endif
 
 status_t CameraContext::CreateDeviceInputStream(
-    CameraInputStreamParameters& params, int32_t* stream_id) {
+    CameraInputStreamParameters& params, int32_t* stream_id, bool cache) {
   std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_INFO("%s: Enter", __func__);
 
@@ -1463,7 +1464,7 @@ status_t CameraContext::CreateDeviceInputStream(
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
   // without calling it.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
   }
@@ -1478,7 +1479,7 @@ status_t CameraContext::CreateDeviceInputStream(
 
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->EndConfigure();
     assert(ret == NO_ERROR);
   }
