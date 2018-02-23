@@ -321,6 +321,13 @@ class RecorderGtest : public ::testing::Test {
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
+
+  void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
+                                const int32_t& width, const int32_t& height,
+                                uint32_t* mask_id);
+
+  void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
+                                  const uint32_t& mask_id);
 #endif
 
   Recorder              recorder_;
