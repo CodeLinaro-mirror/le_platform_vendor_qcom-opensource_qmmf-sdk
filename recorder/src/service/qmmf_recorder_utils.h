@@ -190,7 +190,7 @@ void BufferProducerImpl<_type>::NotifyBufferReturned(StreamBuffer& buffer) {
     source_->NotifyBufferReturned(buffer);
   } else {
     // Hold this buffer, do not return until its ref count is 1.
-    QMMF_INFO("%s: Hold buffer Refcount is not 1", __func__);
+    QMMF_VERBOSE("%s: Hold buffer Refcount is not 1", __func__);
     uint32_t value = buffer_map_.ValueFor(buffer);
     buffer_map_.ReplaceValueFor(buffer, --value);
   }

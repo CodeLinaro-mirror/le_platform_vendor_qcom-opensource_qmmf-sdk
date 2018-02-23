@@ -1761,12 +1761,12 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   {
     std::lock_guard<std::mutex> lk(consumer_lock_);
-    {
-      std::unique_lock<std::mutex> lock(lock_);
-      auto val = buffer_map_.at(buffer.handle);
-      buffer_map_[buffer.handle] = num_consumers_ + val;
-    }
     if (num_consumers_ > 0) {
+      {
+        std::unique_lock<std::mutex> lock(lock_);
+        auto val = buffer_map_.at(buffer.handle);
+        buffer_map_[buffer.handle] = ++val;
+      }
       buffer_producer_impl_->NotifyBuffer(buffer);
     }
   }
@@ -2090,6 +2090,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
       if (num_consumers_ == 0) {
         stream_buffer_map_.erase(buffer.handle);
         buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+        buffer_map_.erase(buffer.handle);
       }
     }
   }
