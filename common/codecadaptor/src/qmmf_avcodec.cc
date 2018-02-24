@@ -2647,7 +2647,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   }
 
   CodecCmdType cmd;
-  if (do_flush) {
+  if (do_flush || isEOSonOutput_) {
     ret = signal_queue_.Pop(&cmd);
     if (ret != OK) {
       QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
@@ -2747,40 +2747,32 @@ status_t AVCodec::StopCodec(bool do_flush) {
   }
 
   ret = signal_queue_.Pop(&cmd);
-  if (ret != OK) {
+  if (ret != OK)
     QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
         __func__, signal_queue_.Size());
-    return ret;
-  }
-
-  QMMF_INFO("%s Popped buffer from cmd queue, size(%u)",
-      __func__, signal_queue_.Size());
+  else
+    QMMF_INFO("%s Popped buffer from cmd queue, size(%u)",
+        __func__, signal_queue_.Size());
 
   if((cmd.event_result != OMX_ErrorNone) ||
       (cmd.event_type != OMX_EventCmdComplete) ||
-      (cmd.event_cmd != OMX_CommandPortDisable)) {
+      (cmd.event_cmd != OMX_CommandPortDisable))
     QMMF_ERROR("%s Expecting Cmd complete vs command found(%d)",
         __func__, cmd.event_cmd);
-    return cmd.event_result;
-  }
 
   ret = signal_queue_.Pop(&cmd);
-  if (ret != OK) {
+  if (ret != OK)
     QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
         __func__, signal_queue_.Size());
-    return ret;
-  }
-
-  QMMF_INFO("%s Popped buffer from cmd queue, size(%u)",
-      __func__, signal_queue_.Size());
+  else
+    QMMF_INFO("%s Popped buffer from cmd queue, size(%u)",
+        __func__, signal_queue_.Size());
 
   if((cmd.event_result != OMX_ErrorNone) ||
      (cmd.event_type != OMX_EventCmdComplete) ||
-     (cmd.event_cmd != OMX_CommandPortDisable)) {
+     (cmd.event_cmd != OMX_CommandPortDisable))
     QMMF_ERROR("%s Expecting Cmd complete vs command found(%d)",
         __func__, cmd.event_cmd);
-    return cmd.event_result;
-  }
 
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
