@@ -33,7 +33,12 @@
 #include <thread>
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 
+#ifndef DISABLE_PP_JPEG
+#include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
+#endif
+
 namespace qmmf {
+using namespace reprocjpegencoder;
 namespace avcodec {
 using ::std::thread;
 
@@ -78,7 +83,6 @@ class JPEGEncoder : public IAVCodec {
 
   status_t Flush(uint32_t port_type) override;
 
-  static void EncodeCb(void* p_output, void* userData);
 
  private:
   struct snapshot_info {
@@ -100,7 +104,6 @@ class JPEGEncoder : public IAVCodec {
 
   status_t Encode(const snapshot_info& in_buffer, size_t& jpeg_size);
 
-  void FillImgData(const snapshot_info& in_buffer);
 
   std::shared_ptr<ICodecSource>& getInputBufferSource() {
     return input_source_;
@@ -139,6 +142,10 @@ class JPEGEncoder : public IAVCodec {
   uint32_t    thumbnail_quality_;
   bool        enable_thumbnail_;
   std::mutex  param_lock_;
+
+  JpegEncoder*    jpeg_encoder_;
+  std::vector<JpegEncoder::jpeg_thumbnail> thumbnails;
+  JpegEncoder::encode_params jpeg_params_;
 
   static uint8_t kDefautlQTable0[];
   static uint8_t kDefautlQTable1[];

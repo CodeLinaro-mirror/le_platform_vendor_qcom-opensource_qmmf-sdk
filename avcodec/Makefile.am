@@ -6,6 +6,13 @@ libav_codec_la_SOURCES = src/qmmf_avcodec.cc
 libav_codec_la_CPPFLAGS = -I$(top_srcdir)/include
 libav_codec_la_CPPFLAGS += -I$(top_srcdir)/
 libav_codec_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(CAMERASTACKCOMMON_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(CAMERAINTERFACE_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(EXIF_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
+libav_codec_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
+
 libav_codec_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog
 libav_codec_la_LIBADD   = ../common/codecadaptor/libcodec_adaptor.la
 libav_codec_la_LIBADD   += ../common/utils/libqmmf_utils.la

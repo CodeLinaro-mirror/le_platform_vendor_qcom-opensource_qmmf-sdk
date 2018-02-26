@@ -32,13 +32,7 @@ libqmmf_recorder_service_la_SOURCES = $(source_files)
 
 libqmmf_recorder_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
-libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERASTACKCOMMON_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAINTERFACE_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(EXIF_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
 if ENABLE_360
 libqmmf_recorder_service_la_CPPFLAGS += -DENABLE_360
 endif
