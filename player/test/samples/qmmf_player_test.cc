@@ -236,7 +236,8 @@ PlayerTest::PlayerTest(char* filename)
       grabpicture_file_fd_(-1),
       trick_mode_enabled_(false),
       current_playback_time_(0),
-      display_started_(false) {
+      display_started_(false),
+      volume_(50) {
   TEST_INFO("%s: Enter", __func__);
 
   if (filename_ != nullptr)
@@ -343,6 +344,11 @@ void PlayerTest::Prepare(bool with_pts) {
 
     result = player_.CreateAudioTrack(audio_track_id_, audio_track_param,
                                       audio_track_cb);
+    assert(result == NO_ERROR);
+
+    result = player_.SetAudioTrackParam(audio_track_id_,
+                                        CodecParamType::kAudioVolumeParamType,
+                                        &volume_, sizeof(volume_));
     assert(result == NO_ERROR);
   }
 
@@ -943,6 +949,63 @@ bool PlayerTest::IsTrickModeEnabled() {
   return trick_mode_enabled_;
 }
 
+void PlayerTest::SetVolume() {
+  TEST_INFO("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kAudioOnly) {
+
+    printf("\n");
+    printf("****** Set Volume *******\n");
+    printf("Enter Volume [0-100] :: ");
+    scanf("%u", &volume_);
+
+    // clip volume
+    if (volume_ > 100)
+      volume_ = 100;
+    else if (volume_ < 0)
+      volume_ = 0;
+
+    if (audio_state_ != State::kStopped) {
+      auto result = player_.SetAudioTrackParam(audio_track_id_,
+          CodecParamType::kAudioVolumeParamType, &volume_, sizeof(volume_));
+      assert(result == NO_ERROR);
+    }
+
+    printf("\nVolume set to :: %d \n", volume_);
+  }
+  TEST_INFO("%s: Exit", __func__);
+}
+
+void PlayerTest::SetDisplayParam() {
+  TEST_INFO("%s: Enter", __func__);
+
+  if (track_type_ == TrackTypes::kAudioVideo ||
+      track_type_ == TrackTypes::kVideoOnly) {
+
+    uint32_t angle;
+    printf("\n");
+    printf("****** Set Display Orientation *******\n");
+    printf("Enter Rotation Angle [0/90/180/270] :: ");
+    scanf("%u", &angle);
+
+    DisplayParam param;
+    memset(&param, 0x0, sizeof param);
+    param.rotation = angle;
+
+    if (video_state_ != State::kStopped) {
+      auto result = player_.SetVideoTrackParam(video_track_id_,
+          CodecParamType::kDisplayParam, &param, sizeof(param));
+      assert(result == NO_ERROR);
+    }
+
+    printf("\nOrientation set to :: %u \n", angle);
+  }
+
+  TEST_INFO("%s: Exit", __func__);
+}
+
 void PlayerTest::Delete() {
   TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -1459,6 +1522,8 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
+  printf("   %c. SetVolume\n", CmdMenu::VOLUME_CMD);
+  printf("   %c. SetDisplayParam\n", CmdMenu::DISPLAY_PARAM_CMD);
   printf("   %c. Seek\n", CmdMenu::SEEK_CMD);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
@@ -1564,6 +1629,14 @@ int main(int argc, char* argv[]) {
       break;
       case CmdMenu::SEEK_CMD: {
         test_context.SetPosition();
+      }
+      break;
+      case CmdMenu::VOLUME_CMD: {
+        test_context.SetVolume();
+      }
+      break;
+      case CmdMenu::DISPLAY_PARAM_CMD: {
+        test_context.SetDisplayParam();
       }
       break;
       case CmdMenu::NEXT_CMD: {
