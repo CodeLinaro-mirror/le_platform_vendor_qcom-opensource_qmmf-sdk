@@ -43,6 +43,10 @@
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 
+#ifndef JPEG_BLOB_OFFSET
+#define JPEG_BLOB_OFFSET (1)
+#endif
+
 namespace qmmf {
 
 namespace recorder {
@@ -926,7 +930,7 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
   if (width > blob_size) {
-    size_t offset = width - blob_size - 1;
+    size_t offset = width - blob_size - JPEG_BLOB_OFFSET;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
@@ -942,6 +946,98 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
   return ret;
 }
 
+status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
+                                  StreamBuffer& buffer) {
+  enum Tags { TAG = 0xFF, SOI = 0xD8, EOI = 0xD9, APP1 = 0xE1, APP2 = 0xE2 };
+  enum TagSizeByte { MARKER_TAG_SIZE = 2, MARKER_LENGTH_SIZE = 2 };
+
+  uint8_t thumb_num = 0;
+  uint8_t *in_img = vaddr;
+  uint32_t block_size = 0;
+  uint32_t block_start = 0;
+  uint32_t block_end = 0;
+  CameraBufferMetaData info = buffer.info;
+
+  // reset planes num
+  info.num_planes = 0;
+
+  QMMF_INFO("%s: Parse Thumbnail", __func__);
+
+  for (uint32_t i = 0; i < size - 1; i++) {
+    // search for marker
+    if (in_img[i] == TAG) {
+      // search for App1 and App2 marker
+      if ((in_img[i + 1] == APP1) || (in_img[i + 1] == APP2)) {
+        if (i >= size - 4) { // prevent bad access
+          break;
+        }
+
+        block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
+        block_start = i + MARKER_TAG_SIZE; // AppN marker is not part of block
+        block_end   = block_start + block_size;
+
+        // Skip App marker and size
+        i += (1 + MARKER_LENGTH_SIZE);
+
+      // Search for start of thumbnail or continue with multy segment thumbnail
+      } else if (in_img[i + 1] == SOI && block_size) {
+
+        uint32_t w_size = block_end - i;
+        if (i + w_size > size) {
+          QMMF_ERROR("%s: Unable to write. Overflow thumb file. %d > %d",
+              __func__, i + w_size, size);
+          break;
+        }
+
+        for (;;) {
+
+          if (info.num_planes == MAX_PLANE) {
+            QMMF_ERROR("%s: Fail to parse thumbnail num_plane: %d!!!", __func__,
+                info.num_planes);
+            return BAD_VALUE;
+          }
+
+          info.plane_info[info.num_planes].offset = i;
+          info.plane_info[info.num_planes].size = w_size;
+          info.num_planes++;
+
+          // Move to end of block
+          i += w_size;
+
+          // Check for end of thumbnail
+          if (in_img[i - 2] == TAG && in_img[i - 1] == EOI) {
+            break;
+          } else if (i + 4 < size && // prevent bad access
+                     in_img[i] == TAG && in_img[i + 1] == APP2) {
+            block_size  = (256UL * in_img[i + 2]) + in_img[i + 3];
+            block_start = i + MARKER_TAG_SIZE;//AppN marker is not part of block
+            block_end   = block_start + block_size;
+
+            i = block_start + MARKER_LENGTH_SIZE; // Skip length
+            w_size = block_end - i;
+          } else {
+            return BAD_VALUE;
+          }
+        }
+
+        i--; // because of increment in main loop
+        block_size = 0;
+        block_end = 0;
+        thumb_num++;
+        // max supported thumbnails is 2
+        if (thumb_num > 1) {
+          break;
+        }
+      }
+    }
+  }
+
+  // restore plane info
+  buffer.info = info;
+  return NO_ERROR;
+}
+
+
 void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 
   uint32_t content_size = 0;
@@ -950,6 +1046,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
+    case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
@@ -966,6 +1063,14 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
                                  buffer.info.plane_info[0].width);
       QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
       assert(0 < content_size);
+      if (buffer.second_thumb) {
+        auto ret = ParseThumb(static_cast<uint8_t*>(vaddr),
+                              content_size, buffer);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Warning: ParseThumb failed!!", __func__);
+        }
+      }
+
       if (vaddr) {
         munmap(vaddr, buffer.size);
         vaddr = nullptr;
@@ -1156,6 +1261,8 @@ status_t TrackSource::Init() {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
   } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
     stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
+  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI8BIT) {
+    stream_param.cam_stream_format     = CameraStreamFormat::kRAW8;
   } else {
     stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
   }
@@ -1284,6 +1391,7 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
 
   bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
@@ -1666,6 +1774,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {

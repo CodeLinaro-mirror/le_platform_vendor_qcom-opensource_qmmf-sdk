@@ -40,9 +40,7 @@ namespace qmmf {
 namespace recorder {
 
 PostProcFrameSkip::PostProcFrameSkip()
-    : state_(State::CREATED),
-      frame_skip_(1),
-      frame_counter_(0) {
+    : state_(State::CREATED) {
   QMMF_INFO("%s: Enter", __func__);
 }
 
@@ -56,6 +54,7 @@ status_t PostProcFrameSkip::Initialize(const PostProcIOParam &in_param,
 
   std::lock_guard<std::mutex> lock(state_lock_);
   frame_skip_ = 1;
+  frame_duration_ = 1000000.0 / out_param.frame_rate; // usec
   state_ = State::INITIALIZED;
 
   return NO_ERROR;
@@ -86,6 +85,7 @@ status_t PostProcFrameSkip::GetCapabilities(PostProcCaps &caps) {
   caps.formats_.insert(BufferFormat::kNV12UBWC);
   caps.formats_.insert(BufferFormat::kNV21);
   caps.formats_.insert(BufferFormat::kBLOB);
+  caps.formats_.insert(BufferFormat::kRAW8);
   caps.formats_.insert(BufferFormat::kRAW10);
   caps.formats_.insert(BufferFormat::kRAW12);
   caps.formats_.insert(BufferFormat::kRAW16);
@@ -98,7 +98,7 @@ status_t PostProcFrameSkip::Start(const int32_t stream_id) {
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::ACTIVE;
-  frame_counter_ = 0;
+  last_timestamp_ = 0;
 
   return NO_ERROR;
 }
@@ -108,7 +108,7 @@ status_t PostProcFrameSkip::Stop() {
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::INITIALIZED;
-  frame_counter_ = 0;
+  last_timestamp_ = 0;
 
   return NO_ERROR;
 }
@@ -163,7 +163,7 @@ status_t PostProcFrameSkip::Process(
   std::lock_guard<std::mutex> lock(state_lock_);
 
   for (auto buf : in_buffers) {
-    if (state_ != State::ACTIVE || SkipFrame()) {
+    if (state_ != State::ACTIVE || SkipFrame(buf)) {
       QMMF_INFO("%s: skip frame. state %d", __func__, state_);
       Listener_->OnFrameProcessed(buf);
     } else {
@@ -175,8 +175,26 @@ status_t PostProcFrameSkip::Process(
   return NO_ERROR;
 }
 
-bool PostProcFrameSkip::SkipFrame(void) {
-  return (frame_counter_++ % frame_skip_) != 0;
+bool PostProcFrameSkip::SkipFrame(StreamBuffer &buf) {
+  bool skip = false;
+
+  if (last_timestamp_) {
+    // frame_skip shows the number of skipped frames
+    float threshhold =
+        (static_cast< float > (frame_skip_) + 0.5) * frame_duration_; // usec
+    float diff = (buf.timestamp - last_timestamp_) / 1000.0; // usec
+    if (diff > threshhold) {
+      last_timestamp_ = buf.timestamp;
+      skip = false;
+    } else {
+      skip = true;
+    }
+  } else {
+    last_timestamp_ = buf.timestamp;
+    skip = false;
+  }
+
+  return skip;
 }
 
 }; // namespace recoder

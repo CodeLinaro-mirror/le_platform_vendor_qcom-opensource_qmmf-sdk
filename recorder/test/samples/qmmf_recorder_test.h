@@ -34,6 +34,9 @@
 #include <vector>
 
 #include <camera/CameraMetadata.h>
+#ifdef ANDROID_O_OR_ABOVE
+#include <camera/VendorTagDescriptor.h>
+#endif
 
 #include <cutils/properties.h>
 #include <cutils/trace.h>
@@ -50,6 +53,7 @@
 
 #if USE_SKIA
 #include <SkCanvas.h>
+#include <SkString.h>
 #elif USE_CAIRO
 #include <cairo/cairo.h>
 #endif
@@ -154,6 +158,18 @@ using ::qmmf::display::SurfaceFormat;
 
 #ifndef CLIP
 #define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
+#endif
+
+#ifdef ANDROID_O_OR_ABOVE
+enum VideoHDRAvailableModes : int32_t {
+  kVideoHdrOff,
+  kVideoHdrOn
+};
+
+enum StatisticsHistogramModeValues : uint8_t {
+  kStatisticsHistogramModeOff,
+  kStatisticsHistogramModeOn
+};
 #endif
 
 enum class AfMode {
@@ -298,7 +314,7 @@ enum class TNRTuningCmd {
   kMotionDetectionSensitivity  = '2'
 };
 
-enum AutoModeOptions : char {
+enum AutoOrWarmBootModeOptions : char {
   kWidth      = 'w',
   kHeight     = 'h',
   kFps        = 'f',
@@ -317,6 +333,7 @@ class CmdMenu;
    bool                              vhdr;
    bool                              binning_correct;
    bool                              video_stabilize;
+   bool                              lcac_yuv;
    CameraInitInfo():
         camera_id(-1),
         camera_fps(0),
@@ -325,7 +342,8 @@ class CmdMenu;
         tnr(false),
         vhdr(false),
         binning_correct(false),
-        video_stabilize(false){};
+        video_stabilize(false),
+        lcac_yuv(false){};
  };
 
 class TestInitParams {
@@ -416,11 +434,11 @@ class RecorderTest {
 
   status_t Session4KEncTrack(const TrackType& type);
 
-  status_t Session1080pEncTrack(const TrackType& type);
+  status_t Session1080pEncAndAudioAACTrack(const TrackType& vid_track_type);
 
   status_t Session1080pEnc1080YUV(const TrackType& type);
 
-  status_t Session4KHEVCAnd1080pYUVTracks(const TrackType& type);
+  status_t Session4KEncAnd1080pYUVTracks(const TrackType& type);
 
   status_t Session4KYUVAnd1080pEncTracks(const TrackType& type);
 
@@ -512,6 +530,12 @@ class RecorderTest {
   int32_t ToggleVideoStabilizationMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
+#ifdef ANDROID_O_OR_ABOVE
+  bool VendorTagSupported(const String8& name, const String8& section,
+                          uint32_t* tag_id);
+  bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
+                             const String8& section, uint32_t* tag_id);
+#endif
   std::string GetCurrentNRMode();
   std::string GetCurrentVHDRMode();
   std::string GetCurrentIRMode();
@@ -548,8 +572,8 @@ class RecorderTest {
   }
 
   // Auto Mode
-  int32_t ParseAutoModeParams(int32_t argc, char *argv[],
-                              VideoTrackCreateParam *track_param);
+  int32_t ParseAutoOrWarmBootModeParams(int32_t argc, char *argv[],
+                              TrackInfo& track_info);
 
   int32_t RunAutoMode(int32_t argc, char* argv[]);
 
@@ -604,8 +628,6 @@ class RecorderTest {
   int32_t SetBinningCorrectionMode(int32_t camera_id, const bool& mode);
   void InitSupportedVideoStabilizationModes();
 
-  int32_t ParseWarmBootTestParams(int32_t argc, char* argv[],
-                                  TrackInfo* track_info);
   int32_t StartRecording(const VideoTrackCreateParam& video_track_param);
   int32_t StopRecording();
 
@@ -643,6 +665,10 @@ class RecorderTest {
   uint32_t     burst_snapshot_count_;
   std::mutex   error_lock_;
   bool         camera_error_;
+
+#ifdef ANDROID_O_OR_ABOVE
+  sp<VendorTagDescriptor> vendor_tag_desc_;
+#endif
 };
 
 // Track can be types of Audio or Video, this class is responsible for creating
@@ -737,63 +763,63 @@ class CmdMenu
 {
 public:
     enum CommandType {
-        CONNECT_CMD                             = '1',
-        DISCONNECT_CMD                          = '2',
-        START_CAMERA_CMD                        = '3',
-        STOP_CAMERA_CMD                         = '4',
-        START_MULTICAMERA_CMD                   = 's',
-        STOP_MULTICAMERA_CMD                    = 't',
-        CREATE_YUV_SESSION_CMD                  = '5',
-        CREATE_4KENC_AVC_SESSION_CMD            = '6',
-        CREATE_4KENC_HEVC_SESSION_CMD           = '7',
-        CREATE_1080pENC_AVC_SESSION_CMD         = '8',
-        CREATE_1080pENC_HEVC_SESSION_CMD        = '9',
-        CREATE_4KYUV_1080pENC_SESSION_CMD       = 'V',
-        CREATE_TWO_1080pENC_SESSION_CMD         = 'M',
-        CREATE_1080pENC_AVC_1080YUV_SESSION_CMD = 'E',
-        CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD   = 'F',
-        CREATE_720pLPM_SESSION_CMD              = 'G',
-        CREATE_1080pENC_AVC_1080LPM_SESSION_CMD = 'J',
-        CREATE_PCM_AUD_SESSION_CMD              = 'a',
-        CREATE_2PCM_AUD_SESSION_CMD             = 'b',
-        CREATE_SCO_AUD_SESSION_CMD              = 'c',
-        CREATE_PCM_SCO_AUD_SESSION_CMD          = 'd',
-        CREATE_A2DP_AUD_SESSION_CMD             = 'e',
-        CREATE_PCM_A2DP_AUD_SESSION_CMD         = 'f',
-        CREATE_AAC_AUD_SESSION_CMD              = 'g',
-        CREATE_2AAC_AUD_SESSION_CMD             = 'h',
-        CREATE_PCM_AAC_AUD_SESSION_CMD          = 'i',
-        CREATE_AMR_AUD_SESSION_CMD              = 'j',
-        CREATE_2AMR_AUD_SESSION_CMD             = 'k',
-        CREATE_PCM_AMR_AUD_SESSION_CMD          = 'l',
-        CREATE_G7ll_AUD_SESSION_CMD             = 'm',
-        CREATE_2G7ll_AUD_SESSION_CMD            = 'n',
-        CREATE_PCM_G7ll_AUD_SESSION_CMD         = 'o',
-        CREATE_PCMFL_AUD_SESSION_CMD            = 'p',
-        CREATE_RDI_SESSION_CMD                  = 'r',
-        CREATE_YUV_SESSION_DISPLAY_CMD          = 'Z',
-        CREATE_YUV_SESSION_PREVIEW_CMD          = 'Y',
-        START_SESSION_CMD                       = 'A',
-        STOP_SESSION_CMD                        = 'B',
-        TAKE_SNAPSHOT_CMD                       = 'S',
-        SET_PARAM_CMD                           = 'T',
-        SET_DYNAMIC_CAMERA_PARAM_CMD            = '~',
-        PAUSE_SESSION_CMD                       = 'P',
-        RESUME_SESSION_CMD                      = 'R',
-        ENABLE_OVERLAY_CMD                      = 'O',
-        DISABLE_OVERLAY_CMD                     = 'L',
-        DELETE_SESSION_CMD                      = 'D',
-        NOISE_REDUCTION_CMD                     = 'N',
-        VIDEO_HDR_CMD                           = 'H',
-        IR_MODE_CMD                             = 'I',
-        EXIT_CMD                                = 'X',
-        CHOOSE_CAMERA_CMD                       = 'C',
-        SET_ANTIBANDING_MODE_CMD                = 'W',
-        BINNING_CORRECTION_CMD                  = '#',
-        AWB_ROI_CMD                             = '$',
-        VIDEO_STABILZATION_CMD                  = '%',
-        NEXT_CMD                                = '\n',
-        INVALID_CMD                             = '0'
+        CONNECT_CMD                                     = '1',
+        DISCONNECT_CMD                                  = '2',
+        START_CAMERA_CMD                                = '3',
+        STOP_CAMERA_CMD                                 = '4',
+        START_MULTICAMERA_CMD                           = 's',
+        STOP_MULTICAMERA_CMD                            = 't',
+        CREATE_YUV_SESSION_CMD                          = '5',
+        CREATE_4KENC_AVC_SESSION_CMD                    = '6',
+        CREATE_4KENC_HEVC_SESSION_CMD                   = '7',
+        CREATE_1080pAVC_AAC_AUD_SESSION_CMD             = '8',
+        CREATE_1080pHEVC_AAC_AUD_SESSION_CMD            = '9',
+        CREATE_4KYUV_1080pENC_SESSION_CMD               = 'V',
+        CREATE_TWO_1080pENC_SESSION_CMD                 = 'M',
+        CREATE_1080pENC_AVC_1080YUV_SESSION_CMD         = 'E',
+        CREATE_4KENC_HEVC_1080YUV_SESSION_CMD           = 'F',
+        CREATE_720pLPM_SESSION_CMD                      = 'G',
+        CREATE_1080pENC_AVC_1080LPM_SESSION_CMD         = 'J',
+        CREATE_PCM_AUD_SESSION_CMD                      = 'a',
+        CREATE_2PCM_AUD_SESSION_CMD                     = 'b',
+        CREATE_SCO_AUD_SESSION_CMD                      = 'c',
+        CREATE_PCM_SCO_AUD_SESSION_CMD                  = 'd',
+        CREATE_A2DP_AUD_SESSION_CMD                     = 'e',
+        CREATE_PCM_A2DP_AUD_SESSION_CMD                 = 'f',
+        CREATE_AAC_AUD_SESSION_CMD                      = 'g',
+        CREATE_2AAC_AUD_SESSION_CMD                     = 'h',
+        CREATE_PCM_AAC_AUD_SESSION_CMD                  = 'i',
+        CREATE_AMR_AUD_SESSION_CMD                      = 'j',
+        CREATE_2AMR_AUD_SESSION_CMD                     = 'k',
+        CREATE_PCM_AMR_AUD_SESSION_CMD                  = 'l',
+        CREATE_G7ll_AUD_SESSION_CMD                     = 'm',
+        CREATE_2G7ll_AUD_SESSION_CMD                    = 'n',
+        CREATE_PCM_G7ll_AUD_SESSION_CMD                 = 'o',
+        CREATE_PCMFL_AUD_SESSION_CMD                    = 'p',
+        CREATE_RDI_SESSION_CMD                          = 'r',
+        CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
+        CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',
+        START_SESSION_CMD                               = 'A',
+        STOP_SESSION_CMD                                = 'B',
+        TAKE_SNAPSHOT_CMD                               = 'S',
+        SET_PARAM_CMD                                   = 'T',
+        SET_DYNAMIC_CAMERA_PARAM_CMD                    = '~',
+        PAUSE_SESSION_CMD                               = 'P',
+        RESUME_SESSION_CMD                              = 'R',
+        ENABLE_OVERLAY_CMD                              = 'O',
+        DISABLE_OVERLAY_CMD                             = 'L',
+        DELETE_SESSION_CMD                              = 'D',
+        NOISE_REDUCTION_CMD                             = 'N',
+        VIDEO_HDR_CMD                                   = 'H',
+        IR_MODE_CMD                                     = 'I',
+        EXIT_CMD                                        = 'X',
+        CHOOSE_CAMERA_CMD                               = 'C',
+        SET_ANTIBANDING_MODE_CMD                        = 'W',
+        BINNING_CORRECTION_CMD                          = '#',
+        AWB_ROI_CMD                                     = '$',
+        VIDEO_STABILZATION_CMD                          = '%',
+        NEXT_CMD                                        = '\n',
+        INVALID_CMD                                     = '0'
     };
 
     struct Command {

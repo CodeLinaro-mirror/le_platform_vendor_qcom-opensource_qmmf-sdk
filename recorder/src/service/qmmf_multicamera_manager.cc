@@ -831,6 +831,9 @@ int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
     case ImageFormat::kNV12:
       format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       break;
+    case ImageFormat::kBayerRDI8BIT:
+      format = HAL_PIXEL_FORMAT_RAW8;
+      break;
     case ImageFormat::kBayerRDI10BIT:
       format = HAL_PIXEL_FORMAT_RAW10;
       break;
@@ -2469,6 +2472,14 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].height = params_.height/2;
       info.plane_info[1].stride = aligned_width;
       info.plane_info[1].scanline = aligned_height/2;
+      break;
+    case HAL_PIXEL_FORMAT_RAW8:
+      info.format = BufferFormat::kRAW8;
+      info.num_planes = 1;
+      info.plane_info[0].width = params_.width;
+      info.plane_info[0].height = params_.height;
+      info.plane_info[0].stride = aligned_width;
+      info.plane_info[0].scanline = aligned_height;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
       info.format = BufferFormat::kRAW10;

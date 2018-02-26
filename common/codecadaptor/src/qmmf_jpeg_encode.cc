@@ -184,8 +184,7 @@ void JPEGEncoder::FreeMappedBuffers() {
   input_buffers_map_.clear();
 }
 
-void JPEGEncoder::FillImgData(const snapshot_info &in_buffer,
-                              uint32_t quality) {
+void JPEGEncoder::FillImgData(const snapshot_info &in_buffer) {
   JpegEncoderParams *cfg = static_cast<JpegEncoderParams *>(cfg_);
 
   // setting buffers parameters
@@ -200,7 +199,12 @@ void JPEGEncoder::FillImgData(const snapshot_info &in_buffer,
   cfg->params_.src_main_buf[0].offset.mp[1].len = (size >> 1);
 
   cfg->params_.src_thumb_buf[0] = cfg->params_.src_main_buf[0];
-  cfg->params_.quality = quality;
+  {
+    // this lock is required to protect jpep quality parameter as this parameter
+    // can be changed at runtime.
+    std::lock_guard<std::mutex> lock(param_lock_);
+    cfg->params_.quality = jpeg_quality_;
+  }
   switch (in_buffer.format) {
     case BufferFormat::kNV12:
       cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V2;
@@ -257,8 +261,8 @@ void JPEGEncoder::FillImgData(const snapshot_info &in_buffer,
   cfg->job_id_ = 0;
 }
 
-status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size,
-                             const uint32_t quality) {
+status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size) {
+
   JpegEncoderParams *cfg = static_cast<JpegEncoderParams *>(cfg_);
 
   std::lock_guard<std::mutex> l(cfg->encode_lock_);
@@ -268,7 +272,7 @@ status_t JPEGEncoder::Encode(const snapshot_info &in_buffer, size_t &jpeg_size,
     return BAD_VALUE;
   }
 
-  FillImgData(in_buffer, quality);
+  FillImgData(in_buffer);
 
   // Create OMX session
   auto ret = cfg->ops_.create_session(cfg->handle_, &cfg->params_,
@@ -389,7 +393,7 @@ void *JPEGEncoder::JpegEncodeThread(void *arg) {
     img_buffer.format = BufferFormat::kNV12;
 
     // Send buffer for encode
-    jpeg_encode->Encode(img_buffer, jpeg_size, jpeg_encode->jpeg_quality_);
+    jpeg_encode->Encode(img_buffer, jpeg_size);
     if (0 == jpeg_size) {
       QMMF_ERROR("%s: JPEG size is 0!", __func__);
     } else {
@@ -500,6 +504,19 @@ status_t JPEGEncoder::ReleaseBuffer() {
 
 status_t JPEGEncoder::SetParameters(CodecParamType param_type,
                                     void *codec_param, size_t param_size) {
+  uint32_t* quality = nullptr;
+  switch (param_type) {
+    case CodecParamType::kJPEGQuality:
+      quality = static_cast<uint32_t*>(codec_param);
+      {
+        std::lock_guard<std::mutex> lock(param_lock_);
+        jpeg_quality_ = *quality;
+      }
+      break;
+    default:
+      QMMF_ERROR("%s Unknown param type", __func__);
+      return -1;
+  }
   return NO_ERROR;
 }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -64,6 +64,10 @@ uint32_t qmmf_log_level;
 
 int32_t main(int32_t argc, char **argv) {
   QMMF_GET_LOG_LEVEL();
+
+#ifdef ANDROID_O_OR_ABOVE
+  ProcessState::initWithDriver("/dev/vndbinder");
+#endif
 
   //Add System service.
   defaultServiceManager()->addService(String16(QMMF_SYSTEM_SERVICE_NAME),

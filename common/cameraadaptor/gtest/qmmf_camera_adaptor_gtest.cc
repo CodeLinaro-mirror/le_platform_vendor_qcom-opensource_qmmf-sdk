@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -2669,7 +2669,10 @@ TEST_F(Camera3Gtest, HFRVideo1080p60FPS) {
   ASSERT_GE(video_stream_id, 0);
   video_request.streamIds.add(video_stream_id);
 
-  ret = device_client_->EndConfigure(true);
+  StreamConfiguration stream_config = StreamConfiguration();
+  stream_config.is_constrained_high_speed = true;
+
+  ret = device_client_->EndConfigure(stream_config);
   ASSERT_EQ(0, ret);
 
   ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,
@@ -2778,7 +2781,10 @@ TEST_F(Camera3Gtest, HFRVideo720p120FPS) {
   ASSERT_GE(videoStreamId, 0);
   videoRequest.streamIds.add(videoStreamId);
 
-  ret = device_client_->EndConfigure(true);
+  StreamConfiguration stream_config = StreamConfiguration();
+  stream_config.is_constrained_high_speed = true;
+
+  ret = device_client_->EndConfigure(stream_config);
   ASSERT_EQ(0, ret);
 
   ret = device_client_->CreateDefaultRequest(CAMERA3_TEMPLATE_VIDEO_RECORD,

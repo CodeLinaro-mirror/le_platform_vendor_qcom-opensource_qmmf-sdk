@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -75,11 +75,11 @@ static const char* kDefaultHistogramStatsFilename =
 static const char* kDefaultAECAWBStatsFilename =
     "/data/AEC_AWB_stats.txt";
 
-const char kAutoModeArgs[] = {
-    AutoModeOptions::kWidth, ':',
-    AutoModeOptions::kHeight, ':',
-    AutoModeOptions::kFps, ':',
-    AutoModeOptions::kTrackType, ':',
+const char kAutoOrWarmBootModeArgs[] = {
+    AutoOrWarmBootModeOptions::kWidth, ':',
+    AutoOrWarmBootModeOptions::kHeight, ':',
+    AutoOrWarmBootModeOptions::kFps, ':',
+    AutoOrWarmBootModeOptions::kTrackType, ':',
     '\n'
 };
 
@@ -89,6 +89,18 @@ static const int32_t kHistogramColorChannels = 4;
 // As per Venus supported range [0-4]
 static const int32_t kMinLTRCount = 0;
 static const int32_t kMaxLTRCount = 4;
+
+#if USE_SKIA
+static const uint32_t kColorLightGray  = 0xFFCCCCCC;
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorLightGreen = 0xFF33CC00;
+static const uint32_t kColorLightBlue  = 0xFF189BF2;
+#elif USE_CAIRO
+static const uint32_t kColorLightGray  = 0xCCCCCCFF;
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
 
 RecorderTest::RecorderTest() :
             camera_id_(0),
@@ -104,6 +116,9 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s: Enter", __func__);
   static_info_.clear();
   use_display = 0;
+#ifdef ANDROID_O_OR_ABOVE
+  vendor_tag_desc_ = nullptr;
+#endif
   TEST_KPI_GET_MASK();
   TEST_INFO("%s: Exit kpi_debug_mask=%d", __func__, kpi_debug_mask);
 
@@ -245,6 +260,72 @@ status_t RecorderTest::RemovePreviewTrack() {
   return ret;
 }
 
+#ifdef ANDROID_O_OR_ABOVE
+/**
+ * This function can be called only after StartCamera. It tries to fetch
+ * tag_id, on success, returns true and fills vendor tag_id. On failure,
+ * returns false.
+ */
+bool RecorderTest::VendorTagSupported(const String8& name,
+                                      const String8& section,
+                                      uint32_t* tag_id) {
+  TEST_DBG("%s: Enter", __func__);
+  bool is_available = false;
+  status_t result = 0;
+
+  if (nullptr == tag_id) {
+    TEST_ERROR("%s: tag_id is not allocated, returning", __func__);
+    return false;
+  }
+
+  if (nullptr == vendor_tag_desc_.get()) {
+    vendor_tag_desc_ = VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    if (nullptr == vendor_tag_desc_.get()) {
+      TEST_ERROR("%s: Failed in fetching vendor tag descriptor", __func__);
+      return false;
+    }
+  }
+
+  result = vendor_tag_desc_->lookupTag(name, section, tag_id);
+  if (0 != result) {
+    TEST_ERROR("%s: TagId lookup failed with error: %d", __func__, result);
+    return false;
+  } else {
+    TEST_INFO("%s: name = %s, section = %s, tag_id = 0x%x",
+              __func__, name.string(), section.string(), *tag_id);
+    is_available = true;
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return is_available;
+}
+
+/**
+ * This function can be called only after StartCamera. It checks whether
+ * tag_id is present in given meta, on success, returns true and fills
+ * vendor tag_id. On failure, returns false.
+ */
+bool RecorderTest::VendorTagExistsInMeta(const CameraMetadata& meta,
+                                         const String8& name,
+                                         const String8& section,
+                                         uint32_t* tag_id) {
+  TEST_DBG("%s: Enter", __func__);
+  bool is_available = false;
+
+  if (VendorTagSupported(name, section, tag_id)) {
+    if (meta.exists(*tag_id)) {
+      is_available = true;
+    } else {
+      TEST_ERROR("%s: TagId does not exist in given meta", __func__);
+      return false;
+    }
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return is_available;
+}
+#endif
+
 status_t RecorderTest::GetCurrentAFMode(int32_t camera_id, int32_t& mode) {
   CameraMetadata meta;
 
@@ -271,7 +352,7 @@ status_t RecorderTest::ToggleAFMode(int32_t camera_id, const AfMode& af_mode) {
   status_t ret = NO_ERROR;
   int32_t current_mode = 0;
 
-  switch(af_mode){
+  switch (af_mode){
     case AfMode::kOff:
       mode = ANDROID_CONTROL_AF_MODE_OFF;
       break;
@@ -383,7 +464,7 @@ void RecorderTest::InitSupportedNRModes() {
     entry = static_info_.find(
         ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.u8[i]) {
+      switch (entry.data.u8[i]) {
         case ANDROID_NOISE_REDUCTION_MODE_OFF:
           supported_nr_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
           break;
@@ -413,8 +494,16 @@ int32_t RecorderTest::ToggleVHDR() {
   CameraMetadata meta;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
-      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+    uint32_t hdr_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+    if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+        String8("org.codeaurora.qcamera3.video_hdr_mode"),
+        &hdr_mode_vtag)) {
+#else
+    hdr_mode_vtag = QCAMERA3_VIDEO_HDR_MODE;
+    if (meta.exists(hdr_mode_vtag)) {
+#endif
+      int32_t mode = meta.find(hdr_mode_vtag).data.i32[0];
       vhdr_modes_iter it = supported_hdr_modes_.begin();
       vhdr_modes_iter next;
       while (it != supported_hdr_modes_.end()) {
@@ -425,13 +514,13 @@ int32_t RecorderTest::ToggleVHDR() {
           } else {
             next = it;
           }
-          meta.update(QCAMERA3_VIDEO_HDR_MODE, &next->first, 1);
+          meta.update(hdr_mode_vtag, &next->first, 1);
           status = recorder_.SetCameraParam(camera_id_, meta);
           if (NO_ERROR != status) {
             ALOGE("%s Failed to apply: %s\n",
                   __func__, next->second.c_str());
           } else {
-              uint8_t current_mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.u8[0];
+              uint8_t current_mode = meta.find(hdr_mode_vtag).data.u8[0];
               TEST_KPI_ASYNC_BEGIN("ShdrToggle",
                                    static_cast<int32_t>(current_mode));
           }
@@ -449,10 +538,19 @@ int32_t RecorderTest::ToggleVHDR() {
 std::string RecorderTest::GetCurrentVHDRMode() {
   CameraMetadata meta;
   std::string ret(FEATURE_NOT_AVAILABLE);
+  uint32_t hdr_mode_vtag;
+
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-    if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
-      int32_t mode = meta.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+#ifdef ANDROID_O_OR_ABOVE
+    if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+        String8("org.codeaurora.qcamera3.video_hdr_mode"),
+        &hdr_mode_vtag)) {
+#else
+    hdr_mode_vtag = QCAMERA3_VIDEO_HDR_MODE;
+    if (meta.exists(hdr_mode_vtag)) {
+#endif
+      int32_t mode = meta.find(hdr_mode_vtag).data.i32[0];
       for (auto it : supported_hdr_modes_) {
         if ((it).first == mode) {
           ret = (it).second;
@@ -464,7 +562,7 @@ std::string RecorderTest::GetCurrentVHDRMode() {
       //modes supported. In case there are set the first available.
       if (!supported_hdr_modes_.empty()) {
         vhdr_modes_iter start = supported_hdr_modes_.begin();
-        meta.update(QCAMERA3_VIDEO_HDR_MODE, &start->first, 1);
+        meta.update(hdr_mode_vtag, &start->first, 1);
         status = recorder_.SetCameraParam(camera_id_, meta);
         if (NO_ERROR != status) {
           ALOGE("%s Failed to apply: %s\n",
@@ -480,11 +578,36 @@ std::string RecorderTest::GetCurrentVHDRMode() {
 
 void RecorderTest::InitSupportedVHDRModes() {
   camera_metadata_entry_t entry;
+  uint32_t hdr_supported_modes_vtag;
 
-  if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
-    entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
+#ifdef ANDROID_O_OR_ABOVE
+  if (!VendorTagSupported(String8("vhdr_supported_modes"),
+      String8("org.codeaurora.qcamera3.video_hdr_mode"),
+      &hdr_supported_modes_vtag)) {
+    TEST_WARN("%s: vhdr_supported_modes is not supported", __func__);
+    return;
+  }
+  if (static_info_.exists(hdr_supported_modes_vtag)) {
+    entry = static_info_.find(hdr_supported_modes_vtag);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
+        case VideoHDRAvailableModes::kVideoHdrOff:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
+          break;
+        case VideoHDRAvailableModes::kVideoHdrOn:
+          supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
+          break;
+        default:
+          ALOGE("%s Invalid VHDR mode: %d\n", __func__, entry.data.i32[i]);
+      }
+    }
+  }
+#else
+  hdr_supported_modes_vtag = QCAMERA3_AVAILABLE_VIDEO_HDR_MODES;
+  if (static_info_.exists(hdr_supported_modes_vtag)) {
+    entry = static_info_.find(hdr_supported_modes_vtag);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_VIDEO_HDR_MODE_OFF:
           supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -492,14 +615,12 @@ void RecorderTest::InitSupportedVHDRModes() {
           supported_hdr_modes_.insert(std::make_pair(entry.data.i32[i], "On"));
           break;
         default:
-          ALOGE("%s Invalid VHDR mode: %d\n", __func__,
-                entry.data.i32[i]);
+          ALOGE("%s Invalid VHDR mode: %d\n", __func__, entry.data.i32[i]);
       }
     }
   }
+#endif
 }
-
-
 
 int32_t RecorderTest::ToggleIR() {
   CameraMetadata meta;
@@ -544,7 +665,7 @@ void RecorderTest::InitSupportedBinningCorrectionModes() {
   if (static_info_.exists(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES)) {
     entry = static_info_.find(QCAMERA3_AVAILABLE_BINNING_CORRECTION_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_BINNING_CORRECTION_MODE_OFF:
           supported_bc_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -647,7 +768,7 @@ void RecorderTest::InitSupportedVideoStabilizationModes() {
       static_info_.find(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
   if (entry.count > 0) {
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.u8[i]) {
+      switch (entry.data.u8[i]) {
         case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF:
           supported_vs_modes_.insert(std::make_pair(entry.data.u8[i], "Off"));
           break;
@@ -741,7 +862,7 @@ status_t RecorderTest::SetVideoStabilization(const int32_t& camera_id,
   CameraMetadata meta;
   auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -753,7 +874,7 @@ status_t RecorderTest::SetVideoStabilization(const int32_t& camera_id,
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
     ret = recorder_.SetCameraParam(camera_id, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set video stabilization\n",
+      TEST_ERROR("%s Failed to set video stabilization\n",
                  __func__);
       return ret;
     }
@@ -796,7 +917,7 @@ int32_t RecorderTest::SetAntibandingMode() {
   scanf("%d", &input);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
 
-  switch(input) {
+  switch (input) {
     case 1:
       mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
       break;
@@ -863,7 +984,7 @@ void RecorderTest::InitSupportedIRModes() {
   if (static_info_.exists(QCAMERA3_IR_AVAILABLE_MODES)) {
     entry = static_info_.find(QCAMERA3_IR_AVAILABLE_MODES);
     for (uint32_t i = 0 ; i < entry.count; i++) {
-      switch(entry.data.i32[i]) {
+      switch (entry.data.i32[i]) {
         case QCAMERA3_IR_MODE_OFF:
           supported_ir_modes_.insert(std::make_pair(entry.data.i32[i], "Off"));
           break;
@@ -878,13 +999,13 @@ void RecorderTest::InitSupportedIRModes() {
   }
 }
 
-status_t RecorderTest::GetSharpnessStrength(int32_t &strength) {
+status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
   TEST_INFO("%s: Enter", __func__);
   CameraMetadata meta;
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -895,26 +1016,46 @@ status_t RecorderTest::GetSharpnessStrength(int32_t &strength) {
     meta.update(ANDROID_EDGE_MODE, &edge_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set edge to OFF\n",
-                 __func__);
+      TEST_ERROR("%s Failed to set edge to OFF\n", __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
 
-  if (meta.exists(QCAMERA3_SHARPNESS_STRENGTH)) {
-    strength = meta.find(QCAMERA3_SHARPNESS_STRENGTH).data.i32[0];
-  }  else {
+  uint32_t sharpness_strength_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(meta, String8("strength"),
+      String8("org.codeaurora.qcamera3.sharpness"),
+      &sharpness_strength_vtag)) {
+#else
+  sharpness_strength_vtag = QCAMERA3_SHARPNESS_STRENGTH;
+  if (meta.exists(sharpness_strength_vtag)) {
+#endif
+    strength = meta.find(sharpness_strength_vtag).data.i32[0];
+  } else {
+    TEST_DBG("%s sharpness_strength_vtag does not exist!\n", __func__);
+
     // In case camera didn't set default.
     // Setting the value to MIN possible by default.
-    strength = static_info_.find(QCAMERA3_SHARPNESS_RANGE).data.i32[0];
+    uint32_t sharpness_range_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+    if (!VendorTagSupported(String8("range"),
+        String8("org.codeaurora.qcamera3.sharpness"),
+        &sharpness_range_vtag)) {
+      TEST_ERROR("%s: sharpness range is not supported", __func__);
+      return -1;
+    }
+#else
+    sharpness_range_vtag = QCAMERA3_SHARPNESS_RANGE;
+#endif
+    strength = static_info_.find(sharpness_range_vtag).data.i32[0];
     ret = SetSharpnessStrength(strength);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sharpness strength:%d\n",
+      TEST_ERROR("%s Failed to apply sharpness strength:%d\n",
                  __func__, strength);
       return ret;
     }
@@ -930,14 +1071,25 @@ status_t RecorderTest::SetSharpnessStrength(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
-  meta.update(QCAMERA3_SHARPNESS_STRENGTH, &val, 1);
+  uint32_t sharpness_strength_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (!VendorTagSupported(String8("strength"),
+      String8("org.codeaurora.qcamera3.sharpness"),
+      &sharpness_strength_vtag)) {
+    TEST_ERROR("%s: sharpness strength is not supported", __func__);
+    return -1;
+  }
+#else
+  sharpness_strength_vtag = QCAMERA3_SHARPNESS_STRENGTH;
+#endif
+  meta.update(sharpness_strength_vtag, &val, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to apply sharpness value: %d\n",
+    TEST_ERROR("%s Failed to apply sharpness value: %d\n",
                __func__, val);
     return ret;
   }
@@ -952,14 +1104,14 @@ status_t RecorderTest::GetSensorSensitivity(int32_t *sensitivity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
   if (meta.exists(ANDROID_SENSOR_SENSITIVITY)) {
     *sensitivity = meta.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -973,7 +1125,7 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -985,13 +1137,13 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
     meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set AE control mode to OFF\n",
+      TEST_ERROR("%s Failed to set AE control mode to OFF\n",
                  __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
@@ -1000,12 +1152,12 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
     meta.update(ANDROID_SENSOR_SENSITIVITY, &val, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sensitivity value: %d\n",
+      TEST_ERROR("%s Failed to apply sensitivity value: %d\n",
                  __func__, val);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1019,7 +1171,7 @@ status_t RecorderTest::GetExposureTime(int64_t *time_ns) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1027,7 +1179,7 @@ status_t RecorderTest::GetExposureTime(int64_t *time_ns) {
     TEST_INFO("%s: Exit", __func__);
     *time_ns = meta.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1041,7 +1193,7 @@ status_t RecorderTest::SetExposureTime(const int64_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1049,12 +1201,12 @@ status_t RecorderTest::SetExposureTime(const int64_t& val) {
     meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &val, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply exposure time value: %lld\n",
+      TEST_ERROR("%s Failed to apply exposure time value: %lld\n",
                  __func__, val);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1069,7 +1221,7 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1082,13 +1234,13 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
                 &nr_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to set AE control mode to OFF\n",
+      TEST_ERROR("%s Failed to set AE control mode to OFF\n",
                  __func__);
       return ret;
     }
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
   }
@@ -1102,7 +1254,7 @@ status_t RecorderTest::GetWNRStrength(int32_t *wnr_strength) {
     uint8_t strength = static_info_.find(QCAMERA3_WNR_RANGE).data.u8[0];
     ret = SetWNRStrength(static_cast<int32_t>(strength));
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply WNR strength: %d\n",
+      TEST_ERROR("%s Failed to apply WNR strength: %d\n",
                  __func__, strength);
       *wnr_strength = -1;
       return ret;
@@ -1120,7 +1272,7 @@ status_t RecorderTest::SetWNRStrength(const int32_t& val) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1128,7 +1280,7 @@ status_t RecorderTest::SetWNRStrength(const int32_t& val) {
   meta.update(ANDROID_NOISE_REDUCTION_STRENGTH, &strength, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to apply WNR strength : %u\n",
+    TEST_ERROR("%s Failed to apply WNR strength : %u\n",
                __func__, (uint32_t)val);
     return ret;
   }
@@ -1143,14 +1295,14 @@ status_t RecorderTest::GetTNRIntensity(float *intensity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
   if (meta.exists(QCAMERA3_TNR_INTENSITY)) {
     *intensity = meta.find(QCAMERA3_TNR_INTENSITY).data.f[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1164,7 +1316,7 @@ status_t RecorderTest::SetTNRIntensity(const float& intensity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1172,12 +1324,12 @@ status_t RecorderTest::SetTNRIntensity(const float& intensity) {
     meta.update(QCAMERA3_TNR_INTENSITY, &intensity, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply TNR intensity value: %f\n",
+      TEST_ERROR("%s Failed to apply TNR intensity value: %f\n",
                  __func__, intensity);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     ret = -ENOENT;
   }
 
@@ -1191,7 +1343,7 @@ status_t RecorderTest::GetTNRMotionDetectionSensitivity(float *sensitivity) {
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1199,7 +1351,7 @@ status_t RecorderTest::GetTNRMotionDetectionSensitivity(float *sensitivity) {
     *sensitivity =
         meta.find(QCAMERA3_TNR_MOTION_DETECTION_SENSITIVITY).data.f[0];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1214,7 +1366,7 @@ status_t RecorderTest::SetTNRMotionDetectionSensitivity(const float&
 
   status_t ret = recorder_.GetCameraParam(camera_id_, meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
 
@@ -1222,12 +1374,12 @@ status_t RecorderTest::SetTNRMotionDetectionSensitivity(const float&
     meta.update(QCAMERA3_TNR_MOTION_DETECTION_SENSITIVITY, &sensitivity, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to apply sensitivity value: %f\n",
+      TEST_ERROR("%s Failed to apply sensitivity value: %f\n",
                  __func__, sensitivity);
       return ret;
     }
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1249,7 +1401,7 @@ status_t RecorderTest::SetTNRLevel() {
     tnr_tuning_min = entry.data.f[0];
     tnr_tuning_max = entry.data.f[1];
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
@@ -1265,7 +1417,7 @@ status_t RecorderTest::SetTNRLevel() {
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (ret != 0) {
-      TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+      TEST_ERROR("%s: Failed to get camera params", __func__);
       return ret;
     }
 
@@ -1312,17 +1464,32 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   std::ofstream hist_stats_file;
   hist_stats_file.open(kDefaultHistogramStatsFilename, std::ofstream::app);
-
   TEST_INFO("Dumping raw histogram stats to %s\n",
-            kDefaultHistogramStatsFilename);
-  if (meta.exists(QCAMERA3_HISTOGRAM_STATS)) {
-    uint32_t buckets =
-        static_cast<uint32_t>
-           (static_info_.find(QCAMERA3_HISTOGRAM_BUCKETS).data.i32[0]);
-    camera_metadata_ro_entry entry;
-    entry = meta.find(QCAMERA3_HISTOGRAM_STATS);
+      kDefaultHistogramStatsFilename);
 
+  uint32_t histogram_stats_vtag;
+  uint32_t histogram_buckets_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(meta, String8("stats"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_stats_vtag)) {
+
+    if (!VendorTagSupported(String8("buckets"),
+        String8("org.codeaurora.qcamera3.histogram"),
+        &histogram_buckets_vtag)) {
+      return -EINVAL;
+    }
+#else
+  histogram_stats_vtag = QCAMERA3_HISTOGRAM_STATS;
+  if (meta.exists(histogram_stats_vtag)) {
+    histogram_buckets_vtag = QCAMERA3_HISTOGRAM_BUCKETS;
+#endif
+    uint32_t buckets = static_cast<uint32_t>(
+        static_info_.find(histogram_buckets_vtag).data.i32[0]);
     hist_stats_file << "Buckets=" << buckets << std::endl;
+
+    camera_metadata_ro_entry entry;
+    entry = meta.find(histogram_stats_vtag);
 
     const char* channels[] = {"R", "GR", "GB", "B"};
     const int32_t *channel_stats_ptr[4];
@@ -1341,7 +1508,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
     }
     hist_stats_file.close();
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     hist_stats_file.close();
     return -ENOENT;
   }
@@ -1349,17 +1516,27 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
   CameraMetadata temp_meta;
   auto ret = recorder_.GetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
+
   // Setting mode to OFF after dumping
-  if (temp_meta.exists(QCAMERA3_HISTOGRAM_MODE)) {
-    const uint8_t mode = QCAMERA3_HISTOGRAM_MODE_OFF;
-    temp_meta.update(QCAMERA3_HISTOGRAM_MODE, &mode, 1);
+  uint32_t histogram_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+  if (VendorTagExistsInMeta(temp_meta, String8("enable"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_mode_vtag)) {
+    const uint8_t hist_mode = StatisticsHistogramModeValues
+        ::kStatisticsHistogramModeOff;
+#else
+  histogram_mode_vtag = QCAMERA3_HISTOGRAM_MODE;
+  if (temp_meta.exists(histogram_mode_vtag)) {
+    const uint8_t hist_mode = QCAMERA3_HISTOGRAM_MODE_OFF;
+#endif
+    temp_meta.update(histogram_mode_vtag, &hist_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, temp_meta);
     if (ret != 0) {
-      TEST_ERROR("%s Exit - Failed to Histogram mode to ON\n",
-                 __func__);
+      TEST_ERROR("%s Failed to set Histogram mode to OFF\n", __func__);
       return ret;
     } else {
       TEST_INFO("Histogram mode set to off\n");
@@ -1429,7 +1606,7 @@ status_t RecorderTest::GetRawAECAWBStatistic(const CameraMetadata& meta) {
     }
     raw_stats_file.close();
   } else {
-    TEST_ERROR("%s Exit - Meta tag does not exists\n", __func__);
+    TEST_ERROR("%s Meta tag does not exists\n", __func__);
     raw_stats_file.close();
     return -ENOENT;
   }
@@ -1438,14 +1615,14 @@ status_t RecorderTest::GetRawAECAWBStatistic(const CameraMetadata& meta) {
   CameraMetadata temp_meta;
   status_t ret = recorder_.GetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s: Exit - Failed to get camera params", __func__);
+    TEST_ERROR("%s: Failed to get camera params", __func__);
     return ret;
   }
   const int32_t mode = QCAMERA3_EXPOSURE_DATA_OFF;
   temp_meta.update(QCAMERA3_EXPOSURE_DATA_ENABLE, &mode, 1);
   ret = recorder_.SetCameraParam(camera_id_, temp_meta);
   if (ret != 0) {
-    TEST_ERROR("%s Exit - Failed to set edge to OFF\n",
+    TEST_ERROR("%s Failed to set edge to OFF\n",
                __func__);
     return ret;
   } else {
@@ -1523,7 +1700,7 @@ status_t RecorderTest::TakeSnapshotWithConfig(const SnapshotInfo&
   image_param.width = snapshot_info.width;
   image_param.height = snapshot_info.height;
 
-  switch(snapshot_info.type) {
+  switch (snapshot_info.type) {
     case SnapshotType::kNone:
       TEST_INFO("Snapshot format(%d) is not correct\n",snapshot_info.type);
       break;
@@ -2130,7 +2307,7 @@ status_t RecorderTest::Session4KEncTrack(const TrackType& track_type) {
 }
 
 // This session has one 1080p video encode and one AAC Audio track.
-status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
+status_t RecorderTest::Session1080pEncAndAudioAACTrack(const TrackType& vid_track_type) {
 
   TEST_INFO("%s: Enter", __func__);
   SessionCb session_status_cb;
@@ -2149,7 +2326,7 @@ status_t RecorderTest::Session1080pEncTrack(const TrackType& track_type) {
   info.width      = 1920;
   info.height     = 1080;
   info.track_id   = 1;
-  info.track_type = track_type;
+  info.track_type = vid_track_type;
   info.ltr_count  = ltr_count_;
   info.session_id = session_id;
   info.camera_id = camera_id_;
@@ -2223,7 +2400,7 @@ status_t RecorderTest::Session1080pEnc1080YUV(const TrackType& track_type) {
 }
 
 // In this test case session has one 4K video HEVC and one 1080p YUV track.
-status_t RecorderTest::Session4KHEVCAnd1080pYUVTracks(const TrackType&
+status_t RecorderTest::Session4KEncAnd1080pYUVTracks(const TrackType&
                                                       track_type) {
 
   TEST_INFO("%s: Enter", __func__);
@@ -3263,7 +3440,7 @@ status_t RecorderTest::SetParams() {
     printf("Enter set param option\n");
     scanf("%d", &input);
 
-    switch(input) {
+    switch (input) {
       case 0:
         break;
       case 1:
@@ -3365,15 +3542,25 @@ status_t RecorderTest::SetDynamicCameraParam() {
 
     switch (static_cast<DynamicCameraParamsCmd>(input)) {
       case DynamicCameraParamsCmd::kSharpness: {
-        if (static_info_.exists(QCAMERA3_SHARPNESS_RANGE)) {
-          entry = static_info_.find(QCAMERA3_SHARPNESS_RANGE);
+        uint32_t sharpness_range_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+        if (!VendorTagSupported(String8("range"),
+            String8("org.codeaurora.qcamera3.sharpness"),
+            &sharpness_range_vtag)) {
+          TEST_WARN("%s: sharpness range is not supported", __func__);
+          break;
+        }
+#else
+        sharpness_range_vtag = QCAMERA3_SHARPNESS_RANGE;
+#endif
+        if (static_info_.exists(sharpness_range_vtag)) {
+          entry = static_info_.find(sharpness_range_vtag);
           range_min = entry.data.i32[0];
           range_max = entry.data.i32[1];
           int32_t sharpness_strength;
           ret = GetSharpnessStrength(sharpness_strength);
           if (ret != 0) {
-            TEST_ERROR("%s: failed to get sharpness strength",
-                       __func__);
+            TEST_ERROR("%s: failed to get sharpness strength", __func__);
             break;
           }
           std::cout << "Enter Sharpness Value (Current:" << sharpness_strength;
@@ -3381,8 +3568,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
           std::cin >> sharpness_strength;
           ret = SetSharpnessStrength(sharpness_strength);
           if (ret != 0) {
-            TEST_ERROR("%s: failed to set sharpness strength",
-                       __func__);
+            TEST_ERROR("%s: failed to set sharpness strength", __func__);
             break;
           }
         }
@@ -3487,13 +3673,22 @@ status_t RecorderTest::SetDynamicCameraParam() {
       }
       case DynamicCameraParamsCmd::kDumpHistogramStats: {
         // Enabling Histogram stats in Metadata
-        if (meta.exists(QCAMERA3_HISTOGRAM_MODE)) {
+        uint32_t histogram_mode_vtag;
+#ifdef ANDROID_O_OR_ABOVE
+        if (VendorTagExistsInMeta(meta, String8("enable"),
+            String8("org.codeaurora.qcamera3.histogram"),
+            &histogram_mode_vtag)) {
+          const uint8_t hist_mode = StatisticsHistogramModeValues
+              ::kStatisticsHistogramModeOn;
+#else
+        histogram_mode_vtag = QCAMERA3_HISTOGRAM_MODE;
+        if (meta.exists(histogram_mode_vtag)) {
           const uint8_t hist_mode = QCAMERA3_HISTOGRAM_MODE_ON;
-          meta.update(QCAMERA3_HISTOGRAM_MODE, &hist_mode, 1);
+#endif
+          meta.update(histogram_mode_vtag, &hist_mode, 1);
           ret = recorder_.SetCameraParam(camera_id_, meta);
           if (ret != 0) {
-            TEST_ERROR("%s Failed to Histogram mode to ON\n",
-                       __func__);
+            TEST_ERROR("%s Failed to set Histogram mode to ON\n", __func__);
             break;
           }
           dump_histogram_stats_ = true;
@@ -3815,7 +4010,8 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
 
     if ( (is_dump_jpg_enabled_ && cam_buf_meta.format == BufferFormat::kBLOB)
       || (is_dump_raw_enabled_ && (cam_buf_meta.format == BufferFormat::kRAW10
-          || cam_buf_meta.format == BufferFormat::kRAW16))
+          || cam_buf_meta.format == BufferFormat::kRAW16
+          || cam_buf_meta.format == BufferFormat::kRAW8))
       || (is_dump_yuv_enabled_ && (cam_buf_meta.format == BufferFormat::kNV12
           || cam_buf_meta.format == BufferFormat::kNV21))) {
       switch (cam_buf_meta.format) {
@@ -3828,6 +4024,9 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
         case BufferFormat::kBLOB:
         ext_str = "jpg";
         break;
+        case BufferFormat::kRAW8:
+        ext_str = "raw8";
+        break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";
         break;
@@ -3839,7 +4038,12 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
         break;
       }
       std::string file_path("/data/misc/qmmf/snapshot_");
-      file_path += std::to_string(image_sequence_count) + ".";
+      file_path += std::to_string(image_sequence_count) + "_";
+      file_path += std::to_string(
+          cam_buf_meta.plane_info[0].width);
+      file_path += "x" + std::to_string(
+          cam_buf_meta.plane_info[0].height) + "_";
+      file_path += std::to_string(buffer.timestamp) + ".";
       file_path += ext_str;
       DumpFrameToFile(buffer, cam_buf_meta, file_path);
     }
@@ -3934,6 +4138,8 @@ status_t RecorderTest::DumpFrameToFile(BufferDescriptor& buffer,
   // JPEG, RAW & NV12UBWC
   if ( (meta_data.format == BufferFormat::kBLOB)
       || (meta_data.format == BufferFormat::kRAW10)
+      || (meta_data.format == BufferFormat::kRAW8)
+      || (meta_data.format == BufferFormat::kRAW12)
       || (meta_data.format == BufferFormat::kNV12UBWC) ){
     written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
   } else {
@@ -4133,11 +4339,55 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
         }
       }
     }
+
+    if (current_camera_info->lcac_yuv) {
+      ALOGI("%s Enable LCAC YUV \n", __func__);
+      uint8_t enable_lcac = 1;
+      status = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+      status = recorder_.SetCameraParam(current_camera_id, meta);
+      if (NO_ERROR != status) {
+        ALOGE("%s Failed to Enable LCAC YUV \n", __func__);
+        return status;
+      }
+    }
     // TODO: This value is still under discussion and verification
     PARAMETER_SETTLE_INTERVAL(2);
 
     status = recorder_.GetCameraParam(current_camera_id, meta);
     if (NO_ERROR == status) {
+#ifdef ANDROID_O_OR_ABOVE
+      uint32_t hdr_mode_vtag;
+      if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
+          String8("org.codeaurora.qcamera3.video_hdr_mode"),
+          &hdr_mode_vtag)) {
+        if (current_camera_info->vhdr) {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOn;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+        } else {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOff;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"Off");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+        }
+        status = recorder_.SetCameraParam(current_camera_id, meta);
+        if (NO_ERROR != status) {
+          ALOGE("%s Failed to apply: TNR/VHDR\n",__func__);
+          return status;
+        }
+      } else {
+        // In case camera didn't set default turn on HDR if user requested
+        if (current_camera_info->vhdr) {
+          const int32_t vhdrMode = VideoHDRAvailableModes::kVideoHdrOn;
+          ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
+          meta.update(hdr_mode_vtag, &vhdrMode, 1);
+          status = recorder_.SetCameraParam(camera_id_, meta);
+          if (NO_ERROR != status) {
+            ALOGE("%s Failed to apply SHDR\n", __func__);
+            return status;
+          }
+        }
+      }
+#else
       if (meta.exists(QCAMERA3_VIDEO_HDR_MODE)) {
         if (current_camera_info->vhdr) {
           const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
@@ -4154,7 +4404,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
           return status;
         }
       } else {
-      //In case camera didn't set default turn on HDR if user requested
+        // In case camera didn't set default turn on HDR if user requested
         if (current_camera_info->vhdr) {
           const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
           ALOGI("%s Selecting sHDR mode to %s \n",__func__,"On");
@@ -4166,9 +4416,10 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
           }
         }
       }
+#endif
+
       // TODO: This value is still under discussion and verification
       PARAMETER_SETTLE_INTERVAL(2);
-
     }
     // TNR/SHDR - End
 
@@ -4569,6 +4820,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
       current_camera_info->binning_correct = atoi(value) ? true : false;
     } else if (!strncmp("VideoStabilize", key, strlen("VideoStablize"))) {
       current_camera_info->video_stabilize = atoi(value) ? true : false;
+    } else if (!strncmp("LCACYUV", key, strlen("LCACYUV"))) {
+      current_camera_info->lcac_yuv = atoi(value) ? true : false;
     } else if (!strncmp("Width", key, strlen("Width"))) {
       track_info.width = atoi(value);
     } else if (!strncmp("Height", key, strlen("Height"))) {
@@ -4887,9 +5140,8 @@ READ_FAILED:
   return -1;
 }
 
-int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
-                                          char *argv[],
-                                          VideoTrackCreateParam *track_param) {
+int32_t RecorderTest::ParseAutoOrWarmBootModeParams(int32_t argc,
+                                          char *argv[], TrackInfo& track_info) {
   ALOGD("%s: Enter ",__func__);
 
   if (argc != 10) {
@@ -4898,37 +5150,37 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
 
   int32_t val, opt;
   optind = 2;
-  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
+  while ((opt = getopt(argc, argv, kAutoOrWarmBootModeArgs)) != -1) {
     switch (opt) {
-      case AutoModeOptions::kWidth:
+      case AutoOrWarmBootModeOptions::kWidth:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid width = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->width = val;
+        track_info.width = val;
         break;
-      case AutoModeOptions::kHeight:
+      case AutoOrWarmBootModeOptions::kHeight:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid height = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->height = val;
+        track_info.height = val;
         break;
-      case AutoModeOptions::kFps:
+      case AutoOrWarmBootModeOptions::kFps:
         val = atoi(optarg);
         if (val < 0) {
           TEST_ERROR("%s: Invalid FPS = %d", __func__, val);
           return -EINVAL;
         }
-        track_param->frame_rate = val;
+        track_info.fps = val;
         break;
-      case AutoModeOptions::kTrackType:
+      case AutoOrWarmBootModeOptions::kTrackType:
         if (!strcmp(optarg, "AVC")) {
-          track_param->format_type = VideoFormat::kAVC;
+          track_info.track_type = TrackType::kVideoAVC;
         } else if (!strcmp(optarg, "HEVC")) {
-          track_param->format_type = VideoFormat::kHEVC;
+          track_info.track_type = TrackType::kVideoHEVC;
         } else {
           TEST_ERROR("%s: Invalid TrackType = %s", __func__, optarg);
           return -EINVAL;
@@ -4938,96 +5190,9 @@ int32_t RecorderTest::ParseAutoModeParams(int32_t argc,
         return -EINVAL;
     }
   }
-
-  track_param->camera_id   = camera_id_;
-  track_param->codec_param.avc.idr_interval = 1;
-  track_param->codec_param.avc.bitrate      = 10000000;
-  track_param->codec_param.avc.profile = AVCProfileType::kHigh;
-  track_param->codec_param.avc.level   = AVCLevelType::kLevel3;
-  track_param->codec_param.avc.ratecontrol_type =
-      VideoRateControlType::kMaxBitrate;
-  track_param->codec_param.avc.qp_params.enable_init_qp = true;
-  track_param->codec_param.avc.qp_params.init_qp.init_IQP = 27;
-  track_param->codec_param.avc.qp_params.init_qp.init_PQP = 28;
-  track_param->codec_param.avc.qp_params.init_qp.init_BQP = 28;
-  track_param->codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-  track_param->codec_param.avc.qp_params.enable_qp_range = true;
-  track_param->codec_param.avc.qp_params.qp_range.min_QP = 10;
-  track_param->codec_param.avc.qp_params.qp_range.max_QP = 51;
-  track_param->codec_param.avc.qp_params.enable_qp_IBP_range = true;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
-  track_param->codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-  track_param->codec_param.avc.ltr_count = 4;
-  track_param->codec_param.avc.insert_aud_delimiter = true;
 
   return 0;
   ALOGD("%s: Exit ",__func__);
-}
-
-int32_t RecorderTest::ParseWarmBootTestParams(int32_t argc, char *argv[],
-                                              TrackInfo *track_info) {
-  TEST_INFO("%s: Enter ", __func__);
-
-  if (argc != 10) {
-    return -EINVAL;
-  }
-
-  int32_t val, opt;
-  optind = 2;
-  while ((opt = getopt(argc, argv, kAutoModeArgs)) != -1) {
-    switch (opt) {
-      case AutoModeOptions::kWidth:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid width = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->width = val;
-      }
-      break;
-      case AutoModeOptions::kHeight:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid height = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->height = val;
-      }
-      break;
-      case AutoModeOptions::kFps:
-      {
-        val = atoi(optarg);
-        if (val < 0) {
-          TEST_ERROR("%s: Invalid FPS = %d", __func__, val);
-          return -EINVAL;
-        }
-        track_info->fps = val;
-      }
-      break;
-      case AutoModeOptions::kTrackType:
-      {
-        if (!strcmp(optarg, "AVC")) {
-          track_info->track_type = TrackType::kVideoAVC;
-        } else if (!strcmp(optarg, "HEVC")) {
-          track_info->track_type = TrackType::kVideoHEVC;
-        } else {
-          TEST_ERROR("%s: Invalid TrackType = %s", __func__, optarg);
-          return -EINVAL;
-        }
-      }
-      break;
-      default:
-        return -EINVAL;
-    }
-  }
-  TEST_INFO("%s: Exit ", __func__);
-  return 0;
 }
 
 int32_t RecorderTest::StartRecording(
@@ -5165,7 +5330,7 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
   TrackInfo track_info;
 
   if (argc > 2) {
-    ret = ParseWarmBootTestParams(argc, argv, &track_info);
+    ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
     if (ret != 0) {
       TEST_ERROR(
           "%s:Usage: recorder_test testwarmboot -w <width> -h <height>"
@@ -5259,26 +5424,33 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
   TrackCb video_track_cb;
   SessionCb session_status_cb;
   uint32_t session_id;
-  VideoTrackCreateParam video_track_param{};
+  TrackInfo track_info;
 
-  auto ret = ParseAutoModeParams(argc, argv, &video_track_param);
+  auto ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
   if (ret != 0) {
     TEST_ERROR("%s:Usage: recorder_test --auto -w <width> -h <height>"
                " -f <fps> -t <AVC/HEVC>",  __func__);
-    goto exit;
+    return ret;
   }
 
   ret = Connect();
   if (NO_ERROR  != ret) {
     ALOGE("%s Connect Failed!!", __func__);
-    goto exit;
+    return ret;
   }
+
+  VideoFormat videoformat = (track_info.track_type == TrackType::kVideoAVC)
+                                ? VideoFormat::kAVC
+                                : VideoFormat::kHEVC;
+  VideoTrackCreateParam video_track_param{camera_id_, videoformat,
+                                          track_info.width, track_info.height,
+                                          track_info.fps};
 
   camera_params.zsl_mode            = false;
   camera_params.zsl_queue_depth     = 10;
   camera_params.zsl_width           = 3840;
   camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = video_track_param.frame_rate;
+  camera_params.frame_rate          = track_info.fps;
   camera_params.flags               = 0x0;
 
   ret = recorder_.StartCamera(camera_id_, camera_params);
@@ -5351,7 +5523,6 @@ disconnect:
     ALOGE("%s Disconnect Failed!!", __func__);
   }
 
-exit:
   ALOGD("%s: Exit ",__func__);
   return ret;
 }
@@ -5404,6 +5575,28 @@ bool CameraMetaDataParser::IsTNREnabled(const CameraMetadata& metadata) {
 bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
   TEST_DBG("%s: Enter", __func__);
   bool ret = false;
+
+#ifdef ANDROID_O_OR_ABOVE
+  uint32_t hdr_mode_vtag;
+  sp<VendorTagDescriptor> vendor_tag_desc = VendorTagDescriptor
+      ::getGlobalVendorTagDescriptor();
+  status_t result = vendor_tag_desc->lookupTag(String8("vhdr_mode"),
+      String8("org.codeaurora.qcamera3.video_hdr_mode"), &hdr_mode_vtag);
+  if (0 != result) {
+    TEST_ERROR("%s: TagId lookup failed with error: %d", __func__, result);
+    return false;
+  }
+  if (metadata.exists(hdr_mode_vtag)) {
+    TEST_DBG("%s: Meta Exists!", __func__);
+    camera_metadata_ro_entry entry = metadata.find(hdr_mode_vtag);
+    uint8_t vhdr_camera_mode = entry.data.u8[0];
+    TEST_DBG("%s: vhdr_camera_mode = %d", __func__,
+             static_cast<uint32_t>(vhdr_camera_mode));
+    if (VideoHDRAvailableModes::kVideoHdrOn == vhdr_camera_mode) {
+      ret = true;
+    }
+  }
+#else
   if (metadata.exists(QCAMERA3_VIDEO_HDR_MODE)) {
     TEST_DBG("%s: Meta Exists!", __func__);
     camera_metadata_ro_entry entry = metadata.find(QCAMERA3_VIDEO_HDR_MODE);
@@ -5414,6 +5607,7 @@ bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
       ret = true;
     }
   }
+#endif
   TEST_DBG("%s: Exit ret=%d", __func__, static_cast<uint32_t>(ret));
   return ret;
 }
@@ -5683,7 +5877,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     audio_track_params.in_devices_num = 0;
     audio_track_params.in_devices[audio_track_params.in_devices_num++] =
         track_info.device_id;
-    audio_track_params.sample_rate = 16000;
+    audio_track_params.sample_rate = 48000;
     audio_track_params.channels    = 1;
     audio_track_params.bit_depth   = 16;
     audio_track_params.flags       = 0;
@@ -5696,6 +5890,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         audio_track_params.format = AudioFormat::kPCM;
         ::std::string("record_fluence").copy(audio_track_params.profile,
                       strlen("record_fluence"));
+        audio_track_params.sample_rate = 16000;
         break;
       case TrackType::kAudioAAC:
         audio_track_params.format = AudioFormat::kAAC;
@@ -5956,7 +6151,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.dst_rect.start_y = 50;
   object_params.dst_rect.width   = 192;
   object_params.dst_rect.height  = 108;
-  object_params.color    = 0x202020FF; //Dark Gray
+  object_params.color            = kColorRed;
   object_params.date_time.time_format = OverlayTimeFormatType::kHHMMSS_AMPM;
   object_params.date_time.date_format = OverlayDateFormatType::kMMDDYYYY;
 
@@ -5975,7 +6170,7 @@ status_t TestTrack::EnableOverlay() {
   // Create BoundingBox type overlay.
   object_params = {};
   object_params.type  = OverlayType::kBoundingBox;
-  object_params.color = 0x33CC00FF; //Light Green
+  object_params.color = kColorLightGreen;
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 100;
   object_params.dst_rect.start_y = 200;
@@ -5997,7 +6192,7 @@ status_t TestTrack::EnableOverlay() {
   object_params = {};
   object_params.type = OverlayType::kUserText;
   object_params.location = OverlayLocationType::kRandom;
-  object_params.color = 0x189BF2FF; //Light Blue
+  object_params.color = kColorLightBlue;
   object_params.dst_rect.start_x = 200;
   object_params.dst_rect.start_y = 800;
   object_params.dst_rect.width   = 480;
@@ -6018,7 +6213,7 @@ status_t TestTrack::EnableOverlay() {
   // Create PrivacyMask type overlay.
   object_params = {};
   object_params.type = OverlayType::kPrivacyMask;
-  object_params.color = 0xFF9933FF; //Fill mask with color.
+  object_params.color = kColorLightGray; //light gray
   // Dummy coordinates for test purpose.
   object_params.dst_rect.start_x = 800;
   object_params.dst_rect.start_y = 250;
@@ -6059,8 +6254,32 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
-
+  std::string text("User Text Bolb Test");
 #if USE_SKIA
+  int32_t text_size = 40;
+  //Create Skia canvas outof ION memory.
+  SkImageInfo imageInfo = SkImageInfo::Make(width, height,
+      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+
+#ifdef ANDROID_O_OR_ABOVE
+  canvas_ = (SkCanvas::MakeRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width * 4)).release();
+#else
+  canvas_ = SkCanvas::NewRasterDirect(imageInfo,
+      static_cast<unsigned char*>(data), width * 4);
+#endif
+
+  canvas_->clear(SK_AlphaOPAQUE);
+  SkPaint paint;
+  paint.setColor(kColorRed);
+  paint.setTextSize(SkIntToScalar(text_size));
+  paint.setAntiAlias(true);
+
+  int32_t x = 0;
+  int32_t y = width - text_size/2;
+  SkString sk_text(text.c_str(), text.length());
+  canvas_->drawText(sk_text.c_str(), sk_text.size(), x, y, paint);
+  canvas_->flush();
 
 #elif USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
@@ -6086,7 +6305,7 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
        font_extent.max_y_advance);
 
   cairo_text_extents_t text_extents;
-  cairo_text_extents (cr_context_, "User Text Bolb Test", &text_extents);
+  cairo_text_extents (cr_context_, text.c_str(), &text_extents);
 
   TEST_DBG("%s: Custom text: te.x_bearing=%f, te.y_bearing=%f,"
       " te.width=%f, te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
@@ -6108,13 +6327,20 @@ status_t TestTrack::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   // Draw Text.
   RGBAValues text_color{};
-  ExtractColorValues(0x189BF2FF, &text_color);
+  ExtractColorValues(kColorRed, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
 
-  cairo_show_text (cr_context_, "User Text Bolb Test");
+  cairo_show_text (cr_context_, text.c_str());
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush(cr_surface_);
+
+  if (cr_surface_) {
+    cairo_surface_destroy(cr_surface_);
+  }
+  if (cr_context_) {
+    cairo_destroy(cr_context_);
+  }
 #endif
 
   TEST_DBG("%s: Exit", __func__);
@@ -6281,6 +6507,7 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
   surface_config.buffer_count = 1;
   surface_config.cache = 0;
   surface_config.use_buffer = 1;
+  surface_config.z_order = 1;
   res = display_->CreateSurface(surface_config, &surface_id_);
   assert(res == 0);
 
@@ -6294,7 +6521,6 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
       SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
   surface_param_.frame_rate = track_info_.fps;
-  surface_param_.z_order = 0;
   surface_param_.solid_fill_color = 0;
   surface_param_.surface_transform.rotation = 0.0f;
   surface_param_.surface_transform.flip_horizontal = 0;
@@ -6457,10 +6683,10 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_4KENC_AVC_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC)\n",
       CmdMenu::CREATE_4KENC_HEVC_SESSION_CMD);
-  printf("   %c. Create Session: (1080p Enc AVC)\n",
-      CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD);
-  printf("   %c. Create Session: (1080p Enc HEVC)\n",
-      CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD);
+  printf("   %c. Create Session: (1080p AVC + AAC)\n",
+      CmdMenu::CREATE_1080pAVC_AAC_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (1080p HEVC + AAC)\n",
+      CmdMenu::CREATE_1080pHEVC_AAC_AUD_SESSION_CMD);
   printf("   %c. Create Session: (4K YUV + 1080p Enc AVC)\n",
     CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD);
   printf("   %c. Create Session: (Two 1080p Enc AVC)\n",
@@ -6468,7 +6694,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (1080p Enc AVC + 1080 YUV)\n",
     CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC + 1080 YUV)\n",
-    CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD);
+    CmdMenu::CREATE_4KENC_HEVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (720p LPM YUV)\n",
     CmdMenu::CREATE_720pLPM_SESSION_CMD);
   printf("   %c. Create Session: (1080p Enc AVC + 1080 LPM YUV)\n",
@@ -6612,20 +6838,20 @@ int main(int argc,char *argv[]) {
         test_context.Session4KEncTrack(TrackType::kVideoHEVC);
       }
       break;
-      case CmdMenu::CREATE_1080pENC_AVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(TrackType::kVideoAVC);
+      case CmdMenu::CREATE_1080pAVC_AAC_AUD_SESSION_CMD: {
+        test_context.Session1080pEncAndAudioAACTrack(TrackType::kVideoAVC);
+      }
+      break;
+      case CmdMenu::CREATE_1080pHEVC_AAC_AUD_SESSION_CMD: {
+        test_context.Session1080pEncAndAudioAACTrack(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD: {
         test_context.Session1080pEnc1080YUV(TrackType::kVideoAVC);
       }
       break;
-      case CmdMenu::CREATE_4KHEVC_AVC_1080YUV_SESSION_CMD: {
-        test_context.Session4KHEVCAnd1080pYUVTracks(TrackType::kVideoAVC);
-      }
-      break;
-      case CmdMenu::CREATE_1080pENC_HEVC_SESSION_CMD: {
-        test_context.Session1080pEncTrack(TrackType::kVideoHEVC);
+      case CmdMenu::CREATE_4KENC_HEVC_1080YUV_SESSION_CMD: {
+        test_context.Session4KEncAnd1080pYUVTracks(TrackType::kVideoHEVC);
       }
       break;
       case CmdMenu::CREATE_4KYUV_1080pENC_SESSION_CMD: {

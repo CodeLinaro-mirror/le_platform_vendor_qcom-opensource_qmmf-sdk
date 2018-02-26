@@ -41,13 +41,17 @@
 
 #include <system/graphics.h>
 #include <system/window.h>
+#include <sys/mman.h>
 #include <qcom/display/gralloc_priv.h>
+#include <camera/CameraMetadata.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
 #include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
+
+using namespace android;
 
 typedef int32_t status_t;
 
@@ -70,6 +74,7 @@ struct StreamBuffer {
   uint32_t pending_encodes_per_frame;
   uint32_t encodes_per_frame_count;
   bool needs_return;
+  bool second_thumb;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -85,6 +90,7 @@ struct StreamBuffer {
     stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
     stream << "needs_return[" << ::std::boolalpha << needs_return
            << ::std::noboolalpha << "] ";
+    stream << "second_thumb[" << second_thumb << "] ";
     return stream.str();
   }
 };
@@ -108,6 +114,9 @@ class Common {
         break;
       case BufferFormat::kNV21:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        break;
+      case BufferFormat::kRAW8:
+        return HAL_PIXEL_FORMAT_RAW8;
         break;
       case BufferFormat::kRAW10:
         return HAL_PIXEL_FORMAT_RAW10;
@@ -146,6 +155,9 @@ class Common {
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV21;
         break;
+      case HAL_PIXEL_FORMAT_RAW8:
+        return BufferFormat::kRAW8;
+        break;
       case HAL_PIXEL_FORMAT_RAW10:
         return BufferFormat::kRAW10;
         break;
@@ -162,7 +174,241 @@ class Common {
         return BufferFormat::kUnsupported;
     }
   }
-};
+
+  /** ValidateResFromStreamConfigs
+  *
+  * Validates whether input resolution is available in
+  * stream configurations.
+  *
+  * return: true if available
+  **/
+  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+                                           const uint32_t width,
+                                           const uint32_t height) {
+    bool is_supported = false;
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+                 " not available", __func__);
+      return false;
+    }
+    return is_supported;
+  }
+
+
+
+  /** ValidateResFromProcessedSizes
+   *
+   * Validates whether input resolution is available in
+   * processed sizes.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height) {
+    bool is_supported = false;
+#ifdef ANDROID_O_OR_ABOVE
+    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          is_supported = true;
+          break;
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES"
+                 " not available", __func__);
+      return false;
+    }
+#endif
+    return is_supported;
+  }
+
+  /** ValidateResFromJpegSizes
+   *
+   * Validates whether input resolution is available in jpeg sizes.
+   * Since ANDROID_SCALER_AVAILABLE_JPEG_SIZES tag is not available
+   * in static meta, jpeg size needs to be validated from available
+   * stream configuration, by filtering the resolutions with
+   * HAL_PIXEL_FORMAT_BLOB.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+                                       const uint32_t width,
+                                       const uint32_t height) {
+    bool is_supported = false;
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+                 " not available", __func__);
+      return false;
+    }
+    return is_supported;
+  }
+
+  /** ValidateResFromRawSizes
+   *
+   * Validates whether input resolution is available in
+   * raw sizes.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+                                      const uint32_t width,
+                                      const uint32_t height) {
+    bool is_supported = false;
+#ifdef ANDROID_O_OR_ABOVE
+    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+      for (uint32_t i = 0 ; i < entry.count; i += 2) {
+        if(width == static_cast<uint32_t>(entry.data.i32[i+0]) &&
+          height == static_cast<uint32_t>(entry.data.i32[i+1])) {
+          is_supported = true;
+          break;
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_RAW_SIZES"
+                 " not available", __func__);
+      return false;
+    }
+#endif
+    return is_supported;
+  }
+
+  /** DumpStreamBuffer
+   *
+   * Dump stream buffer in /data/misc/qmmf
+   *
+   * return: none
+   **/
+  static void DumpStreamBuffer(StreamBuffer &buf,
+                               std::string name = "",
+                               bool input = false) {
+    std::string file_name = "/data/misc/qmmf/img_" + name + "_";
+
+    switch (buf.info.format) {
+      case BufferFormat::kNV12:
+        file_name += "nv12";
+        break;
+      case BufferFormat::kNV12UBWC:
+        file_name += "nv12ubwc";
+        break;
+      case BufferFormat::kNV21:
+        file_name += "nv21";
+        break;
+      case BufferFormat::kBLOB:
+        file_name += "jpeg";
+        break;
+      case BufferFormat::kRAW10:
+        file_name += "raw10";
+        break;
+      case BufferFormat::kRAW12:
+        file_name += "raw12";
+        break;
+      case BufferFormat::kRAW16:
+        file_name += "raw16";
+        break;
+      default:
+        std::stringstream sstream;
+        sstream << std::hex << (int)buf.info.format;
+        file_name += sstream.str();
+        break;
+    }
+
+    file_name +=
+        "_dim_"      + std::to_string(buf.info.plane_info[0].width) +
+        "x"          + std::to_string(buf.info.plane_info[0].height) +
+        "_stride_"   + std::to_string(buf.info.plane_info[0].stride) +
+        "_scanline_" + std::to_string(buf.info.plane_info[0].scanline) +
+        "_frame_"    + std::to_string(buf.frame_number) +
+        "_"          + (input ? "input" : "output");
+
+    switch (buf.info.format) {
+      case BufferFormat::kRAW10:
+      case BufferFormat::kRAW12:
+      case BufferFormat::kRAW16:
+        file_name += ".raw";
+        break;
+      case BufferFormat::kNV12:
+      case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV21:
+        file_name += ".yuv";
+        break;
+      case BufferFormat::kBLOB:
+        file_name += ".jpg";
+        break;
+      default:
+        file_name += ".bin";
+        break;
+    }
+
+    FILE *file = fopen(file_name.c_str(), "w+");
+    if (!file) {
+      QMMF_ERROR("%s:%s Unable to open: %s", __func__, name.c_str(),
+          file_name.c_str());
+      return;
+    }
+
+    void *vaaddr = mmap(nullptr, buf.size, PROT_READ  | PROT_WRITE, MAP_SHARED,
+        buf.fd, 0);
+    if (vaaddr == MAP_FAILED) {
+      QMMF_ERROR("%s:%s: ION mmap failed: error(%s):(%d) size: %d fd: %d",
+          __func__, name.c_str(), strerror(errno), errno, buf.size, buf.fd);
+      fclose(file);
+      return;
+    }
+
+    auto written_len = fwrite(vaaddr, sizeof(uint8_t), buf.size, file);
+    if (buf.size != written_len) {
+      QMMF_ERROR("%s:%s Bad Write error %d size %d written %d", __func__,
+          name.c_str(), errno, buf.size, written_len);
+      munmap(vaaddr, buf.size);
+      fclose(file);
+      return;
+    }
+
+    QMMF_INFO("%s:%s: Dump %s frame to %s\n", __func__, name.c_str(),
+        input ? "input" : "output", file_name.c_str());
+
+    munmap(vaaddr, buf.size);
+    fclose(file);
+  }
+};  // class Common
 
 // Thread safe Queue
 template <class T>

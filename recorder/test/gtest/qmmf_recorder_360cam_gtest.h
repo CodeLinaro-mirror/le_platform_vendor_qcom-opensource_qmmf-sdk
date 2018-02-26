@@ -94,8 +94,8 @@ class Dump360BitStream {
   bool IsUsed() {return (is_enabled_ && file_fds_.size());}
 
   int32_t GetFileFd(const uint32_t count)
-                   {assert(count > 0);
-                    assert(count <= file_fds_.size());
+                   {EXPECT_TRUE(count > 0);
+                    EXPECT_TRUE(count <= file_fds_.size());
                     return file_fds_[count-1];}
 
   void Enable(const bool enable) {is_enabled_ = enable;}

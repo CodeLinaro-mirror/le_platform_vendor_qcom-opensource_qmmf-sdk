@@ -299,6 +299,12 @@ status_t PostProcAlg::Process(
       return BAD_VALUE;
     }
 
+    if (dump_in_frame_ == true) {
+      for (auto buf : in_alg_buffers) {
+        DumpFrame(buf, true);
+      }
+    }
+
     try {
       algo_->RegisterInputBuffers(in_alg_buffers);
       algo_->RegisterOutputBuffers(out_alg_buffers);
@@ -306,12 +312,6 @@ status_t PostProcAlg::Process(
       QMMF_ERROR("%s: Error registering buffers exception: %s",
           __func__, e.what());
       throw e;
-    }
-
-    if (dump_in_frame_ == true) {
-      for (auto buf : in_alg_buffers) {
-        DumpFrame(buf, true);
-      }
     }
 
     try {
@@ -392,6 +392,8 @@ PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {
     return kNv21;
   case BufferFormat::kBLOB:
     return kJpeg;
+  case BufferFormat::kRAW8:
+    return kRawBggrMipi8;
   case BufferFormat::kRAW10:
     return kRawBggrMipi10;
   case BufferFormat::kRAW12:
@@ -413,6 +415,8 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
     return BufferFormat::kNV21;
   case kJpeg:
     return BufferFormat::kBLOB;
+  case kRawBggrMipi8:
+    return BufferFormat::kRAW8;
   case kRawBggrMipi10:
     return BufferFormat::kRAW10;
   case kRawBggrMipi12:

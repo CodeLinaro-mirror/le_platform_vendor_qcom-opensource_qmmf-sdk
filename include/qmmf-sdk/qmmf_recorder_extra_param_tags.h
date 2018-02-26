@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -47,6 +47,8 @@ enum ParamTag {
   QMMF_SNAPSHOT_TYPE,
   QMMF_VIDEO_WAIT_AEC_MODE,
   QMMF_VIDEO_ROTATE,
+  QMMF_EXIF,
+  QMMF_VIDEO_HDR_MODE,
 };
 
 enum class RotationFlags {
@@ -211,6 +213,20 @@ struct VideoRotate : DataTagBase {
     : DataTagBase(QMMF_VIDEO_ROTATE),
       flags(RotationFlags::kNone) {
   }
+};
+
+struct ImageExif : DataTagBase {
+  bool enable;     // Default: true
+  ImageExif()
+    : DataTagBase(QMMF_EXIF),
+      enable(true) {}
+};
+
+struct VideoHDRMode : DataTagBase {
+  bool enable;  // Default: false to disable HDR
+  VideoHDRMode()
+    : DataTagBase(QMMF_VIDEO_HDR_MODE),
+      enable(false) {}
 };
 
 }; //namespace recorder.

@@ -517,6 +517,14 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
+    case HAL_PIXEL_FORMAT_RAW8:
+      info.format = BufferFormat::kRAW8;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      break;
     case HAL_PIXEL_FORMAT_RAW10:
       info.format = BufferFormat::kRAW10;
       info.num_planes = 1;

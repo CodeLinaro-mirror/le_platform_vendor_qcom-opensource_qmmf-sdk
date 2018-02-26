@@ -2622,6 +2622,13 @@ status_t AVCodec::StopCodec(bool do_flush) {
     output_stop_ = true;
   }
 
+  CodecPortStatus status = CodecPortStatus::kPortStop;
+  ret = getOutputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,
+                                                 static_cast<void*>(&status));
+  if (ret != NO_ERROR)
+    QMMF_ERROR("%s: Failed to notify output buffer source", __func__);
+
+
   ret = pthread_join(deliver_input_thread_id_, nullptr);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Failed to join DeliverInput Thread", __func__);
@@ -2657,17 +2664,18 @@ status_t AVCodec::StopCodec(bool do_flush) {
             cmd.event_flags);
         return OMX_ErrorUndefined;
     }
-  } else {
-    // the EOS may or may not be there depending on timing
-    ret = signal_queue_.Pop(&cmd);
-    if (ret != OK)
-      QMMF_ERROR("%s optional Pop from SignalQueue Failed, size(%u)",
-          __func__, signal_queue_.Size());
-    else
-      QMMF_INFO("%s Popped buffer from cmd queue, size(%u)",
-          __func__, signal_queue_.Size());
   }
 
+  if (state_ == OMX_StatePause) {
+    QMMF_DEBUG("%s moving to OMX_StateExecuting state", __func__);
+    ret = SetState(OMX_StateExecuting, OMX_TRUE);
+    if (ret != 0) {
+      QMMF_ERROR("%s SetState to OMX_StateExecuting failed", __func__);
+      return ret;
+    }
+  }
+
+  QMMF_DEBUG("%s moving to OMX_StateIdle state", __func__);
   ret =  SetState(OMX_StateIdle, OMX_TRUE);
   if(ret != 0) {
    QMMF_ERROR("%s Failed to move to OMX_StateIdle state!", __func__);
@@ -2675,6 +2683,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   }
 
   //Disable both port
+  QMMF_DEBUG("%s disabling output port", __func__);
   ret = omx_client_->SendCommand(OMX_CommandPortDisable, kPortIndexOutput, 0);
   if(ret != 0) {
    QMMF_ERROR("%s Failed to disbale port on %s", __func__,
@@ -2682,6 +2691,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
    return ret;
   }
 
+  QMMF_DEBUG("%s disabling input port", __func__);
   ret = omx_client_->SendCommand(OMX_CommandPortDisable, kPortIndexInput, 0);
   if(ret != 0) {
    QMMF_ERROR("%s Failed to disbale port on %s", __func__,
@@ -2692,7 +2702,20 @@ status_t AVCodec::StopCodec(bool do_flush) {
   port_status_ = false;
 
   //DeRegister buffer on both port
-  for (uint32_t i = 0; i < in_buff_hdr_size_; i++) {
+  //First query number of buffers registered and then give buffer
+  //free request to ensure only registered buffer are de-registered
+  OMX_PARAM_PORTDEFINITIONTYPE port_def;
+  InitOMXParams(&port_def);
+  port_def.nPortIndex = kPortIndexInput;
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+            (OMX_PTR)&port_def);
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to get port definiton on %s", __func__,
+        PORT_NAME(kPortIndexInput));
+    return ret;
+  }
+  uint32_t reg_buf_count = port_def.nBufferCountActual;
+  for (uint32_t i = 0; i < reg_buf_count; i++) {
     ret = omx_client_->FreeBuffer(in_buff_hdr_[i], kPortIndexInput);
     if(ret != 0) {
       QMMF_ERROR("%s Failed to free buffer on %s", __func__,
@@ -2777,12 +2800,11 @@ status_t AVCodec::PauseCodec() {
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
 
-  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StatePause, 0);
-  if (ret != OK) {
-    QMMF_ERROR("%s Failed to Pause the Codec/Component", __func__);
+  ret = SetState(OMX_StatePause, OMX_TRUE);
+  if (ret != 0) {
+    QMMF_ERROR("%s SetState to OMX_PAUSE failed", __func__);
     return ret;
   }
-  ret = WaitState(OMX_StatePause);
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -2793,12 +2815,11 @@ status_t AVCodec::ResumeCodec() {
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
 
-  ret = omx_client_->SendCommand(OMX_CommandStateSet, OMX_StateExecuting, 0);
-  if (ret != OK) {
-    QMMF_ERROR("%s Failed to Resume Codec/Component", __func__);
+  ret = SetState(OMX_StateExecuting, OMX_TRUE);
+  if (ret != 0) {
+    QMMF_ERROR("%s SetState to OMX_EXECUTING failed", __func__);
     return ret;
   }
-  ret = WaitState(OMX_StateExecuting);
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -3087,7 +3108,6 @@ void* AVCodec::DeliverInput(void *arg) {
     if (avcodec->format_type_ == CodecType::kVideoEncoder) {
       native_handle = reinterpret_cast<buffer_handle_t>(stream_buffer.data);
       assert(native_handle != nullptr);
-      assert(native_handle->data[0] != 0);
     }
 
     buf_header = avcodec->GetInputBufferHdr(stream_buffer);
@@ -3171,18 +3191,20 @@ void* AVCodec::DeliverOutput(void *arg) {
     memset(&codec_buffer, 0x0, sizeof(codec_buffer));
     ret = avcodec->getOutputBufferSource()->GetBuffer(codec_buffer, nullptr);
 
-    assert(codec_buffer.data != nullptr);
-
-    buf_header = avcodec->GetOutputBufferHdr(codec_buffer);
-    assert(buf_header != nullptr);
-    buf_header->nFlags = 0x0;
+    if (codec_buffer.data != nullptr) {
+      buf_header = avcodec->GetOutputBufferHdr(codec_buffer);
+      assert(buf_header != nullptr);
+      buf_header->nFlags = 0x0;
+    }
 
     if(avcodec->IsOutputPortStop()) {
       QMMF_INFO("%s Encoder is stop. exit from thread", __func__);
-      if (avcodec->format_type_ == CodecType::kVideoDecoder) {
-        avcodec->UpdateBufferHeaderList(buf_header);
+      if (codec_buffer.data != nullptr) {
+        if (avcodec->format_type_ == CodecType::kVideoDecoder) {
+          avcodec->UpdateBufferHeaderList(buf_header);
+        }
+        avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
       }
-      avcodec->getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
       break;
     }
 
@@ -3234,9 +3256,18 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
 
     header = *free_input_buffhdr_list_.Begin();
     encoder_media_buffer_type* media_buffer =
-        (encoder_media_buffer_type*)header->pBuffer;
+        reinterpret_cast<encoder_media_buffer_type*>(header->pBuffer);
+    media_buffer->buffer_type =
+        MetadataBufferType::kMetadataBufferTypeGrallocSource;
     media_buffer->meta_handle =
         reinterpret_cast<buffer_handle_t>(buffer.data);
+
+    private_handle_t *handle = reinterpret_cast<private_handle_t *>(buffer.data);
+    QMMF_VERBOSE("%s fd = %d offset = %u size = %u width = %d height = %d "
+        "unaligned_width = %d unaligned_height = %d", __func__,
+        handle->fd, handle->offset, handle->size, handle->width, handle->height,
+        handle->unaligned_width, handle->unaligned_height);
+
     used_input_buffhdr_list_.PushBack(header);
     free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());
     QMMF_VERBOSE("%s free_input_buffhdr_list_.Size = %d", __func__,
@@ -3407,7 +3438,8 @@ status_t AVCodec::SetState(OMX_STATETYPE state, OMX_BOOL synchronous) {
 
   // check for invalid transition
   if(((state == OMX_StateLoaded) && (state_ != OMX_StateIdle)) ||
-      ((state == OMX_StateExecuting) && (state_ != OMX_StateIdle))) {
+      ((state == OMX_StateExecuting) && ((state_ != OMX_StateIdle) &&
+                                         (state_ != OMX_StatePause)))) {
     QMMF_ERROR("%s Invalid state tranisition: state %s to %s", __func__,
         OMX_STATE_NAME(state_), OMX_STATE_NAME(state));
     return OMX_ErrorIncorrectStateTransition;

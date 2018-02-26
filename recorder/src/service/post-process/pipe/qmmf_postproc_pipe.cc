@@ -69,6 +69,13 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
                                   PipeIOParam &pipe_in_param) {
   std::shared_ptr<PostProcNode> node;
 
+  if (!pipe_out_param.exif_en && use_hal_jpeg_) {
+    QMMF_INFO("%s: Unsuported configuration exif_en = false and use_hal_jpeg_",
+        __func__);
+    // use qmmf jpeg encoder
+    use_hal_jpeg_ = false;
+  }
+
   // Add frame skip module at the begin of pipe
   if (pipe_out_param.frame_skip) {
     node = factory_->GetProcNode("FrameSkip");
@@ -262,6 +269,7 @@ void PostProcPipe::UnlinkPipe(sp<IBufferConsumer>& consumer) {
 
 bool PostProcPipe::IsRAWFormat(const BufferFormat &format) {
   switch (format) {
+    case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
@@ -303,6 +311,7 @@ bool PostProcPipe::IsFormatSupported(const std::set<BufferFormat> &formats,
 
 bool PostProcPipe::SupportsRAWFormat(const std::set<BufferFormat> &formats) {
   if (formats.count(BufferFormat::kRAW10) != 0 ||
+      formats.count(BufferFormat::kRAW8)  != 0 ||
       formats.count(BufferFormat::kRAW12) != 0 ||
       formats.count(BufferFormat::kRAW16) != 0) {
     return true;

@@ -120,6 +120,7 @@ int32_t DisplayTest::CreateSurface() {
   surface_config.buffer_count=4;
   surface_config.cache=0;
   surface_config.use_buffer=0;
+  surface_config.z_order = 2;
   auto ret = display_->CreateSurface(surface_config, &surface_id);
   if(ret != 0) {
       TEST_ERROR("%s CreateSurface Failed!!", __func__);
@@ -185,7 +186,6 @@ int32_t DisplayTest::QueueSurfaceBuffer() {
   surface_param.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param.surface_flags.cursor=0;
   surface_param.frame_rate = 30;
-  surface_param.z_order = 0;
   surface_param.solid_fill_color=0;
 
   auto ret = display_->QueueSurfaceBuffer(surface_id, surface_buffer,

@@ -102,7 +102,7 @@ class DisplayGtest : public ::testing::Test {
 
   typedef struct BufInfo {
     BufferInfo buffer_info;
-    void* buf;
+    void*      buf;
   } BufInfo;
 
   typedef struct SurfaceData {
@@ -111,10 +111,11 @@ class DisplayGtest : public ::testing::Test {
     SurfaceParam surface_param;
     SurfaceBuffer surface_buffer;
     bool buffer_ready;
+    uint32_t surface_buffer_index;
   } SurfaceData;
 
   // Mapping of surface_id and BufInfo
-  std::map<uint32_t, std::vector<BufInfo*>> buf_info;
+  std::map<uint32_t, std::vector<BufInfo*>> buf_info_;
 
   // Mapping of surface_id and SurfaceData
   typedef std::map<uint32_t, SurfaceData*> surface_data_map;

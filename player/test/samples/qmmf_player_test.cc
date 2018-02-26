@@ -871,6 +871,9 @@ void PlayerTest::SetPosition() {
   else
     TEST_INFO("%s: Seek to %llu sec", __func__, time);
 
+  auto result = player_.SetPosition(static_cast<int64_t>(time * 1000000));
+  assert(result == NO_ERROR);
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -1272,6 +1275,7 @@ status_t PlayerTest::StartDisplay(DisplayType display_type) {
   surface_config.buffer_count = 4;
   surface_config.cache = 0;
   surface_config.use_buffer = 0;
+  surface_config.z_order = 2;
   auto ret = display_->CreateSurface(surface_config, &surface_id_);
   if (ret != 0) {
     TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -1287,7 +1291,6 @@ status_t PlayerTest::StartDisplay(DisplayType display_type) {
   surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param_.surface_flags.cursor = 0;
   surface_param_.frame_rate = 30;
-  surface_param_.z_order = 1;
   surface_param_.solid_fill_color = 0;
   surface_param_.surface_transform.rotation = 0.0f;
   surface_param_.surface_transform.flip_horizontal = 0;

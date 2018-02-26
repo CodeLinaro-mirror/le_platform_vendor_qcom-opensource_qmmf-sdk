@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -191,6 +191,10 @@ class CameraContext : public CameraInterface,
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
+#ifdef USE_FPS_IDX
+  uint32_t GetSensorModeIndex(uint32_t frame_rate);
+#endif
+
   void InitHFRModes();
 
   status_t CaptureZSLImage();
@@ -224,7 +228,6 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcCreatePipeAndUpdateStreams(
                                       CameraStreamParameters& stream_param,
-                                      uint32_t image_quality,
                                       uint32_t frame_rate,
                                       const std::vector<uint32_t> &plugins);
 
@@ -240,9 +243,11 @@ class CameraContext : public CameraInterface,
 
   void HandleFinalResult(const CaptureResult &result);
 
-  status_t ValideteCaptureParams(const ImageParam &image_param);
+  status_t ValidateCaptureParams(const ImageParam &image_param);
 
   std::string GetSnapshotJsonConfig();
+
+  bool IsRawOnly(const int32_t format);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -323,7 +328,8 @@ class CameraContext : public CameraInterface,
   std::vector<ImageThumbnail>   thumbnails_;
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
-  bool                          postproc_frame_skip_;
+  uint32_t                      postproc_frame_skip_;
+  bool                          exif_en_;
 };
 
 enum class CameraPortType {

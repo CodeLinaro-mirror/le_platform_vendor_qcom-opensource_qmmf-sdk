@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -28,9 +28,8 @@
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
-#ifdef USE_VENDOR_TAG_DESC
 #include <camera/VendorTagDescriptor.h>
-#endif
+#include <mutex>
 
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"
@@ -103,9 +102,9 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   int32_t OpenCamera(uint32_t idx);
   int32_t BeginConfigure() { return 0; }
-  int32_t EndConfigure(bool isConstrainedHighSpeed = false,
-                       bool isRawOnly = false, uint32_t batch_size = 1,
-                       bool is_pp_enabled = true);
+
+  int32_t EndConfigure(const StreamConfiguration& stream_config
+                       = StreamConfiguration());
 
   int32_t DeleteStream(int streamId, bool cache);
   int32_t CreateStream(const CameraStreamParameters &outputConfiguration);
@@ -177,10 +176,12 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
                            int32_t &maxJpegSizeHeight);
 
-  int32_t ConfigureStreams(bool isConstrainedHighSpeed = false,
-                           bool isRawOnly = false,
-                           uint32_t batch_size = 1,bool is_pp_enabled = true);
-  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true);
+  int32_t ConfigureStreams(const StreamConfiguration& stream_config
+                           = StreamConfiguration());
+
+  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true,
+                                 bool is_zzhdr_enabled = false,
+                                 uint32_t fps_index = 0);
 
   void SetErrorState(const char *fmt, ...);
   void SetErrorStateV(const char *fmt, va_list args);
@@ -268,6 +269,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
+  static std::mutex vendor_tag_mutex_;
 };
 
 }  // namespace cameraadaptor ends here

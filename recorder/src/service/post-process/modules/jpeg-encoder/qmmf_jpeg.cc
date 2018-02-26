@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -49,11 +49,11 @@ const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
 
 PostProcJpeg::PostProcJpeg()
     : jpeg_encoder_(nullptr),
-      image_quality_(95),
       state_(State::CREATED),
       abort_(nullptr) {
   QMMF_VERBOSE("%s: Enter", __func__);
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
+  jpeg_params_.image_quality = 95;
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -70,8 +70,9 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
 
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::INITIALIZED;
-
-  thumbnail_data_.clear();
+  image_width_ = out_param.width;
+  image_height_ = out_param.height;
+  jpeg_params_.thumbnail_data.clear();
 
   return NO_ERROR;
 }
@@ -123,6 +124,13 @@ status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
 
 status_t PostProcJpeg::Start(const int32_t stream_id) {
   QMMF_VERBOSE("%s: Enter %p", __func__, this);
+
+  auto ret = jpeg_encoder_->Init(image_width_, image_height_);
+  if (ret != 0) {
+    QMMF_ERROR("%s: failed to inint Jpeg Encoder", __func__);
+    return BAD_VALUE;
+  }
+
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::ACTIVE;
   return NO_ERROR;
@@ -130,6 +138,13 @@ status_t PostProcJpeg::Start(const int32_t stream_id) {
 
 status_t PostProcJpeg::Stop() {
   QMMF_INFO("%s: Enter %p", __func__, this);
+
+  auto ret = jpeg_encoder_->DeInit();
+  if (ret != 0) {
+    QMMF_ERROR("%s: failed to inint Jpeg Encoder", __func__);
+    return BAD_VALUE;
+  }
+
   std::lock_guard<std::mutex> lock(state_lock_);
   state_ = State::INITIALIZED;
   return NO_ERROR;
@@ -167,20 +182,20 @@ status_t PostProcJpeg::Configure(const std::string config_json_data) {
   if (!root.isMember("jpeg quality") || root["jpeg quality"].empty()) {
     QMMF_INFO("%s:no jpeg quality configuration", __func__);
   } else {
-    image_quality_ = root["jpeg quality"].asUInt();
+    jpeg_params_.image_quality = root["jpeg quality"].asUInt();
   }
 
   if (!root.isMember("thumbnail") || root["thumbnail"].empty()) {
     QMMF_INFO("%s:no thumbnail configuration", __func__);
   } else {
-    thumbnail_data_.clear();
+    jpeg_params_.thumbnail_data.clear();
     for (Json::Value::ArrayIndex i = 0; i < root["thumbnail"].size(); i++) {
       QMMF_INFO("%s:add thumbnail[%d] dim %dx%d quality %d", __func__, i,
           root["thumbnail"][i]["width"].asUInt(),
           root["thumbnail"][i]["height"].asUInt(),
           root["thumbnail"][i]["quality"].asUInt());
 
-      thumbnail_data_.emplace_back(
+      jpeg_params_.thumbnail_data.emplace_back(
           root["thumbnail"][i]["width"].asUInt(),
           root["thumbnail"][i]["height"].asUInt(),
           root["thumbnail"][i]["quality"].asUInt());
@@ -210,60 +225,23 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
     state_ = State::RUNING;
   }
 
-  void *buf_vaaddr = nullptr;
-  if (in_buffer.data == nullptr) {
-    buf_vaaddr = mmap(nullptr, in_buffer.size, PROT_READ  | PROT_WRITE,
-        MAP_SHARED, in_buffer.fd, 0);
-  } else {
-    buf_vaaddr = in_buffer.data;
+  jpeg_params_.img_data[0] = static_cast<uint8_t*>(in_buffer.data);
+  jpeg_params_.out_data[0] = static_cast<uint8_t*>(out_buffer.data);
+  jpeg_params_.source_info = in_buffer.info;
+
+  size_t jpeg_size;
+  auto ret = jpeg_encoder_->Encode(jpeg_params_, jpeg_size);
+  if (ret != 0) {
+    QMMF_ERROR("%s: Jpeg Encode fails", __func__);
   }
 
-  if (buf_vaaddr == MAP_FAILED) {
-      QMMF_ERROR("%s  ION mmap failed: %s (%d)", __func__,
-          strerror(errno), errno);
-  }
-
-  void *out_vaaddr = nullptr;
-  if (out_buffer.data == nullptr) {
-    out_vaaddr = mmap(nullptr, out_buffer.size, PROT_READ  | PROT_WRITE,
-        MAP_SHARED, out_buffer.fd, 0);
-  } else {
-    out_vaaddr = out_buffer.data;
-  }
-
-  if (out_vaaddr == MAP_FAILED) {
-      QMMF_ERROR("%s  ION mmap failed: %s (%d)", __func__,
-          strerror(errno), errno);
-  }
-
-  if (buf_vaaddr != MAP_FAILED && out_vaaddr != MAP_FAILED) {
-    size_t jpeg_size = 0;
-    jpeg_encoder_->in_buffer_.img_data[0] = (uint8_t*)buf_vaaddr;
-    jpeg_encoder_->in_buffer_.out_data[0] = (uint8_t*)out_vaaddr;
-    jpeg_encoder_->in_buffer_.source_info = in_buffer.info;
-    jpeg_encoder_->in_buffer_.image_quality = image_quality_;
-    jpeg_encoder_->in_buffer_.thumbnail_data = thumbnail_data_;
-    auto buf_vaddr = jpeg_encoder_->Encode(&jpeg_size);
-    if (!buf_vaddr) {
-      QMMF_VERBOSE("%s: Jpeg out buffer is NULL", __func__);
-    }
-
-    if (in_buffer.data == nullptr) {
-      munmap(buf_vaaddr, in_buffer.size);
-    }
-    if (out_buffer.data == nullptr) {
-      munmap(out_vaaddr, out_buffer.size);
-    }
-
-    out_buffer.info.format = BufferFormat::kBLOB;
-    out_buffer.info.plane_info[0].width = jpeg_size;
-    out_buffer.data = nullptr;
-    out_buffer.filled_length = jpeg_size;
-    out_buffer.timestamp = in_buffer.timestamp;
-
-  } else {
-    QMMF_VERBOSE("%s: SKIPP JPEG", __func__);
-  }
+  out_buffer.info.format = BufferFormat::kBLOB;
+  out_buffer.info.num_planes = 1;
+  out_buffer.info.plane_info[0].width = jpeg_size;
+  out_buffer.info.plane_info[0].height = 1;
+  out_buffer.second_thumb = (jpeg_params_.thumbnail_data.size() == 2);
+  out_buffer.filled_length = jpeg_size;
+  out_buffer.timestamp = in_buffer.timestamp;
 
   listener_->OnFrameReady(out_buffer);
   listener_->OnFrameProcessed(in_buffer);

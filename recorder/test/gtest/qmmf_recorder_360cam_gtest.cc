@@ -35,7 +35,6 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <math.h>
-#include <assert.h>
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #ifdef ANDROID_O_OR_ABOVE
@@ -122,14 +121,14 @@ void Recorder360Gtest::TearDown() {
 int32_t Recorder360Gtest::Init() {
 
   auto ret = recorder_.Connect(recorder_status_cb_);
-  assert(ret == NO_ERROR);
+  EXPECT_TRUE(ret == NO_ERROR);
   return ret;
 }
 
 int32_t Recorder360Gtest::DeInit() {
 
   auto ret = recorder_.Disconnect();
-  assert(ret == NO_ERROR);
+  EXPECT_TRUE(ret == NO_ERROR);
   return ret;
 }
 
@@ -154,16 +153,16 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE (ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -176,17 +175,17 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     sleep(2);
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -211,29 +210,29 @@ TEST_F(Recorder360Gtest, StartStopMultiCamera) {
 
   auto ret = Init();
 
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
     ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr,
                                          0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     sleep(2);
 
     ret = recorder_.StopCamera(multicam_id_);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
   }
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
@@ -257,16 +256,16 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -278,7 +277,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -293,16 +292,16 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -330,16 +329,16 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageConfigParam image_config;
   ImageThumbnail thumbnail;
@@ -357,7 +356,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
   image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   ret = recorder_.ConfigImageCapture(multicam_id_, image_config);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param;
   memset(&image_param, 0x0, sizeof image_param);
@@ -370,7 +369,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -385,16 +384,16 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
-    sleep(kDelayAfterSnapshot);
+    ASSERT_TRUE(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -420,16 +419,16 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -441,7 +440,7 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -456,16 +455,16 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -491,16 +490,16 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 1920;
@@ -512,7 +511,7 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -527,16 +526,16 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -562,16 +561,16 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 1440;
@@ -583,7 +582,7 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -598,16 +597,16 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -639,16 +638,16 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -662,8 +661,8 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             3840, /* Width */
                                             1920, /* Height */
@@ -682,30 +681,30 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -737,20 +736,20 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kJPEG;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -762,8 +761,8 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width, /* Width */
                                             stream_height,  /* Height */
@@ -777,7 +776,7 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -792,31 +791,31 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -848,16 +847,16 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -871,8 +870,8 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             1920, /* Width */
                                             960,  /* Height */
@@ -891,30 +890,30 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -946,16 +945,16 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -969,8 +968,8 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             1440, /* Width */
                                             720,  /* Height */
@@ -988,30 +987,30 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1045,16 +1044,16 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -1063,8 +1062,8 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   uint32_t track_4k_id = 1;
   uint32_t track_fullhd_id = 2;
 
@@ -1089,40 +1088,40 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     video_track_param.width  = 1920;
     video_track_param.height = 960;
 
     ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, track_4k_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, track_fullhd_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1154,20 +1153,20 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -1181,8 +1180,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -1200,7 +1199,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1215,31 +1214,31 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1271,20 +1270,20 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1920;
   uint32_t stream_height = 960;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -1298,8 +1297,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -1317,7 +1316,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1332,31 +1331,31 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1388,20 +1387,20 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1440;
   uint32_t stream_height = 720;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -1415,8 +1414,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -1435,7 +1434,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1450,31 +1449,31 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1506,7 +1505,7 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1440;
@@ -1514,14 +1513,14 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
   float fps = 120;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -1535,8 +1534,8 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -1555,7 +1554,7 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1570,31 +1569,31 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1628,7 +1627,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -1638,14 +1637,14 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -1655,8 +1654,8 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           3840,
                                           1920,
@@ -1682,7 +1681,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1698,7 +1697,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 1440x720 h264 encodded track.
     stream_width  = 1440;
@@ -1717,7 +1716,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1732,33 +1731,33 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -1792,7 +1791,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 3840;
   uint32_t stream_height = 1920;
@@ -1802,14 +1801,14 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -1819,8 +1818,8 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -1846,7 +1845,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -1862,7 +1861,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 960x480 h264 encodded track.
     stream_width  = 960;
@@ -1880,7 +1879,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1895,33 +1894,33 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -1955,7 +1954,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 1920;
   uint32_t stream_height = 960;
@@ -1965,14 +1964,14 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -1982,8 +1981,8 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -2009,7 +2008,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2025,7 +2024,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_HD,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 960x480 h264 encodded track.
     stream_width  = 960;
@@ -2043,7 +2042,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -2058,33 +2057,33 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_HD);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -2120,7 +2119,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 1920;
   uint32_t stream_height = 960;
@@ -2130,14 +2129,14 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -2147,8 +2146,8 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -2175,7 +2174,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     VideoExtraParam extra_param;
@@ -2197,7 +2196,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_HD,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 960x480 h264 encodded track.
     stream_width  = 960;
@@ -2216,7 +2215,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -2231,33 +2230,33 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_HD);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -2290,7 +2289,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 3840;
   uint32_t stream_height = 1920;
@@ -2299,14 +2298,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -2316,8 +2315,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -2360,7 +2359,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2376,42 +2375,42 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -2445,7 +2444,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 3840;
   uint32_t stream_height = 1920;
@@ -2455,14 +2454,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -2472,8 +2471,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -2521,7 +2520,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2537,7 +2536,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 2160x1080 YUV track.
     stream_width  = 2160;
@@ -2560,45 +2559,45 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -2634,7 +2633,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -2643,14 +2642,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
   uint32_t video_track_id_1080p = 2;
   VideoFormat format_type = VideoFormat::kAVC;
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -2660,8 +2659,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -2712,7 +2711,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2728,7 +2727,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 960x480 YUV track.
     stream_width  = 960;
@@ -2751,45 +2750,45 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -2826,7 +2825,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -2836,15 +2835,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -2854,8 +2853,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -2904,7 +2903,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2934,7 +2933,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -2958,45 +2957,45 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -3033,7 +3032,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -3044,15 +3043,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -3062,8 +3061,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -3112,7 +3111,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -3142,7 +3141,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 1920;
     stream_height = 960;
@@ -3167,45 +3166,45 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -3241,7 +3240,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -3253,15 +3252,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -3271,8 +3270,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           3840,
                                           1920,
@@ -3321,7 +3320,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -3339,22 +3338,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params{};
 
@@ -3370,9 +3369,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t privacy_mask_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_1);
 
     // 2. Create PrivacyMask type overlay.
@@ -3388,9 +3387,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t privacy_mask_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_2);
 
     // 3. Create PrivacyMask type overlay.
@@ -3406,9 +3405,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t privacy_mask_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_3);
 
     // 4. Create UserText type overlay.
@@ -3426,9 +3425,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_0;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_0);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_0);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_0);
 
     // 5. Create UserText type overlay.
@@ -3446,9 +3445,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_1);
 
     // 6. Create UserText type overlay.
@@ -3466,9 +3465,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_2);
 
     // 7. Create UserText type overlay.
@@ -3486,9 +3485,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_3);
 
     // 8. Create Static Image type overlay.
@@ -3502,10 +3501,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     object_params.dst_rect.height = 109;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &static_img_id);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // Apply overlay object on video track.
     ret = recorder_.SetOverlay(video_track_id_4k, static_img_id);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(static_img_id);
 
     // 9. Create UserText type overlay.
@@ -3523,9 +3522,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_4);
 
     // 10. Create UserText type overlay.
@@ -3543,9 +3542,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     uint32_t user_text_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_5);
 
     sleep(record_duration_);
@@ -3553,29 +3552,29 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -3611,7 +3610,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -3623,15 +3622,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -3641,8 +3640,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           3840,
                                           1920,
@@ -3691,7 +3690,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -3709,22 +3708,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -3763,10 +3762,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -3800,10 +3799,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -3837,10 +3836,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -3873,10 +3872,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -3909,10 +3908,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -3921,17 +3920,17 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -3943,13 +3942,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -3987,7 +3986,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -3999,15 +3998,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -4017,8 +4016,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -4068,7 +4067,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -4098,22 +4097,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -4130,9 +4129,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t privacy_mask_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_1);
 
     // 2. Create PrivacyMask type overlay.
@@ -4148,9 +4147,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t privacy_mask_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_2);
 
     // 3. Create PrivacyMask type overlay.
@@ -4166,9 +4165,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t privacy_mask_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &privacy_mask_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, privacy_mask_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(privacy_mask_id_3);
 
     // 4. Create UserText type overlay.
@@ -4186,9 +4185,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t user_text_id_0;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_0);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_0);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_0);
 
 
@@ -4207,9 +4206,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t user_text_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_1);
 
 
@@ -4228,9 +4227,9 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     uint32_t user_text_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &user_text_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     ret = recorder_.SetOverlay(video_track_id_4k, user_text_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(user_text_id_2);
 
     // 7. Create Static Image type overlay.
@@ -4244,10 +4243,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     object_params.dst_rect.height = 109;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &static_img_id);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // Apply overlay object on video track.
     ret = recorder_.SetOverlay(video_track_id_4k, static_img_id);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     overlay_ids_.push_back(static_img_id);
 
     sleep(record_duration_);
@@ -4255,29 +4254,29 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -4312,7 +4311,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -4323,15 +4322,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -4341,8 +4340,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -4392,7 +4391,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -4422,22 +4421,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -4476,10 +4475,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -4512,10 +4511,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -4549,10 +4548,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -4585,10 +4584,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -4621,10 +4620,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -4633,17 +4632,17 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -4655,13 +4654,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -4701,7 +4700,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -4714,15 +4713,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -4732,8 +4731,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -4783,7 +4782,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -4803,7 +4802,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
                                      video_track_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -4829,22 +4828,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -4883,10 +4882,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -4919,10 +4918,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -4955,10 +4954,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -4991,10 +4990,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -5027,10 +5026,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -5039,20 +5038,20 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     dump_bitstream_.CloseAll();
 
     free(image_buffer1);
@@ -5063,13 +5062,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -5111,7 +5110,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -5123,15 +5122,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -5141,8 +5140,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -5192,7 +5191,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -5222,7 +5221,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -5248,22 +5247,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -5302,10 +5301,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -5338,10 +5337,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -5374,10 +5373,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -5410,10 +5409,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -5446,10 +5445,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -5458,20 +5457,20 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     dump_bitstream_.CloseAll();
 
     free(image_buffer1);
@@ -5482,13 +5481,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -5530,7 +5529,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -5542,15 +5541,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -5560,8 +5559,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -5611,7 +5610,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -5641,7 +5640,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 1920;
     stream_height = 960;
@@ -5667,22 +5666,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -5721,10 +5720,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -5757,10 +5756,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -5793,10 +5792,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -5829,10 +5828,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -5865,10 +5864,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -5877,20 +5876,20 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     dump_bitstream_.CloseAll();
 
     free(image_buffer1);
@@ -5901,13 +5900,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -5943,7 +5942,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -5954,15 +5953,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -5972,8 +5971,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -6023,7 +6022,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -6053,7 +6052,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -6078,7 +6077,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 1920;
     stream_height = 960;
@@ -6104,46 +6103,46 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -6179,7 +6178,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -6191,15 +6190,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -6209,8 +6208,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -6260,7 +6259,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -6290,7 +6289,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -6331,7 +6330,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
                                     video_track_id_480p, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
     video_track_cb.data_cb = [&, session_id](
             uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6346,7 +6345,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
 
     stream_width = 1920;
@@ -6373,46 +6372,46 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -6454,7 +6453,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -6467,15 +6466,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -6485,8 +6484,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -6536,7 +6535,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -6566,7 +6565,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -6607,7 +6606,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                     video_track_id_480p, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6622,7 +6621,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 1920;
     stream_height = 960;
@@ -6648,22 +6647,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -6702,10 +6701,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -6738,10 +6737,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -6774,10 +6773,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -6810,10 +6809,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -6846,10 +6845,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -6858,23 +6857,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     dump_bitstream_.CloseAll();
 
     free(image_buffer1);
@@ -6885,13 +6884,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -6934,7 +6933,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -6947,15 +6946,15 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -6965,8 +6964,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -7016,7 +7015,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                     video_track_id_4k, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -7046,7 +7045,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 960;
     stream_height = 480;
@@ -7087,7 +7086,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
                                     video_track_id_480p, stream_width,
                                     stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -7102,7 +7101,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width = 1920;
     stream_height = 960;
@@ -7128,22 +7127,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -7182,10 +7181,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -7218,10 +7217,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -7254,10 +7253,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -7290,10 +7289,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -7326,10 +7325,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -7338,23 +7337,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     dump_bitstream_.CloseAll();
 
     free(image_buffer1);
@@ -7365,13 +7364,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -7413,18 +7412,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -7433,8 +7432,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -7480,7 +7479,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -7507,7 +7506,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_960p = 2;
@@ -7548,7 +7547,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -7565,7 +7564,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_960p  = 3;
@@ -7595,48 +7594,48 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_960p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -7679,18 +7678,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -7699,8 +7698,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -7745,7 +7744,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -7772,7 +7771,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_960p = 2;
@@ -7814,7 +7813,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -7831,7 +7830,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_960p  = 3;
@@ -7863,22 +7862,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_960p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -7917,10 +7916,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -7953,10 +7952,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -7989,10 +7988,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -8025,10 +8024,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -8061,10 +8060,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -8074,23 +8073,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -8102,13 +8101,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -8151,18 +8150,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
  std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 24;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -8171,8 +8170,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -8216,7 +8215,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -8243,7 +8242,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_960p = 2;
@@ -8285,7 +8284,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -8302,7 +8301,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_960p  = 3;
@@ -8332,22 +8331,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_960p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -8386,10 +8385,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -8422,10 +8421,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -8458,10 +8457,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -8494,10 +8493,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -8530,10 +8529,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -8543,23 +8542,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -8571,13 +8570,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -8620,18 +8619,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -8640,8 +8639,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -8686,7 +8685,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -8713,7 +8712,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_960p = 2;
@@ -8754,7 +8753,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -8771,7 +8770,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_960p  = 3;
@@ -8802,22 +8801,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_960p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -8856,10 +8855,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -8892,10 +8891,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -8928,10 +8927,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -8964,10 +8963,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -9000,10 +8999,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -9013,23 +9012,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -9041,13 +9040,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -9090,18 +9089,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
  std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 24;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -9110,8 +9109,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -9156,7 +9155,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -9183,7 +9182,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_960p = 2;
@@ -9224,7 +9223,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
        second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -9241,7 +9240,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_960p  = 3;
@@ -9272,22 +9271,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_960p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -9326,10 +9325,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -9362,10 +9361,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -9398,10 +9397,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -9434,10 +9433,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -9470,10 +9469,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -9483,23 +9482,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_960p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -9511,13 +9510,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -9560,18 +9559,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -9580,8 +9579,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -9626,7 +9625,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -9653,7 +9652,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_720p = 2;
@@ -9693,7 +9692,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -9710,7 +9709,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
@@ -9739,22 +9738,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -9793,10 +9792,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -9829,10 +9828,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -9865,10 +9864,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -9901,10 +9900,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -9937,10 +9936,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -9950,23 +9949,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -9978,13 +9977,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -10027,18 +10026,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -10047,8 +10046,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -10093,7 +10092,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -10120,7 +10119,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_720p = 2;
@@ -10162,7 +10161,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -10179,7 +10178,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
@@ -10208,22 +10207,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -10262,10 +10261,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -10298,10 +10297,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -10334,10 +10333,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -10370,10 +10369,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -10406,10 +10405,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -10419,23 +10418,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -10447,13 +10446,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -10496,18 +10495,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 30;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -10516,8 +10515,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -10562,7 +10561,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -10589,7 +10588,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t yuv_track_id_720p_src = 2;
@@ -10608,7 +10607,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -10625,7 +10624,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p_src,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
@@ -10654,22 +10653,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -10708,10 +10707,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -10744,10 +10743,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -10780,10 +10779,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -10816,10 +10815,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -10852,10 +10851,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -10865,23 +10864,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p_src);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -10893,13 +10892,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -10942,18 +10941,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
  std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 24;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -10962,8 +10961,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -11008,7 +11007,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -11035,7 +11034,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_720p = 2;
@@ -11076,7 +11075,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -11093,7 +11092,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      second_video_track_param, video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
@@ -11122,22 +11121,22 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p,
                                     video_track_param, extra_param_2,
                                     yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -11176,10 +11175,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -11212,10 +11211,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -11248,10 +11247,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -11284,10 +11283,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -11320,10 +11319,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -11333,23 +11332,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -11361,13 +11360,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -11412,18 +11411,18 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
  std::vector<uint32_t> overlay_ids_;
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = 24;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -11432,8 +11431,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -11477,7 +11476,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
         master_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -11504,7 +11503,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      master_video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Second Track
     uint32_t video_track_id_480p = 2;
@@ -11544,7 +11543,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
         second_video_track_param.height
       };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb2;
@@ -11567,7 +11566,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p,
                                     second_video_track_param, extra_param_2,
                                     video_track_cb2);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     //Third Track
     uint32_t yuv_track_id_720p  = 3;
@@ -11591,24 +11590,24 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     ret = recorder_.CreateVideoTrack(session_id, yuv_track_id_720p,
                                      video_track_param, yuv_track_cb3);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Turn TNR On (High Quality)
     uint8_t swtnr_enable = 2;
     ret = meta.update(ANDROID_NOISE_REDUCTION_MODE, &swtnr_enable, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     OverlayParam object_params;
 
@@ -11647,10 +11646,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_1;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_1);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_1);
 
@@ -11683,10 +11682,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_2;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_2);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_2);
 
@@ -11719,10 +11718,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_3;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_3);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_3);
 
@@ -11755,10 +11754,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_4;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_4);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_4);
 
@@ -11791,10 +11790,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t usertxt_blob_id_5;
     ret = recorder_.CreateOverlayObject(video_track_id_4k, object_params,
                                         &usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
 
     ret = recorder_.SetOverlay(video_track_id_4k, usertxt_blob_id_5);
-    assert(ret == 0);
+    ASSERT_TRUE(ret == 0);
     // One track can have multiple types of overlay.
     overlay_ids_.push_back(usertxt_blob_id_5);
 
@@ -11804,23 +11803,23 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     // Remove all overlays
     for (auto overlay_id : overlay_ids_) {
       ret = recorder_.RemoveOverlay(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
       ret = recorder_.DeleteOverlayObject(video_track_id_4k, overlay_id);
-      assert(ret == 0);
+      ASSERT_TRUE(ret == 0);
     }
     overlay_ids_.clear();
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
 
@@ -11832,13 +11831,13 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -11879,7 +11878,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width = 3840;
   uint32_t stream_height = 1920;
@@ -11889,14 +11888,14 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
   uint32_t video_track_id_4k = 2;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -11905,8 +11904,8 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
 
   uint32_t session_id_720p;
   ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
-  assert(session_id_720p > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id_720p > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -11932,12 +11931,12 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
 
   ret = recorder_.CreateVideoTrack(session_id_720p, video_track_id_720p,
                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t session_id_4k;
   ret = recorder_.CreateSession(session_status_cb, &session_id_4k);
-  assert(session_id_4k > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id_4k > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   // Set parameters for and create 3840x1920 h264 encodded track.
   stream_width  = 3840;
@@ -11957,7 +11956,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   video_track_cb.data_cb = [&, session_id_4k] (uint32_t track_id,
@@ -11971,10 +11970,10 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
 
   ret = recorder_.CreateVideoTrack(session_id_4k, video_track_id_4k,
                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -11982,39 +11981,39 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
         test_info_->name(), i);
 
     ret = recorder_.StartSession(session_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id_4k, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
   dump_bitstream_.CloseAll();
 
   sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id_720p, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id_4k, video_track_id_4k);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id_4k);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id_720p, video_track_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12055,7 +12054,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -12064,14 +12063,14 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
   uint32_t video_track_id_4k = 2;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -12080,8 +12079,8 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
   uint32_t session_id_720p;
   ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
-  assert(session_id_720p > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id_720p > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
 
   stream_width  = 1440;
@@ -12104,10 +12103,10 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
   ret = recorder_.CreateVideoTrack(session_id_720p, video_track_id_720p,
                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   // Set parameters for and create 3840x1920 h264 encodded track.
   stream_width  = 3840;
@@ -12120,8 +12119,8 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
     uint32_t session_id_4k;
     ret = recorder_.CreateSession(session_status_cb, &session_id_4k);
-    assert(session_id_4k > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id_4k > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     video_track_param.width         = stream_width;
     video_track_param.height        = stream_height;
@@ -12137,7 +12136,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -12152,23 +12151,23 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
     ret = recorder_.CreateVideoTrack(session_id_4k, video_track_id_4k,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id_4k, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id_4k, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
@@ -12176,19 +12175,19 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
   sleep(record_duration_);
 
   ret = recorder_.StopSession(session_id_720p, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id_720p, video_track_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id_720p);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12214,18 +12213,18 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -12237,7 +12236,7 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -12252,16 +12251,16 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12287,18 +12286,18 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 3840;
@@ -12310,7 +12309,7 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -12325,16 +12324,16 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12360,18 +12359,18 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 1920;
@@ -12383,7 +12382,7 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -12398,16 +12397,16 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12433,18 +12432,18 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 1440;
@@ -12456,7 +12455,7 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -12471,16 +12470,16 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12512,18 +12511,18 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -12537,8 +12536,8 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             3840,
@@ -12559,30 +12558,30 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12614,18 +12613,18 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -12639,8 +12638,8 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             1920,
                                             960,
@@ -12659,30 +12658,30 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12714,18 +12713,18 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -12739,8 +12738,8 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             1440,
                                             720,
@@ -12760,30 +12759,30 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12817,18 +12816,18 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -12837,8 +12836,8 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   uint32_t track_4k_id = 1;
   uint32_t track_fullhd_id = 2;
 
@@ -12863,7 +12862,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, track_4k_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     video_track_param.width  = 1920;
     video_track_param.height = 960;
@@ -12873,33 +12872,33 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
          VideoTrackYUVTwoDataCb(session_id, track_id, buffers, meta_buffers); };
     ret = recorder_.CreateVideoTrack(session_id, track_fullhd_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, track_4k_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, track_fullhd_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -12930,22 +12929,22 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -12959,8 +12958,8 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -12978,7 +12977,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -12993,31 +12992,31 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13048,22 +13047,22 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1920;
   uint32_t stream_height = 960;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13077,8 +13076,8 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -13096,7 +13095,7 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13111,31 +13110,31 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13166,22 +13165,22 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1440;
   uint32_t stream_height = 720;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13195,8 +13194,8 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -13214,7 +13213,7 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13229,31 +13228,31 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13285,7 +13284,7 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1440;
@@ -13293,15 +13292,15 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
   float fps = 120;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13315,8 +13314,8 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -13334,7 +13333,7 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13349,31 +13348,31 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13407,7 +13406,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -13417,15 +13416,15 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_start_params_.frame_rate = stream_fps;
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb =
@@ -13435,8 +13434,8 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           3840,
                                           1920,
@@ -13463,7 +13462,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13479,7 +13478,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set parameters for and create 1440x720 h264 encodded track.
     stream_width  = 1440;
@@ -13498,7 +13497,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -13513,33 +13512,33 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
                                      video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
@@ -13572,21 +13571,21 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 2160;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13600,8 +13599,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -13619,7 +13618,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13645,31 +13644,31 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13702,18 +13701,18 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13727,8 +13726,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kYUV,
                                             3840,
@@ -13758,45 +13757,45 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
     int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
 
     ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
                            crop_x, crop_y, crop_w, crop_h);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13829,22 +13828,22 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 2160;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -13858,8 +13857,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -13878,7 +13877,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -13904,45 +13903,45 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
     int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
 
     ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
                            crop_x, crop_y, crop_w, crop_h);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -13976,7 +13975,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -13985,15 +13984,15 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
   uint32_t video_track_id_wxga = 2;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14007,8 +14006,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width  = 3840;
     stream_height = 2160;
@@ -14028,7 +14027,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14055,7 +14054,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width  = 1280;
     stream_height = 640;
@@ -14084,35 +14083,35 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_wxga);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14146,7 +14145,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t stream_width;
   uint32_t stream_height;
@@ -14155,15 +14154,15 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
   uint32_t video_track_id_wxga = 2;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   multicam_type_ = MultiCameraConfigType::kSideBySide;
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
                                           3840,
@@ -14182,8 +14181,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width  = 3840;
     stream_height = 2160;
@@ -14201,7 +14200,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14228,7 +14227,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     stream_width  = 1280;
     stream_height = 640;
@@ -14254,49 +14253,49 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_wxga,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     int32_t sensor_mode_width = 3040, sensor_mode_height = 3040;
     int32_t crop_x = 243, crop_y = 243, crop_w = 2554, crop_h = 2554;
 
     ret = FillCropMetadata(meta, sensor_mode_width, sensor_mode_height,
                            crop_x, crop_y, crop_w, crop_h);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_wxga);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14339,21 +14338,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
     ANDROID_CONTROL_AWB_MODE_SHADE,
   };
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14367,8 +14366,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -14387,7 +14386,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14402,14 +14401,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     for (auto p : WbModes) {
       uint8_t awb_mode;
@@ -14417,84 +14416,84 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
         case ANDROID_CONTROL_AWB_MODE_AUTO:
           awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_AUTO\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_INCANDESCENT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_INCANDESCENT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_FLUORESCENT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_FLUORESCENT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_FLUORESCENT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_DAYLIGHT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_DAYLIGHT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_DAYLIGHT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_TWILIGHT:
           awb_mode = ANDROID_CONTROL_AWB_MODE_TWILIGHT;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_TWILIGHT\n");
           break;
         case ANDROID_CONTROL_AWB_MODE_SHADE:
           awb_mode = ANDROID_CONTROL_AWB_MODE_SHADE;
           ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "WB mode switched to "
               "ANDROID_CONTROL_AWB_MODE_SHADE\n");
           break;
         default:
-          assert(0);
+          ASSERT_TRUE(0);
       }
 
       ret = recorder_.SetCameraParam(multicam_id_, meta);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
       sleep(kDelayAfterSnapshot);
     }
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14526,21 +14525,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14554,8 +14553,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -14575,7 +14574,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14590,44 +14589,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_AUTO;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_AUTO\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14659,21 +14658,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14687,8 +14686,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -14706,7 +14705,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14721,44 +14720,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_INCANDESCENT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_INCANDESCENT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14790,21 +14789,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14818,8 +14817,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -14837,7 +14836,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14852,44 +14851,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_FLUORESCENT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_FLUORESCENT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -14921,21 +14920,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -14949,8 +14948,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -14969,7 +14968,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -14984,44 +14983,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15053,21 +15052,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15081,8 +15080,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -15101,7 +15100,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15116,44 +15115,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_DAYLIGHT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_DAYLIGHT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15185,21 +15184,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15213,8 +15212,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15232,7 +15231,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15247,44 +15246,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15316,21 +15315,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15344,8 +15343,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15363,7 +15362,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15378,44 +15377,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_TWILIGHT;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_TWILIGHT\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15447,21 +15446,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15475,8 +15474,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15494,7 +15493,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15509,44 +15508,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t awb_mode;
     awb_mode = ANDROID_CONTROL_AWB_MODE_SHADE;
     ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "WB mode switched to "
         "ANDROID_CONTROL_AWB_MODE_SHADE\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15586,21 +15585,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
   };
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15614,8 +15613,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15633,7 +15632,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15648,14 +15647,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     for (auto p : AEAntiBandingModes) {
       uint8_t ae_mode;
@@ -15663,56 +15662,56 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
         case ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF:
           ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
           ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "AE mode switched to "
               "ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF\n");
           break;
         case ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ:
           ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ;
           ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "AE mode switched to "
               "ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ\n");
           break;
         case ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ:
           ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ;
           ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "AE mode switched to "
               "ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ\n");
           break;
         case ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO:
           ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
           ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "AE mode switched to "
               "ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO\n");
           break;
         default:
-          assert(0);
+          ASSERT_TRUE(0);
       }
 
       ret = recorder_.SetCameraParam(multicam_id_, meta);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
       sleep(kDelayAfterSnapshot);
     }
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15744,21 +15743,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15772,8 +15771,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15791,7 +15790,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15806,44 +15805,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t ae_mode;
     ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
     ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "AE mode switched to "
         "ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -15875,21 +15874,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -15903,8 +15902,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -15922,7 +15921,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -15937,44 +15936,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t ae_mode;
     ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ;
     ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "AE mode switched to "
         "ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16006,21 +16005,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16034,8 +16033,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16053,7 +16052,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16068,44 +16067,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t ae_mode;
     ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ;
     ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "AE mode switched to "
         "ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16137,21 +16136,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16165,8 +16164,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16184,7 +16183,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16199,44 +16198,44 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     uint8_t ae_mode;
     ae_mode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
     ret = meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &ae_mode, 1);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "AE mode switched to "
         "ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO\n");
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16278,21 +16277,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
   };
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16306,8 +16305,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16325,7 +16324,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16340,14 +16339,14 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     int32_t use_exp_priority = 0;
     ret = meta.update(QCAMERA3_SELECT_PRIORITY, &use_exp_priority, 4);
@@ -16358,70 +16357,70 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
         case QCAMERA3_ISO_MODE_AUTO:
           iso_mode = QCAMERA3_ISO_MODE_AUTO;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_AUTO\n");
           break;
         case QCAMERA3_ISO_MODE_100:
           iso_mode = QCAMERA3_ISO_MODE_100;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_100\n");
           break;
         case QCAMERA3_ISO_MODE_200:
           iso_mode = QCAMERA3_ISO_MODE_200;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_200\n");
           break;
         case QCAMERA3_ISO_MODE_400:
           iso_mode = QCAMERA3_ISO_MODE_400;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_400\n");
           break;
         case QCAMERA3_ISO_MODE_800:
           iso_mode = QCAMERA3_ISO_MODE_800;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_800\n");
           break;
         case QCAMERA3_ISO_MODE_1600:
           iso_mode = QCAMERA3_ISO_MODE_1600;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_1600\n");
           break;
         case QCAMERA3_ISO_MODE_3200:
           iso_mode = QCAMERA3_ISO_MODE_3200;
           ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-          assert(ret == NO_ERROR);
+          ASSERT_TRUE(ret == NO_ERROR);
           fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_3200\n");
           break;
         default:
-          assert(0);
+          ASSERT_TRUE(0);
       }
 
       ret = recorder_.SetCameraParam(multicam_id_, meta);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
       sleep(kDelayAfterSnapshot);
     }
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16453,21 +16452,21 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16481,8 +16480,8 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16500,7 +16499,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16515,10 +16514,10 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -16529,31 +16528,31 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_AUTO;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_AUTO\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16585,21 +16584,21 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16613,8 +16612,8 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16632,7 +16631,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16647,10 +16646,10 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -16661,31 +16660,31 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_100;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_100\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16717,21 +16716,21 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16745,8 +16744,8 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16764,7 +16763,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16779,10 +16778,10 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -16793,31 +16792,31 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_200;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_200\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16849,21 +16848,21 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -16877,8 +16876,8 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -16896,7 +16895,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -16911,10 +16910,10 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -16925,31 +16924,31 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_400;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_400\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -16981,21 +16980,21 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -17009,8 +17008,8 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -17028,7 +17027,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -17043,10 +17042,10 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -17057,31 +17056,31 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_800;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_800\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -17113,21 +17112,21 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -17141,8 +17140,8 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
                                             stream_height,
@@ -17161,7 +17160,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -17176,10 +17175,10 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -17190,31 +17189,31 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_1600;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_1600\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -17246,21 +17245,21 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -17274,8 +17273,8 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                             stream_width,
@@ -17294,7 +17293,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -17309,10 +17308,10 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                       video_track_param, video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(multicam_id_, meta);
@@ -17323,31 +17322,31 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     int64_t iso_mode;
     iso_mode = QCAMERA3_ISO_MODE_3200;
     ret = meta.update(QCAMERA3_USE_ISO_EXP_PRIORITY, &iso_mode, 8);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(multicam_id_, meta);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     fprintf(stderr, "ISO mode switched to QCAMERA3_ISO_MODE_3200\n");
 
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
@@ -17379,21 +17378,21 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 3840;
   uint32_t stream_height = 1920;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -17402,8 +17401,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
@@ -17422,7 +17421,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -17437,10 +17436,10 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                     video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -17452,7 +17451,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -17467,25 +17466,25 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
@@ -17518,21 +17517,21 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1920;
   uint32_t stream_height = 960;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -17541,8 +17540,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
@@ -17561,7 +17560,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -17576,10 +17575,10 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                     video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -17591,7 +17590,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -17606,25 +17605,25 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
@@ -17657,21 +17656,21 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 1440;
   uint32_t stream_height = 720;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -17680,8 +17679,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
                                           stream_height,
@@ -17699,7 +17698,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -17714,10 +17713,10 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                     video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -17729,7 +17728,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -17744,25 +17743,25 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
@@ -17795,21 +17794,21 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 960;
   uint32_t stream_height = 480;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -17818,8 +17817,8 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
@@ -17838,7 +17837,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -17853,10 +17852,10 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                     video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -17868,7 +17867,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -17883,25 +17882,25 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
@@ -17937,21 +17936,21 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
       test_info_->test_case_name(),test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kYUV;
   uint32_t stream_width  = 960;
   uint32_t stream_height = 480;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_,
                                        nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
  SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
@@ -17960,8 +17959,8 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
@@ -17980,7 +17979,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
       stream_width,
       stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -17995,10 +17994,10 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
   image_param.width         = 6080;
@@ -18010,7 +18009,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(multicam_id_, meta);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   meta_array.push_back(meta);
 
@@ -18025,31 +18024,31 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
     sleep(kDelayAfterSnapshot);
 
     // Call CancelCaptureImage every 5th capture.
     if ((i % 5) == 0) {
       ret = recorder_.CancelCaptureImage(multicam_id_);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
   }
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
@@ -18077,24 +18076,24 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
           test_info_->test_case_name(), test_info_->name());
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width = 960;
   uint32_t stream_height = 480;
 
   ret = recorder_.CreateMultiCamera(camera_ids_, &multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret =
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   CameraResultCb result_cb = [&](uint32_t camera_id,
                                  const CameraMetadata &result) {
     CameraResultCallbackHandler(camera_id, result);
   };
   ret = recorder_.StartCamera(multicam_id_, multicam_start_params_, result_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -18104,8 +18103,8 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
-  assert(session_id > 0);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, format_type,
                                           stream_width,
@@ -18121,7 +18120,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
     Stream360DumpInfo dumpinfo = {video_track_param.format_type, video_track_id,
                                   stream_width, stream_height};
     ret = dump_bitstream_.SetUp(dumpinfo);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   TrackCb video_track_cb;
@@ -18138,27 +18137,27 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                    video_track_param, video_track_cb);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   sleep(10);
 
   ret = recorder_.StopSession(session_id, false);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(multicam_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   dump_bitstream_.CloseAll();
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
@@ -18254,7 +18253,7 @@ void Recorder360Gtest::VideoTrackYUVTwoDataCb(uint32_t session_id,
 
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   TEST_DBG("%s: Exit", __func__);
 }
 
@@ -18301,7 +18300,7 @@ void Recorder360Gtest::VideoTrackYUVDataCb(uint32_t session_id,
 
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
   TEST_DBG("%s: Exit", __func__);
 }
 
@@ -18317,7 +18316,7 @@ void Recorder360Gtest::VideoTrackOneEncDataCb(uint32_t session_id,
   }
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   TEST_DBG("%s: Exit", __func__);
 }
@@ -18334,7 +18333,7 @@ void Recorder360Gtest::VideoTrackTwoEncDataCb(uint32_t session_id,
   }
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   TEST_DBG("%s: Exit", __func__);
 }
@@ -18351,7 +18350,7 @@ void Recorder360Gtest::VideoTrackThreeEncDataCb(uint32_t session_id,
   }
   // Return buffers back to service.
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   TEST_DBG("%s: Exit", __func__);
 }
@@ -18406,6 +18405,9 @@ void Recorder360Gtest::SnapshotCb(uint32_t camera_id,
         break;
         case BufferFormat::kBLOB:
         ext_str = "jpg";
+        break;
+        case BufferFormat::kRAW8:
+        ext_str = "raw8";
         break;
         case BufferFormat::kRAW10:
         ext_str = "raw10";
@@ -18505,10 +18507,10 @@ status_t Recorder360Gtest::DrawOverlay(void *data, int32_t width, int32_t height
                                                     (data),
                                                     CAIRO_FORMAT_ARGB32, width,
                                                     height, width * 4);
-  assert (cr_surface_ != nullptr);
+  EXPECT_TRUE(cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
-  assert (cr_context_ != nullptr);
+  EXPECT_TRUE(cr_context_ != nullptr);
 
   uint32_t mask_color_ = 0x189BF2FF;
   RGBAValues mask_color;
@@ -18518,7 +18520,7 @@ status_t Recorder360Gtest::DrawOverlay(void *data, int32_t width, int32_t height
   cairo_set_source_rgba (cr_context_, mask_color.red, mask_color.green,
                          mask_color.blue, mask_color.alpha);
   cairo_paint(cr_context_);
-  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush (cr_surface_);
 
 #endif
@@ -18537,8 +18539,8 @@ void Recorder360Gtest::ExtractColorValues(uint32_t hex_color, RGBAValues* color)
 status_t Dump360BitStream::SetUp(const Stream360DumpInfo& dumpinfo) {
 
   TEST_DBG("%s: Enter", __func__);
-  assert(dumpinfo.width > 0);
-  assert(dumpinfo.height > 0);
+  EXPECT_TRUE(dumpinfo.width > 0);
+  EXPECT_TRUE(dumpinfo.height > 0);
 
   const char* type_string;
   switch (dumpinfo.format) {
@@ -18578,7 +18580,7 @@ status_t Dump360BitStream::Dump(const std::vector<BufferDescriptor>& buffers,
                                 const int32_t file_fd) {
 
   TEST_DBG("%s: Enter", __func__);
-  assert(file_fd > 0);
+  EXPECT_TRUE(file_fd > 0);
 
   for (auto& iter : buffers) {
     uint32_t exp_size = iter.size;

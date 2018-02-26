@@ -82,7 +82,7 @@ class PostProcFrameSkip : public IPostProcModule {
      ABORTED
    };
 
-   bool SkipFrame(void);
+   bool SkipFrame(StreamBuffer& buf);
 
    IPostProcEventListener         *Listener_;
 
@@ -90,7 +90,8 @@ class PostProcFrameSkip : public IPostProcModule {
    State                          state_;
 
    uint32_t                       frame_skip_;
-   uint32_t                       frame_counter_;
+   float                          frame_duration_;
+   int64_t                        last_timestamp_;
 
 };
 

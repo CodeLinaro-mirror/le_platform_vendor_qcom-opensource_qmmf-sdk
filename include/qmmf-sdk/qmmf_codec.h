@@ -39,7 +39,7 @@ namespace qmmf {
 
 typedef int32_t CodecId;
 
-#define MAX_PLANE 3
+#define MAX_PLANE 8
 #define QMMF_ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
 enum class CodecType {
@@ -72,6 +72,7 @@ enum class VideoFormat {
   kAVC,
   kYUV,
   kJPEG,
+  kBayerRDI8BIT,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
   kBayerIdeal,
@@ -90,6 +91,7 @@ enum class CodecParamType {
   kDecodeOperatingRate,
   kEnableFrameRepeat,
   kVQZipInfo,
+  kJPEGQuality,
 };
 
 enum class AVCProfileType {
@@ -394,6 +396,7 @@ union VideoCodecParams {
         stream << "avc[" << avc.ToString() << "]";
         break;
       case VideoFormat::kYUV:
+      case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
       case VideoFormat::kBayerIdeal:
@@ -498,6 +501,7 @@ enum class ImageFormat {
   kJPEG,
   kNV12,
   kBayerIdeal,
+  kBayerRDI8BIT,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
 };
@@ -514,6 +518,8 @@ struct PlaneInfo {
   uint32_t scanline;
   uint32_t width;
   uint32_t height;
+  uint32_t offset; //offset in bytes
+  uint32_t size;   // size of plane
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -521,6 +527,8 @@ struct PlaneInfo {
     stream << "scanline[" << scanline << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "]";
+    stream << "offset[" << offset << "] ";
+    stream << "size[" << size << "]";
     return stream.str();
   }
 };
@@ -530,6 +538,7 @@ enum class BufferFormat {
   kNV12UBWC,
   kNV21,
   kBLOB,
+  kRAW8,
   kRAW10,
   kRAW12,
   kRAW16,

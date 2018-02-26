@@ -13,7 +13,6 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_CFLAGS += -DENABLE_360=1
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
@@ -38,7 +37,9 @@ LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
+ifeq ($(ENABLE_360),1)
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
+endif
 ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc

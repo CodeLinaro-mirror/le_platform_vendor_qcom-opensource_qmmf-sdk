@@ -56,7 +56,7 @@ Camera3SmoothZoom::Camera3SmoothZoom()
   crop_current_ = {};
 
   char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.zoom.step", prop_val, "0.0");
+  property_get("persist.qmmf.zoom.step", prop_val, "0.1");
   zoom_step_size_ = atof(prop_val);
 }
 

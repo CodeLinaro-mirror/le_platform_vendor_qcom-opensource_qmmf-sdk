@@ -649,6 +649,7 @@ int32_t CameraRescalerThread::Run(const std::string &name) {
     goto exit;
   }
 
+  abort_ = false;
   running_ = true;
   thread_ = new std::thread(MainLoop, this);
   if (thread_ == nullptr) {

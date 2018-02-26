@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -20,7 +20,6 @@
  */
 
 #define LOG_TAG "CameraAdaptor"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -37,6 +36,11 @@
 #include <QCamera3VendorTags.h>
 #endif
 
+#ifdef DISABLE_OP_MODES
+#define QCAMERA3_SENSORMODE_ZZHDR_OPMODE 0xf002
+#define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX 0x0
+#endif
+
 // Convenience macros for transitioning to the error state
 #define SET_ERR(fmt, ...) \
   SetErrorState("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
@@ -44,17 +48,13 @@
   SetErrorStateLocked("%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
 using namespace qcamera;
 
-#ifndef USE_VENDOR_TAG_DESC
-extern "C" {
-extern int set_camera_metadata_vendor_ops(const vendor_tag_ops_t *query_ops);
-}
-#endif
-
 uint32_t qmmf_log_level;
 
 namespace qmmf {
 
 namespace cameraadaptor {
+
+std::mutex Camera3DeviceClient::vendor_tag_mutex_;
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -133,13 +133,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     alloc_device_interface_ = nullptr;
   }
 
-#ifndef USE_VENDOR_TAG_DESC
-  if (camera_module_->get_vendor_tag_ops) {
-    set_camera_metadata_vendor_ops(nullptr);
-  }
-#else
   VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-#endif
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -183,12 +177,10 @@ int32_t Camera3DeviceClient::Initialize() {
   }
 
   if (camera_module_->get_vendor_tag_ops) {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     vendor_tag_ops_ = vendor_tag_ops_t();
     camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
 
-#ifndef USE_VENDOR_TAG_DESC
-    res = set_camera_metadata_vendor_ops(&vendor_tag_ops_);
-#else
     sp<VendorTagDescriptor> vendor_tag_desc;
     res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
                                                        vendor_tag_desc);
@@ -202,7 +194,7 @@ int32_t Camera3DeviceClient::Initialize() {
 
     // Set the global descriptor to use with camera metadata
     res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
-#endif
+
     if (0 != res) {
       QMMF_ERROR(
           "%s: Could not set vendor tag descriptor, "
@@ -246,9 +238,7 @@ exit:
     alloc_device_interface_ = nullptr;
   }
 
-#ifdef USE_VENDOR_TAG_DESC
   VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-#endif
 
   if (NULL != camera_module_) {
     dlclose(camera_module_->common.dso);
@@ -380,39 +370,47 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::EndConfigure(bool isConstrainedHighSpeed,
-                                          bool isRawOnly, uint32_t batch_size,
-                                          bool is_pp_enabled) {
+int32_t Camera3DeviceClient::EndConfigure(const StreamConfiguration& stream_config) {
+
   if (NULL == camera_module_) {
     return -ENODEV;
   }
 
-  if (isConstrainedHighSpeed && !is_hfr_supported_) {
+  if (stream_config.is_constrained_high_speed && !is_hfr_supported_) {
     QMMF_ERROR("%s: HFR mode is not supported by this camera!\n", __func__);
     return -EINVAL;
   }
 
-  return ConfigureStreams(isConstrainedHighSpeed, isRawOnly, batch_size, is_pp_enabled);
+  return ConfigureStreams(stream_config);
+
 }
 
-int32_t Camera3DeviceClient::ConfigureStreams(bool isConstrainedHighSpeed,
-                                              bool isRawOnly,
-                                              uint32_t batch_size,
-                                              bool is_pp_enabled) {
+int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_config) {
+
   pthread_mutex_lock(&lock_);
 
-  hfr_mode_enabled_ = isConstrainedHighSpeed;
-  is_raw_only_ = isRawOnly;
-  batch_size_ = batch_size;
+  hfr_mode_enabled_ = stream_config.is_constrained_high_speed;
+  is_raw_only_ = stream_config.is_raw_only;
+  batch_size_ = stream_config.batch_size;
 
-  bool res = ConfigureStreamsLocked(is_pp_enabled);
+  bool is_pp_enabled = true;
+  bool is_zzhdr_enabled = false;
+  if (stream_config.params) {
+    is_pp_enabled = stream_config.params->is_pp_enabled;
+    is_zzhdr_enabled = stream_config.params->is_zzhdr_enabled;
+  }
+
+  bool res = ConfigureStreamsLocked(is_pp_enabled, is_zzhdr_enabled,
+                                    stream_config.fps_sensormode_index);
 
   pthread_mutex_unlock(&lock_);
 
   return res;
 }
 
-int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
+int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled,
+                                                    bool is_zzhdr_enabled,
+                                                    uint32_t fps_index) {
   status_t res;
 
   if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
@@ -441,7 +439,18 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   }
 #else
   config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
+
+  if (is_zzhdr_enabled == true) {
+    config.operation_mode = QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+  }
+
+  // Setting OpMode for 60fps, which is index of 60fps in sensor mode table
+  if (fps_index > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
+    config.operation_mode |= (fps_index << 16);
+    QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, config.operation_mode);
+  }
 #endif
+
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
@@ -1539,7 +1548,6 @@ int32_t Camera3DeviceClient::SubmitRequestList(std::list<Camera3Request> request
         input_stream_idx = i;
         continue;
       }
-
       Camera3Stream *stream = streams_.valueFor(request_stream_id[i]);
 
       if (NULL == stream) {
