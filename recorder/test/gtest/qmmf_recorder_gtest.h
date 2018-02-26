@@ -47,6 +47,10 @@
 #include <cairo/cairo.h>
 #endif
 
+#ifdef ANDROID_O_OR_ABOVE
+#include <camera/VendorTagDescriptor.h>
+#endif
+
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
@@ -90,6 +94,7 @@ struct FaceInfo {
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
 #define DEFAULT_BURST_COUNT         "30"
+#define IMAGE_QUALITY               "95"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
@@ -128,6 +133,22 @@ struct FaceInfo {
 // Prop to determine whether to create or delete session
 #define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
+// Prop to set JPEG Quality
+#define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
+
+#ifdef ANDROID_O_OR_ABOVE
+enum ISOModes : int64_t {
+  kISOModeAuto = 0,
+  kISOModeDeblur,
+  kISOMode100,
+  kISOMode200,
+  kISOMode400,
+  kISOMode800,
+  kISOMode1600,
+  kISOMode3200,
+  kISOModeEnd
+};
+#endif
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
@@ -277,6 +298,14 @@ class RecorderGtest : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+#ifdef ANDROID_O_OR_ABOVE
+  bool VendorTagSupported(const String8& name, const String8& section,
+                          uint32_t* tag_id);
+
+  bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
+                             const String8& section, uint32_t* tag_id);
+#endif
+
   Recorder              recorder_;
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
@@ -288,8 +317,10 @@ class RecorderGtest : public ::testing::Test {
   SFDisplaySink         *sfdisplay_;
   bool                  use_sf_;
 #endif
+
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
+
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
 
   status_t DrawOverlay(void *data, int32_t width, int32_t height);
@@ -349,6 +380,7 @@ class RecorderGtest : public ::testing::Test {
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
   uint32_t              burst_image_count_;
+  uint32_t              default_jpeg_quality_;
   std::mutex            error_lock_;
   bool                  camera_error_;
 
@@ -368,6 +400,10 @@ class RecorderGtest : public ::testing::Test {
   SurfaceBuffer         gfx_surface_buffer_;
   SurfaceConfig         gfx_surface_config_;
 
+#endif
+
+#ifdef ANDROID_O_OR_ABOVE
+  sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
 
   struct TestEventWait {
@@ -406,6 +442,5 @@ class RecorderGtest : public ::testing::Test {
       return NO_ERROR;
     }
   } test_wait_;
-
 };
 

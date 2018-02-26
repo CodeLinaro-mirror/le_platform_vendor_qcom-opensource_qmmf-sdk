@@ -39,6 +39,7 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       toggle_pause_state_(false),
       paused_state_(true),
       current_frame_number_(0),
+      current_input_frame_number_(0),
       streaming_last_frame_number_(NO_IN_FLIGHT_REPEATING_FRAMES),
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
@@ -359,8 +360,11 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
 
       streaming_last_frame_number_ =
           current_frame_number_ + requests.size() - 1;
-      found = true;
 
+      nextRequest.resultExtras.frameNumber = current_frame_number_;
+      current_frame_number_++;
+
+      found = true;
       break;
     }
 
@@ -378,9 +382,28 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
   }
 
   if (!found) {
+    RequestList::iterator reproc_request = requests_.begin();
+    for (; reproc_request != requests_.end(); reproc_request++) {
+      if (reproc_request->input) {
+        nextRequest = *reproc_request;
+        requests_.erase(reproc_request);
+
+        nextRequest.resultExtras.frameNumber = current_input_frame_number_;
+        current_input_frame_number_++;
+
+        found = true;
+        break;
+      }
+    }
+  }
+
+  if (!found) {
     RequestList::iterator firstRequest = requests_.begin();
     nextRequest = *firstRequest;
     requests_.erase(firstRequest);
+
+    nextRequest.resultExtras.frameNumber = current_frame_number_;
+    current_frame_number_++;
   }
 
   pthread_mutex_lock(&pause_lock_);
@@ -394,9 +417,6 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
     ClearCaptureRequest(old_request_);
     configuration_update_ = false;
   }
-
-  nextRequest.resultExtras.frameNumber = current_frame_number_;
-  current_frame_number_++;
 
   current_request_ = nextRequest;
   request = nextRequest;

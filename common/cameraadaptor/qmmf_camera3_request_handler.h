@@ -112,6 +112,7 @@ class Camera3RequestHandler : public Camera3Thread {
   pthread_cond_t pause_state_signal_;
 
   uint32_t current_frame_number_;
+  uint32_t current_input_frame_number_;
   int64_t streaming_last_frame_number_;
 
   Camera3Monitor &monitor_;

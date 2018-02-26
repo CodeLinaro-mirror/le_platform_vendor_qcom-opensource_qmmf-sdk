@@ -39,7 +39,10 @@ class TranscoderPipe : public ::std::enable_shared_from_this<TranscoderPipe> {
   TranscoderPipe(const TranscodeType track_type);
   ~TranscoderPipe();
 
-  status_t PreparePipeline();
+  status_t PreparePipeline(const uint32_t source_width,
+                           const uint32_t source_height,
+                           const uint32_t sink_width,
+                           const uint32_t sink_height);
   status_t RemovePipe();
 
   void ReleaseResources() {
@@ -68,6 +71,7 @@ class TranscoderPipe : public ::std::enable_shared_from_this<TranscoderPipe> {
    public:
     TranscoderPipeIn(const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& arg,
                      const ::std::shared_ptr<TranscoderPipe>& parent,
+                     const uint32_t width, const uint32_t height,
                      const CodecType type);
     ~TranscoderPipeIn();
 
@@ -94,6 +98,8 @@ class TranscoderPipe : public ::std::enable_shared_from_this<TranscoderPipe> {
     const uint32_t                               port_index_;
     ::std::mutex                                 wait_for_frame_mutex_;
     ::std::condition_variable                    wait_for_frame_;
+    uint32_t                                     width_;
+    uint32_t                                     height_;
     CodecType                                    codec_type_;
     FramerateCalculator*                         fps_clr_input_side_;
     FramerateCalculator*                         fps_clr_output_side_;
@@ -105,6 +111,7 @@ class TranscoderPipe : public ::std::enable_shared_from_this<TranscoderPipe> {
    public:
     TranscoderPipeOut(const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& arg,
                       const ::std::shared_ptr<TranscoderPipe>& parent,
+                      const uint32_t width, const uint32_t height,
                       const CodecType type);
     ~TranscoderPipeOut();
 
@@ -129,6 +136,8 @@ class TranscoderPipe : public ::std::enable_shared_from_this<TranscoderPipe> {
     ::std::shared_ptr<::qmmf::avcodec::IAVCodec> avcodec_;
     ::std::weak_ptr<TranscoderPipe>              pipe_;
     const uint32_t                               port_index_;
+    uint32_t                                     width_;
+    uint32_t                                     height_;
     ::std::mutex                                 wait_for_frame_mutex_;
     ::std::condition_variable                    wait_for_frame_;
     CodecType                                    codec_type_;

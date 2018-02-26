@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -631,19 +631,26 @@ status_t PlayerImpl::SetPosition(int64_t seek_time) {
   QMMF_INFO("%s: Enter", __func__);
   Mutex::Autolock lock(state_lock_);
   status_t ret = NO_ERROR;
+
   if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
                         PlayerState::QPLAYER_STATE_STARTED |
                         PlayerState::QPLAYER_STATE_PAUSED)) {
-    if (ret != NO_ERROR) {
-      QMMF_INFO("%s: SetPosition failed!", __func__);
-      return BAD_VALUE;
+    size_t num_tracks = tracks_.size();
+
+    for (size_t i = 0; i < num_tracks; i++) {
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->SetPosition(tracks_[i].track_id, seek_time);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: SetPosition failed!", __func__);
+          break;
+        }
+      }
     }
-    return ret;
   }
 
-  QMMF_DEBUG("%s: SetPosition Called in %d", __func__, current_state_);
+  QMMF_DEBUG("%s: SetPosition called in %d", __func__, current_state_);
   QMMF_INFO("%s: Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) {

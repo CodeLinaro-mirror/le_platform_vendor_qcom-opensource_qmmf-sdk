@@ -48,6 +48,11 @@ using ::std::vector;
 
 static const int32_t kDebugTrackFps = 1<<0;
 
+// kBitStreamHeaderSize is combined size of au delimiter,
+// vps, sps, pps and frame start code size, as muxer
+// changes each field start code.
+static const uint32_t kBitStreamHeaderSize = 96;
+
 EncoderCore* EncoderCore::instance_ = NULL;
 
 EncoderCore* EncoderCore::CreateEncoderCore() {
@@ -523,7 +528,7 @@ status_t TrackEncoder::SynchronizeCache(
   flush_data.vaddr = buffer.data;
   flush_data.fd = buffer.fd;
   flush_data.handle = ion_handle.handle;
-  flush_data.length = buffer.capacity;
+  flush_data.length = kBitStreamHeaderSize;
   custom_data.cmd = flag;
   custom_data.arg = reinterpret_cast<unsigned long>(&flush_data);
   QMMF_DEBUG("Cache %s: fd=%d handle=%d va=%p size=%d",

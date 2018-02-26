@@ -99,7 +99,9 @@ status_t TranscoderSink::PreparePipeline() {
   }
 
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kTranscoderSink, port_index_, &buffer_list_);
+      avcodec_, BufferOwner::kTranscoderSink, port_index_,
+      params_.video_enc_param.width, params_.video_enc_param.height,
+      &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("%s Failed to allocate sink buffers", __func__);
     return ret;

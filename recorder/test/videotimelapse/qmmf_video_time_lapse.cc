@@ -72,7 +72,8 @@ TimeLapse::TimeLapse(const TimeLapseParams &params)
       ion_device_(-1),
       snapshot_count_(0),
       atomic_stop_(false),
-      video_encode_(true) {
+      video_encode_(true),
+      multicam_mode_(false) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter ", __func__);
 
   ion_device_ = open("/dev/ion", O_RDONLY);
@@ -115,17 +116,46 @@ int32_t TimeLapse::Start() {
     return ret;
   }
 
+  TimeLapseType time_lapse_type =
+      static_cast<TimeLapseType>(params_.time_lapse_type);
+
+  switch (time_lapse_type) {
+    case TimeLapseType::kVideoTimeLapse:
+      multicam_mode_ = false;
+      break;
+    case TimeLapseType::kPhotoTimeLapse:
+      multicam_mode_ = false;
+      video_encode_ = false;
+      break;
+    case TimeLapseType::kStitchedVideoTimeLapse:
+      multicam_type_ = MultiCameraConfigType::k360Stitch;
+      multicam_mode_ = true;
+      break;
+    case TimeLapseType::kStitchedPhotoTimeLapse:
+      multicam_type_ = MultiCameraConfigType::k360Stitch;
+      multicam_mode_ = true;
+      video_encode_ = false;
+      break;
+    case TimeLapseType::kSideBySideVideoTimeLapse:
+      multicam_type_ = MultiCameraConfigType::kSideBySide;
+      multicam_mode_ = true;
+      break;
+    case TimeLapseType::kSideBySidePhotoTimeLapse:
+      multicam_type_ = MultiCameraConfigType::kSideBySide;
+      multicam_mode_ = true;
+      video_encode_ = false;
+      break;
+    default:
+      multicam_mode_ = false;
+      break;
+  }
+
   if (params_.time_lapse_interval <= kThresholdTime) {
     time_lapse_mode_ = TimeLapseMode::kModeOne;
   } else {
     time_lapse_mode_ = TimeLapseMode::kModeTwo;
   }
   time_lapse_thread_ = thread(TimeLapse::TimeLapseModeThread, this);
-
-  if (static_cast<TimeLapseType>(params_.time_lapse_type) ==
-      TimeLapseType::kPhotoTimeLapse) {
-    video_encode_ = false;
-  }
 
   if (video_encode_) {
     ret = StartAVCodec();
@@ -320,12 +350,49 @@ int32_t TimeLapse::StartTimeLapseModeTwo() {
 int32_t TimeLapse::StartCamera() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
   int32_t ret;
-  CameraStartParam camera_start_params{false, false, 0, 0, 0, 30, 0};
 
-  ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
-  if (NO_ERROR != ret) {
-    ALOGE("%s: StartCamera Failed", __func__);
-    return ret;
+  if (multicam_mode_ == false) {
+
+    CameraStartParam camera_start_params{false, false, 0, 0, 0, 30, 0};
+
+    ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
+    cam_id_ = params_.camera_id;
+    if (NO_ERROR != ret) {
+      ALOGE("%s: StartCamera Failed", __func__);
+      return ret;
+    }
+  } else {
+
+    uint32_t multicam_id;
+    multicam_id = 0;
+
+    memset(&multicam_start_params_, 0x0, sizeof multicam_start_params_);
+    multicam_start_params_.zsl_mode         = false;
+    multicam_start_params_.enable_partial_metadata = false;
+    multicam_start_params_.flags            = 0x0;
+
+    std::vector<uint32_t> camera_ids;
+    camera_ids.push_back(params_.camera_id);
+    camera_ids.push_back(params_.camera_id_2);
+
+    ret = recorder_.CreateMultiCamera(camera_ids, &multicam_id);
+    if (NO_ERROR != ret) {
+      ALOGE("%s: CreateMultiCamera Failed", __func__);
+      return ret;
+    }
+    cam_id_ = multicam_id;
+
+    ret = recorder_.ConfigureMultiCamera(cam_id_, multicam_type_, nullptr, 0);
+    if (NO_ERROR != ret) {
+      ALOGE("%s: ConfigureMultiCamera Failed", __func__);
+      return ret;
+    }
+
+    ret = recorder_.StartCamera(cam_id_, multicam_start_params_);
+    if (NO_ERROR != ret) {
+      ALOGE("%s: StartCamera Failed", __func__);
+      return ret;
+    }
   }
 
   if (!ResolutionSupported(params_.width, params_.height)) {
@@ -339,13 +406,14 @@ int32_t TimeLapse::StartCamera() {
 
 bool TimeLapse::ResolutionSupported(uint32_t width, uint32_t height) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
-  int32_t ret;
+  int32_t ret = 0;
 
   std::vector<android::CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
   android::CameraMetadata meta;
 
-  ret = recorder_.GetDefaultCaptureParam(params_.camera_id, meta);
+  ret = recorder_.GetDefaultCaptureParam(cam_id_, meta);
+
   if (NO_ERROR != ret) {
     ALOGE("%s: Unable to query default capture parameters!\n", __func__);
     return false;
@@ -373,7 +441,7 @@ bool TimeLapse::ResolutionSupported(uint32_t width, uint32_t height) {
 }
 
 int32_t TimeLapse::StopCamera() {
-  return recorder_.StopCamera(params_.camera_id);
+  return recorder_.StopCamera(cam_id_);
 }
 
 int32_t TimeLapse::CreateSession() {
@@ -479,8 +547,19 @@ int32_t TimeLapse::CreateLPMTrack() {
           kLPMTrackHeight);
   }
 
-  VideoTrackCreateParam video_track_param{params_.camera_id, VideoFormat::kYUV,
-                                          kLPMTrackWidth, kLPMTrackHeight, 30};
+  VideoTrackCreateParam video_track_param;
+
+  if (multicam_mode_ == true) {
+    VideoTrackCreateParam video_track_param1 {cam_id_, VideoFormat::kYUV,
+                                              2*kLPMTrackHeight, kLPMTrackHeight, 30};
+    video_track_param = video_track_param1;
+  } else {
+    VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kYUV,
+                                             kLPMTrackWidth, kLPMTrackHeight, 30};
+   video_track_param = video_track_param2;
+  }
+
+  video_track_param.low_power_mode = true;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = {[&](uint32_t track_id,
@@ -505,18 +584,28 @@ int32_t TimeLapse::DeleteLPMTrack() {
 
 int32_t TimeLapse::TakeYUVSnapshotandEnqueuetoEncoder() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
+  int32_t ret = 0;
 
-  ImageParam image_param{params_.width, params_.height, 0, ImageFormat::kNV12};
+  ImageParam image_param {params_.width, params_.height, 0, ImageFormat::kNV12};
 
   std::vector<android::CameraMetadata> meta_array;
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(cam_id_, meta);
+  if (NO_ERROR != ret) {
+    ALOGE("%s: Unable to query default capture parameters!\n", __func__);
+    return ret;
+  }
+
+  meta_array.push_back(meta);
+
   ImageCaptureCb cb;
   cb = {[&](uint32_t camera_id, uint32_t image_count, BufferDescriptor buffer,
             MetaData meta_data) {
     YUVSnapshotCb(camera_id, image_count, buffer, meta_data);
   }};
 
-  int32_t ret =
-      recorder_.CaptureImage(params_.camera_id, image_param, 1, meta_array, cb);
+  ret = recorder_.CaptureImage(cam_id_, image_param, 1, meta_array, cb);
+
   if (NO_ERROR != ret) {
     ALOGE("%s: CaptureImage Failed", __func__);
   }
@@ -530,9 +619,8 @@ void TimeLapse::YUVSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
 
   if (atomic_stop_) {
-    int32_t ret = 0;
     // Return buffer back to recorder service.
-    ret = recorder_.ReturnImageCaptureBuffer(params_.camera_id, buffer);
+    int32_t ret = recorder_.ReturnImageCaptureBuffer(cam_id_, buffer);
     if (NO_ERROR != ret) {
       ALOGE("%s: ReturnImageCaptureBuffer failed", __func__);
     }
@@ -548,10 +636,9 @@ void TimeLapse::YUVSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
 
 void TimeLapse::ReturnYUVSnapshotBuffer(BufferDescriptor &buffer) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
-  int32_t ret = 0;
 
   // Return buffer back to recorder service.
-  ret = recorder_.ReturnImageCaptureBuffer(params_.camera_id, buffer);
+  int32_t ret = recorder_.ReturnImageCaptureBuffer(cam_id_, buffer);
   if (NO_ERROR != ret) {
     ALOGE("%s: ReturnImageCaptureBuffer failed", __func__);
   }
@@ -565,19 +652,28 @@ void TimeLapse::ReturnYUVSnapshotBuffer(BufferDescriptor &buffer) {
 
 int32_t TimeLapse::TakeJPEGSnapshot() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
+  int32_t ret = 0;
 
   ImageParam image_param{params_.width, params_.height, kJPEGImageQuality,
       ImageFormat::kJPEG};
 
   std::vector<android::CameraMetadata> meta_array;
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(cam_id_, meta);
+  if (NO_ERROR != ret) {
+    ALOGE("%s: Unable to query default capture parameters!\n", __func__);
+    return ret;
+  }
+
+  meta_array.push_back(meta);
+
   ImageCaptureCb cb;
   cb = {[&](uint32_t camera_id, uint32_t image_count, BufferDescriptor buffer,
             MetaData meta_data) {
     JPEGSnapshotCb(camera_id, image_count, buffer, meta_data);
   }};
 
-  int32_t ret =
-      recorder_.CaptureImage(params_.camera_id, image_param, 1, meta_array, cb);
+  ret = recorder_.CaptureImage(cam_id_, image_param, 1, meta_array, cb);
   if (NO_ERROR != ret) {
     ALOGE("%s: CaptureImage Failed", __func__);
   }
@@ -621,7 +717,7 @@ void TimeLapse::JPEGSnapshotCb(uint32_t camera_id, uint32_t image_sequence_count
   }
 
   // Return buffer back to recorder service.
-  ret = recorder_.ReturnImageCaptureBuffer(params_.camera_id, buffer);
+  ret = recorder_.ReturnImageCaptureBuffer(cam_id_, buffer);
   if (NO_ERROR != ret) {
     ALOGE("%s: ReturnImageCaptureBuffer failed", __func__);
   }
@@ -652,7 +748,7 @@ int32_t TimeLapse::SetupAVCodec(const TimeLapseParams &params) {
       break;
   }
 
-  VideoTrackCreateParam video_track_params{params.camera_id, format,
+  VideoTrackCreateParam video_track_params{cam_id_, format,
                                            params.width, params.height,
                                            static_cast<float>(params.fps)};
 

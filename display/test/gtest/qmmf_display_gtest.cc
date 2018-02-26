@@ -171,6 +171,7 @@ TEST_F(DisplayGtest, TestYUV) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 1;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
       TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -232,7 +233,6 @@ TEST_F(DisplayGtest, TestYUV) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -316,6 +316,7 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 1;
     surface_config.surface_transform.rotation = 90.0f;
     surface_config.surface_transform.flip_horizontal = 0;
     surface_config.surface_transform.flip_vertical = 0;
@@ -380,7 +381,6 @@ TEST_F(DisplayGtest, TestYUVWithRotation) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 90.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -463,6 +463,7 @@ TEST_F(DisplayGtest, TestBGRA) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 1;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
       TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -516,7 +517,6 @@ TEST_F(DisplayGtest, TestBGRA) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -596,6 +596,7 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 1;
     surface_config.surface_transform.rotation = 90.0f;
     surface_config.surface_transform.flip_horizontal = 0;
     surface_config.surface_transform.flip_vertical = 0;
@@ -652,7 +653,6 @@ TEST_F(DisplayGtest, TestRGBAWithRotation) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 0;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 90.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -735,6 +735,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 0;
+      surface_config.z_order = 1;
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
         TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -794,7 +795,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -813,6 +813,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 2;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
       TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -865,7 +866,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -951,6 +951,7 @@ TEST_F(DisplayGtest, Test1YUV_Rotated_1RGB) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 0;
+      surface_config.z_order = 1;
       surface_config.surface_transform.rotation = 90.0f;
       surface_config.surface_transform.flip_horizontal = 0;
       surface_config.surface_transform.flip_vertical = 0;
@@ -1013,7 +1014,6 @@ TEST_F(DisplayGtest, Test1YUV_Rotated_1RGB) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 90.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1032,6 +1032,7 @@ TEST_F(DisplayGtest, Test1YUV_Rotated_1RGB) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 2;
     surface_config.surface_transform.rotation = 0.0f;
     surface_config.surface_transform.flip_horizontal = 0;
     surface_config.surface_transform.flip_vertical = 0;
@@ -1087,7 +1088,6 @@ TEST_F(DisplayGtest, Test1YUV_Rotated_1RGB) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1173,6 +1173,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Rotated) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 0;
+      surface_config.z_order = 1;
       surface_config.surface_transform.rotation = 0.0f;
       surface_config.surface_transform.flip_horizontal = 0;
       surface_config.surface_transform.flip_vertical = 0;
@@ -1235,7 +1236,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Rotated) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1254,6 +1254,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Rotated) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 2;
     surface_config.surface_transform.rotation = 90.0f;
     surface_config.surface_transform.flip_horizontal = 0;
     surface_config.surface_transform.flip_vertical = 0;
@@ -1309,7 +1310,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Rotated) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 90.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1395,6 +1395,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_Rotated) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 0;
+      surface_config.z_order = 1;
       surface_config.surface_transform.rotation = 90.0f;
       surface_config.surface_transform.flip_horizontal = 0;
       surface_config.surface_transform.flip_vertical = 0;
@@ -1457,7 +1458,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_Rotated) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 90.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1476,6 +1476,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_Rotated) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 2;
     surface_config.surface_transform.rotation = 90.0f;
     surface_config.surface_transform.flip_horizontal = 0;
     surface_config.surface_transform.flip_vertical = 0;
@@ -1531,7 +1532,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_Rotated) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 10;
-    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 90.0f;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1616,7 +1616,6 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 1;
-
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
         TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -1749,7 +1748,6 @@ TEST_F(DisplayGtest, Test1YUV_ExternalBuffer) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 10;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -1860,7 +1858,7 @@ TEST_F(DisplayGtest, Test1YUV_External_1RGB_InternalBuffers) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 1;
-
+      surface_config.z_order = 1;
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
         TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -1992,7 +1990,6 @@ TEST_F(DisplayGtest, Test1YUV_External_1RGB_InternalBuffers) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -2011,6 +2008,7 @@ TEST_F(DisplayGtest, Test1YUV_External_1RGB_InternalBuffers) {
     surface_config.buffer_count = 4;
     surface_config.cache = 0;
     surface_config.use_buffer = 0;
+    surface_config.z_order = 2;
     ret = display_->CreateSurface(surface_config, &surface_id);
     if (ret != 0) {
       TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -2062,7 +2060,6 @@ TEST_F(DisplayGtest, Test1YUV_External_1RGB_InternalBuffers) {
         SurfaceBlending::kBlendingCoverage;
     surface_data->surface_param.surface_flags.cursor = 0;
     surface_data->surface_param.frame_rate = 20;
-    surface_data->surface_param.z_order = 1;
     surface_data->surface_param.solid_fill_color = 0;
     surface_data->surface_param.surface_transform.rotation = 0;
     surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -2178,7 +2175,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_ExternalBuffers) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 1;
-
+      surface_config.z_order = 1;
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
         TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -2310,7 +2307,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_ExternalBuffers) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 0;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0.0f;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
@@ -2329,6 +2325,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_ExternalBuffers) {
       surface_config.buffer_count = 4;
       surface_config.cache = 0;
       surface_config.use_buffer = 1;
+      surface_config.z_order = 2;
       ret = display_->CreateSurface(surface_config, &surface_id);
       if (ret != 0) {
         TEST_ERROR("%s: CreateSurface Failed!!", __func__);
@@ -2451,7 +2448,6 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_ExternalBuffers) {
           SurfaceBlending::kBlendingCoverage;
       surface_data->surface_param.surface_flags.cursor = 0;
       surface_data->surface_param.frame_rate = 20;
-      surface_data->surface_param.z_order = 1;
       surface_data->surface_param.solid_fill_color = 0;
       surface_data->surface_param.surface_transform.rotation = 0;
       surface_data->surface_param.surface_transform.flip_horizontal = 0;
