@@ -402,6 +402,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
   metadata.num_channels = track_params_.params.channels;
   metadata.sample_rate = track_params_.params.sample_rate;
   metadata.sample_size = track_params_.params.bit_depth;
+  metadata.codec_params = track_params_.params.codec_params;
 
   devices.push_back(static_cast<DeviceId>(track_params_.params.out_device));
 

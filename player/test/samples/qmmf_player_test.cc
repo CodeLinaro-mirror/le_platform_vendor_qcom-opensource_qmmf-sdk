@@ -951,7 +951,6 @@ bool PlayerTest::IsTrickModeEnabled() {
 
 void PlayerTest::SetVolume() {
   TEST_INFO("%s: Enter", __func__);
-  std::lock_guard<std::mutex> lock(lock_);
 
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kAudioOnly) {
