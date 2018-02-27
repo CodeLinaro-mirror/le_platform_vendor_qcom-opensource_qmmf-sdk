@@ -709,9 +709,8 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
                                         void *param,
                                         size_t param_size) {
   QMMF_INFO("%s: Enter", __func__);
-  QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__,
-               static_cast<int>(type));
-  QMMF_VERBOSE("%s() INPARAM: type[%zu]", __func__, param_size);
+  QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__, static_cast<int>(type));
+  QMMF_VERBOSE("%s() INPARAM: param_size[%zu]", __func__, param_size);
   status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks_.size();
@@ -743,14 +742,21 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
                                         void *param,
                                         size_t param_size) {
   QMMF_INFO("%s: Enter", __func__);
+  QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__, static_cast<int>(type));
+  QMMF_VERBOSE("%s() INPARAM: param_size[%zu]", __func__, param_size);
+
   status_t ret = NO_ERROR;
 
   size_t num_tracks = tracks_.size();
 
   for (size_t i = 0; i < num_tracks; i++) {
      if (tracks_[i].type == TrackType::kVideo) {
-       ret = video_decoder_core_->SetVideoTrackDecoderParams(
-           tracks_[i].track_id,type, param, param_size);
+       if (type == CodecParamType::kDisplayParam)
+         ret = video_sink_->SetVideoTrackSinkParams(tracks_[i].track_id, type,
+                                                    param, param_size);
+       else
+         ret = video_decoder_core_->SetVideoTrackDecoderParams(
+             tracks_[i].track_id,type, param, param_size);
     }
   }
 

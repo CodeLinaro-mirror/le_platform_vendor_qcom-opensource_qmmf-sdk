@@ -89,6 +89,11 @@ class VideoSink {
 
   status_t DeleteTrackSink(uint32_t track_id);
 
+  status_t SetVideoTrackSinkParams(uint32_t track_id,
+                                   CodecParamType param_type,
+                                   void* param,
+                                   uint32_t param_size);
+
  private:
   VideoSink();
 
@@ -147,6 +152,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
       void *event_data, size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
+
+  status_t SetVideoSinkParams(CodecParamType param_type, void* param,
+                              uint32_t param_size);
+
+  status_t SetDisplayOrientation(uint32_t angle);
 #endif
 
   status_t UpdateCropParameters(void* arg);
