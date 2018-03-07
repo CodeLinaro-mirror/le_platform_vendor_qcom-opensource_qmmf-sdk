@@ -15,7 +15,6 @@ recorder_gtest_LDADD    += ../../../common/avqueue/libav_queue.la
 recorder_gtest_LDADD    += ../../../display/src/client/libqmmf_display_client.la
 
 
-if ENABLE_360
 bin_PROGRAMS += recorder_360cam_gtest
 
 recorder_360cam_gtest_SOURCES  = qmmf_recorder_360cam_gtest.cc
@@ -28,4 +27,3 @@ recorder_360cam_gtest_LDFLAGS  = -lutils -lcutils -llog -lgtest -lgtest_main -lc
 recorder_360cam_gtest_LDFLAGS  += -lcamera_client -lcamera_metadata
 recorder_360cam_gtest_LDADD    = ../../src/client/libqmmf_recorder_client.la
 recorder_360cam_gtest_LDADD    += ../../../common/avqueue/libav_queue.la
-endif
