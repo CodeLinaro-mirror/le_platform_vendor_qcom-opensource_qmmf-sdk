@@ -31,6 +31,7 @@ LOCAL_SRC_FILES += qmmf_recorder_ion.cc
 LOCAL_SRC_FILES += qmmf_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_camera_source.cc
 LOCAL_SRC_FILES += qmmf_camera_context.cc
+LOCAL_SRC_FILES += qmmf_fake_camera.cc
 LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
 LOCAL_SRC_FILES += qmmf_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_audio_source.cc

@@ -4,6 +4,7 @@ source_files += qmmf_recorder_ion.cc
 source_files += qmmf_remote_cb.cc
 source_files += qmmf_camera_source.cc
 source_files += qmmf_camera_context.cc
+source_files += qmmf_fake_camera.cc
 source_files += qmmf_multicamera_manager.cc
 source_files += qmmf_encoder_core.cc
 source_files += qmmf_audio_source.cc
@@ -19,6 +20,7 @@ source_files += post-process/memory/qmmf_postproc_memory_pool.cc
 source_files += post-process/pipe/qmmf_postproc_pipe.cc
 source_files += post-process/common/qmmf_postproc_thread.cc
 source_files += qmmf_camera_rescaler.cc
+
 
 # Build qmmf recorder service library
 # libqmmf_recorder_service.so
