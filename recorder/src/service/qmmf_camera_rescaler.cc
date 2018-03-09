@@ -394,7 +394,7 @@ int32_t FastCVRescaler::Init() {
     fastcv_level_ = FASTCV_OP_CPU_PERFORMANCE;
   }
 
-  int stat = fcvSetOperationMode(FASTCV_OP_LOW_POWER);
+  int stat = fcvSetOperationMode(static_cast<fcvOperationMode>(fastcv_level_));
   QMMF_INFO("%s: set fcvSetOperationMode %d",__func__, fastcv_level_);
 
   if (0 != stat) {
