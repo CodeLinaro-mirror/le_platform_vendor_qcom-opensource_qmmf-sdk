@@ -116,10 +116,6 @@ class CameraHalReproc : public IPostProcModule {
 
    void ReprocessCallback(StreamBuffer buffer);
 
-   status_t ValidateFormat(BufferFormat fmt);
-
-   status_t ValidateDimensions(uint32_t width, uint32_t height);
-
    status_t ValidateInput(const PostProcIOParam& input,
                           const PostProcIOParam& output);
 

@@ -138,16 +138,13 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
                  __func__);
       return BAD_VALUE;
     }
-    QMMF_INFO("%s: Deleting Existing Snapshot Stream!!", __func__);
-    ret = DeleteDeviceStream(snapshot_request_.streamIds[0], true);
+    QMMF_INFO("%s: Deleting Existing Snapshot Streams!!", __func__);
+    ret = DeleteSnapshotStream(true);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
                  __func__, ret);
       return ret;
     }
-    snapshot_request_.streamIds.clear();
-
-    PostProcDelete();
   }
 
   CameraStreamParameters stream_param{};
@@ -198,6 +195,30 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_param_ = param;
   snapshot_request_.streamIds.add(stream_id);
 
+  if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
+    Common::GetMaxSupportedCameraRes(static_meta_,
+                                     stream_param.width,
+                                     stream_param.height);
+    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
+    stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                  GRALLOC_USAGE_SW_READ_OFTEN;
+    stream_param.cb           = GetStreamCb(param);
+    stream_param.bufferCount  = sequence_cnt_;
+
+    QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
+        stream_param.width, stream_param.height, stream_param.format);
+
+    ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
+                             &stream_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
+                 __func__, ret);
+      return ret;
+    }
+    QMMF_INFO("%s Raw Snapshot stream_id(%d)", __func__, stream_id);
+    snapshot_request_.streamIds.add(stream_id);
+  }
+
   if (postproc_enable_) {
     ret = PostProcStart(stream_id);
     assert(ret == NO_ERROR);
@@ -211,23 +232,25 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   return ret;
 }
 
-status_t CameraContext::DeleteSnapshotStream() {
+status_t CameraContext::DeleteSnapshotStream(bool cache) {
   QMMF_INFO("%s: Enter", __func__);
+  status_t ret = NO_ERROR;
 
   PostProcDelete();
 
-  bool cache = streaming_request_id_ == -1;
-  if (!snapshot_request_.streamIds.empty()) {
-    auto ret = DeleteDeviceStream(snapshot_request_.streamIds[0], cache);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s: Failed to delete snapshot stream: %d",
-          __func__, ret);
-      return ret;
+  cache |= streaming_request_id_ == -1;
+  for (auto stream_id : snapshot_request_.streamIds) {
+    auto err = DeleteDeviceStream(stream_id, cache);
+    if (NO_ERROR != err) {
+      QMMF_ERROR("%s: Failed to delete snapshot stream_id %d ret %d",
+          __func__, stream_id, err);
+      ret = err;
     }
-    snapshot_request_.streamIds.clear();
   }
+  snapshot_request_.streamIds.clear();
+
   QMMF_INFO("%s Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,

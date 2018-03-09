@@ -182,7 +182,7 @@ class CameraContext : public CameraInterface,
 
   status_t CreateSnapshotStream(const ImageParam &param);
 
-  status_t DeleteSnapshotStream();
+  status_t DeleteSnapshotStream(bool cache = false);
 
   status_t UpdateRequest(bool is_streaming);
 
