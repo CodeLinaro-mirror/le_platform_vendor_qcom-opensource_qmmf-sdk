@@ -18851,7 +18851,7 @@ status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
                                       uint32_t image_sequence_count,
                                       uint64_t tv_ms) {
   uint8_t thumb_num = 0;
-  uint8_t *in_img = (uint8_t*)buffer.data;
+  uint8_t *in_img = static_cast<uint8_t*>(buffer.data);
   const CameraBufferMetaData &info = meta_data;
 
   if (meta_data.format != BufferFormat::kBLOB) {
@@ -18860,30 +18860,64 @@ status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
     return NO_INIT;
   }
 
-  if (info.num_planes > 1) {
+  if (info.num_planes > 2) {
+
+    //Main image
+    std::string main_image_path = "/data/misc/qmmf/snapshot_" +
+                                  std::to_string(image_sequence_count) + "_" +
+                                  std::to_string(tv_ms) + "_main.jpg";
+
+    FILE *thumb_file = fopen(main_image_path.c_str(), "w+");
+    if (!thumb_file) {
+      TEST_ERROR("%s: Unable to open thumb_file(%s)", __func__,
+          main_image_path.c_str());
+      return BAD_VALUE;
+    }
+    //Add SOI marker
+    auto len = fwrite(&in_img[0], sizeof(uint8_t), 2, thumb_file);
+    if (len != 2) {
+      TEST_ERROR("%s: Fail to main image (%s)", __func__,
+          main_image_path.c_str());
+      fclose(thumb_file);
+      return BAD_VALUE;
+    }
+    len = fwrite(&in_img[info.plane_info[0].offset], sizeof(uint8_t),
+                      info.plane_info[0].size, thumb_file);
+    if (len != info.plane_info[0].size) {
+      TEST_ERROR("%s: Fail to store main image (%s)", __func__,
+          main_image_path.c_str());
+      fclose(thumb_file);
+      return BAD_VALUE;
+    }
+    TEST_INFO("%s: Main image Size(%u) Stored@(%s)\n",
+        __func__, info.plane_info[0].size, main_image_path.c_str());
+    fclose(thumb_file);
+    thumb_file = nullptr;
+
+    // First thumbnail
     std::string thumb_path = "/data/misc/qmmf/snapshot_" +
                              std::to_string(image_sequence_count) + "_" +
                              std::to_string(tv_ms) + "_thumb_" +
                              std::to_string(thumb_num) + ".jpg";
 
-    // First thumbnail
-    FILE *thumb_file = fopen(thumb_path.c_str(), "w+");
+
+    thumb_file = fopen(thumb_path.c_str(), "w+");
     if (!thumb_file) {
       TEST_ERROR("%s: Unable to open thumb_file(%s)", __func__,
           thumb_path.c_str());
       return BAD_VALUE;
     }
 
-    auto len = fwrite(&in_img[info.plane_info[0].offset], sizeof(uint8_t),
-                      info.plane_info[0].size, thumb_file);
-    if (len != info.plane_info[0].size) {
+    len = fwrite(&in_img[info.plane_info[1].offset], sizeof(uint8_t),
+                 info.plane_info[1].size, thumb_file);
+    if (len != info.plane_info[1].size) {
       TEST_ERROR("%s: Fail to store thumbnail (%s)", __func__,
           thumb_path.c_str());
       fclose(thumb_file);
       return BAD_VALUE;
     }
     TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
-        __func__, thumb_num, info.plane_info[0].size, thumb_path.c_str());
+        __func__, thumb_num, info.plane_info[1].size, thumb_path.c_str());
     fclose(thumb_file);
     thumb_file = nullptr;
     thumb_num++;
@@ -18902,7 +18936,7 @@ status_t RecorderGtest::DumpThumbnail(BufferDescriptor buffer,
     }
 
     uint32_t thumbnail_size = 0;
-    for (uint32_t i = 1; i < info.num_planes; i++) {
+    for (uint32_t i = 2; i < info.num_planes; i++) {
       auto len = fwrite(&in_img[info.plane_info[i].offset], sizeof(uint8_t),
                          info.plane_info[i].size, thumb_file);
       if (len != info.plane_info[i].size) {
