@@ -164,6 +164,24 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_GET_NUMBER_OF_CAMERAS: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        SupportedCameras cameras;
+        auto ret = GetNumberOfCameras(client_id, cameras);
+        uint32_t num_cameras = cameras.size();
+        reply->writeUint32(num_cameras);
+        for (auto const& camera : cameras) {
+          size_t blob_size = sizeof(camera);
+          reply->writeUint32(blob_size);
+          android::Parcel::WritableBlob blob;
+          reply->writeBlob(blob_size, false, &blob);
+          memcpy(blob.data(), &camera, blob_size);
+        }
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_GET_SUPPORTED_PLUGINS: {
         uint32_t client_id;
         data.readUint32(&client_id);
@@ -958,6 +976,27 @@ status_t RecorderService::ResumeSession(const uint32_t client_id,
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
 
   return ret;
+}
+
+status_t RecorderService::GetNumberOfCameras(const uint32_t client_id,
+                                             SupportedCameras &cameras) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s: Client (%d) is not valid!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(recorder_ != nullptr);
+  auto ret = recorder_->GetNumberOfCameras(client_id, cameras);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetNumberOfCameras failed: %d", __func__, ret);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
 }
 
 status_t RecorderService::GetSupportedPlugins(const uint32_t client_id,

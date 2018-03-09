@@ -81,6 +81,7 @@ CameraSource::CameraSource() {
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
   factory_ = PostProcFactory::getInstance();
+  DetectCameras();
   QMMF_INFO("%s: Exit", __func__);
 }
 
@@ -227,6 +228,16 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
   ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
                                          param, param_size);
   return ret;
+}
+
+status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  cameras = supported_cameras_;
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
 }
 
 status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
@@ -1038,6 +1049,43 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
 
   // restore plane info
   buffer.info = info;
+  return NO_ERROR;
+}
+
+status_t CameraSource::DetectCameras() {
+
+  CameraClientCallbacks camera_callbacks;
+  Camera3DeviceClient   camera_device(camera_callbacks);
+
+  auto ret = camera_device.Initialize();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s Unable to Initialize Camera3DeviceClient %d", __func__, ret);
+    return BAD_VALUE;
+  }
+
+  int32_t num_camera = camera_device.GetNumberOfCameras();
+  if (num_camera < 1) {
+    QMMF_ERROR("%s: Failed: number of cameras %d", __func__, num_camera);
+    return BAD_VALUE;
+  }
+
+  // Detect physical cameras.
+  for (int32_t camera_id = 0; camera_id < num_camera; camera_id++) {
+    CameraMetadata static_meta;
+
+    ret = camera_device.GetCameraInfo(camera_id, &static_meta);
+    assert(ret == NO_ERROR);
+
+    supported_cameras_.push_back(
+        CameraCapability(camera_id, CameraType::kLiveSingle));
+  }
+
+  // TODO: Detect which cameras could be use for dual camera use case.
+
+  // TODO: Detect glance.
+  supported_cameras_.push_back(CameraCapability(101, CameraType::kExternal));
+  supported_cameras_.push_back(CameraCapability(102, CameraType::kExternal));
+
   return NO_ERROR;
 }
 

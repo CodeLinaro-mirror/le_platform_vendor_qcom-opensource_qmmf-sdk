@@ -76,6 +76,8 @@ class RecorderClient {
 
   status_t ResumeSession(const uint32_t session_id);
 
+  status_t GetNumberOfCameras(SupportedCameras &cameras);
+
   status_t GetSupportedPlugins(SupportedPlugins *plugins);
 
   status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);

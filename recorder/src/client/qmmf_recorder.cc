@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -168,6 +168,18 @@ status_t Recorder::ResumeSession(const uint32_t session_id) {
   auto ret = recorder_client_->ResumeSession(session_id);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: ResumeSession failed!", __func__);
+  }
+
+  return ret;
+}
+
+status_t Recorder::GetNumberOfCameras(SupportedCameras &cameras) {
+
+  assert(recorder_client_ != NULL);
+
+  auto ret = recorder_client_->GetNumberOfCameras(cameras);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: GetNumberOfCameras failed!", __func__);
   }
 
   return ret;
