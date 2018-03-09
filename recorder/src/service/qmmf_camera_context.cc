@@ -552,33 +552,10 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 }
 
 status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
-  if (snapshot_request_.metadata.isEmpty()) {
-    QMMF_ERROR("%s Camera is not started Or it is started in zsl mode!!",
-               __func__);
-    return BAD_VALUE;
-  }
-
-  bool res_supported = false;
-  if (image_param.image_format == ImageFormat::kBayerRDI10BIT ||
-      image_param.image_format == ImageFormat::kBayerRDI8BIT ||
-      image_param.image_format == ImageFormat::kBayerRDI12BIT) {
-    res_supported = Common::ValidateResFromRawSizes(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  } else if (image_param.image_format == ImageFormat::kNV12) {
-    res_supported = Common::ValidateResFromStreamConfigs(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  } else if (image_param.image_format == ImageFormat::kJPEG) {
-    res_supported = Common::ValidateResFromProcessedSizes(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  }
-
-  if (res_supported != true) {
+  auto ret = ValidateResolution(image_param.image_format,
+                                image_param.width,
+                                image_param.height);
+  if (ret != NO_ERROR) {
     QMMF_ERROR("%s Unsupported Snapshot resolution %d x %d!",
                __func__, image_param.width, image_param.height);
     return BAD_VALUE;
@@ -1771,13 +1748,14 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
                                                    height);
       break;
     case ImageFormat::kNV12:
-      supported = Common::ValidateResFromStreamConfigs(static_meta_,
-                                                       width,
-                                                       height);
+      supported = Common::ValidateResFromProcessedSizes(static_meta_,
+                                                        width,
+                                                        height);
       break;
     case ImageFormat::kBayerRDI8BIT:
     case ImageFormat::kBayerRDI10BIT:
     case ImageFormat::kBayerRDI12BIT:
+    case ImageFormat::kBayerIdeal:
       supported = Common::ValidateResFromRawSizes(static_meta_,
                                                   width,
                                                   height);
