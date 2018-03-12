@@ -76,6 +76,7 @@ static const char* kDefaultAECAWBStatsFilename =
     "/data/misc/qmmf/AEC_AWB_stats.txt";
 
 const char kAutoOrWarmBootModeArgs[] = {
+    AutoOrWarmBootModeOptions::kCameraId, ':',
     AutoOrWarmBootModeOptions::kWidth, ':',
     AutoOrWarmBootModeOptions::kHeight, ':',
     AutoOrWarmBootModeOptions::kFps, ':',
@@ -5217,7 +5218,7 @@ int32_t RecorderTest::ParseAutoOrWarmBootModeParams(int32_t argc,
                                           char *argv[], TrackInfo& track_info) {
   ALOGD("%s: Enter ",__func__);
 
-  if (argc != 10) {
+  if (argc != 12) {
     return -EINVAL;
   }
 
@@ -5225,6 +5226,14 @@ int32_t RecorderTest::ParseAutoOrWarmBootModeParams(int32_t argc,
   optind = 2;
   while ((opt = getopt(argc, argv, kAutoOrWarmBootModeArgs)) != -1) {
     switch (opt) {
+      case AutoOrWarmBootModeOptions::kCameraId:
+        val = atoi(optarg);
+        if ((val < 0) || (val > 2)) {
+          TEST_ERROR("%s: Invalid camera_id = %d", __func__, val);
+          return -EINVAL;
+        }
+        track_info.camera_id = val;
+        break;
       case AutoOrWarmBootModeOptions::kWidth:
         val = atoi(optarg);
         if (val < 0) {
@@ -5406,10 +5415,11 @@ int32_t RecorderTest::RunWarmBootMode(int32_t argc, char *argv[]) {
     ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
     if (ret != 0) {
       TEST_ERROR(
-          "%s:Usage: recorder_test testwarmboot -w <width> -h <height>"
-          " -f <fps> -t <AVC/HEVC>",
-          __func__);
+          "%s:Usage: recorder_test testwarmboot -c <camera_id> "
+          "-w <width> -h <height> -f <fps> -t <AVC/HEVC>", __func__);
       TEST_INFO("%s: Switching to default param", __func__);
+    } else {
+      camera_id_ = track_info.camera_id;
     }
   }
 
@@ -5501,10 +5511,11 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
 
   auto ret = ParseAutoOrWarmBootModeParams(argc, argv, track_info);
   if (ret != 0) {
-    TEST_ERROR("%s:Usage: recorder_test --auto -w <width> -h <height>"
-               " -f <fps> -t <AVC/HEVC>",  __func__);
+    TEST_ERROR("%s:Usage: recorder_test --auto -c <camera_id> "
+               "-w <width> -h <height> -f <fps> -t <AVC/HEVC>",  __func__);
     return ret;
   }
+  camera_id_ = track_info.camera_id;
 
   ret = Connect();
   if (NO_ERROR  != ret) {
