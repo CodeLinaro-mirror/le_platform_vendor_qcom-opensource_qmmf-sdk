@@ -740,8 +740,26 @@ std::string CameraContext::GetSnapshotJsonConfig() {
   return config;
 }
 
+status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
+  if (config.Exists(QMMF_EXIF) && config.Exists(QMMF_IMAGE_THUMBNAIL)) {
+    ImageExif exif;
+    config.Fetch(QMMF_EXIF, exif, 0);
+    if (exif.enable == false) {
+      QMMF_ERROR("%s: Unsupported configuration EXIF(disabled) + thumbnail !",
+          __func__);
+      return INVALID_OPERATION;
+    }
+  }
+  return NO_ERROR;
+}
+
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   capture_plugins_.clear();
+
+  if (ValidateCaptureConfig(config)) {
+    QMMF_ERROR("%s: Invalid Capture configuration", __func__);
+    return INVALID_OPERATION;
+  }
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
