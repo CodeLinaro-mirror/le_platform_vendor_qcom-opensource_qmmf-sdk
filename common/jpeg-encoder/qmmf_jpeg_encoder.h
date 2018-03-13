@@ -62,6 +62,7 @@ class JpegEncoder {
     std::vector<jpeg_thumbnail> thumbnail_data;
     uint32_t exif_size;
     void*    exif_data;
+    bool disable_maker_note;
   };
 
  private:

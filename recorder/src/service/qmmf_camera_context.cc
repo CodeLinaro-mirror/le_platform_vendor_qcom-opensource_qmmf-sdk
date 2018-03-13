@@ -730,6 +730,8 @@ std::string CameraContext::GetSnapshotJsonConfig() {
   root["frameskip"] = postproc_frame_skip_;
   root["jpeg quality"] = snapshot_param_.image_quality;
 
+  root["maker note"] = exif_en_;
+
   Json::FastWriter fastWriter;
   auto config = fastWriter.write(root);
 

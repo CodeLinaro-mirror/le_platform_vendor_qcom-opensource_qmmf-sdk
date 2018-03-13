@@ -177,6 +177,7 @@ JpegEncoder::JpegEncoder() :
   cfg->job_.encode_job.dst_index = 0;
   cfg->job_.encode_job.thumb_index = 0;
 
+  cfg->job_.encode_job.disable_maker_note = false;
 }
 
 JpegEncoder::~JpegEncoder() {
@@ -232,6 +233,8 @@ int32_t JpegEncoder::ConfigureMainImage(const encode_params &params) {
   cfg->job_.encode_job.main_dim.crop.height = plane_info.height;
   cfg->params_.main_dim = cfg->job_.encode_job.main_dim;
   cfg->params_.quality = params.image_quality;
+
+  cfg->job_.encode_job.disable_maker_note = params.disable_maker_note;
 
   return 0;
 }
