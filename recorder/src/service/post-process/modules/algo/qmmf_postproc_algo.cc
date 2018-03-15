@@ -390,6 +390,8 @@ PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {
     return kNv12;
   case BufferFormat::kNV21:
     return kNv21;
+  case BufferFormat::kNV16:
+    return kNv16;
   case BufferFormat::kBLOB:
     return kJpeg;
   case BufferFormat::kRAW8:
@@ -413,6 +415,8 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
     return BufferFormat::kNV12;
   case kNv21:
     return BufferFormat::kNV21;
+  case kNv16:
+    return BufferFormat::kNV16;
   case kJpeg:
     return BufferFormat::kBLOB;
   case kRawBggrMipi8:
@@ -534,6 +538,9 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kNv21UBWC:
       file_name += "nv21bwc";
       break;
+    case kNv16:
+      file_name += "nv16";
+      break;
     case kJpeg:
       file_name += "jpeg";
       break;
@@ -584,6 +591,8 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kNv12UBWC:
     case kNv21:
     case kNv21UBWC:
+    case kNv16:
+    case kNv61:
     case kYuyv422i:
     case kYvyu422i:
     case kUyvy422i:

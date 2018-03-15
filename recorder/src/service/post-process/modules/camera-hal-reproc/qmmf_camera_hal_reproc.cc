@@ -150,6 +150,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   case BufferFormat::kNV12:
   case BufferFormat::kNV12UBWC:
   case BufferFormat::kNV21:
+  case BufferFormat::kNV16:
     if (mipi_raw_) {
       input_param.format = BufferFormat::kRAW10;
     } else {

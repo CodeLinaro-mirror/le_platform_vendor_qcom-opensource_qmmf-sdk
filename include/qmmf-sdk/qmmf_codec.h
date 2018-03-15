@@ -539,6 +539,7 @@ enum class BufferFormat {
   kNV12,
   kNV12UBWC,
   kNV21,
+  kNV16,
   kBLOB,
   kRAW8,
   kRAW10,

@@ -284,6 +284,7 @@ bool PostProcPipe::IsYUVFormat(const BufferFormat &format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
     case BufferFormat::kNV12UBWC:
+    case BufferFormat::kNV16:
       return true;
     default:
       return false;
@@ -322,7 +323,8 @@ bool PostProcPipe::SupportsRAWFormat(const std::set<BufferFormat> &formats) {
 bool PostProcPipe::SupportsYUVFormat(const std::set<BufferFormat> &formats) {
   if (formats.count(BufferFormat::kNV12) != 0 ||
       formats.count(BufferFormat::kNV21) != 0 ||
-      formats.count(BufferFormat::kNV12UBWC) != 0) {
+      formats.count(BufferFormat::kNV12UBWC) != 0 ||
+      formats.count(BufferFormat::kNV16) != 0) {
     return true;
   }
   return false;

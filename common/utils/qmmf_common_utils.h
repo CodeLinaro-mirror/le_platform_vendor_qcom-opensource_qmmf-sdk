@@ -115,6 +115,9 @@ class Common {
       case BufferFormat::kNV21:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
+      case BufferFormat::kNV16:
+        return HAL_PIXEL_FORMAT_YCbCr_422_888;
+        break;
       case BufferFormat::kRAW8:
         return HAL_PIXEL_FORMAT_RAW8;
         break;
@@ -154,6 +157,9 @@ class Common {
         break;
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV21;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_422_888:
+        return BufferFormat::kNV16;
         break;
       case HAL_PIXEL_FORMAT_RAW8:
         return BufferFormat::kRAW8;
@@ -563,6 +569,9 @@ class Common {
       case BufferFormat::kNV21:
         file_name += "nv21";
         break;
+      case BufferFormat::kNV16:
+        file_name += "nv16";
+        break;
       case BufferFormat::kBLOB:
         file_name += "jpeg";
         break;
@@ -599,6 +608,7 @@ class Common {
       case BufferFormat::kNV12:
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV21:
+      case BufferFormat::kNV16:
         file_name += ".yuv";
         break;
       case BufferFormat::kBLOB:

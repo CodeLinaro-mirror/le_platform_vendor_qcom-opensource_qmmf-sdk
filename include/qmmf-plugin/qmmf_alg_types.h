@@ -82,6 +82,8 @@ namespace qmmf_alg_plugin {
  *    @kNv12UBWC:      NV12 semiplanar: Y/CbCr 4:2:0 UBWC
  *    @kNv21:          NV21 semiplanar: Y/CrCb 4:2:0
  *    @kNv21UBWC:      NV21 semiplanar: Y/CrCb 4:2:0 UBWC
+ *    @kNv16:          NV16 semiplanar: Y/CbCr 4:2:2
+ *    @kNv61:          NV61 semiplanar: Y/CrCb 4:2:2
  *
  *    @kYuv420:        YUV 4:2:0
  *    @kYvu420:        YVU 4:2:0
@@ -155,6 +157,8 @@ enum PixelFormat {
   kNv12UBWC      = 0x801,
   kNv21          = 0x802,
   kNv21UBWC      = 0x804,
+  kNv16          = 0x805,
+  kNv61          = 0x806,
 
   kYuv420        = 0x900,
   kYvu420        = 0x901,

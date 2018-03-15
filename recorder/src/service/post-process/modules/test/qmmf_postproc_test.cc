@@ -82,6 +82,7 @@ status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
 
   caps.formats_.insert(BufferFormat::kNV12);
   caps.formats_.insert(BufferFormat::kNV21);
+  caps.formats_.insert(BufferFormat::kNV16);
 
   return NO_ERROR;
 }

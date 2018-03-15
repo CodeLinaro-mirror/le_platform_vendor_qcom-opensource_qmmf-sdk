@@ -1057,6 +1057,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
+    case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:

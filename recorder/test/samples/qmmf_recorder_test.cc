@@ -4130,13 +4130,17 @@ void RecorderTest::SnapshotCb(uint32_t camera_id,
           || cam_buf_meta.format == BufferFormat::kRAW16
           || cam_buf_meta.format == BufferFormat::kRAW8))
       || (is_dump_yuv_enabled_ && (cam_buf_meta.format == BufferFormat::kNV12
-          || cam_buf_meta.format == BufferFormat::kNV21))) {
+          || cam_buf_meta.format == BufferFormat::kNV21
+          || cam_buf_meta.format == BufferFormat::kNV16))) {
       switch (cam_buf_meta.format) {
         case BufferFormat::kNV12:
         ext_str = "nv12";
         break;
         case BufferFormat::kNV21:
         ext_str = "nv21";
+        break;
+        case BufferFormat::kNV16:
+        ext_str = "nv16";
         break;
         case BufferFormat::kBLOB:
         ext_str = "jpg";

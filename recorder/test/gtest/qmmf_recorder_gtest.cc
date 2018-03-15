@@ -20347,6 +20347,9 @@ void RecorderGtest::SnapshotCb(uint32_t camera_id,
         case BufferFormat::kNV21:
         ext_str = "nv21";
         break;
+        case BufferFormat::kNV16:
+        ext_str = "nv16";
+        break;
         case BufferFormat::kBLOB:
         ext_str = "jpg";
         break;

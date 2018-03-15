@@ -105,6 +105,7 @@ class BufferHandler : AlgBuffer {
       case kNv12UBWC:
       case kNv21:
       case kNv21UBWC:
+      case kNv16:
         num_planes = 2;
         break;
       case kJpeg:

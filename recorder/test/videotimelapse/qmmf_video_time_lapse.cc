@@ -1145,6 +1145,9 @@ int32_t EncoderSource::FromQmmfToHalFormat(BufferFormat& buffer_format) {
     case BufferFormat::kNV21:
       format = HAL_PIXEL_FORMAT_NV21_ZSL;
       break;
+    case BufferFormat::kNV16:
+      format = HAL_PIXEL_FORMAT_YCbCr_422_888;
+      break;
     default:
       format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
       break;
