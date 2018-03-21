@@ -81,7 +81,7 @@ CameraContext::CameraContext()
       batch_stream_id_(-1),
       partial_metadata_required_(false),
       partial_result_count_(0),
-      snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
+      snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
       jpeg_input_format_(BufferFormat::kUnsupported),
@@ -145,7 +145,7 @@ bool CameraContext::IsStreamParamsChanged(
   return false;
 }
 
-status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
+status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t stream_id = -1;
@@ -153,14 +153,14 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   CameraStreamParameters stream_param{};
 
-  ret = ValidateResolution(param.image_format, param.width, param.height);
+  ret = ValidateResolution(param.format, param.width, param.height);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: format(0x%x),width(%d):height(%d) Not supported!",
-               __func__, param.image_format, param.width, param.height);
+        __func__, param.format, param.width, param.height);
     return ret;
   }
 
-  stream_param.format       = ImageToHalFormat(param.image_format);
+  stream_param.format       = Common::FromQmmfToHalFormat(param.format);
   stream_param.width        = param.width;
   stream_param.height       = param.height;
   stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
@@ -222,7 +222,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param_ = stream_param;
 
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
-    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
+    stream_param.format = Common::FromQmmfToHalFormat(BufferFormat::kRAW10);
     Common::GetMaxSupportedCameraRes(static_meta_,
                                      stream_param.width,
                                      stream_param.height,
@@ -376,10 +376,10 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     //size. We cannot re-configure streams dynamically during
     //re-processing as this could have impact on the already
     //cached ZSL buffers and they may fail re-process.
-    ImageParam image_param{};
-    image_param.width = param.zsl_width;
+    SnapshotParam image_param{};
+    image_param.width  = param.zsl_width;
     image_param.height = param.zsl_height;
-    image_param.image_format = ImageFormat::kJPEG;
+    image_param.format = BufferFormat::kBLOB;
 
     ret = CreateSnapshotStream(image_param);
     if (NO_ERROR != ret) {
@@ -406,14 +406,14 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     streaming_active_requests_[0].metadata.update(
         ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
 
-    CameraStreamParam zsl_param = {};
-    zsl_param.cam_stream_dim.width  = param.zsl_width;
-    zsl_param.cam_stream_dim.height = param.zsl_height;
-    zsl_param.frame_rate            = param.frame_rate;
-    zsl_param.low_power_mode        = false;
-    zsl_port_ =
-        std::make_shared<ZslPort>(const_cast<CameraStreamParam&>(zsl_param), 1,
-        CameraPortType::kZSL, this);
+    StreamParam zsl_param = {};
+    zsl_param.width          = param.zsl_width;
+    zsl_param.height         = param.zsl_height;
+    zsl_param.framerate      = param.frame_rate;
+    zsl_param.low_power_mode = false;
+
+    zsl_port_ = std::make_shared<ZslPort>(zsl_param, 1, CameraPortType::kZSL,
+                                          this);
     assert(zsl_port_.get() != nullptr);
 
     auto ret = zsl_port_->Init();
@@ -520,43 +520,12 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   return ret;
 }
 
-int32_t CameraContext::ImageToHalFormat(ImageFormat image_format) {
-      int32_t format;
-  switch (image_format) {
-    case ImageFormat::kJPEG:
-      format = HAL_PIXEL_FORMAT_BLOB;
-      break;
-    case ImageFormat::kNV12:
-      format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-      break;
-    case ImageFormat::kBayerRDI8BIT:
-      format = HAL_PIXEL_FORMAT_RAW8;
-      break;
-    case ImageFormat::kBayerRDI10BIT:
-      format = HAL_PIXEL_FORMAT_RAW10;
-      break;
-    case ImageFormat::kBayerRDI12BIT:
-      format = HAL_PIXEL_FORMAT_RAW12;
-      break;
-    case ImageFormat::kBayerIdeal:
-      // Not supported.
-      QMMF_ERROR("%s ImageFormat::kBayerIdeal is Not supported!",
-          __func__);
-      return BAD_VALUE;
-      break;
-    default:
-      format = HAL_PIXEL_FORMAT_BLOB;
-      break;
-  }
-  return format;
-}
-
-bool CameraContext::IsPostProcNeeded(const ImageParam &param,
+bool CameraContext::IsPostProcNeeded(const SnapshotParam& param,
                                      const uint32_t sequence_cnt) {
-  if (((sequence_cnt > 1) && (param.image_format == ImageFormat::kJPEG)) ||
+  if (((sequence_cnt > 1) && (param.format == BufferFormat::kBLOB)) ||
       !capture_plugins_.empty() ||
-      (!exif_en_ && (param.image_format == ImageFormat::kJPEG)) ||
-      (!thumbnails_.empty() && (param.image_format == ImageFormat::kJPEG))) {
+      (!exif_en_ && (param.format == BufferFormat::kBLOB)) ||
+      (!thumbnails_.empty() && (param.format == BufferFormat::kBLOB))) {
     return true;
   } else {
     return false;
@@ -578,7 +547,7 @@ void CameraContext::ReprocessCaptureCallback(StreamBuffer buffer) {
 }
 
 std::function<void(StreamBuffer buffer)>
-    CameraContext::GetStreamCb(const ImageParam &param) {
+    CameraContext::GetStreamCb(const SnapshotParam& param) {
   if (postproc_enable_) {
     return [=](StreamBuffer buffer) { ReprocessCaptureCallback (buffer); };
   } else {
@@ -608,13 +577,11 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
-  auto ret = ValidateResolution(image_param.image_format,
-                                image_param.width,
-                                image_param.height);
+status_t CameraContext::ValidateCaptureParams(const SnapshotParam& param) {
+  auto ret = ValidateResolution(param.format, param.width, param.height);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s Unsupported Snapshot resolution %d x %d!",
-               __func__, image_param.width, image_param.height);
+        __func__, param.width, param.height);
     return BAD_VALUE;
   }
   return NO_ERROR;
@@ -639,7 +606,7 @@ bool CameraContext::IsNeedReconfigSapshotStream() {
   return reconfiguration;
 }
 
-status_t CameraContext::SetUpCapture(const ImageParam &param,
+status_t CameraContext::SetUpCapture(const SnapshotParam& param,
                                      const uint32_t num_images) {
   QMMF_DEBUG("%s Enter ", __func__);
   if (!camera_start_params_.zsl_mode) {
@@ -688,9 +655,8 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
       WaitAecToConverge(kWaitAecTimeout);
     }
   } else {
-    if (ImageFormat::kJPEG != param.image_format) {
-      QMMF_ERROR("%s ZSL capture supports only Jpeg as output!",
-                 __func__);
+    if (BufferFormat::kBLOB != param.format) {
+      QMMF_ERROR("%s ZSL capture supports only Jpeg as output!", __func__);
       return BAD_VALUE;
     }
 
@@ -716,7 +682,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   if (!camera_start_params_.zsl_mode) {
     device_access_lock_.lock();
     int64_t last_frame_number;
-    uint8_t jpeg_quality = snapshot_param_.image_quality;
+    uint8_t jpeg_quality = snapshot_param_.quality;
     std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < sequence_cnt_; i++) {
@@ -816,7 +782,7 @@ std::string CameraContext::GetSnapshotJsonConfig() {
 
   root["frameskip"] = postproc_frame_skip_.frame_skip;
   root["source framerate"] = postproc_frame_skip_.source_framerate;
-  root["jpeg quality"] = snapshot_param_.image_quality;
+  root["jpeg quality"] = snapshot_param_.quality;
 
   root["maker note"] = exif_en_;
 
@@ -978,7 +944,7 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
   }
 }
 
-status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
+status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
   /* only one batch stream is supported */
@@ -988,13 +954,13 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
     return NO_ERROR;
   }
 
-  if ((kConstrainedModeThreshold < param.frame_rate) && (!hfr_supported_)) {
+  if ((kConstrainedModeThreshold < param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
     return BAD_VALUE;
   }
 
-  if ((kConstrainedModeThreshold < param.frame_rate) &&
+  if ((kConstrainedModeThreshold < param.framerate) &&
       (camera_start_params_.zsl_mode)) {
     QMMF_ERROR("%s: HFR and ZSL are mutually exclusive!",
                __func__);
@@ -1002,12 +968,12 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
   }
 
   size_t batch = 1;
-  if (kHFRBatchModeThreshold <= param.frame_rate) {
+  if (kHFRBatchModeThreshold <= param.framerate) {
     bool supported = false;
     for (size_t i = 0; i < hfr_batch_modes_list_.size(); i++) {
-      if ((param.cam_stream_dim.width == hfr_batch_modes_list_[i].width) &&
-          (param.cam_stream_dim.height == hfr_batch_modes_list_[i].height) &&
-          fabs(param.frame_rate - hfr_batch_modes_list_[i].framerate) < 0.1f) {
+      if ((param.width == hfr_batch_modes_list_[i].width) &&
+          (param.height == hfr_batch_modes_list_[i].height) &&
+          fabs(param.framerate - hfr_batch_modes_list_[i].framerate) < 0.1f) {
         batch = hfr_batch_modes_list_[i].batch_size;
         supported = true;
         break;
@@ -1016,9 +982,7 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
 
     if (!supported) {
       QMMF_ERROR("%s: HFR stream with size %dx%d fps: %5.2f is not supported!",
-                 __func__, param.cam_stream_dim.width,
-                 param.cam_stream_dim.height,
-                 param.frame_rate);
+          __func__, param.width, param.height, param.framerate);
       return BAD_VALUE;
     }
   }
@@ -1029,7 +993,7 @@ status_t CameraContext::GetBatchSize(const CameraStreamParam& param,
   return NO_ERROR;
 }
 
-status_t CameraContext::CreateStream(const CameraStreamParam& param,
+status_t CameraContext::CreateStream(const StreamParam& param,
                                      const VideoExtraParam& extra_param) {
 
   QMMF_VERBOSE("%s: Enter", __func__);
@@ -1057,7 +1021,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
       extra_param.Fetch(QMMF_VIDEO_HDR_MODE, vid_hdr_mode, i);
       if (vid_hdr_mode.enable == true) {
         QMMF_INFO("%s: HDR is ON..", __func__);
-        (const_cast<CameraStreamParam&>(param).is_zzhdr_enabled) = true;
+        (const_cast<StreamParam&>(param).is_zzhdr_enabled) = true;
       }
     }
   }
@@ -1445,7 +1409,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 
 #ifdef USE_FPS_IDX
 // This take frame rate as argument and return index of 60fps sensor mode
-uint32_t CameraContext::GetSensorModeIndex(uint32_t frame_rate) {
+uint32_t CameraContext::GetSensorModeIndex(uint32_t framerate) {
   String8 tag_name("SensorModeTable");
   String8 section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
@@ -1470,8 +1434,8 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t frame_rate) {
       width = entry.data.i32[i+2];
       height = entry.data.i32[i+3];
       fps = entry.data.i32[i+4];
-      if (frame_rate <= static_cast<uint32_t>(fps) &&
-        ((fps - frame_rate) < 30)) {
+      if (framerate <= static_cast<uint32_t>(fps) &&
+          ((fps - framerate) < 30)) {
         QMMF_INFO("%s: SELECTED SENSOR MODE WIDTH:%d HEIGHT:%d FPS:%d",
                   __func__, width, height, fps);
         return index;
@@ -1973,28 +1937,28 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer buffer) {
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
-status_t CameraContext::ValidateResolution(const ImageFormat format,
-                                           const uint32_t width,
-                                           const uint32_t height) {
+status_t CameraContext::ValidateResolution(const BufferFormat& format,
+                                           const uint32_t& width,
+                                           const uint32_t& height) {
 
   QMMF_VERBOSE("%s Enter ", __func__);
   bool supported = false;
 
   switch (format) {
-    case ImageFormat::kJPEG:
+    case BufferFormat::kBLOB:
       supported = Common::ValidateResFromJpegSizes(static_meta_,
                                                    width,
                                                    height);
       break;
-    case ImageFormat::kNV12:
+    case BufferFormat::kNV12:
       supported = Common::ValidateResFromProcessedSizes(static_meta_,
                                                         width,
                                                         height);
       break;
-    case ImageFormat::kBayerRDI8BIT:
-    case ImageFormat::kBayerRDI10BIT:
-    case ImageFormat::kBayerRDI12BIT:
-    case ImageFormat::kBayerIdeal:
+    case BufferFormat::kRAW8:
+    case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
+    case BufferFormat::kRAW16:
       supported = Common::ValidateResFromRawSizes(static_meta_,
                                                   width,
                                                   height);
@@ -2030,7 +1994,7 @@ status_t CameraContext::CaptureZSLImage() {
   }
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
-  uint8_t jpeg_quality = snapshot_param_.image_quality;
+  uint8_t jpeg_quality = snapshot_param_.quality;
   int64_t last_frame_mumber;
 
   if (!regular_snapshot) {
@@ -2386,7 +2350,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
     out_param.max_internal_buffers = REPROC_STREAM_BUFFER_COUNT;
   }
-  out_param.frame_skip = postproc_frame_skip_.frame_skip > 0 ? true : false;;
+  out_param.frame_skip = (postproc_frame_skip_.frame_skip > 0) ? true : false;
   out_param.exif_en = exif_en_;
   out_param.internal_format = jpeg_input_format_;
 
@@ -2426,7 +2390,7 @@ AECData CameraContext::GetAECData() {
   return aec_;
 }
 
-CameraPort::CameraPort(const CameraStreamParam& param, size_t batch,
+CameraPort::CameraPort(const StreamParam& param, size_t batch,
                        CameraPortType port_type, CameraContext* context)
     : port_type_(port_type),
       context_(context),
@@ -2456,17 +2420,9 @@ CameraPort::~CameraPort() {
 status_t CameraPort::Init() {
 
   cam_stream_params_ = {};
-  if (params_.cam_stream_format == CameraStreamFormat::kRAW10) {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW10;
-  } else if (params_.cam_stream_format == CameraStreamFormat::kRAW12) {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW12;
-  } else if (params_.cam_stream_format == CameraStreamFormat::kRAW8) {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_RAW8;
-  } else {
-    cam_stream_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-  }
-  cam_stream_params_.width        = params_.cam_stream_dim.width;
-  cam_stream_params_.height       = params_.cam_stream_dim.height;
+  cam_stream_params_.width  = params_.width;
+  cam_stream_params_.height = params_.height;
+  cam_stream_params_.format = Common::FromQmmfToHalFormat(params_.format);
 
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
@@ -2513,7 +2469,7 @@ status_t CameraPort::Init() {
     out_param.width = cam_stream_params_.width;
     out_param.height = cam_stream_params_.height;
     out_param.format = cam_stream_params_.format;
-    out_param.frame_rate = static_cast<uint32_t>(params_.frame_rate);
+    out_param.frame_rate = static_cast<uint32_t>(params_.framerate);
     out_param.gralloc_flags = cam_stream_params_.grallocFlags;
     out_param.buffer_count = cam_stream_params_.bufferCount;
 
@@ -2536,7 +2492,7 @@ status_t CameraPort::Init() {
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.frame_rate, &stream_id);
+                                          params_.framerate, &stream_id);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s: CreateDeviceStream failed!!", __func__);
     return BAD_VALUE;
@@ -2782,23 +2738,22 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 uint32_t CameraPort::GetExtraBufferCount() {
   uint32_t extra_buffer_count = 0;
 #ifndef EXTRA_BUFFER_SUPPORT
-  if (params_.cam_stream_dim.width == 3840
-      && params_.cam_stream_dim.height == 2160) {
+  if (params_.width == 3840 && params_.height == 2160) {
     extra_buffer_count = EXTRA_DCVS_BUFFERS;
-  } else if (params_.cam_stream_dim.width == 1920
-      && params_.cam_stream_dim.height == 1440 && params_.frame_rate == 60) {
+  } else if (params_.width == 1920 && params_.height == 1440 &&
+             params_.framerate == 60) {
     extra_buffer_count = 4;
   }
 #else
-  if (params_.cam_stream_dim.width == 4096
-      && params_.cam_stream_dim.height == 2048 && params_.frame_rate == 60) {
+  if (params_.width == 4096 && params_.height == 2048 &&
+      params_.framerate == 60) {
     extra_buffer_count = EXTRA_DCVS_BUFFERS;
   }
 #endif
   return extra_buffer_count;
 }
 
-ZslPort::ZslPort(const CameraStreamParam& param, size_t batch_size,
+ZslPort::ZslPort(const StreamParam& param, size_t batch_size,
                  CameraPortType port_type, CameraContext *context)
     : CameraPort(param, batch_size, port_type, context) {
 
@@ -3007,7 +2962,7 @@ status_t ZslPort::SetUpZSL() {
     cam_start_param.zsl_width, cam_start_param.zsl_height,
     cam_start_param.zsl_queue_depth);
 
-  auto ret = context_->ValidateResolution(ImageFormat::kNV12,
+  auto ret = context_->ValidateResolution(BufferFormat::kNV12,
                                           cam_start_param.zsl_width,
                                           cam_start_param.zsl_height);
   if (ret != NO_ERROR) {

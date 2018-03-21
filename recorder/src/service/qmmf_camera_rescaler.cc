@@ -90,36 +90,6 @@ status_t CameraRescalerBase::ReturnBufferToBufferPool(
   }
   return ret;
 }
-status_t CameraRescalerBase::Validate(const VideoTrackParams& track_params) {
-  if (rescaler_ == nullptr) {
-    QMMF_ERROR("%s: Missing Rescaler engine!!!", __func__);
-    return BAD_VALUE;
-  }
-
-  if (track_params.params.format_type == VideoFormat::kBayerRDI8BIT ||
-      track_params.params.format_type == VideoFormat::kBayerRDI10BIT ||
-      track_params.params.format_type == VideoFormat::kBayerRDI12BIT ||
-      track_params.params.format_type == VideoFormat::kBayerIdeal) {
-      QMMF_ERROR("%s: Unsupported video format: %d!!!", __func__,
-          track_params.params.format_type);
-      return BAD_VALUE;
-  }
-
-  auto buffer_format = StreamToBufferFormat(
-      FromVideoToStreamFormat(track_params.params.format_type));
-  if (buffer_format == BufferFormat::kUnsupported) {
-    QMMF_ERROR("%s: Unsupported buffer format: %d!!!", __func__,
-       buffer_format);
-      return BAD_VALUE;
-  }
-
-  if (rescaler_->ValidateOutput(track_params.params.width,
-      track_params.params.height, buffer_format) != RESIZER_STATUS_OK) {
-    QMMF_ERROR("%s: Validation Error!!!", __func__);
-    return BAD_VALUE;
-  }
-  return NO_ERROR;
-}
 
 void CameraRescalerBase::FlushBufs() {
   std::unique_lock<std::mutex> lock(wait_lock_);
@@ -798,25 +768,35 @@ bool CameraRescaler::IsStop() {
   return is_stop_;
 }
 
-status_t CameraRescaler::Init(const VideoTrackParams& track_params) {
+status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
+                              const BufferFormat& fmt) {
 
-  if (Validate(track_params) != NO_ERROR) {
-    QMMF_ERROR("%s: Error: Unsupported in params.!!!", __func__);
+  if ((width == 0) || (height == 0)) {
+    QMMF_ERROR("%s: Invalid dimensions: %ux%u!", __func__, width, height);
     return BAD_VALUE;
+  }
+
+  switch (fmt) {
+    case BufferFormat::kNV12:
+    case BufferFormat::kNV12UBWC:
+    case BufferFormat::kNV21:
+    case BufferFormat::kNV16:
+      break;
+    default:
+      QMMF_ERROR("%s: Format(%d) not supported!", __func__, fmt);
+      return BAD_VALUE;
   }
 
   char prop[PROPERTY_VALUE_MAX];
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
 
-  int32_t format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-  if (is_ubwc_stream_enabled) {
+  auto format = Common::FromQmmfToHalFormat(fmt);
+  if (is_ubwc_stream_enabled && fmt == BufferFormat::kNV12) {
     format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
   }
 
-  auto ret = Initialize(track_params.params.width,
-                        track_params.params.height,
-                        format);
+  auto ret = Initialize(width, height, format);
   return ret;
 }
 

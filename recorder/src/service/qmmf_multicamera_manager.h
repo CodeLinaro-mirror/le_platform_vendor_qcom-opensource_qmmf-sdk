@@ -79,7 +79,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const ImageParam &param,
+  status_t SetUpCapture(const SnapshotParam& param,
                         const uint32_t num_images) override;
 
   status_t CaptureImage(const std::vector<CameraMetadata> &meta,
@@ -89,7 +89,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param,
+  status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
@@ -126,9 +126,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
-  int32_t ImageToHalFormat(const ImageFormat &image);
-
-  status_t CreateJpegEncoder(const ImageParam &param);
+  status_t CreateJpegEncoder(const SnapshotParam& param);
   void EncodeJpegImage(const StreamBuffer &buffer);
   void OnStitchedFrameAvailable(StreamBuffer buffer);
   void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
@@ -136,11 +134,11 @@ class MultiCameraManager : public CameraInterface {
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
-  status_t CreateStreamStitching(const CameraStreamParam& param);
+  status_t CreateStreamStitching(const StreamParam& param);
   status_t DeleteStreamStitching(const uint32_t id);
 
   status_t CreateCameraStream(const uint32_t& cam_idx,
-                              const CameraStreamParam& param,
+                              const StreamParam& param,
                               const VideoExtraParam& extra_param);
   status_t DeleteCameraStream(const uint32_t& cam_idx,
                               const uint32_t& track_id);
@@ -156,7 +154,7 @@ class MultiCameraManager : public CameraInterface {
   ErrorCb                  error_cb_;
 
   //Non zsl capture request.
-  ImageParam               snapshot_param_;
+  SnapshotParam            snapshot_param_;
   uint32_t                 sequence_cnt_;
   bool                     jpeg_encoding_enabled_;
   bool                     snapshot_configured_;

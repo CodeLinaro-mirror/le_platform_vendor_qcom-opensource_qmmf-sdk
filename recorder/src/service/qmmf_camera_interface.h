@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,15 +29,31 @@
 
 #pragma once
 
-#include <utils/Log.h>
-
 #include "recorder/src/service/qmmf_recorder_common.h"
+#include "recorder/src/service/qmmf_recorder_utils.h"
 
 namespace qmmf {
 
 namespace recorder {
 
-class IBufferConsumer;
+struct StreamParam {
+  uint32_t     id;
+  uint32_t     width;
+  uint32_t     height;
+  uint32_t     rotation;
+  BufferFormat format;
+  float        framerate;
+  bool         low_power_mode;
+  bool         wait_aec_mode;
+  bool         is_zzhdr_enabled;
+};
+
+struct SnapshotParam {
+  uint32_t     width;
+  uint32_t     height;
+  uint32_t     quality;
+  BufferFormat format;
+};
 
 class CameraInterface {
  public:
@@ -53,7 +69,7 @@ class CameraInterface {
 
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
-  virtual status_t SetUpCapture(const ImageParam &param,
+  virtual status_t SetUpCapture(const SnapshotParam& param,
                                 const uint32_t num_images) = 0;
 
   virtual status_t CaptureImage(const std::vector<CameraMetadata> &meta,
@@ -63,7 +79,7 @@ class CameraInterface {
 
   virtual status_t CancelCaptureImage() = 0;
 
-  virtual status_t CreateStream(const CameraStreamParam& param,
+  virtual status_t CreateStream(const StreamParam& param,
                                 const VideoExtraParam& extra_param) = 0;
 
   virtual status_t DeleteStream(const uint32_t track_id) = 0;

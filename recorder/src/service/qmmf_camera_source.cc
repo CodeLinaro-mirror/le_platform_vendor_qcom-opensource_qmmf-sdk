@@ -309,7 +309,13 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   }
   auto const& camera = camera_map_[camera_id];
 
-  auto ret = camera->SetUpCapture(param, num_images);
+  SnapshotParam sparam {};
+  sparam.width   = param.width;
+  sparam.height  = param.height;
+  sparam.format  = Common::FromImageToQmmfFormat(param.image_format);
+  sparam.quality = param.image_quality;
+
+  auto ret = camera->SetUpCapture(sparam, num_images);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetUpCapture Failed!", __func__);
     return ret;
@@ -528,7 +534,11 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       if (rescalers_.count(source_track_id) == 0 ||
          (port_track_id == source_track_id)) {
         rescaler = std::make_shared<CameraRescaler>();
-        ret = rescaler->Init(track_params);
+        auto format =
+            Common::FromVideoToQmmfFormat(track_params.params.format_type);
+        ret = rescaler->Init(track_params.params.width,
+                             track_params.params.height,
+                             format);
         if (ret != NO_ERROR) {
           rescaler = nullptr;
           QMMF_ERROR("%s: Rescaler Init Failed", __func__);
@@ -1207,38 +1217,30 @@ status_t TrackSource::Init() {
   rescaler_ = nullptr;
   master_track_ = nullptr;
 
-  CameraStreamParam stream_param{};
-  stream_param.cam_stream_dim.width  = track_params_.params.width;
-  stream_param.cam_stream_dim.height = track_params_.params.height;
-  stream_param.cam_stream_format     =
-      FromVideoToStreamFormat(track_params_.params.format_type);
-  stream_param.frame_rate     = track_params_.params.frame_rate;
-  stream_param.id             = track_params_.track_id;
-  stream_param.low_power_mode = track_params_.params.low_power_mode;
+  StreamParam param{};
+  param.id             = track_params_.track_id;
+  param.width          = track_params_.params.width;
+  param.height         = track_params_.params.height;
+  param.framerate      = track_params_.params.frame_rate;
+  param.low_power_mode = track_params_.params.low_power_mode;
+  param.format = Common::FromVideoToQmmfFormat(track_params_.params.format_type);
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;
     track_params_.extra_param.Fetch(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
-    stream_param.wait_aec_mode = wait_aec.enable;
+    param.wait_aec_mode = wait_aec.enable;
   } else {
-    stream_param.wait_aec_mode = false;
+    param.wait_aec_mode = false;
   }
 
-  if (rotation_) {
-    stream_param.rotation = rotation_;
-  }
-  else {
-    stream_param.rotation = 0;
-  }
+  param.rotation = rotation_;
 
   assert(camera_interface_.get() != nullptr);
-  auto ret = camera_interface_->CreateStream(stream_param,
-                                             track_params_.extra_param);
+  auto ret = camera_interface_->CreateStream(param, track_params_.extra_param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CreateStream failed!!", __func__);
     return BAD_VALUE;
   }
-  stream_param_ = stream_param;
 
   QMMF_INFO("%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%x)",  __func__, this,
