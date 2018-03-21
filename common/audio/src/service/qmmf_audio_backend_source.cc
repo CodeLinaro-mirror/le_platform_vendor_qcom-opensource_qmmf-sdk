@@ -604,8 +604,9 @@ void AudioBackendSource::Thread() {
 
   char adjust_string[PROPERTY_VALUE_MAX];
   property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
-  int32_t adjustment_timestamp = atoi(adjust_string);
-  QMMF_VERBOSE("%s() adjustment_timestamp[%d]", __func__, adjustment_timestamp);
+  int64_t adjustment_timestamp = atoi(adjust_string);
+  QMMF_VERBOSE("%s() value of timestamp adjustment property[%lld]",
+               __func__, adjustment_timestamp);
   bool first_buffer_read = true;
 
   bool keep_running = true;
@@ -684,8 +685,16 @@ void AudioBackendSource::Thread() {
         if (first_buffer_read) {
           struct timespec tv;
           clock_gettime(CLOCK_BOOTTIME, &tv);
-          adjustment_timestamp += (int64_t)(tv.tv_sec) * 1000000 +
-                                  (int64_t)(tv.tv_nsec) / 1000;
+          int64_t boottime = (int64_t)(tv.tv_sec) * 1000000 +
+                             (int64_t)(tv.tv_nsec) / 1000;
+          QMMF_VERBOSE("%s() adding current boot time[%lld] to timestamp adjustment",
+                       __func__, boottime);
+          adjustment_timestamp += boottime;
+          QMMF_VERBOSE("%s() subtracting first received buffer timestamp[%lld] from timestamp adjustment",
+                       __func__, buffer.timestamp);
+          adjustment_timestamp -= buffer.timestamp;
+          QMMF_VERBOSE("%s() final timestamp adjustment[%lld]",
+                       __func__, adjustment_timestamp);
           first_buffer_read = false;
         }
         buffer.timestamp += adjustment_timestamp;
