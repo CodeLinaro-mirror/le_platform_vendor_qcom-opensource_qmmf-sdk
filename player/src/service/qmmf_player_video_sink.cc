@@ -47,6 +47,7 @@ using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::PortEventType;
 using ::std::chrono::milliseconds;
+using ::std::chrono::seconds;
 using ::std::make_shared;
 using ::std::shared_ptr;
 using ::std::thread;
@@ -174,10 +175,37 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
   return ret;
 }
 
+status_t VideoSink::SetVideoTrackSinkParams(uint32_t track_id,
+                                            CodecParamType param_type,
+                                            void* param,
+                                            uint32_t param_size) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  auto ret = 0;
+
+#ifndef DISABLE_DISPLAY
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  assert(track_sink.get() != NULL);
+
+  ret =  track_sink->SetVideoSinkParams(param_type, param, param_size);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s: track_id(%d) SetVideoSinkParams failed!", __func__,
+        track_id);
+   return ret;
+  }
+
+  QMMF_INFO("%s: track_id(%d) SetVideoSinkParams Successful!",
+     __func__, track_id);
+#endif
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 VideoTrackSink::VideoTrackSink()
     : current_width(0),
       current_height(0),
-      stopplayback_(false),
+      stop_called_(false),
+      stop_notify_called_(false),
       paused_(false),
       decoded_frame_number_(0),
       seek_time_(0),
@@ -207,6 +235,8 @@ VideoTrackSink::VideoTrackSink()
   }
 
   player_decode_profile_ = GetPlayerDecodeProfileProperty();
+  memset(&last_rendered_frame_, 0x0, sizeof last_rendered_frame_);
+  last_rendered_frame_.fd = -1;
 
   QMMF_DEBUG("%s Exit", __func__);
 }
@@ -286,7 +316,8 @@ status_t VideoTrackSink::StartSink() {
   auto ret = 0;
  lock_guard<mutex> lock(state_change_lock_);
 
-  stopplayback_ = false;
+  stop_called_ = false;
+  stop_notify_called_ = false;
 
   if (!output_free_buffer_queue_.Empty())
     output_free_buffer_queue_.Clear();
@@ -341,7 +372,7 @@ status_t VideoTrackSink::StopSink(const PictureParam& params,
     grab_buffer->data = nullptr;
   }
 
-  stopplayback_ = true;
+  stop_called_ = true;
 
   renderer_thread_->join();
   delete renderer_thread_;
@@ -501,24 +532,30 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   // Give available free buffer to decoder to use on output port.
 
-  if (output_free_buffer_queue_.Size() <= 0) {
-    QMMF_DEBUG("%s track_id(%d) No buffer available to notify,"
-        " Wait for new buffer",  __func__, TrackId());
+  while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_) {
     std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
-    wait_for_frame_.Wait(lock);
+    if (wait_for_frame_.WaitFor(lock, seconds(1)) != 0)
+      QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
   }
 
-  CodecBuffer iter = *output_free_buffer_queue_.Begin();
-  codec_buffer.fd = (iter).fd;
-  codec_buffer.data = (iter).pointer;
-  codec_buffer.capacity = (iter).frame_length;
-  output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
-  {
-    std::lock_guard<std::mutex> lock(queue_lock_);
-    output_occupy_buffer_queue_.PushBack(iter);
+  if (stop_notify_called_) {
+    QMMF_DEBUG("%s() request for buffer after stop", __func__);
+    codec_buffer.fd = -1;
+    codec_buffer.data = nullptr;
+    codec_buffer.capacity = 0;
+  } else {
+    CodecBuffer iter = *output_free_buffer_queue_.Begin();
+    codec_buffer.fd = (iter).fd;
+    codec_buffer.data = (iter).pointer;
+    codec_buffer.capacity = (iter).frame_length;
+    output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
+    {
+      std::lock_guard<std::mutex> lock(queue_lock_);
+      output_occupy_buffer_queue_.PushBack(iter);
+    }
+    QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB",
+        __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
   }
-  QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) for FTB",
-      __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
@@ -545,7 +582,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       __func__, TrackId(), codec_buffer.data);
 
   if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stopplayback_ || !(codec_buffer.size) || (paused_))) {
+      stop_called_ || !(codec_buffer.size) || (paused_))) {
     Dispatcher(codec_buffer);
 
 #ifdef DUMP_YUV_FRAMES
@@ -644,7 +681,7 @@ void VideoTrackSink::Renderer() {
 
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
 
-  while (!stopplayback_) {
+  while (!stop_called_) {
 
     if (decoded_buffer_queue_.Size() > 0) {
 
@@ -721,7 +758,7 @@ void VideoTrackSink::PtsThread() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   uint64_t previous_timestamp = 0UL;
 
-  while (!stopplayback_) {
+  while (!stop_called_) {
     sleep_for(milliseconds(track_params_.params.pts_callback_interval));
 
     if (!paused_) {
@@ -753,7 +790,7 @@ void VideoTrackSink::DisplayedBufferThread(VideoTrackSink* video_sink) {
 void VideoTrackSink::DisplayedBuffer() {
   QMMF_INFO("%s: Enter ", __func__);
 
-  while (!stopplayback_) {
+  while (!stop_called_) {
 
     if (displayed_buffer_queue_.Size() > 0) {
 
@@ -778,14 +815,24 @@ void VideoTrackSink::DisplayedBuffer() {
 status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
                                          void* event_data) {
   QMMF_INFO("%s Enter track_id(%d)", __func__, TrackId());
+  status_t ret = 0;
+
   if (event_type == PortEventType::kPortSettingsChanged) {
-    status_t ret = 0;
     ret = video_track_decoder_->ReconfigOutputPort(event_data);
-    assert(ret == 0);
-    return ret;
+  } else if (event_type == PortEventType::kPortStatus) {
+    CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
+    switch (status) {
+      case CodecPortStatus::kPortStop:
+        stop_notify_called_ = true;
+        break;
+      case CodecPortStatus::kPortIdle:
+      case CodecPortStatus::kPortStart:
+        break;
+    }
   }
+
   QMMF_INFO("%s Exit track_id(%d)", __func__, TrackId());
-  return 0;
+  return ret;
 }
 
 status_t VideoTrackSink::UpdateCropParameters(void* arg) {
@@ -877,7 +924,51 @@ status_t VideoTrackSink::CreateDisplay(
   surface_param_.frame_rate=track_param.params.frame_rate;
   surface_param_.solid_fill_color = 0;
 
-  switch (track_param.params.rotation) {
+  SetDisplayOrientation(track_param.params.rotation);
+
+  QMMF_INFO("%s: Exit", __func__);
+  return res;
+}
+
+status_t VideoTrackSink::SetVideoSinkParams(CodecParamType param_type,
+                                            void* param, uint32_t param_size) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  if (param_type == CodecParamType::kDisplayParam) {
+     DisplayParam* display_param = reinterpret_cast<DisplayParam*>(param);
+
+    if (display_param->srcRect.width !=0 &&
+        display_param->srcRect.height != 0) {
+      surface_param_.src_rect = { display_param->srcRect.start_x,
+          display_param->srcRect.start_y,
+          static_cast<float>(display_param->srcRect.width),
+          static_cast<float>(display_param->srcRect.height)};
+    }
+
+    if (display_param->destRect.width !=0 &&
+        display_param->destRect.height != 0) {
+      surface_param_.dst_rect = { display_param->destRect.start_x,
+          display_param->destRect.start_y,
+          static_cast<float>(display_param->destRect.width),
+          static_cast<float>(display_param->destRect.height)};
+    }
+
+    SetDisplayOrientation(display_param->rotation);
+  }
+
+  if (paused_) {
+    PushFrameToDisplay(last_rendered_frame_);
+  }
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t VideoTrackSink::SetDisplayOrientation(uint32_t angle) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Set Display Orientation (%u)", __func__, angle);
+
+  switch (angle) {
     case 0:
     case 360:
       surface_param_.surface_transform.rotation = 0.0f;
@@ -901,13 +992,12 @@ status_t VideoTrackSink::CreateDisplay(
       break;
     default:
       QMMF_ERROR("%s Wrong value entered for rotation (0/90/180/270)",
-                 __func__);
+         __func__);
       break;
   }
 
-  QMMF_INFO("%s: Exit", __func__);
-  return res;
-
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
@@ -957,7 +1047,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 
   bufinfo = buf_info_map.valueFor(codec_buffer.fd);
 
-  if (display_started_) {
+  if (display_started_ && codec_buffer.fd >= 0) {
     lock_guard<mutex> lock(grab_picture_lock);
 
     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
@@ -986,6 +1076,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       QMMF_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
       return ret;
     }
+    last_rendered_frame_ = codec_buffer;
 
     ret = display_->DequeueSurfaceBuffer(surface_id_, temp_surfbuf);
     if (ret != 0) {

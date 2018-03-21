@@ -136,6 +136,10 @@ struct FaceInfo {
 // Prop to set JPEG Quality
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
 #ifdef ANDROID_O_OR_ABOVE
 enum ISOModes : int64_t {
   kISOModeAuto = 0,
@@ -147,6 +151,19 @@ enum ISOModes : int64_t {
   kISOMode1600,
   kISOMode3200,
   kISOModeEnd
+};
+
+enum AWbModes : uint8_t {
+  kAWBModeOff,
+  kAWBModeAuto,
+  kAWBModeIncandescent,
+  kAWBModeFluorescent,
+  kAWBModeWarmFluorescent,
+  kAWBModeDaylight,
+  kAWBModeCloudyDaylight,
+  kAWBModeTwilight,
+  kAWBModeShade,
+  kAWBModeEnd
 };
 #endif
 

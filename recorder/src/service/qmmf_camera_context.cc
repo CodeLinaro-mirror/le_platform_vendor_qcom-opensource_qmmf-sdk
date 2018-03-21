@@ -500,7 +500,8 @@ bool CameraContext::IsPostProcNeeded(const ImageParam &param,
                                      const uint32_t sequence_cnt) {
   if (((sequence_cnt > 1) && (param.image_format == ImageFormat::kJPEG)) ||
       !capture_plugins_.empty() ||
-      (!exif_en_ && (param.image_format == ImageFormat::kJPEG))) {
+      (!exif_en_ && (param.image_format == ImageFormat::kJPEG)) ||
+      (!thumbnails_.empty() && (param.image_format == ImageFormat::kJPEG))) {
     return true;
   } else {
     return false;
@@ -551,33 +552,10 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 }
 
 status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
-  if (snapshot_request_.metadata.isEmpty()) {
-    QMMF_ERROR("%s Camera is not started Or it is started in zsl mode!!",
-               __func__);
-    return BAD_VALUE;
-  }
-
-  bool res_supported = false;
-  if (image_param.image_format == ImageFormat::kBayerRDI10BIT ||
-      image_param.image_format == ImageFormat::kBayerRDI8BIT ||
-      image_param.image_format == ImageFormat::kBayerRDI12BIT) {
-    res_supported = Common::ValidateResFromRawSizes(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  } else if (image_param.image_format == ImageFormat::kNV12) {
-    res_supported = Common::ValidateResFromStreamConfigs(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  } else if (image_param.image_format == ImageFormat::kJPEG) {
-    res_supported = Common::ValidateResFromProcessedSizes(
-        snapshot_request_.metadata,
-        image_param.width,
-        image_param.height);
-  }
-
-  if (res_supported != true) {
+  auto ret = ValidateResolution(image_param.image_format,
+                                image_param.width,
+                                image_param.height);
+  if (ret != NO_ERROR) {
     QMMF_ERROR("%s Unsupported Snapshot resolution %d x %d!",
                __func__, image_param.width, image_param.height);
     return BAD_VALUE;
@@ -603,7 +581,8 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
       snapshot_type_ = new_snapshot_type_;
-
+      QMMF_INFO("%s: PostProc is %s", __func__, postproc_enable_ ?
+          "Enabled" : "Disabled");
       if (snapshot_type_ == SnapshotMode::kContinuous) {
         sequence_cnt_ = 1;
       } else {
@@ -1769,13 +1748,14 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
                                                    height);
       break;
     case ImageFormat::kNV12:
-      supported = Common::ValidateResFromStreamConfigs(static_meta_,
-                                                       width,
-                                                       height);
+      supported = Common::ValidateResFromProcessedSizes(static_meta_,
+                                                        width,
+                                                        height);
       break;
     case ImageFormat::kBayerRDI8BIT:
     case ImageFormat::kBayerRDI10BIT:
     case ImageFormat::kBayerRDI12BIT:
+    case ImageFormat::kBayerIdeal:
       supported = Common::ValidateResFromRawSizes(static_meta_,
                                                   width,
                                                   height);

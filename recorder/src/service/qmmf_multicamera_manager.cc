@@ -109,6 +109,9 @@ MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   QMMF_INFO("%s Number of camera to be used(%d)", __func__,
       camera_ids.size());
 
+  if (virtual_camera_id_ + 1 < kVirtualCameraIdOffset) {
+    virtual_camera_id_ = kVirtualCameraIdOffset;
+  }
   virtual_camera_map_.emplace(++virtual_camera_id_, camera_ids);
   *virtual_camera_id = virtual_camera_id_;
 
@@ -240,7 +243,9 @@ status_t MultiCameraManager::CloseCamera(const uint32_t virtual_camera_id) {
     jpeg_encoding_enabled_ = false;
   }
   jpeg_memory_pool_ = nullptr;
-  jpeg_encoder_ = nullptr;;
+  jpeg_encoder_ = nullptr;
+
+  virtual_camera_map_.erase(virtual_camera_id);
 
   QMMF_INFO("%s: Exit", __func__);
   return closing_failed ? UNKNOWN_ERROR : NO_ERROR;

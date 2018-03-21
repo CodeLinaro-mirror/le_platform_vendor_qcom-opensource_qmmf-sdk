@@ -16,6 +16,7 @@ bin_PROGRAMS = av_codec_test
 av_codec_test_SOURCES  = test/sample/qmmf_avcodec_test.cc
 av_codec_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_test_LDADD    = libav_codec.la
+av_codec_test_LDFLAGS  = -lhardware
 
 # AVCodec gtest app
 bin_PROGRAMS += av_codec_gtest

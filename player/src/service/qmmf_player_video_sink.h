@@ -89,6 +89,11 @@ class VideoSink {
 
   status_t DeleteTrackSink(uint32_t track_id);
 
+  status_t SetVideoTrackSinkParams(uint32_t track_id,
+                                   CodecParamType param_type,
+                                   void* param,
+                                   uint32_t param_size);
+
  private:
   VideoSink();
 
@@ -147,6 +152,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
       void *event_data, size_t event_data_size);
 
   void DisplayVSyncHandler(int64_t time_stamp);
+
+  status_t SetVideoSinkParams(CodecParamType param_type, void* param,
+                              uint32_t param_size);
+
+  status_t SetDisplayOrientation(uint32_t angle);
 #endif
 
   status_t UpdateCropParameters(void* arg);
@@ -179,7 +189,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   std::mutex              wait_for_frame_lock_;
   QCondition              wait_for_frame_;
   std::mutex              queue_lock_;
-  bool                    stopplayback_;
+  bool                    stop_called_;
+  bool                    stop_notify_called_;
   bool                    paused_;
   uint32_t                decoded_frame_number_;
   uint64_t                last_queued_timestamp_;
@@ -250,6 +261,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   ::std::thread*                         displayed_buffer_thread_;
   TSQueue<BufferDescriptor>              displayed_buffer_queue_;
   ::std::thread*                         pts_thread_;
+  BufferDescriptor                       last_rendered_frame_;
 };
 
 };  // namespace player

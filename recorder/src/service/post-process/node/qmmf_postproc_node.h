@@ -179,8 +179,6 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
  private:
 
-   StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
-
    status_t ProcessOutputBuffer(StreamBuffer &buffer);
 
    status_t ReturnBuffers();

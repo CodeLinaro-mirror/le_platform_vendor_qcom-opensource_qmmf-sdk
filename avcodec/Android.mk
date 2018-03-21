@@ -34,7 +34,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := test/sample/qmmf_avcodec_test.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils
+LOCAL_SHARED_LIBRARIES += libqmmf_av_codec libqmmf_utils libhardware
 
 LOCAL_MODULE = qmmf_av_codec_test
 

@@ -236,6 +236,7 @@ class TranscodeBuffer {
   static status_t CreateTranscodeBuffersVector(
       const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& avcodec,
       const BufferOwner owner, const uint32_t port_index,
+      const uint32_t width, const uint32_t height,
       ::std::vector<TranscodeBuffer>* list);
 
   static void FreeTranscodeBuffersVector(::std::vector<TranscodeBuffer>* list);
@@ -299,10 +300,11 @@ class TranscodeBuffer {
   inline void SetOffset(const uint32_t value) { offset_ = value; }
 
  private:
-  status_t Allocate(const uint32_t size);
+  status_t Allocate(const uint32_t size, const uint32_t width,
+                    const uint32_t height);
   void Release();
 
-  native_handle_t*           meta_handle_;
+  private_handle_t*          meta_handle_;
   BufferOwner                owner_;
   BufInfo                    buf_info_;
   uint32_t                   buf_id_;
@@ -354,6 +356,7 @@ private:
   public:
     InputCodecSourceImpl(
         const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& avcodec,
+        const uint32_t width, const uint32_t height,
         VQZipInfoExtractor* const src);
     ~InputCodecSourceImpl();
 
@@ -369,6 +372,8 @@ private:
   private:
     ::std::vector<TranscodeBuffer>                 buffer_list_;
     ::std::shared_ptr<::qmmf::avcodec::IAVCodec>   avcodec_;
+    uint32_t                                       width_;
+    uint32_t                                       height_;
     VQZipInfoExtractor*                            source_;
     TSQueue<TranscodeBuffer>                       free_buffer_queue_;
     TSQueue<TranscodeBuffer>                       occupy_buffer_queue_;
@@ -382,6 +387,7 @@ private:
   public:
     OutputCodecSourceImpl(
         const ::std::shared_ptr<::qmmf::avcodec::IAVCodec>& avcodec,
+        const uint32_t width, const uint32_t height,
         VQZipInfoExtractor* const sink);
     ~OutputCodecSourceImpl();
 
@@ -397,6 +403,8 @@ private:
   private:
     ::std::vector<TranscodeBuffer>                 buffer_list_;
     ::std::shared_ptr<::qmmf::avcodec::IAVCodec>   avcodec_;
+    uint32_t                                       width_;
+    uint32_t                                       height_;
     VQZipInfoExtractor*                            sink_;
     TSQueue<TranscodeBuffer>                       free_buffer_queue_;
     TSQueue<TranscodeBuffer>                       occupy_buffer_queue_;

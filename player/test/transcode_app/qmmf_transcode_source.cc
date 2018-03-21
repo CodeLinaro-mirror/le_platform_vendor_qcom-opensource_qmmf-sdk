@@ -98,7 +98,9 @@ status_t TranscoderSource::PreparePipeline() {
   }
 
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kTranscoderSource, port_index_, &buffer_list_);
+      avcodec_, BufferOwner::kTranscoderSource, port_index_,
+      params_.video_dec_param.width, params_.video_dec_param.height,
+      &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("%s Failed to allocate source side buffers", __func__);
     return ret;

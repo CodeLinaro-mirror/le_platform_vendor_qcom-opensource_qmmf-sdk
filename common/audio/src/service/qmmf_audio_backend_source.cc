@@ -210,12 +210,13 @@ int32_t AudioBackendSource::Open(const qahw_module_handle_t * const modules[],
     current_io_handle_ = kIOHandleMin;
   ++current_io_handle_;
 
+  audio_input_flags_t flags = static_cast<audio_input_flags_t>
+                                         (QAHW_INPUT_FLAG_COMPRESS |
+                                          QAHW_INPUT_FLAG_TIMESTAMP);
+
   result = qahw_open_input_stream(qahw_module_, current_io_handle_,
                                   audio_devices, &config, &qahw_stream_,
-                                  static_cast<audio_input_flags_t>
-                                  (QAHW_INPUT_FLAG_COMPRESS),
-                                  "input_stream",
-                                  AUDIO_SOURCE_DEFAULT);
+                                  flags, "input_stream", AUDIO_SOURCE_DEFAULT);
   if (result != 0) {
     QMMF_ERROR("%s() failed to open input stream: %d[%s]", __func__,
                result, strerror(result));
@@ -601,6 +602,12 @@ void AudioBackendSource::Thread() {
   queue<AudioBuffer> buffers;
   bool paused = false;
 
+  char adjust_string[PROPERTY_VALUE_MAX];
+  property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
+  int32_t adjustment_timestamp = atoi(adjust_string);
+  QMMF_VERBOSE("%s() adjustment_timestamp[%d]", __func__, adjustment_timestamp);
+  bool first_buffer_read = true;
+
   bool keep_running = true;
   bool stop_received = false;
   while (keep_running) {
@@ -660,6 +667,7 @@ void AudioBackendSource::Thread() {
       memset(&qahw_buffer, 0, sizeof(qahw_in_buffer_t));
       qahw_buffer.buffer = buffer.data;
       qahw_buffer.bytes = buffer.capacity;
+      qahw_buffer.timestamp = &buffer.timestamp;
 
       int result = qahw_in_read(qahw_stream_, &qahw_buffer);
       if (result < 0) {
@@ -673,16 +681,14 @@ void AudioBackendSource::Thread() {
 
       // if filled, return timestamped buffer to client
       if (buffer.size > 0) {
-        struct timespec tv;
-        clock_gettime(CLOCK_MONOTONIC, &tv);
-        buffer.timestamp = (int64_t)(tv.tv_sec) * 1000000 +
-                           (int64_t)(tv.tv_nsec) / 1000;
-
-        char adjust_string[PROPERTY_VALUE_MAX];
-        property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
-        buffer.timestamp += atoi(adjust_string);
-        QMMF_VERBOSE("%s() generated timestamp[%lld] with adjust[%d]",
-                     __func__, buffer.timestamp, atoi(adjust_string));
+        if (first_buffer_read) {
+          struct timespec tv;
+          clock_gettime(CLOCK_BOOTTIME, &tv);
+          adjustment_timestamp += (int64_t)(tv.tv_sec) * 1000000 +
+                                  (int64_t)(tv.tv_nsec) / 1000;
+          first_buffer_read = false;
+        }
+        buffer.timestamp += adjustment_timestamp;
 
         if (stop_received) {
           QMMF_DEBUG("%s() setting EOS flag", __func__);

@@ -72,7 +72,10 @@ TranscoderPipe::~TranscoderPipe() {
   QMMF_INFO("%s Exit", __func__);
 }
 
-status_t TranscoderPipe::PreparePipeline() {
+status_t TranscoderPipe::PreparePipeline(const uint32_t source_width,
+                                         const uint32_t source_height,
+                                         const uint32_t sink_width,
+                                         const uint32_t sink_height) {
   QMMF_INFO("%s Enter", __func__);
 
   status_t ret = 0;
@@ -91,13 +94,13 @@ status_t TranscoderPipe::PreparePipeline() {
       return -1;
   }
 
-  pipe_in_ = make_shared<TranscoderPipeIn>(in_avcodec_.lock(),
-                                           shared_from_this(),
-                                           pipe_in_codec_type);
+  pipe_in_ = make_shared<TranscoderPipeIn>
+                        (in_avcodec_.lock(), shared_from_this(),
+                         source_width, source_height, pipe_in_codec_type);
 
-  pipe_out_ = make_shared<TranscoderPipeOut>(out_avcodec_.lock(),
-                                             shared_from_this(),
-                                             pipe_out_codec_type);
+  pipe_out_ = make_shared<TranscoderPipeOut>
+                         (out_avcodec_.lock(), shared_from_this(),
+                          sink_width, sink_height, pipe_out_codec_type);
 
   ret = pipe_in_->PreparePipeline();
   if (ret != 0) {
@@ -228,12 +231,13 @@ void* TranscoderPipe::Transport(void* arg) {
 }
 
 TranscoderPipe::TranscoderPipeIn::TranscoderPipeIn(
-    const shared_ptr<IAVCodec>& arg,
-    const shared_ptr<TranscoderPipe>& parent,
-    const CodecType type)
+    const shared_ptr<IAVCodec>& arg, const shared_ptr<TranscoderPipe>& parent,
+    const uint32_t width, const uint32_t height, const CodecType type)
     : avcodec_(arg),
       pipe_(parent),
       port_index_(kPortIndexOutput),
+      width_(width),
+      height_(height),
       codec_type_(type),
       fps_clr_input_side_(nullptr),
       fps_clr_output_side_(nullptr) {
@@ -251,7 +255,8 @@ status_t TranscoderPipe::TranscoderPipeIn::PreparePipeline() {
 
   status_t ret = 0;
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kTranscoderPipeIn, port_index_, &buffer_list_);
+      avcodec_, BufferOwner::kTranscoderPipeIn, port_index_,
+      width_, height_, &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("(pipe_input)%s Failed to allocate PipeIn buffers",
                __func__);
@@ -467,7 +472,7 @@ status_t TranscoderPipe::TranscoderPipeIn::NotifyPortEvent(
                     __func__);
           ret = TranscodeBuffer::CreateTranscodeBuffersVector(
               avcodec_, BufferOwner::kTranscoderPipeIn, port_index_,
-              &buffer_list_);
+              width_, height_, &buffer_list_);
           if (ret != 0) {
             QMMF_ERROR("(pipe_input)%s Failed to allocate PipeIn buffers",
                        __func__);
@@ -509,12 +514,13 @@ status_t TranscoderPipe::TranscoderPipeIn::NotifyPortEvent(
 }
 
 TranscoderPipe::TranscoderPipeOut::TranscoderPipeOut(
-    const shared_ptr<IAVCodec>& arg,
-    const shared_ptr<TranscoderPipe>& parent,
-    const CodecType type)
+    const shared_ptr<IAVCodec>& arg, const shared_ptr<TranscoderPipe>& parent,
+    const uint32_t width, const uint32_t height, const CodecType type)
     : avcodec_(arg),
       pipe_(parent),
       port_index_(kPortIndexInput),
+      width_(width),
+      height_(height),
       codec_type_(type),
       fps_clr_input_side_(nullptr),
       fps_clr_output_side_(nullptr) {
@@ -532,7 +538,8 @@ status_t TranscoderPipe::TranscoderPipeOut::PreparePipeline() {
   status_t ret = 0;
 
   ret = TranscodeBuffer::CreateTranscodeBuffersVector(
-      avcodec_, BufferOwner::kTranscoderPipeOut, port_index_, &buffer_list_);
+      avcodec_, BufferOwner::kTranscoderPipeOut, port_index_,
+      width_, height_, &buffer_list_);
   if (ret != 0) {
     QMMF_ERROR("(pipe_output)%s Failed to allocate PipeOut buffers",
                __func__);
