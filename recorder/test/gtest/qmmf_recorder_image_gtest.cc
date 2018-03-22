@@ -2295,13 +2295,16 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCAC) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   bool found = false;
-  for (auto const& plugin_info : supported_plugins) {
+  for (auto& plugin_info : supported_plugins) {
     if (plugin_info.name == "BayerLcac") {
+      plugin_info.SetTuningFile("lens_ca_gpblack_GPversion_large.json");
+
       ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
       ASSERT_TRUE(ret == NO_ERROR);
 
       image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin);
       found = true;
+      break;
     }
   }
   ASSERT_TRUE(found == true);

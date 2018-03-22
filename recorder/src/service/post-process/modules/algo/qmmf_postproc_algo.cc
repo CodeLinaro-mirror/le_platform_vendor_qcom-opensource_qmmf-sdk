@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <iomanip>
 #include <json/json.h>
+#include <fstream>
 
 #include "qmmf_postproc_algo.h"
 
@@ -45,7 +46,8 @@ namespace recorder {
 
 using namespace qmmf_alg_plugin;
 
-PostProcAlg::PostProcAlg(std::string lib)
+PostProcAlg::PostProcAlg(const std::string &lib,
+                         const std::string &tuning_file_name)
     : Lib_(lib),
       is_enable_(true),
       state_(State::CREATED),
@@ -58,7 +60,13 @@ PostProcAlg::PostProcAlg(std::string lib)
 
     QmmfAlgLoadPlugin LoadPluginFunc;
     Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
+
     std::vector<uint8_t> calibration_data;
+    auto ret = LoadTuning(calibration_data, tuning_file_name);
+    if (ret != NO_ERROR) {
+      QMMF_INFO("%s: Tuning not found. Use default tuning", __func__);
+    }
+
     algo_ = LoadPluginFunc(calibration_data, *this);
   } catch (const std::exception &e) {
     QMMF_ERROR("%s: Error loading: %s exception: %s", __func__,
@@ -459,6 +467,30 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
 void PostProcAlg::OnError(RuntimeError err) {
   QMMF_ERROR("%s: Error %d", __func__, err);
   listener_->OnError(err);
+}
+
+status_t PostProcAlg::LoadTuning(std::vector<uint8_t> &calibration_data,
+                                     const std::string &file_name) {
+
+  QMMF_VERBOSE("%s: Load file found: %s", __func__, file_name.c_str());
+
+  std::fstream tuning_file(Utils::GetAlgTuningFolder() + file_name,
+                           std::ios::in|std::ios::binary|std::ios::ate);
+  if (tuning_file.is_open() == false) {
+    QMMF_ERROR("%s: Failed to open tuning file: %s", __func__,
+        file_name.c_str());
+    return NAME_NOT_FOUND;
+  }
+
+  auto size = tuning_file.tellg();
+  calibration_data.resize(size);
+  tuning_file.seekg(0, std::ios::beg);
+  tuning_file.read((char *)(calibration_data.data()), size);
+  tuning_file.close();
+
+  QMMF_VERBOSE("%s: Load tuning succeed", __func__);
+
+  return NO_ERROR;
 }
 
 PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {

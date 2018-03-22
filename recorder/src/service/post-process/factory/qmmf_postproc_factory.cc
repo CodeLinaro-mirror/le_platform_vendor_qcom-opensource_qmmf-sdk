@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017,2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -129,7 +129,7 @@ PostProcFactory::CreatePlugin(uint32_t &uid, const PluginInfo &plugin) {
     std::string library = plugin_libraries_.at(plugin.name);
 
     std::shared_ptr<IPostProcModule> module =
-        std::make_shared<PostProcAlg>(library);
+        std::make_shared<PostProcAlg>(library, plugin.tuning_file_name);
     if (module.get() != nullptr) {
       std::shared_ptr<PostProcNode> node =
           std::make_shared<PostProcNode>(uid, plugin.name, module);

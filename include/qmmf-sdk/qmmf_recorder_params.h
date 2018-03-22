@@ -126,18 +126,27 @@ struct PluginInfo {
   std::string version;
   /// indicating whether runtime enable/disable is supported
   bool        togglable;
+  /// tuning file name
+  std::string tuning_file_name;
 
   PluginInfo()
-    : name(), version("0.0"), togglable(false) {}
+    : name(), version("0.0"), togglable(false), tuning_file_name() {}
 
-  PluginInfo(const std::string name,
-             const std::string version,
+  PluginInfo(const std::string &name,
+             const std::string &version,
              const bool togglable)
       : name(name),
         version(version),
-        togglable(togglable) {}
+        togglable(togglable) {
+    // set default tuning file name
+    tuning_file_name = kTuningPrefix + name + kTuningSuffix;
+  }
 
   PluginInfo(const void *blob, const size_t size) { FromBlob(blob, size); }
+
+  void SetTuningFile(const std::string &tuning) {
+    tuning_file_name = tuning;
+  }
 
   std::string ToString(uint32_t indent = 0) const {
     std::stringstream indentation;
@@ -151,6 +160,8 @@ struct PluginInfo {
            << "\"version\" : " << version << '\n';
     stream << indentation.str()
            << "\"togglable\" : " << togglable << '\n';
+    stream << indentation.str()
+           << "\"tuning file\" : " << tuning_file_name << '\n';
     return stream.str();
   }
 
@@ -158,18 +169,21 @@ struct PluginInfo {
     std::shared_ptr<void> blob(new uint8_t[Size()],
                                std::default_delete<uint8_t[]>() );
 
-    uint16_t name_size, version_size;
-
-    name_size = (uint16_t)name.size();
-    version_size = (uint16_t)version.size();
+    uint16_t name_size = (uint16_t)name.size();
+    uint16_t version_size = (uint16_t)version.size();
+    uint16_t tuning_size = (uint16_t)tuning_file_name.size();
 
     uintptr_t dest = reinterpret_cast<uintptr_t>(blob.get());
-    memcpy(reinterpret_cast<void *>(dest), reinterpret_cast<void *>(&name_size),
-           sizeof(uint16_t));
+    memcpy(reinterpret_cast<void *>(dest),
+           reinterpret_cast<void *>(&name_size), sizeof(uint16_t));
 
     dest += sizeof(uint16_t);
     memcpy(reinterpret_cast<void *>(dest),
            reinterpret_cast<void *>(&version_size), sizeof(uint16_t));
+
+    dest += sizeof(uint16_t);
+    memcpy(reinterpret_cast<void *>(dest),
+           reinterpret_cast<void *>(&tuning_size), sizeof(uint16_t));
 
     dest += sizeof(uint16_t);
     memcpy(reinterpret_cast<void *>(dest), name.data(), name.size());
@@ -180,24 +194,32 @@ struct PluginInfo {
     dest += version.size();
     memcpy(reinterpret_cast<void *>(dest), &togglable, sizeof(togglable));
 
+    dest += sizeof(togglable);
+    memcpy(reinterpret_cast<void *>(dest), tuning_file_name.data(),
+           tuning_file_name.size());
+
     return blob;
   }
 
   void FromBlob(const void *blob, const size_t size) {
     uintptr_t src = reinterpret_cast<uintptr_t>(blob);
-    uint16_t name_size, version_size;
+    uint16_t name_size, version_size, tuning_size;
     size_t remaining_size = size;
     name = "Invalid blob";
     version = "Invalid blob";
+    tuning_file_name = "Invalid blob";
 
-    if (remaining_size > sizeof(uint16_t) * 2) {
-      remaining_size -= sizeof(uint16_t) * 2;
+    if (remaining_size > sizeof(uint16_t) * 3) {
+      remaining_size -= sizeof(uint16_t) * 3;
       memcpy(&name_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
 
       src += sizeof(uint16_t);
       memcpy(&version_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
 
-      if (remaining_size >= version_size + name_size) {
+      src += sizeof(uint16_t);
+      memcpy(&tuning_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
+
+      if (remaining_size >= version_size + name_size + tuning_size) {
         src += sizeof(uint16_t);
         name.assign(reinterpret_cast<const char *>(src), name_size);
 
@@ -206,14 +228,27 @@ struct PluginInfo {
 
         src += version_size;
         memcpy(&togglable, reinterpret_cast<void *>(src), sizeof(togglable));
+
+        src += sizeof(togglable);
+        tuning_file_name.assign(reinterpret_cast<const char *>(src),
+            tuning_size);
       }
     }
   }
 
   size_t Size() const {
-    return (sizeof(uint32_t) + name.size() + version.size() +
-            sizeof(togglable));
+    return (sizeof(uint16_t) + name.size() +
+            sizeof(uint16_t) + version.size() +
+            sizeof(togglable) +
+            sizeof(uint16_t) + tuning_file_name.size());
   }
+
+private:
+
+  /// recommended tuning file prefix
+  const std::string kTuningPrefix = "qmmf_tuning_";
+  /// recommended tuning file suffix
+  const std::string kTuningSuffix = ".bin";
 };
 
 typedef std::vector<PluginInfo> SupportedPlugins;
