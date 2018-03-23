@@ -117,6 +117,7 @@ public:
     QUEUE_WBSURFACE_BUFFER_CMD    = 'C',
     SET_DISPLAY_ORIENTATION       = 'D',
     EXIT_CMD                      = 'X',
+    NEXT_CMD                      = '\n',
     INVALID_CMD                   = '0'
   };
 
@@ -132,7 +133,7 @@ public:
 
   ~CmdMenu() {};
 
-  Command GetCommand();
+  Command GetCommand(bool& is_print_menu);
 
   void PrintMenu();
 

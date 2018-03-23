@@ -352,11 +352,13 @@ void CmdMenu::PrintMenu()
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand()
+CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu)
 {
+  if (is_print_menu) {
     PrintMenu();
-    return CmdMenu::Command(
-        static_cast<CmdMenu::CommandType>(getchar()));
+    is_print_menu = false;
+  }
+    return CmdMenu::Command(static_cast<CmdMenu::CommandType> (getchar()));
 }
 
 int main(int argc,char *argv[])
@@ -365,11 +367,12 @@ int main(int argc,char *argv[])
   TEST_INFO("%s: Enter", __func__);
 
   DisplayTest test_context;
+  bool is_print_menu = true;
   CmdMenu cmd_menu(test_context);
   int32_t testRunning = true, ret = NO_ERROR;
 
   while (testRunning) {
-    CmdMenu::Command command = cmd_menu.GetCommand();
+    CmdMenu::Command command = cmd_menu.GetCommand(is_print_menu);
 
     switch (command.cmd) {
       case CmdMenu::CONNECT_CMD:
@@ -442,6 +445,10 @@ int main(int argc,char *argv[])
       case CmdMenu::EXIT_CMD:
       {
         testRunning = false;
+      }
+      break;
+      case CmdMenu::NEXT_CMD: {
+        is_print_menu = true;
       }
       break;
       default:
