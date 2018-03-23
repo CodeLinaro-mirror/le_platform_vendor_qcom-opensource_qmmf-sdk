@@ -38,6 +38,13 @@ using namespace qmmf;
 using namespace display;
 using namespace android;
 
+enum class RotaionType {
+  kRotate_0,
+  kRotate_90,
+  kRotate_180,
+  kRotate_270
+};
+
 class DisplayTest
 {
  public:
@@ -69,6 +76,8 @@ class DisplayTest
 
   int32_t QueueWBSurfaceBuffer();
 
+  void SetDisplayRotation();
+
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -87,6 +96,7 @@ class DisplayTest
   SurfaceParam surface_param;
   FILE *file;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  RotaionType rotation_value_;
 };
 
 class CmdMenu
@@ -105,6 +115,7 @@ public:
     SET_DISPLAY_PARAM_CMD         = 'A',
     DEQUEUE_WBSURFACE_BUFFER_CMD  = 'B',
     QUEUE_WBSURFACE_BUFFER_CMD    = 'C',
+    SET_DISPLAY_ORIENTATION       = 'D',
     EXIT_CMD                      = 'X',
     INVALID_CMD                   = '0'
   };
