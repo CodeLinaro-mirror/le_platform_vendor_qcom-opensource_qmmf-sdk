@@ -10,6 +10,7 @@ BUILD_COMPONENTS += common/jpeg-encoder
 BUILD_COMPONENTS += common/codecadaptor
 BUILD_COMPONENTS += common/avqueue
 BUILD_COMPONENTS += common/exif-generator
+BUILD_COMPONENTS += common/resizer-neon
 BUILD_COMPONENTS += plugins
 BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += display/src/client
