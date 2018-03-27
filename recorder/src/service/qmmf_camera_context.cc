@@ -83,6 +83,8 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
+      jpeg_input_format_(BufferFormat::kUnsupported),
+      new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_(0),
       exif_en_(true) {
   camera_start_params_ = {};
@@ -601,10 +603,13 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
                            (snapshot_param_.height != param.height) ||
                            (sequence_cnt_ != num_images) ||
                            (postproc_enable_ != new_postproc_enable) ||
-                           (snapshot_type_ != new_snapshot_type_);
+                           (snapshot_type_ != new_snapshot_type_) ||
+                           (jpeg_input_format_ != new_jpeg_input_format_);
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
       snapshot_type_ = new_snapshot_type_;
+      jpeg_input_format_ = new_jpeg_input_format_;
+
       QMMF_INFO("%s: PostProc is %s", __func__, postproc_enable_ ?
           "Enabled" : "Disabled");
       if (snapshot_type_ == SnapshotMode::kContinuous) {
@@ -804,6 +809,19 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     ImageExif exif;
     config.Fetch(QMMF_EXIF, exif, 0);
     exif_en_ = exif.enable;
+  }
+
+  if (config.Exists(QMMF_JPEG_CAPTURE_SETUP)) {
+    HighQualityCaptureSetup setup;
+    config.Fetch(QMMF_JPEG_CAPTURE_SETUP, setup);
+
+    std::unique_lock<std::mutex> lock(capture_lock_);
+    if (capture_done_ == false &&
+        new_jpeg_input_format_ != setup.jpeg_input_format) {
+      QMMF_ERROR("%s: %d capture is ongoing", __func__, new_jpeg_input_format_);
+      return INVALID_OPERATION;
+    }
+    new_jpeg_input_format_ = setup.jpeg_input_format;
   }
 
   return NO_ERROR;
@@ -2213,6 +2231,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   }
   out_param.frame_skip = postproc_frame_skip_ > 0 ? true : false;;
   out_param.exif_en = exif_en_;
+  out_param.internal_format = jpeg_input_format_;
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);

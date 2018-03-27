@@ -69,6 +69,7 @@ struct PostProcIOParam {
   int32_t      gralloc_flags;
   uint32_t     buffer_count;
   uint32_t     buffer_max;
+  BufferFormat internal_format;
 };
 
 /** PostProcCaps:
