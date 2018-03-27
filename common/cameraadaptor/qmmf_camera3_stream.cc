@@ -891,6 +891,12 @@ mem_alloc_error Gralloc1Allocator::AllocBuffer(buffer_handle_t *buf,
             static_cast<uint32_t>(producer_flags),
             static_cast<uint32_t>(consumer_flags));
 
+  if (usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC) {
+    QMMF_INFO("%s: Setting UBWC producer_flags", __func__);
+    //UBWC being custom format, needs to be handled seperately
+    producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_ALLOC_UBWC;
+  }
+
   res = CreateDescriptor(gralloc1_device, &buf_desc);
   if (GRALLOC1_ERROR_NONE != res) {
     QMMF_ERROR("%s: Error in CreateDescriptor\n", __func__);
