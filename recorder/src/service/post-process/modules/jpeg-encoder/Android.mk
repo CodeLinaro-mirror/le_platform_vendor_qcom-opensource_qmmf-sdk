@@ -13,20 +13,14 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/stack/common
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/mm-image-codec/qexif
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/mm-image-codec/qomx_core
 ifneq ($(DISABLE_PP_JPEG),1)
-LOCAL_SRC_FILES := qmmf_jpeg_core.cc
-LOCAL_SRC_FILES += qmmf_jpeg.cc
+LOCAL_SRC_FILES := qmmf_jpeg.cc
 endif
 
 LOCAL_SHARED_LIBRARIES += libcamera_client
 ifneq ($(DISABLE_PP_JPEG),1)
-LOCAL_SHARED_LIBRARIES += libmmjpeg_interface
+
+LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
 endif
 
 LOCAL_MODULE = libqmmf_jpeg

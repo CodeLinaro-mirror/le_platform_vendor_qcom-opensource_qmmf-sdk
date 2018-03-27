@@ -13,9 +13,7 @@ source_files += qmmf_audio_raw_track_source.cc
 source_files += qmmf_audio_encoded_track_source.cc
 source_files += qmmf_audio_encoder_core.cc
 if ENABLE_360
-source_files += qmmf_jpeg_encoder.cc
 source_files += qmmf_camera_jpeg.cc
-source_files += qmmf_exif_generator.cc
 endif
 
 source_files += qmmf_camera_reprocess_impl.cc
@@ -34,13 +32,7 @@ libqmmf_recorder_service_la_SOURCES = $(source_files)
 
 libqmmf_recorder_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
-libqmmf_recorder_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERASTACKCOMMON_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAINTERFACE_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(EXIF_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
-libqmmf_recorder_service_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
 if ENABLE_360
 libqmmf_recorder_service_la_CPPFLAGS += -DENABLE_360
 endif
@@ -56,6 +48,8 @@ libqmmf_recorder_service_la_LIBADD   += ../../../common/cameraadaptor/libcamera_
 libqmmf_recorder_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/overlay/liboverlay.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/exif-generator/libexif_generator.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/jpeg-encoder/libqmmf_common_jpeg_encoder.la
 libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/camera-hal-reproc/libqmmf_camera_hal_reproc.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/jpeg-encoder/libqmmf_jpeg.la

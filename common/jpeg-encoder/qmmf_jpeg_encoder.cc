@@ -32,9 +32,11 @@
 #include <mutex>
 #include <dlfcn.h>
 
-#include <qmmf_jpeg_core.h>
-#include "common/utils/qmmf_log.h"
+#include <hardware/camera3.h>
+#include <mm_jpeg_interface.h>
 
+#include "qmmf_jpeg_encoder.h"
+#include "common/utils/qmmf_log.h"
 
 using namespace qmmf;
 
@@ -42,6 +44,23 @@ namespace qmmf {
 
 namespace reprocjpegencoder {
 
+typedef uint32_t (*jpeg_open_proc_t)(mm_jpeg_ops_t *,
+                                     mm_jpeg_mpo_ops_t *,
+                                     mm_dimension,
+                                     cam_related_system_calibration_data_t *);
+
+typedef struct {
+  jpeg_open_proc_t jpeg_open_proc;
+  uint32_t handle_;
+  mm_dimension pic_size_;
+  mm_jpeg_ops_t ops_;
+  mm_jpeg_encode_params_t params_;
+  mm_jpeg_job_t job_;
+  uint32_t job_id_;
+  std::mutex encode_lock_;
+  std::mutex enc_done_lock_;
+  QCondition enc_done_cond_;
+} JpegEncoderParams;
 
 const uint32_t JpegEncoder::kDefaultMainThumbWidth  = 960;
 const uint32_t JpegEncoder::kDefaultMainThumbHeight = 480;
@@ -102,115 +121,128 @@ JpegEncoder::JpegEncoder() :
     job_result_ptr_(NULL),
     job_result_size_(0),
     libjpeg_interface_(nullptr) {
-  cfg_.handle_ = 0;
-  cfg_.handle_ = 0;
-  cfg_.job_id_ = 0;
+  cfg_ = new JpegEncoderParams();
+
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+
+  cfg->handle_ = 0;
+  cfg->handle_ = 0;
+  cfg->job_id_ = 0;
 
   libjpeg_interface_ = dlopen("libmmjpeg_interface.so", RTLD_NOW);
   if (!libjpeg_interface_) {
     ALOGE("%s: could not open jpeg library", __func__);
   } else {
-    cfg_.jpeg_open_proc = (jpeg_open_proc_t)dlsym(libjpeg_interface_, "jpeg_open");
-    if (!cfg_.jpeg_open_proc) {
+    cfg->jpeg_open_proc = (jpeg_open_proc_t)dlsym(libjpeg_interface_, "jpeg_open");
+    if (!cfg->jpeg_open_proc) {
       ALOGE("%s: could not dlsym jpeg_open", __func__);
     }
   }
 
   // setup internal config structures. performed only once
-  memset(&cfg_.params_, 0, sizeof(cfg_.params_));
-  memset(&cfg_.job_, 0, sizeof(cfg_.job_));
+  memset(&cfg->params_, 0, sizeof(cfg->params_));
+  memset(&cfg->job_, 0, sizeof(cfg->job_));
 
-  cfg_.params_.jpeg_cb = EncodeCbGlobal;
-  cfg_.params_.userdata = this;
+  cfg->params_.jpeg_cb = EncodeCbGlobal;
+  cfg->params_.userdata = this;
 
-  cfg_.params_.num_dst_bufs = 1;
+  cfg->params_.num_dst_bufs = 1;
 
-  cfg_.params_.dest_buf[0].buf_vaddr = nullptr;
-  cfg_.params_.dest_buf[0].fd = -1;
-  cfg_.params_.dest_buf[0].index = 0;
+  cfg->params_.dest_buf[0].buf_vaddr = nullptr;
+  cfg->params_.dest_buf[0].fd = -1;
+  cfg->params_.dest_buf[0].index = 0;
 
-  cfg_.params_.num_src_bufs = 1;
-  cfg_.params_.num_tmb_bufs = 0;
+  cfg->params_.num_src_bufs = 1;
+  cfg->params_.num_tmb_bufs = 0;
 
-  cfg_.params_.encode_thumbnail = 0;
-  cfg_.params_.encode_second_thumbnail = 0;
+  cfg->params_.encode_thumbnail = 0;
+  cfg->params_.encode_second_thumbnail = 0;
 
-  cfg_.params_.quality = 85;
-  cfg_.params_.thumb_quality = 75;
+  cfg->params_.quality = 85;
+  cfg->params_.thumb_quality = 75;
 
-  cfg_.job_.encode_job.dst_index = 0;
-  cfg_.job_.encode_job.src_index = 0;
-  cfg_.job_.encode_job.rotation = 0;
+  cfg->job_.encode_job.dst_index = 0;
+  cfg->job_.encode_job.src_index = 0;
+  cfg->job_.encode_job.rotation = 0;
 
-  cfg_.job_.encode_job.exif_info.numOfEntries = 0;
-  cfg_.params_.burst_mode = 0;
+  cfg->job_.encode_job.exif_info.numOfEntries = 0;
+  cfg->params_.burst_mode = 0;
 
   /* Qtable */
-  cfg_.job_.encode_job.qtable_set[0] = 0;
-  cfg_.job_.encode_job.qtable_set[1] = 0;
+  cfg->job_.encode_job.qtable_set[0] = 0;
+  cfg->job_.encode_job.qtable_set[1] = 0;
 
-  cfg_.job_.job_type = JPEG_JOB_TYPE_ENCODE;
-  cfg_.job_.encode_job.src_index = 0;
-  cfg_.job_.encode_job.dst_index = 0;
-  cfg_.job_.encode_job.thumb_index = 0;
+  cfg->job_.job_type = JPEG_JOB_TYPE_ENCODE;
+  cfg->job_.encode_job.src_index = 0;
+  cfg->job_.encode_job.dst_index = 0;
+  cfg->job_.encode_job.thumb_index = 0;
+
+  cfg->job_.encode_job.disable_maker_note = false;
 }
 
 JpegEncoder::~JpegEncoder() {
   if (nullptr != libjpeg_interface_) {
     dlclose(libjpeg_interface_);
   }
+
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+  delete cfg;
 }
 
 int32_t JpegEncoder::ConfigureMainImage(const encode_params &params) {
 
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
   auto &plane_info = params.source_info.plane_info[0];
 
   size_t size = plane_info.stride * plane_info.scanline;
 
-  cfg_.params_.src_main_buf[0].buf_size = 3 * size / 2;
-  cfg_.params_.src_main_buf[0].format = MM_JPEG_FMT_YUV;
-  cfg_.params_.src_main_buf[0].fd = -1;
-  cfg_.params_.src_main_buf[0].index = 0;
-  cfg_.params_.src_main_buf[0].offset.mp[0].len = static_cast<uint32_t>(size);
-  cfg_.params_.src_main_buf[0].offset.mp[0].stride = plane_info.stride;
-  cfg_.params_.src_main_buf[0].offset.mp[0].scanline = plane_info.scanline;
-  cfg_.params_.src_main_buf[0].offset.mp[1].len =
+  cfg->params_.src_main_buf[0].buf_size = 3 * size / 2;
+  cfg->params_.src_main_buf[0].format = MM_JPEG_FMT_YUV;
+  cfg->params_.src_main_buf[0].fd = -1;
+  cfg->params_.src_main_buf[0].index = 0;
+  cfg->params_.src_main_buf[0].offset.mp[0].len = static_cast<uint32_t>(size);
+  cfg->params_.src_main_buf[0].offset.mp[0].stride = plane_info.stride;
+  cfg->params_.src_main_buf[0].offset.mp[0].scanline = plane_info.scanline;
+  cfg->params_.src_main_buf[0].offset.mp[1].len =
       static_cast<uint32_t>(size >> 1);
 
-  cfg_.params_.src_thumb_buf[0] = cfg_.params_.src_main_buf[0];
+  cfg->params_.src_thumb_buf[0] = cfg->params_.src_main_buf[0];
 
   switch (params.source_info.format) {
     case BufferFormat::kNV12:
-      cfg_.params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V2;
+      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V2;
       break;
     case BufferFormat::kNV21:
-      cfg_.params_.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
+      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
       break;
     default:
       break;
   }
 
-  cfg_.params_.thumb_color_format = cfg_.params_.color_format;
+  cfg->params_.thumb_color_format = cfg->params_.color_format;
 
-  cfg_.params_.dest_buf[0].buf_size = cfg_.params_.src_main_buf[0].buf_size;
+  cfg->params_.dest_buf[0].buf_size = cfg->params_.src_main_buf[0].buf_size;
 
-  cfg_.job_.encode_job.main_dim.src_dim.width = plane_info.stride;
-  cfg_.job_.encode_job.main_dim.src_dim.height = plane_info.scanline;
-  cfg_.job_.encode_job.main_dim.dst_dim.width = plane_info.width;
-  cfg_.job_.encode_job.main_dim.dst_dim.height = plane_info.height;
-  cfg_.job_.encode_job.main_dim.crop.top = 0;
-  cfg_.job_.encode_job.main_dim.crop.left = 0;
-  cfg_.job_.encode_job.main_dim.crop.width = plane_info.width;
-  cfg_.job_.encode_job.main_dim.crop.height = plane_info.height;
-  cfg_.params_.main_dim = cfg_.job_.encode_job.main_dim;
-  cfg_.params_.quality = params.image_quality;
+  cfg->job_.encode_job.main_dim.src_dim.width = plane_info.stride;
+  cfg->job_.encode_job.main_dim.src_dim.height = plane_info.scanline;
+  cfg->job_.encode_job.main_dim.dst_dim.width = plane_info.width;
+  cfg->job_.encode_job.main_dim.dst_dim.height = plane_info.height;
+  cfg->job_.encode_job.main_dim.crop.top = 0;
+  cfg->job_.encode_job.main_dim.crop.left = 0;
+  cfg->job_.encode_job.main_dim.crop.width = plane_info.width;
+  cfg->job_.encode_job.main_dim.crop.height = plane_info.height;
+  cfg->params_.main_dim = cfg->job_.encode_job.main_dim;
+  cfg->params_.quality = params.image_quality;
+
+  cfg->job_.encode_job.disable_maker_note = params.disable_maker_note;
 
   return 0;
 }
 
 int32_t JpegEncoder::ConfigureThumbnails(const encode_params &params) {
-  cfg_.params_.encode_thumbnail = 0;
-  cfg_.params_.encode_second_thumbnail = 0;
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+  cfg->params_.encode_thumbnail = 0;
+  cfg->params_.encode_second_thumbnail = 0;
 
   auto &plane_info = params.source_info.plane_info[0];
   auto &thumbnail_data = params.thumbnail_data;
@@ -248,46 +280,47 @@ int32_t JpegEncoder::ConfigureThumbnails(const encode_params &params) {
         thumbnail_data[i].thumb_quality);
   }
 
-  cfg_.params_.encode_thumbnail = 1;
-  cfg_.params_.num_tmb_bufs = cfg_.params_.num_src_bufs;
+  cfg->params_.encode_thumbnail = 1;
+  cfg->params_.num_tmb_bufs = cfg->params_.num_src_bufs;
 
-  cfg_.job_.encode_job.thumb_dim.src_dim.width = plane_info.stride;
-  cfg_.job_.encode_job.thumb_dim.src_dim.height = plane_info.scanline;
-  cfg_.job_.encode_job.thumb_dim.dst_dim.width = thumbnail_data[0].width;
-  cfg_.job_.encode_job.thumb_dim.dst_dim.height = thumbnail_data[0].height;
-  cfg_.job_.encode_job.thumb_dim.crop.top = 0;
-  cfg_.job_.encode_job.thumb_dim.crop.left = 0;
-  cfg_.job_.encode_job.thumb_dim.crop.width = plane_info.width;
-  cfg_.job_.encode_job.thumb_dim.crop.height = plane_info.height;
-  cfg_.params_.thumb_dim = cfg_.job_.encode_job.thumb_dim;
-  cfg_.params_.thumb_quality = thumbnail_data[0].thumb_quality;
+  cfg->job_.encode_job.thumb_dim.src_dim.width = plane_info.stride;
+  cfg->job_.encode_job.thumb_dim.src_dim.height = plane_info.scanline;
+  cfg->job_.encode_job.thumb_dim.dst_dim.width = thumbnail_data[0].width;
+  cfg->job_.encode_job.thumb_dim.dst_dim.height = thumbnail_data[0].height;
+  cfg->job_.encode_job.thumb_dim.crop.top = 0;
+  cfg->job_.encode_job.thumb_dim.crop.left = 0;
+  cfg->job_.encode_job.thumb_dim.crop.width = plane_info.width;
+  cfg->job_.encode_job.thumb_dim.crop.height = plane_info.height;
+  cfg->params_.thumb_dim = cfg->job_.encode_job.thumb_dim;
+  cfg->params_.thumb_quality = thumbnail_data[0].thumb_quality;
   QMMF_INFO("%s: Encode thumbnail is enabled", __func__);
 
   if (thumb_cnt < 2) {
     return 0;
   }
 
-  cfg_.params_.encode_second_thumbnail = 1;
-  cfg_.job_.encode_job.second_thumb_dim.src_dim.width = plane_info.stride;
-  cfg_.job_.encode_job.second_thumb_dim.src_dim.height = plane_info.scanline;
-  cfg_.job_.encode_job.second_thumb_dim.dst_dim.width = thumbnail_data[1].width;
-  cfg_.job_.encode_job.second_thumb_dim.dst_dim.height = thumbnail_data[1].height;
-  cfg_.job_.encode_job.second_thumb_dim.crop.top = 0;
-  cfg_.job_.encode_job.second_thumb_dim.crop.left = 0;
-  cfg_.job_.encode_job.second_thumb_dim.crop.width = plane_info.width;
-  cfg_.job_.encode_job.second_thumb_dim.crop.height = plane_info.height;
-  cfg_.params_.second_thumb_dim = cfg_.job_.encode_job.second_thumb_dim;
+  cfg->params_.encode_second_thumbnail = 1;
+  cfg->job_.encode_job.second_thumb_dim.src_dim.width = plane_info.stride;
+  cfg->job_.encode_job.second_thumb_dim.src_dim.height = plane_info.scanline;
+  cfg->job_.encode_job.second_thumb_dim.dst_dim.width = thumbnail_data[1].width;
+  cfg->job_.encode_job.second_thumb_dim.dst_dim.height = thumbnail_data[1].height;
+  cfg->job_.encode_job.second_thumb_dim.crop.top = 0;
+  cfg->job_.encode_job.second_thumb_dim.crop.left = 0;
+  cfg->job_.encode_job.second_thumb_dim.crop.width = plane_info.width;
+  cfg->job_.encode_job.second_thumb_dim.crop.height = plane_info.height;
+  cfg->params_.second_thumb_dim = cfg->job_.encode_job.second_thumb_dim;
   QMMF_INFO("%s: Encode second thumbnail is enabled", __func__);
 
   return 0;
 }
 
 int32_t JpegEncoder::Init(uint32_t width, uint32_t height) {
-  cfg_.pic_size_.w = width;
-  cfg_.pic_size_.h = height;
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+  cfg->pic_size_.w = width;
+  cfg->pic_size_.h = height;
 
-  cfg_.handle_ = cfg_.jpeg_open_proc(&cfg_.ops_, NULL, cfg_.pic_size_, NULL);
-  if (cfg_.handle_ == 0) {
+  cfg->handle_ = cfg->jpeg_open_proc(&cfg->ops_, NULL, cfg->pic_size_, NULL);
+  if (cfg->handle_ == 0) {
     ALOGE("%s: could not open a jpeg handle", __func__);
     return -1;
   }
@@ -296,19 +329,21 @@ int32_t JpegEncoder::Init(uint32_t width, uint32_t height) {
 }
 
 int32_t JpegEncoder::DeInit() {
-  if (!cfg_.handle_) {
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+  if (!cfg->handle_) {
     ALOGE("%s: jpeg handle is 0", __func__);
     return -1;
   }
 
-  cfg_.ops_.close(cfg_.handle_);
-  cfg_.handle_ = 0;
+  cfg->ops_.close(cfg->handle_);
+  cfg->handle_ = 0;
 
   return 0;
 }
 
 int32_t JpegEncoder::Encode(encode_params &params, size_t &jpeg_size) {
-  std::lock_guard<std::mutex> al(cfg_.encode_lock_);
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(cfg_);
+  std::lock_guard<std::mutex> al(cfg->encode_lock_);
 
   int32_t ret = 0;
   jpeg_size = 0;
@@ -331,40 +366,40 @@ int32_t JpegEncoder::Encode(encode_params &params, size_t &jpeg_size) {
   }
 
   // buffer data
-  cfg_.params_.src_main_buf[0].buf_vaddr = params.img_data[0];
-  cfg_.params_.src_thumb_buf[0].buf_vaddr = params.img_data[0];
-  cfg_.params_.dest_buf[0].buf_vaddr = params.out_data[0];
-  cfg_.job_id_ = 0;
+  cfg->params_.src_main_buf[0].buf_vaddr = params.img_data[0];
+  cfg->params_.src_thumb_buf[0].buf_vaddr = params.img_data[0];
+  cfg->params_.dest_buf[0].buf_vaddr = params.out_data[0];
+  cfg->job_id_ = 0;
 
-  cfg_.ops_.create_session(cfg_.handle_, &cfg_.params_, &cfg_.job_.encode_job.session_id);
-  if (cfg_.job_.encode_job.session_id == 0) {
+  cfg->ops_.create_session(cfg->handle_, &cfg->params_, &cfg->job_.encode_job.session_id);
+  if (cfg->job_.encode_job.session_id == 0) {
     ALOGE("%s: could not create jpeg session", __func__);
     return -1;
   }
 
   // start JPEG encode
-  ret = cfg_.ops_.start_job(&cfg_.job_, &cfg_.job_id_);
+  ret = cfg->ops_.start_job(&cfg->job_, &cfg->job_id_);
   if (ret) {
     ALOGE("%s: could not start encode job", __func__);
-    cfg_.ops_.destroy_session(cfg_.job_.encode_job.session_id);
+    cfg->ops_.destroy_session(cfg->job_.encode_job.session_id);
     return -1;
   }
 
   // wait JPEG encode to finish
   {
-    std::unique_lock<std::mutex> ul(cfg_.enc_done_lock_);
-    cfg_.enc_done_cond_.Wait(ul);
+    std::unique_lock<std::mutex> ul(cfg->enc_done_lock_);
+    cfg->enc_done_cond_.Wait(ul);
   }
 
   // add a valid JPEG header
   camera3_jpeg_blob_t jpegHeader;
   jpegHeader.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
   jpegHeader.jpeg_size = static_cast<uint32_t>(job_result_size_);
-  uint8_t *jpegEof = &cfg_.params_.dest_buf[0].buf_vaddr[job_result_size_];
+  uint8_t *jpegEof = &cfg->params_.dest_buf[0].buf_vaddr[job_result_size_];
   memcpy(jpegEof, &jpegHeader, sizeof(jpegHeader));
   jpeg_size = job_result_size_ + sizeof(jpegHeader) + 1;
 
-  cfg_.ops_.destroy_session(cfg_.job_.encode_job.session_id);
+  cfg->ops_.destroy_session(cfg->job_.encode_job.session_id);
 
   return 0;
 }
@@ -376,7 +411,8 @@ void JpegEncoder::EncodeCb(void *p_output, void *userData) {
   enc->job_result_ptr_ = output->buf_vaddr;
   enc->job_result_size_ = output->buf_filled_len;
 
-  enc->cfg_.enc_done_cond_.Signal();
+  JpegEncoderParams *cfg = static_cast<JpegEncoderParams*>(enc->cfg_);
+  cfg->enc_done_cond_.Signal();
 }
 
 } //namespace reprocjpegencoder ends here

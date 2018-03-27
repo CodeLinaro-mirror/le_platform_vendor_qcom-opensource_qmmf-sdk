@@ -36,7 +36,9 @@
 
 #include "common/utils/qmmf_condition.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#ifndef DISABLE_PP_JPEG
 #include "common/codecadaptor/src/qmmf_jpeg_encode.h"
+#endif
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 

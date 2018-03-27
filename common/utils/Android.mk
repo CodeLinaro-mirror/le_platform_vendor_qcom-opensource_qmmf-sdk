@@ -13,6 +13,7 @@ include $(CLEAR_VARS)
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_SRC_FILES := qmmf_condition.cc
+LOCAL_SRC_FILES += qmmf_exif_converter.cc
 
 LOCAL_SHARED_LIBRARIES += libc++
 

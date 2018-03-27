@@ -207,6 +207,15 @@ status_t PostProcJpeg::Configure(const std::string config_json_data) {
     }
   }
 
+  if (!root.isMember("maker note") || root["maker note"].empty()) {
+    QMMF_INFO("%s:no maker note configuration", __func__);
+    jpeg_params_.disable_maker_note = false;
+  } else {
+    jpeg_params_.disable_maker_note = !root["maker note"].asUInt();
+    QMMF_INFO("%s:maker note flag: %d", __func__,
+        jpeg_params_.disable_maker_note);
+  }
+
   QMMF_VERBOSE("%s: Exit %p", __func__, this);
 
   return NO_ERROR;

@@ -182,7 +182,7 @@ class CameraContext : public CameraInterface,
 
   status_t CreateSnapshotStream(const ImageParam &param);
 
-  status_t DeleteSnapshotStream();
+  status_t DeleteSnapshotStream(bool cache = false);
 
   status_t UpdateRequest(bool is_streaming);
 
@@ -248,6 +248,9 @@ class CameraContext : public CameraInterface,
   std::string GetSnapshotJsonConfig();
 
   bool IsRawOnly(const int32_t format);
+
+
+  status_t ValidateCaptureConfig(const ImageConfigParam &config);
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;

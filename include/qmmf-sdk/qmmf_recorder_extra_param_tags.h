@@ -99,6 +99,7 @@ enum class StitchingMode {
 enum class SnapshotMode {
   kNone,
   kStill,
+  kStillPlusRaw,
   kVideo,
   kContinuous
 };

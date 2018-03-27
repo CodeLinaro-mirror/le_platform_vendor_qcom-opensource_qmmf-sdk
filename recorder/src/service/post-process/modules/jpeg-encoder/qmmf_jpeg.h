@@ -31,9 +31,11 @@
 
 #include "../../interface/qmmf_postproc_module.h"
 
-#include "qmmf_jpeg_core.h"
+#include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 
 namespace qmmf {
+
+using namespace reprocjpegencoder;
 
 namespace recorder {
 

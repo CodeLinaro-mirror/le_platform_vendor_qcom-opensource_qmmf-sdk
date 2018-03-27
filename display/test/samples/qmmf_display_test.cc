@@ -47,10 +47,11 @@
 #define TEST_DBG(...) ((void)0)
 #endif
 
-DisplayTest::DisplayTest() {
+DisplayTest::DisplayTest() :
+  rotation_value_(RotaionType::kRotate_0) {
   TEST_INFO("%s: Enter", __func__);
 
-  display_= new Display();
+  display_ = new Display();
   assert(display_ != nullptr);
   TEST_INFO("%s: Exit", __func__);
 }
@@ -181,8 +182,32 @@ int32_t DisplayTest::QueueSurfaceBuffer() {
 
   memset(&surface_param, 0x0, sizeof surface_param);
 
-  surface_param.src_rect = { 0.0, 0.0, 352.0, 288.0 };
-  surface_param.dst_rect = { 0.0, 0.0, 352.0, 288.0 };
+  surface_param.src_rect = {0.0, 0.0, 352.0, 288.0};
+  surface_param.dst_rect = {0.0, 0.0, 352.0, 288.0};
+  surface_param.surface_transform.rotation = 0.0f;
+  surface_param.surface_transform.flip_horizontal = 0;
+  surface_param.surface_transform.flip_vertical = 0;
+
+  switch (rotation_value_) {
+    case RotaionType::kRotate_0:
+      break;
+    case RotaionType::kRotate_90:
+      surface_param.surface_transform.rotation = 90.0f;
+      surface_param.dst_rect = {0.0, 0.0, 288.0, 352.0};
+      break;
+    case RotaionType::kRotate_180:
+      surface_param.surface_transform.flip_horizontal = 1;
+      surface_param.surface_transform.flip_vertical = 1;
+      break;
+    case RotaionType::kRotate_270:
+      surface_param.surface_transform.rotation = 90.0f;
+      surface_param.surface_transform.flip_horizontal = 1;
+      surface_param.surface_transform.flip_vertical = 1;
+      surface_param.dst_rect = {0.0, 0.0, 288.0, 352.0};
+      break;
+    default:
+      break;
+  }
   surface_param.surface_blending = SurfaceBlending::kBlendingCoverage;
   surface_param.surface_flags.cursor=0;
   surface_param.frame_rate = 30;
@@ -233,6 +258,35 @@ int32_t DisplayTest::SetDisplayParam() {
   TEST_INFO("%s: Exit", __func__);
 
   return 0;
+}
+
+void DisplayTest::SetDisplayRotation() {
+
+  TEST_INFO("%s: Enter", __func__);
+  uint32_t angle;
+  printf("\n");
+  printf("****** Set Display Orientation *******\n");
+  printf("Enter Rotation Angle [0/90/180/270] :: ");
+  scanf("%u", &angle);
+  switch (angle) {
+    case 0:
+      rotation_value_ = RotaionType::kRotate_0;
+      break;
+    case 90:
+      rotation_value_ = RotaionType::kRotate_90;
+      break;
+    case 180:
+      rotation_value_ = RotaionType::kRotate_180;
+      break;
+    case 270:
+      rotation_value_ = RotaionType::kRotate_270;
+      break;
+    default: {
+      printf("\n Wrong value entered. Please enter [0/90/180/270] ");
+      break;
+    }
+  }
+  TEST_INFO("%s: Exit", __func__);
 }
 
 int32_t DisplayTest::DequeueWBSurfaceBuffer() {
@@ -293,15 +347,18 @@ void CmdMenu::PrintMenu()
       CmdMenu::DEQUEUE_WBSURFACE_BUFFER_CMD);
   printf("   %c. Queue WriteBack Surface Buffer\n",
       CmdMenu::QUEUE_WBSURFACE_BUFFER_CMD);
+  printf("   %c. Set Display rotation\n", CmdMenu::SET_DISPLAY_ORIENTATION);
   printf("   %c. Exit\n", CmdMenu::EXIT_CMD);
   printf("\n   Choice: ");
 }
 
-CmdMenu::Command CmdMenu::GetCommand()
+CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu)
 {
+  if (is_print_menu) {
     PrintMenu();
-    return CmdMenu::Command(
-        static_cast<CmdMenu::CommandType>(getchar()));
+    is_print_menu = false;
+  }
+    return CmdMenu::Command(static_cast<CmdMenu::CommandType> (getchar()));
 }
 
 int main(int argc,char *argv[])
@@ -310,11 +367,12 @@ int main(int argc,char *argv[])
   TEST_INFO("%s: Enter", __func__);
 
   DisplayTest test_context;
+  bool is_print_menu = true;
   CmdMenu cmd_menu(test_context);
   int32_t testRunning = true, ret = NO_ERROR;
 
   while (testRunning) {
-    CmdMenu::Command command = cmd_menu.GetCommand();
+    CmdMenu::Command command = cmd_menu.GetCommand(is_print_menu);
 
     switch (command.cmd) {
       case CmdMenu::CONNECT_CMD:
@@ -380,9 +438,17 @@ int main(int argc,char *argv[])
         ret=test_context.QueueWBSurfaceBuffer();
       }
       break;
+      case CmdMenu::SET_DISPLAY_ORIENTATION: {
+        test_context.SetDisplayRotation();
+      }
+      break;
       case CmdMenu::EXIT_CMD:
       {
         testRunning = false;
+      }
+      break;
+      case CmdMenu::NEXT_CMD: {
+        is_print_menu = true;
       }
       break;
       default:
