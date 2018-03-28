@@ -116,6 +116,7 @@ class DisplayService : public BnInterface<IDisplayService> {
   bool                                                  connected_;
   ion_fd_map                                            ion_fd_mapping_;
   use_buffer_map                                        use_buffer_mapping_;
+  ion_surface_map                                       ion_surface_mapping_;
   int32_t                                               ion_device_;
   std::mutex                                            fd_map_lock_;
   std::mutex                                            use_buffer_map_lock_;
