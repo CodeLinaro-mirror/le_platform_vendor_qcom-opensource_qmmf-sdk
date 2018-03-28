@@ -66,6 +66,10 @@ typedef std::map<int32_t, int32_t> ion_fd_map;
 //mapping of surface id and use_buffer
 typedef std::map<uint32_t, bool> use_buffer_map;
 
+// mapping of ion fd and surface id
+typedef std::map<int32_t, uint32_t> ion_surface_map;
+
+
 class IDisplayServiceCallback;
 class IDisplayService : public IInterface {
 public:
