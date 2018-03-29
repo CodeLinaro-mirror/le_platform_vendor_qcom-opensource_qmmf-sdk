@@ -97,9 +97,21 @@ enum class StitchingMode {
 };
 
 enum class SnapshotMode {
+  // this is not valid mode
   kNone,
+  // High quality snapshot. This snapshot will interrupt video streaming if any
   kStill,
+  // High quality snapshot plus raw dump. this mode cannot be used together
+  // with burst capture because of following limitations:
+  // - Snapshot callback in camera context is common for all snapshot streams.
+  // - If we enable RAW re-process, we will ends up with two raw steams.
+  //   It is not supported by HAL.
+  kStillPlusRaw,
+  // High quality snapshot. This snapshot will NOT interrupt video streaming
+  // if any. Same sensor frame will be used for video and snapshot
   kVideo,
+  // Continuous capture. QMMF will take images until CancelCaptureImage.
+  // Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag.
   kContinuous
 };
 

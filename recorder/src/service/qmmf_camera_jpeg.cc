@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -48,6 +48,7 @@ static const char *kProductNameProp = "persist.qmmf.jpeg.product.name";
 
 CameraJpeg::CameraJpeg()
     : ExifGenerator(),
+      ExifConverter(),
       reprocess_flag_(false),
       ready_to_start_(false),
       jpeg_encoder_(nullptr) {
@@ -101,7 +102,7 @@ int32_t CameraJpeg::Create(const int32_t stream_id,
   capture_client_cb_ = cb;
   input_stream_id_   = stream_id;
   num_images_        = num_images;
-  jpeg_quality_      = jpeg_quality;
+  jpeg_params_.image_quality = jpeg_quality;
   ready_to_start_    = true;
 
   Run("Camera Jpeg");
@@ -147,10 +148,10 @@ status_t CameraJpeg::Delete() {
 
 status_t CameraJpeg::Configure(const std::vector<ImageThumbnail> &thumbs) {
 
-  thumbnails.clear();
+  jpeg_params_.thumbnail_data.clear();
   for (auto const& thumb : thumbs) {
-    jpeg_thumbnail jpeg_thumbnail(thumb.width, thumb.height, thumb.quality);
-    thumbnails.push_back(jpeg_thumbnail);
+    JpegEncoder::jpeg_thumbnail jpeg_thumbnail(thumb.width, thumb.height, thumb.quality);
+    jpeg_params_.thumbnail_data.push_back(jpeg_thumbnail);
   }
   return NO_ERROR;
 }
@@ -178,10 +179,9 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
     results_.erase(in_buffer.timestamp);
   }
 
-  snapshot_info img_buffer;
   if (buf_vaaddr != MAP_FAILED || out_vaaddr != MAP_FAILED) {
     if (!meta.isEmpty()) {
-      unsigned char *exif_buffer = new unsigned char[kMaxExifApp1Length];
+      unsigned char *exif_buffer = new unsigned char[getExifTempBuffSize()];
       int exif_size = Generate(meta, vendor_name_, product_name_,
                                out_buffer.info.plane_info[0].width,
                                out_buffer.info.plane_info[0].height,
@@ -191,22 +191,33 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       delete[] exif_buffer;
 
       if (exif_size != 0) {
-        img_buffer.exif_size = exif_entities_.size();
-        img_buffer.exif_data = (void*)(&exif_entities_[0]);
+        jpeg_params_.exif_size = getExifEntitiesSize();
+        jpeg_params_.exif_data = getExifEntitiesData();
       } else {
         QMMF_ERROR("%s Empty exif section!", __func__);
-        img_buffer.exif_size = 0;
-        img_buffer.exif_data = (void*)0;
+        jpeg_params_.exif_size = 0;
+        jpeg_params_.exif_data = (void*)0;
       }
     }
 
+  auto ret = jpeg_encoder_->Init(in_buffer.info.plane_info[0].width,
+                                 in_buffer.info.plane_info[0].height);
+  if (ret != 0) {
+    QMMF_ERROR("%s: failed to inint Jpeg Encoder", __func__);
+    munmap(buf_vaaddr, in_buffer.size);
+    munmap(out_vaaddr, out_buffer.size);
+    out_buffer.data = nullptr;
+    return;
+  }
     size_t jpeg_size = 0;
-    img_buffer.img_data[0] = static_cast<uint8_t*>(buf_vaaddr);
-    img_buffer.out_data[0] = static_cast<uint8_t*>(out_vaaddr);
-    img_buffer.source_info = in_buffer.info;
-    img_buffer.thumbnails = thumbnails;
-    auto buf_vaddr = reinterpret_cast<uint8_t *>(
-        jpeg_encoder_->Encode(img_buffer, jpeg_size, jpeg_quality_));
+    jpeg_params_.img_data[0] = static_cast<uint8_t*>(buf_vaaddr);
+    jpeg_params_.out_data[0] = static_cast<uint8_t*>(out_vaaddr);
+    jpeg_params_.source_info = in_buffer.info;
+
+    ret = jpeg_encoder_->Encode(jpeg_params_, jpeg_size);
+    if (ret != 0) {
+      QMMF_ERROR("%s: Jpeg Encode fails", __func__);
+    }
 
     if (0 == jpeg_size) {
       QMMF_ERROR("%s: JPEG size is 0!", __func__);
@@ -214,13 +225,16 @@ void CameraJpeg::Process(StreamBuffer& in_buffer, StreamBuffer& out_buffer) {
       out_buffer.info.plane_info[0].width = jpeg_size;
       out_buffer.data = out_vaaddr;
       out_buffer.filled_length = jpeg_size;
+      out_buffer.second_thumb = false;
       AddJpegHeader(out_buffer);
     }
 
-    memcpy(buf_vaaddr, buf_vaddr, jpeg_size);
+    memcpy(buf_vaaddr, out_vaaddr, jpeg_size);
     munmap(buf_vaaddr, in_buffer.size);
     munmap(out_vaaddr, out_buffer.size);
     out_buffer.data = nullptr;
+
+    jpeg_encoder_->DeInit();
   } else {
     QMMF_INFO("%s: SKIPP JPEG", __func__);
   }
@@ -354,351 +368,6 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       return NAME_NOT_FOUND;
   }
   return NO_ERROR;
-}
-
-status_t CameraJpeg::getTagDataByTagType(const uint8_t *binary,
-                                         uint32_t &offset,
-                                         qmmf_exif_tag_t *tag) {
-  if (offset >= kMaxExifApp1Length || tag == nullptr) {
-    QMMF_ERROR("%s buffer overflow", __func__);
-    return BAD_VALUE;
-  }
-  status_t res = NO_ERROR;
-  uint32_t tag_data_offset;
-
-  switch (tag->entry.type) {
-  case QMMF_EXIF_SHORT:
-    tag->entry.data._short = readU16(binary, offset);
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-        &tag->entry.data._short);
-    offset += kTagDataSize;
-    break;
-  case QMMF_EXIF_LONG:
-    tag->entry.data._long = readU32(binary, offset);
-    if (tag->id == QMMF_EXIFTAGID_EXIF_IFD_PTR) {
-      exif_ifd_ptr_offset_ = tag->entry.data._long + 10;
-    } else if (tag->id == QMMF_EXIFTAGID_GPS_IFD_PTR) {
-      gps_ifd_ptr_offset_ = tag->entry.data._long + 10;
-    } else if (tag->id == QMMF_EXIFTAGID_INTEROP_IFD_PTR) {
-      interop_ifd_ptr_offset_ = tag->entry.data._long + 10;
-    } else {
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-        &tag->entry.data._long);
-    }
-    offset += kTagDataSize;
-    break;
-  case QMMF_EXIF_RATIONAL:
-    tag_data_offset = readU32(binary, offset);
-    tag_data_offset += tiff_header_offset_;
-    if (tag->entry.count > 1) {
-      tag->entry.data._rats = new qmmf_exif_rat_t[tag->entry.count];
-      for (uint32_t i = 0; i < tag->entry.count; i++) {
-        tag->entry.data._rats[i].num = readU32(binary, tag_data_offset);
-        tag_data_offset += kTagDataSize;
-        tag->entry.data._rats[i].denom = readU32(binary, tag_data_offset);
-        tag_data_offset += kTagDataSize;
-      }
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-        tag->entry.data._rats);
-    } else {
-      tag->entry.data._rat.num = readU32(binary, tag_data_offset);
-      tag_data_offset += kTagDataSize;
-      tag->entry.data._rat.denom = readU32(binary, tag_data_offset);
-      constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-          &tag->entry.data._rat);
-    }
-    offset += kTagDataSize;
-    break;
-  case QMMF_EXIF_ASCII:
-    if (tag->entry.count <= 4) {
-      /* QTI encoder requires allocation even for ASCII symbols smaller
-       * than 4 bytes. This is not aligned with the exif standard, but
-       * we dont want to change the encoder code.
-       * So only option is to keep this workaround inplace */
-      tag->entry.data._ascii = new char[tag->entry.count];
-      memcpy(tag->entry.data._ascii, binary + offset, tag->entry.count);
-    } else {
-      tag_data_offset = readU32(binary, offset);
-      tag_data_offset += tiff_header_offset_;
-      tag->entry.data._ascii = new char[tag->entry.count];
-      memcpy(tag->entry.data._ascii, binary + tag_data_offset, tag->entry.count);
-    }
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-        tag->entry.data._ascii);
-    offset += kTagDataSize;
-    break;
-  case QMMF_EXIF_BYTE:
-    tag->entry.data._byte = (uint8_t) ((uint8_t) binary[offset] << 8);
-    constructExifTag(tag->id, tag->entry.count, tag->entry.type,
-        &tag->entry.data._byte);
-    offset += kTagDataSize;
-    break;
-  case QMMF_EXIF_UNDEFINED:
-  case QMMF_EXIF_SLONG:
-  case QMMF_EXIF_SRATIONAL:
-    QMMF_ERROR("%s There should not be a tag with this type!",
-        __func__);
-    res = BAD_VALUE;
-    break;
-  default:
-    QMMF_ERROR("%s Unknown tag type.", __func__);
-    res = BAD_VALUE;
-    break;
-  }
-  return res;
-}
-
-uint32_t CameraJpeg::getTagIdByExifId(uint32_t exif_id) {
-  switch (exif_id) {
-  case QMMF_ID_ORIENTATION:
-    return QMMF_EXIFTAGID_ORIENTATION;
-  case QMMF_ID_EXIF_IFD_PTR:
-    return QMMF_EXIFTAGID_EXIF_IFD_PTR;
-  case QMMF_ID_GPS_IFD_PTR:
-    return QMMF_EXIFTAGID_GPS_IFD_PTR;
-  case QMMF_ID_EXPOSURE_TIME:
-    return QMMF_EXIFTAGID_EXPOSURE_TIME;
-  case QMMF_ID_F_NUMBER:
-    return QMMF_EXIFTAGID_F_NUMBER;
-  case QMMF_ID_ISO_SPEED_RATING:
-    return QMMF_EXIFTAGID_ISO_SPEED_RATING;
-  case QMMF_ID_APERTURE:
-    return QMMF_EXIFTAGID_APERTURE;
-  case QMMF_ID_FOCAL_LENGTH:
-    return QMMF_EXIFTAGID_FOCAL_LENGTH;
-  case QMMF_ID_EXIF_PIXEL_X_DIMENSION:
-    return QMMF_EXIFTAGID_EXIF_PIXEL_X_DIMENSION;
-  case QMMF_ID_EXIF_PIXEL_Y_DIMENSION:
-    return QMMF_EXIFTAGID_EXIF_PIXEL_Y_DIMENSION;
-  case QMMF_ID_INTEROP_IFD_PTR:
-    return QMMF_EXIFTAGID_INTEROP_IFD_PTR;
-  case QMMF_CONSTRUCT_TAGID(QMMF_EXIF_TAG_MAX_OFFSET, 0x0001):
-    return QMMF_CONSTRUCT_TAGID(QMMF_EXIF_TAG_MAX_OFFSET, 0x0001);
-  case QMMF_CONSTRUCT_TAGID(QMMF_EXIF_TAG_MAX_OFFSET, 0x0002):
-    return QMMF_CONSTRUCT_TAGID(QMMF_EXIF_TAG_MAX_OFFSET, 0x0002);
-  case QMMF_ID_WHITE_BALANCE:
-    return QMMF_EXIFTAGID_WHITE_BALANCE;
-  case QMMF_ID_EXPOSURE_MODE:
-    return QMMF_EXIFTAGID_EXPOSURE_MODE;
-  case QMMF_ID_DATE_TIME:
-    return QMMF_EXIFTAGID_DATE_TIME;
-  case QMMF_ID_EXIF_DATE_TIME_ORIGINAL:
-    return QMMF_EXIFTAGID_EXIF_DATE_TIME_ORIGINAL;
-  case QMMF_ID_EXIF_DATE_TIME_DIGITIZED:
-    return QMMF_EXIFTAGID_EXIF_DATE_TIME_DIGITIZED;
-  case QMMF_ID_SUBSEC_TIME:
-    return QMMF_EXIFTAGID_SUBSEC_TIME;
-  case QMMF_ID_SUBSEC_TIME_ORIGINAL:
-    return QMMF_EXIFTAGID_SUBSEC_TIME_ORIGINAL;
-  case QMMF_ID_SUBSEC_TIME_DIGITIZED:
-    return QMMF_EXIFTAGID_SUBSEC_TIME_DIGITIZED;
-  case QMMF_ID_MAKE:
-    return QMMF_EXIFTAGID_MAKE;
-  case QMMF_ID_MODEL:
-    return QMMF_EXIFTAGID_MODEL;
-  case QMMF_ID_SOFTWARE:
-    return QMMF_EXIFTAGID_SOFTWARE;
-  case QMMF_ID_GPS_LATITUDE_REF:
-    return QMMF_EXIFTAGID_GPS_LATITUDE_REF;
-  case QMMF_ID_GPS_LATITUDE:
-    return QMMF_EXIFTAGID_GPS_LATITUDE;
-  case QMMF_ID_GPS_LONGITUDE_REF:
-    return QMMF_EXIFTAGID_GPS_LONGITUDE_REF;
-  case QMMF_ID_GPS_LONGITUDE:
-    return QMMF_EXIFTAGID_GPS_LONGITUDE;
-  case QMMF_ID_GPS_ALTITUDE_REF:
-    return QMMF_EXIFTAGID_GPS_ALTITUDE_REF;
-  case QMMF_ID_GPS_ALTITUDE:
-    return QMMF_EXIFTAGID_GPS_ALTITUDE;
-  case QMMF_ID_GPS_TIMESTAMP:
-    return QMMF_EXIFTAGID_GPS_TIMESTAMP;
-  case QMMF_ID_GPS_DATESTAMP:
-    return QMMF_EXIFTAGID_GPS_DATESTAMP;
-  case QMMF_ID_GPS_PROCESSINGMETHOD:
-    return QMMF_EXIFTAGID_GPS_PROCESSINGMETHOD;
-  default: {
-    QMMF_ERROR("%s Unexpected exifId: %d", __func__, exif_id);
-    return 0;
-  }
-  }
-}
-
-status_t CameraJpeg::parseIfd(const uint8_t *binary, uint32_t &offset) {
-  if (offset >= kMaxExifApp1Length) {
-    QMMF_ERROR("%s buffer overflow", __func__);
-    return BAD_VALUE;
-  }
-  uint32_t exif_id;
-  qmmf_exif_tag_t tag{};
-
-  uint32_t parsed_tags_count = 0;
-  uint32_t tags_count = readU16(binary, offset);
-  offset += 2;
-  while (parsed_tags_count < tags_count) {
-    exif_id = readU16(binary, offset);
-    offset += kTagIdSize;
-    tag.id = getTagIdByExifId(exif_id);
-    tag.entry.type = (qmmf_exif_tag_type_t) readU16(binary, offset);
-    offset += kTagTypeSize;
-    tag.entry.count = readU32(binary, offset);
-    offset += kTagCountSize;
-    status_t res = getTagDataByTagType(binary, offset, &tag);
-    if (res != NO_ERROR) {
-      return BAD_VALUE;
-    }
-    parsed_tags_count++;
-  }
-  return NO_ERROR;
-}
-
-status_t CameraJpeg::convertExifBinaryToExifInfoStruct(const uint8_t *binary) {
-  if (binary == nullptr) {
-    QMMF_ERROR("%s No exif buffer found,", __func__);
-    return BAD_VALUE;
-  }
-  exif_entities_.clear();
-  exif_entities_.resize(kMaxExifEntries);
-  exif_ifd_ptr_offset_ = 0;
-  interop_ifd_ptr_offset_ = 0;
-  gps_ifd_ptr_offset_ = 0;
-  tiff_header_offset_ = 0;
-  uint32_t offset = 0;
-
-  uint32_t tmp = readU16(binary, offset);
-  if (tmp == (0xFF00 | APP1_MARKER)) {
-    offset += 2;
-  } else {
-    QMMF_ERROR("%s Error: APP1 marker not found in exif section!",
-        __func__);
-    return BAD_VALUE;
-  }
-
-  tmp = readU16(binary, offset);
-  offset += 2;
-  QMMF_ERROR("%s Exif section size : %d", __func__, tmp);
-
-  tmp = readU32(binary, offset);
-  if (tmp == EXIF_HEADER) {
-    /* Offset for EXIF_HEADER + 2 bytes that seperate it from TIFF header*/
-    offset += 6;
-  } else {
-    QMMF_ERROR("%s Error: EXIF_HEADER marker not found in exif section!",
-        __func__);
-    return BAD_VALUE;
-  }
-  tiff_header_offset_ = offset;
-
-  tmp = readU16(binary, offset);
-  if (tmp == TIFF_BIG_ENDIAN) {
-      offset += 2;
-  } else {
-    QMMF_ERROR("%s Error: TIFF_BIG_ENDIAN marker not found in exif section",
-        __func__);
-    return BAD_VALUE;
-  }
-
-  tmp = readU16(binary, offset);
-  if (tmp == TIFF_HEADER) {
-    offset += 2;
-  } else {
-    QMMF_ERROR("%s Error: TIFF_HEADER marker not found in exif section!",
-        __func__);
-    return BAD_VALUE;
-  }
-
-  tmp = readU32(binary, offset);
-  if (tmp == ZERO_IFD_OFFSET) {
-    offset += 4;
-  } else {
-    QMMF_ERROR("%s Error: ZERO_IFD_OFFSET not found in exif section!",
-        __func__);
-    return BAD_VALUE;
-  }
-
-  /* Parse 0th IFD*/
-  status_t res = parseIfd(binary, offset);
-  if (res != NO_ERROR) {
-    return BAD_VALUE;
-  }
-  /* Parse Exif IFD*/
-  offset = exif_ifd_ptr_offset_;
-  res = parseIfd(binary, offset);
-  if (res != NO_ERROR) {
-    return BAD_VALUE;
-  }
-  /* Parse Gps IFD*/
-  offset = gps_ifd_ptr_offset_;
-  res = parseIfd(binary, offset);
-  if (res != NO_ERROR) {
-    return BAD_VALUE;
-  }
-  return NO_ERROR;
-}
-
-uint32_t CameraJpeg::readU32(const uint8_t *buffer, uint32_t offset) {
-  return (uint32_t) (((uint32_t) buffer[offset] << 24)
-      + ((uint32_t) buffer[offset + 1] << 16)
-      + ((uint32_t) buffer[offset + 2] << 8)
-      + (uint32_t) buffer[offset + 3]);
-}
-
-uint16_t CameraJpeg::readU16(const uint8_t *buffer, uint32_t offset) {
-  return (uint16_t) (((uint16_t) buffer[offset] << 8)
-      + (uint16_t) buffer[offset + 1]);
-}
-
-void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
-    uint16_t type, uint8_t *data) {
-  qmmf_exif_tag_t tag{};
-  tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
-  tag.entry.count = count;
-  tag.entry.data._byte = *data;
-  exif_entities_.push_back(tag);
-}
-
-void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
-    uint16_t type, uint16_t *data) {
-  qmmf_exif_tag_t tag{};
-  tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
-  tag.entry.count = count;
-  tag.entry.data._short = *data;
-  exif_entities_.push_back(tag);
-}
-
-void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
-                                  uint16_t type, uint32_t *data) {
-  qmmf_exif_tag_t tag{};
-  tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
-  tag.entry.count = count;
-  tag.entry.data._long = *data;
-  exif_entities_.push_back(tag);
-}
-
-void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
-                                  uint16_t type, qmmf_exif_rat_t *data) {
-  qmmf_exif_tag_t tag{};
-  tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
-  tag.entry.count = count;
-  if (count > 1) {
-    tag.entry.data._rats = data;
-  } else {
-    tag.entry.data._rat = *data;
-  }
-  exif_entities_.push_back(tag);
-}
-
-void CameraJpeg::constructExifTag(uint32_t id, uint32_t count,
-                                  uint16_t type, char *data) {
-  qmmf_exif_tag_t tag{};
-  tag.id = id;
-  tag.entry.type = (qmmf_exif_tag_type_t) type;
-  tag.entry.count = count;
-  tag.entry.data._ascii = data;
-  exif_entities_.push_back(tag);
 }
 
 }; // namespace recoder

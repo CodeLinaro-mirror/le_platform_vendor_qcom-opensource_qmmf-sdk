@@ -960,6 +960,9 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
 
   // reset planes num
   info.num_planes = 0;
+  info.plane_info[info.num_planes].offset = 0;
+  info.plane_info[info.num_planes].size = size;
+  info.num_planes++;
 
   QMMF_INFO("%s: Parse Thumbnail", __func__);
 
@@ -1030,6 +1033,14 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
         }
       }
     }
+  }
+
+  // main image
+  if (info.num_planes > 1) {
+    info.plane_info[0].offset =
+        info.plane_info[info.num_planes - 1].offset +
+        info.plane_info[info.num_planes - 1].size;
+    info.plane_info[0].size = size - info.plane_info[0].offset;
   }
 
   // restore plane info
@@ -1761,12 +1772,12 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   {
     std::lock_guard<std::mutex> lk(consumer_lock_);
-    {
-      std::unique_lock<std::mutex> lock(lock_);
-      auto val = buffer_map_.at(buffer.handle);
-      buffer_map_[buffer.handle] = num_consumers_ + val;
-    }
     if (num_consumers_ > 0) {
+      {
+        std::unique_lock<std::mutex> lock(lock_);
+        auto val = buffer_map_.at(buffer.handle);
+        buffer_map_[buffer.handle] = ++val;
+      }
       buffer_producer_impl_->NotifyBuffer(buffer);
     }
   }
@@ -2090,6 +2101,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
       if (num_consumers_ == 0) {
         stream_buffer_map_.erase(buffer.handle);
         buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
+        buffer_map_.erase(buffer.handle);
       }
     }
   }

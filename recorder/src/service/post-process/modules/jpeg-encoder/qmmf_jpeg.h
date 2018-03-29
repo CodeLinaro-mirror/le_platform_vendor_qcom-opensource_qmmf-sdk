@@ -31,9 +31,11 @@
 
 #include "../../interface/qmmf_postproc_module.h"
 
-#include "qmmf_jpeg_core.h"
+#include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 
 namespace qmmf {
+
+using namespace reprocjpegencoder;
 
 namespace recorder {
 
@@ -57,7 +59,7 @@ class PostProcJpeg : public IPostProcModule {
   status_t Process(const std::vector<StreamBuffer> &in_buffers,
                    const std::vector<StreamBuffer> &out_buffers) override;
 
-  void AddResult(const void* result) override {};
+  void AddResult(const void* result) override;
 
   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
@@ -85,6 +87,8 @@ class PostProcJpeg : public IPostProcModule {
 
   static const int32_t kBufCount = 3; // count for buffer rotation
 
+  std::map<int64_t, CameraMetadata> results_;
+
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
 
@@ -96,6 +100,9 @@ class PostProcJpeg : public IPostProcModule {
   State                          state_;
   std::shared_ptr<void>          abort_;
 
+  QCondition                     wait_for_result_;
+  std::mutex                     result_lock_;
+
   static const uint32_t          kMinWidth;
   static const uint32_t          kMinHeight;
   static const uint32_t          kMaxWidth;
@@ -103,6 +110,8 @@ class PostProcJpeg : public IPostProcModule {
 
   static const int32_t           kSupportedInputFormat;
   static const int32_t           kSupportedOutputFormat;
+  static const int32_t           kWaitJPEGTimeout;
+  static const int64_t           kMetaTimeout;
 };
 
 }; //namespace recorder

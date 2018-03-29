@@ -139,11 +139,6 @@ status_t CameraHalReproc::Initialize(const PostProcIOParam &in_param,
 PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   PostProcIOParam input_param = out;
 
-  if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    QMMF_ERROR("%s: Hal does not report supported sizes\n", __func__);
-    assert(0);
-  }
-
   switch (out.format) {
   case BufferFormat::kBLOB:
     // We have to simulate ZLS path in order to reduce camera load
@@ -168,29 +163,26 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
     break;
   }
 
-  auto ret = ValidateFormat(input_param.format);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Hal does not support required format\n", __func__);
+  int32_t hal_format = Common::FromQmmfToHalFormat(input_param.format);
+  if (!Common::ValidateStreamFormat(static_meta_, hal_format)) {
+    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__, hal_format);
     assert(0);
   }
 
   // Query RAW dimensions if input format is RAW
-  if (input_param.format == BufferFormat::kRAW10 ||
-      input_param.format == BufferFormat::kRAW8 ||
+  // otherwise use the same input as output
+  if (input_param.format == BufferFormat::kRAW8 ||
+      input_param.format == BufferFormat::kRAW10 ||
       input_param.format == BufferFormat::kRAW12 ||
       input_param.format == BufferFormat::kRAW16) {
-    camera_metadata_entry_t entry;
-    entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-    uint32_t i;
-    for (i = 0; i < entry.count; i += 2) {
-      input_param.width = entry.data.i32[i + 0];
-      input_param.height = entry.data.i32[i + 1];
-      if (input_param.width >= out.width &&
-          input_param.height >= out.height) {
-        break;
-      }
+    auto supported = Common::GetMaxSupportedCameraRes(static_meta_,
+        input_param.width, input_param.height);
+    if (supported == false) {
+      QMMF_ERROR("%s: failed to get max supported resolution!", __func__);
+      assert(0);
     }
-    if (i >= entry.count) {
+
+    if (input_param.width < out.width || input_param.height < out.height) {
       QMMF_ERROR("%s: Required resolution %dx%d is not supported. Max: %dx%d\n",
           __func__, out.width, out.height, input_param.width,
           input_param.height);
@@ -211,63 +203,13 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   return input_param;
 }
 
-status_t CameraHalReproc::ValidateFormat(BufferFormat fmt) {
-  int32_t hal_format = Common::FromQmmfToHalFormat(fmt);
-
-  if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
-    QMMF_ERROR("%s: Hal does not report supported formats\n", __func__);
-    return BAD_VALUE;
-  }
-
-  camera_metadata_entry_t entry;
-  entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_FORMATS);
-  for (uint32_t i = 0; i < entry.count; i++) {
-    if (entry.data.i32[i] == hal_format) {
-      return NO_ERROR;
-    }
-  }
-
-  QMMF_ERROR("%s: Hal does not support 0x%x format. qmmf format: %d\n",
-      __func__, hal_format, fmt);
-  return BAD_VALUE;
-}
-
-status_t CameraHalReproc::ValidateDimensions(uint32_t width, uint32_t height) {
-  if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    QMMF_ERROR("%s: HAL does not report supported sizes!", __func__);
-    return NAME_NOT_FOUND;
-  }
-
-  camera_metadata_entry_t entry;
-  entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  for (uint32_t i = 0; i < entry.count; i += 4) {
-    uint32_t scalar_format = entry.data.i32[i];
-    uint32_t config_type = entry.data.i32[i + 3];
-
-    if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == scalar_format &&
-        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == config_type) {
-      uint32_t w = entry.data.i32[i + 1];
-      uint32_t h = entry.data.i32[i + 2];
-      if (w == width && h == height) {
-        return NO_ERROR;
-      }
-    }
-  }
-
-  QMMF_ERROR("%s: Dimensions (%dx%d) not supported", __func__,
-      width, height);
-  return BAD_VALUE;
-}
-
 status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
                                         const PostProcIOParam& output) {
-  camera_metadata_entry_t entry;
   int32_t in_format, num_output_formats;
 
-  CameraMetadata static_meta = context_->GetCameraStaticMeta();
-
   if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
-    entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
+    auto entry =
+        static_meta_.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
     for (uint32_t i = 0 ; i < entry.count; i++) {
       in_format = entry.data.i32[i++];
       num_output_formats = entry.data.i32[i++];
@@ -293,17 +235,43 @@ status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
 }
 
 status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
-  auto ret = ValidateFormat(output.format);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Output format(%d) not supported",
-        __func__, output.format);
+
+  int32_t hal_format = Common::FromQmmfToHalFormat(output.format);
+  if (!Common::ValidateStreamFormat(static_meta_, hal_format)) {
+    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__, hal_format);
     return BAD_TYPE;
   }
 
-  ret = ValidateDimensions(output.width, output.height);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Output dimensions(%dx%d) not supported", __func__,
-        output.width, output.height);
+  bool is_supported = false;
+  switch (output.format) {
+    case BufferFormat::kRAW8:
+    case BufferFormat::kRAW10:
+    case BufferFormat::kRAW12:
+    case BufferFormat::kRAW16:
+      is_supported = Common::ValidateResFromRawSizes(static_meta_,
+          output.width, output.height);
+      break;
+
+    case BufferFormat::kNV12:
+    case BufferFormat::kNV12UBWC:
+    case BufferFormat::kNV21:
+      is_supported = Common::ValidateResFromProcessedSizes(static_meta_,
+          output.width, output.height);
+      break;
+
+    case BufferFormat::kBLOB:
+      is_supported = Common::ValidateResFromJpegSizes(static_meta_,
+          output.width, output.height);
+      break;
+
+    default:
+      QMMF_ERROR("%s: Format(%d) not supported!", __func__, output.format);
+      return BAD_TYPE;
+  }
+
+  if (is_supported == false) {
+    QMMF_ERROR("%s: Format(%d) and output dimensions(%dx%d) are not supported",
+        __func__, output.format, output.width, output.height);
     return BAD_VALUE;
   }
 
@@ -311,30 +279,19 @@ status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
-  camera_metadata_entry_t entry;
-  CameraMetadata static_meta = context_->GetCameraStaticMeta();
-
-  if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    QMMF_ERROR("%s: HAL does not report supported raw sizes!",
-        __func__);
+  auto found = Common::GetMaxSupportedCameraRes(static_meta_,
+      caps.max_width_, caps.max_height_);
+  if (found == false) {
+    QMMF_ERROR("%s: failed to get max supported resolution!", __func__);
     return NAME_NOT_FOUND;
   }
 
-  if (!static_meta_.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
-    QMMF_ERROR("%s: HAL does not report supported  proc sizes!",
-        __func__);
+  found = Common::GetMinSupportedCameraRes(static_meta_,
+      caps.min_width_, caps.min_height_);
+  if (found == false) {
+    QMMF_ERROR("%s: failed to get min supported resolution!", __func__);
     return NAME_NOT_FOUND;
   }
-
-  // find max supported resolution
-  entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-  caps.max_width_  = entry.data.i32[0];
-  caps.max_height_ = entry.data.i32[1];
-
-  // find min supported resolution
-  entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
-  caps.min_width_  = entry.data.i32[entry.count - 2];
-  caps.min_height_ = entry.data.i32[entry.count - 1];
 
   QMMF_VERBOSE("%s: supported dim: min %dx%d max %dx%d", __func__,
     caps.min_width_, caps.min_height_, caps.max_width_, caps.max_height_);
@@ -346,7 +303,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   caps.usage_              = 0;
 
   caps.formats_.clear();
-  entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+  auto entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_FORMATS);
   for (uint32_t i = 0; i < entry.count; i++) {
     auto format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
     if (!caps.formats_.count(format)) {

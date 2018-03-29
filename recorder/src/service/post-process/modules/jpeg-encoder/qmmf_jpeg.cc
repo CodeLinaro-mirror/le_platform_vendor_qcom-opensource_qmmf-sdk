@@ -39,6 +39,10 @@ namespace qmmf {
 
 namespace recorder {
 
+const int64_t PostProcJpeg::kMetaTimeout = 1000000000; // 1 second
+
+const int32_t PostProcJpeg::kWaitJPEGTimeout = 100000000; // 100 ms
+
 const uint32_t PostProcJpeg::kMinWidth  = 160;
 const uint32_t PostProcJpeg::kMinHeight = 120;
 const uint32_t PostProcJpeg::kMaxWidth  = 5104;
@@ -54,6 +58,7 @@ PostProcJpeg::PostProcJpeg()
   QMMF_VERBOSE("%s: Enter", __func__);
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   jpeg_params_.image_quality = 95;
+  results_.clear();
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -202,9 +207,55 @@ status_t PostProcJpeg::Configure(const std::string config_json_data) {
     }
   }
 
+  if (!root.isMember("maker note") || root["maker note"].empty()) {
+    QMMF_INFO("%s:no maker note configuration", __func__);
+    jpeg_params_.disable_maker_note = false;
+  } else {
+    jpeg_params_.disable_maker_note = !root["maker note"].asUInt();
+    QMMF_INFO("%s:maker note flag: %d", __func__,
+        jpeg_params_.disable_maker_note);
+  }
+
   QMMF_VERBOSE("%s: Exit %p", __func__, this);
 
   return NO_ERROR;
+}
+
+void PostProcJpeg::AddResult(const void* result) {
+
+  CameraMetadata meta = *(reinterpret_cast<const CameraMetadata *>(result));
+
+  if (meta.exists(ANDROID_CONTROL_CAPTURE_INTENT)) {
+    auto cature_intent = meta.find(ANDROID_CONTROL_CAPTURE_INTENT).data.u8[0];
+    if (cature_intent != ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) {
+      QMMF_DEBUG("%s Metadata is not related to a still capture!",
+          __func__);
+      return;
+    }
+  }
+
+  if (!meta.exists(ANDROID_SENSOR_TIMESTAMP)) {
+    QMMF_ERROR("%s Sensor timestamp tag missing in result!", __func__);
+    return;
+  }
+  auto timestamp = meta.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
+
+  std::lock_guard<std::mutex> lock(result_lock_);
+  results_.emplace(timestamp, meta);
+
+  if (timestamp > 0) {
+    timestamp -= kMetaTimeout;
+    auto it = results_.begin();
+    auto end = results_.end();
+    while (it != end) {
+      if (it->first >= timestamp) {
+        // clean up only first entries which has lower than timeout timestamp
+        break;
+      }
+      it = results_.erase(it);
+    }
+  }
+  wait_for_result_.SignalAll();
 }
 
 status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
@@ -223,6 +274,30 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
       return NO_ERROR;
     }
     state_ = State::RUNING;
+  }
+
+  CameraMetadata meta;
+  {
+    std::unique_lock<std::mutex> lock(result_lock_);
+    while (results_.count(in_buffer.timestamp) == 0) {
+      std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
+      auto ret = wait_for_result_.WaitFor(lock, timeout);
+      if (ret != 0) {
+        QMMF_ERROR("%s: Wait for jpeg result timed out", __func__);
+        break;
+      }
+    }
+    try {
+      meta = results_.at(in_buffer.timestamp);
+      results_.erase(in_buffer.timestamp);
+    } catch (const std::out_of_range& oor) {
+        QMMF_ERROR("%s: Result not exist: %s", __func__, oor.what());
+    }
+  }
+
+  if (!meta.isEmpty()) {
+    //todo create EXIF
+    QMMF_ERROR("%s: todo create EXIF", __func__);
   }
 
   jpeg_params_.img_data[0] = static_cast<uint8_t*>(in_buffer.data);

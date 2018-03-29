@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -901,6 +901,10 @@ void AudioBackendSink::Thread() {
       qahw_buffer.buffer = reinterpret_cast<uint8_t*>(buffer.data) +
                            bytes_written;
       qahw_buffer.bytes = buffer.size - bytes_written;
+      qahw_buffer.timestamp = &buffer.timestamp;
+      QMMF_VERBOSE("%s() writing qahw_buffer[buffer[%p] bytes[%zu] timestamp[%lld]]",
+                   __func__, qahw_buffer.buffer, qahw_buffer.bytes,
+                   *(qahw_buffer.timestamp));
 
       result = qahw_out_write(qahw_stream_, &qahw_buffer);
       if (result < 0) {
@@ -909,9 +913,13 @@ void AudioBackendSink::Thread() {
         error_handler_(audio_handle_, result);
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
                  using_offload_) {
+        QMMF_VERBOSE("%s() partial write to output stream: result[%d] bytes_written[%zu]",
+                     __func__, result, bytes_written);
         pending_write = true;
         bytes_written += result;
       } else if (static_cast<size_t>(result) == qahw_buffer.bytes) {
+        QMMF_VERBOSE("%s() completed write to output stream: result[%d] bytes_written[%zu]",
+                     __func__, result, bytes_written);
         bytes_written += result;
       } else {
         QMMF_ERROR("%s() incomplete write to output stream for non-offload stream",
@@ -920,6 +928,8 @@ void AudioBackendSink::Thread() {
       }
 
       if (bytes_written == static_cast<size_t>(buffer.size)) {
+        QMMF_VERBOSE("%s() buffer[%s] consumed, returning to client",
+                     __func__, buffer.ToString().c_str());
         bytes_written = 0;
 
         if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))

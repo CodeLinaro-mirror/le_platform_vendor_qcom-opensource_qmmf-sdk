@@ -103,10 +103,10 @@ void Recorder360Gtest::SetUp() {
 
   multicam_start_params_ = {};
   multicam_start_params_.zsl_mode         = false;
-  multicam_start_params_.zsl_queue_depth  = 10;
+  multicam_start_params_.zsl_queue_depth  = kZslQDepth;
   multicam_start_params_.zsl_width        = kZslWidth;
   multicam_start_params_.zsl_height       = kZslHeight;
-  multicam_start_params_.frame_rate       = kZslQDepth;
+  multicam_start_params_.frame_rate       = 30;
   multicam_start_params_.flags            = 0x0;
 
   TEST_INFO("%s Exit ", __func__);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,21 +37,23 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
+#include "common/exif-generator/qmmf_exif_generator.h"
+#include "common/utils/qmmf_exif_converter.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 #include "recorder/src/service/post-process/interface/qmmf_postproc_module.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
-
-#include "qmmf_jpeg_encoder.h"
-#include "qmmf_exif_generator.h"
-
 
 namespace qmmf {
 
 namespace recorder {
 
-using namespace jpegencoder;
+using namespace reprocjpegencoder;
 
-class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif::ExifGenerator {
+class CameraJpeg : public Camera3Thread,
+                   public ICameraPostProcess,
+                   public exif::ExifGenerator,
+                   public ExifConverter {
 
  public:
 
@@ -95,46 +97,21 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
 
   status_t AddJpegHeader(StreamBuffer &buffer);
 
-  /**
-   * Get tag's data depending on tag's type. When tag's data is larger than 4
-   * bytes the tag data field contains a value that is the offset to where the
-   * tag data actually is located in the buffer.
-   */
-  status_t getTagDataByTagType(const uint8_t *binary, uint32_t &offset,
-                               qmmf_exif_tag_t *tag);
-
-  uint32_t readU32(const uint8_t *buffer, uint32_t offset);
-  uint16_t readU16(const uint8_t *buffer, uint32_t offset);
-  void constructExifTag(uint32_t id, uint32_t count, uint16_t type,
-                        uint8_t *data);
-  void constructExifTag(uint32_t id, uint32_t count, uint16_t type,
-                        uint16_t *data);
-  void constructExifTag(uint32_t id, uint32_t count, uint16_t type,
-                        uint32_t *data);
-  void constructExifTag(uint32_t id, uint32_t count, uint16_t type,
-                        qmmf_exif_rat_t *data);
-  void constructExifTag(uint32_t id, uint32_t count, uint16_t type,
-                        char *data);
-  uint32_t getTagIdByExifId(uint32_t exif_id);
-  status_t convertExifBinaryToExifInfoStruct(const uint8_t *binary);
-  status_t parseIfd(const uint8_t *binary, uint32_t &offset);
-
   status_t FillMetaInfo(const PostProcParam& input, CameraBufferMetaData* info);
 
   bool ThreadLoop() override;
-
 
   int32_t                  input_stream_id_;
 
   bool                     reprocess_flag_;
   bool                     ready_to_start_;
   uint32_t                 num_images_;
-  uint32_t                 jpeg_quality_;
 
   JpegEncoder*             jpeg_encoder_;
   PostProcCb               capture_client_cb_;
 
-  std::vector<jpeg_thumbnail> thumbnails;
+  std::vector<JpegEncoder::jpeg_thumbnail> thumbnails;
+  reprocjpegencoder::JpegEncoder::encode_params jpeg_params_;
 
   QCondition               wait_for_buffer_;
   std::mutex               buffer_lock_;
@@ -144,20 +121,6 @@ class CameraJpeg : public Camera3Thread , public ICameraPostProcess, public exif
 
   List<Buff>              input_buffer_;
   std::map<int64_t, CameraMetadata> results_;
-
-  //IExifGenerator*                    exif_generator_;
-  std::vector<qmmf_exif_tag_t> exif_entities_;
-  uint32_t  exif_ifd_ptr_offset_;
-  uint32_t  interop_ifd_ptr_offset_;
-  uint32_t  gps_ifd_ptr_offset_;
-  uint32_t  tiff_header_offset_;
-  static const uint32_t kMaxExifApp1Length = 0xFFFF;
-  static const uint32_t kTagSize = 12;
-  static const uint32_t kTagDataSize = 4;
-  static const uint32_t kMaxExifEntries = 23;
-  static const uint32_t kTagIdSize = 2;
-  static const uint16_t kTagTypeSize = 2;
-  static const uint32_t kTagCountSize = 4;
 
   std::string vendor_name_;
   std::string product_name_;

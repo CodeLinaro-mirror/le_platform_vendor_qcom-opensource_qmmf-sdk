@@ -70,10 +70,10 @@ static const char* kDefaultAudioFilenamePrefix =
     "/data/misc/qmmf/recorder_test_audio";
 
 static const char* kDefaultHistogramStatsFilename =
-    "/data/histogram_stats.txt";
+    "/data/misc/qmmf/histogram_stats.txt";
 
 static const char* kDefaultAECAWBStatsFilename =
-    "/data/AEC_AWB_stats.txt";
+    "/data/misc/qmmf/AEC_AWB_stats.txt";
 
 const char kAutoOrWarmBootModeArgs[] = {
     AutoOrWarmBootModeOptions::kWidth, ':',
@@ -84,8 +84,13 @@ const char kAutoOrWarmBootModeArgs[] = {
 };
 
 // Number of histogram color channels.
+#ifdef ANDROID_O_OR_ABOVE
+// Red, Green, Blue
+static const int32_t kHistogramColorChannels = 3;
+#else
 // Currently 4: R, GR, GB, B
 static const int32_t kHistogramColorChannels = 4;
+#endif
 // As per Venus supported range [0-4]
 static const int32_t kMinLTRCount = 0;
 static const int32_t kMaxLTRCount = 4;
@@ -288,7 +293,8 @@ bool RecorderTest::VendorTagSupported(const String8& name,
 
   result = vendor_tag_desc_->lookupTag(name, section, tag_id);
   if (0 != result) {
-    TEST_ERROR("%s: TagId lookup failed with error: %d", __func__, result);
+    TEST_ERROR("%s: TagId lookup for %s in %s failed with error: %d",
+               __func__, name.string(), section.string(), result);
     return false;
   } else {
     TEST_INFO("%s: name = %s, section = %s, tag_id = 0x%x",
@@ -314,9 +320,11 @@ bool RecorderTest::VendorTagExistsInMeta(const CameraMetadata& meta,
 
   if (VendorTagSupported(name, section, tag_id)) {
     if (meta.exists(*tag_id)) {
+      TEST_INFO("%s: TagId 0x%x exists in given meta", __func__, *tag_id);
       is_available = true;
     } else {
-      TEST_ERROR("%s: TagId does not exist in given meta", __func__);
+      TEST_ERROR("%s: TagId 0x%x does not exist in given meta",
+                 __func__, *tag_id);
       return false;
     }
   }
@@ -1470,20 +1478,61 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
   uint32_t histogram_stats_vtag;
   uint32_t histogram_buckets_vtag;
 #ifdef ANDROID_O_OR_ABOVE
+  uint32_t histogram_max_count_vtag;
+  if (!VendorTagSupported(String8("max_count"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_max_count_vtag)) {
+    TEST_ERROR("%s: histogram_max_count_vtag not supported", __func__);
+    hist_stats_file.close();
+    return -EINVAL;
+  }
+  uint32_t num_bins = static_cast<uint32_t>(
+      static_info_.find(histogram_max_count_vtag).data.i32[0]);
+  TEST_DBG("%s: Histogram stats max_count (%d)", __func__, num_bins);
+
+  if (!VendorTagSupported(String8("buckets"),
+      String8("org.codeaurora.qcamera3.histogram"),
+      &histogram_buckets_vtag)) {
+    hist_stats_file.close();
+    return -EINVAL;
+  }
+  uint32_t buckets = static_cast<uint32_t>(
+      static_info_.find(histogram_buckets_vtag).data.i32[0]);
+  if (buckets != num_bins) {
+    TEST_ERROR("%s: data incomplete: buckets(%d) != num_bins(%d)",
+               __func__, buckets, num_bins);
+    hist_stats_file.close();
+    return -EINVAL;
+  }
+  hist_stats_file << "Buckets = " << buckets << std::endl;
+
   if (VendorTagExistsInMeta(meta, String8("stats"),
       String8("org.codeaurora.qcamera3.histogram"),
       &histogram_stats_vtag)) {
+    camera_metadata_ro_entry entry;
+    entry = meta.find(histogram_stats_vtag);
 
-    if (!VendorTagSupported(String8("buckets"),
-        String8("org.codeaurora.qcamera3.histogram"),
-        &histogram_buckets_vtag)) {
-      return -EINVAL;
+    const char* channels[] = {"Red", "Green", "Blue"};
+    const int32_t *channel_stats_ptr[kHistogramColorChannels];
+    uint32_t i,j;
+    for (i = 0; i < kHistogramColorChannels; ++i) {
+      channel_stats_ptr[i] = entry.data.i32 + i;
+      hist_stats_file << std::endl << channels[i] << " channel:" << std::endl;
+      for (j = 0; j < buckets; ++j) {
+        if (j % 16 == 0) {
+          hist_stats_file << std::endl;
+        }
+        hist_stats_file << static_cast<uint32_t>(channel_stats_ptr[i][j]);
+        hist_stats_file << ' ';
+      }
+      hist_stats_file << std::endl;
     }
+    hist_stats_file.close();
+  }
 #else
   histogram_stats_vtag = QCAMERA3_HISTOGRAM_STATS;
   if (meta.exists(histogram_stats_vtag)) {
     histogram_buckets_vtag = QCAMERA3_HISTOGRAM_BUCKETS;
-#endif
     uint32_t buckets = static_cast<uint32_t>(
         static_info_.find(histogram_buckets_vtag).data.i32[0]);
     hist_stats_file << "Buckets=" << buckets << std::endl;
@@ -1512,6 +1561,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
     hist_stats_file.close();
     return -ENOENT;
   }
+#endif
 
   CameraMetadata temp_meta;
   auto ret = recorder_.GetCameraParam(camera_id_, temp_meta);
@@ -3675,7 +3725,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
         // Enabling Histogram stats in Metadata
         uint32_t histogram_mode_vtag;
 #ifdef ANDROID_O_OR_ABOVE
-        if (VendorTagExistsInMeta(meta, String8("enable"),
+        if (VendorTagSupported(String8("enable"),
             String8("org.codeaurora.qcamera3.histogram"),
             &histogram_mode_vtag)) {
           const uint8_t hist_mode = StatisticsHistogramModeValues
@@ -4092,20 +4142,43 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
   }
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);
+
+#ifdef ANDROID_O_OR_ABOVE
+  if (dump_histogram_stats_) {
+    uint32_t histogram_stats_vtag;
+    if (VendorTagExistsInMeta(result, String8("stats"),
+        String8("org.codeaurora.qcamera3.histogram"),
+        &histogram_stats_vtag)) {
+      camera_metadata_ro_entry histogram_stats =
+          result.find(histogram_stats_vtag);
+      if (histogram_stats.count > 0) {
+        TEST_DBG("%s: Histogram stats count (%d)",
+                  __func__, histogram_stats.count);
+        ret = GetRawHistogramStatistic(result);
+        if (ret != 0) {
+          TEST_WARN("%s: Dumping Histogram stats failed", __func__);
+        } else {
+          TEST_INFO("%s: Successfully dumped Histogram stats!!", __func__);
+          dump_histogram_stats_ = false;
+        }
+      } else {
+        TEST_WARN("%s: Did not receive Histogram stats", __func__);
+      }
+    }
+  }
+#else
   camera_metadata_ro_entry histogram_stats =
       result.find(QCAMERA3_HISTOGRAM_STATS);
-
-  if (dump_histogram_stats_ && histogram_stats.count > 0) {
+  if ((dump_histogram_stats_) && (histogram_stats.count > 0)) {
     ret = GetRawHistogramStatistic(result);
     if (ret != 0) {
-      TEST_WARN("%s: Dumping raw histogram stats failed!!!",
-                __func__);
+      TEST_WARN("%s: Dumping raw histogram stats failed!!!", __func__);
     } else {
-      TEST_INFO("%s: Successfully dumped raw histogram stats!!!",
-                __func__);
+      TEST_INFO("%s: Successfully dumped raw histogram stats!!!", __func__);
       dump_histogram_stats_ = false;
     }
   }
+#endif
 
   if (dump_aec_awb_stats_ &&
       (aec_awb_stat_enable.count > 0) &&

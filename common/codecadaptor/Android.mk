@@ -20,6 +20,9 @@ LOCAL_SRC_FILES := src/qmmf_omx_client.cc
 LOCAL_SRC_FILES += src/qmmf_avcodec.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils
+ifneq ($(DISABLE_PP_JPEG),1)
+LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
+endif
 
 LOCAL_MODULE = libqmmf_codec_adaptor
 

@@ -261,6 +261,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   ::std::thread*                         displayed_buffer_thread_;
   TSQueue<BufferDescriptor>              displayed_buffer_queue_;
   ::std::thread*                         pts_thread_;
+  BufferDescriptor                       last_rendered_frame_;
 };
 
 };  // namespace player

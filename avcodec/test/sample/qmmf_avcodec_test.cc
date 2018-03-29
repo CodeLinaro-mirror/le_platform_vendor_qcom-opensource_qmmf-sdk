@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <hardware/hardware.h>
 
 #include "avcodec/test/sample/qmmf_avcodec_test.h"
 
@@ -102,6 +103,17 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
     }
   }
 
+  width_  = params.create_param.video_enc_param.width;
+  height_ = params.create_param.video_enc_param.height;
+
+#ifndef ANDROID_O_OR_ABOVE
+  ret = InitializeGralloc();
+  if (ret != OK) {
+    QMMF_ERROR("%s Failed to Initialize Gralloc", __func__);
+    return ret;
+  }
+#endif
+
   avcodec_ = IAVCodec::CreateAVCodec();
   if(avcodec_ ==  nullptr) {
     QMMF_ERROR("%s avcodec creation failed", __func__);
@@ -122,7 +134,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
   }
 
   input_source_impl_= make_shared<InputCodecSourceImpl>(params.input_file,
-                                                        params.record_frame);
+      params.record_frame, width_, height_);
   if(input_source_impl_.get() == nullptr) {
     QMMF_ERROR("%s failed to create input source", __func__);
     return NO_MEMORY;
@@ -176,6 +188,40 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
   QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
+
+#ifndef ANDROID_O_OR_ABOVE
+status_t CodecTest::InitializeGralloc() {
+  status_t ret = NO_ERROR;
+  hw_module_t const *module = nullptr;
+
+  ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+  if ((NO_ERROR != ret) || (nullptr == module)) {
+    QMMF_ERROR("%s: Unable to load GrallocHal module: %d", __func__, ret);
+    return ret;
+  }
+
+  ret = module->methods->open(module, GRALLOC_HARDWARE_GPU0,
+      (struct hw_device_t **)&gralloc_device_);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Could not open Gralloc module: %s (%d)", __func__,
+        strerror(-ret), ret);
+    goto FAIL;
+  }
+
+  QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s", __func__,
+      gralloc_device_->common.module->author,
+      gralloc_device_->common.module->hal_api_version,
+      gralloc_device_->common.module->name);
+
+  return NO_ERROR;
+
+FAIL:
+  if (nullptr != gralloc_device_) {
+    gralloc_device_->common.close(&gralloc_device_->common);
+  }
+  return -1;
+}
+#endif
 
 status_t CodecTest::DeleteCodec() {
 
@@ -326,13 +372,35 @@ status_t CodecTest::AllocateBuffer(uint32_t index) {
   struct ion_fd_data ionFdData;
 
   if(index == kPortIndexInput) {
-    int nFds = 1;
-    int nInts = 3;
     count = INPUT_MAX_COUNT;
 
     for(uint32_t i = 0; i < count; i++) {
       BufferDescriptor buffer;
       memset(&buffer, 0x0, sizeof(buffer));
+
+#ifndef ANDROID_O_OR_ABOVE
+      buffer_handle_t buf_handle = nullptr;
+      int32_t format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
+      int32_t usage  = private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+
+      // Filter out any usage bits that shouldn't be passed to the gralloc module.
+      usage &= GRALLOC_USAGE_ALLOC_MASK;
+
+      int stride = 0;
+      ret = gralloc_device_->alloc(gralloc_device_, static_cast<int>(width_),
+          static_cast<int>(height_), format, static_cast<int>(usage), &buf_handle,
+          &stride);
+
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s: Failed to allocate gralloc buffer", __func__);
+      }
+
+      QMMF_INFO("%s  buffer buf_handle(%p)", __func__, buf_handle);
+
+      buffer.data = const_cast<void*>(reinterpret_cast<const void*>(buf_handle));
+      gralloc_buffers_.push_back(buf_handle);
+
+#else
       memset(&alloc, 0x0, sizeof(ion_allocation_data));
       memset(&ionFdData, 0x0, sizeof(ion_fd_data));
 
@@ -358,23 +426,29 @@ status_t CodecTest::AllocateBuffer(uint32_t index) {
       input_ion_handle_data.push_back(alloc);
 
       //Allocate buffer for MetaData Handle
-      native_handle_t* meta_handle = (native_handle_create(1, 16));
+      private_handle_t *meta_handle =
+         new private_handle_t(static_cast<int>(ionFdData.fd),
+         static_cast<unsigned int>(alloc.len),
+         private_handle_t::PRIV_FLAGS_VIDEO_ENCODER, 1,
+         HAL_PIXEL_FORMAT_NV12_ENCODEABLE, width_, height_);
+
       if(meta_handle == nullptr) {
         QMMF_ERROR("%s failed to allocated metabuffer handle", __func__);
         return NO_MEMORY;
       }
-
-      meta_handle->version = sizeof(native_handle_t);
-      meta_handle->numFds  = nFds;
-      meta_handle->numInts = nInts;
-      meta_handle->data[0] = ionFdData.fd;
-      meta_handle->data[1] = 0; //offset
-      meta_handle->data[4] = alloc.len;
-      buffer.data = meta_handle;
-
       QMMF_INFO("%s  buffer native handle(%p)", __func__, meta_handle);
-      QMMF_INFO("%s  buffer ionFd(%d)", __func__, meta_handle->data[0]);
-      QMMF_INFO("%s  buffer frameLen(%d)",__func__,meta_handle->data[4]);
+
+      meta_handle->unaligned_width = width_;
+      meta_handle->unaligned_height = height_;
+
+      QMMF_INFO("%s fd = %d offset = %u size = %u width = %d height = %d "
+        "unaligned_width = %d unaligned_height = %d", __func__, meta_handle->fd,
+         meta_handle->offset, meta_handle->size, meta_handle->width,
+         meta_handle->height, meta_handle->unaligned_width,
+         meta_handle->unaligned_height);
+
+      buffer.data = reinterpret_cast<void*>(meta_handle);
+#endif
       input_buffer_list_.push_back(buffer);
     }
   } else {
@@ -450,19 +524,29 @@ status_t CodecTest::ReleaseBuffer() {
 
   QMMF_INFO("%s Enter ", __func__);
 
+#ifndef ANDROID_O_OR_ABOVE
+  if (!gralloc_buffers_.empty()) {
+    for(auto& iter: gralloc_buffers_) {
+       gralloc_device_->free(gralloc_device_, iter);
+    }
+
+    gralloc_buffers_.clear();
+  }
+
+  if (nullptr != gralloc_device_) {
+    gralloc_device_->common.close(&gralloc_device_->common);
+  }
+
+#else
   for(auto& iter : input_ion_handle_data) {
-      ioctl(ion_device_, ION_IOC_FREE, &iter);
+    ioctl(ion_device_, ION_IOC_FREE, &iter);
   }
 
   for(auto& iter: input_buffer_list_) {
-    native_handle_t* meta_handle = reinterpret_cast<native_handle_t*>((iter).data);
-    if(meta_handle->data[0]) {
-      close(meta_handle->data[0]);
-      meta_handle->data[0] = -1;
-      native_handle_delete(meta_handle);
-      meta_handle = nullptr;
-    }
+    delete reinterpret_cast<private_handle_t *>((iter).data);
+    (iter).data = nullptr;
   }
+#endif
 
   int i = 0;
   for(auto& iter : output_buffer_list_) {
@@ -764,7 +848,8 @@ status_t CodecTest::ParseDynamicConfig(char *fileName) {
 }
 
 InputCodecSourceImpl::InputCodecSourceImpl(char* file_name,
-                                           uint32_t num_frame) {
+                                           uint32_t num_frame, uint32_t width,
+                                           uint32_t height) {
 
   QMMF_INFO("%s  Enter",__func__);
 
@@ -774,7 +859,8 @@ InputCodecSourceImpl::InputCodecSourceImpl(char* file_name,
   }
 
   num_frame_read = num_frame;
-
+  width_  = width;
+  height_ = height;
   QMMF_INFO("%s Exit", __func__);
 }
 
@@ -823,11 +909,10 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
   BufferDescriptor buffer = *input_free_buffer_queue_.Begin();
   assert(buffer.data != nullptr);
 
-  native_handle_t* meta = reinterpret_cast<native_handle_t*>(buffer.data);
-
+   private_handle_t* meta = reinterpret_cast<private_handle_t*>(buffer.data);
   int32_t byte_read = 0;
   if(input_file_) {
-    ret = ReadFile(meta->data[0], meta->data[4], &byte_read);
+    ret = ReadFile(meta->fd, meta->size, &byte_read);
   } else {
     QMMF_ERROR("%s input file is not opened", __func__);
     return -1;
@@ -839,7 +924,7 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
     if(ret != OK) {
       QMMF_ERROR("%s Failed to seek file", __func__);
     } else {
-      ret = ReadFile(meta->data[0], meta->data[4], &byte_read);
+      ret = ReadFile(meta->fd, meta->size, &byte_read);
     }
   }
 
@@ -848,7 +933,7 @@ status_t InputCodecSourceImpl::GetBuffer(BufferDescriptor& stream_buffer,
   input_occupy_buffer_queue_.PushBack(buffer);
   input_free_buffer_queue_.Erase(input_free_buffer_queue_.Begin());
 
-  time_stamp = time_stamp + (uint64_t)(1000000 / 30);
+  time_stamp = time_stamp + (uint64_t)(1000000000 / 30);
   stream_buffer.timestamp = time_stamp;
   frame_count++;
 
@@ -870,8 +955,8 @@ status_t InputCodecSourceImpl::ReadFile(int32_t fd, uint32_t frame_length,
   assert(buffer != nullptr);
 
   char *yuv = (char *)(buffer);
-  int32_t width = 1280;
-  int32_t height = 720;
+  int32_t width = width_;
+  int32_t height = height_;
   int32_t i, lscanl, lstride, cstride;
   int32_t should = 0;
   int32_t actual = 0;

@@ -235,6 +235,8 @@ VideoTrackSink::VideoTrackSink()
   }
 
   player_decode_profile_ = GetPlayerDecodeProfileProperty();
+  memset(&last_rendered_frame_, 0x0, sizeof last_rendered_frame_);
+  last_rendered_frame_.fd = -1;
 
   QMMF_DEBUG("%s Exit", __func__);
 }
@@ -954,6 +956,10 @@ status_t VideoTrackSink::SetVideoSinkParams(CodecParamType param_type,
     SetDisplayOrientation(display_param->rotation);
   }
 
+  if (paused_) {
+    PushFrameToDisplay(last_rendered_frame_);
+  }
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
@@ -1041,7 +1047,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 
   bufinfo = buf_info_map.valueFor(codec_buffer.fd);
 
-  if (display_started_) {
+  if (display_started_ && codec_buffer.fd >= 0) {
     lock_guard<mutex> lock(grab_picture_lock);
 
     surface_buffer_.plane_info[0].ion_fd = codec_buffer.fd;
@@ -1070,6 +1076,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       QMMF_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
       return ret;
     }
+    last_rendered_frame_ = codec_buffer;
 
     ret = display_->DequeueSurfaceBuffer(surface_id_, temp_surfbuf);
     if (ret != 0) {
