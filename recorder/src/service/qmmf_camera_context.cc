@@ -1294,17 +1294,28 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     QMMF_VERBOSE("%s: is_constrained_mode(%d)", __func__,
         is_constrained_mode);
 
-
     uint32_t fps_sensormode_index = 0;
 #ifdef USE_FPS_IDX
-    // For 60-90 fps are overlap fps i.e HFR in 8053 where normal in RD. Hence
-    // overlap fps in 8053 set OpMode 0x1 whereas in RD as index of sensor
-    // mode table
-    if ((60 <=  frame_rate &&  frame_rate <= 90 )) {
-      fps_sensormode_index = GetSensorModeIndex(frame_rate);
-      QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
-                fps_sensormode_index, frame_rate);
+    // 60-90 fps is consider HFR in some target whereas normal in other target
+    // Hence for HFR mode we set OpMode 0x1 whereas in case of other targets
+    // OpMode is set as index of given fps sensormode in the sensor mode table.
+    uint32_t max_frame_rate = frame_rate;
+
+    for (auto iter : active_ports_) {
+      uint32_t port_frm_rate = iter->GetPortFramerate();
+      if (port_frm_rate > max_frame_rate) {
+        max_frame_rate = port_frm_rate;
+      }
     }
+
+    QMMF_DEBUG("%s: Max fps (%u)!!", __func__, max_frame_rate);
+
+    if (30 < max_frame_rate && max_frame_rate <= 90) {
+      fps_sensormode_index = GetSensorModeIndex(max_frame_rate);
+      QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
+          fps_sensormode_index, max_frame_rate);
+    }
+
 #endif
 
     auto is_raw_only = IsRawOnly(params.format);
