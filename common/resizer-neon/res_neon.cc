@@ -157,6 +157,163 @@ static void LumaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
   }
 }
 
+/** LumaProcessBilinearNEON
+ *
+ * @n_thrd_arg: struct with input thread parameters
+ *
+ * Resize Luma Process function NEON
+ *
+ * return:
+ **/
+static void LumaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
+  uint32_t row, col;
+  uint8_t *src, *src0, *src1, *src2, *src3, *src4, *src5, *src6, *src7;
+  uint16_t* pcoef;
+  uint16_t h_rem;
+  uint16_t one_val = 256;
+
+  uint8_t* src_luma = n_thrd_arg->src_luma;
+  uint8_t* dst =
+      n_thrd_arg->dst_luma + n_thrd_arg->line_start * n_thrd_arg->stride;
+  uint16_t* offsets = n_thrd_arg->input_offsets;
+  uint16_t* ver_offsets = n_thrd_arg->ver_offsets;
+  uint16_t* ver_coefs = n_thrd_arg->ver_coefs;
+  uint16_t* coefs = n_thrd_arg->y_coefs;
+  uint32_t line_start = n_thrd_arg->line_start;
+  uint32_t line_end = n_thrd_arg->line_end;
+  uint32_t width = n_thrd_arg->width;
+  uint32_t stride = n_thrd_arg->stride;
+  uint32_t src_stride = n_thrd_arg->src_stride;
+
+  for (row = line_start; row < line_end; row++) {
+    h_rem = ver_coefs[row];
+    src = src_luma + ver_offsets[row] * src_stride;
+    for (col = 0; col < (width / 8); col++) {
+      src0 = src + offsets[col * 8];
+      src1 = src + offsets[col * 8 + 1];
+      src2 = src + offsets[col * 8 + 2];
+      src3 = src + offsets[col * 8 + 3];
+      src4 = src + offsets[col * 8 + 4];
+      src5 = src + offsets[col * 8 + 5];
+      src6 = src + offsets[col * 8 + 6];
+      src7 = src + offsets[col * 8 + 7];
+      pcoef = coefs + col * 8;
+
+      asm volatile(
+          "vld1.8     {d0}, [%0]                     \n"  // load up 4
+          "vld1.8     {d1}, [%1]                     \n"
+          "vld1.8     {d2}, [%2]                     \n"
+          "vld1.8     {d3}, [%3]                     \n"
+          "vld1.8     {d4}, [%4]                     \n"
+          "vld1.8     {d5}, [%5]                     \n"
+          "vld1.8     {d6}, [%6]                     \n"
+          "vld1.8     {d7}, [%7]                     \n"
+          "vext.8 d8, d0, d0, #2                     \n"
+          "vext.8 d8, d8, d1, #2                     \n"
+          "vext.8 d8, d8, d2, #2                     \n"
+          "vext.8 d8, d8, d3, #2                     \n"
+          "vext.8 d9, d4, d4, #2                     \n"
+          "vext.8 d9, d9, d5, #2                     \n"
+          "vext.8 d9, d9, d6, #2                     \n"
+          "vext.8 d9, d9, d7, #2                     \n"
+          "vuzp.u8 q4, q5                            \n"
+          "vmovl.u8 q0, d8                           \n"
+          "vmovl.u8 q1, d10                          \n"
+          : "+r"(src0),    // %0
+            "+r"(src1),    // %1
+            "+r"(src2),    // %2
+            "+r"(src3),    // %3
+            "+r"(src4),    // %4
+            "+r"(src5),    // %5
+            "+r"(src6),    // %6
+            "+r"(src7),    // %7
+            "+r"(dst),     // %8
+            "+r"(pcoef),   // %9
+            "+r"(h_rem),   // %10
+            "+r"(one_val)  // %11
+          :
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9", "memory",
+            "cc");
+
+      src0 += src_stride;
+      src1 += src_stride;
+      src2 += src_stride;
+      src3 += src_stride;
+      src4 += src_stride;
+      src5 += src_stride;
+      src6 += src_stride;
+      src7 += src_stride;
+
+      asm volatile(
+          "vld1.8     {d4}, [%0]                     \n"  // load up 4
+          "vld1.8     {d5}, [%1]                     \n"
+          "vld1.8     {d6}, [%2]                     \n"
+          "vld1.8     {d7}, [%3]                     \n"
+          "vld1.8     {d8}, [%4]                     \n"
+          "vld1.8     {d9}, [%5]                     \n"
+          "vld1.8     {d10}, [%6]                    \n"
+          "vld1.8     {d11}, [%7]                    \n"
+          "vld1.16    {q6}, [%9]                     \n"
+          "vext.8 d16, d4, d4, #2                    \n"
+          "vext.8 d16, d16, d5, #2                   \n"
+          "vext.8 d16, d16, d6, #2                   \n"
+          "vext.8 d16, d16, d7, #2                   \n"
+          "vext.8 d17, d8, d8, #2                    \n"
+          "vext.8 d17, d17, d9, #2                   \n"
+          "vext.8 d17, d17, d10, #2                  \n"
+          "vext.8 d17, d17, d11, #2                  \n"
+          "vuzp.u8 q8, q9                            \n"
+          "vmovl.u8 q2, d16                          \n"
+          "vmovl.u8 q3, d18                          \n"
+          "vdup.16 q4, %11                           \n"
+          "vsub.i16 q5, q4, q6                       \n"
+          "vmull.u32 q7, d0, d10                     \n"
+          "vmlal.u32 q7, d2, d12                     \n"
+          "vmull.u32 q8, d1, d11                     \n"
+          "vmlal.u32 q8, d3, d13                     \n"
+          "vrshrn.u16 d0, q7 , #8                    \n"
+          "vrshrn.u16 d1, q8 , #8                    \n"
+          "vmull.u32 q7, d4, d10                     \n"
+          "vmlal.u32 q7, d6, d12                     \n"
+          "vmull.u32 q8, d5, d11                     \n"
+          "vmlal.u32 q8, d7, d13                     \n"
+          "vrshrn.u16 d2, q7 , #8                    \n"
+          "vrshrn.u16 d3, q8 , #8                    \n"
+          "vdup.16 q3, %10                           \n"
+          "vsub.i16 q5, q4, q3                       \n"
+          "vmovn.u16 d18, q0                         \n"
+          "vmovl.u8 q0, d18                          \n"
+          "vmovn.u16 d19, q1                         \n"
+          "vmovl.u8 q1, d19                          \n"
+          "vmull.u32 q7, d0, d10                     \n"
+          "vmlal.u32 q7, d2, d6                      \n"
+          "vmull.u32 q8, d1, d11                     \n"
+          "vmlal.u32 q8, d3, d7                      \n"
+          "vrshrn.u16 d0, q7 , #8                    \n"
+          "vrshrn.u16 d1, q8 , #8                    \n"
+          "vmovn.u16 d10, q0                         \n"
+          "vst1.u8    {d10}, [%8]                    \n"
+          : "+r"(src0),    // %0
+            "+r"(src1),    // %1
+            "+r"(src2),    // %2
+            "+r"(src3),    // %3
+            "+r"(src4),    // %4
+            "+r"(src5),    // %5
+            "+r"(src6),    // %6
+            "+r"(src7),    // %7
+            "+r"(dst),     // %8
+            "+r"(pcoef),   // %9
+            "+r"(h_rem),   // %10
+            "+r"(one_val)  // %11
+          :
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9", "memory",
+            "cc");
+      dst += 8;
+    }
+    dst += (stride - width);
+  }
+}
+
 /** ChromaProcessBilinearVSkipNEON
  *
  * @n_thrd_arg: struct with input thread parameters
@@ -234,6 +391,136 @@ static void ChromaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
     dst += (stride - width);
   }
 }
+
+/** ChromaProcessBilinearNEON
+ *
+ * @n_thrd_arg: struct with input thread parameters
+ *
+ * Resize Luma Process function
+ *
+ * return:
+ **/
+static void ChromaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
+  uint32_t row, col;
+  uint8_t *src, *src0, *src1, *src2, *src3;
+  uint16_t* pcoef;
+  uint16_t h_rem;
+  uint16_t one_val = 256;
+
+  uint8_t* src_chroma = n_thrd_arg->src_chroma;
+  uint8_t* dst =
+      n_thrd_arg->dst_chroma + n_thrd_arg->line_start * n_thrd_arg->stride / 2;
+  uint16_t* offsets = n_thrd_arg->input_offsets;
+  uint16_t* ver_offsets = n_thrd_arg->ver_offsets;
+  uint16_t* ver_coefs = n_thrd_arg->ver_coefs;
+  uint16_t* coefs = n_thrd_arg->uv_coefs;
+  uint32_t line_start = n_thrd_arg->line_start;
+  uint32_t line_end = n_thrd_arg->line_end;
+  uint32_t width = n_thrd_arg->width;
+  uint32_t stride = n_thrd_arg->stride;
+  uint32_t src_stride = n_thrd_arg->src_stride;
+
+  for (row = (line_start / 2); row < (line_end / 2); row++) {
+    h_rem = ver_coefs[row];
+    src = src_chroma + ver_offsets[row] * src_stride;
+    for (col = 0; col < (width / 8); col++) {
+      src0 = src + offsets[col * 4] * 2;
+      src1 = src + offsets[col * 4 + 1] * 2;
+      src2 = src + offsets[col * 4 + 2] * 2;
+      src3 = src + offsets[col * 4 + 3] * 2;
+      pcoef = coefs + col * 8;
+
+      asm volatile(
+          "vld1.8     {d0}, [%0]                     \n"  // load up 4
+          "vld1.8     {d1}, [%1]                     \n"
+          "vld1.8     {d2}, [%2]                     \n"
+          "vld1.8     {d3}, [%3]                     \n"
+          "vext.8 d4, d0, d0, #4                     \n"
+          "vext.8 d4, d4, d1, #4                     \n"
+          "vext.8 d5, d2, d2, #4                     \n"
+          "vext.8 d5, d5, d3, #4                     \n"
+          "vuzp.u16 d4, d5                           \n"
+          "vmovl.u8 q0, d4                           \n"
+          "vmovl.u8 q1, d5                           \n"
+          : "+r"(src0),    // %0
+            "+r"(src1),    // %1
+            "+r"(src2),    // %2
+            "+r"(src3),    // %3
+            "+r"(dst),     // %4
+            "+r"(pcoef),   // %5
+            "+r"(h_rem),   // %6
+            "+r"(one_val)  // %7
+          :
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9",
+            "memory", "cc");
+
+      src0 += src_stride;
+      src1 += src_stride;
+      src2 += src_stride;
+      src3 += src_stride;
+
+      asm volatile(
+          "vld1.8     {d4}, [%0]                     \n"  // load up 4
+          "vld1.8     {d5}, [%1]                     \n"
+          "vld1.8     {d6}, [%2]                     \n"
+          "vld1.8     {d7}, [%3]                     \n"
+          "vld1.16    {q6}, [%5]                     \n"
+          "vext.8 d16, d4, d4, #4                    \n"
+          "vext.8 d16, d16, d5, #4                   \n"
+          "vext.8 d17, d6, d6, #4                    \n"
+          "vext.8 d17, d17, d7, #4                   \n"
+          "vuzp.u16 d16, d17                         \n"
+          "vmovl.u8 q2, d16                          \n"
+          "vmovl.u8 q3, d17                          \n"
+          "vdup.16 q4, %7                            \n"
+          "vsub.i16 q5, q4, q6                       \n"
+          "vmull.u32 q7, d0, d10                     \n"
+          "vmlal.u32 q7, d2, d12                     \n"
+          "vmull.u32 q8, d1, d11                     \n"
+          "vmlal.u32 q8, d3, d13                     \n"
+          "vrshrn.u16 d0, q7 , #8                    \n"
+          "vrshrn.u16 d1, q8 , #8                    \n"
+          "vmull.u32 q7, d4, d10                     \n"
+          "vmlal.u32 q7, d6, d12                     \n"
+          "vmull.u32 q8, d5, d11                     \n"
+          "vmlal.u32 q8, d7, d13                     \n"
+          "vrshrn.u16 d2, q7 , #8                    \n"
+          "vrshrn.u16 d3, q8 , #8                    \n"
+          "vdup.16 q6, %6                           \n"
+          "vsub.i16 q5, q4, q6                       \n"
+          "vmovn.u16 d18, q0                         \n"
+          "vmovl.u8 q0, d18                          \n"
+          "vmovn.u16 d19, q1                         \n"
+          "vmovl.u8 q1, d19                          \n"
+          "vmull.u32 q7, d0, d10                     \n"
+          "vmlal.u32 q7, d2, d12                      \n"
+          "vmull.u32 q8, d1, d11                     \n"
+          "vmlal.u32 q8, d3, d13                      \n"
+          "vrshrn.u16 d0, q7 , #8                    \n"
+          "vrshrn.u16 d1, q8 , #8                    \n"
+          "vmovn.u16 d10, q0                         \n"
+          "vst1.u8    {d10}, [%4]                    \n"
+          : "+r"(src0),    // %0
+            "+r"(src1),    // %1
+            "+r"(src2),    // %2
+            "+r"(src3),    // %3
+            "+r"(dst),     // %4
+            "+r"(pcoef),   // %5
+            "+r"(h_rem),   // %6
+            "+r"(one_val)  // %7
+          :
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9",
+            "memory", "cc");
+      dst += 8;
+      // if ((row == 1) && (col == 0)) {
+      //  ALOGE("Results %d %d %d %d %d %d %d %d", *(dst - 8), *(dst - 7),
+      //        *(dst - 6), *(dst - 5), *(dst - 4), *(dst - 3), *(dst - 2),
+      //        *(dst - 1));
+      //}
+    }
+    dst += (stride - width);
+  }
+}
 #else
 
 /** LumaProcessBilinearVSkip
@@ -277,9 +564,62 @@ static void LumaProcessBilinearVSkip(neon_thrd_args* n_thrd_arg) {
 
       if (res_val > 255) res_val = 255;
 
-      *dst_luma++ = (uint8_t)res_val;
+      *dst++ = (uint8_t)res_val;
     }
-    dst_luma += (stride - width);
+    dst += (stride - width);
+  }
+}
+
+/** LumaProcessBilinear
+ *
+ * @n_thrd_arg: struct with input thread parameters
+ *
+ * Resize Luma Process function
+ *
+ * return:
+ **/
+static void LumaProcessBilinear(neon_thrd_args* n_thrd_arg) {
+  uint32_t row, col;
+  uint32_t res_val, res_val_row1, res_val_row2;
+  uint32_t w_ind, h_ind;
+  uint32_t offset;
+  uint16_t w_rem, h_rem;
+
+  uint8_t* src_luma = n_thrd_arg->src_luma;
+  uint8_t* dst =
+      n_thrd_arg->dst_luma + n_thrd_arg->line_start * n_thrd_arg->stride;
+  uint32_t w_coef = n_thrd_arg->w_coef;
+  uint32_t h_coef = n_thrd_arg->h_coef;
+  uint32_t line_start = n_thrd_arg->line_start;
+  uint32_t line_end = n_thrd_arg->line_end;
+  uint32_t width = n_thrd_arg->width;
+  uint32_t stride = n_thrd_arg->stride;
+  uint32_t src_stride = n_thrd_arg->src_stride;
+
+  for (row = line_start; row < line_end; row++) {
+    for (col = 0; col < width; col++) {
+      w_ind = col * w_coef;
+      h_ind = row * h_coef;
+      w_rem = w_ind - ((w_ind >> 8) << 8);
+      w_ind = ((w_ind - w_rem) >> 8);
+      h_rem = h_ind - ((h_ind >> 8) << 8);
+      h_ind = ((h_ind - h_rem) >> 8);
+      offset = h_ind * src_stride + w_ind;
+      res_val_row1 =
+          src_luma[offset] * (256 - w_rem) + src_luma[offset + 1] * w_rem;
+
+      res_val_row2 = src_luma[offset + src_stride] * (256 - w_rem) +
+                     src_luma[offset + src_stride + 1] * w_rem;
+
+      res_val =
+          (res_val_row1 * (256 - h_rem) + res_val_row2 * h_rem + (1 << 8)) >>
+          16;
+
+      if (res_val > 255) res_val = 255;
+
+      *dst++ = (uint8_t)res_val;
+    }
+    dst += (stride - width);
   }
 }
 
@@ -328,9 +668,75 @@ static void ChromaProcessBilinearVSkip(neon_thrd_args* n_thrd_arg) {
       if (res_val[0] > 255) res_val[0] = 255;
       if (res_val[1] > 255) res_val[1] = 255;
 
-      dst_chroma[row * stride + col * 2] = (uint8_t)res_val[0];
-      dst_chroma[row * stride + col * 2 + 1] = (uint8_t)res_val[1];
+      *dst++ = (uint8_t)res_val[0];
+      *dst++ = (uint8_t)res_val[1];
     }
+    dst += (stride - width);
+  }
+}
+
+/** ChromaProcessBilinear
+ *
+ * @n_thrd_arg: struct with input thread parameters
+ *
+ * Resize Luma Process function
+ *
+ * return:
+ **/
+static void ChromaProcessBilinear(neon_thrd_args* n_thrd_arg) {
+  uint32_t row, col;
+  uint32_t res_val[2], res_val_row1[2], res_val_row2[2];
+  uint32_t w_ind, h_ind;
+  uint32_t offset;
+  uint16_t w_rem, h_rem;
+
+  uint8_t* src_chroma = n_thrd_arg->src_chroma;
+  uint8_t* dst =
+      n_thrd_arg->dst_chroma + n_thrd_arg->line_start * n_thrd_arg->stride / 2;
+  uint32_t w_coef = n_thrd_arg->w_coef;
+  uint32_t h_coef = n_thrd_arg->h_coef;
+  uint32_t line_start = n_thrd_arg->line_start;
+  uint32_t line_end = n_thrd_arg->line_end;
+  uint32_t width = n_thrd_arg->width;
+  uint32_t stride = n_thrd_arg->stride;
+  uint32_t src_stride = n_thrd_arg->src_stride;
+
+  ALOGE("N start end %d %d %d ", n_thrd_arg->tid, line_start, line_end);
+
+  for (row = (line_start / 2); row < (line_end / 2); row++) {
+    for (col = 0; col < (width / 2); col++) {
+      w_ind = col * w_coef;
+      h_ind = row * h_coef;
+      w_rem = w_ind - ((w_ind >> 8) << 8);
+      w_ind = ((w_ind - w_rem) >> 8);
+      h_rem = h_ind - ((h_ind >> 8) << 8);
+      h_ind = ((h_ind - h_rem) >> 8);
+      offset = h_ind * src_stride + w_ind * 2;
+      res_val_row1[0] =
+          (src_chroma[offset] * (256 - w_rem) + src_chroma[offset + 2] * w_rem);
+      res_val_row1[1] = (src_chroma[offset + 1] * (256 - w_rem) +
+                         src_chroma[offset + 3] * w_rem);
+
+      res_val_row2[0] = (src_chroma[offset + src_stride] * (256 - w_rem) +
+                         src_chroma[offset + src_stride + 2] * w_rem);
+      res_val_row2[1] = (src_chroma[offset + src_stride + 1] * (256 - w_rem) +
+                         src_chroma[offset + src_stride + 3] * w_rem);
+
+      res_val[0] = (res_val_row1[0] * (256 - h_rem) + res_val_row2[0] * h_rem +
+                    (1 << 8)) >>
+                   16;
+
+      res_val[1] = (res_val_row1[1] * (256 - h_rem) + res_val_row2[1] * h_rem +
+                    (1 << 8)) >>
+                   16;
+
+      if (res_val[0] > 255) res_val[0] = 255;
+      if (res_val[1] > 255) res_val[1] = 255;
+
+      *dst++ = (uint8_t)res_val[0];
+      *dst++ = (uint8_t)res_val[1];
+    }
+    dst += (stride - width);
   }
 }
 
@@ -347,7 +753,9 @@ static void ChromaProcessBilinearVSkip(neon_thrd_args* n_thrd_arg) {
 static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
   bool update_coefs = false;
   if ((resn->src_width != ctx->src_width) ||
-      (resn->dst_width != ctx->dst_width)) {
+      (resn->src_height != ctx->src_height) ||
+      (resn->dst_width != ctx->dst_width) ||
+      (resn->dst_height != ctx->dst_height)) {
     ctx->src_width = resn->src_width;
     ctx->src_height = resn->src_height;
     ctx->dst_width = resn->dst_width;
@@ -358,15 +766,20 @@ static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
   if (update_coefs) {
     free(ctx->y_coefs);
     free(ctx->uv_coefs);
+    free(ctx->ver_offsets);
+    free(ctx->ver_coefs);
     free(ctx->input_offsets);
 
     ctx->y_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
     ctx->uv_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
     ctx->input_offsets = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
+    ctx->ver_offsets = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
+    ctx->ver_coefs = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
 
     uint32_t w_coef = (ctx->src_width * 256) / ctx->dst_width;
-    uint32_t w_ind;
-    uint16_t w_rem, col;
+    uint32_t h_coef = (ctx->src_height * 256) / ctx->dst_height;
+    uint32_t w_ind, h_ind;
+    uint16_t w_rem, h_rem, col, row;
     for (col = 0; col < ctx->dst_width; col++) {
       w_ind = col * w_coef;
       w_rem = w_ind - ((w_ind >> 8) << 8);
@@ -381,6 +794,14 @@ static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
       w_ind = ((w_ind - w_rem) >> 8);
       ctx->uv_coefs[col * 2] = w_rem;
       ctx->uv_coefs[col * 2 + 1] = w_rem;
+    }
+
+    for (row = 0; row < ctx->dst_height; row++) {
+      h_ind = row * h_coef;
+      h_rem = h_ind - ((h_ind >> 8) << 8);
+      h_ind = ((h_ind - h_rem) >> 8);
+      ctx->ver_offsets[row] = h_ind;
+      ctx->ver_coefs[row] = h_rem;
     }
   }
 }
@@ -483,6 +904,8 @@ void resn_deinit(void* handle) {
     free(ctx->y_coefs);
     free(ctx->uv_coefs);
     free(ctx->input_offsets);
+    free(ctx->ver_offsets);
+    free(ctx->ver_coefs);
     free(ctx);
     handle = NULL;
   }
@@ -543,6 +966,7 @@ resn_status_t resn_process(void* handle, resn_t* resn) {
 
   for (i = 0; i < (num_threads / 2); i++) {
     pthread_mutex_lock(&neon_work_args[i].lock);
+    neon_work_args[i].res_method = resn->res_method;
     neon_work_args[i].width = width;
     neon_work_args[i].height = height;
     neon_work_args[i].src_stride = src_stride;
@@ -554,6 +978,8 @@ resn_status_t resn_process(void* handle, resn_t* resn) {
     neon_work_args[i].y_coefs = ctx->y_coefs;
     neon_work_args[i].uv_coefs = ctx->uv_coefs;
     neon_work_args[i].input_offsets = ctx->input_offsets;
+    neon_work_args[i].ver_offsets = ctx->ver_offsets;
+    neon_work_args[i].ver_coefs = ctx->ver_coefs;
     neon_work_args[i].w_coef = w_coef;
     neon_work_args[i].h_coef = h_coef;
     neon_work_args[i].line_start = i * ((height * 2 / num_threads) & (~1u));
@@ -565,6 +991,7 @@ resn_status_t resn_process(void* handle, resn_t* resn) {
 
   for (; i < num_threads; i++) {
     pthread_mutex_lock(&neon_work_args[i].lock);
+    neon_work_args[i].res_method = resn->res_method;
     neon_work_args[i].width = width;
     neon_work_args[i].height = height;
     neon_work_args[i].src_stride = src_stride;
@@ -576,6 +1003,8 @@ resn_status_t resn_process(void* handle, resn_t* resn) {
     neon_work_args[i].y_coefs = ctx->y_coefs;
     neon_work_args[i].uv_coefs = ctx->uv_coefs;
     neon_work_args[i].input_offsets = ctx->input_offsets;
+    neon_work_args[i].ver_offsets = ctx->ver_offsets;
+    neon_work_args[i].ver_coefs = ctx->ver_coefs;
     neon_work_args[i].w_coef = w_coef;
     neon_work_args[i].h_coef = h_coef;
     neon_work_args[i].line_start =
@@ -643,9 +1072,19 @@ static void* neon_thread_y_pass(void* arg) {
     pthread_mutex_unlock(&n_thrd_arg->lock);
 
 #ifdef _ARM_NEON_SUPPORT_
-    LumaProcessBilinearVSkipNEON(&thrd_arg);
+    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
+      LumaProcessBilinearVSkipNEON(&thrd_arg);
+    }
+    if (thrd_arg.res_method == RES_BILINEAR) {
+      LumaProcessBilinearNEON(&thrd_arg);
+    }
 #else
-    LumaProcessBilinearVSkip(&thrd_arg);
+    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
+      LumaProcessBilinearVSkip(&thrd_arg);
+    }
+    if (thrd_arg.res_method == RES_BILINEAR) {
+      LumaProcessBilinear(&thrd_arg);
+    }
 #endif
 
     pthread_mutex_lock(&n_thrd_arg->lock);
@@ -676,9 +1115,19 @@ static void* neon_thread_uv_pass(void* arg) {
     pthread_mutex_unlock(&n_thrd_arg->lock);
 
 #ifdef _ARM_NEON_SUPPORT_
-    ChromaProcessBilinearVSkipNEON(&thrd_arg);
+    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
+      ChromaProcessBilinearVSkipNEON(&thrd_arg);
+    }
+    if (thrd_arg.res_method == RES_BILINEAR) {
+      ChromaProcessBilinearNEON(&thrd_arg);
+    }
 #else
-    ChromaProcessBilinearVSkip(&thrd_arg);
+    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
+      ChromaProcessBilinearVSkip(&thrd_arg);
+    }
+    if (thrd_arg.res_method == RES_BILINEAR) {
+      ChromaProcessBilinear(&thrd_arg);
+    }
 #endif
 
     pthread_mutex_lock(&n_thrd_arg->lock);

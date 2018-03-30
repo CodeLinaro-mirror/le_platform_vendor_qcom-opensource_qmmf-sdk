@@ -61,6 +61,8 @@ typedef struct {
   uint16_t* y_coefs;
   uint16_t* uv_coefs;
   uint16_t* input_offsets;
+  uint16_t* ver_offsets;
+  uint16_t* ver_coefs;
 
   pthread_mutex_t lock;
   pthread_cond_t signal_thread;
@@ -68,6 +70,8 @@ typedef struct {
   bool thread_started;
   bool thread_ready;
   bool thread_active;
+  // Resizer method
+  res_method_t res_method;
 } neon_thrd_args;
 
 typedef struct resn_cnt_s {
@@ -84,6 +88,11 @@ typedef struct resn_cnt_s {
   uint16_t* y_coefs;
   // UV interpolation coefficients size of dst_width
   uint16_t* uv_coefs;
+
+  // Ver offsets size of dst_height
+  uint16_t* ver_offsets;
+  // Ver interpolation coefficients size of dst_height
+  uint16_t* ver_coefs;
   // Horizontal input buffer offsets
   uint16_t* input_offsets;
 
