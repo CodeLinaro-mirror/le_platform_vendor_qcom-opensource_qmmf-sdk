@@ -40,7 +40,8 @@
 namespace qmmf {
 
 NEONResizer::NEONResizer()
-  : handle_(nullptr) {
+  : handle_(nullptr),
+    method_(neonresizer::RES_BILINEAR_V_SKIP) {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -52,6 +53,15 @@ NEONResizer::~NEONResizer() {
 }
 
 RESIZER_STATUS NEONResizer::Init() {
+
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.rescaler.method", prop, "0");
+  uint32_t value = (uint32_t) atoi(prop);
+  if (value < neonresizer::RES_NUMBER) {
+    method_ = static_cast<neonresizer::res_method_t>(value);
+  }
+
   std::lock_guard<std::mutex> lock(lock_);
   if (handle_) {
     QMMF_INFO("%s: The neon resizer is already init", __func__);
@@ -129,6 +139,8 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   params.dst_width = dst_buffer.info.plane_info[0].width;
   params.dst_height = dst_buffer.info.plane_info[0].height;
   params.dst_stride = dst_buffer.info.plane_info[0].stride;
+
+  params.res_method = method_;
 
   QMMF_DEBUG("%s: SRC: %s", __func__, src_buffer.info.ToString().c_str());
   QMMF_DEBUG("%s: DST: %s", __func__, dst_buffer.info.ToString().c_str());

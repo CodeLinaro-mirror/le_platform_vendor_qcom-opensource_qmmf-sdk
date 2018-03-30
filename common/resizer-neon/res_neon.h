@@ -128,6 +128,11 @@ typedef enum {
 } resn_status_t;
 
 typedef struct { int enable; } chromatix_resn_type;
+typedef enum {
+  RES_BILINEAR_V_SKIP = 0,
+  RES_BILINEAR = 1,
+  RES_NUMBER
+} res_method_t;
 
 typedef struct resn_s {
   // Tuning data parameters
@@ -150,6 +155,8 @@ typedef struct resn_s {
   unsigned int dst_width;
   unsigned int dst_height;
   unsigned int dst_stride;
+  // Resizer method
+  res_method_t res_method;
 } resn_t;
 
 #ifdef __cplusplus
