@@ -869,12 +869,14 @@ void PlayerTest::SetTrickMode() {
     printf("****** Set Trick Mode *******\n");
     printf(" Enter Trick Mode Type [Normal Playback->1, FF->2, SF->3, REW->4]): ");
     scanf("%d", &dir);
-    printf(" Enter Trick Mode Speed/Factor of (supported "
-        "[Normal Playback or REW->1 :::: FF,SF-> 2, 4, 8]): ");
+    printf(" Enter Trick Mode Speed/Factor ::"
+      "\n ## For Normal Playback or REW -> 1 "
+      "\n ## FF -> 2, 4, 8 "
+      "\n ## SF -> 2, 3, 4, 8 : ");
     scanf("%d", &speed);
 
-    if ((speed >= 1 && speed <= 8 && (!(speed & (speed - 1)))) &&
-        (dir >= 1 && dir <= 4)) {
+    if ((speed >= 1 && speed <= 8 && ((speed == 3 && dir == 3) || (!(speed
+        & (speed - 1))))) && (dir >= 1 && dir <= 4)) {
       if (dir == 1 && speed == 1 && (!IsTrickModeEnabled())) {
         std::lock_guard<std::mutex> lock(lock_);
         trick_mode_enabled_ = false;
@@ -912,7 +914,7 @@ void PlayerTest::SetTrickMode() {
       TEST_INFO(
           "%s:Wrong trick mode type or speed, supported values are "
           "trick mode type [Normal Playback->1, FF->2, SF->3] "
-          "speed [Normal Playback->1, 2, 4, 8]",
+          "speed [Normal Playback->1, 2, 3, 4, 8]",
           __func__);
     }
   }
