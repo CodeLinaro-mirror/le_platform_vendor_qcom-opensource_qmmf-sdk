@@ -145,7 +145,7 @@ void PlayerTest::PlayerHandler(EventType event_type,
       push_gfx_content_to_display_ = false;
     }
 
-    printf("\nPlayback has finished.\n");
+    printf("\nPlayback has finished/stopped.\n");
   }
 
   TEST_INFO("%s: Exit", __func__);
@@ -172,6 +172,10 @@ void PlayerTest::AudioTrackHandler(uint32_t track_id,
                                (event_data))->num_free_buffers);
   }
 
+  if (event_type == EventType::kEOSRendered) {
+    printf("\n EOS Rendered received for Audio track : %u\n", track_id);
+  }
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -194,6 +198,10 @@ void PlayerTest::VideoTrackHandler(uint32_t track_id,
     TEST_INFO("%s: %d buffers available for DequeueInputBuffer", __func__,
               (reinterpret_cast<InputBufferNotifyParams*>
                                (event_data))->num_free_buffers);
+  }
+
+  if (event_type == EventType::kEOSRendered) {
+    printf("\n EOS Rendered received for Video track : %u\n", track_id);
   }
 
   TEST_INFO("%s: Exit", __func__);
