@@ -386,7 +386,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
     ret = recorder_.CaptureImage(multicam_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
-    ASSERT_TRUE(kDelayAfterSnapshot);
+    sleep(kDelayAfterSnapshot);
   }
 
   ret = recorder_.StopCamera(multicam_id_);
