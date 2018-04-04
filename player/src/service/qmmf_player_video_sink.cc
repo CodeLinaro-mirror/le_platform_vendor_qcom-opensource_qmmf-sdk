@@ -915,8 +915,10 @@ status_t VideoTrackSink::CreateDisplay(
 
   surface_param_.dst_rect = {
       track_param.params.destRect.start_x, track_param.params.destRect.start_y,
-      static_cast<float>(track_param.params.destRect.width),
-      static_cast<float>(track_param.params.destRect.height)};
+      static_cast<float>(track_param.params.destRect.start_x +
+                         track_param.params.destRect.width),
+      static_cast<float>(track_param.params.destRect.start_y +
+                         track_param.params.destRect.height)};
 
   surface_param_.surface_blending =
       SurfaceBlending::kBlendingCoverage;
