@@ -21319,37 +21319,31 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
 
     sleep(record_duration_/3);
 
-    InitSupportedNRModes();
-    bool is_tnr_supported = IsNRSupported();
+    //Enable TNR - High quality mode.
     CameraMetadata meta;
-
-    fprintf(stderr, "\nis_tnr_supported:%d\n", is_tnr_supported);
-
-    // Enable TNR
-    if (is_tnr_supported) {
-      ret = recorder_.GetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
-
-      fprintf(stderr, "\nSetting TNR1 ON..\n");
-      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
-
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
+    ret= recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret= recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
     }
 
     sleep(record_duration_/3);
 
-    if (is_tnr_supported) {
-      ret = recorder_.GetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
-
-      fprintf(stderr, "\nSetting TNR1 OFF..\n");
-      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
-
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
+    //Enable TNR - High quality mode.
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret= recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
     }
 
     sleep(record_duration_/3);
@@ -21867,37 +21861,31 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUVWithTNR) {
 
     sleep(record_duration_/3);
 
-    InitSupportedNRModes();
-    bool is_tnr_supported = IsNRSupported();
+    //Enable TNR - High quality mode.
     CameraMetadata meta;
-
-    fprintf(stderr, "\nis_tnr_supported:%d\n", is_tnr_supported);
-
-    // Enable TNR
-    if (is_tnr_supported) {
-      ret = recorder_.GetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
-
-      fprintf(stderr, "\nSetting TNR1 ON..\n");
-      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
-
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret = recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
     }
 
     sleep(record_duration_/3);
 
-    if (is_tnr_supported) {
-      ret = recorder_.GetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
-
-      fprintf(stderr, "\nSetting TNR1 OFF..\n");
-      const uint8_t tnrMode = ANDROID_NOISE_REDUCTION_MODE_OFF;
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnrMode, 1);
-
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(NO_ERROR == ret);
+    //Enable TNR - OFF.
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_OFF;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret = recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
     }
 
     sleep(record_duration_/3);
@@ -22032,6 +22020,654 @@ TEST_F(RecorderGtest, SessionsWith4KEncTrackZZHDR) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
+}
+
+void RecorderGtest::CreatePrivacyMaskOverlay (const uint32_t& video_track_id,
+                                              const int32_t& width,
+                                              const int32_t& height,
+                                              uint32_t* mask_id) {
+  // Create BoundingBox type overlay.
+  OverlayParam object_params{};
+  object_params.type  = OverlayType::kPrivacyMask;
+  object_params.color = 0xFF9933FF; //Fill mask with color.
+  // Dummy coordinates for test purpose.
+  object_params.dst_rect.start_x = 20;
+  object_params.dst_rect.start_y = 40;
+  object_params.dst_rect.width   = width/8;
+  object_params.dst_rect.height  = height/8;
+
+  auto ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                           mask_id);
+  ASSERT_TRUE(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, *mask_id);
+  ASSERT_TRUE(ret == 0);
+
+  ret = recorder_.GetOverlayObjectParams(video_track_id, *mask_id,
+                                             object_params);
+  ASSERT_TRUE(ret == 0);
+
+  object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
+    object_params.dst_rect.width < width) ? object_params.dst_rect.start_x + 20
+                                          : 20;
+
+  object_params.dst_rect.width = (object_params.dst_rect.start_x +
+    object_params.dst_rect.width < width) ? object_params.dst_rect.width + 50
+                                          : width/8;
+
+  object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
+    object_params.dst_rect.height < height) ? object_params.dst_rect.start_y +
+                                              10 : 40;
+
+  object_params.dst_rect.height = (object_params.dst_rect.start_y +
+    object_params.dst_rect.height < height) ? object_params.dst_rect.height +
+                                          50 : height/8;
+
+  ret = recorder_.UpdateOverlayObjectParams(video_track_id, *mask_id,
+                                                object_params);
+  ASSERT_TRUE(ret == 0);
+
+}
+
+void RecorderGtest::DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
+                                               const uint32_t& mask_id) {
+
+  // Remove overlay object from video track.
+  auto ret = recorder_.RemoveOverlay(video_track_id, mask_id);
+  ASSERT_TRUE(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
+  ASSERT_TRUE(ret == 0);
+}
+
+/*
+* SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR: This
+*                           test will test Dual cam session with one 4kp Enc
+*                           track, one 1080 Enc Track and one linked.
+*                           Note: camera_id_ for dual cam to be set using
+*                           adb property.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack with zzHDR
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - Enable TNR
+*   - Enable Overlay
+*   - Disable Overlay
+*   - Disable TNR
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Master
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4k_avc     = 1;
+  uint32_t video_track_id_1080p_avc  = 2;
+  uint32_t video_track_id_1080p_yuv  = 3;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {
+      VideoFormat::kAVC,
+      video_track_id_4k_avc, 4096, 2048
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {
+      VideoFormat::kAVC,
+      video_track_id_1080p_avc, 2160, 1080
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                            4096,
+                                            2048,
+                                            30};
+    video_track_param.codec_param.avc.bitrate = 160000000;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    // Setting Enable HDR Extra Param
+    VideoExtraParam extra_param_hdr;
+    VideoHDRMode vid_hdr_mode;
+    vid_hdr_mode.enable = true;
+    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_4k_avc);
+
+    video_track_param.width  = 2160;
+    video_track_param.height = 1080;
+    video_track_param.codec_param.avc.bitrate = 4000000;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_avc);
+
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack surface_video_linked;
+    surface_video_linked.source_track_id = video_track_id_1080p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    //Enable TNR - High quality mode.
+    CameraMetadata meta;
+    ret= recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret= recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+    }
+
+    // Enable overlay
+    uint32_t mask_id_4k ;
+    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+
+    sleep(record_duration_);
+
+    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR: This test will test
+*                           Dual cam session with one 4kp Enc track,
+*                           one 1080 Enc Track and one linked.
+*                           Note: camera_id_ for dual cam to be set using
+*                           adb property.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack with zzHDR
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - Enable TNR
+*   - Enable Overlay
+*   - Disable Overlay
+*   - Disable TNR
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Master
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4k_avc     = 1;
+  uint32_t video_track_id_1080p_avc  = 2;
+  uint32_t video_track_id_1080p_yuv  = 3;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {
+      VideoFormat::kAVC,
+      video_track_id_4k_avc, 4096, 2048
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {
+      VideoFormat::kAVC,
+      video_track_id_1080p_avc, 2160, 1080
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                            4096,
+                                            2048,
+                                            60};
+    video_track_param.codec_param.avc.bitrate = 160000000;
+    video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    // Setting Enable HDR Extra Param
+    VideoExtraParam extra_param_hdr;
+    VideoHDRMode vid_hdr_mode;
+    vid_hdr_mode.enable = true;
+    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_4k_avc);
+
+    video_track_param.width  = 2160;
+    video_track_param.height = 1080;
+    video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = 4000000;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_avc);
+
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack surface_video_linked;
+    surface_video_linked.source_track_id = video_track_id_1080p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    //Enable TNR - High quality mode.
+    CameraMetadata meta;
+    auto ret= recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret= recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+    }
+
+    // Enable overlay
+    uint32_t mask_id_4k;
+    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+
+    sleep(record_duration_);
+
+    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR:
+*                           This test will test Dual cam session with one
+*                           5.7k Enc track, one 1080 Enc Track and one linked.
+*                           Note: camera_id_ for dual cam to be set using
+*                           adb property.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack with zzHDR
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - Enable TNR
+*   - Enable Overlay
+*   - Disable Overlay
+*   - Disable TNR
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Master
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWithTNRAndZZHDR) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_5_7k_avc     = 1;
+  uint32_t video_track_id_1080p_avc  = 2;
+  uint32_t video_track_id_1080p_yuv  = 3;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {
+      VideoFormat::kAVC,
+      video_track_id_5_7k_avc, 5760, 2880
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {
+      VideoFormat::kAVC,
+      video_track_id_1080p_avc, 2160, 1080
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                            5760,
+                                            2880,
+                                            30};
+    video_track_param.codec_param.avc.bitrate = 160000000;
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    // Setting Enable HDR Extra Param
+    VideoExtraParam extra_param_hdr;
+    VideoHDRMode vid_hdr_mode;
+    vid_hdr_mode.enable = true;
+    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_5_7k_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_5_7k_avc);
+
+    video_track_param.width  = 2160;
+    video_track_param.height = 1080;
+    video_track_param.codec_param.avc.bitrate = 4000000;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
+                                     video_track_param, extra_param_hdr,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_avc);
+
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack surface_video_linked;
+    surface_video_linked.source_track_id = video_track_id_1080p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1080p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    //Enable TNR - High quality mode.
+    CameraMetadata meta;
+    auto ret= recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+        const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+        ret= recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+    }
+
+    // Enable overlay
+    uint32_t mask_id_4k ;
+    CreatePrivacyMaskOverlay(video_track_id_5_7k_avc, 5760, 2880, &mask_id_4k);
+
+    sleep(record_duration_);
+
+    DestroyPrivacyMaskOverlay(video_track_id_5_7k_avc, mask_id_4k);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_5_7k_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
 }
 
 #endif
