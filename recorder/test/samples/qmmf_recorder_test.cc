@@ -3253,6 +3253,38 @@ status_t RecorderTest::CreateAudioPCMFluenceTrack() {
   return ret;
 }
 
+status_t RecorderTest::CreateAudioPCMAmbisonicTrack() {
+  TEST_INFO("%s: Enter", __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_pcm_track = new TestTrack(this);
+  TrackInfo info;
+  memset(&info, 0x0, sizeof info);
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioPCMAS;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_pcm_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_pcm_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 // This session has one RDI track with sensor resolution.
 status_t RecorderTest::SessionRDITrack() {
 
@@ -3821,6 +3853,7 @@ status_t RecorderTest::DeleteSession() {
       assert(track != nullptr);
       if (track->GetTrackType() == TrackType::kAudioPCM ||
           track->GetTrackType() == TrackType::kAudioPCMFP ||
+          track->GetTrackType() == TrackType::kAudioPCMAS ||
           track->GetTrackType() == TrackType::kAudioAAC ||
           track->GetTrackType() == TrackType::kAudioAMR ||
           track->GetTrackType() == TrackType::kAudioG711) {
@@ -4561,6 +4594,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     for (uint32_t i=0;i < tracks.size();i++) {
       if (tracks[i]->GetTrackType() == TrackType::kAudioPCM ||
             tracks[i]->GetTrackType() == TrackType::kAudioPCMFP ||
+            tracks[i]->GetTrackType() == TrackType::kAudioPCMAS ||
             tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
             tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
             tracks[i]->GetTrackType() == TrackType::kAudioG711) {
@@ -5965,6 +5999,12 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
                       strlen("record_fluence"));
         audio_track_params.sample_rate = 16000;
         break;
+      case TrackType::kAudioPCMAS:
+        audio_track_params.format = AudioFormat::kPCM;
+        ::std::string("record_ambisonic").copy(audio_track_params.profile,
+                      strlen("record_ambisonic"));
+        audio_track_params.channels = 4;
+        break;
       case TrackType::kAudioAAC:
         audio_track_params.format = AudioFormat::kAAC;
         audio_track_params.codec_params.aac.format = AACFormat::kADTS;
@@ -6005,6 +6045,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     switch (track_info.track_type) {
       case TrackType::kAudioPCM:
       case TrackType::kAudioPCMFP:
+      case TrackType::kAudioPCMAS:
       case TrackType::kAudioG711:
         // Configure .wav output.
         ret = wav_output_.Configure(kDefaultAudioFilenamePrefix,
@@ -6060,6 +6101,7 @@ status_t TestTrack::Prepare() {
 
   if (track_info_.track_type == TrackType::kAudioPCM ||
       track_info_.track_type == TrackType::kAudioPCMFP ||
+      track_info_.track_type == TrackType::kAudioPCMAS ||
       track_info_.track_type == TrackType::kAudioG711) {
     ret = wav_output_.Open();
     assert(ret == NO_ERROR);
@@ -6086,6 +6128,7 @@ status_t TestTrack::CleanUp() {
     break;
     case TrackType::kAudioPCM:
     case TrackType::kAudioPCMFP:
+    case TrackType::kAudioPCMAS:
     case TrackType::kAudioG711:
     wav_output_.Close();
     break;
@@ -6445,6 +6488,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
   switch (track_info_.track_type) {
     case TrackType::kAudioPCM:
     case TrackType::kAudioPCMFP:
+    case TrackType::kAudioPCMAS:
     case TrackType::kAudioG711:
       for (const BufferDescriptor& buffer : buffers) {
         ret = wav_output_.Write(buffer);
@@ -6808,6 +6852,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,16KHz,FluencePro)\n",
       CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (PCM 4ch,16,48KHz,Ambisonic)\n",
+      CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD);
   printf("   %c. Create Session: (1080p YUV with Display)\n",
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
@@ -7007,6 +7053,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMFluenceTrack();
+      }
+      break;
+      case CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD: {
+          test_context.CreateAudioPCMAmbisonicTrack();
       }
       break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {

@@ -202,6 +202,7 @@ enum class TrackType {
   kNone,
   kAudioPCM,
   kAudioPCMFP,
+  kAudioPCMAS,
   kAudioAAC,
   kAudioAMR,
   kAudioG711,
@@ -483,6 +484,8 @@ class RecorderTest {
   status_t CreateAudioPCMG711Track();
 
   status_t CreateAudioPCMFluenceTrack();
+
+  status_t CreateAudioPCMAmbisonicTrack();
 
   status_t SessionRDITrack();
 
@@ -796,6 +799,7 @@ public:
         CREATE_2G7ll_AUD_SESSION_CMD                    = 'n',
         CREATE_PCM_G7ll_AUD_SESSION_CMD                 = 'o',
         CREATE_PCMFL_AUD_SESSION_CMD                    = 'p',
+        CREATE_PCMAS_AUD_SESSION_CMD                    = 'u',
         CREATE_RDI_SESSION_CMD                          = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',
