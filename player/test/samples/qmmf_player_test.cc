@@ -226,7 +226,6 @@ PlayerTest::PlayerTest(char* filename)
       video_thread_(nullptr),
       filename_(filename),
       m_pIStreamPort_(nullptr),
-      audioFirstFrame_(true),
       videoFirstFrame_(true),
       audioLastFrame_(false),
       videoLastFrame_(false),
@@ -556,34 +555,11 @@ void PlayerTest::AudioThread() {
     m_sTrackInfo_.sAudio.sSampleBuf.pucData1 =
         static_cast<uint8*>(buffers[0].data);
 
-    m_sTrackInfo_.sAudio.sSampleBuf.ulLen = buffers[0].size;
-
     m_sTrackInfo_.sAudio.sSampleBuf.ulLen =
         m_sTrackInfo_.sAudio.sSampleBuf.ulMaxLen;
 
-    uint32_t nFormatBlockSize = 0;
-
-    if (audioFirstFrame_) {
-      uint32_t status = m_pDemux_->m_pFileSource->GetFormatBlock(
-          m_sTrackInfo_.sAudio.ulTkId, nullptr, &nFormatBlockSize);
-      TEST_DBG("%s: Audio getFormatBlock size = %lu", __func__,
-          nFormatBlockSize);
-      assert(FILE_SOURCE_SUCCESS == status);
-
-      uint8_t *buffer = new uint8_t[nFormatBlockSize];
-      if (buffer != nullptr) {
-        status = m_pDemux_->m_pFileSource->GetFormatBlock(
-            m_sTrackInfo_.sAudio.ulTkId, buffer, &nFormatBlockSize);
-       assert(FILE_SOURCE_SUCCESS == status);
-      }
-
-      memcpy(buffers[0].data , buffer, nFormatBlockSize);
-      delete[] buffer;
-      audioFirstFrame_ = false;
-    }
-
     eMediaStatus = m_pDemux_->GetNextMediaSample(m_sTrackInfo_.sAudio.ulTkId,
-        m_sTrackInfo_.sAudio.sSampleBuf.pucData1 + nFormatBlockSize,
+        m_sTrackInfo_.sAudio.sSampleBuf.pucData1,
         &(m_sTrackInfo_.sAudio.sSampleBuf.ulLen), sSampleInfo);
 
 #ifdef DUMP_AUDIO_BITSTREAM
@@ -592,8 +568,7 @@ void PlayerTest::AudioThread() {
     fileCount_audio_++;
 #endif
 
-    buffers[0].filled_size = m_sTrackInfo_.sAudio.sSampleBuf.ulLen +
-                             nFormatBlockSize ;
+    buffers[0].filled_size = m_sTrackInfo_.sAudio.sSampleBuf.ulLen;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
     UpdateCurrentPlaybackTime(sSampleInfo.startTime);
@@ -1032,7 +1007,6 @@ void PlayerTest::Delete() {
 
   delete m_pIStreamPort_;
   m_pIStreamPort_ = nullptr;
-  audioFirstFrame_ = true;
   videoFirstFrame_ = true;
 
   TEST_INFO("%s: Exit", __func__);
