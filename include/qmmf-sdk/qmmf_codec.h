@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -61,6 +61,7 @@ enum class CodecMimeType {
   kMimeTypeAudioEncAAC,
   kMimeTypeAudioEncAMR,
   kMimeTypeAudioEncG711,
+  kMimeTypeAudioEncMPEGH,
   kMimeTypeAudioDecAAC,
   kMimeTypeAudioDecAMR,
   kMimeTypeAudioDecG711,
@@ -570,6 +571,7 @@ enum class AudioFormat {
   kAMR,
   kG711,
   kMP3,
+  kMPEGH,
 };
 
 union CodecFormat {
@@ -689,10 +691,21 @@ struct G711Params {
   }
 };
 
+struct MPEGHParams {
+  int32_t  bit_rate;
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "bit_rate[" << bit_rate << "]";
+    return stream.str();
+  }
+};
+
 union AudioCodecParams {
   AACParams  aac;
   AMRParams  amr;
   G711Params g711;
+  MPEGHParams mpegh;
 
   ::std::string ToString(const AudioFormat key) const {
     ::std::stringstream stream;
@@ -708,6 +721,9 @@ union AudioCodecParams {
       break;
     case AudioFormat::kG711:
       stream << "g711[" << g711.ToString() << "]";
+      break;
+    case AudioFormat::kMPEGH:
+      stream << "mpegh[" << mpegh.ToString() << "]";
       break;
       default:
         stream << "Invalid Key["

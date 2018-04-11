@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -45,6 +45,8 @@
 #include <linux/msm_ion.h>
 #include <OMX_VideoExt.h>
 #include <OMX_IndexExt.h>
+#include <QOMX_AudioExtensions.h>
+#include <QOMX_AudioIndexExtensions.h>
 #include <media/hardware/HardwareAPI.h>
 #include <qcom/display/gralloc_priv.h>
 #include <math.h>
@@ -235,6 +237,9 @@ status_t AVCodec::GetComponentName(CodecMimeType mime_type,
     case CodecMimeType::kMimeTypeAudioEncG711:
       role.append("audio_encoder.g711");
       break;
+    case CodecMimeType::kMimeTypeAudioEncMPEGH:
+      role.append("audio_encoder.mpegh");
+      break;
     case CodecMimeType::kMimeTypeAudioDecAAC:
       role.append("audio_decoder.aac");
       break;
@@ -310,6 +315,7 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     case CodecMimeType::kMimeTypeAudioEncAAC:
     case CodecMimeType::kMimeTypeAudioEncAMR:
     case CodecMimeType::kMimeTypeAudioEncG711:
+    case CodecMimeType::kMimeTypeAudioEncMPEGH:
       format_type_ = CodecType::kAudioEncoder;
       break;
     case CodecMimeType::kMimeTypeAudioDecAAC:
@@ -374,6 +380,9 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
               QMMF_ERROR("%s Unknown Audio Codec", __func__);
               return -1;
           }
+          break;
+        case AudioFormat::kMPEGH:
+          component_name.appendFormat("OMX.qcom.audio.encoder.mpegh");
           break;
         default:
           QMMF_ERROR("%s Unknown Audio Codec", __func__);
@@ -1136,6 +1145,24 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
   QMMF_DEBUG("%s() TRACE", __func__);
   OMX_ERRORTYPE result;
 
+  // Validate MPEGH encoding input information and shall always be same as the
+  // conditions defined in IsAudioTrackCreateParamValid of <qmmf_recorder_impl.h>
+  if (codec_param.audio_enc_param.format == AudioFormat::kMPEGH) {
+    //Number of channels should be 4
+    //Sample rate should be 48000
+    //bit rate could be 300K, 384K, or 512K (K == 1024)
+    if ((codec_param.audio_enc_param.channels == 4) &&
+        (codec_param.audio_enc_param.sample_rate == 48000) &&
+        ((codec_param.audio_enc_param.codec_params.mpegh.bit_rate == 307200) ||
+         (codec_param.audio_enc_param.codec_params.mpegh.bit_rate == 393216) ||
+         (codec_param.audio_enc_param.codec_params.mpegh.bit_rate == 524288))) {
+      QMMF_INFO("%s: Successfully validated MPEGH track params", __func__);
+    } else {
+      QMMF_ERROR("%s() MPEGH audio track params are not valid!", __func__);
+      return ::android::BAD_VALUE;
+    }
+  }
+
   // get the port information
   OMX_PORT_PARAM_TYPE audio_ports;
   InitOMXParams(&audio_ports);
@@ -1207,6 +1234,9 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
   pcm_params.nPortIndex = kPortIndexInput;
   pcm_params.nChannels = codec_param.audio_enc_param.channels;
   pcm_params.nSamplingRate = codec_param.audio_enc_param.sample_rate;
+  if (codec_param.audio_enc_param.format == AudioFormat::kMPEGH) {
+    pcm_params.nBitPerSample = codec_param.audio_enc_param.bit_depth;
+  }
   pcm_params.bInterleaved = OMX_TRUE;
   result = omx_client_->SetParameter(OMX_IndexParamAudioPcm,
                                      static_cast<OMX_PTR>(&pcm_params));
@@ -1331,6 +1361,27 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
         return ::android::FAILED_TRANSACTION;
       }
       break;
+#ifdef MPEGH_ENCODER_SUPPORT
+    case AudioFormat::kMPEGH:
+      // set the MPEGH output parameters
+      QOMX_AUDIO_PARAM_MPEGH_TYPE mpegh_params;
+      InitOMXParams(&mpegh_params);
+      mpegh_params.nPortIndex = kPortIndexOutput;
+      // <nBitRate> is bit_rate / 1024
+      mpegh_params.nBitRate = codec_param.audio_enc_param.codec_params.mpegh.bit_rate / 1024;
+      mpegh_params.nSamplesPerFrame = 1024;
+      mpegh_params.nDFrames = 0;
+      mpegh_params.nSampleRate = codec_param.audio_enc_param.sample_rate;
+      mpegh_params.nHOAOrder = 1; // (Squareroot of number of channels) - 1
+      result = omx_client_->SetParameter((OMX_INDEXTYPE)QOMX_IndexParamAudioMpegh,
+                                         static_cast<OMX_PTR>(&mpegh_params));
+      if (result != OMX_ErrorNone) {
+        QMMF_ERROR("%s() failed to set MPEGH parameters: %d", __func__,
+                   result);
+        return ::android::FAILED_TRANSACTION;
+      }
+      break;
+#endif
     default:
       QMMF_ERROR("%s() unknown audio codec: %d", __func__,
                  static_cast<int>(codec_param.audio_enc_param.format));
