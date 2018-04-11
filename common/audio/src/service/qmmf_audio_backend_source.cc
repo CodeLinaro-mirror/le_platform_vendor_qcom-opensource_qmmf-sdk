@@ -682,6 +682,9 @@ void AudioBackendSource::Thread() {
       qahw_buffer.timestamp = &buffer.timestamp;
 
       int result = qahw_in_read(qahw_stream_, &qahw_buffer);
+      QMMF_VERBOSE("%s() from aHAL: result[%d] qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
+                   __func__, result, qahw_buffer.buffer, qahw_buffer.bytes,
+                   qahw_buffer.offset, *(qahw_buffer.timestamp));
       if (result < 0) {
         QMMF_ERROR("%s() failed to read input stream: %d[%s]",
                    __func__, result, strerror(result));
