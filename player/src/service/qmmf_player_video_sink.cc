@@ -586,7 +586,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       __func__, TrackId(), codec_buffer.data);
 
   if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stop_called_ || !(codec_buffer.size) || (paused_))) {
+      stop_called_ || !codec_buffer.size)) {
     Dispatcher(codec_buffer);
 
 #ifdef DUMP_YUV_FRAMES
