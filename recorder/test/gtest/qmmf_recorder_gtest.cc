@@ -22863,6 +22863,143 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SingleCamRaw10BayerSnapshot: This test will test BayerRDI (10 bits packed)
+* snapshot for single camera, with max Camera resolution (active sensor
+* array size).
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession (for yuv track)
+*  - CreateVideoTrack
+*  - StartSession
+*  - GetDefaultCaptureParam
+*   loop Start {
+*   ------------------
+*   - CaptureImage - Raw Bayer 10 Bits
+*   ------------------
+*   } loop End
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SingleCamRaw10BayerSnapshot) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb yuv_track_cb;
+  yuv_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t yuv_track_id = 1;
+  VideoTrackCreateParam yuv_track_param{camera_id_, VideoFormat::kYUV,
+                                        640,
+                                        480,
+                                        30};
+
+  yuv_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    std::vector<BufferDescriptor> buffers,
+    std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+  ret = recorder_.CreateVideoTrack(session_id, yuv_track_id,
+                                   yuv_track_param, yuv_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {yuv_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(5);
+
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+  int32_t w = 0, h = 0;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+
+  if (!meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+    QMMF_ERROR("%s: Metadata ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE"
+               " not available", __func__);
+    ASSERT_TRUE(0);
+  }
+  entry = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  if (0 == entry.count) {
+    QMMF_ERROR("%s: Active sensor array size is missing!", __func__);
+    ASSERT_TRUE(0);
+  }
+  w = entry.data.i32[2];
+  h = entry.data.i32[3];
+  TEST_INFO("%s: Supported RAW RDI W(%d):H(%d)", __func__, w, h);
+  ASSERT_TRUE(w > 0 && h > 0);
+
+  ImageParam image_param{};
+  image_param.width        = w;
+  image_param.height       = h;
+  image_param.image_format = ImageFormat::kBayerRDI10BIT;
+
+  std::vector<CameraMetadata> meta_array;
+  meta_array.push_back(meta);
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+  meta_array.clear();
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, yuv_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
 #endif
 
 #ifdef USE_SURFACEFLINGER
