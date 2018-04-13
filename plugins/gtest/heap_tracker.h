@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,24 +27,47 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
 
-namespace qmmf {
+#include <cstdint>
 
-namespace qmmf_alg_plugin {
+/** heap_tracker_get_total_allocations
+*
+* Returns number of total allocations
+*
+* return: number of total allocations
+**/
+extern "C" uint32_t heap_tracker_get_total_allocations();
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
- *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
- **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+/** heap_tracker_init
+*
+* Initialize heap tracker. Do NOT invoke it directly. Let init hook to invoke it
+*
+* return: void
+**/
+extern "C" void heap_tracker_init();
 
-};  // namespace qmmf_alg_plugin
+/** heap_tracker_deinit
+*
+* Deinitialize heap tracker.  Do NOT invoke it directly. Let deinit hook to
+*   invoke it
+*
+* return: void
+**/
+extern "C" void heap_tracker_deinit();
 
-};  // namespace qmmf
+/** init
+*
+* Deinitialize heap tracker
+*
+* return: void
+**/
+static __attribute__((constructor)) void init(void) { heap_tracker_init(); }
+
+/** deinit
+*
+* Deinitialize heap tracker
+*
+* return: void
+**/
+static __attribute__((destructor)) void deinit(void) { heap_tracker_deinit(); }

@@ -1,0 +1,26 @@
+{
+  "Common": {
+    "iteration count": 12,
+    "tested library": "libqmmf_test_algo_outplace_history.so",
+    "configuration file": "",
+    "calibration file": "",
+    "input buffers": [
+      {
+        "width": 1920,
+        "height": 1440,
+        "stride": 1920,
+        "scanline": 1472,
+        "pixel format": "Nv12"
+      }
+    ],
+    "output buffers": [
+      {
+        "width": 1920,
+        "height": 1440,
+        "stride": 1920,
+        "scanline": 1472,
+        "pixel format": "Nv12"
+      }
+    ]
+  }
+}

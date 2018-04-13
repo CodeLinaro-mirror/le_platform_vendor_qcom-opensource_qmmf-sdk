@@ -27,24 +27,71 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
+
+#include <memory>
+#include <vector>
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
+/** PlatformBuffer:
+ *    @addr_: pointer to allocated buffer
+ *    @fd_: fd
  *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
+ *  This class implements heap platform buffer
  **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+class PlatformBuffer {
+ private:
+  PlatformBuffer(uint32_t size);
+
+ public:
+  /** New
+    *    @size: buffer size
+    *    @cached: flag indicating whether buffer is cached
+    *
+    * creates new instance of PlatformBuffer
+    *
+    * return: shared pointer of PlatformBuffer
+    **/
+  static std::shared_ptr<PlatformBuffer> New(uint32_t size, bool cached);
+
+  /** GetAddr
+    *
+    * returns addres
+    *
+    * return: address
+    **/
+  uint8_t* GetAddr() const;
+
+  /** GetFd
+    *
+    * returns fd
+    *
+    * return: fd
+    **/
+  int32_t GetFd() const;
+
+  /** CacheFlush
+    *
+    * flushes cache
+    *
+    * return: void
+    **/
+  void CacheFlush() const;
+
+  /** CacheInvalidate
+    *
+    * flushes cache
+    *
+    * return: void
+    **/
+  void CacheInalidate() const;
+
+ private:
+  const std::vector<uint8_t> data_;
+  const int32_t fd_;
+};
 
 };  // namespace qmmf_alg_plugin
-
 };  // namespace qmmf

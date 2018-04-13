@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -30,10 +30,10 @@
 #pragma once
 
 #include <stdint.h>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "qmmf_alg_types.h"
 
@@ -59,33 +59,30 @@ namespace qmmf_alg_plugin {
  **/
 class Capabilities {
  public:
-  Capabilities() {};
+  Capabilities(){};
 
-  Capabilities(std::string plugin_name,
-               std::set<PixelFormat> in_pixel_formats,
-               std::set<PixelFormat> out_pixel_formats,
-               uint32_t buffer_count,
-               const bool inplace_processing,
-               const float lib_version) {
-    in_buffer_requirements_.min_width_         = 16;
-    in_buffer_requirements_.min_height_        = 16;
-    in_buffer_requirements_.max_width_         = 16382;
-    in_buffer_requirements_.max_height_        = 16382;
-    in_buffer_requirements_.cached_            = true;
-    in_buffer_requirements_.count_             = buffer_count;
-    in_buffer_requirements_.stride_alignment_  = 16;
-    in_buffer_requirements_.plane_alignment_   = 16;
-    in_buffer_requirements_.pixel_formats_     = in_pixel_formats;
+  Capabilities(std::string plugin_name, std::set<PixelFormat> in_pixel_formats,
+               std::set<PixelFormat> out_pixel_formats, uint32_t buffer_count,
+               const bool inplace_processing, const float lib_version) {
+    in_buffer_requirements_.min_width_ = 16;
+    in_buffer_requirements_.min_height_ = 16;
+    in_buffer_requirements_.max_width_ = 16382;
+    in_buffer_requirements_.max_height_ = 16382;
+    in_buffer_requirements_.cached_ = true;
+    in_buffer_requirements_.count_ = buffer_count;
+    in_buffer_requirements_.stride_alignment_ = 16;
+    in_buffer_requirements_.plane_alignment_ = 16;
+    in_buffer_requirements_.pixel_formats_ = in_pixel_formats;
 
-    out_buffer_requirements_.min_width_        = 16;
-    out_buffer_requirements_.min_height_       = 16;
-    out_buffer_requirements_.max_width_        = 16382;
-    out_buffer_requirements_.max_height_       = 16382;
-    out_buffer_requirements_.cached_           = true;
-    out_buffer_requirements_.count_            = buffer_count;
+    out_buffer_requirements_.min_width_ = 16;
+    out_buffer_requirements_.min_height_ = 16;
+    out_buffer_requirements_.max_width_ = 16382;
+    out_buffer_requirements_.max_height_ = 16382;
+    out_buffer_requirements_.cached_ = true;
+    out_buffer_requirements_.count_ = buffer_count;
     out_buffer_requirements_.stride_alignment_ = 16;
-    out_buffer_requirements_.plane_alignment_  = 16;
-    out_buffer_requirements_.pixel_formats_    = out_pixel_formats;
+    out_buffer_requirements_.plane_alignment_ = 16;
+    out_buffer_requirements_.pixel_formats_ = out_pixel_formats;
 
     plugin_name_ = plugin_name;
     inplace_processing_ = inplace_processing;
@@ -105,15 +102,15 @@ class Capabilities {
         runtime_enable_disable_(caps.runtime_enable_disable_),
         crop_support_(caps.crop_support_),
         scale_support_(caps.scale_support_),
-        lib_version_(caps.lib_version_) {};
+        lib_version_(caps.lib_version_){};
 
-  Capabilities(
-      const std::string plugin_name,
-      const BufferRequirements &in_buffer_requirements,
-      const BufferRequirements &out_buffer_requirements,
-      const bool inplace_processing, const uint32_t history_buffer_count,
-      const bool runtime_enable_disable, const bool crop_support,
-      const bool scale_support, const float lib_version)
+  Capabilities(const std::string plugin_name,
+               const BufferRequirements &in_buffer_requirements,
+               const BufferRequirements &out_buffer_requirements,
+               const bool inplace_processing,
+               const uint32_t history_buffer_count,
+               const bool runtime_enable_disable, const bool crop_support,
+               const bool scale_support, const float lib_version)
       : plugin_name_(plugin_name),
         in_buffer_requirements_(in_buffer_requirements),
         out_buffer_requirements_(out_buffer_requirements),
@@ -122,9 +119,9 @@ class Capabilities {
         runtime_enable_disable_(runtime_enable_disable),
         crop_support_(crop_support),
         scale_support_(scale_support),
-        lib_version_(lib_version) {};
+        lib_version_(lib_version){};
 
-  virtual ~Capabilities() {};
+  virtual ~Capabilities(){};
 
   std::string ToString(uint32_t indent = 0) const {
     std::stringstream indentation;
@@ -132,8 +129,8 @@ class Capabilities {
     indent++;
 
     std::stringstream stream;
-    stream << indentation.str()
-           << "\"plugin_name_\" : " << plugin_name_ << '\n';
+    stream << indentation.str() << "\"plugin_name_\" : " << plugin_name_
+           << '\n';
     stream << indentation.str() << "\"in_buffer_requirements_\" : {" << '\n'
            << in_buffer_requirements_.ToString(indent) << "}," << '\n';
     stream << indentation.str() << "\"out_buffer_requirements_\" : {" << '\n'
@@ -145,24 +142,24 @@ class Capabilities {
     stream << indentation.str()
            << "\"runtime_enable_disable_\" : " << runtime_enable_disable_
            << '\n';
-    stream << indentation.str()
-           << "\"crop_support_\" : " << crop_support_ << '\n';
-    stream << indentation.str()
-           << "\"scale_support_\" : " << scale_support_ << '\n';
-    stream << indentation.str()
-           << "\"lib_version_\" : " << lib_version_ << '\n';
+    stream << indentation.str() << "\"crop_support_\" : " << crop_support_
+           << '\n';
+    stream << indentation.str() << "\"scale_support_\" : " << scale_support_
+           << '\n';
+    stream << indentation.str() << "\"lib_version_\" : " << lib_version_
+           << '\n';
     return stream.str();
   }
 
-  std::string             plugin_name_;
-  BufferRequirements      in_buffer_requirements_;
-  BufferRequirements      out_buffer_requirements_;
-  bool                    inplace_processing_;
-  uint32_t                history_buffer_count_;
-  bool                    runtime_enable_disable_;
-  bool                    crop_support_;
-  bool                    scale_support_;
-  float                   lib_version_;
+  std::string plugin_name_;
+  BufferRequirements in_buffer_requirements_;
+  BufferRequirements out_buffer_requirements_;
+  bool inplace_processing_;
+  uint32_t history_buffer_count_;
+  bool runtime_enable_disable_;
+  bool crop_support_;
+  bool scale_support_;
+  float lib_version_;
 };
 
 /** IEventListener
@@ -235,8 +232,7 @@ class IAlgPlugin {
    *
    * return: input requirements
    **/
-  virtual Requirements GetInputRequirements(
-      const std::vector<Requirements> &out) = 0;
+  virtual Requirements GetInputRequirements(const Requirements &out) = 0;
 
   /** Configure
    *
@@ -255,8 +251,7 @@ class IAlgPlugin {
   *
   * return: void
   **/
-  virtual void RegisterInputBuffers(
-      const std::vector<AlgBuffer> &buffers) = 0;
+  virtual void RegisterInputBuffers(const std::vector<AlgBuffer> &buffers) = 0;
 
   /** UnregisterInputBuffers
   *    @buffers: vector of input buffers to unregister
@@ -279,8 +274,7 @@ class IAlgPlugin {
   *
   * return: void
   **/
-  virtual void RegisterOutputBuffers(
-      const std::vector<AlgBuffer> &buffers) = 0;
+  virtual void RegisterOutputBuffers(const std::vector<AlgBuffer> &buffers) = 0;
 
   /** UnregisterOutputBuffers
   *    @buffers: vector of output buffers to unregister
@@ -330,6 +324,6 @@ class IAlgPlugin {
 typedef IAlgPlugin *(*QmmfAlgLoadPlugin)(
     const std::vector<uint8_t> &calibration_data);
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf

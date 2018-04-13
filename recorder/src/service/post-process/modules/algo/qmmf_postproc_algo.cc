@@ -128,8 +128,7 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   requirements.scanline_ = out.scanline;
   requirements.formats_.push_back(GetAlgFormat(out.format));
 
-  std::vector<Requirements> alg_out = {requirements};
-  requirements = algo_->GetInputRequirements(alg_out);
+  requirements = algo_->GetInputRequirements(requirements);
 
   input_param.width    = requirements.width_;
   input_param.height   = requirements.height_;

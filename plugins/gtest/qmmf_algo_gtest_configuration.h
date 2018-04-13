@@ -27,24 +27,58 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
+
+#include <json/json.h>
+#include <list>
+#include <memory>
+#include <string>
+
+#include "qmmf_algo_gtest_configuration_buffer.h"
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
+/** QmmfAlgoGtestConfiguration:
+ *    @iteration_count_: iteration count
+ *    @tested_library_: tested library
+ *    @configuration_data_: configuration data sent to library config api
+ *    @input_buffers_: list of input buffers
+ *    @output_buffers_: list of output buffers
  *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
+ *  This class handles algo configuration buffer for current test case
  **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+class QmmfAlgoGtestConfiguration {
+ private:
+  QmmfAlgoGtestConfiguration(Json::Value &v);
+
+  /** FromJson
+    *    @v: parsed json value
+    *
+    * parses json file
+    *
+    * return: void
+    **/
+  void FromJson(Json::Value &v);
+
+ public:
+  /** New
+    *    @v: parsed json value
+    *
+    * returns new instance of QmmfAlgoGtestConfiguration
+    *
+    * return: new instance of QmmfAlgoGtestConfiguration
+    **/
+  static std::shared_ptr<QmmfAlgoGtestConfiguration> New(Json::Value &v);
+
+ public:
+  uint32_t iteration_count_;
+  std::string tested_library_;
+  std::string configuration_data_;
+  std::vector<uint8_t> calibration_data_;
+  std::list<std::shared_ptr<QmmfAlgoConfigurationBuffer>> input_buffers_;
+  std::list<std::shared_ptr<QmmfAlgoConfigurationBuffer>> output_buffers_;
+};
 
 };  // namespace qmmf_alg_plugin
-
 };  // namespace qmmf
