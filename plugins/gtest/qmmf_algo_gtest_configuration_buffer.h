@@ -27,24 +27,62 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
+
+#include <json/json.h>
+#include <map>
+#include <memory>
+#include <string>
+
+#include "qmmf-plugin/qmmf_alg_types.h"
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
+/** QmmfAlgoConfigurationBuffer:
+ *    @width_: buffer width
+ *    @height_: buffer height
+ *    @stride_: buffer stride
+ *    @scanline_: buffer scanline
+ *    @pixel_format_: buffer pixel format
+ *    @file_name_: file name on the storage
+ *    @kPixelFormatFromString: LUT for string to enum values for pixel format
  *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
+ *  This class handles algo configuration buffer
  **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+class QmmfAlgoConfigurationBuffer {
+ private:
+  QmmfAlgoConfigurationBuffer(Json::Value &v);
+
+  /** FromJson
+    *    @r: parsed json value
+    *
+    * fills buffer configuration
+    *
+    * return: void
+    **/
+  void FromJson(Json::Value &v);
+
+ public:
+  /** New
+    *    @v: parsed json configuration
+    *
+    * returns new instance of QmmfAlgoConfigurationBuffer
+    *
+    * return: new instance of QmmfAlgoConfigurationBuffer
+    **/
+  static std::shared_ptr<QmmfAlgoConfigurationBuffer> New(Json::Value &v);
+
+ public:
+  uint32_t width_;
+  uint32_t height_;
+  uint32_t stride_;
+  uint32_t scanline_;
+  PixelFormat pixel_format_;
+  std::string input_file_name_;
+  std::string output_file_name_;
+  static const std::map<std::string, PixelFormat> kPixelFormatFromString;
+};
 
 };  // namespace qmmf_alg_plugin
-
 };  // namespace qmmf

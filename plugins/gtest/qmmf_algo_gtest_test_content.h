@@ -27,24 +27,63 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
+
+#include <json/json.h>
+#include <map>
+#include <memory>
+#include <string>
+
+#include "qmmf_algo_gtest_configuration.h"
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
+/** QmmfAlgoGtestTestContent:
+ *    @configurations_: map with configurations for all test cases
+ *    @kCommonConfigurationTag: JSON configuration tag representing common
+ *       configuration for all test cases
  *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
+ *  This class handles algo configurations for all test cases for given library
  **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+class QmmfAlgoGtestTestContent {
+ private:
+  QmmfAlgoGtestTestContent(Json::Value &v);
+
+  /** FromJson
+    *    @v: parsed json value
+    *
+    * parses json file
+    *
+    * return: void
+    **/
+  void FromJson(Json::Value &v);
+
+ public:
+  /** New
+    *    @v: parsed json value
+    *
+    * returns new instance of QmmfAlgoGtestTestContent
+    *
+    * return: new instance of QmmfAlgoGtestTestContent
+    **/
+  static std::shared_ptr<QmmfAlgoGtestTestContent> New(Json::Value &v);
+
+  /** GetConfiguration
+  *    @test_case: test case name
+  *
+  * Returns test case configuration
+  *
+  * return: test case configuration
+  **/
+  std::shared_ptr<QmmfAlgoGtestConfiguration> GetConfiguration(
+      const std::string &test_case);
+
+ private:
+  std::map<const std::string, std::shared_ptr<QmmfAlgoGtestConfiguration>>
+      configurations_;
+  static const std::string kCommonConfigurationTag;
+};
 
 };  // namespace qmmf_alg_plugin
-
 };  // namespace qmmf

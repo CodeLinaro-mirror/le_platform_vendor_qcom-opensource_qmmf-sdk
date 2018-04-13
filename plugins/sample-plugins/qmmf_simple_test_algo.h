@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -51,13 +51,10 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
  public:
   QmmfSimpleTestAlgo()
       : listener_(nullptr),
-        caps_("SimpleTest",
-              BufferRequirements(160, 120, 3840, 2160,
-                                 true, 1, 0, 0,
+        caps_("SimpleTest", BufferRequirements(160, 120, 3840, 2160, true, 1, 0,
+                                               0, {kNv12, kNv21}),
+              BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0,
                                  {kNv12, kNv21}),
-              BufferRequirements(160, 120, 3840, 2160,
-                                 true, 1, 0, 0,
-                                 {}),
               false, 0, false, false, false, 1.0) {}
 
  protected:
@@ -96,14 +93,9 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    *
    * This function returns the input requirements for given outputs
    *
-   * return: Requirments
+   * return: Requirements
    **/
-  Requirements GetInputRequirements(const std::vector<Requirements> &out) {
-    if (out.size() != 1) {
-      Utils::ThrowException(__func__, "only one output is supported");
-    }
-    return out.front();
-  }
+  Requirements GetInputRequirements(const Requirements &out) { return out; }
 
   /** RegisterInputBuffers
   *    @buffers: vector of input buffers to register
@@ -201,19 +193,48 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
     }
 
     for (AlgBuffer b : output_buffers) {
-      if (b.size_ != input_buffers[0].size_) {
-        Utils::ThrowException(
-            __func__, "output buffer size is different than input buffer size");
+      if (b.plane_.size() != input_buffers[0].plane_.size()) {
+        Utils::ThrowException(__func__,
+                              "number of output buffer planes is different "
+                              "than number of input buffer planes");
+      }
+      for (uint32_t i = 0; i < b.plane_.size(); i++) {
+        if (b.plane_[i].height_ != input_buffers[0].plane_[i].height_) {
+          Utils::ThrowException(
+              __func__,
+              "output buffer height is different than input buffer height");
+        }
+        if (b.plane_[i].width_ != input_buffers[0].plane_[i].width_) {
+          Utils::ThrowException(
+              __func__,
+              "output buffer width is different than input buffer width");
+        }
       }
 
-      memcpy(b.vaddr_, input_buffers[0].vaddr_, b.size_);
+      for (uint32_t i = 0; i < b.plane_.size(); i++) {
+        uint8_t *in_p =
+            input_buffers[0].vaddr_ + input_buffers[0].plane_[i].offset_;
+        uint8_t *out_p = b.vaddr_ + b.plane_[i].offset_;
+
+        for (uint32_t j = 0; j < b.plane_[i].height_; j++) {
+          std::memcpy(out_p, in_p, b.plane_[i].width_);
+          in_p += input_buffers[0].plane_[i].stride_;
+          out_p += b.plane_[i].stride_;
+        }
+      }
     }
 
-    for (AlgBuffer b : input_buffers) {
-      listener_->OnFrameProcessed(b);
-    }
-    for (AlgBuffer b : output_buffers) {
-      listener_->OnFrameReady(b);
+    if (caps_.inplace_processing_) {
+      for (AlgBuffer b : input_buffers) {
+        listener_->OnFrameReady(b);
+      }
+    } else {
+      for (AlgBuffer b : input_buffers) {
+        listener_->OnFrameProcessed(b);
+      }
+      for (AlgBuffer b : output_buffers) {
+        listener_->OnFrameReady(b);
+      }
     }
   }
 
@@ -231,8 +252,7 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
       Utils::ThrowException(__func__, "Input buffer count is not correct");
     }
     if (input_buffers.size() < 1) {
-      Utils::ThrowException(__func__,
-                                "At least one input buffer is required");
+      Utils::ThrowException(__func__, "At least one input buffer is required");
     }
     for (AlgBuffer b : input_buffers) {
       b.Validate(caps_.in_buffer_requirements_);
@@ -249,8 +269,7 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
       }
 
       if (output_buffers.size() != caps_.out_buffer_requirements_.count_) {
-        Utils::ThrowException(__func__,
-                                  "Output buffer count is not correct");
+        Utils::ThrowException(__func__, "Output buffer count is not correct");
       }
       for (AlgBuffer b : output_buffers) {
         b.Validate(caps_.out_buffer_requirements_);
@@ -276,6 +295,6 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
   Capabilities caps_;
 };
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf

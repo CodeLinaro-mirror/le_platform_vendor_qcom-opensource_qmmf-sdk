@@ -27,24 +27,70 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#define LOG_TAG "PlatformBuffer"
+
+#include "heap_buffer.h"
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
- *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
- **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
+/** PlatformBuffer
+  *    @size: size of the requested buffer
+  *
+  * Constructs PlatformBuffer
+  *
+  * return: void
+  **/
+PlatformBuffer::PlatformBuffer(uint32_t size)
+    : data_(size), fd_(reinterpret_cast<size_t>(this)) {}
+
+/** New
+  *    @size: buffer size
+  *    @cached: flag indicating whether buffer is cached
+  *
+  * creates new instance of PlatformBuffer
+  *
+  * return: shared pointer of PlatformBuffer
+  **/
+std::shared_ptr<PlatformBuffer> PlatformBuffer::New(uint32_t size,
+                                                    bool cached) {
+  std::shared_ptr<PlatformBuffer> new_handler(new PlatformBuffer(size));
+  return new_handler;
 }
 
-};  // namespace qmmf_alg_plugin
+/** GetAddr
+  *
+  * returns addres
+  *
+  * return: address
+  **/
+uint8_t* PlatformBuffer::GetAddr() const {
+  return const_cast<uint8_t*>(data_.data());
+}
 
+/** GetFd
+  *
+  * returns fd
+  *
+  * return: fd
+  **/
+int32_t PlatformBuffer::GetFd() const { return fd_; }
+
+/** CacheFlush
+  *
+  * flushes cache
+  *
+  * return: void
+  **/
+void PlatformBuffer::CacheFlush() const {}
+
+/** CacheInvalidate
+  *
+  * flushes cache
+  *
+  * return: void
+  **/
+void PlatformBuffer::CacheInalidate() const {}
+
+};  // namespace qmmf_alg_plugin
 };  // namespace qmmf

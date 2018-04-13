@@ -27,24 +27,89 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "qmmf_simple_test_algo.h"
+#pragma once
+
+#include <memory>
 
 namespace qmmf {
-
 namespace qmmf_alg_plugin {
 
-/** QmmfAlgoNew
- *    @calibration_data: calibration data
+/** PlatformBuffer:
+ *    @addr_: pointer to allocated buffer
+ *    @size_: buffer size
+ *    @fd_: fd
+ *    @handle_: handle
+ *    @ion_fd_: ion driver fd
+ *    @cached_: flag indicating whether buffer is cached
  *
- * Creates new algorithm instance
- *
- * return: shared pointer to new algorithm instance
+ *  This class implements ion platform buffer
  **/
-extern "C" IAlgPlugin *QmmfAlgoNew(
-    __attribute__((unused)) const std::vector<uint8_t> &calibration_data) {
-  return new QmmfSimpleTestAlgo();
-}
+class PlatformBuffer {
+ private:
+  PlatformBuffer(uint32_t size, bool cached);
+
+ public:
+  ~PlatformBuffer();
+
+  /** New
+    *    @size: buffer size
+    *    @cached: flag indicating whether buffer is cached
+    *
+    * creates new instance of PlatformBuffer
+    *
+    * return: shared pointer of PlatformBuffer
+    **/
+  static std::shared_ptr<PlatformBuffer> New(uint32_t size, bool cached);
+
+  /** GetAddr
+    *
+    * returns addres
+    *
+    * return: address
+    **/
+  uint8_t* GetAddr() const;
+
+  /** GetFd
+    *
+    * returns fd
+    *
+    * return: fd
+    **/
+  int32_t GetFd() const;
+
+  /** CacheFlush
+    *
+    * flushes cache
+    *
+    * return: void
+    **/
+  void CacheFlush() const;
+
+  /** CacheInvalidate
+    *
+    * flushes cache
+    *
+    * return: void
+    **/
+  void CacheInalidate() const;
+
+ private:
+  /** Cache
+    *    @cmd: cache cmd
+    *
+    * aplies cache cmd
+    *
+    * return: void
+    **/
+  void Cache(uint32_t cmd) const;
+
+  uint8_t* addr_;
+  uint32_t size_;
+  int32_t fd_;
+  int32_t handle_;
+  int32_t ion_fd_;
+  bool cached_;
+};
 
 };  // namespace qmmf_alg_plugin
-
 };  // namespace qmmf

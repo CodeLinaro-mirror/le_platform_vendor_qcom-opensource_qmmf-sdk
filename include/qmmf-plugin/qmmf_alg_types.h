@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -31,10 +31,10 @@
 
 #include <stdint.h>
 #include <list>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <set>
 
 #include "qmmf_alg_utils.h"
 
@@ -118,10 +118,10 @@ namespace qmmf_alg_plugin {
  */
 enum PixelFormat {
 
-  kRawBggrMipi8  = 0x100,
-  kRawGbrgMipi8  = 0x101,
-  kRawGrbgMipi8  = 0x102,
-  kRawRggbMipi8  = 0x103,
+  kRawBggrMipi8 = 0x100,
+  kRawGbrgMipi8 = 0x101,
+  kRawGrbgMipi8 = 0x102,
+  kRawRggbMipi8 = 0x103,
 
   kRawBggrMipi10 = 0x200,
   kRawGbrgMipi10 = 0x201,
@@ -133,66 +133,66 @@ enum PixelFormat {
   kRawGrbgMipi12 = 0x302,
   kRawRggbMipi12 = 0x303,
 
-  kRawBggr10     = 0x400,
-  kRawGbrg10     = 0x401,
-  kRawGrbg10     = 0x402,
-  kRawRggb10     = 0x403,
+  kRawBggr10 = 0x400,
+  kRawGbrg10 = 0x401,
+  kRawGrbg10 = 0x402,
+  kRawRggb10 = 0x403,
 
-  kRawBggr12     = 0x500,
-  kRawGbrg12     = 0x501,
-  kRawGrbg12     = 0x502,
-  kRawRggb12     = 0x503,
+  kRawBggr12 = 0x500,
+  kRawGbrg12 = 0x501,
+  kRawGrbg12 = 0x502,
+  kRawRggb12 = 0x503,
 
-  kRawBggr16     = 0x600,
-  kRawGbrg16     = 0x601,
-  kRawGrbg16     = 0x602,
-  kRawRggb16     = 0x603,
+  kRawBggr16 = 0x600,
+  kRawGbrg16 = 0x601,
+  kRawGrbg16 = 0x602,
+  kRawRggb16 = 0x603,
 
-  kYuyv422i      = 0x700,
-  kYvyu422i      = 0x701,
-  kUyvy422i      = 0x702,
-  kVyuy422i      = 0x703,
+  kYuyv422i = 0x700,
+  kYvyu422i = 0x701,
+  kUyvy422i = 0x702,
+  kVyuy422i = 0x703,
 
-  kNv12          = 0x800,
-  kNv12UBWC      = 0x801,
-  kNv21          = 0x802,
-  kNv21UBWC      = 0x804,
-  kNv16          = 0x805,
-  kNv61          = 0x806,
+  kNv12 = 0x800,
+  kNv12UBWC = 0x801,
+  kNv21 = 0x802,
+  kNv21UBWC = 0x804,
+  kNv16 = 0x805,
+  kNv61 = 0x806,
 
-  kYuv420        = 0x900,
-  kYvu420        = 0x901,
-  kYuv420p       = 0x902,
-  kYvu420p       = 0x904,
+  kYuv420 = 0x900,
+  kYvu420 = 0x901,
+  kYuv420p = 0x902,
+  kYvu420p = 0x904,
 
-  kRgb444        = 0xA00,
-  kArgb444       = 0xA01,
-  kXrgb444       = 0xA02,
-  kRgb555        = 0xA03,
-  kArgb555       = 0xA04,
-  kXrgb555       = 0xA05,
-  kRgb565        = 0xA06,
-  kRgb555x       = 0xA07,
-  kArgb555x      = 0xA08,
-  kXrgb555x      = 0xA09,
-  kRgb565x       = 0xA0A,
-  kBgr666        = 0xA0B,
-  kBgr24         = 0xA0C,
-  kRgb24         = 0xA0D,
-  kBgr32         = 0xA0E,
-  kAbgr32        = 0xA0F,
-  kXbgr32        = 0xA10,
-  kRgb32         = 0xA11,
-  kArgb32        = 0xA12,
-  kXrgb32        = 0xA13,
+  kRgb444 = 0xA00,
+  kArgb444 = 0xA01,
+  kXrgb444 = 0xA02,
+  kRgb555 = 0xA03,
+  kArgb555 = 0xA04,
+  kXrgb555 = 0xA05,
+  kRgb565 = 0xA06,
+  kRgb555x = 0xA07,
+  kArgb555x = 0xA08,
+  kXrgb555x = 0xA09,
+  kRgb565x = 0xA0A,
+  kBgr666 = 0xA0B,
+  kBgr24 = 0xA0C,
+  kRgb24 = 0xA0D,
+  kBgr32 = 0xA0E,
+  kAbgr32 = 0xA0F,
+  kXbgr32 = 0xA10,
+  kRgb32 = 0xA11,
+  kArgb32 = 0xA12,
+  kXrgb32 = 0xA13,
 
-  kJpeg          = 0xB00,
-  kGrey          = 0xB01,
+  kJpeg = 0xB00,
+  kGrey = 0xB01,
 };
 
 /** Requirements:
  *    @width_: width
- *    @height_: heiht
+ *    @height_: height
  *    @stride_: stride
  *    @scanline_: scanline
  *    @formats_: pixel format
@@ -200,11 +200,11 @@ enum PixelFormat {
  *  This class defines node input and output requirements
  **/
 struct Requirements {
-  uint32_t                  width_;
-  uint32_t                  height_;
-  uint32_t                  stride_;
-  uint32_t                  scanline_;
-  std::vector<PixelFormat>  formats_;
+  uint32_t width_;
+  uint32_t height_;
+  uint32_t stride_;
+  uint32_t scanline_;
+  std::vector<PixelFormat> formats_;
 };
 
 /** RuntimeError:
@@ -214,11 +214,7 @@ struct Requirements {
  *
  *  This enum defines the supported pixel formats
  */
-enum RuntimeError {
-  kFatal,
-  kFrameDrop,
-  kResourcePreempted
-};
+enum RuntimeError { kFatal, kFrameDrop, kResourcePreempted };
 
 /** BufferRequirements:
  *    @min_width_: Minimum supported width
@@ -235,10 +231,9 @@ enum RuntimeError {
  **/
 class BufferRequirements {
  public:
-  BufferRequirements() {};
+  BufferRequirements(){};
 
-  BufferRequirements(
-      const BufferRequirements &buffer_requirements)
+  BufferRequirements(const BufferRequirements &buffer_requirements)
       : min_width_(buffer_requirements.min_width_),
         min_height_(buffer_requirements.min_height_),
         max_width_(buffer_requirements.max_width_),
@@ -249,12 +244,11 @@ class BufferRequirements {
         plane_alignment_(buffer_requirements.plane_alignment_),
         pixel_formats_(buffer_requirements.pixel_formats_){};
 
-  BufferRequirements(
-      uint32_t min_width, uint32_t min_height,
-      uint32_t max_width, uint32_t max_height,
-      bool cached, uint32_t count, uint32_t stride_alignment,
-      uint32_t plane_alignment,
-      std::set<PixelFormat> supported_pixel_formats)
+  BufferRequirements(uint32_t min_width, uint32_t min_height,
+                     uint32_t max_width, uint32_t max_height, bool cached,
+                     uint32_t count, uint32_t stride_alignment,
+                     uint32_t plane_alignment,
+                     std::set<PixelFormat> supported_pixel_formats)
       : min_width_(min_width),
         min_height_(min_height),
         max_width_(max_width),
@@ -271,14 +265,14 @@ class BufferRequirements {
     indent++;
 
     std::stringstream stream;
-    stream << indentation.str()
-           << "\"min_width_\" : " << min_width_ << "," << '\n';
-    stream << indentation.str()
-            << "\"min_height_\" : " << min_height_ << "," << '\n';
-    stream << indentation.str()
-           << "\"max_width_\" : " << max_width_ << "," << '\n';
-    stream << indentation.str()
-           << "\"max_height_\" : " << max_height_ << "," << '\n';
+    stream << indentation.str() << "\"min_width_\" : " << min_width_ << ","
+           << '\n';
+    stream << indentation.str() << "\"min_height_\" : " << min_height_ << ","
+           << '\n';
+    stream << indentation.str() << "\"max_width_\" : " << max_width_ << ","
+           << '\n';
+    stream << indentation.str() << "\"max_height_\" : " << max_height_ << ","
+           << '\n';
     stream << indentation.str() << "\"cached_\" : " << cached_ << "," << '\n';
     stream << indentation.str() << "\"count_\" : " << count_ << "," << '\n';
     stream << indentation.str()
@@ -297,7 +291,7 @@ class BufferRequirements {
   uint32_t min_height_;
   uint32_t max_width_;
   uint32_t max_height_;
-  bool     cached_;
+  bool cached_;
   uint32_t count_;
   uint32_t stride_alignment_;
   uint32_t plane_alignment_;
@@ -315,8 +309,8 @@ class BufferRequirements {
  **/
 class BufferPlane {
  public:
-  BufferPlane(uint32_t width, uint32_t height, uint32_t stride,
-              uint32_t offset, uint32_t length)
+  BufferPlane(uint32_t width, uint32_t height, uint32_t stride, uint32_t offset,
+              uint32_t length)
       : width_(width),
         height_(height),
         stride_(stride),
@@ -402,14 +396,14 @@ class BufferPlane {
  *    @pix_fmt_: Pixel format
  *    @timestamp_: frame time stamp
  *    @frame_number_: frame number
- *    @plane: List of planes. Plane information depends on
+ *    @plane_: List of planes. Plane information depends on
  *      pixel format.
  *
  *  This class defines the image buffer
  **/
 class AlgBuffer {
  public:
-  AlgBuffer() {};
+  AlgBuffer(){};
 
   AlgBuffer(uint8_t *vaddr, int32_t fd, uint32_t size, bool cached,
             PixelFormat pix_fmt, int64_t timestamp, uint32_t frame_number,
@@ -420,7 +414,7 @@ class AlgBuffer {
         cached_(cached),
         pix_fmt_(pix_fmt),
         timestamp_(timestamp),
-        frame_number_(frame_number) ,
+        frame_number_(frame_number),
         plane_(plane) {
     Validate();
   };
@@ -487,7 +481,7 @@ class AlgBuffer {
 
     if (total_size > size_) {
       Utils::ThrowException(__func__,
-                                "size_ is different that total plane size");
+                            "size_ is different that total plane size");
     }
   }
 
@@ -528,37 +522,35 @@ class AlgBuffer {
   }
 
   /** GetVAddr:
+  *    @plane: requested plane index
   *
   *  Return virtual address by plane
   **/
-  uint8_t * GetVirtualAddress(uint32_t plane = 0) const {
+  uint8_t *GetVirtualAddress(uint32_t plane = 0) const {
     if (vaddr_ == nullptr) {
       return nullptr;
     }
 
-    uint32_t offset = 0;
-    for (auto it = plane_.begin(); it != plane_.begin() + plane; ++it) {
-      offset += it->length_;
-    }
-    return vaddr_ + offset;
+    return vaddr_ + plane_[plane].offset_;
   }
 
   /** GetStride:
+  *    @plane: requested plane index
   *
   *  Return stride by plane
   **/
   uint32_t GetStride(uint32_t plane = 0) const { return plane_[plane].stride_; }
 
-  uint8_t                          *vaddr_;
-  int32_t                          fd_;
-  uint32_t                         size_;
-  bool                             cached_;
-  PixelFormat                      pix_fmt_;
-  int64_t                          timestamp_;
-  uint32_t                         frame_number_;
-  std::vector<BufferPlane>         plane_;
+  uint8_t *vaddr_;
+  int32_t fd_;
+  uint32_t size_;
+  bool cached_;
+  PixelFormat pix_fmt_;
+  int64_t timestamp_;
+  uint32_t frame_number_;
+  std::vector<BufferPlane> plane_;
 };
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf
