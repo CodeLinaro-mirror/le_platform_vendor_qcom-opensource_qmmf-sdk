@@ -5,6 +5,7 @@ recorder_test_SOURCES  = qmmf_recorder_test.cc
 recorder_test_SOURCES  += qmmf_recorder_test_wav.cc
 recorder_test_SOURCES  += qmmf_recorder_test_aac.cc
 recorder_test_SOURCES  += qmmf_recorder_test_amr.cc
+recorder_test_SOURCES  += qmmf_recorder_test_mpegh.cc
 recorder_test_CPPFLAGS = -I$(top_srcdir)/include
 recorder_test_CPPFLAGS += -I$(top_srcdir)/
 recorder_test_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
