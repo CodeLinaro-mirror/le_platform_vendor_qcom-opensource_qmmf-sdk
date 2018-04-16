@@ -448,10 +448,11 @@ class RecorderGtest : public ::testing::Test {
          }
     }
 
-    void Reset(const uint32_t cnt) {
+    void Reset(const uint32_t cnt, const uint32_t wait_sec = 2) {
       std::unique_lock<std::mutex> lock(mutex_);
       done_ = false;
       cnt_ = cnt;
+      wait_sec_ = wait_sec;
     }
 
     status_t Wait() {
