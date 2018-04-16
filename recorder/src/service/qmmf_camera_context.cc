@@ -86,7 +86,9 @@ CameraContext::CameraContext()
       jpeg_input_format_(BufferFormat::kUnsupported),
       new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_(0),
-      exif_en_(true) {
+      exif_en_(true),
+      stream_param_{},
+      restart_pipe_(true) {
   camera_start_params_ = {};
 }
 
@@ -128,26 +130,23 @@ bool CameraContext::IsInputSupported() {
   return false;
 }
 
+bool CameraContext::IsStreamParamsChanged(
+    const CameraStreamParameters& stream_param) {
+  if ((stream_param.format       != stream_param_.format)       ||
+      (stream_param.width        != stream_param_.width)        ||
+      (stream_param.height       != stream_param_.height)       ||
+      (stream_param.grallocFlags != stream_param_.grallocFlags) ||
+      (stream_param.bufferCount  > stream_param_.bufferCount)) {
+    return true;
+  }
+  return false;
+}
+
 status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t stream_id = -1;
   status_t ret = NO_ERROR;
-
-  if (!snapshot_request_.streamIds.isEmpty()) {
-    if (1 < snapshot_request_.streamIds.size()) {
-      QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
-                 __func__);
-      return BAD_VALUE;
-    }
-    QMMF_INFO("%s: Deleting Existing Snapshot Streams!!", __func__);
-    ret = DeleteSnapshotStream(true);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
-                 __func__, ret);
-      return ret;
-    }
-  }
 
   CameraStreamParameters stream_param{};
 
@@ -164,20 +163,17 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                 GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
-  if (snapshot_type_ == SnapshotMode::kContinuous) {
-    stream_param.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-  } else {
-    stream_param.bufferCount = sequence_cnt_;
-  }
+  stream_param.bufferCount  = std::max(sequence_cnt_,
+    static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
 
-  if (postproc_enable_) {
+  if (postproc_enable_ && restart_pipe_) {
 
     // Stops active streaming to prevent multiple camera restarts
     for (auto port : active_ports_) {
       ret = port->Stop();
       assert(ret == NO_ERROR);
     }
-
+    PostProcDelete();
     ret = PostProcCreatePipeAndUpdateStreams(stream_param,
                             camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
@@ -186,16 +182,37 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
             stream_param.height, stream_param.format);
 
-  ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
-                           &stream_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
-               __func__, ret);
-    return ret;
+  if (IsStreamParamsChanged(stream_param)) {
+
+    if (!snapshot_request_.streamIds.isEmpty()) {
+      if (1 < snapshot_request_.streamIds.size()) {
+        QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
+                   __func__);
+        return BAD_VALUE;
+      }
+      QMMF_INFO("%s: Deleting Existing Snapshot Streams!!", __func__);
+      ret = DeleteSnapshotStream(true);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
+                   __func__, ret);
+        return ret;
+      }
+    }
+
+    ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
+                             &stream_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
+                 __func__, ret);
+      return ret;
+    }
+
+    QMMF_INFO("%s Snapshot stream_id(%d)", __func__, stream_id);
+    snapshot_request_.streamIds.add(stream_id);
   }
-  QMMF_INFO("%s Snapshot stream_id(%d)", __func__, stream_id);
+
   snapshot_param_ = param;
-  snapshot_request_.streamIds.add(stream_id);
+  stream_param_ = stream_param;
 
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
     stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
@@ -222,8 +239,8 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     snapshot_request_.streamIds.add(stream_id);
   }
 
-  if (postproc_enable_) {
-    ret = PostProcStart(stream_id);
+  if (postproc_enable_ && restart_pipe_) {
+    ret = PostProcStart(snapshot_request_.streamIds[0]);
     assert(ret == NO_ERROR);
 
     // Resumes stopped streaming
@@ -239,8 +256,6 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
   QMMF_INFO("%s: Enter", __func__);
   status_t ret = NO_ERROR;
 
-  PostProcDelete();
-
   cache |= streaming_request_id_ == -1;
   for (auto stream_id : snapshot_request_.streamIds) {
     auto err = DeleteDeviceStream(stream_id, cache);
@@ -251,6 +266,8 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
     }
   }
   snapshot_request_.streamIds.clear();
+  stream_param_ = CameraStreamParameters();
+  snapshot_type_ = SnapshotMode::kNone;
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -473,6 +490,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
       return ret;
     }
   }
+  PostProcDelete();
   DeleteSnapshotStream();
 
   if (streaming_request_id_ > 0) {
@@ -589,6 +607,19 @@ status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
   return NO_ERROR;
 }
 
+bool CameraContext::IsNeedReconfigSapshotStream() {
+
+  if ((new_snapshot_type_ == SnapshotMode::kStill ||
+       new_snapshot_type_ == SnapshotMode::kContinuous) &&
+      (snapshot_type_ == SnapshotMode::kStill ||
+       snapshot_type_ == SnapshotMode::kContinuous)) {
+    return false;
+  } else if (snapshot_type_ == new_snapshot_type_) {
+      return false;
+  }
+  return true;
+}
+
 status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
 
@@ -603,7 +634,8 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
                            (snapshot_param_.height != param.height) ||
                            (sequence_cnt_ != num_images) ||
                            (postproc_enable_ != new_postproc_enable) ||
-                           (snapshot_type_ != new_snapshot_type_) ||
+                           IsNeedReconfigSapshotStream() ||
+                           (new_postproc_enable && restart_pipe_) ||
                            (jpeg_input_format_ != new_jpeg_input_format_);
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
@@ -760,7 +792,19 @@ status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
-  capture_plugins_.clear();
+  // Calling that function without destroying the post-proc pipe is valid
+  // operation. In that case we should avoid pipe reconfiguration.
+  // Any change in capture plugin order, adding or removing plugin after pipe
+  // creation is not valid operation - return error. Otherwise the pipe need
+  // to be deleted and created again.
+
+  restart_pipe_ = true;
+
+  if (postproc_pipe_.get() != nullptr) {
+    QMMF_VERBOSE("%s: PP-FW pipe is not deleted: Reuse the pipe configuration",
+        __func__);
+    restart_pipe_ = false;
+  }
 
   if (ValidateCaptureConfig(config)) {
     QMMF_ERROR("%s: Invalid Capture configuration", __func__);
@@ -768,6 +812,11 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   }
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
+    if (postproc_pipe_.get() != nullptr) {
+      QMMF_ERROR("%s: Pipe is created: Invalid configuration", __func__);
+      return INVALID_OPERATION;
+    }
+    capture_plugins_.clear();
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
       PostprocPlugin plugin;
       config.Fetch(QMMF_POSTPROCESS_PLUGIN, plugin, i);
@@ -872,6 +921,7 @@ status_t CameraContext::CancelCaptureImage() {
       QMMF_INFO("%s: Capture is complete!", __func__);
     }
 
+    PostProcDelete();
     DeleteSnapshotStream();
   }
 
@@ -1146,7 +1196,8 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     // Submit request with updated camera meta data only if streaming is
     // started, if not then just update default meta data and leave it to
     // startSession -> startStream to submit request.
-    if (streaming_request_id_ >= 0) {
+    if (streaming_request_id_ >= 0 &&
+        snapshot_type_ != SnapshotMode::kContinuous) {
       auto ret = camera_device_->SubmitRequestList(request_list, true,
                                                    &last_frame_mumber);
       assert(ret >= 0);
@@ -2204,6 +2255,7 @@ status_t CameraContext::PostProcDelete() {
   }
 
   postproc_pipe_ = nullptr;
+  restart_pipe_ = true;
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }

@@ -252,6 +252,10 @@ class CameraContext : public CameraInterface,
 
   status_t ValidateCaptureConfig(const ImageConfigParam &config);
 
+  bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
+
+  bool IsNeedReconfigSapshotStream();
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
@@ -335,6 +339,8 @@ class CameraContext : public CameraInterface,
   BufferFormat                  new_jpeg_input_format_;
   uint32_t                      postproc_frame_skip_;
   bool                          exif_en_;
+  CameraStreamParameters        stream_param_;
+  bool                          restart_pipe_;
 };
 
 enum class CameraPortType {
