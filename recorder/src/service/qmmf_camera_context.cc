@@ -2275,11 +2275,20 @@ status_t CameraPort::Init() {
   }
   cam_stream_params_.width        = params_.cam_stream_dim.width;
   cam_stream_params_.height       = params_.cam_stream_dim.height;
-  cam_stream_params_.grallocFlags =
-      GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
+
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  bool is_ubwc_stream_enabled = atoi(prop);
+  if (!is_ubwc_stream_enabled) {
+    cam_stream_params_.grallocFlags =
+        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
+  } else {
+    cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
+  }
+
   cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;
-  char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
   property_get("persist.camera.lpm.preview", prop, "0");
   is_lpm_use_preview = atoi(prop);
@@ -2292,6 +2301,7 @@ status_t CameraPort::Init() {
   } else {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
+
     cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT;
     if (params_.cam_stream_dim.width == 3840
         && params_.cam_stream_dim.height == 2160) {
