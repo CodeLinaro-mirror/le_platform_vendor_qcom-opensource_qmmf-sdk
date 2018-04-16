@@ -103,6 +103,14 @@ struct Rect {
      height(height) {}
 };
 
+// Input Port Parameters Passed by Player Service in callback function
+// TrackCb for Video Track with EventType::kInputBufferNotify.
+// InputBufferNotifyParams.num_free_buffers is the number of buffers ready to
+// be dequed by Player Client
+struct InputBufferNotifyParams {
+  uint32_t num_free_buffers;
+};
+
 // Video track create time parameters
 // buffer_size and num_buffers is an optional parameter if the clients
 // know what the optimal size for the track input buffers are.

@@ -158,6 +158,8 @@ class AudioRawTrackSink {
   ::std::mutex pts_message_lock_;
   ::std::queue<AudioMessage> pts_messages_;
 
+  InputBufferNotifyParams input_buffer_notify_params_;
+
   // disable copy, assignment, and move
   AudioRawTrackSink(const AudioRawTrackSink&) = delete;
   AudioRawTrackSink(AudioRawTrackSink&&) = delete;

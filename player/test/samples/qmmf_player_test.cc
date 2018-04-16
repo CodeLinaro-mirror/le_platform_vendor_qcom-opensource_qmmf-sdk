@@ -166,6 +166,12 @@ void PlayerTest::AudioTrackHandler(uint32_t track_id,
            *(reinterpret_cast<uint64_t*>(event_data)));
   }
 
+  if (event_type == EventType::kInputBufferNotify) {
+    TEST_INFO("%s: %d buffers available for DequeueInputBuffer", __func__,
+              (reinterpret_cast<InputBufferNotifyParams*>
+                               (event_data))->num_free_buffers);
+  }
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -182,6 +188,12 @@ void PlayerTest::VideoTrackHandler(uint32_t track_id,
   if (event_type == EventType::kPresentationTimestamp) {
     printf("\nPTS for track %u is %llu\n", track_id,
            *(reinterpret_cast<uint64_t*>(event_data)));
+  }
+
+  if (event_type == EventType::kInputBufferNotify) {
+    TEST_INFO("%s: %d buffers available for DequeueInputBuffer", __func__,
+              (reinterpret_cast<InputBufferNotifyParams*>
+                               (event_data))->num_free_buffers);
   }
 
   TEST_INFO("%s: Exit", __func__);

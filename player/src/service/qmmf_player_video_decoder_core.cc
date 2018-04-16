@@ -91,7 +91,8 @@ VideoDecoderCore::~VideoDecoderCore()
   QMMF_INFO("%s: Exit", __func__);
 }
 
-status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params) {
+status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params,
+                                            TrackCb& callback) {
    QMMF_DEBUG("%s: Enter", __func__);
 
    status_t ret = NO_ERROR;
@@ -109,7 +110,7 @@ status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params) {
     return NO_MEMORY;
   }
 
-  ret = video_track_decoder->ConfigureTrackDecoder(params);
+  ret = video_track_decoder->ConfigureTrackDecoder(params, callback);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) VideoTrackDecoder Init failed!",
         __func__, params.track_id);
@@ -494,11 +495,12 @@ VideoTrackDecoder::~VideoTrackDecoder() {
 }
 
 status_t VideoTrackDecoder::ConfigureTrackDecoder(
-    VideoTrackParams& track_params) {
+    VideoTrackParams& track_params, TrackCb& callback) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_params.track_id);
   video_track_params_ = track_params;
 
   avcodec_ = new AVCodec();
+  callback_ = callback;
 
   status_t ret = NO_ERROR;
 
@@ -691,6 +693,10 @@ status_t VideoTrackDecoder::StartDecoder() {
     unfilled_frame_queue_.PushBack(iter);
   }
 
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                     &input_buffer_notify_params_,
+                     sizeof(input_buffer_notify_params_));
   stop_received_ = false;
 
   ret = avcodec_->StartCodec();
@@ -967,6 +973,13 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
   assert(found == true);
   frames_being_decoded_.Erase(it);
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                       &input_buffer_notify_params_,
+                       sizeof(input_buffer_notify_params_));
+  }
 
   QMMF_VERBOSE("%s: frames_being_decoded_.Size(%d)", __func__,
       frames_being_decoded_.Size());
