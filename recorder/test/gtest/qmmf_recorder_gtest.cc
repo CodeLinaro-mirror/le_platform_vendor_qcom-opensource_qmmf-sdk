@@ -2530,6 +2530,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithEdgeSmooth) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -2582,7 +2583,6 @@ TEST_F(RecorderGtest, 10MPSnapshotWithEdgeSmooth) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
@@ -2694,6 +2694,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCAC) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -2746,7 +2747,6 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCAC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(5);
@@ -2858,6 +2858,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCACandEdgeSmooth) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -2922,7 +2923,6 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCACandEdgeSmooth) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(5);
