@@ -273,7 +273,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   {
     std::lock_guard<std::mutex> lock(state_lock_);
     if (state_ != State::ACTIVE) {
-      listener_->OnFrameReady(out_buffer);
+      listener_->OnFrameReturn(out_buffer);
       listener_->OnFrameProcessed(in_buffer);
       return NO_ERROR;
     }

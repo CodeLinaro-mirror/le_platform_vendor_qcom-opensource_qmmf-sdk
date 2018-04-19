@@ -123,6 +123,15 @@ class IPostProcEventListener {
    **/
   virtual void OnFrameReady(const StreamBuffer &output_buffer) = 0;
 
+  /** OnFrameReturn
+   *    @output_buffer: output buffer
+   *
+   * Indicates that output buffer is returned
+   *
+   * return: void
+   **/
+  virtual void OnFrameReturn(const StreamBuffer &output_buffer) = 0;
+
   /** OnError
    *    @err: error id
    *

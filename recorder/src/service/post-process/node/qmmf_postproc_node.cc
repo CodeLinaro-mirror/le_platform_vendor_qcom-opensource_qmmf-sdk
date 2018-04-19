@@ -328,6 +328,13 @@ void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
   out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
 
+void PostProcNode::OnFrameReturn(const StreamBuffer &output_buffer) {
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld frame_number %d",
+      __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
+      output_buffer.stream_id, output_buffer.timestamp, output_buffer.frame_number);
+  NotifyBufferReturned(const_cast<StreamBuffer&>(output_buffer));
+}
+
 void PostProcNode::OnError(RuntimeError err) {
   QMMF_ERROR("%s:%s: Error %d", __func__, name_.c_str(), err);
 }
@@ -337,23 +344,22 @@ void PostProcNode::AddResult(const void* result) {
 }
 
 void PostProcNode::NotifyBufferReturned(StreamBuffer& buffer) {
-  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
+  QMMF_VERBOSE("%s:%s: StreamBuffer(0x%p) fd: %d stream_id: %x ts: %lld",
       __func__, name_.c_str(), buffer.handle, buffer.fd, buffer.stream_id,
       buffer.timestamp);
 
-  if (caps_.inplace_processing_ == false) {
-    if (caps_.output_buff_ == 0) {
-      // Return buffer back to module.
-      module_->ReturnBuff(buffer);
-    } else {
-      // Return buffer back to mem pool.
-      status_t ret = mem_pool_->ReturnBufferLocked(buffer);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s:%s Buffer return Error", __func__, name_.c_str());
-        assert(0);
-      }
+  if (caps_.inplace_processing_ == false && caps_.output_buff_ == 0) {
+    // Return buffer back to module.
+    module_->ReturnBuff(buffer);
+  } else if (caps_.inplace_processing_ == false && buffer.stream_id == id_) {
+    // Return buffer back to mem pool.
+    status_t ret = mem_pool_->ReturnBufferLocked(buffer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s Buffer return Error", __func__, name_.c_str());
+      assert(0);
     }
   } else {
+    // Return buffer to previous module
     NotifyBufferReturn(buffer);
   }
   QMMF_VERBOSE("%s:%s: Exit", __func__, name_.c_str());

@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <iomanip>
+#include <json/json.h>
 
 #include "qmmf_postproc_algo.h"
 
@@ -46,6 +47,7 @@ using namespace qmmf_alg_plugin;
 
 PostProcAlg::PostProcAlg(std::string lib)
     : Lib_(lib),
+      is_enable_(true),
       state_(State::CREATED),
       abort_(nullptr),
       in_fight_count_(0) {
@@ -261,6 +263,22 @@ status_t PostProcAlg::Delete() {
 }
 
 status_t PostProcAlg::Configure(const std::string config_json_data) {
+
+  Json::Reader r;
+  Json::Value root;
+
+  auto ret = r.parse(config_json_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s: no json data", __func__);
+    return NO_ERROR;
+  }
+
+  if (algo_caps_.runtime_enable_disable_ &&
+      root.isMember(algo_caps_.plugin_name_)) {
+    recursive_lock_guard lock(lock_);
+    is_enable_ = root[algo_caps_.plugin_name_].asBool();
+  }
+
   try {
     algo_->Configure(config_json_data);
   } catch (const std::exception &e) {
@@ -276,14 +294,19 @@ status_t PostProcAlg::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
-  if (pass_through_) {
+  recursive_lock_guard lock(lock_);
+  if (pass_through_ == true || is_enable_ == false) {
+    QMMF_VERBOSE("%s:%s: Skip processing", __func__,
+      algo_caps_.plugin_name_.c_str());
     for (auto iter : in_buffers) {
       listener_->OnFrameReady(iter);
+    }
+    for (auto iter : out_buffers) {
+      listener_->OnFrameReturn(iter);
     }
     return NO_ERROR;
   }
 
-  recursive_lock_guard lock(lock_);
   if (state_ == State::ACTIVE) {
     std::vector<AlgBuffer> in_alg_buffers;
     auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
@@ -314,6 +337,8 @@ status_t PostProcAlg::Process(
       throw e;
     }
 
+    QMMF_VERBOSE("%s:%s: Start processing", __func__,
+      algo_caps_.plugin_name_.c_str());
     try {
       algo_->Process(in_alg_buffers, out_alg_buffers);
     } catch (const std::exception &e) {
@@ -334,7 +359,7 @@ status_t PostProcAlg::Process(
       listener_->OnFrameProcessed(iter);
     }
     for (auto iter : out_buffers ) {
-      listener_->OnFrameReady(iter);
+      listener_->OnFrameReturn(iter);
     }
   }
 
