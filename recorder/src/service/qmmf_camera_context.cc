@@ -2322,6 +2322,10 @@ status_t CameraPort::Init() {
         && params_.cam_stream_dim.height == 2160) {
       cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
     }
+    if ((params_.cam_stream_dim.width == 1920
+        && params_.cam_stream_dim.height == 1440 && params_.frame_rate == 60)) {
+      cam_stream_params_.bufferCount += 4;
+    }
   }
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
