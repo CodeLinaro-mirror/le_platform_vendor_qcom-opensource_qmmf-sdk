@@ -196,10 +196,11 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   snapshot_request_.streamIds.add(stream_id);
 
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
+    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
     Common::GetMaxSupportedCameraRes(static_meta_,
                                      stream_param.width,
-                                     stream_param.height);
-    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
+                                     stream_param.height,
+                                     stream_param.format);
     stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                   GRALLOC_USAGE_SW_READ_OFTEN;
     stream_param.cb           = GetStreamCb(param);

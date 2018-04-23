@@ -176,7 +176,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
       input_param.format == BufferFormat::kRAW12 ||
       input_param.format == BufferFormat::kRAW16) {
     auto supported = Common::GetMaxSupportedCameraRes(static_meta_,
-        input_param.width, input_param.height);
+        input_param.width, input_param.height, hal_format);
     if (supported == false) {
       QMMF_ERROR("%s: failed to get max supported resolution!", __func__);
       assert(0);
