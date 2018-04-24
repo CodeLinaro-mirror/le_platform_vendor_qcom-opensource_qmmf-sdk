@@ -225,13 +225,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   status_t PushFrameToDisplay(BufferDescriptor& codec_buffer);
 #endif
 
-  status_t SkipFrame(uint64_t timestamp);
+  status_t SkipFrame(uint64_t timestamp, bool is_hfr_track = false);
+
+  bool IsFrameSkip ();
 
   status_t ReturnBufferToCodec(BufferDescriptor& codec_buffer);
-
-  static void DisplayedBufferThread(VideoTrackSink* video_sink);
-
-  void DisplayedBuffer();
 
   int32_t AllocateGrabPictureBuffer(const uint32_t size);
 
@@ -258,10 +256,14 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   ::std::thread*                         renderer_thread_;
   TSQueue<BufferDescriptor>              decoded_buffer_queue_;
-  ::std::thread*                         displayed_buffer_thread_;
-  TSQueue<BufferDescriptor>              displayed_buffer_queue_;
   ::std::thread*                         pts_thread_;
   BufferDescriptor                       last_rendered_frame_;
+
+  double                                 input_frame_interval_;
+  double                                 output_frame_interval_;
+  double                                 remaining_frame_skip_time_;
+
+  double                                 display_refresh_rate_;
 };
 
 };  // namespace player

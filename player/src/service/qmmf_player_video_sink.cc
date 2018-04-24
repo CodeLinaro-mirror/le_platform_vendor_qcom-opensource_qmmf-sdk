@@ -36,6 +36,7 @@
 #include <memory>
 #include <thread>
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
+#define HFR_FPS_VALUE 60.0
 
 namespace qmmf {
 namespace player {
@@ -218,7 +219,11 @@ VideoTrackSink::VideoTrackSink()
       ion_device_(-1),
       grabpicture_file_fd_(-1),
       snapshot_dumps_(0),
-      pts_thread_(nullptr) {
+      pts_thread_(nullptr),
+      input_frame_interval_(0.0),
+      output_frame_interval_(0.0),
+      remaining_frame_skip_time_(0.0),
+      display_refresh_rate_(0.0){
   QMMF_DEBUG("%s Enter ", __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/misc/qmmf/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -237,6 +242,10 @@ VideoTrackSink::VideoTrackSink()
   player_decode_profile_ = GetPlayerDecodeProfileProperty();
   memset(&last_rendered_frame_, 0x0, sizeof last_rendered_frame_);
   last_rendered_frame_.fd = -1;
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.display.rate", prop_val, "60.0");
+  display_refresh_rate_ = atof(prop_val);
 
   QMMF_DEBUG("%s Exit", __func__);
 }
@@ -337,13 +346,6 @@ status_t VideoTrackSink::StartSink() {
     return -ENOMEM;
   }
 
-  displayed_buffer_thread_ = new thread(VideoTrackSink::DisplayedBufferThread, this);
-  if (displayed_buffer_thread_ == nullptr) {
-    QMMF_ERROR("%s() unable to allocate DisplayedBuffer thread",
-        __func__);
-    return -ENOMEM;
-  }
-
   if (track_params_.params.pts_callback_interval != 0) {
     pts_thread_ = new thread(VideoTrackSink::PtsThreadEntry, this);
     if (pts_thread_ == nullptr) {
@@ -377,9 +379,6 @@ status_t VideoTrackSink::StopSink(const PictureParam& params,
   renderer_thread_->join();
   delete renderer_thread_;
 
-  displayed_buffer_thread_->join();
-  delete displayed_buffer_thread_;
-
   if (track_params_.params.pts_callback_interval != 0) {
     if (pts_thread_ != nullptr) {
       pts_thread_->join();
@@ -402,8 +401,6 @@ status_t VideoTrackSink::StopSink(const PictureParam& params,
     output_occupy_buffer_queue_.Clear();
   if (!decoded_buffer_queue_.Empty())
     decoded_buffer_queue_.Clear();
-  if (!displayed_buffer_queue_.Empty())
-    displayed_buffer_queue_.Clear();
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
@@ -427,6 +424,8 @@ status_t VideoTrackSink::PauseSink(const PictureParam& params,
     grab_buffer->data = nullptr;
   }
 
+  remaining_frame_skip_time_ = 0.0;
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
@@ -437,6 +436,8 @@ status_t VideoTrackSink::ResumeSink() {
   lock_guard<mutex> lock(state_change_lock_);
 
   paused_ = false;
+
+  remaining_frame_skip_time_ = output_frame_interval_;
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
@@ -471,6 +472,10 @@ status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
   playback_speed_ = speed;
   playback_dir_ = dir;
 
+  if (playback_speed_ == TrickModeSpeed::kSpeed_1x) {
+    remaining_frame_skip_time_ = output_frame_interval_;
+  }
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
@@ -480,6 +485,7 @@ status_t VideoTrackSink::SetPosition(int64_t seek_time) {
   QMMF_DEBUG("%s: seek_time(%lld)", __func__, seek_time);
 
   seek_time_ = static_cast<uint64_t>(seek_time);
+  remaining_frame_skip_time_ = output_frame_interval_;
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
@@ -494,8 +500,6 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
     output_occupy_buffer_queue_.Clear();
   if (!decoded_buffer_queue_.Empty())
     decoded_buffer_queue_.Clear();
-  if (!displayed_buffer_queue_.Empty())
-    displayed_buffer_queue_.Clear();
 
   output_buffer_list_ = list;
 
@@ -624,7 +628,7 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
   return NO_ERROR;
 }
 
-status_t VideoTrackSink::SkipFrame(uint64_t timestamp) {
+status_t VideoTrackSink::SkipFrame(uint64_t timestamp,  bool is_hfr_track) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
   QMMF_VERBOSE("%s comparing seek_time[%llu] to timestamp[%llu]",
@@ -633,8 +637,13 @@ status_t VideoTrackSink::SkipFrame(uint64_t timestamp) {
     QMMF_DEBUG("%s track_id(%d) discarding frame: seek_time[%llu] timestamp[%llu]",
                __func__, TrackId(), seek_time_, timestamp);
     return true;
+  } else if (is_hfr_track && (playback_speed_ == TrickModeSpeed::kSpeed_1x)) {
+    // This code is only for HFR use case
+    QMMF_DEBUG("%s: HFR Use case", __func__);
+    return IsFrameSkip();
+
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_1x ||
-             playback_dir_ == TrickModeDirection::kSlowForward ) {
+             playback_dir_ == TrickModeDirection::kSlowForward) {
     return false;
 
   } else if (playback_speed_ == TrickModeSpeed::kSpeed_2x) {
@@ -670,6 +679,20 @@ status_t VideoTrackSink::Dispatcher(const BufferDescriptor& codec_buffer) {
   return NO_ERROR;
 }
 
+bool VideoTrackSink::IsFrameSkip() {
+  QMMF_DEBUG("%s: Enter ", __func__);
+  bool skip;
+  remaining_frame_skip_time_ -= input_frame_interval_;
+  if (0 >= remaining_frame_skip_time_) {
+    skip = false;
+    remaining_frame_skip_time_ += output_frame_interval_;
+  } else {
+    skip = true;
+  }
+  QMMF_DEBUG("%s: Exit ", __func__);
+  return skip;
+}
+
 void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
   video_sink->Renderer();
@@ -680,11 +703,28 @@ void VideoTrackSink::Renderer() {
   QMMF_INFO("%s: Enter ", __func__);
 
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
+  bool is_hfr_track = false;
+  input_frame_interval_ = 1000000.0 / (double) track_params_.params.frame_rate;
+  output_frame_interval_ = 1000000.0 / display_refresh_rate_;
+  remaining_frame_skip_time_ = output_frame_interval_;
+
+  QMMF_DEBUG("%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
+      "remaining_frame_skip_time_(%f)", __func__, input_frame_interval_,
+      output_frame_interval_, remaining_frame_skip_time_);
+
+  if (track_params_.params.frame_rate > HFR_FPS_VALUE) {
+    sleep_time_us = 1000000 / display_refresh_rate_; // Due to display refresh rate
+    QMMF_DEBUG("%s: Sleep Time for HFR video :%0.2f ms ", __func__,
+        (float)(sleep_time_us /1000));
+    is_hfr_track = true;
+  }
 
   while (!stop_called_) {
-
+    // for 90 fps video we need to enable to 2 filters.
+    // First filter will skip the frame from SkipFrame function.
+    // Second Filter will skip the frame from isFrameSkip function.
+    bool skip_frame  = false;
     if (decoded_buffer_queue_.Size() > 0) {
-
       if (paused_) {
         continue;
       }
@@ -698,53 +738,67 @@ void VideoTrackSink::Renderer() {
           " timestamps is %llu buffer.fd is %d ",  __func__, TrackId(),
           decoded_frame_number_, codec_buffer.timestamp, codec_buffer.fd);
 
-      if (SkipFrame(codec_buffer.timestamp)) {
+      skip_frame = SkipFrame(codec_buffer.timestamp, 0);
+
+      if (skip_frame) {
         QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
             decoded_frame_number_);
-
-        ReturnBufferToCodec(codec_buffer);
         decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+        ReturnBufferToCodec(codec_buffer);
+
       } else {
-#ifndef DISABLE_DISPLAY
-        QMMF_DEBUG("%s PushFrameToDisplay codec_buffer.fd ::  %d",
-            __func__, codec_buffer.fd);
-        status_t ret = PushFrameToDisplay(codec_buffer);
-        if (ret != 0) {
-          QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
+        QMMF_DEBUG("%s PushFrameToDisplay codec_buffer.fd ::  %d", __func__,
+                   codec_buffer.fd);
+        if (is_hfr_track) {
+          skip_frame = SkipFrame(codec_buffer.timestamp, 1);
+          if (skip_frame) {
+            QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
+                       decoded_frame_number_);
+            decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+            ReturnBufferToCodec(codec_buffer);
+          }
         }
+        if (!skip_frame) {
+#ifndef DISABLE_DISPLAY
+          status_t ret = PushFrameToDisplay(codec_buffer);
+          if (ret != 0) {
+            QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
+          }
 #else
         QMMF_WARN("%s Display not supported!", __func__);
 #endif
-        if (playback_dir_ == TrickModeDirection::kSlowForward) {
-          QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
-              (float)(sleep_time_us *
-                  static_cast<uint32_t>(playback_speed_))/(float)1000);
-          sleep_for(microseconds(sleep_time_us *
-              static_cast<uint32_t>(playback_speed_)));
+          if (playback_dir_ == TrickModeDirection::kSlowForward) {
+            QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
+                       (float)((1000000 / (track_params_.params.frame_rate)) *
+                               static_cast<uint32_t>(playback_speed_)) /
+                           (float)1000);
+            sleep_for(
+                microseconds((1000000 / (track_params_.params.frame_rate)) *
+                             static_cast<uint32_t>(playback_speed_)));
 
-        } else if (playback_dir_ == TrickModeDirection::kNormalRewind){
-          QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Rewind",
-              __func__, (float)((sleep_time_us) * 6)/(float)1000);
-          sleep_for(microseconds(sleep_time_us * 6));
+          } else if (playback_dir_ == TrickModeDirection::kNormalRewind) {
+            QMMF_DEBUG(
+                "%s Sleeping for %0.2f ms in Normal Rewind", __func__,
+                (float)((1000000 / (track_params_.params.frame_rate) * 6)) /
+                    (float)1000);
+            sleep_for(microseconds(
+                (1000000 / (track_params_.params.frame_rate)) * 6));
 
-        } else {
-          QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback",
-              __func__, (float)(sleep_time_us)/(float)1000);
-          sleep_for(microseconds(sleep_time_us-500));
+          } else {
+            QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback", __func__,
+                       (float)(sleep_time_us) / (float)1000);
+            sleep_for(microseconds(sleep_time_us - 500));
+          }
+
+          ++(displayed_frames_);
+          QMMF_DEBUG("%s: track_id(%d) displayed video frame number %d",
+                     __func__, TrackId(), displayed_frames_);
+
+          QMMF_DEBUG("%s codec buff.fd :: %d", __func__, codec_buffer.fd);
         }
-
-        ++(displayed_frames_);
-        QMMF_DEBUG("%s: track_id(%d) displayed video frame number %d",
-            __func__, TrackId(), displayed_frames_);
-
-        QMMF_DEBUG("%s codec buff.fd :: %d", __func__, codec_buffer.fd);
-
-        decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
-        displayed_buffer_queue_.PushBack(codec_buffer);
       }
     }
   }
-
   QMMF_INFO("%s: Exit ", __func__);
 }
 
@@ -779,37 +833,6 @@ void VideoTrackSink::PtsThread() {
   }
 
   QMMF_DEBUG("%s() exiting", __func__);
-}
-
-void VideoTrackSink::DisplayedBufferThread(VideoTrackSink* video_sink) {
-  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
-  video_sink->DisplayedBuffer();
-  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, video_sink->TrackId());
-}
-
-void VideoTrackSink::DisplayedBuffer() {
-  QMMF_INFO("%s: Enter ", __func__);
-
-  while (!stop_called_) {
-
-    if (displayed_buffer_queue_.Size() > 0) {
-
-      if (paused_) {
-        continue;
-      }
-
-      //sleep to avoid any flickering issue on display
-      //TODO: when display fence will come this sleep will be removed
-      usleep(30000);
-
-      BufferDescriptor codec_buffer;
-      BufferDescriptor iter = *displayed_buffer_queue_.Begin();
-      codec_buffer = iter;
-      ReturnBufferToCodec(codec_buffer);
-      displayed_buffer_queue_.Erase(displayed_buffer_queue_.Begin());
-    }
-  }
-  QMMF_INFO("%s: Exit", __func__);
 }
 
 status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
@@ -1043,7 +1066,7 @@ void VideoTrackSink::DisplayVSyncHandler(int64_t time_stamp) {
 }
 
 status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
-  SurfaceBuffer temp_surfbuf;
+
   BufInfo bufinfo;
   memset(&bufinfo, 0x0, sizeof bufinfo);
 
@@ -1077,16 +1100,38 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     if (ret != 0) {
       QMMF_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
       return ret;
+    } else {
+      auto it = decoded_buffer_queue_.Begin();
+      for (; it != decoded_buffer_queue_.End(); ++it) {
+        QMMF_DEBUG("%s track_id(%d) Checking match %d vs %d ", __func__,
+                   TrackId(), (it->fd), surface_buffer_.buf_id);
+        if ((it->fd) == (surface_buffer_.buf_id)) {
+          QMMF_DEBUG("%s track_id(%d) Buffer found", __func__, TrackId());
+          decoded_buffer_queue_.Erase(it);
+          break;
+        }
+      }
     }
     last_rendered_frame_ = codec_buffer;
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, temp_surfbuf);
-    if (ret != 0) {
-      QMMF_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
-       return ret;
-    }
-
     last_queued_timestamp_ = codec_buffer.timestamp;
+
+    memset (&surface_buffer_, 0x0, sizeof(surface_buffer_));
+    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
+    if (surface_buffer_.buf_id <= 0) {
+      QMMF_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
+      return ret;
+    } else {
+      QMMF_DEBUG("%s: DeQueue Success : ION fd is %d", __func__,
+                 surface_buffer_.buf_id);
+      BufferDescriptor codec_buf;
+      memset(&codec_buf, 0x0, sizeof(codec_buf));
+      codec_buf.fd = surface_buffer_.buf_id;
+      codec_buf.buf_id = surface_buffer_.plane_info[0].ion_fd;
+      codec_buf.size = surface_buffer_.plane_info[0].size;
+      codec_buf.capacity = surface_buffer_.capacity;
+      codec_buf.offset = surface_buffer_.plane_info[0].offset;
+      ReturnBufferToCodec(codec_buf);
+    }
    }
 
    return NO_ERROR;
