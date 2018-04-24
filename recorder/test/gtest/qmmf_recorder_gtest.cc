@@ -1560,6 +1560,173 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIF) {
 }
 
 /*
+* 10MPSnapshotDisableEXIFUpdateFocalLength: This test will test 10MP JPEG
+*                                           snapshot.
+* Api test sequence:
+*  - StartCamera
+*  - CreateVideoTrack
+*  - Set Focal length to capture and streaming meta
+*  - ConfigImageCapture - Disable EXIF
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*  - Reset focal length to go back to preview mode.
+*  - CancelCaptureImage
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb preview_track_cb;
+  preview_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t preview_track_id = 1;
+
+  VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
+                                          640,
+                                          480,
+                                          30};
+    preview_track_param.low_power_mode = true;
+
+  preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
+                                   preview_track_param, preview_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {preview_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(5);
+
+  ImageParam image_param{};
+  image_param.width         = 3872;
+  image_param.height        = 2592;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Update focal length to capture meta to select 4fps sensor mode.
+  float focal_length = 18;
+  meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+  meta_array.push_back(meta);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  ASSERT_TRUE (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  ImageConfigParam image_config;
+  ImageExif exif;
+  exif.enable = false;
+  image_config.Update(QMMF_EXIF, exif);
+
+  ret = SetCameraFocalLength(focal_length);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+    // Take snapshot after every 5 sec.
+    sleep(5);
+  }
+
+  // Record for some more time.
+  sleep(5);
+
+  // Reset focal length corresponding to preview sensor mode.
+  focal_length = 16;
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for some more time.
+  sleep(5);
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, preview_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * 4KSnapshot: This test will test 4K JPEG snapshot.
 * Api test sequence:
 *  - StartCamera
