@@ -405,7 +405,25 @@ class Common {
                                       const uint32_t height) {
     bool is_supported = false;
 #ifdef ANDROID_O_OR_ABOVE
-    is_supported = ValidateResFromStreamConfigs(meta, width, height);
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+                 " not available", __func__);
+      return false;
+    }
 #else
     if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
