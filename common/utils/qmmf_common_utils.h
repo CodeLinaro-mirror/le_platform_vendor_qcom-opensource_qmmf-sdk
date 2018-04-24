@@ -455,10 +455,29 @@ class Common {
     bool found = false;
     width = 0;
     height = 0;
-#ifdef ANDROID_O_OR_ABOVE
-    found = GetMaxResFromStreamConfigs(meta, width, height);
-#else
     camera_metadata_ro_entry entry;
+#ifdef ANDROID_O_OR_ABOVE
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] &&
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+          if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
+              height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
+            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
+            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
+            found = true;
+          }
+        }
+      }
+      QMMF_INFO("%s: width=%d, height=%d", __func__, width, height);
+    } else {
+      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+                 " not available", __func__);
+      return false;
+    }
+#else
     if (!meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
       QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES"
                  " not available", __func__);
