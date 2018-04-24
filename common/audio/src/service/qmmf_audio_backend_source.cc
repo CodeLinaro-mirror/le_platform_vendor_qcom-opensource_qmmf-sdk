@@ -210,6 +210,17 @@ int32_t AudioBackendSource::Open(const qahw_module_handle_t * const modules[],
     current_io_handle_ = kIOHandleMin;
   ++current_io_handle_;
 
+  /* Turn BT_SCO on if bt_sco recording */
+  if ((audio_devices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) ==
+      AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
+    result = qahw_set_parameters(qahw_module_, "BT_SCO=on");
+    if (result != 0) {
+      QMMF_ERROR("%s() failed to set BT_SCO=on : %d[%s]", __func__,
+                 result, strerror(result));
+      return result;
+    }
+  }
+
   audio_input_flags_t flags = static_cast<audio_input_flags_t>
                                          (QAHW_INPUT_FLAG_COMPRESS |
                                           QAHW_INPUT_FLAG_TIMESTAMP);
