@@ -2472,7 +2472,7 @@ status_t CameraPort::Init() {
   if (!is_ubwc_stream_enabled) {
     cam_stream_params_.grallocFlags =
         GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
-  } else {
+  } else if (!params_.low_power_mode) {
     cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   }
 
