@@ -53,6 +53,7 @@
 #include "common/utils/qmmf_log.h"
 
 #define AUDIO_TIMESTAMP_ADJUST_PROPERTY   "persist.qmmf.timestamp.adjust"
+#define AUDIO_TX_LATENCY                  (25000)
 
 namespace qmmf {
 namespace common {
@@ -615,11 +616,15 @@ void AudioBackendSource::Thread() {
 
   char adjust_string[PROPERTY_VALUE_MAX];
   property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
-  int64_t adjustment_timestamp = atoi(adjust_string);
+  int64_t adjustment_timestamp = atol(adjust_string);
   QMMF_VERBOSE("%s() value of timestamp adjustment property[%lld]",
                __func__, adjustment_timestamp);
-  bool first_buffer_read = true;
+  adjustment_timestamp -= AUDIO_TX_LATENCY;
+  QMMF_VERBOSE("%s() value of timestamp adjustment[%lld] after subtracting latency[%lld]",
+               __func__, adjustment_timestamp,
+               static_cast<int64_t>(AUDIO_TX_LATENCY));
 
+  bool first_buffer_read = true;
   bool keep_running = true;
   bool stop_received = false;
   while (keep_running) {
