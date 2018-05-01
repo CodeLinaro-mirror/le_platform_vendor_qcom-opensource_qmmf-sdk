@@ -46,6 +46,7 @@
 #include "recorder/test/samples/qmmf_recorder_test.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
+#include "recorder/test/samples/qmmf_recorder_test_mpegh.h"
 #include "common/utils/qmmf_log.h"
 
 volatile uint32_t kpi_debug_mask = KPI_DISABLE;
@@ -3285,6 +3286,38 @@ status_t RecorderTest::CreateAudioPCMAmbisonicTrack() {
   return ret;
 }
 
+status_t RecorderTest::CreateAudioMPEGHTrack() {
+
+  TEST_INFO("%s: Enter", __func__);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
+      size_t event_data_size) { SessionCallbackHandler(event_type,
+      event_data, event_data_size); };
+
+  uint32_t session_id;
+  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
+  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
+
+  std::vector<TestTrack*> tracks;
+
+  TestTrack *audio_mpegh_track = new TestTrack(this);
+  TrackInfo info{};
+  info.track_id   = 101;
+  info.track_type = TrackType::kAudioMPEGH;
+  info.session_id = session_id;
+  info.camera_id = camera_id_;
+  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
+
+  ret = audio_mpegh_track->SetUp(info);
+  assert(ret == 0);
+  tracks.push_back(audio_mpegh_track);
+  sessions_.insert(std::make_pair(session_id, tracks));
+
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 // This session has one RDI track with sensor resolution.
 status_t RecorderTest::SessionRDITrack() {
 
@@ -3856,6 +3889,7 @@ status_t RecorderTest::DeleteSession() {
           track->GetTrackType() == TrackType::kAudioPCMAS ||
           track->GetTrackType() == TrackType::kAudioAAC ||
           track->GetTrackType() == TrackType::kAudioAMR ||
+          track->GetTrackType() == TrackType::kAudioMPEGH ||
           track->GetTrackType() == TrackType::kAudioG711) {
         ret = recorder_.DeleteAudioTrack(session_id, track->GetTrackId());
       } else {
@@ -4597,6 +4631,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
             tracks[i]->GetTrackType() == TrackType::kAudioPCMAS ||
             tracks[i]->GetTrackType() == TrackType::kAudioAAC ||
             tracks[i]->GetTrackType() == TrackType::kAudioAMR ||
+            tracks[i]->GetTrackType() == TrackType::kAudioMPEGH ||
             tracks[i]->GetTrackType() == TrackType::kAudioG711) {
         ret = recorder_.DeleteAudioTrack(session_id, tracks[i]->GetTrackId());
       } else {
@@ -6020,6 +6055,13 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
         audio_track_params.codec_params.g711.mode = G711Mode::kALaw;
         audio_track_params.sample_rate = 8000;
         break;
+      case TrackType::kAudioMPEGH:
+        audio_track_params.format = AudioFormat::kMPEGH;
+        ::std::string("record_ambisonic").copy(audio_track_params.profile,
+                      strlen("record_ambisonic"));
+        audio_track_params.channels = 4;
+        audio_track_params.codec_params.mpegh.bit_rate = 307200;
+        break;
       default:
         assert(0);
         break;
@@ -6061,6 +6103,12 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       case TrackType::kAudioAMR:
         // Configure .amr output.
         ret = amr_output_.Configure(kDefaultAudioFilenamePrefix,
+                                    track_info.track_id, audio_track_params);
+        assert(ret == NO_ERROR);
+        break;
+      case TrackType::kAudioMPEGH:
+        // Configure .mhas output.
+        ret = mpegh_output_.Configure(kDefaultAudioFilenamePrefix,
                                     track_info.track_id, audio_track_params);
         assert(ret == NO_ERROR);
         break;
@@ -6111,6 +6159,9 @@ status_t TestTrack::Prepare() {
   } else if (track_info_.track_type == TrackType::kAudioAMR) {
     ret = amr_output_.Open();
     assert(ret == NO_ERROR);
+  } else if (track_info_.track_type == TrackType::kAudioMPEGH) {
+    ret = mpegh_output_.Open();
+    assert(ret == NO_ERROR);
   }
   TEST_DBG("%s: Exit", __func__);
   return ret;
@@ -6137,6 +6188,9 @@ status_t TestTrack::CleanUp() {
     break;
     case TrackType::kAudioAMR:
     amr_output_.Close();
+    break;
+    case TrackType::kAudioMPEGH:
+    mpegh_output_.Close();
     break;
     default:
     break;
@@ -6511,6 +6565,14 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
         assert(ret == 0);
       }
     break;
+    case TrackType::kAudioMPEGH:
+      for (const BufferDescriptor& buffer : buffers) {
+        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
+          break;
+        ret = mpegh_output_.Write(buffer);
+        assert(ret == 0);
+      }
+    break;
     case TrackType::kVideoYUV:
     case TrackType::kVideoRDI:
       for (uint32_t i = 0; i < meta_buffers.size(); ++i) {
@@ -6854,6 +6916,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM 4ch,16,48KHz,Ambisonic)\n",
       CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD);
+  printf("   %c. Create Session: (MPEGH 4ch,16,48KHz)\n",
+      CmdMenu::CREATE_MPEGH_AUD_SESSION_CMD);
   printf("   %c. Create Session: (1080p YUV with Display)\n",
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
@@ -7057,6 +7121,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMAmbisonicTrack();
+      }
+      break;
+      case CmdMenu::CREATE_MPEGH_AUD_SESSION_CMD: {
+          test_context.CreateAudioMPEGHTrack();
       }
       break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {
