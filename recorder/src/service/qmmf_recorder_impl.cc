@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -996,6 +996,29 @@ status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
   return NO_ERROR;
 }
 
+bool RecorderImpl::IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param) {
+  bool valid = true;
+
+  // Validate MPEGH encoding input information and shall always be same as the
+  // conditions defined in ConfigureAudioEncoder() of
+  // <common/codecadaptor/src/qmmf_avcodec.cc>
+  if (param.format == AudioFormat::kMPEGH) {
+    //Number of channels should be 4
+    //Sample rate should be 48000
+    //bit rate could be 300K, 384K, or 512K (K == 1024)
+    if ((param.channels == 4) &&
+        (param.sample_rate == 48000) &&
+        ((param.codec_params.mpegh.bit_rate == 307200) ||
+         (param.codec_params.mpegh.bit_rate == 393216) ||
+         (param.codec_params.mpegh.bit_rate == 524288))) {
+      QMMF_INFO("%s: Successfully validated MPEGH track params", __func__);
+    } else {
+      valid = false;
+    }
+  }
+  return valid;
+}
+
 status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id,
@@ -1013,6 +1036,10 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
   if (!IsSessionIdValid(client_id, session_id)) {
     QMMF_ERROR("%s: session_id(%d) is not valid!", __func__,
         session_id);
+    return BAD_VALUE;
+  }
+  if (!IsAudioTrackCreateParamValid(param)) {
+    QMMF_ERROR("%s: Track create params are not valid!", __func__);
     return BAD_VALUE;
   }
   uint32_t service_track_id = GetUniqueServiceTrackId(client_id, session_id,

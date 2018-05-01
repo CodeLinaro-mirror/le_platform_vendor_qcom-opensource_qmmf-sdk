@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -229,6 +229,9 @@ class RecorderImpl {
                     const uint32_t track_id);
   bool IsTrackValid(const uint32_t client_id, const uint32_t track_id);
   bool IsCameraOwned(const uint32_t client_id, const uint32_t camera_id);
+
+  //Validate the input params during CreateAudioTrack requests.
+  bool IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param);
 
   uint32_t GetUniqueServiceTrackId(const uint32_t client_id,
                                    const uint32_t session_id,
