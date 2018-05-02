@@ -428,6 +428,8 @@ class CameraPort {
 
   void StreamCallback(StreamBuffer buffer);
 
+  uint32_t GetExtraBufferCount();
+
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParam      params_;
   CameraStreamParameters cam_stream_params_;

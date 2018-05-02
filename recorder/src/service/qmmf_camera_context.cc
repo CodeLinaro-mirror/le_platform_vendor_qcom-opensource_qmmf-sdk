@@ -2491,15 +2491,8 @@ status_t CameraPort::Init() {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
 
-    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT;
-    if (params_.cam_stream_dim.width == 3840
-        && params_.cam_stream_dim.height == 2160) {
-      cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
-    }
-    if ((params_.cam_stream_dim.width == 1920
-        && params_.cam_stream_dim.height == 1440 && params_.frame_rate == 60)) {
-      cam_stream_params_.bufferCount += 4;
-    }
+    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
+        GetExtraBufferCount();
   }
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
@@ -2778,6 +2771,25 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
   }
 
   QMMF_VERBOSE("%s: Exit ", __func__);
+}
+
+uint32_t CameraPort::GetExtraBufferCount() {
+  uint32_t extra_buffer_count = 0;
+#ifndef EXTRA_BUFFER_SUPPORT
+  if (params_.cam_stream_dim.width == 3840
+      && params_.cam_stream_dim.height == 2160) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  } else if (params_.cam_stream_dim.width == 1920
+      && params_.cam_stream_dim.height == 1440 && params_.frame_rate == 60) {
+    extra_buffer_count = 4;
+  }
+#else
+  if (params_.cam_stream_dim.width == 4096
+      && params_.cam_stream_dim.height == 2048 && params_.frame_rate == 60) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  }
+#endif
+  return extra_buffer_count;
 }
 
 ZslPort::ZslPort(const CameraStreamParam& param, size_t batch_size,
