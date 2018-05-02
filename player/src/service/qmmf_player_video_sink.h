@@ -122,6 +122,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   status_t ResumeSink();
 
+  status_t PrepareDrag(bool ignore_fps);
+
   status_t DeleteSink();
 
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
@@ -264,6 +266,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   double                                 remaining_frame_skip_time_;
 
   double                                 display_refresh_rate_;
+  std::mutex                             ignore_fps_lock_;
+  bool                                   ignore_fps_;
 };
 
 };  // namespace player

@@ -69,6 +69,7 @@ enum QMMF_PLAYER_SERVICE_CMDS {
   PLAYER_STOP,
   PLAYER_PAUSE,
   PLAYER_RESUME,
+  PLAYER_DRAG,
   PLAYER_SET_POSITION,
   PLAYER_SET_TRICKMODE,
 };
@@ -156,6 +157,7 @@ class IPlayerService : public IInterface {
   virtual status_t Stop(const PictureParam& params) = 0;
   virtual status_t Pause(const PictureParam& params) = 0;
   virtual status_t Resume() = 0;
+  virtual status_t Drag() = 0;
 
   virtual status_t SetPosition(int64_t seek_time) = 0;
   virtual status_t SetTrickMode(TrickModeSpeed speed,

@@ -77,6 +77,8 @@ class VideoDecoderCore {
 
   status_t ResumeTrackDecoder(uint32_t track_id);
 
+  status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
+
   status_t SetVideoTrackDecoderParams(uint32_t track_id,
                                       CodecParamType param_type,
                                       void* param,
@@ -131,6 +133,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
                         BufferDescriptor* grab_buffer);
 
   status_t ResumeDecoder();
+
+  status_t PrepareDrag(bool ignore_fps);
 
   status_t SetVideoDecoderParams(CodecParamType param_type, void* param,
                                  uint32_t param_size);

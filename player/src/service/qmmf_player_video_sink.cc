@@ -223,7 +223,8 @@ VideoTrackSink::VideoTrackSink()
       input_frame_interval_(0.0),
       output_frame_interval_(0.0),
       remaining_frame_skip_time_(0.0),
-      display_refresh_rate_(0.0){
+      display_refresh_rate_(0.0),
+      ignore_fps_(false) {
   QMMF_DEBUG("%s Enter ", __func__);
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/misc/qmmf/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
@@ -441,6 +442,17 @@ status_t VideoTrackSink::ResumeSink() {
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
+}
+
+status_t VideoTrackSink::PrepareDrag(bool ignore_fps) {
+  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+
+  ignore_fps_lock_.lock();
+  ignore_fps_ = ignore_fps;
+  ignore_fps_lock_.unlock();
+
+  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t VideoTrackSink::DeleteSink() {
@@ -785,9 +797,15 @@ void VideoTrackSink::Renderer() {
                 (1000000 / (track_params_.params.frame_rate)) * 6));
 
           } else {
-            QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback", __func__,
-                       (float)(sleep_time_us) / (float)1000);
-            sleep_for(microseconds(sleep_time_us - 500));
+            ignore_fps_lock_.lock();
+            if (ignore_fps_) {
+              ignore_fps_lock_.unlock();
+            } else {
+              ignore_fps_lock_.unlock();
+              QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback",
+                    __func__, (float)(sleep_time_us)/(float)1000);
+              sleep_for(microseconds(sleep_time_us-500));
+            }
           }
 
           ++(displayed_frames_);

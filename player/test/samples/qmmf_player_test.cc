@@ -51,7 +51,7 @@ using display::SurfaceConfig;
 using display::SurfaceBlending;
 using display::SurfaceFormat;
 
-//#define DEBUG
+// #define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
 #define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #ifdef DEBUG
@@ -248,7 +248,8 @@ PlayerTest::PlayerTest(char* filename)
       trick_mode_enabled_(false),
       current_playback_time_(0),
       display_started_(false),
-      volume_(50) {
+      volume_(50),
+      drag_(false) {
   TEST_INFO("%s: Enter", __func__);
 
   if (filename_ != nullptr)
@@ -550,6 +551,13 @@ void PlayerTest::AudioThread() {
       std::lock_guard<std::mutex> lock(lock_);
       if (audio_state_ == State::kPaused) continue;
       if (trick_mode_enabled_) continue;
+      drag_lock_.lock();
+      if (drag_) {
+        drag_lock_.unlock();
+        continue;
+      } else {
+        drag_lock_.unlock();
+      }
     }
 
     std::vector<TrackBuffer> buffers;
@@ -671,12 +679,21 @@ void PlayerTest::VideoThread() {
     eMediaStatus = m_pDemux_->GetNextMediaSample(m_sTrackInfo_.sVideo.ulTkId,
         m_sTrackInfo_.sVideo.sSampleBuf.pucData1 + nFormatBlockSize,
         &(m_sTrackInfo_.sVideo.sSampleBuf.ulLen), sSampleInfo);
-
     if (static_cast<uint32_t>(playback_dir_) == 4) {
       FileSourceStatus mFSStatus = m_pDemux_->SeekRelativeSyncPoint(
           static_cast<int>(sSampleInfo.startTime / 1000) , -2);
       TEST_INFO("%s: REW %u", __func__,
                 static_cast<uint32_t>(mFSStatus));
+    }
+    drag_lock_.lock();
+    if (drag_) {
+      drag_lock_.unlock();
+      FileSourceStatus mFSStatus = m_pDemux_->SeekRelativeSyncPoint(
+          static_cast<int>(sSampleInfo.startTime / 1000) , 2);
+      TEST_INFO("%s: Drag %d", __func__, mFSStatus);
+      usleep(10000);
+    } else {
+      drag_lock_.unlock();
     }
 
 #ifdef DUMP_VIDEO_BITSTREAM
@@ -689,10 +706,12 @@ void PlayerTest::VideoThread() {
                              nFormatBlockSize;
     buffers[0].time_stamp = sSampleInfo.startTime;
 
+    drag_lock_.lock();
     if (track_type_ == TrackTypes::kVideoOnly ||
-        IsTrickModeEnabled()) {
+        IsTrickModeEnabled() || drag_) {
       UpdateCurrentPlaybackTime(sSampleInfo.startTime);
     }
+    drag_lock_.unlock();
 
     if (FILE_SOURCE_DATA_END == eMediaStatus) {
       // EOF reached
@@ -728,6 +747,10 @@ void PlayerTest::Stop(bool with_grab) {
     audio_state_ = State::kStopped;
     video_state_ = State::kStopped;
   }
+
+  drag_lock_.lock();
+  drag_ = false;
+  drag_lock_.unlock();
 
   if (with_grab) {
     PictureParam param;
@@ -830,15 +853,45 @@ void PlayerTest::Pause(bool with_grab) {
 void PlayerTest::Resume() {
   TEST_INFO("%s: Enter", __func__);
   std::lock_guard<std::mutex> lock(lock_);
-
   if (audio_state_ == State::kPaused) audio_state_ = State::kRunning;
   if (video_state_ == State::kPaused) video_state_ = State::kRunning;
+
+
+  if (drag_) {
+    auto current_time = GetCurrentPlaybackTime();
+    FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(
+                audio_track_id_, static_cast<int>(current_time / 1000), false, -1,
+                FS_SEEK_MODE::FS_SEEK_DEFAULT);
+   if (mFSStatus == FILE_SOURCE_FAIL)
+      TEST_INFO("%s: Failed to seek %d", __func__, mFSStatus);
+  }
+
+
+  drag_lock_.lock();
+  drag_ = false;
+  drag_lock_.unlock();
 
   if (enable_gfx_) {
     push_gfx_content_to_display_ = true;
   }
 
   auto result = player_.Resume();
+  assert(result == NO_ERROR);
+
+  TEST_INFO("%s: Exit", __func__);
+}
+
+void PlayerTest::Drag() {
+  TEST_INFO("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (video_state_ == State::kPaused) video_state_ = State::kRunning;
+
+  drag_lock_.lock();
+  drag_ = true;
+  drag_lock_.unlock();
+  auto result = player_.Drag();
+
+
   assert(result == NO_ERROR);
 
   TEST_INFO("%s: Exit", __func__);
@@ -1507,6 +1560,7 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Pause\n", CmdMenu::PAUSE_CMD);
   printf("   %c. Pause (Grab YUV Picture)\n", CmdMenu::PAUSE_WITH_GRAB_CMD);
   printf("   %c. Resume\n", CmdMenu::RESUME_CMD);
+  printf("   %c. Drag\n", CmdMenu::DRAG_CMD);
   printf("   %c. Delete\n", CmdMenu::DELETE_CMD);
   printf("   %c. SetTrickMode\n", CmdMenu::TRICK_MODE_CMD);
   printf("   %c. SetVolume\n", CmdMenu::VOLUME_CMD);
@@ -1604,6 +1658,10 @@ int main(int argc, char* argv[]) {
       break;
       case CmdMenu::RESUME_CMD: {
         test_context.Resume();
+      }
+      break;
+      case CmdMenu::DRAG_CMD: {
+        test_context.Drag();
       }
       break;
       case CmdMenu::DELETE_CMD: {

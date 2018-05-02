@@ -88,6 +88,8 @@ class PlayerClient {
 
   status_t Resume();
 
+  status_t Drag();
+
   status_t SetPosition(int64_t seek_time);
 
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);

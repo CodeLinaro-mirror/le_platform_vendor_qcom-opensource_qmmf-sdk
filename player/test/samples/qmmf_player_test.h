@@ -80,7 +80,7 @@ class PlayerTest {
   void Stop(bool with_grab);
   void Pause(bool with_grab);
   void Resume();
-
+  void Drag();
   void SetPosition();
   void SetTrickMode();
   void SetVolume();
@@ -183,7 +183,8 @@ class PlayerTest {
   uint32_t                        gfx_plane_frame_count_;
   bool                            push_gfx_content_to_display_;
   int32_t                         volume_;
-
+  std::mutex                      drag_lock_;
+  bool                            drag_;
 #ifndef DISABLE_DISPLAY
   std::thread*                    display_thread_;
   display::Display*               display_;
@@ -209,6 +210,7 @@ class CmdMenu {
       PAUSE_CMD                         = '7',
       PAUSE_WITH_GRAB_CMD               = 'b',
       RESUME_CMD                        = '8',
+      DRAG_CMD                          = 'd',
       DELETE_CMD                        = '9',
       TRICK_MODE_CMD                    = 'T',
       SEEK_CMD                          = 'S',
