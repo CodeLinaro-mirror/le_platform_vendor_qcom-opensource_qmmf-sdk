@@ -1857,6 +1857,8 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
     repeating_requests_.clear();
   }
 
+  InternalUpdateStatusLocked(STATE_CONFIGURED);
+
 exit:
 
   flush_on_going_ = false;
