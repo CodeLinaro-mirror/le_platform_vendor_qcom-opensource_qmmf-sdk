@@ -168,13 +168,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
 
   if (postproc_enable_ && restart_pipe_) {
-
-    // Stops active streaming to prevent multiple camera restarts
-    for (auto port : active_ports_) {
-      port_paused_ = true;
-      ret = port->Stop();
-      assert(ret == NO_ERROR);
-    }
+    PauseActiveStreams();
     PostProcDelete();
     ret = PostProcCreatePipeAndUpdateStreams(stream_param,
                             camera_start_params_.frame_rate, capture_plugins_);
@@ -729,11 +723,10 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
               // will call update request to remove snapshot stream id from
               // request and resume the streaming request.
               req.streamIds.add(stream_id);
-              port_paused_ = false;
               QMMF_INFO("%s: Added all Request to snapshot request! "
                 "active_streamid_count=%d", __func__, active_streamid_count);
             }
-
+            port_paused_ = false;
           } else {
             auto request = streaming_active_requests_[0];
             for (auto stream_id : request.streamIds) {
@@ -775,15 +768,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
     QMMF_INFO("%s: Request for non-zsl submitted successfully",
         __func__);
 
-    if (port_paused_ && snapshot_type_ != SnapshotMode::kContinuous) {
-      QMMF_INFO("%s: Resume Ports!", __func__);
-      // Resumes stopped ports.
-      for (auto port : active_ports_) {
-        ret = port->Start();
-        assert(ret == NO_ERROR);
-        port_paused_ = false;
-      }
-    }
+    ResumeActiveStreams(streaming);
   } else {
     ret = CaptureZSLImage();
     if (ret != NO_ERROR) {
@@ -1677,12 +1662,6 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           stream_ids.emplace(cam_stream_id);
           QMMF_INFO("%s: removed_streams.size(%d)", __func__,
               removed_streams.size());
-          if (port_paused_) {
-            stopped_stream_ids_.emplace(cam_stream_id);
-            for (auto iter : stopped_stream_ids_) {
-              QMMF_INFO("%s: cam_stream_id=%d paused", __func__, iter);
-            }
-          }
         }
       }
     } else if (port->getPortState() == PortState::PORT_STARTED) {
@@ -1820,6 +1799,81 @@ status_t CameraContext::CancelRequest() {
   streaming_request_id_ = -1;
   QMMF_INFO("%s: Request cancelled last frame number: %lld\n",
       __func__, last_frame_mumber);
+  return ret;
+}
+
+status_t CameraContext::PauseActiveStreams(bool immedialtely) {
+  QMMF_VERBOSE("%s Enter ", __func__);
+
+  status_t ret = NO_ERROR;
+
+  if (streaming_request_id_ < 0) {
+    // no active streams
+    return NO_ERROR;
+  }
+
+  if (immedialtely) {
+    std::lock_guard<std::mutex> lock(device_access_lock_);
+    int64_t last_frame_mumber;
+    ret = camera_device_->Flush(&last_frame_mumber);
+    assert(ret == NO_ERROR);
+
+    // inform all active ports that streaming is interrupted
+    for (auto port : active_ports_) {
+      ret = port->Pause();
+      assert(ret == NO_ERROR);
+    }
+  } else {
+    for (auto port : active_ports_) {
+      ret = port->Stop();
+      assert(ret == NO_ERROR);
+    }
+  }
+
+  // move all active streams to stopped streams
+  assert(stopped_stream_ids_.empty());
+  std::copy(streaming_active_requests_[0].streamIds.begin(),
+            streaming_active_requests_[0].streamIds.end(),
+            std::inserter(stopped_stream_ids_, stopped_stream_ids_.end()));
+  streaming_active_requests_[0].streamIds.clear();
+
+  port_paused_ = true;
+  streaming_request_id_ = -1;
+
+  QMMF_VERBOSE("%s Exit ", __func__);
+
+  return ret;
+}
+
+status_t CameraContext::ResumeActiveStreams(bool streaming_capture) {
+  QMMF_VERBOSE("%s Enter ", __func__);
+  status_t ret = NO_ERROR;
+
+  if (stopped_stream_ids_.empty()) {
+    QMMF_VERBOSE("%s Nothing to resume", __func__);
+    return NO_ERROR;
+  }
+
+  QMMF_INFO("%s: Restart Ports! streaming %d", __func__, streaming_capture);
+  for (auto port : active_ports_) {
+    if (streaming_capture) {
+      // If snapshot capture request is streaming, than we should only
+      // resume the port state. Other wise restarting of port will
+      // overwrite snapshot capture request.
+      ret = port->Resume();
+    } else {
+      // If snapshot capture request is not streaming, we have to restart port
+      // to ensure video steaming after snapshot capture.
+      ret = port->Start();
+    }
+    assert(ret == NO_ERROR);
+  }
+
+  stopped_stream_ids_.clear();
+  port_paused_ = false;
+
+  QMMF_VERBOSE("%s Exit ", __func__);
+
   return ret;
 }
 
@@ -2591,6 +2645,20 @@ status_t CameraPort::Stop() {
       __func__, port_id_, this);
 
   port_state_ = PortState::PORT_STOPPED;
+  return NO_ERROR;
+}
+
+status_t CameraPort::Pause() {
+  QMMF_VERBOSE("%s port state %d ", __func__, port_state_);
+  assert(port_state_ == PortState::PORT_STARTED);
+  port_state_ = PortState::PORT_PAUSED;
+  return NO_ERROR;
+}
+
+status_t CameraPort::Resume() {
+  QMMF_VERBOSE("%s port state %d ", __func__, port_state_);
+  assert(port_state_ == PortState::PORT_PAUSED);
+  port_state_ = PortState::PORT_STARTED;
   return NO_ERROR;
 }
 

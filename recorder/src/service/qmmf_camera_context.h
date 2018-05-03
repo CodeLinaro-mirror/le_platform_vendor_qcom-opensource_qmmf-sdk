@@ -189,6 +189,10 @@ class CameraContext : public CameraInterface,
 
   status_t CancelRequest();
 
+  status_t PauseActiveStreams(bool immedialtely = true);
+
+  status_t ResumeActiveStreams(bool streaming_capture);
+
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
@@ -357,6 +361,7 @@ enum class PortState {
   PORT_STARTED,
   PORT_READYTOSTOP,
   PORT_STOPPED,
+  PORT_PAUSED,
 };
 
 struct ZSLEntry {
@@ -383,6 +388,10 @@ class CameraPort {
   status_t Start();
 
   status_t Stop();
+
+  status_t Pause();
+
+  status_t Resume();
 
   // Apis to Add/Remove consumer at run time.
   status_t AddConsumer(sp<IBufferConsumer>& consumer);
