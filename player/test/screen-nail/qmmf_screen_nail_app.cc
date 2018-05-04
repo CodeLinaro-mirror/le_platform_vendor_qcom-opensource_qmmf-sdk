@@ -30,6 +30,7 @@
 #define LOG_TAG "ScreenNailApp"
 
 #include <dirent.h>
+#include <errno.h>
 
 #include <chrono>
 
@@ -62,7 +63,6 @@ using std::ios;
 using std::lock_guard;
 using std::make_shared;
 using std::mutex;
-using std::pair;
 using std::string;
 using std::shared_ptr;
 using std::static_pointer_cast;
@@ -300,6 +300,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
 
   struct ion_allocation_data alloc;
   struct ion_fd_data ionFdData;
+  struct ion_handle_data ionHandleData;
 
   if (index == kPortIndexInput) {
     void* vaddr = nullptr;
@@ -309,6 +310,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
       memset(&buffer, 0x0, sizeof(buffer));
       memset(&alloc, 0x0, sizeof(ion_allocation_data));
       memset(&ionFdData, 0x0, sizeof(ion_fd_data));
+      memset(&ionHandleData, 0x0, sizeof(ion_handle_data));
 
       alloc.len = size;
       alloc.len = (alloc.len + 4095) & (~4095);
@@ -324,6 +326,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
       }
 
       ionFdData.handle = alloc.handle;
+      ionHandleData.handle =  alloc.handle;
 
       // Send a request to create a file descriptor to use to share an
       // allocation
@@ -340,7 +343,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
               strerror(errno), errno);
         goto ION_MAP_FAILED;
       }
-      input_ion_handle_data.push_back(alloc);
+      input_ion_handle_data_.insert({ionFdData.fd, ionHandleData});
 
       buffer.fd = ionFdData.fd;
       buffer.capacity = alloc.len;
@@ -362,6 +365,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
       memset(&buffer, 0x0, sizeof(buffer));
       memset(&alloc, 0x0, sizeof(ion_allocation_data));
       memset(&ionFdData, 0x0, sizeof(ion_fd_data));
+      memset(&ionHandleData, 0x0, sizeof(ion_handle_data));
 
       alloc.len = size;
       alloc.len = (alloc.len + 4095) & (~4095);
@@ -376,6 +380,8 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
       }
 
       ionFdData.handle = alloc.handle;
+      ionHandleData.handle = alloc.handle;
+
       ret = ioctl(ion_device_, ION_IOC_SHARE, &ionFdData);
       if (ret < 0) {
         ALOGE("VideoDecode:%s: ION map failed %s", __func__, strerror(errno));
@@ -390,7 +396,7 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
         goto ION_MAP_FAILED;
       }
 
-      output_ion_handle_data.push_back(alloc);
+      output_ion_handle_data_.insert({ionFdData.fd, ionHandleData});
 
       buffer.fd = ionFdData.fd;
       buffer.capacity = alloc.len;
@@ -408,7 +414,6 @@ int32_t VideoDecode::AllocateBuffer(const uint32_t index) {
   return ret;
 
 ION_MAP_FAILED:
-  struct ion_handle_data ionHandleData;
   memset(&ionHandleData, 0x0, sizeof(IonHandleData));
   ionHandleData.handle = ionFdData.handle;
   ioctl(ion_device_, ION_IOC_FREE, &ionHandleData);
@@ -423,40 +428,51 @@ ION_ALLOC_FAILED:
 void VideoDecode::ReleaseBuffer(const uint32_t index) {
   ALOGI("VideoDecode:%s: Enter ", __func__);
 
+  assert(ion_device_ > 0);
   if (index == kPortIndexInput) {
-    int i = 0;
     for (auto& iter : input_buffer_list_) {
       if ((iter).data) {
         munmap((iter).data, (iter).capacity);
         (iter).data = nullptr;
       }
-      if ((iter).fd) {
-        ioctl(ion_device_, ION_IOC_FREE, &(input_ion_handle_data[i]));
+      if ((iter).fd > 0) {
+        auto it = input_ion_handle_data_.find(iter.fd);
         close((iter).fd);
         (iter).fd = -1;
+        auto ret = ioctl(ion_device_, ION_IOC_FREE, &(it->second));
+        if(ret < 0) {
+          ALOGE("VideoDecode:%s: ION Free failed for Input-Port:(%d) %s",
+              __func__, errno, strerror(errno));
+        } else {
+          ALOGD("VideoDecode:%s: ION Free successful for Input-Port", __func__);
+        }
       }
-      ++i;
     }
     input_buffer_list_.clear();
-    input_ion_handle_data.clear();
+    input_ion_handle_data_.clear();
   }
 
   if (index == kPortIndexOutput) {
-    int i = 0;
     for (auto& iter : output_buffer_list_) {
       if ((iter).data) {
         munmap((iter).data, (iter).capacity);
         (iter).data = nullptr;
       }
-      if ((iter).fd) {
-        ioctl(ion_device_, ION_IOC_FREE, &(output_ion_handle_data[i]));
+      if ((iter).fd > 0) {
+        auto it = output_ion_handle_data_.find(iter.fd);
         close((iter).fd);
         (iter).fd = -1;
+        auto ret = ioctl(ion_device_, ION_IOC_FREE, &(it->second));
+        if(ret < 0) {
+          ALOGE("VideoDecode:%s: ION Free failed for Output-Port:(%d) %s",
+              __func__, errno, strerror(errno));
+        } else {
+          ALOGD("VideoDecode:%s: ION Free successful for Output-Port", __func__);
+        }
       }
-      ++i;
     }
     output_buffer_list_.clear();
-    output_ion_handle_data.clear();
+    output_ion_handle_data_.clear();
   }
 
   ALOGI("VideoDecode:%s: Exit", __func__);
@@ -551,8 +567,7 @@ int32_t VideoDecode::InputCodecSourceImpl::GetBuffer(
         stream_buffer.ToString().c_str());
   {
     lock_guard<mutex> lg(input_occupy_buffer_map_lock_);
-    input_occupy_buffer_map_.insert(
-        pair<void*, BufferDescriptor>(buffer.data, buffer));
+    input_occupy_buffer_map_.insert({buffer.data, buffer});
   }
   {
     lock_guard<mutex> lg(input_free_buffer_vector_lock_);
@@ -831,8 +846,7 @@ int32_t VideoDecode::OutputCodecSourceImpl::GetBuffer(
         codec_buffer.ToString().c_str());
   {
     lock_guard<mutex> lg(output_occupy_buffer_map_lock_);
-    output_occupy_buffer_map_.insert(
-        pair<int32_t, BufferDescriptor>(codec_buffer.fd, codec_buffer));
+    output_occupy_buffer_map_.insert({codec_buffer.fd, codec_buffer});
   }
   {
     lock_guard<mutex> lg(output_free_buffer_vector_lock_);
@@ -1093,6 +1107,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
 
   struct ion_allocation_data alloc;
   struct ion_fd_data ionFdData;
+  struct ion_handle_data ionHandleData;
 
   if (index == kPortIndexInput) {
     size = VENUS_Y_STRIDE(COLOR_FMT_NV12, create_param_.video_enc_param.width) *
@@ -1102,6 +1117,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
     memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ionFdData, 0x0, sizeof(ion_fd_data));
+    memset(&ionHandleData, 0x0, sizeof(ion_handle_data));
 
     ALOGE("Width:%d, height:%d, size:%d", create_param_.video_enc_param.width,
           create_param_.video_enc_param.height, size);
@@ -1118,6 +1134,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
     }
 
     ionFdData.handle = alloc.handle;
+    ionHandleData.handle =  alloc.handle;
     ret = ioctl(ion_device_, ION_IOC_SHARE, &ionFdData);
     if (ret < 0) {
       ALOGE("JpegEncode:%s:Input-Port: ION map failed %s", __func__,
@@ -1125,7 +1142,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
       goto ION_MAP_FAILED;
     }
 
-    input_ion_handle_data.push_back(alloc);
+    input_ion_handle_data_.insert({ionFdData.fd, ionHandleData});
 
     private_handle_t* meta_handle = new private_handle_t(
         static_cast<int>(ionFdData.fd), static_cast<unsigned int>(alloc.len),
@@ -1149,6 +1166,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
         meta_handle->width, meta_handle->height, meta_handle->unaligned_width,
         meta_handle->unaligned_height);
 
+    buffer.fd = ionFdData.fd;
     buffer.size = alloc.len;
     buffer.data = meta_handle;
 
@@ -1160,6 +1178,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
     memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ionFdData, 0x0, sizeof(ion_fd_data));
+    memset(&ionHandleData, 0x0, sizeof(ion_handle_data));
 
     alloc.len = size;
     alloc.len = (alloc.len + 4095) & (~4095);
@@ -1174,6 +1193,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
     }
 
     ionFdData.handle = alloc.handle;
+    ionHandleData.handle = alloc.handle;
     ret = ioctl(ion_device_, ION_IOC_SHARE, &ionFdData);
     if (ret < 0) {
       ALOGE("JpegEncode:%s:output-Port: ION map failed %s", __func__,
@@ -1189,7 +1209,7 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
       goto ION_MAP_FAILED;
     }
 
-    output_ion_handle_data.push_back(alloc);
+    output_ion_handle_data_.insert({ionFdData.fd, ionHandleData});
 
     buffer.fd = ionFdData.fd;
     buffer.capacity = alloc.len;
@@ -1207,7 +1227,6 @@ int32_t JpegEncode::AllocateBuffer(const uint32_t index) {
   return ret;
 
 ION_MAP_FAILED:
-  struct ion_handle_data ionHandleData;
   memset(&ionHandleData, 0x0, sizeof(IonHandleData));
   ionHandleData.handle = ionFdData.handle;
   ioctl(ion_device_, ION_IOC_FREE, &ionHandleData);
@@ -1221,12 +1240,10 @@ ION_ALLOC_FAILED:
 
 void JpegEncode::ReleaseBuffer() {
   ALOGI("JpegEncode:%s: Enter ", __func__);
-
-  for (auto& iter : input_ion_handle_data) {
-    ioctl(ion_device_, ION_IOC_FREE, &iter);
-  }
+  assert(ion_device_ > 0);
 
   for (auto& iter : input_buffer_list_) {
+    auto it = output_ion_handle_data_.find(iter.fd);
     private_handle_t* meta_handle =
         reinterpret_cast<private_handle_t*>((iter).data);
     if (meta_handle->fd) {
@@ -1235,25 +1252,38 @@ void JpegEncode::ReleaseBuffer() {
       delete meta_handle;
       meta_handle = nullptr;
     }
+    iter.data = nullptr;
+    auto ret = ioctl(ion_device_, ION_IOC_FREE, &(it->second));
+    if(ret < 0) {
+      ALOGE("JpegEncode:%s: ION Free failed for Input-Port(%d) %s",
+          __func__, errno, strerror(errno));
+    } else {
+      ALOGD("VideoDecode:%s: ION Free successful for Input-Port", __func__);
+    }
   }
   input_buffer_list_.clear();
-  input_ion_handle_data.clear();
+  input_ion_handle_data_.clear();
 
-  int i = 0;
   for (auto& iter : output_buffer_list_) {
     if ((iter).data) {
       munmap((iter).data, (iter).capacity);
       (iter).data = nullptr;
     }
-    if ((iter).fd) {
-      ioctl(ion_device_, ION_IOC_FREE, &(output_ion_handle_data[i]));
+    if ((iter).fd > 0) {
+      auto it = output_ion_handle_data_.find(iter.fd);
       close((iter).fd);
       (iter).fd = -1;
+      auto ret = ioctl(ion_device_, ION_IOC_FREE, &(it->second));
+      if(ret < 0) {
+        ALOGE("JpegEncode:%s:Output-Port: ION Free failed for Output-Port(%d) %s",
+            __func__, errno, strerror(errno));
+      } else {
+        ALOGD("JpegEncode:%s: ION Free successful for Output-Port", __func__);
+      }
     }
-    ++i;
   }
   output_buffer_list_.clear();
-  output_ion_handle_data.clear();
+  output_ion_handle_data_.clear();
 
   ALOGI("JpegEncode:%s: Exit", __func__);
 }

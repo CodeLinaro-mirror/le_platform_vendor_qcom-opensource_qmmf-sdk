@@ -220,8 +220,11 @@ class VideoDecode {
   std::shared_ptr<OutputCodecSourceImpl> output_codec_src_;
   std::vector<qmmf::BufferDescriptor> input_buffer_list_;
   std::vector<qmmf::BufferDescriptor> output_buffer_list_;
-  std::vector<IonHandleData> input_ion_handle_data;
-  std::vector<IonHandleData> output_ion_handle_data;
+
+  // The maps are a mapping between the Ion FD and the Ion handle used
+  // to allocate the buffers for input and output port respectively.
+  std::map<int, struct ion_handle_data> input_ion_handle_data_;
+  std::map<int, struct ion_handle_data> output_ion_handle_data_;
 };
 
 // Class JpegEncode
@@ -319,8 +322,11 @@ class JpegEncode {
   qmmf::avcodec::CodecParam create_param_;
   std::shared_ptr<InputCodecSourceImpl> input_codec_src_;
   std::shared_ptr<OutputCodecSourceImpl> output_codec_src_;
-  std::vector<IonHandleData> input_ion_handle_data;
-  std::vector<IonHandleData> output_ion_handle_data;
+
+  // The maps are a mapping between the Ion FD and the Ion handle used
+  // to allocate the buffers for input and output port respectively.
+  std::map<int, struct ion_handle_data> input_ion_handle_data_;
+  std::map<int, struct ion_handle_data> output_ion_handle_data_;
   std::vector<qmmf::BufferDescriptor> input_buffer_list_;
   std::vector<qmmf::BufferDescriptor> output_buffer_list_;
 };
