@@ -212,10 +212,11 @@ struct DisplayParam {
 };
 
 enum class TrickModeSpeed {
-  kSpeed_1x = 1 << 0,
-  kSpeed_2x = 1 << 1,
-  kSpeed_4x = 1 << 2,
-  kSpeed_8x = 1 << 3,
+  kSpeed_1x = 1,
+  kSpeed_2x = 2,
+  kSpeed_3x = 3,
+  kSpeed_4x = 4,
+  kSpeed_8x = 8,
 };
 
 enum class TrickModeDirection {
