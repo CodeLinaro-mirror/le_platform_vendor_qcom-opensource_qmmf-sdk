@@ -93,7 +93,8 @@ AudioDecoderCore::~AudioDecoderCore() {
   QMMF_INFO("%s: Exit", __func__);
 }
 
-status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params) {
+status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params,
+                                            TrackCb& callback) {
   QMMF_DEBUG("%s: Enter", __func__);
 
   if (ion_device_ < 0) {
@@ -111,7 +112,7 @@ status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params) {
     return NO_MEMORY;
   }
 
-  ret = audio_track_decoder->ConfigureTrackDecoder(params);
+  ret = audio_track_decoder->ConfigureTrackDecoder(params, callback);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) AudioTrackEncoder Init failed!", __func__,
         params.track_id);
@@ -435,13 +436,14 @@ AudioTrackDecoder::~AudioTrackDecoder() {
 }
 
 status_t AudioTrackDecoder::ConfigureTrackDecoder(
-    AudioTrackParams& track_params) {
+    AudioTrackParams& track_params, TrackCb& callback) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_params.track_id);
   audio_track_params_ = track_params;
 
   status_t ret = NO_ERROR;
 
   avcodec_ = new AVCodec();
+  callback_ = callback;
 
   CodecParam codec_param;
   memset(&codec_param, 0x0, sizeof(codec_param));
@@ -502,6 +504,11 @@ status_t AudioTrackDecoder::PreparePipeline(
          iter.fd);
      unfilled_frame_queue_.PushBack(iter);
   }
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                     &input_buffer_notify_params_,
+                     sizeof(input_buffer_notify_params_));
 
   audio_track_sink->AddBufferList(output_buffer_list_);
 
@@ -829,6 +836,13 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
       found = true;
       break;
     }
+  }
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                       &input_buffer_notify_params_,
+                       sizeof(input_buffer_notify_params_));
   }
 
   assert(found == true);

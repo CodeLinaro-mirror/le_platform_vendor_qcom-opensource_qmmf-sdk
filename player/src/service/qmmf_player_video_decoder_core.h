@@ -53,7 +53,8 @@ class VideoDecoderCore {
 
   static VideoDecoderCore* CreateVideoDecoderCore();
 
-  status_t CreateVideoTrack(VideoTrackParams& params);
+  status_t CreateVideoTrack(VideoTrackParams& params,
+                            TrackCb& callback);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
       std::vector<AVCodecBuffer>& buffers);
@@ -111,7 +112,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   ~VideoTrackDecoder();
 
-  status_t ConfigureTrackDecoder(VideoTrackParams& track_params);
+  status_t ConfigureTrackDecoder(VideoTrackParams& track_params,
+                                 TrackCb& callback);
 
   status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
@@ -201,6 +203,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   time_point<high_resolution_clock>   prev_time_;
   uint32_t                            player_decode_profile_;
   bool                                stop_received_;
+  TrackCb                             callback_;
+  InputBufferNotifyParams             input_buffer_notify_params_;
 };
 
 };  // namespace player

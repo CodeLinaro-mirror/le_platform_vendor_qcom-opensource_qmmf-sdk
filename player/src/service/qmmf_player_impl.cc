@@ -188,15 +188,6 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
 
   DebugAudioTrackCreateParam(__func__, param);
 
-  if (param.codec == AudioFormat::kAMR ||
-      param.codec == AudioFormat::kG711) {
-    result = audio_decoder_core_->CreateAudioTrack(audio_track_param);
-    if (result != NO_ERROR) {
-        QMMF_ERROR("%s: CreateAudioTrack failed!", __func__);
-        return BAD_VALUE;
-    }
-  }
-
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -205,6 +196,15 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
     NotifyAudioTrackEventCallback(track_id, event_type, event_data,
                                   event_data_size);
   };
+
+  if (param.codec == AudioFormat::kAMR ||
+      param.codec == AudioFormat::kG711) {
+    result = audio_decoder_core_->CreateAudioTrack(audio_track_param, track_cb);
+    if (result != NO_ERROR) {
+        QMMF_ERROR("%s: CreateAudioTrack failed!", __func__);
+        return BAD_VALUE;
+    }
+  }
 
   if (param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
@@ -255,12 +255,6 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
 
   DebugVideoTrackCreateParam(__func__, param);
 
-  result = video_decoder_core_->CreateVideoTrack(video_track_param);
-  if (result != NO_ERROR) {
-      QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
-      return BAD_VALUE;
-    }
-
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -269,6 +263,12 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
     NotifyVideoTrackEventCallback(track_id, event_type, event_data,
                                   event_data_size);
   };
+
+  result = video_decoder_core_->CreateVideoTrack(video_track_param, track_cb);
+  if (result != NO_ERROR) {
+      QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
+      return BAD_VALUE;
+    }
 
   assert(video_sink_ != nullptr);
   result = video_sink_->CreateTrackSink(track_id, video_track_param, track_cb);
