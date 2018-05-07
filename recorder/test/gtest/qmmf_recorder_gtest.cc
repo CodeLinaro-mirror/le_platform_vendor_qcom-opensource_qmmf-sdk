@@ -16536,6 +16536,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
     // Record a few seconds
     sleep(5);
 
+    // Set zoom.
     CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -20339,7 +20340,7 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSSmoothZoom) {
     sleep(5);
 
     // Set zoom.
-    auto status = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
     float zoom = 2.0f;
@@ -26071,7 +26072,7 @@ TEST_F(RecorderGtest, SessionWith1440p30FPSSmoothZoom) {
     sleep(5);
 
     // Set zoom.
-    auto status = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
     float zoom = 2.0f;
@@ -26233,7 +26234,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSSmoothZoom) {
     sleep(5);
 
     // Set zoom.
-    auto status = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
     float zoom = 2.0f;
