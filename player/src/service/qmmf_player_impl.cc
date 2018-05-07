@@ -641,11 +641,17 @@ status_t PlayerImpl::Resume() {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
-        if (tracks_[i].codec == AudioFormat::kAMR ||
-            tracks_[i].codec == AudioFormat::kG711)
-          ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
-        else
-          ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
+        drag_lock_.lock();
+        if(!drag_) {
+          drag_lock_.unlock();
+          if (tracks_[i].codec == AudioFormat::kAMR ||
+              tracks_[i].codec == AudioFormat::kG711)
+            ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+          else
+            ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
+        } else {
+          drag_lock_.unlock();
+        }
       }
     }
 
@@ -679,13 +685,44 @@ status_t PlayerImpl::Drag() {
   drag_= true;
   drag_lock_.unlock();
 
-  auto ret = Resume();
+  size_t num_tracks= tracks_.size();
+  status_t ret = 0;
+
+  for (size_t i = 0; i < num_tracks; i++) {
+    if ((tracks_[i].type == TrackType::kAudio)&& (!IsTrickModeEnabled())) {
+      if (tracks_[i].codec == AudioFormat::kAMR ||
+          tracks_[i].codec == AudioFormat::kG711) {
+        ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Failed to Stop Track Decoder in Drag", __func__);
+          return ret;
+        }
+        ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Failed to Start Track Decoder in Drag", __func__);
+          return ret;
+        }
+      } else {
+        ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Failed to Stop Raw Track Sink in Drag", __func__);
+          return ret;
+        }
+        ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Failed to Start Raw Track Sink in Drag", __func__);
+          return ret;
+        }
+      }
+    }
+  }
+
+  ret = Resume();
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s: Resume for Drag failed", __func__);
     return ret;
   }
 
-  size_t num_tracks= tracks_.size();
   for (size_t i = 0; i < num_tracks; i++) {
     if (tracks_[i].type == TrackType::kVideo) {
       ret = video_decoder_core_->PrepareDrag(tracks_[i].track_id, true);
