@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,43 +29,39 @@
 
 #pragma once
 
-#include <functional>
-#include "common/utils/qmmf_common_utils.h"
-#include "common/cameraadaptor/qmmf_camera3_types.h"
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <string>
 
-namespace qmmf {
+#include "include/qmmf-sdk/qmmf_buffer.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-using namespace cameraadaptor;
+class RecorderTestMpegh
+{
+ public:
+  RecorderTestMpegh();
+  ~RecorderTestMpegh();
 
-namespace recorder {
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
-class IPostProc {
-public:
-  virtual status_t ReturnStreamBuffer(StreamBuffer buffer) = 0;
+  int32_t Open();
+  void Close();
 
-  virtual status_t CreateDeviceStream(CameraStreamParameters& params,
-                                      uint32_t frame_rate,
-                                      int32_t* stream_id,
-                                      bool cache) = 0;
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
-  virtual status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                           int32_t* stream_id,
-                                           bool cache) = 0;
+ private:
+  ::std::mutex lock_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
-  virtual status_t SubmitRequest(Camera3Request request,
-                                 bool is_streaming,
-                                 int64_t *lastFrameNumber) = 0;
-
-  virtual status_t DeleteDeviceStream(int32_t stream_id, bool cache) = 0;
-
-  virtual status_t CreateCaptureRequest(Camera3Request& request,
-                                  camera3_request_template_t template_type) = 0;
-
-  virtual CameraMetadata GetCameraStaticMeta() = 0;
-
-  virtual ~IPostProc() {};
+  // disable copy, assignment, and move
+  RecorderTestMpegh(const RecorderTestMpegh&) = delete;
+  RecorderTestMpegh(RecorderTestMpegh&&) = delete;
+  RecorderTestMpegh& operator=(const RecorderTestMpegh&) = delete;
+  RecorderTestMpegh& operator=(const RecorderTestMpegh&&) = delete;
 };
-
-}; //namespace recorder
-
-}; //namespace qmmf

@@ -28,7 +28,11 @@
 */
 
 #pragma once
+#ifdef ANDROID_O_OR_ABOVE
+#include <cutils/native_handle.h>
+#else
 #include <system/window.h>
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -236,6 +240,8 @@ typedef enum {
 
   QMMF_ALG_PIXFMT_NV12 = 0x600,
   QMMF_ALG_PIXFMT_NV21 = 0x601,
+
+  QMMF_ALG_PIXFMT_YCbCr_420_SP_VENUS_UBWC = 0x610,
 
   QMMF_ALG_PIXFMT_YUV420 = 0x700,
   QMMF_ALG_PIXFMT_YVU420 = 0x701,

@@ -54,7 +54,8 @@ PlayerImpl::PlayerImpl()
       audio_sink_(nullptr), audio_raw_sink_(nullptr), video_sink_(nullptr),
       current_state_(PlayerState::QPLAYER_STATE_IDLE),
       trick_mode_speed_(TrickModeSpeed::kSpeed_1x),
-      trick_mode_dir_(TrickModeDirection::kNormalForward)
+      trick_mode_dir_(TrickModeDirection::kNormalForward),
+      drag_(false)
 {
   QMMF_INFO("%s: Enter", __func__);
   QMMF_INFO("%s: Exit", __func__);
@@ -188,15 +189,6 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
 
   DebugAudioTrackCreateParam(__func__, param);
 
-  if (param.codec == AudioFormat::kAMR ||
-      param.codec == AudioFormat::kG711) {
-    result = audio_decoder_core_->CreateAudioTrack(audio_track_param);
-    if (result != NO_ERROR) {
-        QMMF_ERROR("%s: CreateAudioTrack failed!", __func__);
-        return BAD_VALUE;
-    }
-  }
-
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -205,6 +197,15 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
     NotifyAudioTrackEventCallback(track_id, event_type, event_data,
                                   event_data_size);
   };
+
+  if (param.codec == AudioFormat::kAMR ||
+      param.codec == AudioFormat::kG711) {
+    result = audio_decoder_core_->CreateAudioTrack(audio_track_param, track_cb);
+    if (result != NO_ERROR) {
+        QMMF_ERROR("%s: CreateAudioTrack failed!", __func__);
+        return BAD_VALUE;
+    }
+  }
 
   if (param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
@@ -255,12 +256,6 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
 
   DebugVideoTrackCreateParam(__func__, param);
 
-  result = video_decoder_core_->CreateVideoTrack(video_track_param);
-  if (result != NO_ERROR) {
-      QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
-      return BAD_VALUE;
-    }
-
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -269,6 +264,12 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
     NotifyVideoTrackEventCallback(track_id, event_type, event_data,
                                   event_data_size);
   };
+
+  result = video_decoder_core_->CreateVideoTrack(video_track_param, track_cb);
+  if (result != NO_ERROR) {
+      QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
+      return BAD_VALUE;
+    }
 
   assert(video_sink_ != nullptr);
   result = video_sink_->CreateTrackSink(track_id, video_track_param, track_cb);
@@ -510,14 +511,29 @@ status_t PlayerImpl::Stop(const PictureParam& params) {
   status_t ret = NO_ERROR;
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_STOPPED))
-  return NO_ERROR;
+    return NO_ERROR;
 
   if (current_state_ & (PlayerState::QPLAYER_STATE_PREPARED |
                         PlayerState::QPLAYER_STATE_STARTED |
                         PlayerState::QPLAYER_STATE_PAUSED |
                         PlayerState::QPLAYER_STATE_DRAINED)) {
     size_t num_tracks = tracks_.size();
-
+    drag_lock_.lock();
+    if (drag_) {
+      for (size_t i = 0; i < num_tracks; i++) {
+        if (tracks_[i].type == TrackType::kVideo) {
+          ret = video_decoder_core_->PrepareDrag(tracks_[i].track_id, false);
+          if (ret != NO_ERROR) {
+            QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+            return ret;
+          }
+        }
+      }
+      drag_ = false;
+      drag_lock_.unlock();
+    } else {
+      drag_lock_.unlock();
+    }
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         BufferDescriptor grab_buffer;
@@ -525,7 +541,7 @@ status_t PlayerImpl::Stop(const PictureParam& params) {
                                                     params, &grab_buffer);
         if (grab_buffer.data != nullptr)
           NotifyGrabPictureDataCallback(tracks_[i].track_id, grab_buffer);
-      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
+      } else if ((tracks_[i].type == TrackType::kAudio)&& (!IsTrickModeEnabled())) {
         if (tracks_[i].codec == AudioFormat::kAMR ||
             tracks_[i].codec == AudioFormat::kG711)
           ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
@@ -595,6 +611,25 @@ status_t PlayerImpl::Resume() {
   Mutex::Autolock lock(state_lock_);
   status_t ret = NO_ERROR;
 
+  drag_lock_.lock();
+  if ((current_state_ & PlayerState::QPLAYER_STATE_STARTED) && drag_) {
+    size_t num_tracks = tracks_.size();
+    for (size_t i = 0; i < num_tracks; i++) {
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->PrepareDrag(tracks_[i].track_id, false);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+          return ret;
+        }
+      }
+    }
+    drag_ = false;
+    drag_lock_.unlock();
+    return NO_ERROR;
+  } else {
+    drag_lock_.unlock();
+  }
+
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
                         PlayerState::QPLAYER_STATE_STOPPED))
     return NO_ERROR;
@@ -625,6 +660,44 @@ status_t PlayerImpl::Resume() {
   QMMF_DEBUG("%s: state is now %d", __func__, current_state_);
   QMMF_INFO("%s: Exit", __func__);
   return ret;
+}
+
+status_t PlayerImpl::Drag() {
+  QMMF_INFO("%s: Enter", __func__);
+
+  {
+    Mutex::Autolock lock(state_lock_);
+    if (!(current_state_ & PlayerState::QPLAYER_STATE_PAUSED)) {
+      QMMF_ERROR("%s: Drag called in Invalid State(%d)", __func__,
+          static_cast<std::underlying_type<PlayerState>::type>(current_state_));
+      return BAD_VALUE;
+    }
+  }
+
+  drag_lock_.lock();
+  assert(drag_ == false);
+  drag_= true;
+  drag_lock_.unlock();
+
+  auto ret = Resume();
+  if(ret != NO_ERROR) {
+    QMMF_ERROR("%s: Resume for Drag failed", __func__);
+    return ret;
+  }
+
+  size_t num_tracks= tracks_.size();
+  for (size_t i = 0; i < num_tracks; i++) {
+    if (tracks_[i].type == TrackType::kVideo) {
+      ret = video_decoder_core_->PrepareDrag(tracks_[i].track_id, true);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+        return ret;
+      }
+    }
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return NO_ERROR;
 }
 
 status_t PlayerImpl::SetPosition(int64_t seek_time) {

@@ -100,6 +100,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   node_out_param.buffer_count  = pipe_out_param.buffer_count;
   node_out_param.buffer_max    = pipe_out_param.max_internal_buffers;
   node_out_param.format = Common::FromHalToQmmfFormat(pipe_out_param.format);
+  node_out_param.internal_format = pipe_out_param.internal_format;
 
   // Add format conversion node if pipe is empty
   if (pipe_.empty()) {
@@ -284,6 +285,7 @@ bool PostProcPipe::IsYUVFormat(const BufferFormat &format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
     case BufferFormat::kNV12UBWC:
+    case BufferFormat::kNV16:
       return true;
     default:
       return false;
@@ -322,7 +324,8 @@ bool PostProcPipe::SupportsRAWFormat(const std::set<BufferFormat> &formats) {
 bool PostProcPipe::SupportsYUVFormat(const std::set<BufferFormat> &formats) {
   if (formats.count(BufferFormat::kNV12) != 0 ||
       formats.count(BufferFormat::kNV21) != 0 ||
-      formats.count(BufferFormat::kNV12UBWC) != 0) {
+      formats.count(BufferFormat::kNV12UBWC) != 0 ||
+      formats.count(BufferFormat::kNV16) != 0) {
     return true;
   }
   return false;

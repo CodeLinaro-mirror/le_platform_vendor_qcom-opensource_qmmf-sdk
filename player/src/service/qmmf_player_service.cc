@@ -335,6 +335,14 @@ namespace player {
     }
     break;
 
+    case PLAYER_DRAG:
+    {
+      ret = Drag();
+      reply->writeInt32(ret);
+      return NO_ERROR;
+    }
+    break;
+
     case PLAYER_SET_POSITION:
     {
       int64_t seek_time;
@@ -618,6 +626,22 @@ status_t PlayerService::Resume() {
   auto ret = player_->Resume();
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: Resume failed!", __func__);
+    return BAD_VALUE;
+  }
+  QMMF_DEBUG("%s: Exit ", __func__);
+  return ret;
+}
+
+status_t PlayerService::Drag() {
+  QMMF_DEBUG("%s: Enter ", __func__);
+  if (!connected_)
+    return NO_INIT;
+
+  assert(player_ != NULL);
+
+  auto ret = player_->Drag();
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s: Drag failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);

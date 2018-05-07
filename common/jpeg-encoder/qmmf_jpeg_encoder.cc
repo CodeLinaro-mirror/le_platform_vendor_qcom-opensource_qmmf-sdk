@@ -215,6 +215,9 @@ int32_t JpegEncoder::ConfigureMainImage(const encode_params &params) {
     case BufferFormat::kNV21:
       cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
       break;
+    case BufferFormat::kNV16:
+      cfg->params_.color_format = MM_JPEG_COLOR_FORMAT_YCBCRLP_H2V1;
+      break;
     default:
       break;
   }

@@ -232,6 +232,18 @@ status_t Player::Resume() {
   return ret;
 }
 
+status_t Player::Drag() {
+  QMMF_INFO("%s: Enter", __func__);
+  assert(player_client_ != nullptr);
+
+  auto ret = player_client_->Drag();
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Drag failed!", __func__);
+  }
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t Player::SetPosition(int64_t seek_time) {
   QMMF_INFO("%s: Enter", __func__);
   assert(player_client_ != nullptr);

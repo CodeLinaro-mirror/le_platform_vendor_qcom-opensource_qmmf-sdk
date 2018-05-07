@@ -56,7 +56,8 @@ class AudioDecoderCore {
 
   static AudioDecoderCore* CreateAudioDecoderCore();
 
-  status_t CreateAudioTrack(AudioTrackParams& params);
+  status_t CreateAudioTrack(AudioTrackParams& params,
+                            TrackCb& callback);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
                          std::vector<AVCodecBuffer>& buffers);
@@ -105,7 +106,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   ~AudioTrackDecoder();
 
-  status_t ConfigureTrackDecoder(AudioTrackParams& track_params);
+  status_t ConfigureTrackDecoder(AudioTrackParams& track_params,
+                                 TrackCb& callback);
 
   status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
@@ -181,6 +183,9 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 #ifdef DUMP_PCM_DATA
   int32_t                   file_fd_audio_;
 #endif
+  TrackCb                   callback_;
+  InputBufferNotifyParams   input_buffer_notify_params_;
+
 };
 
 };  // namepsse player

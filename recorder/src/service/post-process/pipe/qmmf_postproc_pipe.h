@@ -53,6 +53,7 @@ struct PipeIOParam {
   int32_t gralloc_flags;
   uint32_t buffer_count;
   uint32_t max_internal_buffers;
+  BufferFormat internal_format;
   bool frame_skip;
   bool exif_en;
 };

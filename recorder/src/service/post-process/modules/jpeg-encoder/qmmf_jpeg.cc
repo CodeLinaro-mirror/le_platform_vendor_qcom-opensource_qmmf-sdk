@@ -84,13 +84,17 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
 
 PostProcIOParam PostProcJpeg::GetInput(const PostProcIOParam &out) {
   PostProcIOParam input_param = out;
-  input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
 
   // set number of needed buffers for rotation if client does not limit it
   if (out.buffer_max > 0 && out.buffer_max < kBufCount) {
     input_param.buffer_count = out.buffer_max;
   } else {
     input_param.buffer_count = kBufCount;
+  }
+  if (out.internal_format != BufferFormat::kUnsupported) {
+    input_param.format = out.internal_format;
+  } else {
+    input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
   }
   return input_param;
 }
@@ -269,7 +273,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   {
     std::lock_guard<std::mutex> lock(state_lock_);
     if (state_ != State::ACTIVE) {
-      listener_->OnFrameReady(out_buffer);
+      listener_->OnFrameReturn(out_buffer);
       listener_->OnFrameProcessed(in_buffer);
       return NO_ERROR;
     }

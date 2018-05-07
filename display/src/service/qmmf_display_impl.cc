@@ -643,6 +643,25 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   if (surfaceinfo->second->allocate_buffer_mode) {
     auto buf_state = surfaceinfo->second->buffer_state.find(surface_buffer.buf_id);
     if (buf_state->second->GetState() == BufferStates::kStateDequeued) {
+      for (auto prev_queued_buffer = surfaceinfo->second->buffer_state.begin();
+           prev_queued_buffer != surfaceinfo->second->buffer_state.end();
+           ++prev_queued_buffer) {
+        if (prev_queued_buffer->second->GetState() == BufferStates::kStateQueued) {
+          BufferStates state =
+              prev_queued_buffer->second->SetState(BufferStates::kStateFree);
+          if (state != BufferStates::kStateFree) {
+            QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d", __func__,
+                static_cast<std::underlying_type<BufferStates>::type>
+                (BufferStates::kStateFree), prev_queued_buffer->first);
+            return -EPERM;
+          }
+          QMMF_INFO("%s: The Buffer ION_FD:%d has been set to state:%u", __func__,
+              prev_queued_buffer->first,
+              static_cast<std::underlying_type<BufferStates>::type>
+              (BufferStates::kStateFree));
+          break;
+        }
+      }
       BufferStates state = buf_state->second->SetState(BufferStates::kStateQueued);
       if (state != BufferStates::kStateQueued) {
         QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d", __func__,
@@ -653,7 +672,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
         QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
             __func__, surface_buffer.plane_info[0].ion_fd,
             static_cast<std::underlying_type<BufferStates>::type>
-            (BufferStates::kStateFree));
+            (BufferStates::kStateQueued));
       }
     }
   } else {
@@ -679,18 +698,37 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
           bufferinfo->alloc_buffer_info.fd =
               surface_buffer.plane_info[0].ion_fd;
           if (it->second->GetState() == BufferStates::kStateDequeued) {
+            for (auto prev_queued_buffer = surfaceinfo->second->buffer_state.begin();
+                 prev_queued_buffer != surfaceinfo->second->buffer_state.end();
+                 ++prev_queued_buffer) {
+              if (prev_queued_buffer->second->GetState() == BufferStates::kStateQueued) {
+                BufferStates state =
+                    prev_queued_buffer->second->SetState(BufferStates::kStateFree);
+                if (state != BufferStates::kStateFree) {
+                  QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d", __func__,
+                      static_cast<std::underlying_type<BufferStates>::type>
+                      (BufferStates::kStateFree), prev_queued_buffer->first);
+                  return -EPERM;
+                }
+                QMMF_INFO("%s: The Buffer ION_FD:%d has been set to state:%u", __func__,
+                    prev_queued_buffer->first,
+                    static_cast<std::underlying_type<BufferStates>::type>
+                    (BufferStates::kStateFree));
+                break;
+              }
+            }
             BufferStates state = it->second->SetState(BufferStates::kStateQueued);
             if (state != BufferStates::kStateQueued) {
               QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
                   __func__, static_cast<std::underlying_type<BufferStates>::type>
                   (BufferStates::kStateQueued), surface_buffer.plane_info[0].ion_fd);
               return -EPERM;
-            }
-          } else {
-            QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
+            } else {
+              QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
                 __func__, surface_buffer.plane_info[0].ion_fd,
                 static_cast<std::underlying_type<BufferStates>::type>
                 (BufferStates::kStateQueued));
+            }
           }
         }
       }

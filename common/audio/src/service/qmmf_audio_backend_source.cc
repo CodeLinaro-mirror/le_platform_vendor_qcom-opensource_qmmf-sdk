@@ -210,6 +210,17 @@ int32_t AudioBackendSource::Open(const qahw_module_handle_t * const modules[],
     current_io_handle_ = kIOHandleMin;
   ++current_io_handle_;
 
+  /* Turn BT_SCO on if bt_sco recording */
+  if ((audio_devices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) ==
+      AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
+    result = qahw_set_parameters(qahw_module_, "BT_SCO=on");
+    if (result != 0) {
+      QMMF_ERROR("%s() failed to set BT_SCO=on : %d[%s]", __func__,
+                 result, strerror(result));
+      return result;
+    }
+  }
+
   audio_input_flags_t flags = static_cast<audio_input_flags_t>
                                          (QAHW_INPUT_FLAG_COMPRESS |
                                           QAHW_INPUT_FLAG_TIMESTAMP);
@@ -671,6 +682,9 @@ void AudioBackendSource::Thread() {
       qahw_buffer.timestamp = &buffer.timestamp;
 
       int result = qahw_in_read(qahw_stream_, &qahw_buffer);
+      QMMF_VERBOSE("%s() from aHAL: result[%d] qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
+                   __func__, result, qahw_buffer.buffer, qahw_buffer.bytes,
+                   qahw_buffer.offset, *(qahw_buffer.timestamp));
       if (result < 0) {
         QMMF_ERROR("%s() failed to read input stream: %d[%s]",
                    __func__, result, strerror(result));

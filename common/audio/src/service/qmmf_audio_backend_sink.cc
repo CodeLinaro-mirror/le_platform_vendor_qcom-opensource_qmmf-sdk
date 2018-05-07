@@ -902,9 +902,9 @@ void AudioBackendSink::Thread() {
                            bytes_written;
       qahw_buffer.bytes = buffer.size - bytes_written;
       qahw_buffer.timestamp = &buffer.timestamp;
-      QMMF_VERBOSE("%s() writing qahw_buffer[buffer[%p] bytes[%zu] timestamp[%lld]]",
+      QMMF_VERBOSE("%s() to aHAL: qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
                    __func__, qahw_buffer.buffer, qahw_buffer.bytes,
-                   *(qahw_buffer.timestamp));
+                   qahw_buffer.offset, *(qahw_buffer.timestamp));
 
       result = qahw_out_write(qahw_stream_, &qahw_buffer);
       if (result < 0) {

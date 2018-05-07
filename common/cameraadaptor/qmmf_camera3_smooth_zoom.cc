@@ -69,11 +69,11 @@ void Camera3SmoothZoom::Update(CaptureRequest &request) {
     return;
 
   if (max_width_ == 0 || max_height_ == 0) {
-    if (request.metadata.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    if (request.metadata.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
       max_width_ =
-        request.metadata.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
+        request.metadata.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[2];
       max_height_ =
-        request.metadata.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
+        request.metadata.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[3];
       QMMF_INFO("%s: max_width_ = %d, max_height_ = %d\n", __func__,
         max_width_, max_height_);
     }

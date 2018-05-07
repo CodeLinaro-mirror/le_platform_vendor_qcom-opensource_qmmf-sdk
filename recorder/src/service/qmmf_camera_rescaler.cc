@@ -213,6 +213,9 @@ int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
     case BufferFormat::kNV12:
       c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
       break;
+    case BufferFormat::kNV16:
+      c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
+      break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
           src_buffer.info.format);
@@ -394,7 +397,7 @@ int32_t FastCVRescaler::Init() {
     fastcv_level_ = FASTCV_OP_CPU_PERFORMANCE;
   }
 
-  int stat = fcvSetOperationMode(FASTCV_OP_LOW_POWER);
+  int stat = fcvSetOperationMode(static_cast<fcvOperationMode>(fastcv_level_));
   QMMF_INFO("%s: set fcvSetOperationMode %d",__func__, fastcv_level_);
 
   if (0 != stat) {
@@ -419,7 +422,8 @@ int32_t FastCVRescaler::CopyBuffer(StreamBuffer& src_buffer,
   size_t src_plane_y_len, dst_plane_y_len;
 
   if ((src_buffer.info.format != BufferFormat::kNV21) &&
-      (src_buffer.info.format != BufferFormat::kNV12)) {
+      (src_buffer.info.format != BufferFormat::kNV12) &&
+      (src_buffer.info.format != BufferFormat::kNV16)) {
     QMMF_ERROR("%s: Unsupported input format: 0x%x!",__func__,
         src_buffer.info.format);
     QMMF_ERROR("%s: Only NV12/NV21 are supported currently!", __func__);
@@ -991,6 +995,18 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_888:
+      info.format = BufferFormat::kNV16;
+      info.num_planes = 2;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[1].width = init_params_.width;
+      info.plane_info[1].height = init_params_.height;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,

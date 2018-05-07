@@ -54,7 +54,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
-static const nsecs_t kWaitDuration = 3000000000; // 3 s.
+static const nsecs_t kWaitDuration = 5000000000; // 5 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
 static const int32_t kDebugFrameSkip = 1<<2;
@@ -1057,6 +1057,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
+    case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:

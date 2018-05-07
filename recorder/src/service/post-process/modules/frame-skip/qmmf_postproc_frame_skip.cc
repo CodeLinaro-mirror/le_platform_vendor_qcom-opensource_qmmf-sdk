@@ -84,6 +84,7 @@ status_t PostProcFrameSkip::GetCapabilities(PostProcCaps &caps) {
   caps.formats_.insert(BufferFormat::kNV12);
   caps.formats_.insert(BufferFormat::kNV12UBWC);
   caps.formats_.insert(BufferFormat::kNV21);
+  caps.formats_.insert(BufferFormat::kNV16);
   caps.formats_.insert(BufferFormat::kBLOB);
   caps.formats_.insert(BufferFormat::kRAW8);
   caps.formats_.insert(BufferFormat::kRAW10);

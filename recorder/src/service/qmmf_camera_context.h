@@ -133,11 +133,12 @@ class CameraContext : public CameraInterface,
   status_t ReturnStreamBuffer(StreamBuffer buffer) override;
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
-                                   int32_t* stream_id) override;
+                                   int32_t* stream_id,
+                                   bool cache = false) override;
 
   status_t CreateDeviceStream(CameraStreamParameters& params,
-                              uint32_t frame_rate, int32_t* stream_id)
-                              override;
+                              uint32_t frame_rate, int32_t* stream_id,
+                              bool cache = false) override;
 
   int32_t SubmitRequest(Camera3Request request,
                         bool is_streaming,
@@ -188,6 +189,10 @@ class CameraContext : public CameraInterface,
 
   status_t CancelRequest();
 
+  status_t PauseActiveStreams(bool immedialtely = true);
+
+  status_t ResumeActiveStreams(bool streaming_capture);
+
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
 
@@ -204,7 +209,7 @@ class CameraContext : public CameraInterface,
 
   void ReprocessCaptureCallback(StreamBuffer buffer);
 
-  void CameraErrorCb(CameraErrorCode errorCode, const CaptureResultExtras &);
+  void CameraErrorCb(CameraErrorCode error_code, const CaptureResultExtras &);
 
   void CameraIdleCb();
 
@@ -251,6 +256,10 @@ class CameraContext : public CameraInterface,
 
 
   status_t ValidateCaptureConfig(const ImageConfigParam &config);
+
+  bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
+
+  bool IsNeedReconfigSapshotStream();
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
@@ -331,8 +340,14 @@ class CameraContext : public CameraInterface,
   std::vector<ImageThumbnail>   thumbnails_;
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
+  BufferFormat                  jpeg_input_format_;
+  BufferFormat                  new_jpeg_input_format_;
   uint32_t                      postproc_frame_skip_;
   bool                          exif_en_;
+  CameraStreamParameters        stream_param_;
+  bool                          restart_pipe_;
+  bool                          port_paused_;
+  std::set<int32_t>             stopped_stream_ids_;
 };
 
 enum class CameraPortType {
@@ -346,6 +361,7 @@ enum class PortState {
   PORT_STARTED,
   PORT_READYTOSTOP,
   PORT_STOPPED,
+  PORT_PAUSED,
 };
 
 struct ZSLEntry {
@@ -372,6 +388,10 @@ class CameraPort {
   status_t Start();
 
   status_t Stop();
+
+  status_t Pause();
+
+  status_t Resume();
 
   // Apis to Add/Remove consumer at run time.
   status_t AddConsumer(sp<IBufferConsumer>& consumer);

@@ -96,6 +96,9 @@ class Player
   // Resumes the currently paused playback
   status_t Resume();
 
+  // Starts the Drag Functionality
+  status_t Drag();
+
   // seek to a specified time position, the seek time is in microseconds
   // from the start to seek to
   status_t SetPosition(int64_t seek_time);
