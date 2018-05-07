@@ -16983,7 +16983,6 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshot) {
 *  - CreateSession1
 *  - CreateVideoTrack
 *  - Enable LCAC
-*  - Enable TNR
 *  - Start Session1
 *  - CreateSession2
 *  - CreateVideoTrack
@@ -17010,7 +17009,6 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
   CameraMetadata meta;
   TrackCb video_track_cb;
   uint8_t enable_lcac;
-  uint8_t tnr_mode;
 
   uint32_t session_id1;
   uint32_t session1_video_trackid = 1;
@@ -17094,15 +17092,6 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
-
-    //Enable TNR
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-        tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-        TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
-        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
-        status = recorder_.SetCameraParam(camera_id_, meta);
-        ASSERT_TRUE(ret == NO_ERROR);
-      }
 
     // Store Session 1 tracks
     session1_track_ids.push_back(session1_video_trackid);
@@ -17281,16 +17270,6 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
-    //Enable TNR
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-        tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-        TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
-        meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
-        status = recorder_.SetCameraParam(camera_id_, meta);
-        ASSERT_TRUE(ret == NO_ERROR);
-      }
-
-
     // Store Session 1 tracks
     session1_track_ids.push_back(session1_video_trackid);
     sessions_.insert(std::make_pair(session_id1, session1_track_ids));
@@ -17445,7 +17424,6 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
 *  - CreateSession1
 *  - CreateVideoTrack
 *  - Enable LCAC
-*  - Enable TNR
 *  - Start Session1
 *  - CreateSession2
 *  - CreateVideoTrack
@@ -17472,8 +17450,6 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
   CameraMetadata meta;
   TrackCb video_track_cb;
   uint8_t enable_lcac;
-  uint8_t tnr_mode;
-
 
   uint32_t session_id1;
   uint32_t session1_video_trackid = 1;
@@ -17557,16 +17533,6 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
-
-    //Enable TNR
-    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-      tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-      TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
-      status = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     // Store Session 1 tracks
     session1_track_ids.push_back(session1_video_trackid);
     sessions_.insert(std::make_pair(session_id1, session1_track_ids));
@@ -17749,16 +17715,6 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
-
-    //Enable TNR
-    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
-      tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-      TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
-      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
-      status = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     // Store Session 1 tracks
     session1_track_ids.push_back(session1_video_trackid);
     sessions_.insert(std::make_pair(session_id1, session1_track_ids));
