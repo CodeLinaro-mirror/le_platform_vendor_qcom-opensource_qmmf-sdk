@@ -394,6 +394,13 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
       surface_config.surface_transform.flip_vertical;
   layer->plane_alpha = 0xFF;
 
+  QMMF_DEBUG("%s: Buffer format: %d", __func__, layer->input_buffer.format);
+  QMMF_DEBUG("%s: Color Primaries value: %d", __func__,
+      layer->input_buffer.color_metadata.colorPrimaries);
+  if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus) {
+    layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
+    layer->input_buffer.color_metadata.range = Range_Limited;
+  }
   LayerStack* layer_stack = GetLayerStack(display_client_info->second->display_type,
       false);
   layer_stack->flags.flags=0;
@@ -403,11 +410,15 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
     } else if (error != kErrorPermission) {
       QMMF_ERROR("%s: Prepare failed. Error = %d", __func__, error);
     }
-    delete surfaceinfo;
+
+    QMMF_DEBUG("%s: display_handle::%d surface_id::%u", __func__, display_handle,
+        *surface_id);
     ret = FreeLayer(display_handle, *surface_id);
     if (ret != NO_ERROR) {
-     QMMF_DEBUG("%s: Failed to free surface_id::%u", __func__, *surface_id);
+      QMMF_ERROR("%s: Failed to free surface_id::%u", __func__, *surface_id);
     }
+    surface_info_map_.erase(*surface_id);
+    delete surfaceinfo;
     return error;
   }
   delete layer_stack;
@@ -473,6 +484,14 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
       return -EINVAL;
     }
 
+    QMMF_DEBUG("%s: display_handle::%d surface_id::%u", __func__, display_handle,
+        surface_id);
+    ret = FreeLayer(display_handle, surface_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to free surface_id::%u", __func__, surface_id);
+      return ret;
+    }
+
     for (auto& it : surfaceinfo->second->buffer_info) {
       if (surfaceinfo->second->allocate_buffer_mode) {
         QMMF_DEBUG("%s: Free alloc_buffer_info.fd ::%d", __func__, it.first);
@@ -493,13 +512,6 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
 
     surfaceinfo->second->buffer_info.clear();
     surfaceinfo->second->buffer_state.clear();
-    QMMF_DEBUG("%s: display_handle::%d surface_id::%u", __func__, display_handle,
-        surface_id);
-    ret = FreeLayer(display_handle, surface_id);
-    if (ret != NO_ERROR) {
-      QMMF_DEBUG("%s: Failed to free surface_id::%u", __func__, surface_id);
-      return ret;
-    }
 
     if (surfaceinfo->second != nullptr) {
       delete surfaceinfo->second;
@@ -619,8 +631,10 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
   layer->input_buffer.size = surface_buffer.plane_info[0].size;
   layer->input_buffer.planes[0].offset = surface_buffer.plane_info[0].offset;
   layer->input_buffer.planes[0].stride = surface_buffer.plane_info[0].stride;
-  layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
-  layer->input_buffer.color_metadata.range = Range_Limited;
+  if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus) {
+    layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
+    layer->input_buffer.color_metadata.range = Range_Limited;
+  }
   SetRect(surface_param.dst_rect, &layer->dst_rect);
   SetRect(surface_param.src_rect, &layer->src_rect);
   layer->blending = static_cast<LayerBlending>(surface_param.surface_blending);
@@ -1013,6 +1027,16 @@ status_t DisplayImpl::FreeLayer(DisplayHandle display_handle,
 
   Layer *layer = surfaceinfo->second->layer;
   assert(layer != nullptr);
+
+  LayerBuffer buffer = layer->input_buffer;
+  QMMF_DEBUG("%s: close buffer.release_fence_fd::%d, "
+      "buffer.acquire_fence_fd: %d", __func__,
+      buffer.release_fence_fd, buffer.acquire_fence_fd);
+  close(buffer.release_fence_fd);
+  buffer.release_fence_fd = -1;
+  close(buffer.acquire_fence_fd);
+  buffer.acquire_fence_fd = -1;
+
   delete layer;
   surfaceinfo->second->layer = nullptr;
   display_client_info->second->num_of_client_layers--;
