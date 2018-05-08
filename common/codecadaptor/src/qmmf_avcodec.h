@@ -85,6 +85,7 @@ class AVCodec : public IAVCodec {
   status_t GetComponentName(CodecMimeType mime_type, uint32_t *num_comps,
       ::std::vector<::std::string>& comp_names) override;
   status_t ConfigureCodec(CodecMimeType codec_type, CodecParam& codec_param,
+                          const AVCodecCb& avcodec_cb = {nullptr},
                           ::std::string comp_name = "") override;
   status_t GetBufferRequirements(uint32_t port_type, uint32_t* buf_count,
                                  uint32_t* buf_size) override;
@@ -244,6 +245,7 @@ class AVCodec : public IAVCodec {
   QCondition                wait_for_threadrun;
   CodecParam                codec_params_;
   bool                      slice_mode_encoding_;
+  AVCodecCb                 avcodec_cb_;
 };
 
 };  // namespace avcodec

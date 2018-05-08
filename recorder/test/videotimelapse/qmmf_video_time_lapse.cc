@@ -49,8 +49,14 @@ using std::this_thread::sleep_for;
 
 using namespace qmmf;
 using namespace qmmf::recorder;
-using namespace qmmf::avcodec;
 using namespace android;
+
+using qmmf::avcodec::ICodecSource;
+using qmmf::avcodec::IAVCodec;
+using qmmf::avcodec::PortEventType;
+using qmmf::avcodec::CodecParam;
+using qmmf::avcodec::kPortIndexInput;
+using qmmf::avcodec::kPortIndexOutput;
 
 #define TIMELAPSE_DEBUG 0
 #define OUTPUT_BUFFER_COUNT (6)

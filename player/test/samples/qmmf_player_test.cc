@@ -102,50 +102,77 @@ void PlayerTest::PlayerHandler(EventType event_type,
   TEST_INFO("%s event_type[%d]", __func__,
             static_cast<int32_t>(event_type));
 
-  if (event_type == EventType::kStopped) {
-    if (track_type_ == TrackTypes::kAudioVideo ||
+  switch (event_type) {
+    case EventType::kStopped: {
+      if (track_type_ == TrackTypes::kAudioVideo ||
         track_type_ == TrackTypes::kAudioOnly) {
-      if (IsTrickModeEnabled()) {
-        std::lock_guard<std::mutex> lock(lock_);
-        audioLastFrame_ = true;
+        if (IsTrickModeEnabled()) {
+          std::lock_guard<std::mutex> lock(lock_);
+          audioLastFrame_ = true;
+        }
+
+        if (audio_thread_ != nullptr) {
+          audio_thread_->join();
+          delete audio_thread_;
+          audio_thread_ = nullptr;
+        }
       }
 
-      if (audio_thread_ != nullptr) {
-        audio_thread_->join();
-        delete audio_thread_;
-        audio_thread_ = nullptr;
+      if (track_type_ == TrackTypes::kAudioVideo ||
+          track_type_ == TrackTypes::kVideoOnly) {
+        if (video_thread_ != nullptr) {
+          video_thread_->join();
+          delete video_thread_;
+          video_thread_ = nullptr;
+        }
       }
-    }
-
-    if (track_type_ == TrackTypes::kAudioVideo ||
-        track_type_ == TrackTypes::kVideoOnly) {
-      if (video_thread_ != nullptr) {
-        video_thread_->join();
-        delete video_thread_;
-        video_thread_ = nullptr;
-      }
-    }
 
 #ifdef DUMP_AUDIO_BITSTREAM
-    if (srcFile_audio_.is_open())
-      srcFile_audio_.close();
+      if (srcFile_audio_.is_open())
+        srcFile_audio_.close();
 #endif
 
 #ifdef DUMP_VIDEO_BITSTREAM
-    if (srcFile_video_.is_open())
-      srcFile_video_.close();
+      if (srcFile_video_.is_open())
+        srcFile_video_.close();
 #endif
 
-    {
-      std::lock_guard<std::mutex> lock(lock_);
-      start_again_ = true;
-    }
+      {
+        std::lock_guard<std::mutex> lock(lock_);
+        start_again_ = true;
+      }
 
-    if (enable_gfx_) {
-      push_gfx_content_to_display_ = false;
-    }
+      if (enable_gfx_) {
+        push_gfx_content_to_display_ = false;
+      }
 
-    printf("\nPlayback has finished/stopped.\n");
+      printf("\nPlayback has finished/stopped.\n");
+    }
+    break;
+    case EventType::kError: {
+      assert(sizeof(PlayerError) == event_data_size);
+      PlayerError *player_error = reinterpret_cast<PlayerError*>(event_data);
+      switch (*player_error) {
+        case PlayerError::kServiceDied:
+          QMMF_ERROR("%s: Error Received, Service Died", __func__);
+          break;
+        case PlayerError::kOmxError:
+          QMMF_ERROR("%s: Error Received, Omx Error", __func__);
+          break;
+        case PlayerError::kAudioBackendSinkError:
+          QMMF_ERROR("%s: Error Received, kAudioBackendSink Error", __func__);
+          break;
+        case PlayerError::kUnknownError:
+          QMMF_ERROR("%s: Error Received,Unknown Error", __func__);
+          break;
+        default:
+          break;
+      }
+      assert(false);
+    }
+    break;
+    default:
+    break;
   }
 
   TEST_INFO("%s: Exit", __func__);
