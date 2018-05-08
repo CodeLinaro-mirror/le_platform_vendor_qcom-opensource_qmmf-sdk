@@ -107,7 +107,8 @@ AudioRawSink::~AudioRawSink() {
 
 status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
                                        AudioTrackParams& param,
-                                       TrackCb& callback) {
+                                       TrackCb& track_callback,
+                                       PlayerCb& player_callback) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
   QMMF_VERBOSE("%s() INPARAM: param[%s]", __func__,
@@ -128,7 +129,7 @@ status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
     return ::android::NO_MEMORY;
   }
 
-  status_t result = track_sink->Init(param, callback);
+  status_t result = track_sink->Init(param, track_callback, player_callback);
   if (result != ::android::NO_ERROR) {
     QMMF_ERROR("%s() track_sink[%u]->Init failed: %d",
                __func__, track_id, result);
@@ -365,7 +366,8 @@ AudioRawTrackSink::~AudioRawTrackSink() {
 }
 
 status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
-                                 TrackCb& callback) {
+                                 TrackCb& track_callback,
+                                 PlayerCb& player_callback) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, params.track_id);
   int32_t result;
   vector<DeviceId> devices;
@@ -375,7 +377,8 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
     return ::android::ALREADY_EXISTS;
   }
 
-  callback_ = callback;
+  track_callback_ = track_callback;
+  player_callback_ = player_callback;
   track_params_ = params;
 
   end_point_ = new AudioEndPoint;
@@ -686,10 +689,10 @@ status_t AudioRawTrackSink::PrepareDrag(bool ignore_fps) {
   QMMF_INFO("%s: Enter", __func__);
   if(!ignore_fps) {
     if (input_buffer_notify_params_.num_free_buffers > 0) {
-      callback_.event_cb(track_params_.track_id,
-                         EventType::kInputBufferNotify,
-                         &input_buffer_notify_params_,
-                         sizeof(input_buffer_notify_params_));
+      track_callback_.event_cb(track_params_.track_id,
+                               EventType::kInputBufferNotify,
+                               &input_buffer_notify_params_,
+                               sizeof(input_buffer_notify_params_));
     }
   }
   QMMF_INFO("%s: Exit", __func__);
@@ -794,7 +797,9 @@ void AudioRawTrackSink::ErrorHandler(const int32_t error) {
 
   QMMF_ERROR("%s() received error from endpoint: %d[%s]", __func__,
                error, strerror(error));
-  assert(false);
+  PlayerError player_error = PlayerError::kAudioBackendSinkError;
+  player_callback_.event_cb(EventType::kError, &player_error,
+                            sizeof(player_error));
 }
 
 void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
@@ -860,8 +865,8 @@ void AudioRawTrackSink::StoppedHandler() {
     messages_.pop();
   message_lock_.unlock();
 
-  callback_.event_cb(track_params_.track_id, EventType::kEOSRendered,
-                     nullptr, 0);
+  track_callback_.event_cb(track_params_.track_id, EventType::kEOSRendered,
+                           nullptr, 0);
   SetStopEofReceived(false);
 
   QMMF_DEBUG("%s() Exit", __func__);
@@ -944,10 +949,10 @@ void AudioRawTrackSink::Thread() {
             av_buffers_lock_.unlock();
 
             if (input_buffer_notify_params_.num_free_buffers > 0) {
-              callback_.event_cb(track_params_.track_id,
-                                 EventType::kInputBufferNotify,
-                                 &input_buffer_notify_params_,
-                                 sizeof(input_buffer_notify_params_));
+              track_callback_.event_cb(track_params_.track_id,
+                                       EventType::kInputBufferNotify,
+                                       &input_buffer_notify_params_,
+                                       sizeof(input_buffer_notify_params_));
             }
             av_buffers.pop();
           }
@@ -989,10 +994,10 @@ void AudioRawTrackSink::Thread() {
       av_buffers_lock_.unlock();
 
       if (input_buffer_notify_params_.num_free_buffers > 0) {
-        callback_.event_cb(track_params_.track_id,
-                           EventType::kInputBufferNotify,
-                           &input_buffer_notify_params_,
-                           sizeof(input_buffer_notify_params_));
+        track_callback_.event_cb(track_params_.track_id,
+                                 EventType::kInputBufferNotify,
+                                 &input_buffer_notify_params_,
+                                 sizeof(input_buffer_notify_params_));
       }
 
       buffers.pop();
@@ -1105,9 +1110,9 @@ void AudioRawTrackSink::PtsThread() {
         if (timestamp != previous_timestamp) {
           QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__, timestamp,
                      track_params_.track_id);
-          callback_.event_cb(track_params_.track_id,
-                             EventType::kPresentationTimestamp, &timestamp,
-                             sizeof(timestamp));
+          track_callback_.event_cb(track_params_.track_id,
+                                   EventType::kPresentationTimestamp,
+                                   &timestamp, sizeof(timestamp));
         }
         previous_timestamp = timestamp;
       }

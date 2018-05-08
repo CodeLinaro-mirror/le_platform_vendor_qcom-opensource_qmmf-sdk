@@ -66,7 +66,8 @@ class AudioSink {
 
   status_t CreateTrackSink(uint32_t track_id,
                            AudioTrackParams& param,
-                           TrackCb& callback);
+                           TrackCb& track_callback,
+                           PlayerCb& player_callback);
 
   const ::std::shared_ptr<AudioTrackSink>& GetTrackSink(uint32_t track_id);
 
@@ -97,7 +98,9 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   ~AudioTrackSink();
 
-  status_t Init(AudioTrackParams& param, TrackCb& callback);
+  status_t Init(AudioTrackParams& param,
+                TrackCb& track_callback,
+                PlayerCb& player_callback);
 
   status_t StartSink();
 
@@ -138,7 +141,8 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   void StoppedHandler();
 
   AudioTrackParams       track_params_;
-  TrackCb                callback_;
+  TrackCb                track_callback_;
+  PlayerCb               player_callback_;
   AudioEndPoint*         end_point_;
 
   // For decoded frame

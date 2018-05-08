@@ -51,6 +51,7 @@ class JPEGEncoder : public IAVCodec {
                             std::vector<std::string>& comp_names) override;
 
   status_t ConfigureCodec(CodecMimeType codec_type, CodecParam& codec_param,
+                          const AVCodecCb& avcodec_cb = {nullptr},
                           std::string comp_name = "") override;
 
   status_t GetBufferRequirements(uint32_t port_type, uint32_t* buf_count,

@@ -97,6 +97,20 @@ enum class PortEventType {
   kPortSettingsChanged,
 };
 
+enum class EventType {
+  kError,
+};
+
+enum class AVCodecError {
+  kOmxError,
+};
+
+struct AVCodecCb {
+  std::function<void(EventType event_type,
+                     void *event_data,
+                     size_t event_data_size)> event_cb;
+};
+
 union CodecParam {
   ::qmmf::recorder::VideoTrackCreateParam video_enc_param;
   ::qmmf::recorder::AudioTrackCreateParam audio_enc_param;
@@ -114,6 +128,7 @@ union CodecParam {
   CodecParam(const ::qmmf::player::VideoTrackCreateParam& _param)
       : video_dec_param(_param) {}
   ~CodecParam() {}
+
 };
 
 }; // namespace avcodec

@@ -88,7 +88,8 @@ AudioSink::~AudioSink() {
 
 status_t AudioSink::CreateTrackSink(uint32_t track_id,
                                     AudioTrackParams& param,
-                                    TrackCb& callback) {
+                                    TrackCb& track_callback,
+                                    PlayerCb& player_callback) {
   QMMF_DEBUG("%s Enter ", __func__);
   shared_ptr<AudioTrackSink> track_sink;
 
@@ -96,7 +97,7 @@ status_t AudioSink::CreateTrackSink(uint32_t track_id,
     track_sink = make_shared<AudioTrackSink>();
 
   audio_track_sinks.add(track_id,track_sink);
-  track_sink->Init(param, callback);
+  track_sink->Init(param, track_callback, player_callback);
 
   QMMF_DEBUG("%s Exit", __func__);
   return 0;
@@ -233,8 +234,9 @@ AudioTrackSink::~AudioTrackSink() {
 void AudioTrackSink::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   QMMF_VERBOSE("%s() INPARAM: error[%d]", __func__, error);
-
-  assert(false);
+  PlayerError player_error = PlayerError::kAudioBackendSinkError;
+  player_callback_.event_cb(EventType::kError, &player_error,
+                            sizeof(player_error));
 }
 
 void AudioTrackSink::BufferHandler(const AudioBuffer& buffer) {
@@ -250,13 +252,16 @@ void AudioTrackSink::BufferHandler(const AudioBuffer& buffer) {
 void AudioTrackSink::StoppedHandler() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
-  callback_.event_cb(TrackId(), EventType::kEOSRendered, nullptr, 0);
+  track_callback_.event_cb(TrackId(), EventType::kEOSRendered, nullptr, 0);
 }
 
-status_t AudioTrackSink::Init(AudioTrackParams& track_param, TrackCb& callback) {
-  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_param.track_id);
+status_t AudioTrackSink::Init(AudioTrackParams& track_param,
+                              TrackCb& track_callback,
+                              PlayerCb& player_callback) {
+  QMMF_INFO("%s: Enter track_id(%d)", __func__, track_param.track_id);
 
-  callback_ = callback;
+  track_callback_ = track_callback;
+  player_callback_ = player_callback;
 
   track_params_.track_id = track_param.track_id;
 
