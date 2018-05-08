@@ -295,7 +295,9 @@ status_t AVCodec::GetComponentName(CodecMimeType mime_type,
 }
 
 status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
-                                 CodecParam& codec_param, string comp_name) {
+                                 CodecParam& codec_param,
+                                 const AVCodecCb& avcodec_cb,
+                                 string comp_name) {
 
   QMMF_INFO("%s Enter", __func__);
   String8 component_name;
@@ -453,6 +455,8 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     QMMF_ERROR("%s Configure Codec Failed", __func__);
     return ret;
   }
+
+  avcodec_cb_.event_cb = avcodec_cb.event_cb;
   // set component to Idle state
   ret = SetState(OMX_StateIdle, OMX_FALSE);
   if (ret != 0) {
@@ -3820,7 +3824,10 @@ OMX_ERRORTYPE AVCodec::OnEvent(
       QMMF_WARN("%s Unimplemented command", __func__);
     }
   } else if (event == OMX_EventError) {
-    assert(0);
+    if (avcodec->avcodec_cb_.event_cb) {
+      AVCodecError error = AVCodecError::kOmxError;
+      avcodec->avcodec_cb_.event_cb(EventType::kError, &error, sizeof(error));
+    }
 
   } else if (event == OMX_EventBufferFlag) {
     QMMF_INFO("%s Event callback: Buffer flag received", __func__);

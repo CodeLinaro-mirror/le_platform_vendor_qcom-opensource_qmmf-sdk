@@ -189,6 +189,12 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
 
   DebugAudioTrackCreateParam(__func__, param);
 
+  PlayerCb player_cb;
+  player_cb.event_cb = [this] (EventType event_type, void *event_data,
+                               size_t event_data_size) {
+    NotifyPlayerEventCallback(event_type, event_data, event_data_size);
+  };
+
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -200,7 +206,8 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
 
   if (param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
-    result = audio_decoder_core_->CreateAudioTrack(audio_track_param, track_cb);
+    result = audio_decoder_core_->CreateAudioTrack(audio_track_param, track_cb,
+                                                   player_cb);
     if (result != NO_ERROR) {
         QMMF_ERROR("%s: CreateAudioTrack failed!", __func__);
         return BAD_VALUE;
@@ -210,7 +217,8 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
   if (param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
     assert(audio_sink_ != nullptr);
-    audio_sink_->CreateTrackSink(track_id, audio_track_param, track_cb);
+    audio_sink_->CreateTrackSink(track_id, audio_track_param, track_cb,
+                                 player_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s: Audio CreateTrackSink id(%d) failed!", __func__,
                 track_id);
@@ -220,7 +228,8 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
               __func__, track_id);
   } else {
     assert(audio_raw_sink_ != nullptr);
-    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param, track_cb);
+    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param, track_cb,
+                                     player_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s: AudioRaw CreateTrackSink id(%d) failed!", __func__,
                 track_id);
@@ -256,6 +265,12 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
 
   DebugVideoTrackCreateParam(__func__, param);
 
+  PlayerCb player_cb;
+  player_cb.event_cb = [this] (EventType event_type, void *event_data,
+                               size_t event_data_size) {
+    NotifyPlayerEventCallback(event_type, event_data, event_data_size);
+  };
+
   TrackCb track_cb;
   track_cb.event_cb = [this] (uint32_t track_id,
                               EventType event_type,
@@ -265,7 +280,8 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
                                   event_data_size);
   };
 
-  result = video_decoder_core_->CreateVideoTrack(video_track_param, track_cb);
+  result = video_decoder_core_->CreateVideoTrack(video_track_param, track_cb,
+                                                 player_cb);
   if (result != NO_ERROR) {
       QMMF_ERROR("%s: CreateVideoTrack failed!", __func__);
       return BAD_VALUE;
@@ -274,12 +290,12 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   assert(video_sink_ != nullptr);
   result = video_sink_->CreateTrackSink(track_id, video_track_param, track_cb);
   if (result != NO_ERROR) {
-     QMMF_ERROR("%s: Video CreateTrackSink id(%d) failed!", __func__,
+    QMMF_ERROR("%s: Video CreateTrackSink id(%d) failed!", __func__,
                track_id);
-     return BAD_VALUE;
+    return BAD_VALUE;
   }
   QMMF_INFO("%s:: VideoTrackSink for track_id(%d) Added Successfully in"
-    "VideoSink", __func__, track_id);
+            "VideoSink", __func__, track_id);
 
   TrackInfo track_info;
   memset(&track_info, 0x0, sizeof track_info);

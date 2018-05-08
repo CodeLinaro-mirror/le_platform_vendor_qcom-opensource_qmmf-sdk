@@ -77,6 +77,13 @@ enum class EventType {
   kPresentationTimestamp,
 };
 
+enum class PlayerError {
+  kServiceDied,
+  kOmxError,
+  kAudioBackendSinkError,
+  kUnknownError,
+};
+
 enum class VideoCodecType {
   kHEVC,
   kAVC,

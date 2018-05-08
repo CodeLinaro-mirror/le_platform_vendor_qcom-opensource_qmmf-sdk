@@ -94,7 +94,8 @@ AudioDecoderCore::~AudioDecoderCore() {
 }
 
 status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params,
-                                            TrackCb& callback) {
+                                            TrackCb& track_callback,
+                                            PlayerCb player_callback) {
   QMMF_DEBUG("%s: Enter", __func__);
 
   if (ion_device_ < 0) {
@@ -112,7 +113,8 @@ status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params,
     return NO_MEMORY;
   }
 
-  ret = audio_track_decoder->ConfigureTrackDecoder(params, callback);
+  ret = audio_track_decoder->ConfigureTrackDecoder(params, track_callback,
+                                                   player_callback);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) AudioTrackEncoder Init failed!", __func__,
         params.track_id);
@@ -456,22 +458,76 @@ AudioTrackDecoder::~AudioTrackDecoder() {
   QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
+void AudioTrackDecoder::AVCodecHandler(qmmf::avcodec::EventType event_type,
+                                       void *event_data,
+                                       size_t event_data_size) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  switch (event_type) {
+    case qmmf::avcodec::EventType::kError: {
+      if (sizeof(qmmf::avcodec::AVCodecError) != event_data_size) {
+        QMMF_ERROR("%s: size of error struct returned by variable differ, "
+                   "sizeof(AVCodecError) = %d, event_data_size = %d", __func__,
+                   sizeof(qmmf::avcodec::AVCodecError), event_data_size);
+        PlayerError player_error = PlayerError::kUnknownError;
+        player_callback_.event_cb(EventType::kError, &player_error,
+                                  sizeof(player_error));
+        break;
+      }
+      qmmf::avcodec::AVCodecError* avcodec_error =
+        reinterpret_cast<qmmf::avcodec::AVCodecError*>(event_data);
+      switch (*avcodec_error) {
+        case qmmf::avcodec::AVCodecError::kOmxError: {
+          QMMF_ERROR("%s: Encountered OMX Error", __func__);
+          PlayerError player_error = PlayerError::kOmxError;
+          player_callback_.event_cb(EventType::kError, &player_error,
+                                    sizeof(player_error));
+          break;
+        }
+        default: {
+          PlayerError player_error = PlayerError::kUnknownError;
+          player_callback_.event_cb(EventType::kError, &player_error,
+                                    sizeof(player_error));
+          QMMF_ERROR("%s: Encountered Unknwon Error", __func__);
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      QMMF_ERROR("%s: Unknown EventType returned by AVCodec", __func__);
+      PlayerError player_error = PlayerError::kUnknownError;
+      player_callback_.event_cb(EventType::kError, &player_error,
+                                sizeof(player_error));
+      break;
+    }
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+}
+
 status_t AudioTrackDecoder::ConfigureTrackDecoder(
-    AudioTrackParams& track_params, TrackCb& callback) {
+    AudioTrackParams& track_params, TrackCb& track_callback,
+    PlayerCb& player_callback) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_params.track_id);
   audio_track_params_ = track_params;
 
   status_t ret = NO_ERROR;
 
   avcodec_ = new AVCodec();
-  callback_ = callback;
+  track_callback_ = track_callback;
+  player_callback_ = player_callback;
 
   CodecParam codec_param;
+  qmmf::avcodec::AVCodecCb avcodec_cb;
   memset(&codec_param, 0x0, sizeof(codec_param));
   codec_param.audio_dec_param       = track_params.params;
-
+  avcodec_cb.event_cb = [this] (qmmf::avcodec::EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    AVCodecHandler(event_type, event_data, event_data_size);
+  };
   ret = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeAudioDecAAC,
-                                 codec_param);
+                                 codec_param, avcodec_cb);
   assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
    QMMF_ERROR("%s track_id(%d) Failed to configure AVCodec!", __func__,
@@ -527,9 +583,9 @@ status_t AudioTrackDecoder::PreparePipeline(
   }
 
   input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                     &input_buffer_notify_params_,
-                     sizeof(input_buffer_notify_params_));
+  track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                           &input_buffer_notify_params_,
+                           sizeof(input_buffer_notify_params_));
 
   audio_track_sink->AddBufferList(output_buffer_list_);
 
@@ -749,9 +805,9 @@ status_t AudioTrackDecoder::PrepareDrag(bool ignore_fps) {
   if(!ignore_fps) {
     input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
     if (input_buffer_notify_params_.num_free_buffers > 0) {
-      callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                         &input_buffer_notify_params_,
-                         sizeof(input_buffer_notify_params_));
+      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                               &input_buffer_notify_params_,
+                               sizeof(input_buffer_notify_params_));
     }
   }
 
@@ -877,9 +933,9 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
   input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
   if (input_buffer_notify_params_.num_free_buffers > 0) {
-    callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                       &input_buffer_notify_params_,
-                       sizeof(input_buffer_notify_params_));
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
   }
 
   assert(found == true);

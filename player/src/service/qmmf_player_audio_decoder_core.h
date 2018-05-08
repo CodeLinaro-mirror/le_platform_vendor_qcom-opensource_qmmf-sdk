@@ -57,7 +57,7 @@ class AudioDecoderCore {
   static AudioDecoderCore* CreateAudioDecoderCore();
 
   status_t CreateAudioTrack(AudioTrackParams& params,
-                            TrackCb& callback);
+                            TrackCb& track_callback, PlayerCb player_callback);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
                          std::vector<AVCodecBuffer>& buffers);
@@ -105,33 +105,31 @@ class AudioDecoderCore {
 class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
  public:
   AudioTrackDecoder(int32_t ion_device);
-
   ~AudioTrackDecoder();
 
+  void AVCodecHandler(qmmf::avcodec::EventType event_type, void *event_data,
+                      size_t event_data_size);
+
   status_t ConfigureTrackDecoder(AudioTrackParams& track_params,
-                                 TrackCb& callback);
-
+                                 TrackCb& track_callback,
+                                 PlayerCb& player_callback);
   status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
-
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
   status_t PreparePipeline(const ::std::shared_ptr<AudioTrackSink>& audio_track_sink,
                            const ::std::shared_ptr<AudioTrackDecoder>& audio_track_decoder);
 
   status_t StartDecoder();
-
   status_t StopDecoder();
-
   status_t PauseDecoder();
-
   status_t ResumeDecoder();
+  status_t DeleteDecoder();
 
   status_t PrepareDrag(bool ignore_fps);
 
   status_t SetAudioDecoderParams(CodecParamType param_type, void* param,
                                   uint32_t param_size);
 
-  status_t DeleteDecoder();
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;
@@ -143,7 +141,6 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
  private:
 
   status_t AllocInputPortBufs();
-
   status_t AllocOutputPortBufs();
 
   uint32_t TrackId() { return audio_track_params_.track_id; }
@@ -187,7 +184,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 #ifdef DUMP_PCM_DATA
   int32_t                   file_fd_audio_;
 #endif
-  TrackCb                   callback_;
+  TrackCb                   track_callback_;
+  PlayerCb                  player_callback_;
   InputBufferNotifyParams   input_buffer_notify_params_;
 
 };

@@ -59,7 +59,8 @@ class AudioRawSink {
 
   status_t CreateTrackSink(uint32_t track_id,
                            AudioTrackParams& param,
-                           TrackCb& callback);
+                           TrackCb& track_callback,
+                           PlayerCb& player_callback);
   status_t DeleteTrackSink(uint32_t track_id);
 
   status_t StartTrackSink(uint32_t track_id);
@@ -100,7 +101,9 @@ class AudioRawTrackSink {
   AudioRawTrackSink();
   virtual ~AudioRawTrackSink();
 
-  status_t Init(const AudioTrackParams& params, TrackCb& callback);
+  status_t Init(const AudioTrackParams& params,
+                TrackCb& track_callback,
+                PlayerCb& player_callback);
   status_t DeInit();
 
   status_t StartSink();
@@ -144,7 +147,8 @@ class AudioRawTrackSink {
   void StoppedHandler();
 
   AudioTrackParams track_params_;
-  TrackCb callback_;
+  TrackCb track_callback_;
+  PlayerCb player_callback_;
   ::std::mutex av_buffers_lock_;
   ::std::condition_variable buffer_signal_;
   ::std::queue<AVCodecBuffer> av_buffers_;
