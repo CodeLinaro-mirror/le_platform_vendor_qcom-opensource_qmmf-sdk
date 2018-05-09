@@ -39,7 +39,7 @@ namespace qmmf {
 
 namespace recorder {
 
-const int64_t PostProcJpeg::kMetaTimeout = 1000000000; // 1 second
+const int64_t PostProcJpeg::kMetaTimeout = 3000000000; // 3 second
 
 const int32_t PostProcJpeg::kWaitJPEGTimeout = 100000000; // 100 ms
 
