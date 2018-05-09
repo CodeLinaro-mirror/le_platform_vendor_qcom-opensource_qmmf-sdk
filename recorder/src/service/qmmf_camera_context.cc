@@ -89,6 +89,7 @@ CameraContext::CameraContext()
       exif_en_(true),
       stream_param_{},
       restart_pipe_(true),
+      reconfig_pipe_(false),
       port_paused_(false) {
   camera_start_params_ = {};
 }
@@ -164,6 +165,10 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                 GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
+
+  // Reserve buffers for continuous capture in order to avoid camera and pipe
+  // restart if snapshot mode is switched. Buffer are just reserved, not
+  // allocated because buffer are allocated on demand in camera adapter.
   stream_param.bufferCount  = std::max(sequence_cnt_,
     static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
 
@@ -173,8 +178,14 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     ret = PostProcCreatePipeAndUpdateStreams(stream_param,
                             camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
+  } else if (postproc_enable_ && reconfig_pipe_) {
+    ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Error while configuring pipe! Config: %d", __func__,
+          GetSnapshotJsonConfig().c_str());
+      return ret;
+    }
   }
-
   QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
             stream_param.height, stream_param.format);
 
@@ -237,8 +248,10 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   if (postproc_enable_ && restart_pipe_) {
     ret = PostProcStart(snapshot_request_.streamIds[0]);
     assert(ret == NO_ERROR);
-
   }
+  restart_pipe_ = false;
+  reconfig_pipe_ = false;
+
   QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -601,16 +614,22 @@ status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
 }
 
 bool CameraContext::IsNeedReconfigSapshotStream() {
+  bool reconfiguration = true;
 
-  if ((new_snapshot_type_ == SnapshotMode::kStill ||
-       new_snapshot_type_ == SnapshotMode::kContinuous) &&
-      (snapshot_type_ == SnapshotMode::kStill ||
-       snapshot_type_ == SnapshotMode::kContinuous)) {
-    return false;
-  } else if (snapshot_type_ == new_snapshot_type_) {
-      return false;
+  if (snapshot_type_ == new_snapshot_type_) {
+    reconfiguration = false;
+  } else if (new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
+             snapshot_type_ == SnapshotMode::kStillPlusRaw) {
+    // only kStillPlusRaw requires pipe restart
+    reconfiguration = true;
+  } else {
+    reconfiguration = false;
   }
-  return true;
+
+  QMMF_VERBOSE("%s curr mode %d new mode %d need reconfiguration %d", __func__,
+    snapshot_type_, new_snapshot_type_, reconfiguration);
+
+  return reconfiguration;
 }
 
 status_t CameraContext::SetUpCapture(const ImageParam &param,
@@ -816,31 +835,13 @@ status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
-  // Calling that function without destroying the post-proc pipe is valid
-  // operation. In that case we should avoid pipe reconfiguration.
-  // Any change in capture plugin order, adding or removing plugin after pipe
-  // creation is not valid operation - return error. Otherwise the pipe need
-  // to be deleted and created again.
-
-  restart_pipe_ = true;
-
-  if (postproc_pipe_.get() != nullptr) {
-    QMMF_VERBOSE("%s: PP-FW pipe is not deleted: Reuse the pipe configuration",
-        __func__);
-    restart_pipe_ = false;
-  }
-
   if (ValidateCaptureConfig(config)) {
     QMMF_ERROR("%s: Invalid Capture configuration", __func__);
     return INVALID_OPERATION;
   }
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
-    if (postproc_pipe_.get() != nullptr) {
-      QMMF_ERROR("%s: Pipe is created: Invalid configuration", __func__);
-      return INVALID_OPERATION;
-    }
-    capture_plugins_.clear();
+    std::vector<uint32_t> tmp_plugins_;
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
       PostprocPlugin plugin;
       config.Fetch(QMMF_POSTPROCESS_PLUGIN, plugin, i);
@@ -848,7 +849,13 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
         QMMF_ERROR("%s: Invalid plugin parameters!", __func__);
         return BAD_VALUE;
       }
-      capture_plugins_.push_back(plugin.uid);
+      tmp_plugins_.push_back(plugin.uid);
+
+      // if new set of plugins is different than existing restart the pipe
+      if (capture_plugins_ != tmp_plugins_) {
+        capture_plugins_ = tmp_plugins_;
+        restart_pipe_ = true;
+      }
     }
   }
 
@@ -870,18 +877,28 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       thumbnails_.push_back(ImageThumbnail());
       config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnails_[i], i);
     }
+    reconfig_pipe_ = true;
   }
 
   if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
     PostprocFrameSkip frame_skip;
     config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
-    postproc_frame_skip_ = frame_skip.frame_skip;
+
+    // if new snapshot type is different than existing restart the pipe
+    if (postproc_frame_skip_ != frame_skip.frame_skip) {
+      postproc_frame_skip_ = frame_skip.frame_skip;
+      restart_pipe_ = true;
+    }
   }
 
   if (config.Exists(QMMF_EXIF)) {
     ImageExif exif;
     config.Fetch(QMMF_EXIF, exif, 0);
-    exif_en_ = exif.enable;
+
+    if (exif_en_ != exif.enable) {
+      exif_en_ = exif.enable;
+      restart_pipe_ = true;
+    }
   }
 
   if (config.Exists(QMMF_JPEG_CAPTURE_SETUP)) {
@@ -894,8 +911,16 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       QMMF_ERROR("%s: %d capture is ongoing", __func__, new_jpeg_input_format_);
       return INVALID_OPERATION;
     }
-    new_jpeg_input_format_ = setup.jpeg_input_format;
+
+    // if new jpeg input format is different than existing restart the pipe
+    if (new_jpeg_input_format_ != setup.jpeg_input_format) {
+      new_jpeg_input_format_ = setup.jpeg_input_format;
+      restart_pipe_ = true;
+    }
   }
+
+  QMMF_INFO("%s: E pipe restart %d pipe reconfigure %d", __func__,
+    restart_pipe_, reconfig_pipe_);
 
   return NO_ERROR;
 }
