@@ -346,6 +346,7 @@ class CameraContext : public CameraInterface,
   bool                          exif_en_;
   CameraStreamParameters        stream_param_;
   bool                          restart_pipe_;
+  bool                          reconfig_pipe_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
 };
