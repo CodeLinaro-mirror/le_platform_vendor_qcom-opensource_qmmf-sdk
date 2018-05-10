@@ -33,6 +33,8 @@
 
 #include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 
+#include <unordered_map>
+
 namespace qmmf {
 
 using namespace reprocjpegencoder;
@@ -87,7 +89,8 @@ class PostProcJpeg : public IPostProcModule {
 
   static const int32_t kBufCount = 3; // count for buffer rotation
 
-  std::map<int64_t, CameraMetadata> results_;
+  std::map<uint32_t, CameraMetadata> results_;
+  std::list<uint32_t> f_id_;
 
   reprocjpegencoder::JpegEncoder *jpeg_encoder_;
   IPostProcEventListener         *listener_;
@@ -111,7 +114,7 @@ class PostProcJpeg : public IPostProcModule {
   static const int32_t           kSupportedInputFormat;
   static const int32_t           kSupportedOutputFormat;
   static const int32_t           kWaitJPEGTimeout;
-  static const int64_t           kMetaTimeout;
+  static const int32_t           kMetaHistory;
 };
 
 }; //namespace recorder
