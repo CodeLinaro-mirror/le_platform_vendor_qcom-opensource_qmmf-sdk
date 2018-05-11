@@ -204,6 +204,8 @@ class CameraContext : public CameraInterface,
 
   status_t CaptureZSLImage();
 
+  status_t DisableFlushRestart(const bool& disable, CameraMetadata& meta);
+
   //Camera client callbacks.
   void SnapshotCaptureCallback(StreamBuffer buffer);
 
