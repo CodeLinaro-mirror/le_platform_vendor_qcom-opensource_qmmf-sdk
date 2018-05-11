@@ -397,7 +397,8 @@ bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Audio Decoding ********************************/
 
 AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
-    : ion_device_(ion_device), stop_received_(false) {
+    : ion_device_(ion_device), stop_received_(false),
+      pause_(false) {
   QMMF_DEBUG("%s: Enter", __func__);
 
   memset(&audio_track_params_, 0x0, sizeof audio_track_params_);
@@ -574,19 +575,6 @@ status_t AudioTrackDecoder::PreparePipeline(
         __func__, TrackId());
   }
 
-  // Bitstream buffer queue
-  for(auto& iter : input_buffer_list_) {
-     QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to "
-         "unfilled_frame_queue_",  __func__,TrackId() ,
-         iter.fd);
-     unfilled_frame_queue_.PushBack(iter);
-  }
-
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                           &input_buffer_notify_params_,
-                           sizeof(input_buffer_notify_params_));
-
   audio_track_sink->AddBufferList(output_buffer_list_);
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
@@ -702,6 +690,23 @@ status_t AudioTrackDecoder::StartDecoder() {
   }
 
   stop_received_ = false;
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
+
+  // Bitstream buffer queue
+  for(auto& iter : input_buffer_list_) {
+     QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to "
+         "unfilled_frame_queue_",  __func__,TrackId() ,
+         iter.fd);
+     unfilled_frame_queue_.PushBack(iter);
+  }
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                           &input_buffer_notify_params_,
+                           sizeof(input_buffer_notify_params_));
 
   ret = avcodec_->StartCodec();
   // Initial debug purpose.
@@ -732,6 +737,10 @@ status_t AudioTrackDecoder::StopDecoder() {
   assert(avcodec_ != nullptr);
 
   stop_received_ = true;
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
 
   ret = avcodec_->StopCodec(false);
   // Initial debug purpose.
@@ -751,12 +760,28 @@ status_t AudioTrackDecoder::StopDecoder() {
     return ret;
   }
 
+  if (!unfilled_frame_queue_.Empty())
+    unfilled_frame_queue_.Clear();
+  if (!filled_frame_queue_.Empty())
+    filled_frame_queue_.Clear();
+  if (!unfilled_frame_queue_.Empty())
+    unfilled_frame_queue_.Clear();
+  if (!frames_to_decode_.Empty())
+    frames_to_decode_.Clear();
+  if (!frames_being_decoded_.Empty())
+    frames_being_decoded_.Clear();
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
 
 status_t AudioTrackDecoder::PauseDecoder() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = true;
+  }
 
   auto ret = audio_track_sink_->PauseSink();
   if (ret != NO_ERROR) {
@@ -779,6 +804,18 @@ status_t AudioTrackDecoder::PauseDecoder() {
 
 status_t AudioTrackDecoder::ResumeDecoder() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
 
   auto ret = audio_track_sink_->ResumeSink();
   if (ret != NO_ERROR) {
@@ -931,11 +968,13 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
     }
   }
 
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  if (input_buffer_notify_params_.num_free_buffers > 0) {
-    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                             &input_buffer_notify_params_,
-                             sizeof(input_buffer_notify_params_));
+  if (!IsPause()) {
+    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                               &input_buffer_notify_params_,
+                               sizeof(input_buffer_notify_params_));
+    }
   }
 
   assert(found == true);
