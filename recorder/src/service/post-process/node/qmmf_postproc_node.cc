@@ -290,10 +290,26 @@ status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
     return ret;
   }
 
-  ReturnBuffers();
-
   QMMF_INFO("%s:%s: Exit: State %d ", __func__, name_.c_str(), state_);
   return ret;
+}
+
+status_t PostProcNode::FlushBuffers() {
+  QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
+
+  std::lock_guard<std::mutex> lock(state_lock_);
+  if (state_ != PostProcNodeState::ABORT) {
+    QMMF_ERROR("%s: wrong state: %d", __func__, state_);
+    return BAD_VALUE;
+  }
+
+  in_.RequestExitAndWait();
+  out_.RequestExitAndWait();
+
+  ReturnBuffers();
+
+  QMMF_INFO("%s:%s: Exit", __func__, name_.c_str());
+  return NO_ERROR;
 }
 
 void PostProcNode::OnFrameAvailable(StreamBuffer& buffer) {
@@ -325,11 +341,7 @@ void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
       __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
       output_buffer.stream_id, output_buffer.timestamp, output_buffer.frame_number);
 
-  if (state_ == PostProcNodeState::ACTIVE) {
-    out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
-  } else {
-    OnFrameReturn(output_buffer);
-  }
+  out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
 }
 
 void PostProcNode::OnFrameReturn(const StreamBuffer &output_buffer) {
