@@ -405,6 +405,12 @@ status_t PostProcPipe::Abort() {
     }
   }
 
+  iter = pipe_.end();
+  while (iter != pipe_.begin()) {
+    --iter;
+    (*iter)->FlushBuffers();
+  }
+
   QMMF_ERROR("%s: X", __func__);
 
   return NO_ERROR;

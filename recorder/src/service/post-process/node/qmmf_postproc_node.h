@@ -173,6 +173,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    status_t Abort(std::shared_ptr<void> &abort);
 
+   status_t FlushBuffers();
+
    std::string& GetName() { return name_; }
 
    uint32_t GetId() { return id_; };
