@@ -135,6 +135,8 @@ struct FaceInfo {
 #define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
 // Prop to set JPEG Quality
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
+// Prop to set CDS sensitivity threshold
+#define PROP_CDS_THRESHOLD          "persist.qmmf.rec.gtest.cdsth"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -405,6 +407,7 @@ class RecorderGtest : public ::testing::Test {
   uint32_t              record_duration_;
   uint32_t              burst_image_count_;
   uint32_t              default_jpeg_quality_;
+  int32_t               default_cds_threshold_;
   std::mutex            error_lock_;
   bool                  camera_error_;
 
