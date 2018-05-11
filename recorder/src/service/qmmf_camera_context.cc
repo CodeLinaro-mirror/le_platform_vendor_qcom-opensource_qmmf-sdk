@@ -336,6 +336,10 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
   assert(ret == NO_ERROR);
+
+  ret = DisableFlushRestart(true, static_meta_);
+  assert(ret == NO_ERROR);
+
   InitSupportedFPS();
   assert(!supported_fps_.empty());
   InitHFRModes();
@@ -2055,6 +2059,22 @@ status_t CameraContext::CaptureZSLImage() {
   }
   QMMF_INFO("%s: Exit", __func__);
   return ret;
+}
+
+status_t CameraContext::DisableFlushRestart(const bool& disable,
+                                            CameraMetadata& meta) {
+
+  // Disable restart of the streams on HAL flush in order to save power and
+  // optimize the API execution. All streams will be in OFF state after this.
+  uint8_t mode = (disable) ? 0 : 1;
+  auto ret = meta.update(qcamera::QCAMERA3_HAL_FLUSH_RESTART_MODE, &mode, 1);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Camera %d: Set flush mode failed!", __func__, camera_id_);
+    return FAILED_TRANSACTION;
+  }
+
+  QMMF_INFO("%s: Camera %d: Flush mode is set!", __func__, camera_id_);
+  return NO_ERROR;
 }
 
 //Camera device callbacks
