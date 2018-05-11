@@ -151,11 +151,13 @@ class AudioRawTrackSink {
 
   ::std::thread* thread_;
   ::std::mutex message_lock_;
+  ::std::mutex thread_lock_;
   ::std::queue<AudioMessage> messages_;
   ::std::condition_variable signal_;
 
   ::std::thread* pts_thread_;
   ::std::mutex pts_message_lock_;
+  ::std::mutex pts_thread_lock_;
   ::std::queue<AudioMessage> pts_messages_;
 
   InputBufferNotifyParams input_buffer_notify_params_;

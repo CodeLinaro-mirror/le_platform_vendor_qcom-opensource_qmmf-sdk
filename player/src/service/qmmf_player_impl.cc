@@ -927,7 +927,7 @@ void PlayerImpl::NotifyVideoTrackEventCallback(uint32_t track_id,
         stopped = false;
         break;
       }
-  if (stopped)
+  if (stopped && event_type == EventType::kEOSRendered)
     NotifyPlayerEventCallback(EventType::kStopped, nullptr, 0);
 
   QMMF_DEBUG("%s: Exit", __func__);
@@ -950,7 +950,7 @@ void PlayerImpl::NotifyAudioTrackEventCallback(uint32_t track_id,
       stopped = false;
       break;
     }
-  if (stopped)
+  if (stopped && event_type == EventType::kEOSRendered)
     NotifyPlayerEventCallback(EventType::kStopped, nullptr, 0);
 
   QMMF_DEBUG("%s: Exit", __func__);
