@@ -325,7 +325,11 @@ void PostProcNode::OnFrameReady(const StreamBuffer &output_buffer) {
       __func__, name_.c_str(), output_buffer.handle, output_buffer.fd,
       output_buffer.stream_id, output_buffer.timestamp, output_buffer.frame_number);
 
-  out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
+  if (state_ == PostProcNodeState::ACTIVE) {
+    out_.AddBuf(const_cast<StreamBuffer&>(output_buffer));
+  } else {
+    OnFrameReturn(output_buffer);
+  }
 }
 
 void PostProcNode::OnFrameReturn(const StreamBuffer &output_buffer) {

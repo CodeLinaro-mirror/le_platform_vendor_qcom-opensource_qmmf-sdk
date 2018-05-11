@@ -931,7 +931,6 @@ status_t CameraContext::CancelCaptureImage() {
     PauseActiveStreams();
     PostProcDelete();
     DeleteSnapshotStream();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     ResumeActiveStreams();
   }
 
@@ -1082,8 +1081,7 @@ status_t CameraContext::CreateStream(const CameraStreamParam& param,
     ret = CreateCaptureRequest(streaming_active_requests_[0],
                                CAMERA3_TEMPLATE_VIDEO_RECORD);
     assert(ret == NO_ERROR);
-    QMMF_INFO("%s: Global Streaming Capture request created successfully!",
-        __func__);
+    QMMF_INFO("%s: Global Streaming request created successfully!",__func__);
   }
 
   // Add port to list of active ports.
@@ -1802,6 +1800,9 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     int64_t last_frame_mumber;
     ret = camera_device_->Flush(&last_frame_mumber);
+    assert(ret == NO_ERROR);
+
+    ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);
 
     // inform all active ports that streaming is interrupted
