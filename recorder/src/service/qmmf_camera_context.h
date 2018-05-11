@@ -270,6 +270,7 @@ class CameraContext : public CameraInterface,
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
+  int32_t                  capture_request_id_;
   int32_t                  previous_streaming_request_id_;
 
   // Map of stream id and it's last request frame number submitted to HAL.
@@ -282,7 +283,6 @@ class CameraContext : public CameraInterface,
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  std::vector<int32_t>     snapshot_request_id_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
   uint32_t                 capture_cnt_;
