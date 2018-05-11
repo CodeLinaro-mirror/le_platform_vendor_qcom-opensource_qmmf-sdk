@@ -66,6 +66,7 @@ CameraContext::CameraContext()
     : PostProcPlugin<CameraContext>(this),
       camera_id_(-1),
       streaming_request_id_(-1),
+      capture_request_id_(-1),
       last_frame_number_(-1),
       sequence_cnt_(1),
       capture_cnt_(0),
@@ -269,6 +270,7 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
   snapshot_request_.streamIds.clear();
   stream_param_ = CameraStreamParameters();
   snapshot_type_ = SnapshotMode::kNone;
+  capture_request_id_ = -1;
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -773,7 +775,11 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
                                                           streaming,
                                                           &last_frame_number);
       assert(request_id >= 0);
-      snapshot_request_id_ = camera_device_->GetRequestIds();
+      if (streaming) {
+        streaming_request_id_ = request_id;
+      } else {
+        capture_request_id_ = request_id;
+      }
     }
     device_access_lock_.unlock();
     QMMF_INFO("%s: Request for non-zsl submitted successfully",
@@ -911,7 +917,7 @@ status_t CameraContext::CancelCaptureImage() {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  if (!snapshot_request_.streamIds.empty() && !snapshot_request_id_.empty()) {
+  if (!snapshot_request_.streamIds.empty()) {
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
       cancel_capture_ = true;
@@ -1778,6 +1784,7 @@ status_t CameraContext::CancelRequest() {
     aec_.Reset();
   }
   streaming_request_id_ = -1;
+  capture_request_id_ = -1;
   QMMF_INFO("%s: Request cancelled last frame number: %lld\n",
       __func__, last_frame_mumber);
   return ret;
@@ -1788,7 +1795,7 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
 
   status_t ret = NO_ERROR;
 
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && capture_request_id_ < 0) {
     // no active streams
     return NO_ERROR;
   }
@@ -1823,6 +1830,7 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
 
   port_paused_ = true;
   streaming_request_id_ = -1;
+  capture_request_id_ = -1;
 
   QMMF_VERBOSE("%s Exit ", __func__);
 
