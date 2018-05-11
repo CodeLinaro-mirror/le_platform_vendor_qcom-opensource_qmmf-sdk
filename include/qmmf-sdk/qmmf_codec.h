@@ -313,7 +313,7 @@ struct AVCParams {
 };
 
 struct HEVCParams {
-  int32_t              idr_interval;
+  uint32_t             idr_interval;
   uint32_t             bitrate;
   HEVCProfileType      profile;
   HEVCLevelType        level;
