@@ -454,8 +454,9 @@ VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
     : output_buffer_count_(0),
       output_buffer_size_(0),
       ion_device_(ion_device),
-      stop_received_(false) {
-  QMMF_DEBUG("%s: Enter", __func__);
+      stop_received_(false),
+      pause_(false) {
+  QMMF_INFO("%s: Enter", __func__);
 
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
 
@@ -777,6 +778,10 @@ status_t VideoTrackDecoder::StartDecoder() {
                            &input_buffer_notify_params_,
                            sizeof(input_buffer_notify_params_));
   stop_received_ = false;
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
 
   ret = avcodec_->StartCodec();
   // Initial debug purpose.
@@ -808,6 +813,10 @@ status_t VideoTrackDecoder::StopDecoder(const PictureParam& params,
   assert(avcodec_ != nullptr);
 
   stop_received_ = true;
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
 
   ret = avcodec_->StopCodec(false);
   // Initial debug purpose.
@@ -846,6 +855,11 @@ status_t VideoTrackDecoder::PauseDecoder(const PictureParam& params,
                                          BufferDescriptor* grab_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = true;
+  }
+
   auto ret = video_track_sink_->PauseSink(params, grab_buffer);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) PauseSink failed!", __func__,
@@ -868,6 +882,17 @@ status_t VideoTrackDecoder::PauseDecoder(const PictureParam& params,
 status_t VideoTrackDecoder::ResumeDecoder() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    pause_ = false;
+  }
   auto ret = video_track_sink_->ResumeSink();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) ResumeSink failed!", __func__,
@@ -1075,11 +1100,13 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
   assert(found == true);
   frames_being_decoded_.Erase(it);
 
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  if (input_buffer_notify_params_.num_free_buffers > 0) {
-    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                             &input_buffer_notify_params_,
-                             sizeof(input_buffer_notify_params_));
+  if (!IsPause()) {
+    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                               &input_buffer_notify_params_,
+                               sizeof(input_buffer_notify_params_));
+    }
   }
 
   QMMF_VERBOSE("%s: frames_being_decoded_.Size(%d)", __func__,
