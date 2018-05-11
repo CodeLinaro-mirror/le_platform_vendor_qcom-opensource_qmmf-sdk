@@ -524,6 +524,7 @@ status_t AudioRawTrackSink::StartSink() {
     messages_.pop();
   message_lock_.unlock();
 
+
   thread_ = new thread(AudioRawTrackSink::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s() could not instantiate thread", __func__);
@@ -661,6 +662,16 @@ status_t AudioRawTrackSink::ResumeSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
+  av_buffers_lock_.lock();
+  input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+  av_buffers_lock_.unlock();
+
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(track_params_.track_id,
+                             EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
+  }
   int32_t result = end_point_->Resume();
   if (result < 0) {
     QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
@@ -887,6 +898,17 @@ void AudioRawTrackSink::Thread() {
 
   // get the initial list of buffers
   ion_.GetList(&av_buffers_);
+
+  av_buffers_lock_.lock();
+  input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+  av_buffers_lock_.unlock();
+
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(track_params_.track_id,
+                             EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
+  }
 
   bool stop_received = false;
   bool eof_received = false;

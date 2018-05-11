@@ -156,6 +156,11 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t AllocOutputPortBufs();
   status_t ReleaseOutputBuffers();
 
+  inline bool IsPause() {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    return pause_;
+  }
+
   uint32_t TrackId() { return video_track_params_.track_id; }
 
   typedef struct BufInfo {
@@ -204,6 +209,8 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   TrackCb                             track_callback_;
   PlayerCb                            player_callback_;
   InputBufferNotifyParams             input_buffer_notify_params_;
+  std::mutex                          pause_lock_;
+  bool                                pause_;
 };
 
 };  // namespace player

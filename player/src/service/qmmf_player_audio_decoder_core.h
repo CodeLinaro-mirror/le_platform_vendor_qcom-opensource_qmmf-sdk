@@ -145,6 +145,11 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   uint32_t TrackId() { return audio_track_params_.track_id; }
 
+  inline bool IsPause() {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    return pause_;
+  }
+
   typedef struct BufInfo {
     // FD at service
     uint32_t buf_id;
@@ -187,6 +192,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   TrackCb                   track_callback_;
   PlayerCb                  player_callback_;
   InputBufferNotifyParams   input_buffer_notify_params_;
+  bool                      pause_;
+  std::mutex                pause_lock_;
 
 };
 
