@@ -478,11 +478,13 @@ status_t AudioRawTrackSink::StartSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
+  thread_lock_.lock();
   if (thread_ != nullptr) {
     thread_->join();
     delete thread_;
     thread_ = nullptr;
   }
+  thread_lock_.unlock();
 
   int32_t result = end_point_->Start();
   if (result < 0) {
@@ -491,8 +493,10 @@ status_t AudioRawTrackSink::StartSink() {
     return ::android::FAILED_TRANSACTION;
   }
 
+  message_lock_.lock();
   while (!messages_.empty())
     messages_.pop();
+  message_lock_.unlock();
 
   thread_ = new thread(AudioRawTrackSink::ThreadEntry, this);
   if (thread_ == nullptr) {
@@ -502,8 +506,10 @@ status_t AudioRawTrackSink::StartSink() {
   }
 
   if (track_params_.params.pts_callback_interval != 0) {
+    pts_message_lock_.lock();
     while (!pts_messages_.empty())
       pts_messages_.pop();
+    pts_message_lock_.unlock();
 
     pts_thread_ = new thread(AudioRawTrackSink::PtsThreadEntry, this);
     if (pts_thread_ == nullptr) {
@@ -518,9 +524,13 @@ status_t AudioRawTrackSink::StartSink() {
       message_lock_.unlock();
       signal_.notify_one();
 
-      thread_->join();
-      delete thread_;
-      thread_ = nullptr;
+      thread_lock_.lock();
+      if (thread_ != nullptr) {
+        thread_->join();
+        delete thread_;
+        thread_ = nullptr;
+      }
+      thread_lock_.unlock();
 
       return ::android::NO_MEMORY;
     }
@@ -554,24 +564,32 @@ status_t AudioRawTrackSink::StopSink() {
     return ::android::FAILED_TRANSACTION;
   }
 
+  thread_lock_.lock();
   if (thread_ != nullptr) {
     thread_->join();
     delete thread_;
     thread_ = nullptr;
   }
+  thread_lock_.unlock();
 
+  message_lock_.lock();
   while (!messages_.empty())
     messages_.pop();
+  message_lock_.unlock();
 
   if (track_params_.params.pts_callback_interval != 0) {
+    pts_thread_lock_.lock();
     if (pts_thread_ != nullptr) {
       pts_thread_->join();
       delete pts_thread_;
       pts_thread_ = nullptr;
     }
+    pts_thread_lock_.unlock();
 
+    pts_message_lock_.lock();
     while (!pts_messages_.empty())
       pts_messages_.pop();
+    pts_message_lock_.unlock();
   }
 
   return ::android::NO_ERROR;
@@ -663,12 +681,26 @@ status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
   buffers.clear();
 
   // wait until there is data
-  while (av_buffers_.size() < number_of_buffers && thread_ != nullptr) {
-    unique_lock<mutex> lk(av_buffers_lock_);
-    if (buffer_signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
-      QMMF_WARN("%s() timed out on wait for buffers", __func__);
+  while (av_buffers_.size() < number_of_buffers) {
+    thread_lock_.lock();
+    if(thread_ != nullptr) {
+      thread_lock_.unlock();
+      unique_lock<mutex> lk(av_buffers_lock_);
+      if (buffer_signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+        QMMF_WARN("%s() timed out on wait for buffers", __func__);
+    } else {
+      thread_lock_.unlock();
+      break;
+    }
   }
-  if (thread_ == nullptr) return ::android::NO_ERROR;
+
+  thread_lock_.lock();
+  if (thread_ == nullptr) {
+    thread_lock_.unlock();
+    return ::android::NO_ERROR;
+  } else {
+    thread_lock_.unlock();
+  }
 
   av_buffers_lock_.lock();
 
@@ -739,33 +771,45 @@ void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
 void AudioRawTrackSink::StoppedHandler() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
+  AudioMessage message;
+  message.type = AudioMessageType::kMessageStop;
+
+  message_lock_.lock();
+  messages_.push(message);
+  message_lock_.unlock();
+  signal_.notify_one();
 
   if (track_params_.params.pts_callback_interval != 0) {
-    AudioMessage message;
-    message.type = AudioMessageType::kMessageStop;
-
     pts_message_lock_.lock();
     pts_messages_.push(message);
     pts_message_lock_.unlock();
 
+    pts_thread_lock_.lock();
     if (pts_thread_ != nullptr) {
       pts_thread_->join();
       delete pts_thread_;
       pts_thread_ = nullptr;
     }
+    pts_thread_lock_.unlock();
 
+    pts_message_lock_.lock();
     while (!pts_messages_.empty())
       pts_messages_.pop();
+    pts_message_lock_.unlock();
   }
 
+  thread_lock_.lock();
   if (thread_ != nullptr) {
     thread_->join();
     delete thread_;
     thread_ = nullptr;
   }
+  thread_lock_.unlock();
 
+  message_lock_.lock();
   while (!messages_.empty())
     messages_.pop();
+  message_lock_.unlock();
 
   callback_.event_cb(track_params_.track_id, EventType::kEOSRendered,
                      nullptr, 0);
@@ -930,8 +974,9 @@ void AudioRawTrackSink::Thread() {
     }
 
     // stop conditions
-    if (stop_received || eof_received)
+    if (stop_received || eof_received) {
       keep_running = false;
+    }
   }
   QMMF_DEBUG("%s() exiting", __func__);
 }
