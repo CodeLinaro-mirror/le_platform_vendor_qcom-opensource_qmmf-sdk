@@ -394,9 +394,14 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(output_buffer);
-  listener_->OnFrameReady(buf);
 
   recursive_lock_guard lock(lock_);
+  if (state_ == State::ACTIVE) {
+    listener_->OnFrameReady(buf);
+  } else {
+    listener_->OnFrameReturn(buf);
+  }
+
   in_fight_count_--;
   if (in_fight_count_ == 0 && state_ == State::ABORTED) {
     QMMF_VERBOSE("%s: Release abort done handler", __func__);

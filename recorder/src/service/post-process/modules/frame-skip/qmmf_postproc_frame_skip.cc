@@ -166,7 +166,7 @@ status_t PostProcFrameSkip::Process(
   for (auto buf : in_buffers) {
     if (state_ != State::ACTIVE || SkipFrame(buf)) {
       QMMF_INFO("%s: skip frame. state %d", __func__, state_);
-      Listener_->OnFrameProcessed(buf);
+      Listener_->OnFrameReturn(buf);
     } else {
       QMMF_INFO("%s: process frame", __func__);
       Listener_->OnFrameReady(buf);
