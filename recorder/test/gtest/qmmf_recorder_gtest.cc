@@ -3042,7 +3042,7 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Update focal length to capture meta to select 4fps sensor mode.
-  float focal_length = 10.0;
+  float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
   bool res_supported = false;
@@ -3106,7 +3106,7 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ASSERT_TRUE(found == true);
 
   // Update same focal length to streaming meta.
-  focal_length = 10.0;
+  focal_length = 8.0;
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -3275,7 +3275,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Update focal length to capture meta to select 4fps sensor mode.
-  float focal_length = 10.0; // imx258: SENSOR_MODE_PHOTO_10MP_4_W
+  float focal_length = 8.0; // imx258: SENSOR_MODE_PHOTO_10MP_4_W
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
   bool res_supported = false;
@@ -3325,7 +3325,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   found = false;
 
   // Update same focal length to streaming meta.
-  focal_length = 10.0; // 4 fps mode.
+  focal_length = 8.0; // 4 fps mode.
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -3463,7 +3463,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Update focal length to capture meta to select 4fps sensor mode.
-  float focal_length = 10.0;
+  float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
   bool res_supported = false;
@@ -3523,7 +3523,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ASSERT_TRUE(found == true);
 
   // Update same focal length to streaming meta.
-  focal_length = 10.0;
+  focal_length = 8.0;
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
