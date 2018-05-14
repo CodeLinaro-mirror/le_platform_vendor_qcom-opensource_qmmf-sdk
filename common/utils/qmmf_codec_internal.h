@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -412,6 +412,22 @@ struct G711ParamsInternal : public G711Params {
 
   G711ParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     mode = static_cast<G711Mode>(parcel.readInt32());
+    bit_rate = parcel.readInt32();
+    return *this;
+  }
+};
+
+struct MPEGHParamsInternal : public MPEGHParams {
+  MPEGHParamsInternal() {}
+  MPEGHParamsInternal(MPEGHParams& base) : MPEGHParams(base) {}
+  MPEGHParamsInternal(const MPEGHParams& base)
+      : MPEGHParams(const_cast<MPEGHParams&>(base)) {}
+
+  void ToParcel(::android::Parcel* parcel) const {
+    parcel->writeInt32(bit_rate);
+  }
+
+  MPEGHParamsInternal& FromParcel(const ::android::Parcel& parcel) {
     bit_rate = parcel.readInt32();
     return *this;
   }

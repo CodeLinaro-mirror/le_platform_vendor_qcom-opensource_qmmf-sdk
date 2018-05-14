@@ -142,6 +142,28 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       vector<int32_t> remove_fds;
       auto use_buffer = use_buffer_mapping_.find(surface_id);
       if (use_buffer != use_buffer_mapping_.end()) {
+        vector<int32_t> remove_fds;
+        for (auto it = ion_surface_mapping_.begin();
+             it != ion_surface_mapping_.end(); it++) {
+          if (it->second == surface_id) {
+            auto fd = it->first;
+            remove_fds.push_back(fd);
+            auto find_fd = ion_fd_mapping_.find(fd);
+            if (find_fd != ion_fd_mapping_.end()) {
+              ion_fd_mapping_.erase(find_fd);
+            }
+          }
+        }
+        for (auto fd : remove_fds) {
+          ion_surface_mapping_.erase(fd);
+        }
+        for (auto& it : ion_surface_mapping_) {
+          QMMF_DEBUG(
+              "%s ion_surface_mapping_  service_ion_fd::%d "
+              "surface id ::%u ",
+              __func__, it.first, it.second);
+        }
+
         if (use_buffer->second == true) {
           for (auto& it : buf_info_map_) {
             if (it.second) {
@@ -220,6 +242,8 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
           }
           if (it_fd == ion_fd_mapping_.end()) {
             ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd, 1});
+            ion_surface_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
+                                         surface_id});
             reply->writeInt32(0);
             reply->writeInt32(surface_buffer.plane_info[0].ion_fd);
             reply->writeFileDescriptor(surface_buffer.plane_info[0].ion_fd);
@@ -230,6 +254,11 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
           QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
               "client_ion_fd::%d ", __func__, it.first, it.second);
         }
+
+        for (auto& it : ion_surface_mapping_) {
+        QMMF_DEBUG("%s ion_surface_mapping_ service_ion_fd::%d "
+            "surface id ::%u ", __func__, it.first, it.second);
+      }
       }
       return NO_ERROR;
     }
@@ -291,6 +320,9 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
               }
               ion_fd_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
                   ion_fd});
+
+              ion_surface_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
+                                           surface_id});
               BufInfo* bufinfo = new BufInfo();
               bufinfo->ion_fd = surface_buffer.plane_info[0].ion_fd;
               bufinfo->pointer = nullptr;
@@ -306,6 +338,11 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
           QMMF_DEBUG("%s ion_fd_mapping_ service_ion_fd::%d "
               "client_ion_fd::%d ", __func__, it.first, it.second);
         }
+
+        for (auto& it : ion_surface_mapping_) {
+        QMMF_DEBUG("%s ion_surface_mapping_ service_ion_fd::%d "
+            "surface_id::%u ", __func__, it.first, it.second);
+      }
       }
 
       ret = QueueSurfaceBuffer(display_handle, surface_id, surface_buffer,

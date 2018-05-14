@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -232,6 +232,9 @@ struct AudioMetadata {
       case AudioFormat::kG711:
         G711ParamsInternal(codec_params.g711).ToParcel(parcel);
         break;
+      case AudioFormat::kMPEGH:
+        MPEGHParamsInternal(codec_params.mpegh).ToParcel(parcel);
+        break;
       case AudioFormat::kMP3:
         // nothing to write
         break;
@@ -257,6 +260,9 @@ struct AudioMetadata {
         break;
       case AudioFormat::kG711:
         codec_params.g711 = G711ParamsInternal().FromParcel(parcel);
+        break;
+      case AudioFormat::kMPEGH:
+        codec_params.mpegh = MPEGHParamsInternal().FromParcel(parcel);
         break;
       case AudioFormat::kMP3:
         // nothing to read

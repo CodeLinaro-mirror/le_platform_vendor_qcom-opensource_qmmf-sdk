@@ -48,6 +48,13 @@ jpeg_turbo_decode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 jpeg_turbo_decode_test_LDFLAGS  = -llog -ljpeg -lturbojpeg
 endif
 
+# Codec Adaptor sample encode encode test app
+bin_PROGRAMS += av_codec_audio_encode_test
+
+av_codec_audio_encode_test_SOURCES  = test/sample/qmmf_audio_encode_test.cc
+av_codec_audio_encode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
+av_codec_audio_encode_test_LDADD    = libav_codec.la
+
 Export qmmf-sdk headers:
 sdkincdir=$(includedir)/qmmf-sdk
 sdkinc_HEADERS = $(top_srcdir)/include/qmmf-sdk/qmmf_avcodec.h

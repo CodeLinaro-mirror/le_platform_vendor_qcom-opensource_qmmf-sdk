@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -579,7 +579,7 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
     codec_buffer.offset), codec_buffer.size);
 
   sinkbuffers[0].size = codec_buffer.size;
-  sinkbuffers[0].capacity = codec_buffer.size;
+  sinkbuffers[0].timestamp = codec_buffer.timestamp;
   sinkbuffers[0].flags = codec_buffer.flag;
 
   if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
@@ -629,13 +629,11 @@ int32_t AudioTrackSink::GetSinkBuffer(std::vector<AudioBuffer>& buffers) {
   int32_t size = buffers.size();
 
   for (int32_t i = 0; i < size; i++) {
-
     AudioBuffer iter = *sink_buffer_queue_.Begin();
 
     buffers[i].ion_fd = (iter).ion_fd;
     buffers[i].buffer_id = (iter).ion_fd;
     buffers[i].data = (iter).data;
-    buffers[i].size = (iter).size;
     buffers[i].capacity = (iter).capacity;
 
     sink_buffer_queue_.Erase(sink_buffer_queue_.Begin());

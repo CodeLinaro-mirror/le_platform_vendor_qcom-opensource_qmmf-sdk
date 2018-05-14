@@ -384,10 +384,11 @@ void SystemKeytone::Thread() {
   delete end_point_;
   end_point_ = nullptr;
 
-  if (!error_detected)
-    tone_handler_(current_handle_, 0);
-
+  SystemHandle temp_handle = current_handle_;
   current_handle_ = 0;
+
+  if (!error_detected)
+    tone_handler_(temp_handle, 0);
   tone_handler_ = nullptr;
 }
 

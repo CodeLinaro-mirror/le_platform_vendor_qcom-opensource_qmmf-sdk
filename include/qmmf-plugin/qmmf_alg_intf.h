@@ -28,7 +28,11 @@
 */
 
 #pragma once
+#ifdef ANDROID_O_OR_ABOVE
 #include <cutils/native_handle.h>
+#else
+#include <system/window.h>
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -50,6 +50,7 @@
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
 #include "recorder/test/samples/qmmf_recorder_test_aac.h"
 #include "recorder/test/samples/qmmf_recorder_test_amr.h"
+#include "recorder/test/samples/qmmf_recorder_test_mpegh.h"
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -202,9 +203,11 @@ enum class TrackType {
   kNone,
   kAudioPCM,
   kAudioPCMFP,
+  kAudioPCMAS,
   kAudioAAC,
   kAudioAMR,
   kAudioG711,
+  kAudioMPEGH,
   kVideoYUV,
   kVideoRDI,
   kVideoAVC,
@@ -485,6 +488,10 @@ class RecorderTest {
 
   status_t CreateAudioPCMFluenceTrack();
 
+  status_t CreateAudioPCMAmbisonicTrack();
+
+  status_t CreateAudioMPEGHTrack();
+
   status_t SessionRDITrack();
 
   status_t StartSession();
@@ -740,6 +747,7 @@ class TestTrack {
   RecorderTestWav wav_output_;
   RecorderTestAac aac_output_;
   RecorderTestAmr amr_output_;
+  RecorderTestMpegh mpegh_output_;
 
   uint32_t num_yuv_frames_;
 
@@ -797,6 +805,8 @@ public:
         CREATE_2G7ll_AUD_SESSION_CMD                    = 'n',
         CREATE_PCM_G7ll_AUD_SESSION_CMD                 = 'o',
         CREATE_PCMFL_AUD_SESSION_CMD                    = 'p',
+        CREATE_PCMAS_AUD_SESSION_CMD                    = 'u',
+        CREATE_MPEGH_AUD_SESSION_CMD                    = 'v',
         CREATE_RDI_SESSION_CMD                          = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',

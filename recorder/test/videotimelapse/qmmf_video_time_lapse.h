@@ -76,6 +76,7 @@ static const std::string video_time_lapse_file_name_preamble =
 
 // Prop to enable YUV snapshot dumping from YUV track
 #define PROP_DUMP_YUV_SNAPSHOT "persist.qmmf.time.lapse.dumpyuv"
+#define PROP_DUAL_CAMERA_ID "persist.qmmf.time.lapse.dualcamera.id"
 
 enum class TimeLapseType {
   kVideoTimeLapse,

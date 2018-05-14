@@ -166,7 +166,6 @@ class PlayerTest {
 
   uint32_t                        audio_track_id_;
   uint32_t                        video_track_id_;
-  bool                            audioFirstFrame_;
   bool                            videoFirstFrame_;
   bool                            audioLastFrame_;
   bool                            videoLastFrame_;

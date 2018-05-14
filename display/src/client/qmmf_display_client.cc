@@ -271,7 +271,6 @@ status_t DisplayClient::DestroySurface(const uint32_t surface_id)
 
   auto surface_id_it = surface_id_buffer_allocation_mode_map_.find(surface_id);
   if (surface_id_it != surface_id_buffer_allocation_mode_map_.end()) {
-
     for (auto& it : buf_info_map_) {
       vector<int32_t> remove_fds;
       if ((it.second != nullptr) && (it.second->surface_id == surface_id)) {
@@ -643,6 +642,29 @@ public:
       std::unique_lock<std::mutex> lock(lock_);
       auto use_buffer_mapping_it = use_buffer_mapping_.find(surface_id);
       if (use_buffer_mapping_it != use_buffer_mapping_.end()) {
+        vector<int32_t> remove_fds;
+        for (auto it = ion_surface_mapping_.begin();
+             it != ion_surface_mapping_.end(); it++) {
+          if (it->second == surface_id) {
+            auto fd = it->first;
+            remove_fds.push_back(fd);
+            for (auto ion_fd : ion_fd_mapping_) {
+              if (ion_fd.second == fd) {
+                ion_fd_mapping_.erase(ion_fd.first);
+                break;
+              }
+            }
+          }
+        }
+        for (auto fd : remove_fds) {
+          ion_surface_mapping_.erase(fd);
+        }
+        for (auto &it : ion_surface_mapping_) {
+          QMMF_DEBUG(
+              "%s ion_surface_mapping_ service_ion_fd::%d "
+              "surface id ::%u ",
+              __func__, it.first, it.second);
+        }
         use_buffer_mapping_.erase(surface_id);
       }
     }
@@ -698,6 +720,8 @@ public:
           reply.readInt32(&ion_fd);
           surface_buffer.plane_info[0].ion_fd = dup(reply.readFileDescriptor());
           ion_fd_mapping_.insert({ion_fd, surface_buffer.plane_info[0].ion_fd});
+          ion_surface_mapping_.insert({surface_buffer.plane_info[0].ion_fd,
+                                       surface_id});
         }
       }
       blob.release();
@@ -869,6 +893,7 @@ public:
 
 private:
   ion_fd_map ion_fd_mapping_;
+  ion_surface_map ion_surface_mapping_;
   use_buffer_map use_buffer_mapping_;
   std::mutex lock_;
 };

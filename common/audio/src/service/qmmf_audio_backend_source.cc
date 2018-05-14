@@ -210,12 +210,24 @@ int32_t AudioBackendSource::Open(const qahw_module_handle_t * const modules[],
     current_io_handle_ = kIOHandleMin;
   ++current_io_handle_;
 
+  /* Turn BT_SCO on if bt_sco recording */
+  if ((audio_devices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) ==
+      AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
+    result = qahw_set_parameters(qahw_module_, "BT_SCO=on");
+    if (result != 0) {
+      QMMF_ERROR("%s() failed to set BT_SCO=on : %d[%s]", __func__,
+                 result, strerror(result));
+      return result;
+    }
+  }
+
+  audio_input_flags_t flags = static_cast<audio_input_flags_t>
+                                         (QAHW_INPUT_FLAG_COMPRESS |
+                                          QAHW_INPUT_FLAG_TIMESTAMP);
+
   result = qahw_open_input_stream(qahw_module_, current_io_handle_,
                                   audio_devices, &config, &qahw_stream_,
-                                  static_cast<audio_input_flags_t>
-                                  (QAHW_INPUT_FLAG_COMPRESS),
-                                  "input_stream",
-                                  AUDIO_SOURCE_DEFAULT);
+                                  flags, "input_stream", AUDIO_SOURCE_DEFAULT);
   if (result != 0) {
     QMMF_ERROR("%s() failed to open input stream: %d[%s]", __func__,
                result, strerror(result));
@@ -601,6 +613,13 @@ void AudioBackendSource::Thread() {
   queue<AudioBuffer> buffers;
   bool paused = false;
 
+  char adjust_string[PROPERTY_VALUE_MAX];
+  property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
+  int64_t adjustment_timestamp = atoi(adjust_string);
+  QMMF_VERBOSE("%s() value of timestamp adjustment property[%lld]",
+               __func__, adjustment_timestamp);
+  bool first_buffer_read = true;
+
   bool keep_running = true;
   bool stop_received = false;
   while (keep_running) {
@@ -660,8 +679,12 @@ void AudioBackendSource::Thread() {
       memset(&qahw_buffer, 0, sizeof(qahw_in_buffer_t));
       qahw_buffer.buffer = buffer.data;
       qahw_buffer.bytes = buffer.capacity;
+      qahw_buffer.timestamp = &buffer.timestamp;
 
       int result = qahw_in_read(qahw_stream_, &qahw_buffer);
+      QMMF_VERBOSE("%s() from aHAL: result[%d] qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
+                   __func__, result, qahw_buffer.buffer, qahw_buffer.bytes,
+                   qahw_buffer.offset, *(qahw_buffer.timestamp));
       if (result < 0) {
         QMMF_ERROR("%s() failed to read input stream: %d[%s]",
                    __func__, result, strerror(result));
@@ -673,16 +696,22 @@ void AudioBackendSource::Thread() {
 
       // if filled, return timestamped buffer to client
       if (buffer.size > 0) {
-        struct timespec tv;
-        clock_gettime(CLOCK_MONOTONIC, &tv);
-        buffer.timestamp = (int64_t)(tv.tv_sec) * 1000000 +
-                           (int64_t)(tv.tv_nsec) / 1000;
-
-        char adjust_string[PROPERTY_VALUE_MAX];
-        property_get(AUDIO_TIMESTAMP_ADJUST_PROPERTY, adjust_string, "0");
-        buffer.timestamp += atoi(adjust_string);
-        QMMF_VERBOSE("%s() generated timestamp[%lld] with adjust[%d]",
-                     __func__, buffer.timestamp, atoi(adjust_string));
+        if (first_buffer_read) {
+          struct timespec tv;
+          clock_gettime(CLOCK_BOOTTIME, &tv);
+          int64_t boottime = (int64_t)(tv.tv_sec) * 1000000 +
+                             (int64_t)(tv.tv_nsec) / 1000;
+          QMMF_VERBOSE("%s() adding current boot time[%lld] to timestamp adjustment",
+                       __func__, boottime);
+          adjustment_timestamp += boottime;
+          QMMF_VERBOSE("%s() subtracting first received buffer timestamp[%lld] from timestamp adjustment",
+                       __func__, buffer.timestamp);
+          adjustment_timestamp -= buffer.timestamp;
+          QMMF_VERBOSE("%s() final timestamp adjustment[%lld]",
+                       __func__, adjustment_timestamp);
+          first_buffer_read = false;
+        }
+        buffer.timestamp += adjustment_timestamp;
 
         if (stop_received) {
           QMMF_DEBUG("%s() setting EOS flag", __func__);

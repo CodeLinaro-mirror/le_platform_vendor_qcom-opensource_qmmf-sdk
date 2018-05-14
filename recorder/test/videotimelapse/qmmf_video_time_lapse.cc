@@ -549,7 +549,13 @@ int32_t TimeLapse::CreateLPMTrack() {
 
   VideoTrackCreateParam video_track_param;
 
-  if (multicam_mode_ == true) {
+  // This will determine camera id for dual camera
+  uint32_t dual_camera_id = 2;
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DUAL_CAMERA_ID, prop_val, "2");
+  dual_camera_id = atoi(prop_val);
+
+  if (multicam_mode_ == true || cam_id_ == dual_camera_id) {
     VideoTrackCreateParam video_track_param1 {cam_id_, VideoFormat::kYUV,
                                               2*kLPMTrackHeight, kLPMTrackHeight, 30};
     video_track_param = video_track_param1;

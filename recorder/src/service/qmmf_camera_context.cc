@@ -2284,8 +2284,7 @@ status_t CameraPort::Init() {
     cam_stream_params_.grallocFlags =
         GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
   } else {
-    cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC |
-        GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER;
+    cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   }
 
   cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
