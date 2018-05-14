@@ -297,10 +297,12 @@ status_t PostProcNode::Abort(std::shared_ptr<void> &abort) {
 status_t PostProcNode::FlushBuffers() {
   QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
 
-  std::lock_guard<std::mutex> lock(state_lock_);
-  if (state_ != PostProcNodeState::ABORT) {
-    QMMF_ERROR("%s: wrong state: %d", __func__, state_);
-    return BAD_VALUE;
+  {
+    std::lock_guard<std::mutex> lock(state_lock_);
+    if (state_ != PostProcNodeState::ABORT) {
+      QMMF_ERROR("%s: wrong state: %d", __func__, state_);
+      return BAD_VALUE;
+    }
   }
 
   in_.RequestExitAndWait();
