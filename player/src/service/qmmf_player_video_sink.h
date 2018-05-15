@@ -169,6 +169,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   void Renderer();
 
+  inline void SetIgnoreFps(bool value) { ignore_fps_ = value; }
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }

@@ -839,6 +839,14 @@ status_t VideoTrackDecoder::PrepareDrag(bool ignore_fps) {
     return ret;
   }
 
+  if(!ignore_fps) {
+    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                         &input_buffer_notify_params_,
+                         sizeof(input_buffer_notify_params_));
+    }
+  }
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
