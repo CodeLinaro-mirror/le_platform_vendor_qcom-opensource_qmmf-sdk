@@ -253,6 +253,27 @@ status_t AudioRawSink::ResumeTrackSink(uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+status_t AudioRawSink::PrepareDrag(uint32_t track_id, bool ignore_fps) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  AudioTrackSinkMap::iterator track_sink_iterator =
+      track_sink_map_.find(track_id);
+  if (track_sink_iterator == track_sink_map_.end()) {
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
+               track_id);
+    return ::android::BAD_VALUE;
+  }
+
+  status_t result = track_sink_iterator->second->PrepareDrag(ignore_fps);
+  if (result != NO_ERROR) {
+    QMMF_ERROR("%s() track_sink[%u]->PrepareDrag failed: %d",
+               __func__, track_id, result);
+    return result;
+  }
+
+  return ::android::NO_ERROR;
+}
+
 status_t AudioRawSink::SetAudioTrackSinkParams(uint32_t track_id,
                                                CodecParamType param_type,
                                                void* param,
@@ -659,6 +680,20 @@ status_t AudioRawTrackSink::ResumeSink() {
   }
 
   return ::android::NO_ERROR;
+}
+
+status_t AudioRawTrackSink::PrepareDrag(bool ignore_fps) {
+  QMMF_INFO("%s: Enter", __func__);
+  if(!ignore_fps) {
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      callback_.event_cb(track_params_.track_id,
+                         EventType::kInputBufferNotify,
+                         &input_buffer_notify_params_,
+                         sizeof(input_buffer_notify_params_));
+    }
+  }
+  QMMF_INFO("%s: Exit", __func__);
+  return NO_ERROR;
 }
 
 status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,

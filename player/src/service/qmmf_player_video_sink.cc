@@ -119,6 +119,7 @@ status_t VideoSink::StartTrackSink(uint32_t track_id) {
   QMMF_DEBUG("%s Enter ", __func__);
   shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
+  track_sink->SetIgnoreFps(false);
 
   auto ret = track_sink->StartSink();
   if (ret != NO_ERROR) {
@@ -140,6 +141,7 @@ status_t VideoSink::StopTrackSink(uint32_t track_id,
   QMMF_DEBUG("%s Enter ", __func__);
   shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
   assert(track_sink.get() != NULL);
+  track_sink->SetIgnoreFps(false);
 
   auto ret = track_sink->StopSink(params, grab_buffer);
   if (ret != NO_ERROR) {

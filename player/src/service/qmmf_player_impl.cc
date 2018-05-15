@@ -518,22 +518,7 @@ status_t PlayerImpl::Stop(const PictureParam& params) {
                         PlayerState::QPLAYER_STATE_PAUSED |
                         PlayerState::QPLAYER_STATE_DRAINED)) {
     size_t num_tracks = tracks_.size();
-    drag_lock_.lock();
-    if (drag_) {
-      for (size_t i = 0; i < num_tracks; i++) {
-        if (tracks_[i].type == TrackType::kVideo) {
-          ret = video_decoder_core_->PrepareDrag(tracks_[i].track_id, false);
-          if (ret != NO_ERROR) {
-            QMMF_ERROR("%s: PrepareDrag Failed", __func__);
-            return ret;
-          }
-        }
-      }
-      drag_ = false;
-      drag_lock_.unlock();
-    } else {
-      drag_lock_.unlock();
-    }
+
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         BufferDescriptor grab_buffer;
@@ -620,6 +605,21 @@ status_t PlayerImpl::Resume() {
         if (ret != NO_ERROR) {
           QMMF_ERROR("%s: PrepareDrag Failed", __func__);
           return ret;
+        }
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        if (tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711) {
+          ret = audio_decoder_core_->PrepareDrag(tracks_[i].track_id, false);
+          if (ret != NO_ERROR) {
+            QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+            return ret;
+          }
+        } else {
+          ret = audio_raw_sink_->PrepareDrag(tracks_[i].track_id, false);
+          if (ret != NO_ERROR) {
+            QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+            return ret;
+          }
         }
       }
     }
@@ -729,6 +729,21 @@ status_t PlayerImpl::Drag() {
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s: PrepareDrag Failed", __func__);
         return ret;
+      }
+    } else if (tracks_[i].type == TrackType::kAudio) {
+      if (tracks_[i].codec == AudioFormat::kAMR ||
+          tracks_[i].codec == AudioFormat::kG711) {
+        ret = audio_decoder_core_->PrepareDrag(tracks_[i].track_id, true);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+          return ret;
+        }
+      } else {
+        ret = audio_raw_sink_->PrepareDrag(tracks_[i].track_id, true);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: PrepareDrag Failed", __func__);
+          return ret;
+        }
       }
     }
   }
