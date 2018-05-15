@@ -831,6 +831,30 @@ void AudioRawTrackSink::Thread() {
           break;
 
         case AudioMessageType::kMessageAVBuffer:
+          while (!av_buffers.empty()) {
+            AVCodecBuffer av_buffer = av_buffers.front();
+
+            memset(av_buffer.data, 0x00, av_buffer.frame_length);
+            av_buffer.filled_length = 0;
+            av_buffer.time_stamp = 0;
+
+            av_buffers_lock_.lock();
+            av_buffers_.push(av_buffer);
+            av_buffers_lock_.unlock();
+            buffer_signal_.notify_one();
+
+            av_buffers_lock_.lock();
+            input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+            av_buffers_lock_.unlock();
+
+            if (input_buffer_notify_params_.num_free_buffers > 0) {
+              callback_.event_cb(track_params_.track_id,
+                                 EventType::kInputBufferNotify,
+                                 &input_buffer_notify_params_,
+                                 sizeof(input_buffer_notify_params_));
+            }
+            av_buffers.pop();
+          }
           QMMF_DEBUG("%s-MessageAVBuffer() TRACE", __func__);
           QMMF_VERBOSE("%s() INPARAM: av_buffer[%s] to queue[%u]",
                        __func__, message.av_buffer.ToString().c_str(),
@@ -894,7 +918,7 @@ void AudioRawTrackSink::Thread() {
       if (result < 0) {
         QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
                    __func__, result, strerror(result));
-        assert(false);
+        continue;
       }
 
       if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
