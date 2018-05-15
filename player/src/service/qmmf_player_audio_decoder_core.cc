@@ -308,6 +308,27 @@ status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
+status_t AudioDecoderCore::PrepareDrag(uint32_t track_id, bool ignore_fps) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%d)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<AudioTrackDecoder> track_decoder =
+      audio_track_decoders_.valueFor(track_id);
+
+  auto ret = track_decoder->PrepareDrag(ignore_fps);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: PrepareDrag Failed",__func__ );
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t AudioDecoderCore::SetAudioTrackDecoderParams(
     uint32_t track_id,
     CodecParamType param_type,
@@ -720,6 +741,22 @@ status_t AudioTrackDecoder::ResumeDecoder() {
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
+}
+
+status_t AudioTrackDecoder::PrepareDrag(bool ignore_fps) {
+  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+
+  if(!ignore_fps) {
+    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                         &input_buffer_notify_params_,
+                         sizeof(input_buffer_notify_params_));
+    }
+  }
+
+  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t AudioTrackDecoder::SetAudioDecoderParams(CodecParamType

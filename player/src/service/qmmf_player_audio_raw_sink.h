@@ -66,6 +66,7 @@ class AudioRawSink {
   status_t StopTrackSink(uint32_t track_id);
   status_t PauseTrackSink(uint32_t track_id);
   status_t ResumeTrackSink(uint32_t track_id);
+  status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
 
   status_t SetAudioTrackSinkParams(uint32_t track_id,
                                    CodecParamType param_type,
@@ -106,6 +107,7 @@ class AudioRawTrackSink {
   status_t StopSink();
   status_t PauseSink();
   status_t ResumeSink();
+  status_t PrepareDrag(bool ignore_fps);
 
   status_t SetAudioSinkParams(CodecParamType param_type,
                               void* param,
