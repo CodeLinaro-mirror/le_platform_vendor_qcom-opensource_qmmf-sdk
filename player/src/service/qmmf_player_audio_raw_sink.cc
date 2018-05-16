@@ -499,6 +499,8 @@ status_t AudioRawTrackSink::StartSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
+  SetStopEofReceived(false);
+
   thread_lock_.lock();
   if (thread_ != nullptr) {
     thread_->join();
@@ -560,12 +562,18 @@ status_t AudioRawTrackSink::StartSink() {
   return ::android::NO_ERROR;
 }
 
+
 status_t AudioRawTrackSink::StopSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
   AudioMessage message;
   message.type = AudioMessageType::kMessageStop;
+
+  while(GetStopEofReceived()) {
+    usleep(1000);
+  }
+  SetStopEofReceived(true);
 
   message_lock_.lock();
   messages_.push(message);
@@ -612,6 +620,8 @@ status_t AudioRawTrackSink::StopSink() {
       pts_messages_.pop();
     pts_message_lock_.unlock();
   }
+
+  SetStopEofReceived(false);
 
   return ::android::NO_ERROR;
 }
@@ -806,6 +816,11 @@ void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
 void AudioRawTrackSink::StoppedHandler() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
+  if(GetStopEofReceived())
+    return;
+  else
+    SetStopEofReceived(true);
+
   AudioMessage message;
   message.type = AudioMessageType::kMessageStop;
 
@@ -848,6 +863,9 @@ void AudioRawTrackSink::StoppedHandler() {
 
   callback_.event_cb(track_params_.track_id, EventType::kEOSRendered,
                      nullptr, 0);
+  SetStopEofReceived(false);
+
+  QMMF_DEBUG("%s() Exit", __func__);
 }
 
 void AudioRawTrackSink::ThreadEntry(AudioRawTrackSink* sink) {
@@ -1029,8 +1047,15 @@ void AudioRawTrackSink::PtsThread() {
 
   bool paused = false;
   bool keep_running = true;
+  uint32_t sleep_count = 0;
+  uint32_t sleep_time = 5;
+
   while (keep_running) {
-    sleep_for(milliseconds(track_params_.params.pts_callback_interval));
+    sleep_for(milliseconds(sleep_time));
+    if (!paused)
+      sleep_count++;
+    else
+      sleep_count = 0;
 
     // check for messages
     {
@@ -1052,6 +1077,7 @@ void AudioRawTrackSink::PtsThread() {
           case AudioMessageType::kMessageStop:
             QMMF_DEBUG("%s-MessageStop() TRACE", __func__);
             keep_running = false;
+            sleep_count = 0;
             break;
 
           case AudioMessageType::kMessageBuffer:
@@ -1063,9 +1089,13 @@ void AudioRawTrackSink::PtsThread() {
       }
     }
 
-    if (!paused) {
+
+    if (!paused && keep_running && ((sleep_count*sleep_time) >=
+        track_params_.params.pts_callback_interval)) {
       uint32_t frames;
       uint64_t notused;
+
+      sleep_count = 0;
 
       int32_t result = end_point_->GetRenderedPosition(&frames, &notused);
       if (result < 0) {
