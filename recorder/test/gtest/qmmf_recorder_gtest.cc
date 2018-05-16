@@ -4427,6 +4427,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   std::mutex ae_converge_mutex;
   bool ae_converged = false;
   float lux_idx = 0.0f;
+  bool cds_on = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -4570,17 +4571,9 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   if (lux_idx > default_cds_threshold_) {
     TEST_INFO("%s: Enable CDS", __func__);
     cds_mode = 1;
+    cds_on = true;
+    meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
   }
-
-  CameraMetadata vid_meta;
-  ret = recorder_.GetCameraParam(camera_id_, vid_meta);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  vid_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
-  ret = recorder_.SetCameraParam(camera_id_, vid_meta);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
 
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
@@ -4622,6 +4615,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (cds_on) {
+      cds_mode = 1;
+      video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+    }
     ret = recorder_.SetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -4639,6 +4636,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    //Disable CDS
+    cds_mode = 0;
+    video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
 
     ret = recorder_.SetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
