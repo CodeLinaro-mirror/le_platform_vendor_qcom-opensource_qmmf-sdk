@@ -226,6 +226,7 @@ VideoTrackSink::VideoTrackSink()
       display_refresh_rate_(0.0),
       ignore_fps_(false) {
   QMMF_DEBUG("%s Enter ", __func__);
+  memset(&surface_buffer_, 0x0, sizeof(SurfaceBuffer));
 #ifdef DUMP_YUV_FRAMES
   file_fd_ = open("/data/misc/qmmf/video_track.yuv", O_CREAT | O_WRONLY | O_TRUNC, 0655);
   if (file_fd_ < 0) {
@@ -366,11 +367,17 @@ status_t VideoTrackSink::StopSink(const PictureParam& params,
   lock_guard<mutex> lock(state_change_lock_);
 
   if (params.enable && params.format == VideoCodecType::kYUV) {
-    lock_guard<mutex> lock(grab_picture_lock);
-    uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
+    if(surface_buffer_.plane_info[0].ion_fd > 0 &&
+       surface_buffer_.plane_info[0].buf != nullptr) {
+      lock_guard<mutex> lock(grab_picture_lock);
+      uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
                                       surface_config_.height);
-    CopyGrabPictureBuffer(surface_buffer_, size);
-    *grab_buffer = grab_picture_buffer_;
+      CopyGrabPictureBuffer(surface_buffer_, size);
+      *grab_buffer = grab_picture_buffer_;
+    } else {
+      QMMF_WARN("%s: No buffer available to grab picture", __func__);
+      grab_buffer->data = nullptr;
+    }
   } else {
     grab_buffer->data = nullptr;
   }
@@ -416,11 +423,17 @@ status_t VideoTrackSink::PauseSink(const PictureParam& params,
   paused_ = true;
 
   if (params.enable && params.format == VideoCodecType::kYUV) {
-    lock_guard<mutex> lock(grab_picture_lock);
-    uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
+    if(surface_buffer_.plane_info[0].ion_fd > 0 &&
+       surface_buffer_.plane_info[0].buf != nullptr) {
+      lock_guard<mutex> lock(grab_picture_lock);
+      uint32_t size = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, surface_config_.width,
                                       surface_config_.height);
-    CopyGrabPictureBuffer(surface_buffer_, size);
-    *grab_buffer = grab_picture_buffer_;
+      CopyGrabPictureBuffer(surface_buffer_, size);
+      *grab_buffer = grab_picture_buffer_;
+    } else {
+      QMMF_WARN("%s: No buffer available to grab picture", __func__);
+      grab_buffer->data = nullptr;
+    }
   } else {
     grab_buffer->data = nullptr;
   }
@@ -1133,21 +1146,24 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     last_rendered_frame_ = codec_buffer;
     last_queued_timestamp_ = codec_buffer.timestamp;
 
-    memset (&surface_buffer_, 0x0, sizeof(surface_buffer_));
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (surface_buffer_.buf_id <= 0) {
+    // Using temp buffer for dequeue since surface_buffer_ used by
+    // grab picture as well
+    SurfaceBuffer dequeue_surface_buffer;
+    memset(&dequeue_surface_buffer, 0x0, sizeof(SurfaceBuffer));
+    ret = display_->DequeueSurfaceBuffer(surface_id_, dequeue_surface_buffer);
+    if (dequeue_surface_buffer.buf_id <= 0) {
       QMMF_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
       return ret;
     } else {
       QMMF_DEBUG("%s: DeQueue Success : ION fd is %d", __func__,
-                 surface_buffer_.buf_id);
+                 dequeue_surface_buffer.buf_id);
       BufferDescriptor codec_buf;
       memset(&codec_buf, 0x0, sizeof(codec_buf));
-      codec_buf.fd = surface_buffer_.buf_id;
-      codec_buf.buf_id = surface_buffer_.plane_info[0].ion_fd;
-      codec_buf.size = surface_buffer_.plane_info[0].size;
-      codec_buf.capacity = surface_buffer_.capacity;
-      codec_buf.offset = surface_buffer_.plane_info[0].offset;
+      codec_buf.fd = dequeue_surface_buffer.buf_id;
+      codec_buf.buf_id = dequeue_surface_buffer.plane_info[0].ion_fd;
+      codec_buf.size = dequeue_surface_buffer.plane_info[0].size;
+      codec_buf.capacity = dequeue_surface_buffer.capacity;
+      codec_buf.offset = dequeue_surface_buffer.plane_info[0].offset;
       ReturnBufferToCodec(codec_buf);
     }
    }
