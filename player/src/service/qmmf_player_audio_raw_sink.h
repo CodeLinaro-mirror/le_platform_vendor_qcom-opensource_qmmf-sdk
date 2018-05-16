@@ -160,6 +160,19 @@ class AudioRawTrackSink {
   ::std::mutex pts_thread_lock_;
   ::std::queue<AudioMessage> pts_messages_;
 
+  ::std::mutex stop_lock_;
+  bool stop_eof_received_;
+
+  inline bool GetStopEofReceived() {
+    std::lock_guard<std::mutex> lock(stop_lock_);
+    return stop_eof_received_;
+  }
+
+  inline void SetStopEofReceived(bool value) {
+    std::lock_guard<std::mutex> lock(stop_lock_);
+    stop_eof_received_ = value;
+  }
+
   InputBufferNotifyParams input_buffer_notify_params_;
 
   // disable copy, assignment, and move
