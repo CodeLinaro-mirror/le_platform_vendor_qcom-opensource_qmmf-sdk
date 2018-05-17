@@ -399,7 +399,7 @@ status_t PlayerService::Connect(const sp<IPlayerServiceCallback>& service_cb) {
   assert(ret == NO_ERROR);
 
   death_notifier_ = new DeathNotifier(this);
-  if (NULL == death_notifier_.get()) {
+  if (nullptr == death_notifier_.get()) {
       QMMF_ERROR("%s: Unable to allocate death notifier!", __func__);
       return NO_MEMORY;
   }
@@ -423,19 +423,19 @@ status_t PlayerService::Disconnect() {
     ->unlinkToDeath(death_notifier_);
 
   if (death_notifier_.get() != nullptr) {
-  death_notifier_.clear();
-  death_notifier_ = nullptr;
+    death_notifier_.clear();
+    death_notifier_ = nullptr;
   }
 
   if (player_ != nullptr) {
-  ret = player_->Disconnect();
-  delete player_;
-  player_ = nullptr;
+    ret = player_->Disconnect();
+    delete player_;
+    player_ = nullptr;
   }
 
   if (remote_callback_.get() != nullptr) {
-  remote_callback_.clear();
-  remote_callback_ = nullptr;
+    remote_callback_.clear();
+    remote_callback_ = nullptr;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
   return ret;
@@ -449,7 +449,7 @@ status_t PlayerService::CreateAudioTrack(
     return NO_INIT;
 
   QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->CreateAudioTrack(track_id, param);
   if (ret != NO_ERROR) {
@@ -468,7 +468,7 @@ status_t PlayerService::CreateVideoTrack(
     return NO_INIT;
 
   QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->CreateVideoTrack(track_id, param);
   if (ret != NO_ERROR) {
@@ -485,7 +485,7 @@ status_t PlayerService::DeleteAudioTrack(uint32_t track_id) {
     return NO_INIT;
 
   QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->DeleteAudioTrack(track_id);
   if (ret != NO_ERROR) {
@@ -501,7 +501,7 @@ status_t PlayerService::DeleteVideoTrack(uint32_t track_id) {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->DeleteVideoTrack(track_id);
   if (ret != NO_ERROR) {
@@ -519,7 +519,7 @@ status_t PlayerService::DequeueInputBuffer(
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->DequeueInputBuffer(track_id,buffers);
   if (ret != NO_ERROR) {
@@ -540,7 +540,7 @@ status_t PlayerService::QueueInputBuffer(
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->QueueInputBuffer(track_id, buffers, meta_param,
   meta_size, meta_type);
@@ -557,7 +557,7 @@ status_t PlayerService::Prepare() {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Prepare();
   if (ret != NO_ERROR) {
@@ -573,7 +573,7 @@ status_t PlayerService::Start() {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Start();
   if (ret != NO_ERROR) {
@@ -589,7 +589,7 @@ status_t PlayerService::Stop(const PictureParam& params) {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Stop(params);
   if (ret != NO_ERROR) {
@@ -605,7 +605,7 @@ status_t PlayerService::Pause(const PictureParam& params) {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Pause(params);
   if (ret != NO_ERROR) {
@@ -621,7 +621,7 @@ status_t PlayerService::Resume() {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Resume();
   if (ret != NO_ERROR) {
@@ -637,7 +637,7 @@ status_t PlayerService::Drag() {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->Drag();
   if (ret != NO_ERROR) {
@@ -653,7 +653,7 @@ status_t PlayerService::SetPosition(int64_t seek_time) {
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->SetPosition(seek_time);
   if (ret != NO_ERROR) {
@@ -670,7 +670,7 @@ status_t PlayerService::SetTrickMode(TrickModeSpeed speed,
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
@@ -689,7 +689,7 @@ status_t PlayerService::SetAudioTrackParam(uint32_t track_id,
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->SetAudioTrackParam(track_id, type, param, param_size);
   if (ret != NO_ERROR) {
@@ -708,7 +708,7 @@ status_t PlayerService::SetVideoTrackParam(uint32_t track_id,
   if (!connected_)
     return NO_INIT;
 
-  assert(player_ != NULL);
+  assert(player_ != nullptr);
 
   auto ret = player_->SetVideoTrackParam(track_id, type, param, param_size);
   if (ret != NO_ERROR) {

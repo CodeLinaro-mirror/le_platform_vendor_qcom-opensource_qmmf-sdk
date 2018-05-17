@@ -192,7 +192,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   std::mutex              wait_for_frame_lock_;
   QCondition              wait_for_frame_;
-  std::mutex              queue_lock_;
   bool                    stop_called_;
   bool                    stop_notify_called_;
   bool                    paused_;
@@ -251,7 +250,6 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   BufferDescriptor                       grab_picture_buffer_;
   struct ion_handle_data                 grab_picture_ion_handle_;
   std::mutex                             grab_picture_buffer_copy_lock_;
-  QCondition                             wait_for_grab_picture_buffer_copy_;
   uint32_t                               snapshot_dumps_;
   std::mutex                             grab_picture_lock;
 
