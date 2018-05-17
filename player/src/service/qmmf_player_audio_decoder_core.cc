@@ -62,14 +62,14 @@ AudioDecoderCore* AudioDecoderCore::instance_ = nullptr;
 
 AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore() {
   if(!instance_) {
-     instance_ = new AudioDecoderCore();
-  if(!instance_) {
-    QMMF_ERROR("%s: Can't Create AudioDecoderCore Instance", __func__);
-    return nullptr;
-  }
+    instance_ = new AudioDecoderCore();
+    if(!instance_) {
+      QMMF_ERROR("%s: Can't Create AudioDecoderCore Instance", __func__);
+      return nullptr;
+    }
   }
   QMMF_DEBUG("%s: AudioDecoderCore Instance Created Successfully(0x%p)",
-       __func__, instance_);
+      __func__, instance_);
 
   return instance_;
 }
@@ -84,7 +84,7 @@ AudioDecoderCore::~AudioDecoderCore() {
   if (!audio_track_decoders_.isEmpty()) {
     audio_track_decoders_.clear();
   }
-  instance_ = NULL;
+  instance_ = nullptr;
 
   if (ion_device_ > 0) {
     close(ion_device_);
@@ -141,7 +141,7 @@ status_t AudioDecoderCore::PrepareTrackPipeline(
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->PreparePipeline(audio_track_sink, track_decoder);
   if (ret != NO_ERROR) {
@@ -168,7 +168,7 @@ status_t AudioDecoderCore::DequeueTrackInputBuffer(
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->DequeueInputBuffer(buffers);
   if (ret != NO_ERROR) {
@@ -195,7 +195,7 @@ status_t AudioDecoderCore::QueueTrackInputBuffer(
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->QueueInputBuffer(buffers);
   if (ret != NO_ERROR) {
@@ -220,7 +220,7 @@ status_t AudioDecoderCore::StartTrackDecoder(uint32_t track_id) {
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->StartDecoder();
   if (ret != NO_ERROR) {
@@ -245,7 +245,7 @@ status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id) {
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->StopDecoder();
   if (ret != NO_ERROR) {
@@ -270,7 +270,7 @@ status_t AudioDecoderCore::PauseTrackDecoder(uint32_t track_id) {
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->PauseDecoder();
   if (ret != NO_ERROR) {
@@ -295,7 +295,7 @@ status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->ResumeDecoder();
   if (ret != NO_ERROR) {
@@ -345,7 +345,7 @@ status_t AudioDecoderCore::SetAudioTrackDecoderParams(
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret =  track_decoder->SetAudioDecoderParams(param_type, param, param_size);
   if (ret != NO_ERROR) {
@@ -370,7 +370,7 @@ status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
 
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
-  assert(track_decoder.get() != NULL);
+  assert(track_decoder.get() != nullptr);
 
   auto ret = track_decoder->DeleteDecoder();
   if (ret != NO_ERROR) {
@@ -437,7 +437,7 @@ AudioTrackDecoder::~AudioTrackDecoder() {
 
     if((iter).pointer) {
         munmap((iter).pointer, (iter).frame_length);
-        (iter).pointer = NULL;
+        (iter).pointer = nullptr;
     }
     if((iter).fd) {
         QMMF_DEBUG("%s track_id(%d) (iter).fd =%d Free", __func__,
@@ -529,7 +529,6 @@ status_t AudioTrackDecoder::ConfigureTrackDecoder(
   };
   ret = avcodec_->ConfigureCodec(CodecMimeType::kMimeTypeAudioDecAAC,
                                  codec_param, avcodec_cb);
-  assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
    QMMF_ERROR("%s track_id(%d) Failed to configure AVCodec!", __func__,
        track_params.track_id);
@@ -551,28 +550,38 @@ status_t AudioTrackDecoder::PreparePipeline(
   audio_track_sink_ = audio_track_sink;
 
   // This function will get the port buffer requirment and will allocate buffer
-  AllocInputPortBufs();
+  ret = AllocInputPortBufs();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s track_id(%d) AllocInputPortBufs Failed",
+        __func__, TrackId());
+    return ret;
+  }
 
   vector<BufferDescriptor> dummy_list;
   ret = avcodec_->AllocateBuffer(kPortIndexInput, 0, 0,
                                  shared_ptr<ICodecSource>(audio_track_decoder),
                                  dummy_list);
-  assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s track_id(%d) AllocateBuffer Failed at input port!",
         __func__, TrackId());
+    return ret;
   }
 
   // This function will get the port buffer requirment and will allocate buffer
-  AllocOutputPortBufs();
+  ret = AllocOutputPortBufs();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s track_id(%d) AllocOutputPortBufs Failed",
+        __func__, TrackId());
+    return ret;
+  }
 
   ret = avcodec_->AllocateBuffer(kPortIndexOutput, 0, 0,
                                  shared_ptr<ICodecSource>(audio_track_sink),
                                  dummy_list);
-  assert(ret == NO_ERROR);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s track_id(%d) AllocateBuffer Failed at Output port!",
         __func__, TrackId());
+    return ret;
   }
 
   audio_track_sink->AddBufferList(output_buffer_list_);
@@ -681,8 +690,6 @@ status_t AudioTrackDecoder::StartDecoder() {
   stop_received_ = true;
 
   auto ret = avcodec_->StopCodec(false);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) StopCodec failed!", __func__,
         TrackId());
@@ -709,8 +716,6 @@ status_t AudioTrackDecoder::StartDecoder() {
                            sizeof(input_buffer_notify_params_));
 
   ret = avcodec_->StartCodec();
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
    QMMF_ERROR("%s: track_id(%d) StartCodec failed!", __func__,
        TrackId());
@@ -718,8 +723,6 @@ status_t AudioTrackDecoder::StartDecoder() {
   }
 
   audio_track_sink_->StartSink();
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
    QMMF_ERROR("%s: track_id(%d) StartSink failed!", __func__,
        TrackId());
@@ -743,8 +746,6 @@ status_t AudioTrackDecoder::StopDecoder() {
   }
 
   ret = avcodec_->StopCodec(false);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) StopCodec failed!", __func__,
         TrackId());
@@ -752,8 +753,6 @@ status_t AudioTrackDecoder::StopDecoder() {
   }
 
   ret = audio_track_sink_->StopSink();
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
       QMMF_ERROR("%s: track_id(%d) StopSink failed!", __func__,
           TrackId());
@@ -860,8 +859,6 @@ status_t AudioTrackDecoder::SetAudioDecoderParams(CodecParamType
 
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->SetParameters(param_type,param,param_size);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) ResumeCodec failed!", __func__,
         TrackId());
@@ -879,8 +876,6 @@ status_t AudioTrackDecoder::DeleteDecoder() {
   stop_received_ = true;
 
   auto ret = avcodec_->StopCodec(false);
-  // Initial debug purpose.
-  assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) StopCodec failed!", __func__,
         TrackId());
@@ -1000,8 +995,7 @@ status_t AudioTrackDecoder::NotifyPortEvent(PortEventType event_type,
 
 //**************************** Buffer Allocation ***************************//
 
-status_t AudioTrackDecoder::AllocInputPortBufs()
-{
+status_t AudioTrackDecoder::AllocInputPortBufs() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   int32_t ret = 0;
   uint32_t count, size;
@@ -1014,7 +1008,7 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
-  void *vaddr      = NULL;
+  void *vaddr      = nullptr;
 
   struct ion_allocation_data alloc;
   struct ion_fd_data         ion_fddata;
@@ -1022,7 +1016,7 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
   for(uint32_t i = 0; i < count; i++) {
 
     StreamBuffer buffer;
-    vaddr = NULL;
+    vaddr = nullptr;
     memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ion_fddata, 0x0, sizeof(ion_fddata));
@@ -1046,7 +1040,7 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
         goto ION_MAP_FAILED;
     }
 
-    vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
+    vaddr = mmap(nullptr, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
                  ion_fddata.fd, 0);
 
     if (vaddr == MAP_FAILED) {
@@ -1095,8 +1089,7 @@ status_t AudioTrackDecoder::AllocInputPortBufs()
   return -1;
 }
 
-status_t AudioTrackDecoder::AllocOutputPortBufs()
-{
+status_t AudioTrackDecoder::AllocOutputPortBufs() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   int32_t ret = 0;
   uint32_t count, size;
@@ -1109,7 +1102,7 @@ status_t AudioTrackDecoder::AllocOutputPortBufs()
 
   assert(ion_device_ >= 0);
   int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
-  void *vaddr      = NULL;
+  void *vaddr      = nullptr;
 
   struct ion_allocation_data alloc;
   struct ion_fd_data         ion_fddata;
@@ -1117,7 +1110,7 @@ status_t AudioTrackDecoder::AllocOutputPortBufs()
   for(uint32_t i = 0; i < count; i++) {
 
     CodecBuffer buffer;
-    vaddr = NULL;
+    vaddr = nullptr;
     memset(&buffer, 0x0, sizeof(buffer));
     memset(&alloc, 0x0, sizeof(ion_allocation_data));
     memset(&ion_fddata, 0x0, sizeof(ion_fddata));
@@ -1141,7 +1134,7 @@ status_t AudioTrackDecoder::AllocOutputPortBufs()
         goto ION_MAP_FAILED;
     }
 
-    vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
+    vaddr = mmap(nullptr, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
                  ion_fddata.fd, 0);
 
     if (vaddr == MAP_FAILED) {

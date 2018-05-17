@@ -217,8 +217,8 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
   if (param.codec == AudioFormat::kAMR ||
       param.codec == AudioFormat::kG711) {
     assert(audio_sink_ != nullptr);
-    audio_sink_->CreateTrackSink(track_id, audio_track_param, track_cb,
-                                 player_cb);
+    result = audio_sink_->CreateTrackSink(track_id, audio_track_param,
+                                          track_cb, player_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s: Audio CreateTrackSink id(%d) failed!", __func__,
                 track_id);
@@ -228,8 +228,8 @@ status_t PlayerImpl::CreateAudioTrack(uint32_t track_id,
               __func__, track_id);
   } else {
     assert(audio_raw_sink_ != nullptr);
-    audio_raw_sink_->CreateTrackSink(track_id, audio_track_param, track_cb,
-                                     player_cb);
+    result = audio_raw_sink_->CreateTrackSink(track_id, audio_track_param,
+                                              track_cb, player_cb);
     if (result != NO_ERROR) {
       QMMF_ERROR("%s: AudioRaw CreateTrackSink id(%d) failed!", __func__,
                 track_id);
@@ -389,16 +389,18 @@ status_t PlayerImpl::DequeueInputBuffer(uint32_t track_id,
         (tracks_[i].type == TrackType::kVideo)) {
       ret = video_decoder_core_->DequeueTrackInputBuffer(
           tracks_[i].track_id, buffers);
-
+      if(ret != NO_ERROR) break;
     } else if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kAudio)) {
       if (tracks_[i].codec == AudioFormat::kAMR ||
-          tracks_[i].codec == AudioFormat::kG711)
+          tracks_[i].codec == AudioFormat::kG711) {
         ret = audio_decoder_core_->DequeueTrackInputBuffer(tracks_[i].track_id,
                                                            buffers);
-      else
+      } else {
         ret = audio_raw_sink_->DequeueTrackInputBuffer(tracks_[i].track_id,
                                                        buffers);
+      }
+      if(ret != NO_ERROR) break;
     }
   }
 
@@ -417,21 +419,22 @@ status_t PlayerImpl::QueueInputBuffer(uint32_t track_id,
   size_t num_tracks = tracks_.size();
 
   for (size_t i = 0; i < num_tracks; i++) {
-
     if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kVideo)) {
       ret = video_decoder_core_->QueueTrackInputBuffer(
           tracks_[i].track_id, buffers);
-
+      if(ret != NO_ERROR) break;
     } else if ((tracks_[i].track_id == track_id) &&
         (tracks_[i].type == TrackType::kAudio)) {
       if (tracks_[i].codec == AudioFormat::kAMR ||
-          tracks_[i].codec == AudioFormat::kG711)
+          tracks_[i].codec == AudioFormat::kG711) {
         ret = audio_decoder_core_->QueueTrackInputBuffer(tracks_[i].track_id,
                                                          buffers);
-      else
+      } else {
         ret = audio_raw_sink_->QueueTrackInputBuffer(tracks_[i].track_id,
                                                      buffers);
+      }
+      if(ret != NO_ERROR) break;
     }
   }
 
@@ -453,31 +456,34 @@ status_t PlayerImpl::Prepare() {
       PlayerState::QPLAYER_STATE_STOPPED)) {
     QMMF_DEBUG("%s: PrepareTrackPipeline !", __func__);
 
-      size_t num_tracks = tracks_.size();
+    size_t num_tracks = tracks_.size();
 
-      for (size_t i = 0; i < num_tracks; i++) {
-        if (tracks_[i].type == TrackType::kVideo) {
-          ret = video_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
-             video_sink_->GetTrackSink(tracks_[i].track_id));
-        } else if (tracks_[i].type == TrackType::kAudio) {
-          if (tracks_[i].codec == AudioFormat::kAMR ||
-              tracks_[i].codec == AudioFormat::kG711)
-            ret = audio_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
-               audio_sink_->GetTrackSink(tracks_[i].track_id));
+    for (size_t i = 0; i < num_tracks; i++) {
+      if (tracks_[i].type == TrackType::kVideo) {
+        ret = video_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
+            video_sink_->GetTrackSink(tracks_[i].track_id));
+        if(ret != NO_ERROR) break;
+      } else if (tracks_[i].type == TrackType::kAudio) {
+        if (tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711) {
+          ret = audio_decoder_core_->PrepareTrackPipeline(tracks_[i].track_id,
+              audio_sink_->GetTrackSink(tracks_[i].track_id));
         }
+        if(ret != NO_ERROR) break;
       }
+    }
 
-      if (ret != NO_ERROR) {
-         QMMF_ERROR("%s: Prepare failed!", __func__);
-         setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
-       } else {
-         setCurrentState(PlayerState::QPLAYER_STATE_PREPARED);
-       }
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Prepare failed!", __func__);
+      setCurrentState(PlayerState::QPLAYER_STATE_ERROR);
+    } else {
+      setCurrentState(PlayerState::QPLAYER_STATE_PREPARED);
+    }
   }
 
   QMMF_DEBUG("%s: state is now %d", __func__, current_state_);
   QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::Start() {
@@ -499,12 +505,14 @@ status_t PlayerImpl::Start() {
 
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
+        if(ret != NO_ERROR) break;
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         if (tracks_[i].codec == AudioFormat::kAMR ||
             tracks_[i].codec == AudioFormat::kG711)
           ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
         else
           ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+        if(ret != NO_ERROR) break;
       }
     }
 
@@ -541,6 +549,7 @@ status_t PlayerImpl::Stop(const PictureParam& params) {
         BufferDescriptor grab_buffer;
         ret = video_decoder_core_->StopTrackDecoder(tracks_[i].track_id,
                                                     params, &grab_buffer);
+        if(ret != NO_ERROR) break;
         if (grab_buffer.data != nullptr)
           NotifyGrabPictureDataCallback(tracks_[i].track_id, grab_buffer);
       } else if ((tracks_[i].type == TrackType::kAudio)&& (!IsTrickModeEnabled())) {
@@ -549,6 +558,7 @@ status_t PlayerImpl::Stop(const PictureParam& params) {
           ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
         else
           ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
+        if(ret != NO_ERROR) break;
       }
     }
 
@@ -583,6 +593,7 @@ status_t PlayerImpl::Pause(const PictureParam& params) {
         BufferDescriptor grab_buffer;
         ret = video_decoder_core_->PauseTrackDecoder(tracks_[i].track_id,
                                                      params, &grab_buffer);
+        if(ret != NO_ERROR) break;
         if (grab_buffer.data != nullptr)
           NotifyGrabPictureDataCallback(tracks_[i].track_id, grab_buffer);
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
@@ -591,6 +602,7 @@ status_t PlayerImpl::Pause(const PictureParam& params) {
           ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
         else
           ret = audio_raw_sink_->PauseTrackSink(tracks_[i].track_id);
+        if(ret != NO_ERROR) break;
       }
     }
 
@@ -604,7 +616,7 @@ status_t PlayerImpl::Pause(const PictureParam& params) {
 
   QMMF_DEBUG("%s: state is now %d", __func__, current_state_);
   QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t PlayerImpl::Resume() {
@@ -657,15 +669,17 @@ status_t PlayerImpl::Resume() {
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+        if(ret != NO_ERROR) break;
       } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
         drag_lock_.lock();
         if(!drag_) {
           drag_lock_.unlock();
           if (tracks_[i].codec == AudioFormat::kAMR ||
-              tracks_[i].codec == AudioFormat::kG711)
+            tracks_[i].codec == AudioFormat::kG711)
             ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
           else
             ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
+          if(ret != NO_ERROR) break;
         } else {
           drag_lock_.unlock();
         }
@@ -811,6 +825,7 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
     if (tracks_[i].type == TrackType::kVideo) {
       ret = video_decoder_core_->SetTrackTrickMode(tracks_[i].track_id,
           speed, dir);
+      if(ret != NO_ERROR) return ret;
     }
   }
 
@@ -871,6 +886,10 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
         ret = audio_raw_sink_->SetAudioTrackSinkParams(tracks_[i].track_id,
                                                        type, param, param_size);
       }
+      if(ret != NO_ERROR) {
+        QMMF_ERROR("%s: Failed to set audio track params", __func__);
+        return ret;
+      }
     }
   }
 
@@ -892,13 +911,16 @@ status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
   size_t num_tracks = tracks_.size();
 
   for (size_t i = 0; i < num_tracks; i++) {
-     if (tracks_[i].type == TrackType::kVideo) {
-       if (type == CodecParamType::kDisplayParam)
-         ret = video_sink_->SetVideoTrackSinkParams(tracks_[i].track_id, type,
-                                                    param, param_size);
-       else
-         ret = video_decoder_core_->SetVideoTrackDecoderParams(
-             tracks_[i].track_id,type, param, param_size);
+    if (tracks_[i].type == TrackType::kVideo) {
+      if (type == CodecParamType::kDisplayParam)
+        ret = video_sink_->SetVideoTrackSinkParams(tracks_[i].track_id, type,
+                                                   param, param_size);
+      else
+        ret = video_decoder_core_->SetVideoTrackDecoderParams(
+            tracks_[i].track_id,type, param, param_size);
+      if(ret != NO_ERROR) {
+        QMMF_ERROR("%s: Failed to set video track params", __func__);
+      }
     }
   }
 
