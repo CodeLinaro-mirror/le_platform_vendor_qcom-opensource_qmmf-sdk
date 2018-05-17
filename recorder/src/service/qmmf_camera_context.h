@@ -327,7 +327,7 @@ class CameraContext : public CameraInterface,
   std::mutex               aec_lock_;
   QCondition               aec_state_updated_;
 
-  static const uint32_t    kWaitAecTimeout = 500000000; // 500 ms.
+  static const uint32_t    kWaitAecTimeout;
   static const uint32_t    kWaitPendingFramesTimeout = 1500000000; // 1500 ms.
 
   bool                     partial_metadata_required_;

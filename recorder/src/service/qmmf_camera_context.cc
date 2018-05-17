@@ -48,14 +48,17 @@ namespace qmmf {
 
 namespace recorder {
 
-//Framerate after which we need to run in constrained mode.
+// Framerate after which we need to run in constrained mode.
 #ifndef HFR_THRESHOLD
 float CameraContext::kConstrainedModeThreshold = 30.0f;
 #else
 float CameraContext::kConstrainedModeThreshold = HFR_THRESHOLD;
 #endif
 
-//Framerate at which batch requests are needed.
+// Max time to wait for AEC convergence
+const uint32_t CameraContext::kWaitAecTimeout = AEC_WAIT_TIMEOUT;
+
+// Framerate at which batch requests are needed.
 #ifdef _DRONE_
 float CameraContext::kHFRBatchModeThreshold = 90.0f;
 #else
