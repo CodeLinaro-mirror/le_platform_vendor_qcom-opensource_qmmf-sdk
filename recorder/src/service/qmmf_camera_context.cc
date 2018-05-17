@@ -1830,12 +1830,15 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     }
   }
 
-  // move all active streams to stopped streams
   assert(stopped_stream_ids_.empty());
-  std::copy(streaming_active_requests_[0].streamIds.begin(),
-            streaming_active_requests_[0].streamIds.end(),
-            std::inserter(stopped_stream_ids_, stopped_stream_ids_.end()));
-  streaming_active_requests_[0].streamIds.clear();
+
+  // move all active streams to stopped streams
+  if (!streaming_active_requests_.empty()) {
+    std::copy(streaming_active_requests_[0].streamIds.begin(),
+              streaming_active_requests_[0].streamIds.end(),
+              std::inserter(stopped_stream_ids_, stopped_stream_ids_.end()));
+    streaming_active_requests_[0].streamIds.clear();
+  }
 
   port_paused_ = true;
   streaming_request_id_ = -1;
@@ -1852,6 +1855,7 @@ status_t CameraContext::ResumeActiveStreams(bool state_only) {
 
   if (stopped_stream_ids_.empty()) {
     QMMF_VERBOSE("%s Nothing to resume", __func__);
+    port_paused_ = false;
     return NO_ERROR;
   }
 
