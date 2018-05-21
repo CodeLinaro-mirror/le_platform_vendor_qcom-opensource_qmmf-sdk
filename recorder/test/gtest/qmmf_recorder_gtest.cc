@@ -4427,7 +4427,6 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   std::mutex ae_converge_mutex;
   bool ae_converged = false;
   float lux_idx = 0.0f;
-  bool cds_on = false;
 
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
@@ -4529,7 +4528,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
                               MetaData meta_data) -> void
-      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+      {
+        SnapshotCb(camera_id, image_count, buffer, meta_data);
+        test_wait_.Done();
+      };
 
   ImageConfigParam image_config;
   PostprocPlugin bayer_lcac_plugin;
@@ -4567,12 +4569,19 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
 
+  CameraMetadata video_meta;
   int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
   if (lux_idx > default_cds_threshold_) {
     TEST_INFO("%s: Enable CDS", __func__);
     cds_mode = 1;
-    cds_on = true;
     meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+    ret = recorder_.GetCameraParam(camera_id_, video_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+    video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
   }
 
   // Set frame rate otherwise default value is used
@@ -4606,7 +4615,6 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
       }
     }
 
-    CameraMetadata video_meta;
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -4615,18 +4623,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    if (cds_on) {
-      cds_mode = 1;
-      video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
-    }
     ret = recorder_.SetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    test_wait_.Reset(num_images, 15);
     ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
                                  meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    sleep(10);
+    ret = test_wait_.Wait();
+    ASSERT_TRUE(ret == NO_ERROR);
 
     {
       std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
@@ -4637,13 +4643,16 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
     ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    //Disable CDS
-    cds_mode = 0;
-    video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
-
     ret = recorder_.SetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
   }
+
+  //Disable CDS
+  cds_mode = 0;
+  video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+  ret = recorder_.SetCameraParam(camera_id_, video_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.CancelCaptureImage(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
