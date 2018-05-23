@@ -179,6 +179,7 @@ AC_CONFIG_FILES([ \
     common/jpeg-encoder/Makefile \
     common/resizer-c2d/Makefile \
     common/resizer-neon/Makefile \
+    common/resizer-fastCV/Makefile \
     plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \
