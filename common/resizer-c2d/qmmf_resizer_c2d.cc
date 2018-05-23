@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <adreno/c2d2.h>
 #include <linux/msm_kgsl.h>
+#include <media/msm_media_info.h>
 
 #include "common/utils/qmmf_log.h"
 
@@ -158,6 +159,9 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     case BufferFormat::kNV12:
       c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
       break;
+    case BufferFormat::kNV12UBWC:
+      c2d_color_format = C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED;
+      break;
     case BufferFormat::kNV16:
       c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
       break;
@@ -184,11 +188,21 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   src_surface.plane0 = src_buffer.data;
   //Y plane Gpu address.
   src_surface.phys0   = src_buf_gpu_addr;
+
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    plane_y_len =
+        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, src_surface.width) *
+         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                (src_surface.height + 1) >> 1)) +
+        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, src_surface.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (src_surface.height + 1) >> 1));
+    plane_y_len = plane_y_len * 2;
+  }
+
   //UV plane hostptr.
   src_surface.plane1  = (void*)((intptr_t)src_buffer.data + plane_y_len);
   //UV plane Gpu address.
   src_surface.phys1 = (void*)((intptr_t)src_buf_gpu_addr + plane_y_len);
-
 
   QMMF_DEBUG("%s: src_surface.width = %d ", __func__, src_surface.width);
   QMMF_DEBUG("%s: src_surface.height = %d ", __func__, src_surface.height);
@@ -225,6 +239,17 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   dst_surface.stride1 = dst_buffer.info.plane_info[0].stride;
   //UV plane hostptr.
   plane_y_len = dst_surface.stride0 * dst_buffer.info.plane_info[0].scanline;
+
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    plane_y_len =
+        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
+         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                (dst_surface.height + 1) >> 1)) +
+        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (dst_surface.height + 1) >> 1));
+    plane_y_len = plane_y_len * 2;
+  }
+
   //UV plane hostptr.
   dst_surface.plane1  = (void*)((intptr_t)dst_buffer.data + plane_y_len);
   //UV plane Gpu address.

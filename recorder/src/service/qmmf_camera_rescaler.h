@@ -43,65 +43,15 @@
 #include "common/cameraadaptor/qmmf_camera3_stream.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
 
+#include "common/resizer-interface/qmmf_resizer_interface.h"
+
 namespace qmmf {
 
 namespace recorder {
 
-using namespace android;
-
 class IBufferProducer;
 
 class IBufferConsumer;
-
-class IRescaler {
- public:
-  virtual ~IRescaler(){};
-  virtual int32_t Init() = 0;
-  virtual int32_t CopyBuffer(StreamBuffer& src_buffer,
-                             StreamBuffer& dst_buffer) = 0;
-};
-
-class C2dRescaler : public IRescaler {
-
- public:
-
-    C2dRescaler();
-
-    ~C2dRescaler();
-
-    int32_t Init() override;
-
-    /** Method of Rescaler */
-    int32_t CopyBuffer(StreamBuffer& src_bufferfer,
-                       StreamBuffer& dst_bufferBuffer) override;
-
- private:
-
-  bool       print_process_time_;
-  uint32_t   src_surface_id_;
-  uint32_t   target_surface_id_;
-  std::mutex crop_lock_;
-
-};
-
-class FastCVRescaler : public IRescaler {
- public:
-  FastCVRescaler();
-
-  ~FastCVRescaler() override {};
-
-  int32_t Init() override;
-
-  /** Method of Rescaler */
-  int32_t CopyBuffer(StreamBuffer& src_bufferfer,
-                     StreamBuffer& dst_bufferBuffer) override;
- private:
-
-  bool print_process_time_;
-  uint32_t fastcv_level_;
-
-};
-
 
 class CameraRescalerThread {
 
@@ -230,7 +180,8 @@ class CameraRescalerBase : public CameraRescalerThread,
   List<StreamBuffer>                bufs_list_;
   std::mutex                        wait_lock_;
   QCondition                        wait_;
-  IRescaler*                        rescaler_;
+  ResizerInterface*                 rescaler_;
+  bool                              print_process_time_;
 };
 
 class CameraRescaler: public CameraRescalerBase {

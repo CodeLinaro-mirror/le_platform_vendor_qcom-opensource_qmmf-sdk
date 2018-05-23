@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,21 +27,17 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#define LOG_TAG "RecorderCameraSourceCopy"
+#define LOG_TAG "RecorderRescaler"
 
-#include <math.h>
-#include <sys/mman.h>
-#include <dlfcn.h>
-#include <hardware/hardware.h>
-#include <fastcv/fastcv.h>
-#include <adreno/c2d2.h>
-#include <linux/msm_kgsl.h>
 #include <chrono>
 #include <map>
 
 #include "recorder/src/service/qmmf_camera_rescaler.h"
-
 #include "recorder/src/service/qmmf_recorder_utils.h"
+
+#include "common/resizer-neon/qmmf_resizer_neon.h"
+#include "common/resizer-c2d/qmmf_resizer_c2d.h"
+#include "common/resizer-fastCV/qmmf_resizer_fastCV.h"
 
 namespace qmmf {
 
@@ -53,450 +49,26 @@ using ::std::chrono::nanoseconds;
 using ::std::chrono::time_point;
 using ::std::chrono::duration_cast;
 
-
-#define FPS_CHANGE_THRESHOLD  (0.005)
-#define FRAME_SKIP_THRESHOLD_PERCENT (0.05)
-
-using namespace android;
-
-C2dRescaler::C2dRescaler() {
-  QMMF_INFO("%s: Enter (%p)", __func__, this);
-  src_surface_id_ = -1;
-  target_surface_id_ = -1;
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qipcam.rescaler.perf", prop, "0");
-  uint32_t value = (uint32_t) atoi(prop);
-  print_process_time_ = (value == 1) ? true : false;
-  QMMF_INFO("%s: Exit", __func__);
-}
-
-C2dRescaler::~C2dRescaler() {
-  QMMF_INFO("%s: Enter (%p)", __func__, this);
-  if(target_surface_id_) {
-    c2dDestroySurface(target_surface_id_);
-    target_surface_id_ = 0;
-  }
-  if(src_surface_id_) {
-    c2dDestroySurface(src_surface_id_);
-    src_surface_id_ = 0;
-  }
-  QMMF_INFO("%s: Exit ", __func__);
-}
-
-int32_t C2dRescaler::Init() {
-  QMMF_INFO("%s: Enter", __func__);
-
-  C2D_YUV_SURFACE_DEF surface_def = {
-    C2D_COLOR_FORMAT_420_NV12,
-    1 * 4,
-    1 * 4,
-    (void*)0xaaaaaaaa,
-    (void*)0xaaaaaaaa,
-    1 * 4,
-    (void*)0xaaaaaaaa,
-    (void*)0xaaaaaaaa,
-    1 * 4,
-    (void*)0xaaaaaaaa,
-    (void*)0xaaaaaaaa,
-    1 * 4,
-  };
-
-  //target C2dSurface for output buffers. at this point surface
-  //is dummy, it is not mapped to GPU, it will be mapped
-  //to GPU once input buffers (camera stream buffers) will be
-  //available for copy.
-  auto ret = c2dCreateSurface(&target_surface_id_, C2D_TARGET,
-                           (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                           |C2D_SURFACE_WITH_PHYS
-                           |C2D_SURFACE_WITH_PHYS_DUMMY),
-                           &surface_def);
-  if(ret != C2D_STATUS_OK) {
-    QMMF_ERROR("%s: c2dCreateSurface failed!", __func__);
-    return ret;
-  }
-
-  //Dummy surface for camera stream buffers, this surface will be
-  //updated by actual camera buffers.
-  ret = c2dCreateSurface(&src_surface_id_, C2D_SOURCE,
-                               (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                               |C2D_SURFACE_WITH_PHYS
-                               |C2D_SURFACE_WITH_PHYS_DUMMY),
-                               &surface_def);
-  if(ret != C2D_STATUS_OK) {
-    QMMF_ERROR("%s: c2dCreateSurface failed!", __func__);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Exit streamId", __func__);
-  return ret;
-}
-
-int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
-                                StreamBuffer& dst_buffer) {
-  QMMF_DEBUG("%s: Enter (%p)", __func__, this);
-  time_point<high_resolution_clock>   start_time;
-  if (print_process_time_) {
-    start_time = high_resolution_clock::now();
-  }
-
-  int32_t ret = 0;
-  int32_t src_buf_fd       = 0;
-  int32_t src_buf_frame_len = 0;
-  int32_t data_offset     = 0;
-  void* src_buf_vaddr      = nullptr;
-  void* src_buf_gpu_addr    = nullptr;
-  void* target_buf_gpu_addr = nullptr;
-  int32_t plane_y_len      = 0;
-  C2D_OBJECT draw_object[1];
-
-  C2D_YUV_SURFACE_DEF src_surface_def;
-  C2D_YUV_SURFACE_DEF target_surface_def;
-  uint32_t c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
-
-  src_buf_fd       = src_buffer.fd;
-  src_buf_frame_len = src_buffer.size;
-
-  QMMF_DEBUG("%s: src_buf_fd = %d", __func__, src_buf_fd);
-  QMMF_DEBUG("%s: src_buf_frame_len = %d", __func__, src_buf_frame_len);
-
-  src_buf_vaddr = src_buffer.data;
-  if(src_buf_vaddr == nullptr) {
-   QMMF_ERROR("%s: Invalid src_buf_vaddr!", __func__);
-   goto EXIT_2;
-  }
-
-  //STEP2: Map Input Camera stream buffer to GPU.
-  data_offset  = 0;
-  src_buf_gpu_addr = nullptr;
-  ret = c2dMapAddr(src_buf_fd, src_buf_vaddr, src_buf_frame_len, data_offset,
-                   KGSL_USER_MEM_TYPE_ION, &src_buf_gpu_addr);
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dMapAddr failed!", __func__);
-   goto EXIT_2;
-  }
-
-  if(src_buf_gpu_addr == nullptr) {
-   QMMF_ERROR("%s: Invalid src_buf_gpu_addr!", __func__);
-   goto EXIT_2;
-  }
-
-  //STEP3: Map target ION buffer to GPU.
-  target_buf_gpu_addr = nullptr;
-
-  ret = c2dMapAddr(dst_buffer.fd, dst_buffer.data, dst_buffer.size,
-                   data_offset, KGSL_USER_MEM_TYPE_ION, &target_buf_gpu_addr);
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dMapAddr failed!", __func__);
-   goto EXIT_1;
-  }
-
-  if(target_buf_gpu_addr == nullptr) {
-   QMMF_ERROR("%s: Invalid target_buf_gpu_addr!", __func__);
-   goto EXIT_1;
-  }
-
-  //STEP4: Create source C2dSurface for input Camera stream buffer.
-  if ((src_buffer.info.plane_info[0].width == 0) ||
-      (src_buffer.info.plane_info[0].height == 0)) {
-   QMMF_ERROR("%s: Invalid Src size!", __func__);
-   goto EXIT;
-  }
-
-  src_surface_def.width   = src_buffer.info.plane_info[0].width;
-  src_surface_def.height  = src_buffer.info.plane_info[0].height;
-
-  switch (src_buffer.info.format) {
-    case BufferFormat::kNV21:
-      c2d_color_format = C2D_COLOR_FORMAT_420_NV21;
-      break;
-    case BufferFormat::kNV12:
-      c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
-      break;
-    case BufferFormat::kNV16:
-      c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
-      break;
-    default:
-      QMMF_ERROR("%s: Unsupported format: %d", __func__,
-          src_buffer.info.format);
-      ret = BAD_VALUE;
-      goto EXIT;
-  }
-
-  src_surface_def.format  = c2d_color_format;
-
-  //Y plane stride.
-  src_surface_def.stride0 = src_buffer.info.plane_info[0].stride;
-
-  //UV plane stride.
-  src_surface_def.stride1 = src_buffer.info.plane_info[0].stride;
-
-  //UV plane hostptr.
-  plane_y_len = src_surface_def.stride0 * src_buffer.info.plane_info[0].scanline;
-
-  //Y plane hostptr.
-  src_surface_def.plane0 = src_buf_vaddr;
-
-  QMMF_DEBUG("%s: src_surface_def.width = %d ", __func__,
-                              src_surface_def.width);
-  QMMF_DEBUG("%s: src_surface_def.height = %d ", __func__,
-                             src_surface_def.height);
-  QMMF_DEBUG("%s: src_surface_def.stride0 = %d ", __func__,
-                            src_surface_def.stride0);
-  QMMF_DEBUG("%s: src_surface_def.stride1 = %d ", __func__,
-                            src_surface_def.stride1);
-  QMMF_DEBUG("%s: plane_y_len = %d", __func__,
-                                        plane_y_len);
-
-  //Y plane Gpu address.
-  src_surface_def.phys0   = src_buf_gpu_addr;
-
-  src_surface_def.plane1  = (void*)((intptr_t)src_buf_vaddr + plane_y_len);
-
-  //UV plane Gpu address.
-  src_surface_def.phys1 = (void*)((intptr_t)src_buf_gpu_addr + plane_y_len);
-
-  ret = c2dUpdateSurface(src_surface_id_, C2D_SOURCE,
-                          (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                          |C2D_SURFACE_WITH_PHYS), &src_surface_def);
-
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dUpdateSurface failed!", __func__);
-   goto EXIT;
-  }
-  QMMF_DEBUG("%s: src_surface_id_ = %d", __func__, src_surface_id_);
-
-  //STEP5: Update target C2dSurface.
-  target_surface_def.format  = c2d_color_format;
-  target_surface_def.width   = dst_buffer.info.plane_info[0].width;
-  target_surface_def.height  = dst_buffer.info.plane_info[0].height;
-  QMMF_DEBUG("%s: target_surface_def.width = %d ", __func__,
-                           target_surface_def.width);
-  QMMF_DEBUG("%s: target_surface_def.height = %d ", __func__,
-                         target_surface_def.height);
-  //Y plane stride.
-  target_surface_def.stride0 = dst_buffer.info.plane_info[0].stride;
-
-  QMMF_DEBUG("%s: target_surface_def.stride0 = %d ", __func__,
-                         target_surface_def.stride0);
-  //Y plane hostptr.
-  target_surface_def.plane0  = dst_buffer.data;
-
-  //Y plane Gpu address.
-  target_surface_def.phys0   = target_buf_gpu_addr;
-
-  //UV plane stride.
-  target_surface_def.stride1 = dst_buffer.info.plane_info[0].stride;
-
-  QMMF_DEBUG("%s: target_surface_def.stride1 = %d ", __func__,
-                         target_surface_def.stride1);
-
-  plane_y_len =
-      target_surface_def.stride0 * dst_buffer.info.plane_info[0].scanline;
-
-  //UV plane hostptr.
-  target_surface_def.plane1  = (void*)((intptr_t)dst_buffer.data + plane_y_len);
-  //UV plane Gpu address.
-  target_surface_def.phys1 = (void*)((intptr_t)target_buf_gpu_addr + plane_y_len);
-
-  ret = c2dUpdateSurface(target_surface_id_, C2D_SOURCE,
-                          (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                          |C2D_SURFACE_WITH_PHYS), &target_surface_def);
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dUpdateSurface failed!", __func__);
-   goto EXIT;
-  }
-
-  //STEP6: Create C2dObject outof source surface and fill target rectangle
-  //values.
-  draw_object[0].surface_id  = src_surface_id_;
-  draw_object[0].config_mask = C2D_ALPHA_BLEND_NONE
-                             |C2D_TARGET_RECT_BIT;
-
-  if ((0 < dst_buffer.info.plane_info[0].width) &&
-      (0 < dst_buffer.info.plane_info[0].height)) {
-    {
-      std::lock_guard<std::mutex> l(crop_lock_);
-      draw_object[0].config_mask |= C2D_SOURCE_RECT_BIT;
-      draw_object[0].source_rect.x = 0;
-      draw_object[0].source_rect.y = 0;
-      draw_object[0].source_rect.width =
-          (src_buffer.info.plane_info[0].width) << 16;
-      draw_object[0].source_rect.height =
-          (src_buffer.info.plane_info[0].height)<< 16;
-    }
-  }
-
-  draw_object[0].target_rect.width  = dst_buffer.info.plane_info[0].width << 16;
-  draw_object[0].target_rect.height = dst_buffer.info.plane_info[0].height << 16;
-  draw_object[0].target_rect.x      = 0;
-  draw_object[0].target_rect.y      = 0;
-
-  //STEP7: Draw C2dObject on target surface.
-  ret = c2dDraw(target_surface_id_, 0, 0, 0, 0, draw_object, 1);
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dDraw failed!", __func__);
-   goto EXIT;
-  }
-
-  ret = c2dFinish(target_surface_id_);
-  if(ret != C2D_STATUS_OK) {
-     QMMF_ERROR("%s: c2dFinish failed!", __func__);
-     goto EXIT;
-  }
-
-EXIT:
-  //STEP8: Unmap input src_buffer and targetBuffer from GPU.
-  ret = c2dUnMapAddr(src_buf_gpu_addr);
-  if(ret != C2D_STATUS_OK) {
-   QMMF_ERROR("%s: c2dUnMapAddr failed!", __func__);
-  }
-
-EXIT_1:
-  ret = c2dUnMapAddr(target_buf_gpu_addr);
-  if(ret != C2D_STATUS_OK) {
-     QMMF_ERROR("%s: c2dUnMapAddr failed!", __func__);
-  }
-
-EXIT_2:
-  if(print_process_time_) {
-    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
-    uint64_t time_diff = duration_cast<microseconds>
-                             (curr_time - start_time).count();
-    QMMF_INFO("%s: stream_id(%d) C2D Full ProcessingTime=%lld",
-        __func__, src_buffer.stream_id, time_diff);
-  }
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return ret;
-}
-
-
-FastCVRescaler::FastCVRescaler()
-  : fastcv_level_(FASTCV_OP_CPU_PERFORMANCE) {
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.rescaler.perf", prop, "0");
-  uint32_t value = (uint32_t) atoi(prop);
-  print_process_time_ = (value == 1) ? true : false;
-}
-
-int32_t FastCVRescaler::Init() {
-
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.fastcv.level", prop, "3");
-  uint32_t level = (uint32_t) atoi(prop);
-
-  if ((level == FASTCV_OP_LOW_POWER) ||
-      (level == FASTCV_OP_PERFORMANCE) ||
-      (level == FASTCV_OP_CPU_OFFLOAD) ||
-      (level == FASTCV_OP_CPU_PERFORMANCE)) {
-    fastcv_level_ = level;
-  } else {
-    fastcv_level_ = FASTCV_OP_CPU_PERFORMANCE;
-  }
-
-  int stat = fcvSetOperationMode(static_cast<fcvOperationMode>(fastcv_level_));
-  QMMF_INFO("%s: set fcvSetOperationMode %d",__func__, fastcv_level_);
-
-  if (0 != stat) {
-    QMMF_ERROR("%s: Unable to set FastCV operation mode: %d", __func__,
-        stat);
-  }
-
-  return 0;
-}
-
-int32_t FastCVRescaler::CopyBuffer(StreamBuffer& src_buffer,
-                                   StreamBuffer& dst_buffer) {
-  time_point<high_resolution_clock>   start_time;
-  if (print_process_time_) {
-    start_time = high_resolution_clock::now();
-  }
-
-  int32_t ret = NO_ERROR;
-  uint8_t *src_buffer_y, *dst_buffer_y;
-  uint8_t *src_buffer_uv, *dst_buffer_uv;
-  size_t src_stride_y, dst_stride_y;
-  size_t src_plane_y_len, dst_plane_y_len;
-
-  if ((src_buffer.info.format != BufferFormat::kNV21) &&
-      (src_buffer.info.format != BufferFormat::kNV12) &&
-      (src_buffer.info.format != BufferFormat::kNV16)) {
-    QMMF_ERROR("%s: Unsupported input format: 0x%x!",__func__,
-        src_buffer.info.format);
-    QMMF_ERROR("%s: Only NV12/NV21 are supported currently!", __func__);
-    ret = BAD_VALUE;
-    goto EXIT;
-  }
-
-  src_buffer_y = reinterpret_cast<uint8_t*>(src_buffer.data);
-
-  src_stride_y = src_buffer.info.plane_info[0].stride;
-  src_plane_y_len = src_stride_y * src_buffer.info.plane_info[0].scanline;
-
-  src_buffer_uv = src_buffer_y + src_plane_y_len;
-
-  dst_buffer_y = reinterpret_cast<uint8_t*>(dst_buffer.data);
-  dst_stride_y = dst_buffer.info.plane_info[0].stride;
-  dst_plane_y_len = dst_stride_y * dst_buffer.info.plane_info[0].scanline;
-  dst_buffer_uv = dst_buffer_y + dst_plane_y_len;
-
-  //STEP2: Scale down the two planes
-  fcvScaleu8_v2(src_buffer_y,
-      src_buffer.info.plane_info[0].width,
-      src_buffer.info.plane_info[0].height,
-      src_stride_y,
-      dst_buffer_y, dst_buffer.info.plane_info[0].width ,
-      dst_buffer.info.plane_info[0].height,
-      dst_stride_y
-      ,FASTCV_INTERPOLATION_TYPE_NEAREST_NEIGHBOR ,
-      FASTCV_BORDER_REPLICATE,
-      0
-      );
-
-  if(print_process_time_) {
-    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
-    uint64_t time_diff = duration_cast<microseconds>
-                             (curr_time - start_time).count();
-    QMMF_INFO("%s: stream_id(%d) FastCV Y ProcessingTime=%lld", __func__,
-        src_buffer.stream_id, time_diff);
-  }
-
-  fcvScaleDownMNInterleaveu8(src_buffer_uv,
-      src_buffer.info.plane_info[0].width >> 1,
-      src_buffer.info.plane_info[0].height >> 1,
-      src_stride_y,
-      dst_buffer_uv, dst_buffer.info.plane_info[0].width >> 1,
-      dst_buffer.info.plane_info[0].height >> 1, dst_stride_y
-      );
-
-EXIT:
-
-  if(print_process_time_) {
-    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
-    uint64_t time_diff = duration_cast<microseconds>
-                             (curr_time - start_time).count();
-    QMMF_INFO("%s: stream_id(%d) FastCV Full ProcessingTime=%lld",
-        __func__, src_buffer.stream_id, time_diff);
-  }
-  return ret;
-}
-
 CameraRescalerBase::CameraRescalerBase()
     :CameraRescalerThread() {
   QMMF_INFO("%s: Enter", __func__);
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.rescaler.c2d", prop, "1");
-  uint32_t value = (uint32_t) atoi(prop);
+  property_get("persist.qmmf.rescaler.type", prop, "c2d");
+  std::string name = prop;
 
-  if (value == 1) {
-    rescaler_ = new C2dRescaler();
+  if (name == "Neon") {
+    rescaler_ = new NEONResizer();
+  } else if (name == "FastCV") {
+    rescaler_ = new FastCVResizer();
   } else {
-    rescaler_ = new FastCVRescaler();
+    rescaler_ = new C2DResizer();
   }
+
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qipcam.rescaler.perf", prop, "0");
+  uint32_t value = (uint32_t) atoi(prop);
+  print_process_time_ = (value == 1) ? true : false;
 
   rescaler_->Init();
   QMMF_INFO("%s: Exit (%p)", __func__, this);
@@ -504,6 +76,7 @@ CameraRescalerBase::CameraRescalerBase()
 
 CameraRescalerBase::~CameraRescalerBase() {
   QMMF_INFO("%s: Enter", __func__);
+  rescaler_->DeInit();
   delete rescaler_;
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
@@ -586,7 +159,22 @@ bool CameraRescalerBase::ThreadLoop() {
     in_buffer.data = vaaddr;
   }
 
-  rescaler_->CopyBuffer(in_buffer, out_buffer);
+  time_point<high_resolution_clock>   start_time;
+  if (print_process_time_) {
+    start_time = high_resolution_clock::now();
+  }
+
+  if (rescaler_) {
+    rescaler_->Draw(in_buffer, out_buffer);
+  }
+
+  if(print_process_time_) {
+    time_point<high_resolution_clock> curr_time = high_resolution_clock::now();
+    uint64_t time_diff = duration_cast<microseconds>
+                             (curr_time - start_time).count();
+    QMMF_INFO("%s: stream_id(%d) Full ProcessingTime=%lld",
+        __func__, in_buffer.stream_id, time_diff);
+  }
 
   if (in_buff_map) {
     munmap(in_buffer.data, in_buffer.size);
@@ -1180,10 +768,20 @@ bool CameraRescaler::IsStop() {
 }
 
 status_t CameraRescaler::Init(const VideoTrackParams& track_params) {
-
-  auto ret = Initialize(track_params.params.width,
-                        track_params.params.height,
-                        HAL_PIXEL_FORMAT_YCbCr_420_888);
+  status_t ret = 0;
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  bool is_ubwc_stream_enabled = atoi(prop);
+  if (!is_ubwc_stream_enabled) {
+    ret = Initialize(track_params.params.width,
+                     track_params.params.height,
+                     HAL_PIXEL_FORMAT_YCbCr_420_888);
+  } else {
+    ret = Initialize(track_params.params.width,
+                     track_params.params.height,
+                     HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC);
+  }
   return ret;
 }
 
