@@ -169,5 +169,22 @@ RESIZER_STATUS NEONResizer::ValidateInParams(const StreamBuffer& src_buffer,
   return RESIZER_STATUS_OK;
 }
 
+RESIZER_STATUS NEONResizer::ValidateOutput(const uint32_t width,
+                                           const uint32_t height,
+                                           const BufferFormat format) {
+  if (width % 8) {
+    QMMF_ERROR("%s Output width needs to be multiple of 8 (w: %d)!!!",
+        __func__, width);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  if (format != BufferFormat::kNV21 &&
+      format != BufferFormat::kNV12) {
+    QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  return RESIZER_STATUS_OK;
+}
 
 } //namespace qmmf ends here

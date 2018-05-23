@@ -51,6 +51,9 @@ class ResizerInterface {
   virtual RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                               StreamBuffer& dst_buffer) = 0;
 
+  virtual RESIZER_STATUS ValidateOutput(const uint32_t width,
+                                        const uint32_t height,
+                                        const BufferFormat format) = 0;
 };
 
 }; //namespace qmmf.
