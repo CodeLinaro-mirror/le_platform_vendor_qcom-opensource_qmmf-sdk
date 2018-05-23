@@ -5,6 +5,7 @@ BUILD_COMPONENTS += common/overlay
 BUILD_COMPONENTS += common/audio/src/client
 BUILD_COMPONENTS += common/audio/src/service
 BUILD_COMPONENTS += common/audio/test/samples
+BUILD_COMPONENTS += common/resizer-c2d
 BUILD_COMPONENTS += common/jpeg-encoder
 BUILD_COMPONENTS += common/codecadaptor
 BUILD_COMPONENTS += common/avqueue

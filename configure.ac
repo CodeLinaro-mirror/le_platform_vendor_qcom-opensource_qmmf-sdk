@@ -177,6 +177,7 @@ AC_CONFIG_FILES([ \
     common/avqueue/Makefile \
     common/exif-generator/Makefile \
     common/jpeg-encoder/Makefile \
+    common/resizer-c2d/Makefile \
     plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \
