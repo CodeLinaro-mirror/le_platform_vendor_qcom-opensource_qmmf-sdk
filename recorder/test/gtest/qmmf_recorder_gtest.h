@@ -137,6 +137,8 @@ struct FaceInfo {
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 // Prop to set CDS sensitivity threshold
 #define PROP_CDS_THRESHOLD          "persist.qmmf.rec.gtest.cdsth"
+// Prop to enable/disable display usage
+#define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
