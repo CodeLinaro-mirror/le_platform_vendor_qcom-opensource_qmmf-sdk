@@ -313,6 +313,17 @@ EXIT:
   return status;
 }
 
+RESIZER_STATUS C2DResizer::ValidateOutput(const uint32_t width,
+                                          const uint32_t height,
+                                          const BufferFormat format) {
+  if (format != BufferFormat::kNV12 &&
+      format != BufferFormat::kNV21 &&
+      format != BufferFormat::kNV16) {
+    QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
+    return RESIZER_STATUS_ERROR;
+  }
+  return RESIZER_STATUS_OK;
+}
 
 void* C2DResizer::MapBuf(StreamBuffer& buffer) {
   if (buffer.fd == -1 || buffer.data == nullptr || buffer.size == 0) {

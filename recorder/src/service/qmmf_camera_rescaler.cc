@@ -89,6 +89,36 @@ status_t CameraRescalerBase::ReturnBufferToBufferPool(
   }
   return ret;
 }
+status_t CameraRescalerBase::Validate(const VideoTrackParams& track_params) {
+  if (rescaler_ == nullptr) {
+    QMMF_ERROR("%s: Missing Rescaler engine!!!", __func__);
+    return BAD_VALUE;
+  }
+
+  if (track_params.params.format_type == VideoFormat::kBayerRDI8BIT ||
+      track_params.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params.params.format_type == VideoFormat::kBayerIdeal) {
+      QMMF_ERROR("%s: Unsupported video format: %d!!!", __func__,
+          track_params.params.format_type);
+      return BAD_VALUE;
+  }
+
+  auto buffer_format = StreamToBufferFormat(
+      FromVideoToStreamFormat(track_params.params.format_type));
+  if (buffer_format == BufferFormat::kUnsupported) {
+    QMMF_ERROR("%s: Unsupported buffer format: %d!!!", __func__,
+       buffer_format);
+      return BAD_VALUE;
+  }
+
+  if (rescaler_->ValidateOutput(track_params.params.width,
+      track_params.params.height, buffer_format) != RESIZER_STATUS_OK) {
+    QMMF_ERROR("%s: Validation Error!!!", __func__);
+    return BAD_VALUE;
+  }
+  return NO_ERROR;
+}
 
 void CameraRescalerBase::FlushBufs() {
   std::unique_lock<std::mutex> lock(wait_lock_);
@@ -768,20 +798,24 @@ bool CameraRescaler::IsStop() {
 }
 
 status_t CameraRescaler::Init(const VideoTrackParams& track_params) {
-  status_t ret = 0;
+
+  if (Validate(track_params) != NO_ERROR) {
+    QMMF_ERROR("%s: Error: Unsupported in params.!!!", __func__);
+    return BAD_VALUE;
+  }
+
   char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
-  if (!is_ubwc_stream_enabled) {
-    ret = Initialize(track_params.params.width,
-                     track_params.params.height,
-                     HAL_PIXEL_FORMAT_YCbCr_420_888);
-  } else {
-    ret = Initialize(track_params.params.width,
-                     track_params.params.height,
-                     HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC);
+
+  int32_t format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+  if (is_ubwc_stream_enabled) {
+    format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
   }
+
+  auto ret = Initialize(track_params.params.width,
+                        track_params.params.height,
+                        format);
   return ret;
 }
 

@@ -129,4 +129,15 @@ RESIZER_STATUS FastCVResizer::Draw(StreamBuffer& src_buffer,
   return RESIZER_STATUS_OK;
 }
 
+RESIZER_STATUS FastCVResizer::ValidateOutput(const uint32_t width,
+                                             const uint32_t height,
+                                             const BufferFormat format) {
+  if (format != BufferFormat::kNV21 &&
+      format != BufferFormat::kNV12) {
+    QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
+    return RESIZER_STATUS_ERROR;
+  }
+  return RESIZER_STATUS_OK;
+}
+
 } //namespace qmmf ends here
