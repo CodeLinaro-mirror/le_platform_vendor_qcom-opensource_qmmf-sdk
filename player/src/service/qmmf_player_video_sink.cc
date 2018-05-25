@@ -260,28 +260,39 @@ VideoTrackSink::VideoTrackSink()
 }
 
 VideoTrackSink::~VideoTrackSink() {
-  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_DEBUG("%s Enter track_id(%d)", __func__, TrackId());
 
   if (grab_picture_buffer_.data) {
-    munmap(grab_picture_buffer_.data, grab_picture_buffer_.capacity);
+    auto ret = munmap(grab_picture_buffer_.data, grab_picture_buffer_.capacity);
+    if (ret < 0) {
+      QMMF_ERROR("%s: track_id(%d) munmap failed %s, data = 0x%p, fd = %d",
+                 __func__, TrackId(), strerror(errno),
+                 grab_picture_buffer_.data, grab_picture_buffer_.fd);
+    }
     grab_picture_buffer_.data = nullptr;
   }
 
-  if (grab_picture_buffer_.fd) {
-    QMMF_DEBUG("%s track_id(%d) grab_picture_buffer_.fd =%d Free",
-        __func__, TrackId(), grab_picture_buffer_.fd);
-    ioctl(ion_device_, ION_IOC_FREE, &(grab_picture_ion_handle_.handle));
+  if (grab_picture_buffer_.fd > 0) {
     close(grab_picture_buffer_.fd);
-    grab_picture_buffer_.fd = 0;
+    auto ret = ioctl(ion_device_, ION_IOC_FREE, &(grab_picture_ion_handle_));
+    if (ret < 0) {
+        QMMF_ERROR("%s: track_id(%d) ION GrabPicturebuffer Release failed %s,"
+                   " fd = %d", __func__, TrackId(), strerror(errno),
+                   grab_picture_buffer_.fd);
+    } else {
+      QMMF_INFO("%s: track_id(%d) ION GrabPicturebuffer fd = %d Released",
+                __func__, TrackId(), grab_picture_buffer_.fd);
+    }
+    grab_picture_buffer_.fd = -1;
   }
 
   if (snapshot_dumps_) {
     if (grabpicture_file_fd_ > 0) {
-        close(grabpicture_file_fd_);
+      close(grabpicture_file_fd_);
     }
   }
 
-  QMMF_DEBUG("%s Exit", __func__);
+  QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
 }
 
 status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) {
