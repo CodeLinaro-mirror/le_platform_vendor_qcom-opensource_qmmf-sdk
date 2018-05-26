@@ -825,32 +825,67 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
     if (tracks_[i].type == TrackType::kVideo) {
       ret = video_decoder_core_->SetTrackTrickMode(tracks_[i].track_id,
           speed, dir);
-      if(ret != NO_ERROR) return ret;
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: Video SetTrackTrickMode failed!", __func__);
+        return BAD_VALUE;
+      }
     }
   }
 
   // normal playback
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
-                       PlayerState::QPLAYER_STATE_PAUSED)) {
+                        PlayerState::QPLAYER_STATE_PAUSED)) {
     if ((speed == TrickModeSpeed::kSpeed_1x) &&
         (dir == TrickModeDirection::kNormalForward)) {
       for (size_t i = 0; i < num_tracks; i++) {
         if (tracks_[i].type == TrackType::kAudio) {
           if (tracks_[i].codec == AudioFormat::kAMR ||
-              tracks_[i].codec == AudioFormat::kG711)
+              tracks_[i].codec == AudioFormat::kG711) {
             ret = audio_decoder_core_->StartTrackDecoder(tracks_[i].track_id);
-          else
+            if (ret != NO_ERROR) {
+              QMMF_ERROR("%s: Audio StartTrackDecoder failed!", __func__);
+              return BAD_VALUE;
+            }
+            if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED) {
+              ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
+              if (ret != NO_ERROR) {
+                QMMF_ERROR("%s: Audio PauseTrackDecoder failed!", __func__);
+                return BAD_VALUE;
+              }
+            }
+          } else {
             ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
+            if (ret != NO_ERROR) {
+              QMMF_ERROR("%s: Audio StartTrackSink failed!", __func__);
+              return BAD_VALUE;
+            }
+            if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED) {
+              ret = audio_raw_sink_->PauseTrackSink(tracks_[i].track_id);
+              if (ret != NO_ERROR) {
+                QMMF_ERROR("%s: Audio PauseTrackSink failed!", __func__);
+                return BAD_VALUE;
+              }
+            }
+          }
         }
       }
-    } else { // other than normal playback audio will always be stopped
+    } else {  // other than normal playback audio will always be stopped
       for (size_t i = 0; i < num_tracks; i++) {
         if (tracks_[i].type == TrackType::kAudio) {
           if (tracks_[i].codec == AudioFormat::kAMR ||
-              tracks_[i].codec == AudioFormat::kG711)
+              tracks_[i].codec == AudioFormat::kG711) {
             ret = audio_decoder_core_->StopTrackDecoder(tracks_[i].track_id);
-          else
+            if (ret != NO_ERROR) {
+              QMMF_ERROR("%s: Audio StopTrackDecoder failed!", __func__);
+              return BAD_VALUE;
+            }
+          } else {
             ret = audio_raw_sink_->StopTrackSink(tracks_[i].track_id);
+            if (ret != NO_ERROR) {
+              QMMF_ERROR("%s: Audio StopTrackSink failed!", __func__);
+              return BAD_VALUE;
+            }
+          }
         }
       }
     }
