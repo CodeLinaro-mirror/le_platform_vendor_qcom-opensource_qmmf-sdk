@@ -24160,7 +24160,7 @@ TEST_F(RecorderGtest,
 #endif
 
 /*
-* SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC:
+* SessionWith480p30FpsYUVDDisplayAnd1440p60FpsEncTrackEISLCAC:
 *     This test will test session with one 640x480 30fps YUV track. After some
 *     time a 1440p h264 encoded track at 60 fps will be added to the session
 *     and both tracks will be ran together. Both have LCAC and EIS enabled.
@@ -24171,17 +24171,22 @@ TEST_F(RecorderGtest,
 *  - CreateVideoTrack 480p@30fps
 *  - StartSession
 *  - StopSession
+*  - DeleteVideoTrack 480p@30fps
 *  - CreateVideoTrack 1440p@60fps
+*  - CreateVideoTrack 480p@30fps Linked
 *  - StartSession
 *  - StopSession
+*  - DeleteVideoTrack 480p@30fps Linked
 *  - DeleteVideoTrack 1440p@60fps
+*  - CreateVideoTrack 480p@30fps
 *  - StartSession
 *  - StopSession
 *  - DeleteVideoTrack 480p@30fps
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
+TEST_F(RecorderGtest,
+       SessionWith480p30FpsYUVDDisplayAnd1440p60FpsEncTrackEISLCAC) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -24250,6 +24255,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -24258,16 +24268,16 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Set sensor mode via focal lenth
-    focal_length = 4.0;
-    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
+    track_ids.clear();
+    sessions_.clear();
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
@@ -24300,8 +24310,50 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
                                      video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    video_track_param.width  = 640;
+    video_track_param.height = 480;
+    video_track_param.frame_rate = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack source_track;
+    source_track.source_track_id = track_1440p_id;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+
+    ret = recorder_.CreateVideoTrack(session_id, track_480p_id,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(track_480p_id);
     track_ids.push_back(track_1440p_id);
     sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Set sensor mode via focal lenth
+    focal_length = 4.0;
+    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -24311,7 +24363,34 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     ret = recorder_.DeleteVideoTrack(session_id, track_1440p_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    video_track_param.width  = 640;
+    video_track_param.height = 480;
+    video_track_param.frame_rate = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    ret = recorder_.CreateVideoTrack(session_id, track_480p_id,
+                                     video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
@@ -24325,6 +24404,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -24332,6 +24416,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
     ASSERT_TRUE(ret == NO_ERROR);
