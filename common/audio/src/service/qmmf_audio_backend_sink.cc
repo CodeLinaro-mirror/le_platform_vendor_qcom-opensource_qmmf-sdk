@@ -362,6 +362,7 @@ int32_t AudioBackendSink::Close() {
 
 int32_t AudioBackendSink::Start() {
   QMMF_DEBUG("%s() TRACE", __func__);
+  int32_t first_buffer_size = 100;
 
   switch (state_) {
     case AudioState::kIdle:
@@ -391,6 +392,20 @@ int32_t AudioBackendSink::Start() {
   while (!messages_.empty())
     messages_.pop();
 
+  qahw_out_buffer_t qahw_buffer;
+  memset(&qahw_buffer, 0x0, sizeof(qahw_out_buffer_t));
+  qahw_buffer.bytes = first_buffer_size;
+  uint8_t* first_buffer;
+  first_buffer = static_cast<uint8_t*> (malloc(first_buffer_size));
+  memset(first_buffer, 0x0, first_buffer_size);
+  qahw_buffer.buffer = first_buffer;
+  QMMF_VERBOSE("%s() to aHAL: qahw_buffer[buffer[%p] bytes[%zu]]", __func__,
+               qahw_buffer.buffer, qahw_buffer.bytes);
+
+  int result = qahw_out_write(qahw_stream_, &qahw_buffer);
+  if (result < 0) {
+    QMMF_ERROR("%s() failed to write output stream with result: %d", __func__, result);
+  }
   thread_ = new thread(AudioBackendSink::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s() unable to allocate thread", __func__);
@@ -908,8 +923,8 @@ void AudioBackendSink::Thread() {
 
       result = qahw_out_write(qahw_stream_, &qahw_buffer);
       if (result < 0) {
-        QMMF_ERROR("%s() failed to write output stream: %d[%s]",
-                   __func__, result, strerror(result));
+        QMMF_ERROR("%s() failed to write output stream with result: %d",
+                   __func__, result);
         error_handler_(audio_handle_, result);
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
                  using_offload_) {
