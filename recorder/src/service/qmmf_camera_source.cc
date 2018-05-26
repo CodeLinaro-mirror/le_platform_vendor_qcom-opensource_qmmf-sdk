@@ -1759,12 +1759,21 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   if (active_overlays_ > 0) {
     OverlayTargetBuffer overlay_buf;
-    //TODO: get format from streamBuffer.
-    overlay_buf.format    = TargetBufferFormat::kYUVNV12;
-    overlay_buf.width     = buffer.info.plane_info[0].width;
-    overlay_buf.height    = buffer.info.plane_info[0].height;
-    overlay_buf.ion_fd    = buffer.fd;
-    overlay_buf.frame_len = buffer.size;
+
+    overlay_buf.width  = buffer.info.plane_info[0].width;
+    overlay_buf.height = buffer.info.plane_info[0].height;
+    overlay_buf.ion_fd = buffer.fd;
+
+    if (buffer.info.format == BufferFormat::kNV12) {
+      overlay_buf.format    = TargetBufferFormat::kYUVNV12;
+      overlay_buf.frame_len = buffer.size;
+    } else if (buffer.info.format == BufferFormat::kNV12UBWC) {
+      overlay_buf.format    = TargetBufferFormat::kYUVNV12UBWC;
+      overlay_buf.frame_len = VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC,
+                                                overlay_buf.width,
+                                                overlay_buf.height);
+    }
+
     overlay_.ApplyOverlay(overlay_buf);
   }
 #ifdef ENABLE_FRAME_DUMP

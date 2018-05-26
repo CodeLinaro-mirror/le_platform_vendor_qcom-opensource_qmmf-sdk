@@ -112,6 +112,7 @@ struct OverlayParam {
 enum class TargetBufferFormat {
   kYUVNV12,
   kYUVNV21,
+  kYUVNV12UBWC,
 };
 
 struct OverlayTargetBuffer {
