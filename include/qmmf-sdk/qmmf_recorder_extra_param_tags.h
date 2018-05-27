@@ -30,6 +30,7 @@
 #pragma once
 
 #include "qmmf_recorder_extra_param.h"
+#include "qmmf-sdk/qmmf_avcodec_params.h"
 
 namespace qmmf {
 
@@ -41,6 +42,7 @@ enum ParamTag {
   QMMF_MULTICAM_STITCH_CONFIG,
   QMMF_POSTPROCESS_PLUGIN,
   QMMF_POSTPROCESS_FRAME_SKIP,
+  QMMF_JPEG_CAPTURE_SETUP,
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_IMAGE_THUMBNAIL,
@@ -176,6 +178,14 @@ struct PostprocFrameSkip : DataTagBase {
   PostprocFrameSkip()
     : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
       frame_skip(0) {}
+};
+
+struct HighQualityCaptureSetup : DataTagBase {
+  BufferFormat jpeg_input_format;
+
+  HighQualityCaptureSetup()
+    : DataTagBase(QMMF_JPEG_CAPTURE_SETUP),
+      jpeg_input_format(BufferFormat::kNV12) {}
 };
 
 struct SourceVideoTrack : DataTagBase {

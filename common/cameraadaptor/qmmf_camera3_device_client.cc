@@ -60,6 +60,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
       id_(0),
       state_(STATE_NOT_INITIALIZED),
+      flush_on_going_(false),
       next_stream_id_(0),
       reconfig_(false),
       camera_module_(NULL),
@@ -1156,14 +1157,13 @@ void Camera3DeviceClient::HandleCaptureResult(
     }
   }
 
-  RemovePendingRequestLocked(idx);
-
-  pthread_mutex_unlock(&pending_requests_lock_);
-
   if (0 < shutterTimestamp) {
     ReturnOutputBuffers(result->output_buffers, result->num_output_buffers,
                         shutterTimestamp, result->frame_number);
   }
+
+  RemovePendingRequestLocked(idx);
+  pthread_mutex_unlock(&pending_requests_lock_);
 
   if (NULL != result->input_buffer) {
     StreamBuffer input_buffer;
@@ -1236,10 +1236,12 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
             __func__, id_, resultExtras.frameNumber);
       }
       pthread_mutex_unlock(&pending_requests_lock_);
-      if (nullptr != client_cb_.errorCb) {
-        client_cb_.errorCb(errorCode, resultExtras);
-      } else {
-        QMMF_ERROR("%s: Camera %d: no listener available\n", __func__, id_);
+      if (flush_on_going_ == false) {
+        if (nullptr != client_cb_.errorCb) {
+          client_cb_.errorCb(errorCode, resultExtras);
+        } else {
+          QMMF_ERROR("%s: Camera %d: no listener available\n", __func__, id_);
+        }
       }
       break;
     default:
@@ -1361,6 +1363,23 @@ void Camera3DeviceClient::ReturnOutputBuffers(
   for (size_t i = 0; i < numBuffers; i++) {
     Camera3Stream *stream = Camera3Stream::CastTo(outputBuffers[i].stream);
     stream->ReturnBufferToClient(outputBuffers[i], timestamp, frame_number);
+
+    if (CAMERA3_BUFFER_STATUS_ERROR == outputBuffers[i].status &&
+        flush_on_going_ == false) {
+      CaptureResultExtras resultExtras;
+      ssize_t idx = pending_requests_vector_.indexOfKey(frame_number);
+
+      if (idx >= 0) {
+        PendingRequest &r = pending_requests_vector_.editValueAt(idx);
+        r.status = CAMERA3_MSG_ERROR_BUFFER;
+        resultExtras = r.resultExtras;
+      } else {
+        resultExtras.frameNumber = frame_number;
+        QMMF_ERROR("%s: Camera %d: cannot find pending request for "
+            "frame %u\n", __func__, id_, resultExtras.frameNumber);
+      }
+      client_cb_.errorCb(ERROR_CAMERA_BUFFER, resultExtras);
+    }
   }
 }
 
@@ -1817,6 +1836,7 @@ void Camera3DeviceClient::NotifyStatus(bool idle) {
 int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
   int32_t res;
   pthread_mutex_lock(&lock_);
+  flush_on_going_ = true;
 
   res = request_handler_.Clear(lastFrameNumber);
   if (0 != res) {
@@ -1837,8 +1857,11 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
     repeating_requests_.clear();
   }
 
+  InternalUpdateStatusLocked(STATE_CONFIGURED);
+
 exit:
 
+  flush_on_going_ = false;
   pthread_mutex_unlock(&lock_);
 
   return res;
@@ -1895,9 +1918,13 @@ int32_t Camera3DeviceClient::InternalPauseAndWaitLocked() {
 }
 
 int32_t Camera3DeviceClient::InternalResumeLocked() {
-  int32_t res;
+  int32_t res = 0;
 
-  request_handler_.TogglePause(false);
+  bool pending_request;
+  request_handler_.TogglePause(false, pending_request);
+  if (pending_request == false) {
+    return res;
+  }
 
   res = WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
   if (0 != res) {

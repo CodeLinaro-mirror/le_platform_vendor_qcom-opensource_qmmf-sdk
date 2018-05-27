@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,8 +34,9 @@
 #include <cmath>
 #include <fstream>
 #include <sstream>
-#include <string>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #ifdef ANDROID
 
@@ -82,7 +83,27 @@ class Utils {
    * return: data folder
    **/
   static std::string GetDataFolder() {
+#ifdef ANDROID
     return "/data/misc/qmmf/";
+#else
+    return QMMF_DATA_PATH;
+#endif
+  }
+
+  /** GetLibFolder
+   *
+   * Returns libraries folder
+   *
+   * return: libraries folder
+   **/
+  static std::string GetLibFolder() {
+#ifdef ANDROID_LIBPATH
+    return "/vendor/lib/";
+#elif defined(ANDROID)
+    return "/usr/lib/";
+#else
+    return QMMF_DLL_PATH;
+#endif
   }
 
   /** GetAlgLibFolder
@@ -92,11 +113,7 @@ class Utils {
    * return: algorithm libraries folder
    **/
   static std::string GetAlgLibFolder() {
-#ifdef ANDROID_LIBPATH
-    return "/vendor/lib/qmmf/alg-plugins/";
-#else
-    return "/usr/lib/qmmf/alg-plugins/";
-#endif
+    return GetLibFolder() + "qmmf/alg-plugins/";
   }
 
   /** MakeDivisibleBy
@@ -240,10 +257,6 @@ class Utils {
   static void LoadLib(std::string lib_name, void *&lib_handle) {
     dlerror();
 
-#ifndef ANDROID
-    lib_name = QMMF_DLL_PATH + lib_name;
-#endif
-
     lib_handle = dlopen(lib_name.c_str(), RTLD_NOW);
     const char *dlsym_error = dlerror();
     if (!lib_handle || dlsym_error) {
@@ -283,8 +296,141 @@ class Utils {
       ThrowException(__func__, dlsym_error);
     }
   }
+
+  /** DecodeBase64
+   *    @input_data: input string
+   *
+   * Decodes binary data from string with base 64
+   *
+   * return: decoded data
+   **/
+  static std::vector<uint8_t> DecodeBase64(std::string const& input_data) {
+    const std::string kCharLUT =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::vector<uint8_t> rc;
+
+    std::vector<uint8_t> filtered_input_data;
+    for (uint8_t c : input_data) {
+      if ((c != '=') && (isalnum(c) || (c == '+') || (c == '/'))) {
+        filtered_input_data.push_back(c);
+      }
+    }
+    size_t in_len = filtered_input_data.size();
+    for (uint32_t i = 0; i < 4; i++) {
+      filtered_input_data.push_back(0);
+    }
+
+    auto input_data_ptr = const_cast<uint8_t*>(filtered_input_data.data());
+    for (uint32_t i = 0; i < in_len; i += 4) {
+      Decode(rc, input_data_ptr);
+    }
+
+    Decode(rc, input_data_ptr, in_len % 4);
+
+    return rc;
+  }
+
+  /** EncodeBase64
+    *    @input_data: input data
+    *
+    * Encodes binary data into string with base 64
+    *
+    * return: encoded string
+    **/
+   template <typename TInputData>
+   static std::string EncodeBase64(TInputData &input_data) {
+     std::string rc;
+
+     uint32_t in_len = input_data.size();
+     for (uint32_t i = in_len % 3; (0 < i) && (i < 3); i++) {
+       input_data.push_back(0u);
+     }
+
+     uint8_t *input_data_ptr = reinterpret_cast<uint8_t *>(input_data.data());
+     for (uint32_t i = 0; i < in_len; i += 3) {
+       Encode(rc, input_data_ptr);
+     }
+
+     Encode(rc, input_data_ptr, in_len % 3);
+
+     for (uint32_t i = in_len % 3; (0 < i) && (i < 3); i++) {
+       rc += '=';
+     }
+
+     return rc;
+   }
+
+private:
+   /** Encode
+   *    @target: output string
+   *    @in_ptr: input data
+   *    @size: number of bytes to encode
+   *
+   * Encodes specified number of bytes
+   *
+   * return: void
+   **/
+   static void Encode(std::string& target, uint8_t*& in_ptr,
+                      uint32_t size = 3) {
+     const std::string kCharLUT =
+         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+     if (0 == size) {
+       return;
+     }
+
+     target += kCharLUT[(in_ptr[0] & 0xFC) >> 2];
+     target += kCharLUT[((in_ptr[0] & 0x03) << 4) | ((in_ptr[1] & 0xF0) >> 4)];
+
+     if (1 == size) {
+       return;
+     }
+     target += kCharLUT[((in_ptr[1] & 0x0F) << 2) | ((in_ptr[2] & 0xC0) >> 6)];
+
+     if (2 == size) {
+       return;
+     }
+     target += kCharLUT[in_ptr[2] & 0x3F];
+     in_ptr += size;
+   }
+
+   /** Decode
+   *    @target: output data
+   *    @in_ptr: input data
+   *    @size: number of bytes to decode
+   *
+   * Decodes specified number of bytes
+   *
+   * return: void
+   **/
+   static void Decode(std::vector<uint8_t>& target, uint8_t*& in_ptr,
+                      uint32_t size = 4) {
+     const std::string kCharLUT =
+         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+     if (2 > size) {
+       return;
+     }
+
+     target.push_back((kCharLUT.find(in_ptr[0]) << 2) |
+                      ((kCharLUT.find(in_ptr[1]) & 0x30) >> 4));
+
+     if (2 == size) {
+       return;
+     }
+     target.push_back(((kCharLUT.find(in_ptr[1]) & 0x0F) << 4) |
+                      (kCharLUT.find(in_ptr[2]) & 0x3C) >> 2);
+
+     if (3 == size) {
+       return;
+     }
+     target.push_back(((kCharLUT.find(in_ptr[2]) & 0x03) << 6) |
+                      kCharLUT.find(in_ptr[3]));
+     in_ptr += size;
+   }
 };
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf

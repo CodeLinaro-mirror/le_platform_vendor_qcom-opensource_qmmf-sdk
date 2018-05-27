@@ -39,7 +39,7 @@ namespace qmmf {
 
 namespace recorder {
 
-const int64_t PostProcJpeg::kMetaTimeout = 1000000000; // 1 second
+const int32_t PostProcJpeg::kMetaHistory = 30; //frames
 
 const int32_t PostProcJpeg::kWaitJPEGTimeout = 100000000; // 100 ms
 
@@ -59,6 +59,7 @@ PostProcJpeg::PostProcJpeg()
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   jpeg_params_.image_quality = 95;
   results_.clear();
+  f_id_.clear();
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -84,13 +85,17 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
 
 PostProcIOParam PostProcJpeg::GetInput(const PostProcIOParam &out) {
   PostProcIOParam input_param = out;
-  input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
 
   // set number of needed buffers for rotation if client does not limit it
   if (out.buffer_max > 0 && out.buffer_max < kBufCount) {
     input_param.buffer_count = out.buffer_max;
   } else {
     input_param.buffer_count = kBufCount;
+  }
+  if (out.internal_format != BufferFormat::kUnsupported) {
+    input_param.format = out.internal_format;
+  } else {
+    input_param.format = Common::FromHalToQmmfFormat(kSupportedInputFormat);
   }
   return input_param;
 }
@@ -234,27 +239,26 @@ void PostProcJpeg::AddResult(const void* result) {
     }
   }
 
-  if (!meta.exists(ANDROID_SENSOR_TIMESTAMP)) {
-    QMMF_ERROR("%s Sensor timestamp tag missing in result!", __func__);
+  if (!meta.exists(ANDROID_REQUEST_FRAME_COUNT)) {
+    QMMF_ERROR("%s Sensor frame count tag missing in result!", __func__);
     return;
   }
-  auto timestamp = meta.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
 
-  std::lock_guard<std::mutex> lock(result_lock_);
-  results_.emplace(timestamp, meta);
+  uint32_t  meta_frame_number =
+        meta.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0];
 
-  if (timestamp > 0) {
-    timestamp -= kMetaTimeout;
-    auto it = results_.begin();
-    auto end = results_.end();
-    while (it != end) {
-      if (it->first >= timestamp) {
-        // clean up only first entries which has lower than timeout timestamp
-        break;
-      }
-      it = results_.erase(it);
-    }
+  std::unique_lock<std::mutex> lock(result_lock_);
+  if (results_.size() > kMetaHistory) {
+    results_.erase(results_.begin());
   }
+
+  if (f_id_.size() > kMetaHistory) {
+    f_id_.erase(f_id_.begin());
+  }
+
+  results_.emplace(meta_frame_number, meta);
+  f_id_.emplace_back(meta_frame_number);
+
   wait_for_result_.SignalAll();
 }
 
@@ -269,7 +273,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   {
     std::lock_guard<std::mutex> lock(state_lock_);
     if (state_ != State::ACTIVE) {
-      listener_->OnFrameReady(out_buffer);
+      listener_->OnFrameReturn(out_buffer);
       listener_->OnFrameProcessed(in_buffer);
       return NO_ERROR;
     }
@@ -279,7 +283,7 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   CameraMetadata meta;
   {
     std::unique_lock<std::mutex> lock(result_lock_);
-    while (results_.count(in_buffer.timestamp) == 0) {
+    while (results_.count(in_buffer.frame_number) == 0) {
       std::chrono::nanoseconds timeout(kWaitJPEGTimeout);
       auto ret = wait_for_result_.WaitFor(lock, timeout);
       if (ret != 0) {
@@ -288,8 +292,18 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
       }
     }
     try {
-      meta = results_.at(in_buffer.timestamp);
-      results_.erase(in_buffer.timestamp);
+      meta = results_.at(in_buffer.frame_number);
+      if (!f_id_.empty()) {
+        auto it = f_id_.begin();
+        auto end = f_id_.end();
+        while (it != end) {
+          if (*it == in_buffer.frame_number) {
+            break;
+          }
+          results_.erase(*it);
+          f_id_.erase(it++);
+        }
+      }
     } catch (const std::out_of_range& oor) {
         QMMF_ERROR("%s: Result not exist: %s", __func__, oor.what());
     }

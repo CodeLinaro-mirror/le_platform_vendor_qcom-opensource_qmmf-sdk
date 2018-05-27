@@ -154,9 +154,21 @@ int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
   C2D_YUV_SURFACE_DEF target_surface_def;
   uint32_t c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
 
-  src_buf_fd       = src_buffer.fd;
-  src_buf_frame_len = src_buffer.size;
+  if ((src_buffer.info.plane_info[0].width == 0) ||
+      (src_buffer.info.plane_info[0].height == 0)) {
+    QMMF_ERROR("%s: Invalid Src size!", __func__);
+    return BAD_VALUE;
+  }
 
+  src_surface_def.width = src_buffer.info.plane_info[0].width;
+  src_surface_def.height = src_buffer.info.plane_info[0].height;
+  src_buf_fd = src_buffer.fd;
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    src_buf_frame_len = VENUS_BUFFER_SIZE(
+        COLOR_FMT_NV12_UBWC, src_surface_def.width, src_surface_def.height);
+  } else {
+    src_buf_frame_len = src_buffer.size;
+  }
   QMMF_DEBUG("%s: src_buf_fd = %d", __func__, src_buf_fd);
   QMMF_DEBUG("%s: src_buf_frame_len = %d", __func__, src_buf_frame_len);
 
@@ -196,22 +208,19 @@ int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
    goto EXIT_1;
   }
 
-  //STEP4: Create source C2dSurface for input Camera stream buffer.
-  if ((src_buffer.info.plane_info[0].width == 0) ||
-      (src_buffer.info.plane_info[0].height == 0)) {
-   QMMF_ERROR("%s: Invalid Src size!", __func__);
-   goto EXIT;
-  }
-
-  src_surface_def.width   = src_buffer.info.plane_info[0].width;
-  src_surface_def.height  = src_buffer.info.plane_info[0].height;
-
+  // STEP4: Create source C2dSurface for input Camera stream buffer.
   switch (src_buffer.info.format) {
     case BufferFormat::kNV21:
       c2d_color_format = C2D_COLOR_FORMAT_420_NV21;
       break;
     case BufferFormat::kNV12:
       c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
+      break;
+    case BufferFormat::kNV16:
+      c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
+      break;
+    case BufferFormat::kNV12UBWC:
+      c2d_color_format = C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
@@ -228,10 +237,22 @@ int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
   //UV plane stride.
   src_surface_def.stride1 = src_buffer.info.plane_info[0].stride;
 
-  //UV plane hostptr.
-  plane_y_len = src_surface_def.stride0 * src_buffer.info.plane_info[0].scanline;
+  // UV plane hostptr.
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    plane_y_len =
+        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, src_surface_def.width) *
+         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                (src_surface_def.height + 1) >> 1)) +
+        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, src_surface_def.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+                           (src_surface_def.height + 1) >> 1));
+    plane_y_len = plane_y_len * 2;
+  } else {
+    plane_y_len =
+        src_surface_def.stride0 * src_buffer.info.plane_info[0].scanline;
+  }
 
-  //Y plane hostptr.
+  // Y plane hostptr.
   src_surface_def.plane0 = src_buf_vaddr;
 
   QMMF_DEBUG("%s: src_surface_def.width = %d ", __func__,
@@ -287,9 +308,19 @@ int32_t C2dRescaler::CopyBuffer(StreamBuffer& src_buffer,
 
   QMMF_DEBUG("%s: target_surface_def.stride1 = %d ", __func__,
                          target_surface_def.stride1);
-
-  plane_y_len =
-      target_surface_def.stride0 * dst_buffer.info.plane_info[0].scanline;
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    plane_y_len =
+        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, target_surface_def.width) *
+         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                (target_surface_def.height + 1) >> 1)) +
+        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, target_surface_def.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+                           (target_surface_def.height + 1) >> 1));
+    plane_y_len = plane_y_len * 2;
+  } else {
+    plane_y_len =
+        target_surface_def.stride0 * dst_buffer.info.plane_info[0].scanline;
+  }
 
   //UV plane hostptr.
   target_surface_def.plane1  = (void*)((intptr_t)dst_buffer.data + plane_y_len);
@@ -419,7 +450,8 @@ int32_t FastCVRescaler::CopyBuffer(StreamBuffer& src_buffer,
   size_t src_plane_y_len, dst_plane_y_len;
 
   if ((src_buffer.info.format != BufferFormat::kNV21) &&
-      (src_buffer.info.format != BufferFormat::kNV12)) {
+      (src_buffer.info.format != BufferFormat::kNV12) &&
+      (src_buffer.info.format != BufferFormat::kNV16)) {
     QMMF_ERROR("%s: Unsupported input format: 0x%x!",__func__,
         src_buffer.info.format);
     QMMF_ERROR("%s: Only NV12/NV21 are supported currently!", __func__);
@@ -992,6 +1024,18 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_888:
+      info.format = BufferFormat::kNV16;
+      info.num_planes = 2;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[1].width = init_params_.width;
+      info.plane_info[1].height = init_params_.height;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH;
+      break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
                  priv_handle->format);
@@ -1164,10 +1208,20 @@ bool CameraRescaler::IsStop() {
 }
 
 status_t CameraRescaler::Init(const VideoTrackParams& track_params) {
-
-  auto ret = Initialize(track_params.params.width,
-                        track_params.params.height,
-                        HAL_PIXEL_FORMAT_YCbCr_420_888);
+  status_t ret = 0;
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  bool is_ubwc_stream_enabled = atoi(prop);
+  if (!is_ubwc_stream_enabled) {
+    ret = Initialize(track_params.params.width,
+                     track_params.params.height,
+                     HAL_PIXEL_FORMAT_YCbCr_420_888);
+  } else {
+    ret = Initialize(track_params.params.width,
+                     track_params.params.height,
+                     HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC);
+  }
   return ret;
 }
 

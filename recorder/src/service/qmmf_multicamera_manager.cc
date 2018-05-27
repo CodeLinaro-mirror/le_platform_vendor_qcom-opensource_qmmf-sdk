@@ -2478,6 +2478,18 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].stride = aligned_width;
       info.plane_info[1].scanline = aligned_height/2;
       break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_888:
+      info.format = BufferFormat::kNV16;
+      info.num_planes = 2;
+      info.plane_info[0].width = params_.width;
+      info.plane_info[0].height = params_.height;
+      info.plane_info[0].stride = aligned_width;
+      info.plane_info[0].scanline = aligned_height;
+      info.plane_info[1].width = params_.width;
+      info.plane_info[1].height = params_.height;
+      info.plane_info[1].stride = aligned_width;
+      info.plane_info[1].scanline = aligned_height;
+      break;
     case HAL_PIXEL_FORMAT_RAW8:
       info.format = BufferFormat::kRAW8;
       info.num_planes = 1;

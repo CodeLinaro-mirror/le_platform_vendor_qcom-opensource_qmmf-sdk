@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <iomanip>
+#include <json/json.h>
 
 #include "qmmf_postproc_algo.h"
 
@@ -46,6 +47,7 @@ using namespace qmmf_alg_plugin;
 
 PostProcAlg::PostProcAlg(std::string lib)
     : Lib_(lib),
+      is_enable_(true),
       state_(State::CREATED),
       abort_(nullptr),
       in_fight_count_(0) {
@@ -70,6 +72,8 @@ PostProcAlg::PostProcAlg(std::string lib)
 
   algo_caps_ = algo_->GetCaps();
 
+  QMMF_INFO("%s: name: %s version: %f location: %s", __func__,
+      algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_ , Lib_.c_str());
 }
 
 PostProcAlg::~PostProcAlg() {
@@ -124,8 +128,7 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   requirements.scanline_ = out.scanline;
   requirements.formats_.push_back(GetAlgFormat(out.format));
 
-  std::vector<Requirements> alg_out = {requirements};
-  requirements = algo_->GetInputRequirements(alg_out);
+  requirements = algo_->GetInputRequirements(requirements);
 
   input_param.width    = requirements.width_;
   input_param.height   = requirements.height_;
@@ -261,6 +264,22 @@ status_t PostProcAlg::Delete() {
 }
 
 status_t PostProcAlg::Configure(const std::string config_json_data) {
+
+  Json::Reader r;
+  Json::Value root;
+
+  auto ret = r.parse(config_json_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s: no json data", __func__);
+    return NO_ERROR;
+  }
+
+  if (algo_caps_.runtime_enable_disable_ &&
+      root.isMember(algo_caps_.plugin_name_)) {
+    recursive_lock_guard lock(lock_);
+    is_enable_ = root[algo_caps_.plugin_name_].asBool();
+  }
+
   try {
     algo_->Configure(config_json_data);
   } catch (const std::exception &e) {
@@ -276,14 +295,19 @@ status_t PostProcAlg::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {
 
-  if (pass_through_) {
+  recursive_lock_guard lock(lock_);
+  if (pass_through_ == true || is_enable_ == false) {
+    QMMF_VERBOSE("%s:%s: Skip processing", __func__,
+      algo_caps_.plugin_name_.c_str());
     for (auto iter : in_buffers) {
       listener_->OnFrameReady(iter);
+    }
+    for (auto iter : out_buffers) {
+      listener_->OnFrameReturn(iter);
     }
     return NO_ERROR;
   }
 
-  recursive_lock_guard lock(lock_);
   if (state_ == State::ACTIVE) {
     std::vector<AlgBuffer> in_alg_buffers;
     auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
@@ -314,6 +338,8 @@ status_t PostProcAlg::Process(
       throw e;
     }
 
+    QMMF_VERBOSE("%s:%s: Start processing", __func__,
+      algo_caps_.plugin_name_.c_str());
     try {
       algo_->Process(in_alg_buffers, out_alg_buffers);
     } catch (const std::exception &e) {
@@ -334,7 +360,7 @@ status_t PostProcAlg::Process(
       listener_->OnFrameProcessed(iter);
     }
     for (auto iter : out_buffers ) {
-      listener_->OnFrameReady(iter);
+      listener_->OnFrameReturn(iter);
     }
   }
 
@@ -390,6 +416,8 @@ PixelFormat PostProcAlg::GetAlgFormat(BufferFormat format) {
     return kNv12;
   case BufferFormat::kNV21:
     return kNv21;
+  case BufferFormat::kNV16:
+    return kNv16;
   case BufferFormat::kBLOB:
     return kJpeg;
   case BufferFormat::kRAW8:
@@ -413,6 +441,8 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
     return BufferFormat::kNV12;
   case kNv21:
     return BufferFormat::kNV21;
+  case kNv16:
+    return BufferFormat::kNV16;
   case kJpeg:
     return BufferFormat::kBLOB;
   case kRawBggrMipi8:
@@ -534,6 +564,9 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kNv21UBWC:
       file_name += "nv21bwc";
       break;
+    case kNv16:
+      file_name += "nv16";
+      break;
     case kJpeg:
       file_name += "jpeg";
       break;
@@ -584,6 +617,8 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kNv12UBWC:
     case kNv21:
     case kNv21UBWC:
+    case kNv16:
+    case kNv61:
     case kYuyv422i:
     case kYvyu422i:
     case kUyvy422i:

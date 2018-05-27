@@ -85,6 +85,7 @@ class PlayerImpl {
   status_t Pause(const PictureParam& params);
   status_t Resume();
 
+  status_t Drag();
   status_t SetPosition(int64_t seek_time);
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
@@ -139,7 +140,8 @@ class PlayerImpl {
 
   std::vector<TrackInfo> tracks_;
   DefaultKeyedVector<uint32_t, TrackInfo> track_map_;
-
+  std::mutex          drag_lock_;
+  bool                drag_;
 
   /**Not allowed */
   PlayerImpl();

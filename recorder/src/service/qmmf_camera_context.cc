@@ -48,14 +48,17 @@ namespace qmmf {
 
 namespace recorder {
 
-//Framerate after which we need to run in constrained mode.
+// Framerate after which we need to run in constrained mode.
 #ifndef HFR_THRESHOLD
 float CameraContext::kConstrainedModeThreshold = 30.0f;
 #else
 float CameraContext::kConstrainedModeThreshold = HFR_THRESHOLD;
 #endif
 
-//Framerate at which batch requests are needed.
+// Max time to wait for AEC convergence
+const uint32_t CameraContext::kWaitAecTimeout = AEC_WAIT_TIMEOUT;
+
+// Framerate at which batch requests are needed.
 #ifdef _DRONE_
 float CameraContext::kHFRBatchModeThreshold = 90.0f;
 #else
@@ -83,8 +86,13 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
       snapshot_type_(SnapshotMode::kStill),
       new_snapshot_type_(SnapshotMode::kStill),
+      jpeg_input_format_(BufferFormat::kUnsupported),
+      new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_(0),
-      exif_en_(true) {
+      exif_en_(true),
+      stream_param_{},
+      restart_pipe_(true),
+      port_paused_(false) {
   camera_start_params_ = {};
 }
 
@@ -126,26 +134,23 @@ bool CameraContext::IsInputSupported() {
   return false;
 }
 
+bool CameraContext::IsStreamParamsChanged(
+    const CameraStreamParameters& stream_param) {
+  if ((stream_param.format       != stream_param_.format)       ||
+      (stream_param.width        != stream_param_.width)        ||
+      (stream_param.height       != stream_param_.height)       ||
+      (stream_param.grallocFlags != stream_param_.grallocFlags) ||
+      (stream_param.bufferCount  > stream_param_.bufferCount)) {
+    return true;
+  }
+  return false;
+}
+
 status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t stream_id = -1;
   status_t ret = NO_ERROR;
-
-  if (!snapshot_request_.streamIds.isEmpty()) {
-    if (1 < snapshot_request_.streamIds.size()) {
-      QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
-                 __func__);
-      return BAD_VALUE;
-    }
-    QMMF_INFO("%s: Deleting Existing Snapshot Streams!!", __func__);
-    ret = DeleteSnapshotStream(true);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
-                 __func__, ret);
-      return ret;
-    }
-  }
 
   CameraStreamParameters stream_param{};
 
@@ -162,20 +167,12 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                 GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
-  if (snapshot_type_ == SnapshotMode::kContinuous) {
-    stream_param.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-  } else {
-    stream_param.bufferCount = sequence_cnt_;
-  }
+  stream_param.bufferCount  = std::max(sequence_cnt_,
+    static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
 
-  if (postproc_enable_) {
-
-    // Stops active streaming to prevent multiple camera restarts
-    for (auto port : active_ports_) {
-      ret = port->Stop();
-      assert(ret == NO_ERROR);
-    }
-
+  if (postproc_enable_ && restart_pipe_) {
+    PauseActiveStreams();
+    PostProcDelete();
     ret = PostProcCreatePipeAndUpdateStreams(stream_param,
                             camera_start_params_.frame_rate, capture_plugins_);
     assert(ret == NO_ERROR);
@@ -184,22 +181,43 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
             stream_param.height, stream_param.format);
 
-  ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
-                           &stream_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
-               __func__, ret);
-    return ret;
+  if (IsStreamParamsChanged(stream_param)) {
+
+    if (!snapshot_request_.streamIds.isEmpty()) {
+      if (1 < snapshot_request_.streamIds.size()) {
+        QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
+                   __func__);
+        return BAD_VALUE;
+      }
+      QMMF_INFO("%s: Deleting Existing Snapshot Streams!!", __func__);
+      ret = DeleteSnapshotStream(true);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream: %d\n",
+                   __func__, ret);
+        return ret;
+      }
+    }
+    ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
+                             &stream_id);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
+                 __func__, ret);
+      return ret;
+    }
+
+    QMMF_INFO("%s Snapshot stream_id(%d)", __func__, stream_id);
+    snapshot_request_.streamIds.add(stream_id);
   }
-  QMMF_INFO("%s Snapshot stream_id(%d)", __func__, stream_id);
+
   snapshot_param_ = param;
-  snapshot_request_.streamIds.add(stream_id);
+  stream_param_ = stream_param;
 
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
+    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
     Common::GetMaxSupportedCameraRes(static_meta_,
                                      stream_param.width,
-                                     stream_param.height);
-    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
+                                     stream_param.height,
+                                     stream_param.format);
     stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
                                   GRALLOC_USAGE_SW_READ_OFTEN;
     stream_param.cb           = GetStreamCb(param);
@@ -219,24 +237,18 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     snapshot_request_.streamIds.add(stream_id);
   }
 
-  if (postproc_enable_) {
-    ret = PostProcStart(stream_id);
+  if (postproc_enable_ && restart_pipe_) {
+    ret = PostProcStart(snapshot_request_.streamIds[0]);
     assert(ret == NO_ERROR);
 
-    // Resumes stopped streaming
-    for (auto port : active_ports_) {
-      ret = port->Start();
-      assert(ret == NO_ERROR);
-    }
   }
+  QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
 
 status_t CameraContext::DeleteSnapshotStream(bool cache) {
   QMMF_INFO("%s: Enter", __func__);
   status_t ret = NO_ERROR;
-
-  PostProcDelete();
 
   cache |= streaming_request_id_ == -1;
   for (auto stream_id : snapshot_request_.streamIds) {
@@ -248,6 +260,8 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
     }
   }
   snapshot_request_.streamIds.clear();
+  stream_param_ = CameraStreamParameters();
+  snapshot_type_ = SnapshotMode::kNone;
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -470,6 +484,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
       return ret;
     }
   }
+  PostProcDelete();
   DeleteSnapshotStream();
 
   if (streaming_request_id_ > 0) {
@@ -556,8 +571,9 @@ std::function<void(StreamBuffer buffer)>
 
 status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 
+  QMMF_DEBUG("%s: Enter ", __func__);
   if (streaming_request_id_ == -1) {
-    QMMF_DEBUG("%s: No active streams, skip wait!", __func__);
+    QMMF_INFO("%s: No active streams, skip wait!", __func__);
     return NO_ERROR;
   }
 
@@ -571,6 +587,7 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
       return TIMED_OUT;
     }
   }
+  QMMF_DEBUG("%s: Exit ", __func__);
   return NO_ERROR;
 }
 
@@ -586,9 +603,22 @@ status_t CameraContext::ValidateCaptureParams(const ImageParam &image_param) {
   return NO_ERROR;
 }
 
+bool CameraContext::IsNeedReconfigSapshotStream() {
+
+  if ((new_snapshot_type_ == SnapshotMode::kStill ||
+       new_snapshot_type_ == SnapshotMode::kContinuous) &&
+      (snapshot_type_ == SnapshotMode::kStill ||
+       snapshot_type_ == SnapshotMode::kContinuous)) {
+    return false;
+  } else if (snapshot_type_ == new_snapshot_type_) {
+      return false;
+  }
+  return true;
+}
+
 status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
-
+  QMMF_DEBUG("%s Enter ", __func__);
   if (!camera_start_params_.zsl_mode) {
     bool reconfigure_needed = false;
     {
@@ -600,10 +630,15 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
                            (snapshot_param_.height != param.height) ||
                            (sequence_cnt_ != num_images) ||
                            (postproc_enable_ != new_postproc_enable) ||
-                           (snapshot_type_ != new_snapshot_type_);
+                           IsNeedReconfigSapshotStream() ||
+                           (new_postproc_enable && restart_pipe_) ||
+                           (jpeg_input_format_ != new_jpeg_input_format_);
+      QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
       snapshot_type_ = new_snapshot_type_;
+      jpeg_input_format_ = new_jpeg_input_format_;
+
       QMMF_INFO("%s: PostProc is %s", __func__, postproc_enable_ ?
           "Enabled" : "Disabled");
       if (snapshot_type_ == SnapshotMode::kContinuous) {
@@ -644,6 +679,7 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
       return BAD_VALUE;
     }
   }
+  QMMF_DEBUG("%s Exit ", __func__);
   return NO_ERROR;
 }
 
@@ -655,7 +691,7 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
   if (!camera_start_params_.zsl_mode) {
-    std::lock_guard<std::mutex> lock(device_access_lock_);
+    device_access_lock_.lock();
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.image_quality;
     std::list<Camera3Request> requests;
@@ -670,11 +706,38 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
 
       if (snapshot_type_ == SnapshotMode::kVideo ||
           snapshot_type_ == SnapshotMode::kContinuous) {
+
         if (streaming_active_requests_.size() == 1) {
-          auto request = streaming_active_requests_[0];
-          for (auto stream_id : request.streamIds) {
-            snapshot_request_.streamIds.add(stream_id);
-            active_streamid_count++;
+          if (port_paused_ == true) {
+            QMMF_INFO("%s: streaming request is paused need to resume!",
+                __func__);
+            Camera3Request &req = streaming_active_requests_[0];
+            // at this point stream id vector should be empty.
+            assert(req.streamIds.size() == 0);
+            for (auto stream_id : stopped_stream_ids_) {
+              QMMF_INFO("%s: stream_id: %d to resume!", __func__, stream_id);
+              // Add paused stream ids to snapshot request so they can be
+              // resumed, and capture request for both video and snapshot can
+              // go at same time.
+              snapshot_request_.streamIds.add(stream_id);
+              active_streamid_count++;
+              // Also add puased stream ids back to streaming request so next
+              // Update request will takecare them. eg cancel capture request
+              // will call update request to remove snapshot stream id from
+              // request and resume the streaming request.
+              req.streamIds.add(stream_id);
+              QMMF_INFO("%s: Added all Request to snapshot request! "
+                "active_streamid_count=%d", __func__, active_streamid_count);
+            }
+            port_paused_ = false;
+          } else {
+            auto request = streaming_active_requests_[0];
+            for (auto stream_id : request.streamIds) {
+              snapshot_request_.streamIds.add(stream_id);
+              active_streamid_count++;
+              QMMF_INFO("%s: Added all Request to streaming request! "
+                "active_streamid_count=%d", __func__, active_streamid_count);
+            }
           }
         } else {
           QMMF_INFO("%s: No other active video streams!", __func__);
@@ -704,9 +767,11 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
         last_snapshot_id_ = last_frame_number;
       }
     }
-
+    device_access_lock_.unlock();
     QMMF_INFO("%s: Request for non-zsl submitted successfully",
         __func__);
+
+    ResumeActiveStreams(streaming);
   } else {
     ret = CaptureZSLImage();
     if (ret != NO_ERROR) {
@@ -754,7 +819,19 @@ status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
-  capture_plugins_.clear();
+  // Calling that function without destroying the post-proc pipe is valid
+  // operation. In that case we should avoid pipe reconfiguration.
+  // Any change in capture plugin order, adding or removing plugin after pipe
+  // creation is not valid operation - return error. Otherwise the pipe need
+  // to be deleted and created again.
+
+  restart_pipe_ = true;
+
+  if (postproc_pipe_.get() != nullptr) {
+    QMMF_VERBOSE("%s: PP-FW pipe is not deleted: Reuse the pipe configuration",
+        __func__);
+    restart_pipe_ = false;
+  }
 
   if (ValidateCaptureConfig(config)) {
     QMMF_ERROR("%s: Invalid Capture configuration", __func__);
@@ -762,6 +839,11 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   }
 
   if (config.Exists(QMMF_POSTPROCESS_PLUGIN)) {
+    if (postproc_pipe_.get() != nullptr) {
+      QMMF_ERROR("%s: Pipe is created: Invalid configuration", __func__);
+      return INVALID_OPERATION;
+    }
+    capture_plugins_.clear();
     for (size_t i = 0; i < config.EntryCount(QMMF_POSTPROCESS_PLUGIN); ++i) {
       PostprocPlugin plugin;
       config.Fetch(QMMF_POSTPROCESS_PLUGIN, plugin, i);
@@ -803,6 +885,19 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     ImageExif exif;
     config.Fetch(QMMF_EXIF, exif, 0);
     exif_en_ = exif.enable;
+  }
+
+  if (config.Exists(QMMF_JPEG_CAPTURE_SETUP)) {
+    HighQualityCaptureSetup setup;
+    config.Fetch(QMMF_JPEG_CAPTURE_SETUP, setup);
+
+    std::unique_lock<std::mutex> lock(capture_lock_);
+    if (capture_done_ == false &&
+        new_jpeg_input_format_ != setup.jpeg_input_format) {
+      QMMF_ERROR("%s: %d capture is ongoing", __func__, new_jpeg_input_format_);
+      return INVALID_OPERATION;
+    }
+    new_jpeg_input_format_ = setup.jpeg_input_format;
   }
 
   return NO_ERROR;
@@ -853,6 +948,7 @@ status_t CameraContext::CancelCaptureImage() {
       QMMF_INFO("%s: Capture is complete!", __func__);
     }
 
+    PostProcDelete();
     DeleteSnapshotStream();
   }
 
@@ -1097,6 +1193,7 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
 
 status_t CameraContext::StopStream(const uint32_t track_id) {
 
+  QMMF_DEBUG("%s: Enter", __func__);
   auto port = GetPort(track_id);
   if (!port) {
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
@@ -1106,6 +1203,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
 
   auto ret = port->Stop();
   assert(ret == NO_ERROR);
+  QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -1127,7 +1225,8 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     // Submit request with updated camera meta data only if streaming is
     // started, if not then just update default meta data and leave it to
     // startSession -> startStream to submit request.
-    if (streaming_request_id_ >= 0) {
+    if (streaming_request_id_ >= 0 &&
+        snapshot_type_ != SnapshotMode::kContinuous) {
       auto ret = camera_device_->SubmitRequestList(request_list, true,
                                                    &last_frame_mumber);
       assert(ret >= 0);
@@ -1238,7 +1337,8 @@ bool CameraContext::IsRawOnly(const int32_t format) {
 
 status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
                                            uint32_t frame_rate,
-                                           int32_t* stream_id) {
+                                           int32_t* stream_id,
+                                           bool cache) {
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_VERBOSE("%s: Enter", __func__);
@@ -1262,7 +1362,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
   // without calling it.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
   }
@@ -1277,7 +1377,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     bool is_constrained_mode = false;
     if (hfr_supported_) {
       for (auto iter : active_ports_) {
@@ -1383,7 +1483,7 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t frame_rate) {
 #endif
 
 status_t CameraContext::CreateDeviceInputStream(
-    CameraInputStreamParameters& params, int32_t* stream_id) {
+    CameraInputStreamParameters& params, int32_t* stream_id, bool cache) {
   std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_INFO("%s: Enter", __func__);
 
@@ -1393,7 +1493,7 @@ status_t CameraContext::CreateDeviceInputStream(
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
   // without calling it.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
   }
@@ -1408,7 +1508,7 @@ status_t CameraContext::CreateDeviceInputStream(
 
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0) {
+  if (streaming_request_id_ < 0 && !cache) {
     ret = camera_device_->EndConfigure();
     assert(ret == NO_ERROR);
   }
@@ -1705,6 +1805,81 @@ status_t CameraContext::CancelRequest() {
   return ret;
 }
 
+status_t CameraContext::PauseActiveStreams(bool immedialtely) {
+  QMMF_VERBOSE("%s Enter ", __func__);
+
+  status_t ret = NO_ERROR;
+
+  if (streaming_request_id_ < 0) {
+    // no active streams
+    return NO_ERROR;
+  }
+
+  if (immedialtely) {
+    std::lock_guard<std::mutex> lock(device_access_lock_);
+    int64_t last_frame_mumber;
+    ret = camera_device_->Flush(&last_frame_mumber);
+    assert(ret == NO_ERROR);
+
+    // inform all active ports that streaming is interrupted
+    for (auto port : active_ports_) {
+      ret = port->Pause();
+      assert(ret == NO_ERROR);
+    }
+  } else {
+    for (auto port : active_ports_) {
+      ret = port->Stop();
+      assert(ret == NO_ERROR);
+    }
+  }
+
+  // move all active streams to stopped streams
+  assert(stopped_stream_ids_.empty());
+  std::copy(streaming_active_requests_[0].streamIds.begin(),
+            streaming_active_requests_[0].streamIds.end(),
+            std::inserter(stopped_stream_ids_, stopped_stream_ids_.end()));
+  streaming_active_requests_[0].streamIds.clear();
+
+  port_paused_ = true;
+  streaming_request_id_ = -1;
+
+  QMMF_VERBOSE("%s Exit ", __func__);
+
+  return ret;
+}
+
+status_t CameraContext::ResumeActiveStreams(bool streaming_capture) {
+  QMMF_VERBOSE("%s Enter ", __func__);
+  status_t ret = NO_ERROR;
+
+  if (stopped_stream_ids_.empty()) {
+    QMMF_VERBOSE("%s Nothing to resume", __func__);
+    return NO_ERROR;
+  }
+
+  QMMF_INFO("%s: Restart Ports! streaming %d", __func__, streaming_capture);
+  for (auto port : active_ports_) {
+    if (streaming_capture) {
+      // If snapshot capture request is streaming, than we should only
+      // resume the port state. Other wise restarting of port will
+      // overwrite snapshot capture request.
+      ret = port->Resume();
+    } else {
+      // If snapshot capture request is not streaming, we have to restart port
+      // to ensure video steaming after snapshot capture.
+      ret = port->Start();
+    }
+    assert(ret == NO_ERROR);
+  }
+
+  stopped_stream_ids_.clear();
+  port_paused_ = false;
+
+  QMMF_VERBOSE("%s Exit ", __func__);
+
+  return ret;
+}
+
 status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
   QMMF_DEBUG("%s: camera_stream_id: %d, buffer: 0x%p ts: %lld\n",
       __func__, buffer.stream_id, buffer.handle, buffer.timestamp);
@@ -1909,30 +2084,45 @@ status_t CameraContext::CaptureZSLImage() {
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
 
-  QMMF_WARN("%s: Camera Client: error_code:%d RequestId:%d FrameNumber:%d\n",
-      __func__, error_code, result.requestId, result.frameNumber);
+  QMMF_WARN("%s: Camera: %d, Error: %d, Request: %d, FrameNumber: %d",
+      __func__, camera_id_, error_code, result.requestId, result.frameNumber);
 
-  if (nullptr != error_cb_) {
-    RecorderErrorData error_data {};
-    error_data.camera_id = camera_id_;
-    error_data.error_code = error_code;
-    error_cb_(error_data);
+  switch (error_code) {
+    case ERROR_CAMERA_DEVICE:
+      QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
+      break;
+    case ERROR_CAMERA_REQUEST:
+    case ERROR_CAMERA_BUFFER: {
+      std::unique_lock<std::mutex> lock(pending_frames_lock_);
+      auto stream_ids = removed_stream_ids_;
+
+      for (auto& stream_id : stream_ids) {
+        if (last_frame_number_map_[stream_id] == result.frameNumber) {
+          last_frame_number_map_.erase(stream_id);
+          removed_stream_ids_.erase(stream_id);
+
+          QMMF_VERBOSE("%s: last_frame_number_map_.size(%d)", __func__,
+              last_frame_number_map_.size());
+          QMMF_VERBOSE("%s: removed_stream_ids_.size(%d)", __func__,
+              removed_stream_ids_.size());
+        }
+      }
+      QMMF_WARN("%s: Frame %u returned with error! Notify all threads waiting"
+          " for pending frames!!", __func__, result.frameNumber);
+      pending_frames_.Signal();
+      break;
+    }
+    default:
+      QMMF_WARN("%s: Camera: %d, Error %d won't be handled by CameraContext!",
+          __func__, camera_id_, error_code);
+      break;
   }
 
-  std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-  if (last_frame_number_map_.size() > 0 && removed_stream_ids_.size() > 0) {
-    QMMF_DEBUG("%s: last_frame_mumber.size(%d) & emoved_stream_ids_.size(%d)"
-        "& last_frame_number_(%lld)", __func__,
-        last_frame_number_map_.size(), removed_stream_ids_.size(),
-        last_frame_number_);
-    if (result.frameNumber == last_frame_number_) {
-      QMMF_WARN("%s: Request corresponds to last_frame_number(%lld) is"
-       "missed! Notify pending frame wait!!", __func__,
-       last_frame_number_);
-      pending_frames_.Signal();
-      removed_stream_ids_.clear();
-      last_frame_number_map_.clear();
-    }
+  if (nullptr != error_cb_) {
+    RecorderErrorData data {};
+    data.camera_id = camera_id_;
+    data.error_code = error_code;
+    error_cb_(data);
   }
 }
 
@@ -2170,6 +2360,7 @@ status_t CameraContext::PostProcDelete() {
   }
 
   postproc_pipe_ = nullptr;
+  restart_pipe_ = true;
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -2197,6 +2388,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   }
   out_param.frame_skip = postproc_frame_skip_ > 0 ? true : false;;
   out_param.exif_en = exif_en_;
+  out_param.internal_format = jpeg_input_format_;
 
   PipeIOParam in_param;
   auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);
@@ -2283,7 +2475,7 @@ status_t CameraPort::Init() {
   if (!is_ubwc_stream_enabled) {
     cam_stream_params_.grallocFlags =
         GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
-  } else {
+  } else if (!params_.low_power_mode) {
     cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   }
 
@@ -2302,11 +2494,8 @@ status_t CameraPort::Init() {
     cam_stream_params_.grallocFlags |= private_handle_t::
         PRIV_FLAGS_VIDEO_ENCODER;
 
-    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT;
-    if (params_.cam_stream_dim.width == 3840
-        && params_.cam_stream_dim.height == 2160) {
-      cam_stream_params_.bufferCount += EXTRA_DCVS_BUFFERS;
-    }
+    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
+        GetExtraBufferCount();
   }
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
@@ -2423,8 +2612,10 @@ status_t CameraPort::Start() {
 
 status_t CameraPort::Stop() {
 
-  if (port_state_ == PortState::PORT_CREATED ||
-      port_state_ == PortState::PORT_STOPPED){
+    if (port_state_ == PortState::PORT_CREATED /*||
+      port_state_ == PortState::PORT_STOPPED*/){
+    //TODO: this is hack at this point, we need to find proper solution when
+    // port is started outside the updateRequest.
     // Port is already in stopped state.
     return NO_ERROR;
   }
@@ -2450,6 +2641,20 @@ status_t CameraPort::Stop() {
       __func__, port_id_, this);
 
   port_state_ = PortState::PORT_STOPPED;
+  return NO_ERROR;
+}
+
+status_t CameraPort::Pause() {
+  QMMF_VERBOSE("%s port state %d ", __func__, port_state_);
+  assert(port_state_ == PortState::PORT_STARTED);
+  port_state_ = PortState::PORT_PAUSED;
+  return NO_ERROR;
+}
+
+status_t CameraPort::Resume() {
+  QMMF_VERBOSE("%s port state %d ", __func__, port_state_);
+  assert(port_state_ == PortState::PORT_PAUSED);
+  port_state_ = PortState::PORT_STARTED;
   return NO_ERROR;
 }
 
@@ -2569,6 +2774,25 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
   }
 
   QMMF_VERBOSE("%s: Exit ", __func__);
+}
+
+uint32_t CameraPort::GetExtraBufferCount() {
+  uint32_t extra_buffer_count = 0;
+#ifndef EXTRA_BUFFER_SUPPORT
+  if (params_.cam_stream_dim.width == 3840
+      && params_.cam_stream_dim.height == 2160) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  } else if (params_.cam_stream_dim.width == 1920
+      && params_.cam_stream_dim.height == 1440 && params_.frame_rate == 60) {
+    extra_buffer_count = 4;
+  }
+#else
+  if (params_.cam_stream_dim.width == 4096
+      && params_.cam_stream_dim.height == 2048 && params_.frame_rate == 60) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  }
+#endif
+  return extra_buffer_count;
 }
 
 ZslPort::ZslPort(const CameraStreamParam& param, size_t batch_size,

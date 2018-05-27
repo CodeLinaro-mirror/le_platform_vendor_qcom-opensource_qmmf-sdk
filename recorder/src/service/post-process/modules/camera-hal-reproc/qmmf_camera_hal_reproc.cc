@@ -150,6 +150,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
   case BufferFormat::kNV12:
   case BufferFormat::kNV12UBWC:
   case BufferFormat::kNV21:
+  case BufferFormat::kNV16:
     if (mipi_raw_) {
       input_param.format = BufferFormat::kRAW10;
     } else {
@@ -176,7 +177,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
       input_param.format == BufferFormat::kRAW12 ||
       input_param.format == BufferFormat::kRAW16) {
     auto supported = Common::GetMaxSupportedCameraRes(static_meta_,
-        input_param.width, input_param.height);
+        input_param.width, input_param.height, hal_format);
     if (supported == false) {
       QMMF_ERROR("%s: failed to get max supported resolution!", __func__);
       assert(0);
@@ -306,7 +307,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   auto entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_FORMATS);
   for (uint32_t i = 0; i < entry.count; i++) {
     auto format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
-    if (!caps.formats_.count(format)) {
+    if (format != BufferFormat::kUnsupported && !caps.formats_.count(format)) {
       caps.formats_.insert(format);
       QMMF_VERBOSE("%s: supports format %d", __func__, format);
     }
@@ -616,7 +617,7 @@ status_t CameraHalReproc::CreateDeviceStreams() {
     __func__, output_param_.width, output_param_.height,
     in_stream_params.format, input_param_.format);
 
-  ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p);
+  ret = context_->CreateDeviceInputStream(in_stream_params, &stream_id_p, true);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to create input reprocess stream: %d\n",
         __func__, ret);
@@ -641,7 +642,8 @@ status_t CameraHalReproc::CreateDeviceStreams() {
 
   ret = context_->CreateDeviceStream(out_stream_params,
                                      output_param_.frame_rate,
-                                     &stream_id_p);
+                                     &stream_id_p,
+                                     true);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to create output reprocess stream: %d\n",
         __func__, ret);

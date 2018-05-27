@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -67,7 +67,7 @@ class QmmfAlgoUtilsGtest : public ::testing::Test {
     test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
     iteration_count_ = Utils::GetProperty("persist.qmmf.algo.gtest.iter",
-                                              kDefaultIterationCount);
+                                          kDefaultIterationCount);
   };
 
   /** SetUp
@@ -114,8 +114,8 @@ TEST_F(QmmfAlgoUtilsGtest, ThrowException) {
       Utils::ThrowException("title", "message");
     } catch (const std::exception& e) {
       std::stringstream expected_result;
-      expected_result <<  "Error: title message";
-      assert(0 == expected_result.str().compare(e.what()));
+      expected_result << "Error: title message";
+      ASSERT_EQ(0, expected_result.str().compare(e.what()));
     }
   }
 
@@ -138,15 +138,15 @@ TEST_F(QmmfAlgoUtilsGtest, MakeDivisibleBy) {
           i);
 
     auto res = Utils::MakeDivisibleBy(15, 2);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::MakeDivisibleBy(16, 2);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::MakeDivisibleBy(16, 0);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::MakeDivisibleBy(1226, 25);
-    assert(1250 == res);
+    ASSERT_EQ(1250u, res);
     res = Utils::MakeDivisibleBy(1225, 25);
-    assert(1225 == res);
+    ASSERT_EQ(1225u, res);
   }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
@@ -168,15 +168,15 @@ TEST_F(QmmfAlgoUtilsGtest, GetWidthInBytes) {
           i);
 
     auto res = Utils::GetWidthInBytes(16, 2.0);
-    assert(32 == res);
+    ASSERT_EQ(32u, res);
     res = Utils::GetWidthInBytes(16, 1.5);
-    assert(24 == res);
+    ASSERT_EQ(24u, res);
     res = Utils::GetWidthInBytes(16, 1.25);
-    assert(20 == res);
+    ASSERT_EQ(20u, res);
     res = Utils::GetWidthInBytes(16, 1.1);
-    assert(18 == res);
+    ASSERT_EQ(18u, res);
     res = Utils::GetWidthInBytes(16, 1.0);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
   }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
@@ -198,21 +198,21 @@ TEST_F(QmmfAlgoUtilsGtest, GCD) {
           i);
 
     auto res = Utils::GCD(16, 2);
-    assert(2 == res);
+    ASSERT_EQ(2u, res);
     res = Utils::GCD(16, 15);
-    assert(1 == res);
+    ASSERT_EQ(1u, res);
     res = Utils::GCD(16, 8);
-    assert(8 == res);
+    ASSERT_EQ(8u, res);
     res = Utils::GCD(16, 4096);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::GCD(16, 0);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::GCD(0, 16);
-    assert(16 == res);
+    ASSERT_EQ(16u, res);
     res = Utils::GCD(1920 * 1080 * 3 / 2, 4096);
-    assert(512 == res);
+    ASSERT_EQ(512u, res);
     res = Utils::GCD(3840 * 2160 * 3 / 2, 4096);
-    assert(2048 == res);
+    ASSERT_EQ(2048u, res);
   }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
@@ -275,32 +275,31 @@ TEST_F(QmmfAlgoUtilsGtest, Property) {
 
     int test_int_default = 66;
     auto res_int = Utils::GetProperty("random_property", test_int_default);
-    assert(res_int == test_int_default);
+    ASSERT_EQ(res_int, test_int_default);
 
     int test_float_default = 666.0;
-    auto res_float =
-        Utils::GetProperty("random_property", test_float_default);
-    assert(res_float == test_float_default);
+    auto res_float = Utils::GetProperty("random_property", test_float_default);
+    ASSERT_EQ(res_float, test_float_default);
 
     std::string test_string_default = "6";
     auto res_string =
         Utils::GetProperty("random_property", test_string_default);
-    assert(res_string == test_string_default);
+    ASSERT_EQ(res_string, test_string_default);
 
     int test_int_property = 22;
     Utils::SetProperty("test_property", test_int_property);
     res_int = Utils::GetProperty("test_property", test_int_default);
-    assert(res_int == test_int_property);
+    ASSERT_EQ(res_int, test_int_property);
 
     float test_float_property = 222.0;
     Utils::SetProperty("test_property", test_float_property);
     res_float = Utils::GetProperty("test_property", test_float_default);
-    assert(res_float == test_float_property);
+    ASSERT_EQ(res_float, test_float_property);
 
     std::string test_string_property = "2";
     Utils::SetProperty("test_property", test_string_property);
     res_string = Utils::GetProperty("test_property", test_string_default);
-    assert(res_string == test_string_property);
+    ASSERT_EQ(res_string, test_string_property);
   }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
@@ -325,7 +324,10 @@ TEST_F(QmmfAlgoUtilsGtest, DllManipulation) {
 
     void* lib_handle;
     try {
-      Utils::LoadLib("libqmmf_test_algo_outplace.so", lib_handle);
+      auto alg_lib_folder = Utils::GetLibFolder();
+
+      Utils::LoadLib(alg_lib_folder + "libqmmf_test_algo_outplace.so",
+                     lib_handle);
 
       QmmfAlgLoadPlugin LoadPluginFunc;
       Utils::LoadLibHandler(lib_handle, "QmmfAlgoNew", LoadPluginFunc);
@@ -343,6 +345,6 @@ TEST_F(QmmfAlgoUtilsGtest, DllManipulation) {
           test_info_->test_case_name(), test_info_->name());
 }
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf

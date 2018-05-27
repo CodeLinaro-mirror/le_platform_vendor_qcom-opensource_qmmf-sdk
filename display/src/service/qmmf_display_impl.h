@@ -215,7 +215,8 @@ class DisplayImpl : public DisplayEventHandler
                && new_state == BufferStates::kStateQueued)
         return true;
       else if (old_state == BufferStates::kStateQueued
-               && new_state == BufferStates::kStateCommitted)
+               && (new_state == BufferStates::kStateCommitted
+               || new_state == BufferStates::kStateFree))
         return true;
       else if (old_state == BufferStates::kStateCommitted
                && new_state == BufferStates::kStateFree)

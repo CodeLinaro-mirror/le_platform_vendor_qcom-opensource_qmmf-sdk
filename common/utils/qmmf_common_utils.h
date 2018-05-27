@@ -115,6 +115,9 @@ class Common {
       case BufferFormat::kNV21:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
+      case BufferFormat::kNV16:
+        return HAL_PIXEL_FORMAT_YCbCr_422_888;
+        break;
       case BufferFormat::kRAW8:
         return HAL_PIXEL_FORMAT_RAW8;
         break;
@@ -154,6 +157,9 @@ class Common {
         break;
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV21;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_422_888:
+        return BufferFormat::kNV16;
         break;
       case HAL_PIXEL_FORMAT_RAW8:
         return BufferFormat::kRAW8;
@@ -450,8 +456,8 @@ class Common {
    * return: true if available
    **/
   static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
-                                       uint32_t &width,
-                                       uint32_t &height) {
+      uint32_t &width, uint32_t &height,
+      const int32_t format = HAL_PIXEL_FORMAT_RAW10) {
     bool found = false;
     width = 0;
     height = 0;
@@ -478,13 +484,23 @@ class Common {
       return false;
     }
 #else
-    if (!meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES"
-                 " not available", __func__);
-      return false;
+    if (HAL_PIXEL_FORMAT_RAW8  == format || HAL_PIXEL_FORMAT_RAW10 == format ||
+        HAL_PIXEL_FORMAT_RAW12 == format || HAL_PIXEL_FORMAT_RAW16 == format) {
+      if (!meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+        QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_RAW_SIZES"
+                   " not available", __func__);
+        return false;
+      }
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
+    } else {
+      if (!meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
+        QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES"
+                   " not available", __func__);
+        return false;
+      }
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
     }
 
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES);
     for (uint32_t i = 0 ; i < entry.count; i += 2) {
       if (width < static_cast<uint32_t>(entry.data.i32[i + 0]) &&
           height < static_cast<uint32_t>(entry.data.i32[i + 1])) {
@@ -553,6 +569,9 @@ class Common {
       case BufferFormat::kNV21:
         file_name += "nv21";
         break;
+      case BufferFormat::kNV16:
+        file_name += "nv16";
+        break;
       case BufferFormat::kBLOB:
         file_name += "jpeg";
         break;
@@ -589,6 +608,7 @@ class Common {
       case BufferFormat::kNV12:
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV21:
+      case BufferFormat::kNV16:
         file_name += ".yuv";
         break;
       case BufferFormat::kBLOB:

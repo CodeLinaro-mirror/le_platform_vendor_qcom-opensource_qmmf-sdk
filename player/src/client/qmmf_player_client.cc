@@ -608,6 +608,23 @@ status_t PlayerClient::Resume() {
   return ret;
 }
 
+status_t PlayerClient::Drag() {
+  QMMF_DEBUG("%s Enter ", __func__);
+  Mutex::Autolock lock(lock_);
+
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  auto ret = player_service_->Drag();
+  if(NO_ERROR != ret) {
+    QMMF_ERROR("%s Drag failed: %d", __func__, ret);
+  }
+
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t PlayerClient::SetPosition(int64_t seek_time) {
   QMMF_DEBUG("%s Enter ", __func__);
   Mutex::Autolock lock(lock_);
@@ -1070,6 +1087,14 @@ class BpPlayerService : public BpInterface<IPlayerService>
     data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
         PLAYER_RESUME), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t Drag() {
+    Parcel data, reply;
+    data.writeInterfaceToken(IPlayerService::getInterfaceDescriptor());
+    remote()->transact(uint32_t(QMMF_PLAYER_SERVICE_CMDS::
+        PLAYER_DRAG), data, &reply);
     return reply.readInt32();
   }
 

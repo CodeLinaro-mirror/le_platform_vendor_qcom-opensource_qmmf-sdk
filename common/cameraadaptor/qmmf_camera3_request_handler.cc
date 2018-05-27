@@ -160,7 +160,13 @@ int32_t Camera3RequestHandler::Clear(int64_t *lastFrameNumber) {
 }
 
 void Camera3RequestHandler::TogglePause(bool pause) {
+  bool pending_request;
+  TogglePause(pause, pending_request);
+}
+
+void Camera3RequestHandler::TogglePause(bool pause, bool &pending_request) {
   pthread_mutex_lock(&pause_lock_);
+  pending_request = !(requests_.empty() && streaming_requests_.empty());
   toggle_pause_state_ = pause;
   pthread_cond_signal(&toggle_pause_signal_);
   pthread_mutex_unlock(&pause_lock_);

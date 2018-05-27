@@ -127,6 +127,7 @@ class PostProcAlg : public IPostProcModule,
   bool                              dump_in_frame_;
   bool                              dump_out_frame_;
   bool                              pass_through_;
+  bool                              is_enable_;
   IPostProcEventListener            *listener_;
   void*                             lib_handle_;
   IAlgPlugin                        *algo_;

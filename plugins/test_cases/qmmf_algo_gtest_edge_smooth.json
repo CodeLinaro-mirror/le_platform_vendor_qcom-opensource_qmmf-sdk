@@ -1,0 +1,26 @@
+{
+  "Common": {
+    "iteration count": 12,
+    "tested library": "qmmf/alg-plugins/libqmmf_alg_es.so",
+    "configuration file": "",
+    "calibration file": "",
+    "input buffers": [
+      {
+        "width": 4208,
+        "height": 3120,
+        "stride": 4208,
+        "scanline": 3120,
+        "pixel format": "Nv21"
+      }
+    ],
+    "output buffers": [
+      {
+        "width": 4208,
+        "height": 3120,
+        "stride": 4208,
+        "scanline": 3120,
+        "pixel format": "Nv21"
+      }
+    ]
+  }
+}

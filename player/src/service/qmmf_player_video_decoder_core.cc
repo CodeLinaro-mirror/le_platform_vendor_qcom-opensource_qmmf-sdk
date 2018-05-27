@@ -91,7 +91,8 @@ VideoDecoderCore::~VideoDecoderCore()
   QMMF_INFO("%s: Exit", __func__);
 }
 
-status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params) {
+status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params,
+                                            TrackCb& callback) {
    QMMF_DEBUG("%s: Enter", __func__);
 
    status_t ret = NO_ERROR;
@@ -109,7 +110,7 @@ status_t VideoDecoderCore::CreateVideoTrack(VideoTrackParams& params) {
     return NO_MEMORY;
   }
 
-  ret = video_track_decoder->ConfigureTrackDecoder(params);
+  ret = video_track_decoder->ConfigureTrackDecoder(params, callback);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) VideoTrackDecoder Init failed!",
         __func__, params.track_id);
@@ -310,6 +311,27 @@ status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
+status_t VideoDecoderCore::PrepareDrag(uint32_t track_id, bool ignore_fps) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%d)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<VideoTrackDecoder> track_decoder =
+      video_track_decoders_.valueFor(track_id);
+
+  auto ret = track_decoder->PrepareDrag(ignore_fps);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: PrepareDrag Failed",__func__ );
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t VideoDecoderCore::SetVideoTrackDecoderParams(
     uint32_t track_id,
     CodecParamType param_type,
@@ -494,11 +516,12 @@ VideoTrackDecoder::~VideoTrackDecoder() {
 }
 
 status_t VideoTrackDecoder::ConfigureTrackDecoder(
-    VideoTrackParams& track_params) {
+    VideoTrackParams& track_params, TrackCb& callback) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_params.track_id);
   video_track_params_ = track_params;
 
   avcodec_ = new AVCodec();
+  callback_ = callback;
 
   status_t ret = NO_ERROR;
 
@@ -691,6 +714,10 @@ status_t VideoTrackDecoder::StartDecoder() {
     unfilled_frame_queue_.PushBack(iter);
   }
 
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                     &input_buffer_notify_params_,
+                     sizeof(input_buffer_notify_params_));
   stop_received_ = false;
 
   ret = avcodec_->StartCodec();
@@ -800,6 +827,20 @@ status_t VideoTrackDecoder::ResumeDecoder() {
 
   QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
+}
+
+status_t VideoTrackDecoder::PrepareDrag(bool ignore_fps) {
+  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+
+  auto ret = video_track_sink_->PrepareDrag(ignore_fps);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) PrepareDrag Failed ignore_fps(%d)", __func__,
+        TrackId(), ignore_fps);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
 }
 
 status_t VideoTrackDecoder::SetVideoDecoderParams(
@@ -967,6 +1008,13 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
 
   assert(found == true);
   frames_being_decoded_.Erase(it);
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                       &input_buffer_notify_params_,
+                       sizeof(input_buffer_notify_params_));
+  }
 
   QMMF_VERBOSE("%s: frames_being_decoded_.Size(%d)", __func__,
       frames_being_decoded_.Size());

@@ -54,7 +54,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
-static const nsecs_t kWaitDuration = 3000000000; // 3 s.
+static const nsecs_t kWaitDuration = 5000000000; // 5 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
 static const int32_t kDebugFrameSkip = 1<<2;
@@ -1057,6 +1057,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV21:
+    case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
@@ -1758,12 +1759,21 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   if (active_overlays_ > 0) {
     OverlayTargetBuffer overlay_buf;
-    //TODO: get format from streamBuffer.
-    overlay_buf.format    = TargetBufferFormat::kYUVNV12;
-    overlay_buf.width     = buffer.info.plane_info[0].width;
-    overlay_buf.height    = buffer.info.plane_info[0].height;
-    overlay_buf.ion_fd    = buffer.fd;
-    overlay_buf.frame_len = buffer.size;
+
+    overlay_buf.width  = buffer.info.plane_info[0].width;
+    overlay_buf.height = buffer.info.plane_info[0].height;
+    overlay_buf.ion_fd = buffer.fd;
+
+    if (buffer.info.format == BufferFormat::kNV12) {
+      overlay_buf.format    = TargetBufferFormat::kYUVNV12;
+      overlay_buf.frame_len = buffer.size;
+    } else if (buffer.info.format == BufferFormat::kNV12UBWC) {
+      overlay_buf.format    = TargetBufferFormat::kYUVNV12UBWC;
+      overlay_buf.frame_len = VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC,
+                                                overlay_buf.width,
+                                                overlay_buf.height);
+    }
+
     overlay_.ApplyOverlay(overlay_buf);
   }
 #ifdef ENABLE_FRAME_DUMP

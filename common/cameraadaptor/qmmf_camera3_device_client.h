@@ -225,6 +225,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   uint32_t id_;
 
   State state_;
+  bool flush_on_going_;
 
   KeyedVector<int, Camera3Stream *> streams_;
   Vector<Camera3Stream *> deleted_streams_;

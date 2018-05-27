@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,13 +43,9 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
   QmmfResizerTestAlgo() {
     caps_ = Capabilities(
         "ResizerTest",
-        BufferRequirements(160, 120, 3840, 2160,
-                           true, 1, 0, 0,
-                           {kNv21, kNv12}),
-        BufferRequirements(160, 120, 3840, 2160,
-                           true, 1, 0, 0,
-                           {}),
-        false, 0, false, false, true, 1.0);
+        BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0, {kNv21, kNv12}),
+        BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0, {}), false, 0,
+        false, false, true, 1.0);
   }
 
   /** Process
@@ -66,8 +62,8 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
 
     for (AlgBuffer b : output_buffers) {
       if (b.plane_.size() != input_buffers[0].plane_.size()) {
-        Utils::ThrowException(
-            __func__, "output planes are different than input planes");
+        Utils::ThrowException(__func__,
+                              "output planes are different than input planes");
       }
 
       for (size_t i = 0; i < b.plane_.size(); i++) {
@@ -107,6 +103,6 @@ extern "C" IAlgPlugin *QmmfAlgoNew(
   return new QmmfResizerTestAlgo();
 }
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf

@@ -313,7 +313,7 @@ struct AVCParams {
 };
 
 struct HEVCParams {
-  int32_t              idr_interval;
+  uint32_t             idr_interval;
   uint32_t             bitrate;
   HEVCProfileType      profile;
   HEVCLevelType        level;
@@ -539,6 +539,7 @@ enum class BufferFormat {
   kNV12,
   kNV12UBWC,
   kNV21,
+  kNV16,
   kBLOB,
   kRAW8,
   kRAW10,

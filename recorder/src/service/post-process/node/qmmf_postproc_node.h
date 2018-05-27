@@ -157,6 +157,8 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    void OnFrameReady(const StreamBuffer &output_buffer) override;
 
+   void OnFrameReturn(const StreamBuffer &output_buffer) override;
+
    void OnError(RuntimeError err) override;
 
    status_t AddConsumer(sp<IBufferConsumer>& consumer);

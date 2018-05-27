@@ -361,6 +361,23 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
               surface_def.height);
 
       break;
+    case (C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED):
+      //Y plane stride.
+      surface_def.stride0 = VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC,
+              surface_def.width);
+
+      //UV plane stride.
+      surface_def.stride1 = VENUS_UV_STRIDE(COLOR_FMT_NV12_UBWC,
+              surface_def.width);
+
+      //UV plane hostptr.
+      planeYLen = (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, surface_def.width) *
+              VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+              (surface_def.height + 1) >> 1)) +
+              (surface_def.stride0 * VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+              (surface_def.height + 1) >> 1));
+      planeYLen = planeYLen * 2;
+      break;
     default:
       OVDBG_ERROR("%s: Unknown format: %d", __func__, surface_def.format);
       goto EXIT;
@@ -482,10 +499,14 @@ uint32_t Overlay::GetC2dColorFormat(const TargetBufferFormat& format) {
     case TargetBufferFormat::kYUVNV21:
       c2dColorFormat = C2D_COLOR_FORMAT_420_NV21;
       break;
+    case TargetBufferFormat::kYUVNV12UBWC:
+      c2dColorFormat = C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED;
+      break;
     default:
       OVDBG_ERROR("%s: Unsupported buffer format: %d", __func__, format);
       break;
   }
+
   OVDBG_VERBOSE("%s:Selected C2D ColorFormat=%d",__func__, c2dColorFormat);
   return c2dColorFormat;
 }

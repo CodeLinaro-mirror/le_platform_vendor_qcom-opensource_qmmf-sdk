@@ -864,6 +864,17 @@ void AudioRawTrackSink::Thread() {
       av_buffers_lock_.unlock();
       buffer_signal_.notify_one();
 
+      av_buffers_lock_.lock();
+      input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+      av_buffers_lock_.unlock();
+
+      if (input_buffer_notify_params_.num_free_buffers > 0) {
+        callback_.event_cb(track_params_.track_id,
+                           EventType::kInputBufferNotify,
+                           &input_buffer_notify_params_,
+                           sizeof(input_buffer_notify_params_));
+      }
+
       buffers.pop();
       QMMF_VERBOSE("%s() buffers queue is now %u deep",
                    __func__, buffers.size());
