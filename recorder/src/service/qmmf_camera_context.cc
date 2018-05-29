@@ -182,7 +182,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   } else if (postproc_enable_ && reconfig_pipe_) {
     ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Error while configuring pipe! Config: %d", __func__,
+      QMMF_ERROR("%s: Error while configuring pipe! Config: %s", __func__,
           GetSnapshotJsonConfig().c_str());
       return ret;
     }
@@ -340,8 +340,10 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
   assert(ret == NO_ERROR);
 
+#ifndef FLUSH_RESTART_NOTAVAILABLE
   ret = DisableFlushRestart(true, static_meta_);
   assert(ret == NO_ERROR);
+#endif
 
   InitSupportedFPS();
   assert(!supported_fps_.empty());
@@ -2064,6 +2066,7 @@ status_t CameraContext::CaptureZSLImage() {
   return ret;
 }
 
+#ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
                                             CameraMetadata& meta) {
 
@@ -2080,6 +2083,7 @@ status_t CameraContext::DisableFlushRestart(const bool& disable,
   return NO_ERROR;
 }
 
+#endif
 //Camera device callbacks
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
