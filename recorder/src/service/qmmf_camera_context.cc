@@ -2482,6 +2482,9 @@ status_t CameraPort::Init() {
     cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
     if (!is_lpm_use_preview) {
       cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+      if (is_ubwc_stream_enabled) {
+        cam_stream_params_.grallocFlags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+      }
       cam_stream_params_.is_pp_enabled = false;
     }
   } else {

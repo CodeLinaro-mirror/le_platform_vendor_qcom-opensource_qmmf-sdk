@@ -26435,6 +26435,14 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
     video_track_param.height = 1080;
     video_track_param.codec_param.avc.bitrate = 4000000;
 
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.qmmf.ubwcstream.enable", prop, "1");
+    bool is_ubwc_stream_enabled = atoi(prop);
+    if (is_ubwc_stream_enabled) {
+      video_track_param.low_power_mode = true;
+    }
+
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -26634,6 +26642,14 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
     video_track_param.frame_rate = 30;
     video_track_param.codec_param.avc.bitrate = 4000000;
 
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.qmmf.ubwcstream.enable", prop, "1");
+    bool is_ubwc_stream_enabled = atoi(prop);
+    if (is_ubwc_stream_enabled) {
+      video_track_param.low_power_mode = true;
+    }
+
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -26829,6 +26845,14 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
     video_track_param.codec_param.avc.bitrate = 4000000;
+
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.qmmf.ubwcstream.enable", prop, "1");
+    bool is_ubwc_stream_enabled = atoi(prop);
+    if (is_ubwc_stream_enabled) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
