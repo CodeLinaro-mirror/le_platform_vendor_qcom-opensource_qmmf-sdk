@@ -94,12 +94,20 @@ void CameraHalReproc::ReturnAllInputBuffers() {
   reproc_ready_list_.clear();
 }
 
-void CameraHalReproc::ReprocessCallback(StreamBuffer in_buff) {
+void CameraHalReproc::ReprocessCallback(StreamBuffer buf) {
   QMMF_INFO("%s: HAL reprocess is done! StreamBuffer(0x%p) fd: %d stream_id:"
-      "%d ts: %lld",   __func__, in_buff.handle, in_buff.fd,
-      in_buff.stream_id, in_buff.timestamp);
+      "%d ts: %lld",   __func__, buf.handle, buf.fd,
+      buf.stream_id, buf.timestamp);
 
-  listener_->OnFrameReady(in_buff);
+  {
+    std::lock_guard<std::mutex> lock(module_lock_);
+    std::unique_lock<std::mutex> processing_lock(abort_lock_);
+    if (state_ == PostProcHalState::ACTIVE) {
+      listener_->OnFrameReady(buf);
+    } else {
+      listener_->OnFrameReturn(buf);
+    }
+  }
 
   auto ret = StartProcessing(true);
   if (ret != NO_ERROR) {

@@ -332,15 +332,18 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   out_buffer.filled_length = jpeg_size;
   out_buffer.timestamp = in_buffer.timestamp;
 
-  listener_->OnFrameReady(out_buffer);
-  listener_->OnFrameProcessed(in_buffer);
-
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == State::ABORTED) {
+    listener_->OnFrameReturn(out_buffer);
+    listener_->OnFrameProcessed(in_buffer);
+
     QMMF_VERBOSE("%s: Release abort done handler", __func__);
     abort_ = nullptr;
+  } else {
+    listener_->OnFrameReady(out_buffer);
+    listener_->OnFrameProcessed(in_buffer);
+    state_ = State::ACTIVE;
   }
-  state_ = State::ACTIVE;
 
   QMMF_VERBOSE("%s: Exit", __func__);
 
