@@ -137,6 +137,8 @@ void RecorderGtest::SetUp() {
   burst_image_count_ = atoi(prop_val);
   property_get(PROP_JPEG_QUALITY, prop_val, IMAGE_QUALITY);
   default_jpeg_quality_ = atoi(prop_val);
+  property_get(PROP_CDS_THRESHOLD, prop_val, "600");
+  default_cds_threshold_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -3197,11 +3199,218 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
 * Api test sequence:
 *  - StartCamera
 *  - Low resolution video 640x480@30fps
+*  - Enable CDS if needed based on lux index
 *  - Continuous CaptureImage - BayerLcac + JPEG (Continius capture)
 *  - CancelCaptureImage
 *  - StopCamera
 */
 TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  float lux_idx = 0.0f;
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+    const CameraMetadata &result) {
+      if (result.exists(QCAMERA3_CURRENT_LUX_IDX)) {
+        lux_idx = result.find(QCAMERA3_CURRENT_LUX_IDX).data.f[0];
+        TEST_DBG("%s: lux_idx: %f", __func__, lux_idx);
+      }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          30};
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(5);
+
+  ImageParam image_param{};
+  image_param.width         = 3872;
+  image_param.height        = 2592;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Update focal length to capture meta to select 4fps sensor mode.
+  float focal_length = 10.0; // imx258: SENSOR_MODE_PHOTO_10MP_4_W
+  meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  ASSERT_TRUE(res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data);
+      };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin, edge_smooth_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool found = false;
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
+    }
+  }
+  ASSERT_TRUE(found == true);
+
+  found = false;
+
+  // Update same focal length to streaming meta.
+  focal_length = 10.0; // 4 fps mode.
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+
+  SnapshotType snapshot_type;
+  snapshot_type.type = SnapshotMode::kContinuous;
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
+  if (lux_idx > default_cds_threshold_) {
+    TEST_INFO("%s: Enable CDS", __func__);
+    cds_mode = 1;
+  }
+  meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+  meta_array.clear();
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // take continuous snapshots till 10 secs to simulate long press.
+  sleep(10);
+
+  focal_length = 6.0;
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  //preview
+  sleep(5);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff: This gtest will test Continuous
+*    10MP JPEG snapshot with Bayer LCAC.
+* Api test sequence:
+*  - StartCamera
+*  - Low resolution video 640x480@30fps
+*  - Disable CDS
+*  - Continuous CaptureImage - BayerLcac + JPEG (Continius capture)
+*  - CancelCaptureImage
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -3336,6 +3545,10 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
+  TEST_INFO("%s: Disable CDS", __func__);
+  meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
 
   meta_array.clear();
   meta_array.push_back(meta);
@@ -4188,6 +4401,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
 *  - GetSupportedPlugins
 *  - CreatePlugin - Bayer LCAC
 *  - ConfigImageCapture - Add LCAC and two thumbnails
+*  - Enable CDS if needed based on lux index
 *   loop Start {
 *   ------------------
 *   - Lock AE
@@ -4203,6 +4417,289 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
 *  - StopCamera
 */
 TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::condition_variable  ae_converge_signal;
+  std::mutex ae_converge_mutex;
+  bool ae_converged = false;
+  float lux_idx = 0.0f;
+  bool cds_on = false;
+
+  CameraResultCb result_cb = [&] (uint32_t camera_id,
+      const CameraMetadata &result) {
+        if (result.exists(ANDROID_CONTROL_AE_STATE)) {
+          uint8_t aec = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+          if (((aec == ANDROID_CONTROL_AE_STATE_CONVERGED) ||
+            (aec == ANDROID_CONTROL_AE_STATE_LOCKED))) {
+            TEST_INFO("%s: AE is converged!!!", __func__);
+            std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+            ae_converged = true;
+            ae_converge_signal.notify_one();
+          }
+        }
+        if (result.exists(QCAMERA3_CURRENT_LUX_IDX)) {
+          lux_idx = result.find(QCAMERA3_CURRENT_LUX_IDX).data.f[0];
+          TEST_DBG("%s: lux_idx: %f", __func__, lux_idx);
+        }
+      };
+
+  const uint32_t frame_rate = 15;
+  camera_start_params_.frame_rate = frame_rate;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          frame_rate};
+  video_track_param.low_power_mode = false;
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(2);
+
+  ImageParam image_param{};
+  image_param.width         = 3872;
+  image_param.height        = 2592;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported JPEG snapshot resolutions.
+  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true; // 3840x2160 JPEG supported.
+          }
+        }
+      }
+    }
+  }
+  ASSERT_TRUE (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool found = false;
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
+    }
+  }
+  ASSERT_TRUE(found == true);
+
+  ImageThumbnail thumbnail;
+
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
+  // Primary thumbnail parameters.
+  thumbnail.width = 960;
+  thumbnail.height = 480;
+  thumbnail.quality = 90;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
+  if (lux_idx > default_cds_threshold_) {
+    TEST_INFO("%s: Enable CDS", __func__);
+    cds_mode = 1;
+    cds_on = true;
+    meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+  }
+
+  // Set frame rate otherwise default value is used
+  int32_t fps_range[2];
+  fps_range[0] = frame_rate;
+  fps_range[1] = frame_rate;
+  ret = meta.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t num_images = burst_image_count_;
+  for (uint32_t num = 0; num < num_images; num++) {
+    meta_array.push_back(meta);
+  }
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      if (!ae_converged) {
+        TEST_INFO("%s: Wait for AE to Converged!", __func__);
+        auto status = ae_converge_signal.wait_for(ae_converge_lock,
+        std::chrono::seconds(30 / frame_rate + 1));
+        ASSERT_TRUE(status == std::cv_status::no_timeout);
+        TEST_INFO("%s: AE Converged succesfuly", __func__);
+      } else {
+        TEST_INFO("%s: AE is already converged!", __func__);
+      }
+    }
+
+    CameraMetadata video_meta;
+    ret = recorder_.GetCameraParam(camera_id_, video_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (cds_on) {
+      cds_mode = 1;
+      video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+    }
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                 meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(10);
+
+    {
+      std::unique_lock<std::mutex> ae_converge_lock(ae_converge_mutex);
+      ae_converged = false;
+    }
+    // Unlock AE
+    ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+    ret = video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    //Disable CDS
+    cds_mode = 0;
+    video_meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, video_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* BurstSnapshotWithBayerLCAC15fpsWithCdsOff:  This test will test burst snapshot with
+*                     post processing. Post processing pipe is Bayer LCAC,
+*                     Bayer to YUV reprocessing and JPEG with two thumbnails.
+* Api test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack
+*  - StartSesion
+*  - GetSupportedPlugins
+*  - CreatePlugin - Bayer LCAC
+*  - ConfigImageCapture - Add LCAC and two thumbnails
+*  - Disable CDS
+*   loop Start {
+*   ------------------
+*   - Lock AE
+*   - CaptureImage - Burst With Bayer LCAC
+*   - Unlock AE
+*   ------------------
+*   } loop End
+*  - CancelCaptureImage
+*  - DeletePlugin
+*  - StopSession
+*  - DeleteVideoTrack
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -4346,6 +4843,10 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
+  TEST_INFO("%s: Disable CDS", __func__);
+  meta.update(QCAMERA3_CDS_MODE, &cds_mode, 1);
 
   // Set frame rate otherwise default value is used
   int32_t fps_range[2];
