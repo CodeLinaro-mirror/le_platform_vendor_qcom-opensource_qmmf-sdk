@@ -182,7 +182,7 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
   } else if (postproc_enable_ && reconfig_pipe_) {
     ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Error while configuring pipe! Config: %d", __func__,
+      QMMF_ERROR("%s: Error while configuring pipe! Config: %s", __func__,
           GetSnapshotJsonConfig().c_str());
       return ret;
     }
@@ -339,6 +339,12 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
   assert(ret == NO_ERROR);
+
+#ifndef FLUSH_RESTART_NOTAVAILABLE
+  ret = DisableFlushRestart(true, static_meta_);
+  assert(ret == NO_ERROR);
+#endif
+
   InitSupportedFPS();
   assert(!supported_fps_.empty());
   InitHFRModes();
@@ -2060,6 +2066,24 @@ status_t CameraContext::CaptureZSLImage() {
   return ret;
 }
 
+#ifndef FLUSH_RESTART_NOTAVAILABLE
+status_t CameraContext::DisableFlushRestart(const bool& disable,
+                                            CameraMetadata& meta) {
+
+  // Disable restart of the streams on HAL flush in order to save power and
+  // optimize the API execution. All streams will be in OFF state after this.
+  uint8_t mode = (disable) ? 0 : 1;
+  auto ret = meta.update(qcamera::QCAMERA3_HAL_FLUSH_RESTART_MODE, &mode, 1);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Camera %d: Set flush mode failed!", __func__, camera_id_);
+    return FAILED_TRANSACTION;
+  }
+
+  QMMF_INFO("%s: Camera %d: Flush mode is set!", __func__, camera_id_);
+  return NO_ERROR;
+}
+
+#endif
 //Camera device callbacks
 void CameraContext::CameraErrorCb(CameraErrorCode error_code,
                                   const CaptureResultExtras &result) {
