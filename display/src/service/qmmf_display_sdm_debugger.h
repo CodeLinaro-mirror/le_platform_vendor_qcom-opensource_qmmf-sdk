@@ -38,12 +38,16 @@
 
 using namespace sdm;
 
+//Prop to enable Display logging
+#define DISPLAY_LOG_LEVEL  "persist.qmmf.display.log"
+
 namespace qmmf {
 
 namespace display {
 
 class DisplayDebugHandler : public DebugHandler {
  public:
+  DisplayDebugHandler();
   static inline DebugHandler* Get() { return &debug_handler_; }
 
   static void DebugAll(bool enable, int verbose_level);
